@@ -1,6 +1,9 @@
+@import url("https://fonts.googleapis.com/css2?family=Archivo:wght@400;700;900&family=DM+Sans:wght@400;500;600;700&family=Libre+Baskerville:wght@400;700&display=swap");
+
 :root {
+  font-family: "DM Sans", "Open Sans", Arial, sans-serif;
   color: #1e2421;
-  background: #f7f8f5;
+  background: #fafaf8;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
