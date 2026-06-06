@@ -1,5 +1,5 @@
 import { IconPlus } from '@tabler/icons-react';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -27,7 +27,7 @@ describe('Button', () => {
     const button = screen.getByRole('button', { name: /save/i });
 
     expect(button).toBeDisabled();
-    await userEvent.click(button);
+    fireEvent.click(button);
     expect(onClick).not.toHaveBeenCalled();
   });
 
