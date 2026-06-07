@@ -1,10 +1,6 @@
-import {
-  IconClock,
-  IconMail,
-  IconMapPin,
-  IconPhone,
-  IconShieldCheck,
-} from '@tabler/icons-react';
+import { IconPhone, IconShieldCheck } from '@tabler/icons-react';
+
+import { SiteFooter } from '@/shared/components';
 
 import './HomePage.css';
 
@@ -12,8 +8,6 @@ const introImage =
   'https://www.figma.com/api/mcp/asset/12205344-8b4b-44ed-ba40-3a6cfea787d5';
 const roomImage =
   'https://www.figma.com/api/mcp/asset/75893e0c-95a8-4696-89f9-c2f053ee2334';
-const logoImage =
-  'https://www.figma.com/api/mcp/asset/8d7a6e89-2635-40f2-b84f-8a4d65c77ec0';
 
 const navigation = ['Trang chủ', 'Về chúng tôi', 'Dự án', 'Dịch vụ'];
 
@@ -216,42 +210,7 @@ export function HomePage() {
         </div>
       </section>
 
-      <footer className="home-footer">
-        <div className="section-container">
-          <div className="home-footer-heading">
-            <h2>FurniSpace</h2>
-            <p className="home-footer-tagline">Giải pháp dành cho không gian của bạn</p>
-          </div>
-          <div className="home-footer-grid">
-            <div>
-              <img className="home-footer-logo" src={logoImage} alt="FurniSpace" />
-            </div>
-            <FooterColumn title="Contact">
-              <FooterLine icon={<IconMapPin size={16} />}>123 Đường Lê Lợi, Phường Bến Nghé, Quận 1, TP. Hồ Chí Minh</FooterLine>
-              <FooterLine icon={<IconPhone size={16} />}>+84 770 111 101</FooterLine>
-              <FooterLine icon={<IconMail size={16} />}>hello@conndesign.vn</FooterLine>
-              <FooterLine icon={<IconClock size={16} />}>Thứ 2 - Thứ 7: 08:00 - 18:00</FooterLine>
-            </FooterColumn>
-            <FooterColumn title="Dịch vụ">
-              {['Thiết kế kiến trúc', 'Thiết kế nội thất', 'Quản lý thi công', 'Thiết kế 3D'].map((item) => (
-                <p key={item} className="home-footer-text">
-                  {item}
-                </p>
-              ))}
-            </FooterColumn>
-            <FooterColumn title="Tư vấn">
-              <p className="home-footer-text">Nhận tư vấn thiết kế miễn phí tại nhà của bạn.</p>
-            </FooterColumn>
-            <FooterColumn title="Chính sách">
-              {['Điều khoản dịch vụ', 'Chính sách hoàn tiền', 'Điều khoản bảo hành', 'Hướng dẫn hợp tác'].map((item) => (
-                <p key={item} className="home-footer-text">
-                  {item}
-                </p>
-              ))}
-            </FooterColumn>
-          </div>
-        </div>
-      </footer>
+      <SiteFooter />
     </main>
   );
 }
@@ -266,20 +225,3 @@ function SectionHeading({ eyebrow, title, subtitle }: { eyebrow?: string; title:
   );
 }
 
-function FooterColumn({ children, title }: { children: React.ReactNode; title: string }) {
-  return (
-    <div className="home-footer-column">
-      <h3>{title}</h3>
-      <div>{children}</div>
-    </div>
-  );
-}
-
-function FooterLine({ children, icon }: { children: React.ReactNode; icon: React.ReactNode }) {
-  return (
-    <div className="home-footer-line">
-      <span>{icon}</span>
-      <p className="home-footer-text">{children}</p>
-    </div>
-  );
-}
