@@ -520,40 +520,47 @@
 
 .home-footer {
   overflow: hidden;
-  padding: 72px 0;
+  padding: 44px 0 40px;
   background: #1e1b17;
   color: #f5f1eb;
+}
+
+.home-footer-heading {
+  display: flex;
+  align-items: baseline;
+  gap: 28px;
+  margin-bottom: 28px;
 }
 
 .home-footer h2 {
   margin: 0;
   color: rgba(255, 255, 255, 0.85);
-  font-size: 96px;
+  font-size: 72px;
   line-height: 0.9;
 }
 
 .home-footer-tagline {
-  margin: 8px 0 40px;
+  margin: 0;
   color: #ffb86d;
-  font-size: 27px;
+  font-size: 22px;
   letter-spacing: 4.2px;
 }
 
 .home-footer-grid {
   grid-template-columns: 1.4fr repeat(4, minmax(0, 1fr));
-  gap: 40px;
+  gap: 28px;
 }
 
 .home-footer-logo {
-  width: 150px;
-  height: 140px;
+  width: 300px;
+  height: 200px;
   object-fit: contain;
 }
 
 .home-footer-column h3 {
-  margin: 0 0 20px;
+  margin: 0 0 14px;
   color: #ffb86d;
-  font-size: 17px;
+  font-size: 15px;
   letter-spacing: 4.2px;
   text-transform: uppercase;
 }
@@ -561,7 +568,7 @@
 .home-footer-column > div {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 9px;
 }
 
 .home-footer-line {
@@ -578,8 +585,8 @@
 .home-footer-text {
   margin: 0;
   color: rgba(245, 241, 235, 0.9);
-  font-size: 16px;
-  line-height: 1.45;
+  font-size: 14px;
+  line-height: 1.35;
 }
 
 @media (max-width: 900px) {
@@ -683,6 +690,12 @@
 
   .home-footer h2 {
     font-size: 54px;
+  }
+
+  .home-footer-heading {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 8px;
   }
 
   .home-footer-tagline {

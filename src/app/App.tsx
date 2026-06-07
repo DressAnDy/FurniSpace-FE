@@ -4,6 +4,7 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 
 import { queryClient } from '@/app/providers/queryClient';
 import { theme } from '@/app/providers/theme';
+import { LoginPage } from '@/features/auth';
 import { HomePage } from '@/features/home';
 import { ViewerDemoPage } from '@/features/viewer3d';
 
@@ -15,6 +16,7 @@ export default function App() {
         <BrowserRouter>
           <Routes>
             <Route path="/" element={<HomePage />} />
+            <Route path="/login" element={<LoginPage />} />
             <Route path="/viewer3d" element={<ViewerDemoPage />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

@@ -218,8 +218,10 @@ export function HomePage() {
 
       <footer className="home-footer">
         <div className="section-container">
-          <h2>FurniSpace</h2>
-          <p className="home-footer-tagline">Giải pháp dành cho không gian của bạn</p>
+          <div className="home-footer-heading">
+            <h2>FurniSpace</h2>
+            <p className="home-footer-tagline">Giải pháp dành cho không gian của bạn</p>
+          </div>
           <div className="home-footer-grid">
             <div>
               <img className="home-footer-logo" src={logoImage} alt="FurniSpace" />
