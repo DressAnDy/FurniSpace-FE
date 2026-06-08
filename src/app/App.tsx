@@ -4,6 +4,9 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 
 import { queryClient } from '@/app/providers/queryClient';
 import { theme } from '@/app/providers/theme';
+import { CustomerDashboardPage } from '@/features/customerDashboard';
+import { CustomerProjectListPage } from '@/features/customerProjectList';
+import { CustomerProjectRequestPage } from '@/features/customerProjectRequest';
 import { HomePage } from '@/features/home';
 import { ProductDetailPage } from '@/features/productDetail';
 import { ProductListPreviewPage } from '@/features/productListPreview';
@@ -19,6 +22,9 @@ export default function App() {
         <BrowserRouter>
           <Routes>
             <Route path="/" element={<HomePage />} />
+            <Route path="/customer-dashboard" element={<CustomerDashboardPage />} />
+            <Route path="/customer-projects" element={<CustomerProjectListPage />} />
+            <Route path="/customer-project-request" element={<CustomerProjectRequestPage />} />
             <Route path="/login" element={<Navigate to="/" replace />} />
             <Route path="/product-detail" element={<ProductDetailPage />} />
             <Route path="/product-list-preview" element={<ProductListPreviewPage />} />
