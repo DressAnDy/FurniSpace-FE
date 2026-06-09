@@ -1,0 +1,104 @@
+@import url("../AdminDashbroad/AdminDashbroad.css");
+
+.product-management-image {
+  display: flex;
+  min-height: 152px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  background: #f3f4f6;
+  color: #d4a574;
+}
+
+.product-management-upload {
+  display: flex;
+  min-height: 180px;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  border: 1px dashed #d4a574;
+  border-radius: 8px;
+  background: rgba(212, 165, 116, 0.05);
+  color: #d4a574;
+  padding: 24px;
+  text-align: center;
+}
+
+.product-management-upload p,
+.product-management-upload span {
+  margin: 0;
+}
+
+.product-management-upload p {
+  margin-top: 12px;
+  color: #1a1d29;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 20px;
+}
+
+.product-management-upload span {
+  margin-top: 4px;
+  color: #6b7280;
+  font-size: 12px;
+  line-height: 16px;
+}
+
+.admin-form-input,
+.admin-form-textarea {
+  width: 100%;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #1a1d29;
+  font-size: 14px;
+  outline: 0;
+}
+
+.admin-form-input {
+  height: 40px;
+  margin-top: 8px;
+  padding: 0 12px;
+}
+
+.admin-form-textarea {
+  min-height: 112px;
+  margin-top: 8px;
+  padding: 10px 12px;
+  resize: vertical;
+}
+
+.admin-form-input:focus,
+.admin-form-textarea:focus {
+  border-color: #d4a574;
+  box-shadow: 0 0 0 2px rgba(212, 165, 116, 0.2);
+}
+
+.admin-form-input::placeholder,
+.admin-form-textarea::placeholder {
+  color: #9ca3af;
+}
+
+.product-management-flag {
+  display: inline-flex;
+  border-radius: 999px;
+  background: rgba(212, 165, 116, 0.12);
+  color: #9a6b3d;
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 14px;
+}
+
+.product-management-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #1a1d29;
+  padding: 10px 12px;
+  font-size: 14px;
+  font-weight: 500;
+}

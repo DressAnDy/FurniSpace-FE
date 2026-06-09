@@ -1,0 +1,34 @@
+@import url("../AdminDashbroad/AdminDashbroad.css");
+
+.category-management-table th,
+.category-management-table td {
+  white-space: nowrap;
+}
+
+.category-management-table td:nth-child(2) {
+  min-width: 260px;
+}
+
+.category-management-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #1a1d29;
+}
+
+.category-management-actions button {
+  display: flex;
+  width: 24px;
+  height: 24px;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.category-management-actions button:hover {
+  background: #f3f4f6;
+}
