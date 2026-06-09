@@ -1,0 +1,1 @@
+export { CustomerProposalDetailPage } from './CustomerProposalDetailPage';
