@@ -4,6 +4,7 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 
 import { queryClient } from '@/app/providers/queryClient';
 import { theme } from '@/app/providers/theme';
+import { CodeVerifyPage, LoginPage, RegisterPage } from '@/features/auth';
 import { Customer3dPreviewPage } from '@/features/customer3dPreview';
 import { CustomerDashboardPage } from '@/features/customerDashboard';
 import { CustomerProjectListPage } from '@/features/customerProjectList';
@@ -28,12 +29,14 @@ export default function App() {
         <BrowserRouter>
           <Routes>
             <Route path="/" element={<HomePage />} />
+            <Route path="/code-verify" element={<CodeVerifyPage />} />
             <Route path="/customer-dashboard" element={<CustomerDashboardPage />} />
             <Route path="/customer-3d-preview" element={<Customer3dPreviewPage />} />
             <Route path="/customer-projects" element={<CustomerProjectListPage />} />
             <Route path="/customer-project-request" element={<CustomerProjectRequestPage />} />
             <Route path="/customer-proposal-detail" element={<CustomerProposalDetailPage />} />
-            <Route path="/login" element={<Navigate to="/" replace />} />
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/register" element={<RegisterPage />} />
             <Route path="/product-detail" element={<ProductDetailPage />} />
             <Route path="/product-list-preview" element={<ProductListPreviewPage />} />
             <Route path="/project-detail" element={<ProjectDetailPage />} />

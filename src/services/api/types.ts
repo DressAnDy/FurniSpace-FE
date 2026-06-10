@@ -4,6 +4,25 @@ export interface ApiResponse<T> {
   success: boolean;
 }
 
+export type ServiceResult<T> = {
+  status: number;
+  message: string;
+  data: T | null;
+  errors?: string[];
+};
+
+export type AuthTokenData = {
+  access_token: string;
+  access_token_expires_at: string;
+  token_type: 'Bearer';
+  expires_in: number;
+};
+
+export type RegisterData = {
+  accountId: string;
+  email: string;
+};
+
 export interface PaginatedResponse<T> {
   data: T[];
   page: number;
