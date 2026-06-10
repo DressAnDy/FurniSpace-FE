@@ -18,6 +18,12 @@ import { ProductDetailPage } from '@/features/productDetail';
 import { ProductListPreviewPage } from '@/features/productListPreview';
 import { ProjectDetailPage } from '@/features/projectDetail';
 import { ProjectListReviewPage } from '@/features/projectListReview';
+import { ProjectDetail } from '@/features/SalePages/ProjectDetail';
+import { ProjectRequestQueue } from '@/features/SalePages/ProjectRequestQueue';
+import { AssignedProjects } from '@/features/SalePages/AssignedProjects';
+import { SaleQuotations } from '@/features/SalePages/SaleQuotations';
+import { SaleSchedules } from '@/features/SalePages/SaleSchedules';
+import { SaleDashbroad } from '@/features/SalePages/SaleDashbroad';
 import { ViewerDemoPage } from '@/features/viewer3d';
 
 export default function App() {
@@ -52,6 +58,15 @@ export default function App() {
             <Route path="/admin-user-management" element={<Navigate to="/admin/users" replace />} />
             <Route path="/admin-category-management" element={<Navigate to="/admin/categories" replace />} />
             <Route path="/admin-product-management" element={<Navigate to="/admin/products" replace />} />
+            
+            <Route path="/sale" element={<Navigate to="/sale/dashbroad" replace />} />
+            <Route path="/sale/dashbroad" element={<SaleDashbroad />} />
+            <Route path="/sales" element={<Navigate to="/sales/project-requests" replace />} />
+            <Route path="/sales/project-requests" element={<ProjectRequestQueue />} />
+            <Route path="/sales/assigned-projects" element={<AssignedProjects />} />
+            <Route path="/sales/schedules" element={<SaleSchedules />} />
+            <Route path="/sales/quotations" element={<SaleQuotations />} />
+            <Route path="/sales/project-requests/:projectId" element={<ProjectDetail />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </BrowserRouter>

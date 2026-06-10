@@ -1,0 +1,93 @@
+import {
+  IconBell,
+  IconBox,
+  IconBriefcase,
+  IconCalendarEvent,
+  IconClipboardList,
+  IconFileDollar,
+  IconHome,
+  IconMessage,
+  IconShoppingBag,
+  IconUsers,
+  type Icon,
+} from '@tabler/icons-react';
+import { NavLink } from 'react-router-dom';
+
+type SaleSidebarItem = {
+  label: string;
+  icon: Icon;
+  path?: string;
+};
+
+const saleSidebarItems: SaleSidebarItem[] = [
+  { label: 'Dashboard', icon: IconHome, path: '/sale/dashbroad' },
+  { label: 'Project Request Queue', icon: IconHome, path: '/sales/project-requests' },
+  { label: 'Assigned Projects', icon: IconBriefcase, path: '/sales/assigned-projects' },
+  { label: 'Active Projects', icon: IconBox },
+  { label: 'Consultation & Chat', icon: IconMessage },
+  { label: 'Schedules', icon: IconCalendarEvent, path: '/sales/schedules' },
+  { label: 'Designer Assignment', icon: IconUsers },
+  { label: 'Quotations', icon: IconShoppingBag, path: '/sales/quotations' },
+  { label: 'Orders', icon: IconFileDollar },
+  { label: 'Production Tracking', icon: IconClipboardList },
+  { label: 'Notifications', icon: IconBell },
+];
+
+type SaleSidebarProps = {
+  activeLabel: string;
+};
+
+export function SaleSidebar({ activeLabel }: SaleSidebarProps) {
+  return (
+    <aside className="sale-sidebar flex min-h-screen w-[256px] shrink-0 flex-col bg-[#2d2d2d] text-white">
+      <div className="sale-sidebar-brand mb-8 flex items-center gap-3 px-2">
+        <div className="sale-sidebar-brand-mark flex h-11 w-11 items-center justify-center rounded-xl bg-[#c9a24d] text-[#171717]">
+          <IconShoppingBag size={24} />
+        </div>
+        <div>
+          <h1 className="text-lg font-semibold leading-6">FurniSpace</h1>
+          <p className="text-sm text-zinc-400">Interior Solutions</p>
+        </div>
+      </div>
+
+      <nav className="sale-sidebar-nav flex flex-1 flex-col gap-1">
+        {saleSidebarItems.map(({ label, icon: ItemIcon, path }) => {
+          const itemClass =
+            label === activeLabel
+              ? 'sale-sidebar-item-active bg-[#c9a24d] text-[#171717] shadow-sm'
+              : 'text-zinc-300 hover:bg-white/10 hover:text-white';
+
+          const content = (
+            <>
+              <ItemIcon size={18} />
+              <span>{label}</span>
+            </>
+          );
+
+          if (!path) {
+            return (
+              <button
+                key={label}
+                type="button"
+                className={`sale-sidebar-item flex w-full items-center gap-3 rounded-lg px-3 py-3 text-left text-sm font-medium transition ${itemClass}`}
+                disabled
+              >
+                {content}
+              </button>
+            );
+          }
+
+          return (
+            <NavLink
+              key={label}
+              to={path}
+              className={`sale-sidebar-item flex items-center gap-3 rounded-lg px-3 py-3 text-sm font-medium no-underline transition ${itemClass}`}
+            >
+              {content}
+            </NavLink>
+          );
+        })}
+      </nav>
+    </aside>
+  );
+}
