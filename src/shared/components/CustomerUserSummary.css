@@ -1,0 +1,12 @@
+.customer-user-summary-button {
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+  padding: 0;
+}
+
+.customer-user-summary-button:disabled {
+  cursor: wait;
+  opacity: 0.72;
+}

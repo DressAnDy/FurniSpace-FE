@@ -6,7 +6,6 @@ import {
   AUTH_PENDING_EMAIL_KEY,
   getServiceResultMessage,
   normalizeEmail,
-  storeAccessToken,
 } from '@/services/api/auth';
 import { useVerifyEmail } from '@/services/queries';
 
@@ -71,10 +70,6 @@ export function CodeVerifyPage() {
           setMessage(getServiceResultMessage(error));
         },
         onSuccess: (result) => {
-          if (result.data?.access_token) {
-            storeAccessToken(result.data.access_token);
-          }
-
           sessionStorage.removeItem(AUTH_PENDING_EMAIL_KEY);
           setMessage(result.message);
           navigate('/customer-dashboard');
