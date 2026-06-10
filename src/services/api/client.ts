@@ -1,9 +1,11 @@
-import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
+import axios, { AxiosError } from 'axios';
 import axiosRetry from 'axios-retry';
 
 import { notifyError } from '@/shared/lib/toast';
 
-const AUTH_TOKEN_KEY = 'accessToken';
+import { removeLegacyAccessToken } from './tokenStore';
+
+removeLegacyAccessToken();
 
 export const apiClient = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL ?? import.meta.env.VITE_API_URL,
@@ -11,16 +13,6 @@ export const apiClient = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
-});
-
-apiClient.interceptors.request.use((config: InternalAxiosRequestConfig) => {
-  const token = localStorage.getItem(AUTH_TOKEN_KEY);
-
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
-
-  return config;
 });
 
 apiClient.interceptors.response.use(

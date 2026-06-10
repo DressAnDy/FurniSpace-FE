@@ -1,5 +1,4 @@
 import {
-  IconBell,
   IconBox,
   IconChevronLeft,
   IconFileText,
@@ -12,6 +11,7 @@ import {
 } from '@tabler/icons-react';
 
 import './CustomerProjectRequestPage.css';
+import { CustomerUserSummary } from '@/shared/components/CustomerUserSummary';
 
 const navigation = [
   { icon: <IconHome size={15} stroke={1.8} />, label: 'Home' },
@@ -187,17 +187,7 @@ function TopNavigation() {
           <IconPlus size={15} stroke={2} />
           Create Project Request
         </button>
-        <button className="customer-project-request-bell" aria-label="Notifications" type="button">
-          <IconBell size={20} stroke={1.8} />
-          <span />
-        </button>
-        <div className="customer-project-request-user">
-          <div>
-            <strong>Alex Thompson</strong>
-            <span>Customer</span>
-          </div>
-          <span>AT</span>
-        </div>
+        <CustomerUserSummary classPrefix="customer-project-request" />
       </div>
     </header>
   );

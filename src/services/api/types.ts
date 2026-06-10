@@ -18,6 +18,16 @@ export type AuthTokenData = {
   expires_in: number;
 };
 
+export type CurrentUserData = {
+  accountId: string;
+  email: string;
+  fullName: string;
+  phone: string | null;
+  avatarUrl: string | null;
+  status: string;
+  role: string;
+};
+
 export type RegisterData = {
   accountId: string;
   email: string;

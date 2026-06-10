@@ -1,7 +1,9 @@
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import {
+  getCurrentUser,
   login,
+  logout,
   register,
   verifyEmail,
   type LoginInput,
@@ -24,5 +26,26 @@ export function useVerifyEmail() {
 export function useLogin() {
   return useMutation({
     mutationFn: (input: LoginInput) => login(input),
+  });
+}
+
+export function useCurrentUser() {
+  return useQuery({
+    queryKey: ['auth', 'me'],
+    queryFn: getCurrentUser,
+    retry: false,
+    staleTime: 60_000,
+    select: (result) => result.data,
+  });
+}
+
+export function useLogout() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: logout,
+    onSuccess: () => {
+      queryClient.removeQueries({ queryKey: ['auth'] });
+    },
   });
 }

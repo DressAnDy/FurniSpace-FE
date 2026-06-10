@@ -2,7 +2,7 @@ import { FormEvent, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 
 import authHero from '@/assets/auth/register-hero.png';
-import { getServiceResultMessage, normalizeEmail, storeAccessToken } from '@/services/api/auth';
+import { getServiceResultMessage, normalizeEmail } from '@/services/api/auth';
 import { useLogin } from '@/services/queries';
 
 import './LoginPage.css';
@@ -37,10 +37,6 @@ export function LoginPage() {
           setMessage(getServiceResultMessage(error));
         },
         onSuccess: (result) => {
-          if (result.data?.access_token) {
-            storeAccessToken(result.data.access_token);
-          }
-
           setMessage(result.message);
           navigate('/customer-dashboard');
         },

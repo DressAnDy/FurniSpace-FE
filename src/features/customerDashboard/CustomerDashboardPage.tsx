@@ -1,6 +1,5 @@
 import {
   IconArrowRight,
-  IconBell,
   IconBox,
   IconCheck,
   IconClipboardText,
@@ -14,6 +13,7 @@ import {
 } from '@tabler/icons-react';
 
 import warmScandinavianUrl from '@/assets/customer-dashboard/warm-scandinavian.png';
+import { CustomerUserSummary } from '@/shared/components/CustomerUserSummary';
 
 import './CustomerDashboardPage.css';
 
@@ -247,17 +247,7 @@ function TopNavigation() {
           <IconPlus size={15} stroke={2} />
           Create Project Request
         </button>
-        <button className="customer-dashboard-bell" aria-label="Notifications" type="button">
-          <IconBell size={20} stroke={1.8} />
-          <span />
-        </button>
-        <div className="customer-dashboard-user">
-          <div>
-            <strong>Alex Thompson</strong>
-            <span>Customer</span>
-          </div>
-          <span>AT</span>
-        </div>
+        <CustomerUserSummary classPrefix="customer-dashboard" />
       </div>
     </header>
   );

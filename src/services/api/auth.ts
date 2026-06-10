@@ -1,9 +1,9 @@
 import { AxiosError } from 'axios';
 import axios from 'axios';
 
-import type { AuthTokenData, RegisterData, ServiceResult } from './types';
+import { removeLegacyAccessToken } from './tokenStore';
+import type { AuthTokenData, CurrentUserData, RegisterData, ServiceResult } from './types';
 
-export const AUTH_ACCESS_TOKEN_KEY = 'accessToken';
 export const AUTH_PENDING_EMAIL_KEY = 'auth.pendingEmail';
 
 export type RegisterInput = {
@@ -39,10 +39,6 @@ export function normalizePhone(phone: string) {
   const value = phone.trim();
 
   return value.length > 0 ? value : null;
-}
-
-export function storeAccessToken(token: string) {
-  localStorage.setItem(AUTH_ACCESS_TOKEN_KEY, token);
 }
 
 export function getServiceResultMessage(error: unknown) {
@@ -85,6 +81,19 @@ export async function login(input: LoginInput) {
     password: input.password,
   });
 
+  return response.data;
+}
+
+export async function getCurrentUser() {
+  const response = await authApiClient.get<ServiceResult<CurrentUserData>>('/auth/me');
+
+  return response.data;
+}
+
+export async function logout() {
+  const response = await authApiClient.post<ServiceResult<null>>('/auth/logout', {});
+
+  removeLegacyAccessToken();
   return response.data;
 }
 
