@@ -1,0 +1,349 @@
+@import "../SaleDashbroad/SaleDashbroad.css";
+
+.sale-quotations-shell {
+  display: flex;
+  min-height: 100vh;
+  background: #faf9f7;
+  color: #2d2d2d;
+  font-family: Inter, "DM Sans", Arial, sans-serif;
+}
+
+.sale-quotations-content {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+}
+
+.sale-quotations-main {
+  flex: 1;
+  padding: 24px;
+}
+
+.sale-quotations-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 24px;
+}
+
+.sale-quotations-heading h2 {
+  margin: 0;
+  color: #2d2d2d;
+  font-size: 24px;
+  font-weight: 500;
+  line-height: 32px;
+}
+
+.sale-quotations-heading p {
+  margin: 4px 0 0;
+  color: #6b6b6b;
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.sale-quotations-heading button,
+.sale-quotations-actions button:first-child {
+  display: inline-flex;
+  height: 36px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 1px solid #8b6f47;
+  border-radius: 6px;
+  background: #8b6f47;
+  padding: 0 16px;
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.sale-quotations-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.sale-quotations-metrics article,
+.sale-quotations-card {
+  border: 1px solid rgba(139, 111, 71, 0.15);
+  border-radius: 12px;
+  background: #ffffff;
+}
+
+.sale-quotations-metrics article {
+  display: flex;
+  min-height: 104px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 24px;
+}
+
+.sale-quotations-metrics span {
+  display: block;
+  color: #6b6b6b;
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.sale-quotations-metrics strong {
+  display: block;
+  margin-top: 8px;
+  color: #2d2d2d;
+  font-size: 30px;
+  font-weight: 400;
+  line-height: 36px;
+}
+
+.sale-quotations-metrics svg {
+  color: #8b6f47;
+}
+
+.sale-quotations-metrics article:last-child svg {
+  color: #d4af37;
+}
+
+.sale-quotations-card {
+  margin-bottom: 24px;
+  padding: 24px;
+}
+
+.sale-quotations-card header {
+  margin-bottom: 24px;
+}
+
+.sale-quotations-card h3,
+.sale-quotations-detail h4 {
+  margin: 0;
+  color: #2d2d2d;
+  font-size: 16px;
+  font-weight: 500;
+  line-height: 24px;
+}
+
+.sale-quotations-card header p {
+  margin: 4px 0 0;
+  color: #6b6b6b;
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.sale-quotations-table-scroll {
+  overflow-x: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #8b6f47 #f5f1ec;
+}
+
+.sale-quotations-table-scroll::-webkit-scrollbar {
+  height: 8px;
+}
+
+.sale-quotations-table-scroll::-webkit-scrollbar-track {
+  background: #f5f1ec;
+}
+
+.sale-quotations-table-scroll::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: #8b6f47;
+}
+
+.sale-quotations-card table {
+  width: 100%;
+  min-width: 920px;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+.sale-quotations-card th,
+.sale-quotations-card td {
+  border-bottom: 1px solid rgba(139, 111, 71, 0.15);
+  padding: 12px 8px;
+  color: #2d2d2d;
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.sale-quotations-card th {
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.sale-quotations-card tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.sale-quotations-card td strong {
+  display: block;
+  font-size: 14px;
+  font-weight: 400;
+}
+
+.sale-quotations-card td span {
+  display: block;
+  color: #6b6b6b;
+  font-size: 12px;
+  line-height: 16px;
+}
+
+.sale-quotations-code {
+  color: #8b6f47 !important;
+  white-space: nowrap;
+}
+
+.sale-quotations-version {
+  display: inline-flex !important;
+  border: 1px solid rgba(139, 111, 71, 0.15);
+  border-radius: 6px;
+  padding: 2px 8px;
+  color: #2d2d2d !important;
+}
+
+.sale-quotations-status {
+  display: inline-flex !important;
+  width: fit-content;
+  align-items: center;
+  border-radius: 6px;
+  padding: 2px 8px;
+  font-size: 12px !important;
+  font-weight: 500;
+  line-height: 16px !important;
+}
+
+.sale-quotations-status-sent,
+.sale-quotations-status-accepted {
+  background: #8b6f47;
+  color: #ffffff !important;
+}
+
+.sale-quotations-status-revision-requested {
+  border: 1px solid rgba(139, 111, 71, 0.15);
+  background: #faf9f7;
+  color: #2d2d2d !important;
+}
+
+.sale-quotations-link-button {
+  border: 0;
+  background: transparent;
+  color: #2d2d2d;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.sale-quotations-detail-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.sale-quotations-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 24px 160px;
+  margin-bottom: 24px;
+}
+
+.sale-quotations-detail-grid span {
+  display: block;
+  color: #6b6b6b;
+  font-size: 12px;
+  line-height: 16px;
+}
+
+.sale-quotations-detail-grid strong {
+  display: block;
+  margin-top: 6px;
+  color: #2d2d2d;
+  font-size: 14px;
+  font-weight: 400;
+}
+
+.sale-quotations-divider {
+  height: 1px;
+  margin: 24px 0;
+  background: rgba(139, 111, 71, 0.15);
+}
+
+.sale-quotations-items-table {
+  margin-top: 16px;
+}
+
+.sale-quotations-total-list {
+  border-top: 1px solid rgba(139, 111, 71, 0.15);
+  margin-top: 24px;
+  padding-top: 16px;
+}
+
+.sale-quotations-total-list div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 0;
+}
+
+.sale-quotations-total-list span,
+.sale-quotations-total-list strong {
+  color: #2d2d2d;
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 24px;
+}
+
+.sale-quotations-total-list span {
+  color: #6b6b6b;
+}
+
+.sale-quotations-total-list .sale-quotations-discount {
+  color: #d4af37;
+}
+
+.sale-quotations-total {
+  border-top: 1px solid rgba(139, 111, 71, 0.15);
+  margin-top: 8px;
+  padding-top: 12px !important;
+}
+
+.sale-quotations-total span,
+.sale-quotations-total strong {
+  color: #2d2d2d;
+  font-size: 18px;
+  line-height: 28px;
+}
+
+.sale-quotations-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 24px;
+}
+
+.sale-quotations-actions button:not(:first-child) {
+  height: 36px;
+  border: 1px solid rgba(139, 111, 71, 0.15);
+  border-radius: 6px;
+  background: #faf9f7;
+  padding: 0 16px;
+  color: #2d2d2d;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+@media (max-width: 1100px) {
+  .sale-quotations-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 860px) {
+  .sale-quotations-shell,
+  .sale-quotations-heading {
+    flex-direction: column;
+  }
+
+  .sale-quotations-metrics,
+  .sale-quotations-detail-grid {
+    grid-template-columns: 1fr;
+  }
+}
