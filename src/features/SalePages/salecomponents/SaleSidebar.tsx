@@ -6,12 +6,15 @@ import {
   IconClipboardList,
   IconFileDollar,
   IconHome,
+  IconLogout,
   IconMessage,
   IconShoppingBag,
   IconUsers,
   type Icon,
 } from '@tabler/icons-react';
-import { NavLink } from 'react-router-dom';
+import { NavLink, useNavigate } from 'react-router-dom';
+
+import { useLogout } from '@/services/queries';
 
 type SaleSidebarItem = {
   label: string;
@@ -38,6 +41,17 @@ type SaleSidebarProps = {
 };
 
 export function SaleSidebar({ activeLabel }: SaleSidebarProps) {
+  const navigate = useNavigate();
+  const logoutMutation = useLogout();
+
+  function handleLogout() {
+    logoutMutation.mutate(undefined, {
+      onSettled: () => {
+        navigate('/login', { replace: true });
+      },
+    });
+  }
+
   return (
     <aside className="sale-sidebar flex min-h-screen w-[256px] shrink-0 flex-col bg-[#2d2d2d] text-white">
       <div className="sale-sidebar-brand mb-8 flex items-center gap-3 px-2">
@@ -88,6 +102,13 @@ export function SaleSidebar({ activeLabel }: SaleSidebarProps) {
           );
         })}
       </nav>
+
+      <div className="sale-sidebar-footer">
+        <button className="sale-sidebar-logout" type="button" onClick={handleLogout} disabled={logoutMutation.isPending}>
+          <IconLogout size={18} />
+          <span>{logoutMutation.isPending ? 'Logging out...' : 'Logout'}</span>
+        </button>
+      </div>
     </aside>
   );
 }

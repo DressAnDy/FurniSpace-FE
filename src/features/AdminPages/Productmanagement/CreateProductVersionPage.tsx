@@ -3,12 +3,10 @@ import { IconArrowLeft, IconBox, IconUpload } from '@tabler/icons-react';
 import { useNavigate, useParams } from 'react-router-dom';
 
 import {
-  generateProductVersionCode,
   getProductServiceResultMessage,
   normalizeOptionalNumber,
   normalizeOptionalText,
   normalizeRequiredText,
-  type ProductVersionType,
 } from '@/services/api';
 import { useCreateProductVersion, useProductDetail } from '@/services/queries';
 
@@ -18,30 +16,32 @@ import './Productmanagement.css';
 export function CreateProductVersionPage() {
   const navigate = useNavigate();
   const { productId } = useParams();
-  const productQuery = useProductDetail(productId);
+  const effectiveProductId = productId ?? sessionStorage.getItem('admin.createdProductId') ?? undefined;
+  const productQuery = useProductDetail(effectiveProductId);
   const createVersionMutation = useCreateProductVersion();
   const product = productQuery.data;
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
-    if (!productId || !product) {
+    if (!effectiveProductId || !product) {
       return;
     }
 
     const formData = new FormData(event.currentTarget);
+    const versionCode = normalizeRequiredText(formData.get('version_code'));
     const versionName = normalizeRequiredText(formData.get('version_name'));
 
-    if (!versionName) {
+    if (!versionCode || !versionName) {
       return;
     }
 
     try {
       await createVersionMutation.mutateAsync({
-        productId,
-        versionCode: generateProductVersionCode(product.productCode),
+        productId: effectiveProductId,
+        versionCode,
         versionName,
-        versionType: normalizeRequiredText(formData.get('version_type')) as ProductVersionType,
+        versionType: 'STANDARD',
         material: normalizeOptionalText(formData.get('material')),
         color: normalizeOptionalText(formData.get('color')),
         width: normalizeOptionalNumber(formData.get('width')),
@@ -49,11 +49,12 @@ export function CreateProductVersionPage() {
         depth: normalizeOptionalNumber(formData.get('depth')),
         estimatedPrice: normalizeOptionalNumber(formData.get('estimated_price')),
         isDefault: formData.get('is_default') === 'on',
-        isPublic: formData.get('is_public') === 'on',
-        isProjectSpecific: formData.get('is_project_specific') === 'on',
+        isPublic: true,
+        isProjectSpecific: true,
       });
 
-      navigate(`/admin/products/${productId}/versions`);
+      sessionStorage.removeItem('admin.createdProductId');
+      navigate(`/admin/products/${effectiveProductId}/versions`);
     } catch {
       // Error state is rendered from React Query mutation.
     }
@@ -69,7 +70,7 @@ export function CreateProductVersionPage() {
 
           <div className="admin-content product-management-content">
             <div className="product-form-heading">
-              <button className="product-version-back" type="button" onClick={() => navigate(`/admin/products/${productId}/versions`)}>
+              <button className="product-version-back" type="button" onClick={() => navigate(`/admin/products/${effectiveProductId}/versions`)}>
                 <IconArrowLeft size={16} />
                 Back to Versions
               </button>
@@ -88,7 +89,7 @@ export function CreateProductVersionPage() {
             <form className="product-form-shell" onSubmit={handleSubmit}>
               <section className="product-form-card">
                 <div className="product-form-note">
-                  <strong>Note:</strong> Version code will be generated automatically.
+                  <strong>Note:</strong> Version type will be submitted as STANDARD by default. Public and project-specific flags are always enabled.
                 </div>
 
                 <div className="product-form-section">
@@ -115,26 +116,15 @@ export function CreateProductVersionPage() {
                     <h3>Version Information</h3>
                   </div>
 
-                  <label className="product-form-field product-form-field-full">
-                    <span>Version Name *</span>
-                    <input className="admin-form-input" name="version_name" placeholder="e.g., Premium Oak, Standard Black" required type="text" />
-                  </label>
-
                   <div className="product-form-grid">
                     <label className="product-form-field">
-                      <span>Version Type *</span>
-                      <select className="admin-form-input" name="version_type" defaultValue="STANDARD">
-                        <option value="STANDARD">STANDARD</option>
-                        <option value="CUSTOM">CUSTOM</option>
-                        <option value="PROJECT_SPECIFIC">PROJECT_SPECIFIC</option>
-                      </select>
+                      <span>Version Code *</span>
+                      <input className="admin-form-input" maxLength={50} name="version_code" placeholder="e.g., SOFA-LUX-001-A" required type="text" />
                     </label>
 
                     <label className="product-form-field">
-                      <span>Status</span>
-                      <select className="admin-form-input" defaultValue="ACTIVE" disabled>
-                        <option value="ACTIVE">Active</option>
-                      </select>
+                      <span>Version Name *</span>
+                      <input className="admin-form-input" name="version_name" placeholder="e.g., Premium Oak, Standard Black" required type="text" />
                     </label>
 
                     <label className="product-form-field">
@@ -187,20 +177,14 @@ export function CreateProductVersionPage() {
                         <small>This version will be the default for this product</small>
                       </span>
                     </label>
-                    <label>
-                      <input name="is_public" type="checkbox" defaultChecked />
-                      <span>
-                        <strong>Is Public</strong>
-                        <small>Make this version visible to customers</small>
-                      </span>
-                    </label>
-                    <label>
-                      <input name="is_project_specific" type="checkbox" />
-                      <span>
-                        <strong>Is Project Specific</strong>
-                        <small>This version is for a specific project only</small>
-                      </span>
-                    </label>
+                    <div className="product-setting-fixed">
+                      <strong>Is Public</strong>
+                      <small>Always submitted as true.</small>
+                    </div>
+                    <div className="product-setting-fixed">
+                      <strong>Is Project Specific</strong>
+                      <small>Always submitted as true.</small>
+                    </div>
                   </div>
                 </div>
 
@@ -234,7 +218,7 @@ export function CreateProductVersionPage() {
               </section>
 
               <div className="product-form-actions">
-                <button className="product-form-button product-form-button-secondary" type="button" onClick={() => navigate(`/admin/products/${productId}/versions`)}>
+                <button className="product-form-button product-form-button-secondary" type="button" onClick={() => navigate(`/admin/products/${effectiveProductId}/versions`)}>
                   Cancel
                 </button>
                 <button className="product-form-button product-form-button-primary" disabled={!product || createVersionMutation.isPending} type="submit">

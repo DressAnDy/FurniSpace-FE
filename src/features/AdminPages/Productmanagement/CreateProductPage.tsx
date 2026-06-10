@@ -28,10 +28,12 @@ export function CreateProductPage() {
     try {
       const createdProduct = await createProductMutation.mutateAsync({
         categoryId,
+        productCode: normalizeOptionalText(formData.get('product_code')),
         productName,
         description: normalizeOptionalText(formData.get('description')),
       });
 
+      sessionStorage.setItem('admin.createdProductId', createdProduct.productId);
       navigate(`/admin/products/${createdProduct.productId}/versions/create`);
     } catch {
       // Error state is rendered from React Query mutation.
@@ -59,8 +61,7 @@ export function CreateProductPage() {
             <form className="product-form-shell" onSubmit={handleSubmit}>
               <section className="product-form-card">
                 <div className="product-form-note">
-                  <strong>Note:</strong> Product code will be generated automatically. After creating the product, you will be prompted to create at least one
-                  product version.
+                  <strong>Note:</strong> After creating the product, you will be prompted to create at least one product version.
                 </div>
 
                 <div className="product-form-section">
@@ -75,6 +76,11 @@ export function CreateProductPage() {
                   </label>
 
                   <div className="product-form-grid">
+                    <label className="product-form-field">
+                      <span>Product Code</span>
+                      <input className="admin-form-input" maxLength={50} name="product_code" placeholder="e.g., SOFA-LUX-001" type="text" />
+                    </label>
+
                     <label className="product-form-field">
                       <span>Category *</span>
                       <select className="admin-form-input" name="category_id" defaultValue="" required disabled={categoryListQuery.isLoading}>

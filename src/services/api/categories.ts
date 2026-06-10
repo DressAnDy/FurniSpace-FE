@@ -1,6 +1,35 @@
-import { AxiosError } from 'axios';
+import axios, { AxiosError } from 'axios';
 
-import { apiClient } from './client';
+import { getStoredAccessToken } from './tokenStore';
+
+const categoryApiClient = axios.create({
+  baseURL: getCategoryApiBaseUrl(),
+  withCredentials: true,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
+
+categoryApiClient.interceptors.request.use((config) => {
+  const token = getStoredAccessToken();
+
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+
+  return config;
+});
+
+categoryApiClient.interceptors.response.use(
+  (response) => response,
+  (error: AxiosError) => {
+    if (error.response?.status === 401 && window.location.pathname !== '/login') {
+      window.location.assign('/login');
+    }
+
+    return Promise.reject(error);
+  },
+);
 
 type ServiceResult<T> = {
   status: number;
@@ -82,7 +111,7 @@ export function normalizeCategoryOptionalText(value: FormDataEntryValue | string
 }
 
 export async function getCategories(params: CategoryListParams = {}) {
-  const response = await apiClient.get<ServiceResult<CategoryListData>>('/categories', {
+  const response = await categoryApiClient.get<ServiceResult<CategoryListData>>('/categories', {
     params: {
       page: params.page ?? 1,
       limit: params.limit ?? 20,
@@ -93,7 +122,7 @@ export async function getCategories(params: CategoryListParams = {}) {
 }
 
 export async function createCategory(input: CreateCategoryInput) {
-  const response = await apiClient.post<ServiceResult<CategoryDto>>('/categories', {
+  const response = await categoryApiClient.post<ServiceResult<CategoryDto>>('/categories', {
     categoryName: input.categoryName.trim(),
     description: input.description?.trim() || null,
   });
@@ -102,10 +131,16 @@ export async function createCategory(input: CreateCategoryInput) {
 }
 
 export async function updateCategory(input: UpdateCategoryInput) {
-  const response = await apiClient.put<ServiceResult<CategoryDto>>(`/categories/${input.categoryId}`, {
+  const response = await categoryApiClient.put<ServiceResult<CategoryDto>>(`/categories/${input.categoryId}`, {
     categoryName: input.categoryName.trim(),
     description: input.description?.trim() || null,
   });
 
   return response.data.data;
+}
+
+function getCategoryApiBaseUrl() {
+  const configuredApiUrl = import.meta.env.VITE_API_BASE_URL ?? import.meta.env.VITE_API_URL;
+
+  return configuredApiUrl?.replace(/\/api\/?$/, '');
 }

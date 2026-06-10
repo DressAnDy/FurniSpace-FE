@@ -115,8 +115,8 @@ export function ProductVersionManagement() {
                         <strong>{formatPrice(version.estimatedPrice)}</strong>
                       </div>
                       <div>
-                        <span>Stock</span>
-                        <strong>--</strong>
+                        <span>Type</span>
+                        <strong>{version.versionType}</strong>
                       </div>
                     </div>
 
@@ -126,16 +126,12 @@ export function ProductVersionManagement() {
                         <strong>{version.material ?? 'Not set'}</strong>
                       </div>
                       <div>
-                        <span>Weight</span>
-                        <strong>--</strong>
+                        <span>Color</span>
+                        <strong>{version.color ?? 'Not set'}</strong>
                       </div>
                       <div>
                         <span>Dimensions</span>
                         <strong>{formatDimensions(version.width, version.height, version.depth)}</strong>
-                      </div>
-                      <div>
-                        <span>Created</span>
-                        <strong>--</strong>
                       </div>
                     </div>
 

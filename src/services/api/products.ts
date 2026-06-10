@@ -1,6 +1,35 @@
-import { AxiosError } from 'axios';
+import axios, { AxiosError } from 'axios';
 
-import { apiClient } from './client';
+import { getStoredAccessToken } from './tokenStore';
+
+const productApiClient = axios.create({
+  baseURL: getProductApiBaseUrl(),
+  withCredentials: true,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
+
+productApiClient.interceptors.request.use((config) => {
+  const token = getStoredAccessToken();
+
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+
+  return config;
+});
+
+productApiClient.interceptors.response.use(
+  (response) => response,
+  (error: AxiosError) => {
+    if (error.response?.status === 401 && window.location.pathname !== '/login') {
+      window.location.assign('/login');
+    }
+
+    return Promise.reject(error);
+  },
+);
 
 export type ServiceResult<T> = {
   status: number;
@@ -68,6 +97,7 @@ export type ProductListParams = {
 
 export type CreateProductInput = {
   categoryId: string;
+  productCode?: string | null;
   productName: string;
   description?: string | null;
 };
@@ -154,7 +184,7 @@ export function generateProductVersionCode(productCode: string | null | undefine
 }
 
 export async function getProducts(params: ProductListParams = {}) {
-  const response = await apiClient.get<ServiceResult<ProductListData>>('/products', {
+  const response = await productApiClient.get<ServiceResult<ProductListData>>('/products', {
     params: {
       page: params.page ?? 1,
       limit: params.limit ?? 20,
@@ -165,14 +195,15 @@ export async function getProducts(params: ProductListParams = {}) {
 }
 
 export async function getProductById(productId: string) {
-  const response = await apiClient.get<ServiceResult<ProductDetailDto>>(`/products/${productId}`);
+  const response = await productApiClient.get<ServiceResult<ProductDetailDto>>(`/products/${productId}`);
 
   return response.data.data;
 }
 
 export async function createProduct(input: CreateProductInput) {
-  const response = await apiClient.post<ServiceResult<ProductDto>>('/products', {
+  const response = await productApiClient.post<ServiceResult<ProductDto>>('/products', {
     categoryId: input.categoryId,
+    productCode: input.productCode?.trim() || null,
     productName: input.productName.trim(),
     description: input.description?.trim() || null,
   });
@@ -181,7 +212,7 @@ export async function createProduct(input: CreateProductInput) {
 }
 
 export async function createProductVersion(input: CreateProductVersionInput) {
-  const response = await apiClient.post<ServiceResult<ProductVersionDto>>(`/api/ProductVersions/products/${input.productId}/versions`, {
+  const response = await productApiClient.post<ServiceResult<ProductVersionDto>>(`/api/ProductVersions/products/${input.productId}/versions`, {
     versionCode: input.versionCode.trim(),
     versionName: input.versionName.trim(),
     versionType: input.versionType ?? 'STANDARD',
@@ -200,7 +231,13 @@ export async function createProductVersion(input: CreateProductVersionInput) {
 }
 
 export async function setDefaultProductVersion(productVersionId: string) {
-  const response = await apiClient.patch<ServiceResult<SetDefaultProductVersionData>>(`/api/ProductVersions/product-versions/${productVersionId}/set-default`);
+  const response = await productApiClient.patch<ServiceResult<SetDefaultProductVersionData>>(`/api/ProductVersions/product-versions/${productVersionId}/set-default`);
 
   return response.data.data;
+}
+
+function getProductApiBaseUrl() {
+  const configuredApiUrl = import.meta.env.VITE_API_BASE_URL ?? import.meta.env.VITE_API_URL;
+
+  return configuredApiUrl?.replace(/\/api\/?$/, '');
 }

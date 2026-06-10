@@ -605,22 +605,31 @@
   color: #1a1d29;
 }
 
+.product-setting-fixed {
+  border-left: 3px solid #d4a574;
+  padding-left: 12px;
+}
+
 .product-setting-list input {
   margin-top: 5px;
 }
 
 .product-setting-list strong,
-.product-setting-list small {
+.product-setting-list small,
+.product-setting-fixed strong,
+.product-setting-fixed small {
   display: block;
 }
 
-.product-setting-list strong {
+.product-setting-list strong,
+.product-setting-fixed strong {
   font-size: 16px;
   font-weight: 500;
   line-height: 24px;
 }
 
-.product-setting-list small {
+.product-setting-list small,
+.product-setting-fixed small {
   color: #6b7280;
   font-size: 14px;
   line-height: 20px;
