@@ -1,0 +1,17 @@
+.project-request-table-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: #c9a24d #f4f4f5;
+}
+
+.project-request-table-scroll::-webkit-scrollbar {
+  height: 8px;
+}
+
+.project-request-table-scroll::-webkit-scrollbar-track {
+  background: #f4f4f5;
+}
+
+.project-request-table-scroll::-webkit-scrollbar-thumb {
+  background: #c9a24d;
+  border-radius: 999px;
+}

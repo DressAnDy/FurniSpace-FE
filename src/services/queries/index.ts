@@ -19,3 +19,4 @@ export {
   useProductList,
   useSetDefaultProductVersion,
 } from './useProducts';
+export { useCurrentUser, useLogin, useLogout, useRegister, useVerifyEmail } from './useAuth';
