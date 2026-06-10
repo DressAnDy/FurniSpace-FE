@@ -1,0 +1,154 @@
+@import url("../AdminDashbroad/AdminDashbroad.css");
+
+.user-management-content {
+  color: #1a1d29;
+}
+
+.user-management-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.user-management-card {
+  padding: 24px;
+}
+
+.user-management-tools {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 40px;
+}
+
+.user-management-search {
+  margin-top: 40px;
+  max-width: 700px;
+}
+
+.user-management-placeholder {
+  display: block;
+  border-radius: 8px;
+  background: #f3f4f6;
+}
+
+.user-management-placeholder-large {
+  width: 226px;
+  height: 122px;
+}
+
+.user-management-placeholder-small {
+  width: 150px;
+  height: 85px;
+}
+
+.user-management-table {
+  min-width: 980px;
+}
+
+.user-management-table td {
+  color: #6b7280;
+}
+
+.user-management-id {
+  color: #1a1d29;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+}
+
+.user-management-user {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.user-management-user span {
+  max-width: 100px;
+  color: #1a1d29;
+  font-weight: 500;
+  line-height: 20px;
+}
+
+.user-management-avatar {
+  display: flex;
+  width: 32px;
+  height: 32px;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 32px;
+  border-radius: 999px;
+  background: #d4a574;
+  color: #ffffff;
+}
+
+.user-management-role {
+  display: inline-flex;
+  max-width: 96px;
+  border-radius: 4px;
+  background: #eff6ff;
+  color: #3b82f6;
+  padding: 4px 8px;
+  font-size: 12px;
+  line-height: 16px;
+}
+
+.user-management-status {
+  display: inline-flex;
+  border-radius: 999px;
+  color: #ffffff;
+  padding: 4px 12px;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 16px;
+}
+
+.user-management-status-active {
+  background: #10b981;
+}
+
+.user-management-status-suspended {
+  background: #f59e0b;
+}
+
+.user-management-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #1a1d29;
+}
+
+.user-management-actions button {
+  display: flex;
+  width: 28px;
+  height: 28px;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.user-management-actions button:hover {
+  background: #f3f4f6;
+}
+
+@media (max-width: 1100px) {
+  .user-management-placeholder {
+    display: none;
+  }
+}
+
+@media (max-width: 760px) {
+  .user-management-heading,
+  .user-management-tools {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .user-management-search {
+    margin-top: 0;
+  }
+}
