@@ -2,23 +2,61 @@ import { type FormEvent } from 'react';
 import { IconArrowLeft, IconBox, IconUpload } from '@tabler/icons-react';
 import { useNavigate, useParams } from 'react-router-dom';
 
+import {
+  generateProductVersionCode,
+  getProductServiceResultMessage,
+  normalizeOptionalNumber,
+  normalizeOptionalText,
+  normalizeRequiredText,
+  type ProductVersionType,
+} from '@/services/api';
+import { useCreateProductVersion, useProductDetail } from '@/services/queries';
+
 import { AdminNavbar, AdminSidebar } from '../admincomponents';
 import './Productmanagement.css';
 
-const product = {
-  productId: 'prd-001',
-  productCode: 'PRD-2024-001',
-  productName: 'Modern Office Chair V3',
-  category: 'Seating',
-};
-
 export function CreateProductVersionPage() {
   const navigate = useNavigate();
-  const { productId = product.productId } = useParams();
+  const { productId } = useParams();
+  const productQuery = useProductDetail(productId);
+  const createVersionMutation = useCreateProductVersion();
+  const product = productQuery.data;
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    navigate(`/admin/products/${productId}/versions`);
+
+    if (!productId || !product) {
+      return;
+    }
+
+    const formData = new FormData(event.currentTarget);
+    const versionName = normalizeRequiredText(formData.get('version_name'));
+
+    if (!versionName) {
+      return;
+    }
+
+    try {
+      await createVersionMutation.mutateAsync({
+        productId,
+        versionCode: generateProductVersionCode(product.productCode),
+        versionName,
+        versionType: normalizeRequiredText(formData.get('version_type')) as ProductVersionType,
+        material: normalizeOptionalText(formData.get('material')),
+        color: normalizeOptionalText(formData.get('color')),
+        width: normalizeOptionalNumber(formData.get('width')),
+        height: normalizeOptionalNumber(formData.get('height')),
+        depth: normalizeOptionalNumber(formData.get('depth')),
+        estimatedPrice: normalizeOptionalNumber(formData.get('estimated_price')),
+        isDefault: formData.get('is_default') === 'on',
+        isPublic: formData.get('is_public') === 'on',
+        isProjectSpecific: formData.get('is_project_specific') === 'on',
+      });
+
+      navigate(`/admin/products/${productId}/versions`);
+    } catch {
+      // Error state is rendered from React Query mutation.
+    }
   };
 
   return (
@@ -29,138 +67,180 @@ export function CreateProductVersionPage() {
         <section className="admin-main">
           <AdminNavbar />
 
-          <div className="admin-content">
-            <div className="mb-6">
-              <button className="mb-3 inline-flex items-center gap-2 text-sm font-medium text-[#6b7280]" type="button" onClick={() => navigate(`/admin/products/${productId}/versions`)}>
+          <div className="admin-content product-management-content">
+            <div className="product-form-heading">
+              <button className="product-version-back" type="button" onClick={() => navigate(`/admin/products/${productId}/versions`)}>
                 <IconArrowLeft size={16} />
                 Back to Versions
               </button>
-              <h2 className="m-0 text-2xl font-semibold leading-8 text-[#1a1d29]">Create Product Version</h2>
-              <p className="mt-1 text-sm leading-5 text-[#6b7280]">Version code is generated automatically by backend.</p>
+              <h2>Create Product Version</h2>
+              <p>Add a new version for {product?.productName ?? 'selected product'}</p>
             </div>
 
-            <form className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_340px]" onSubmit={handleSubmit}>
-              <section className="space-y-6">
-                <div className="rounded-lg border border-[#e5e7eb] bg-white p-6">
-                  <h3 className="m-0 text-lg font-semibold leading-7 text-[#1a1d29]">Parent Product</h3>
-                  <div className="mt-4 grid gap-4 sm:grid-cols-3">
+            {productQuery.isLoading ? (
+              <section className="product-management-state">Loading parent product from API...</section>
+            ) : null}
+
+            {productQuery.isError ? (
+              <section className="product-management-state product-management-state-error">{getProductServiceResultMessage(productQuery.error)}</section>
+            ) : null}
+
+            <form className="product-form-shell" onSubmit={handleSubmit}>
+              <section className="product-form-card">
+                <div className="product-form-note">
+                  <strong>Note:</strong> Version code will be generated automatically.
+                </div>
+
+                <div className="product-form-section">
+                  <h3>Parent Product Information</h3>
+                  <div className="product-form-info-grid">
                     <div>
-                      <p className="m-0 text-xs leading-4 text-[#6b7280]">Product Code</p>
-                      <strong className="font-mono text-sm text-[#1a1d29]">{product.productCode}</strong>
+                      <span>Product Name</span>
+                      <strong>{product?.productName ?? 'Loading...'}</strong>
                     </div>
                     <div>
-                      <p className="m-0 text-xs leading-4 text-[#6b7280]">Product Name</p>
-                      <strong className="text-sm text-[#1a1d29]">{product.productName}</strong>
+                      <span>Category</span>
+                      <strong>{product?.categoryName ?? 'Loading...'}</strong>
                     </div>
                     <div>
-                      <p className="m-0 text-xs leading-4 text-[#6b7280]">Category</p>
-                      <strong className="text-sm text-[#d4a574]">{product.category}</strong>
+                      <span>Product Code</span>
+                      <strong>{product?.productCode ?? 'Auto-generated'}</strong>
                     </div>
                   </div>
                 </div>
 
-                <div className="rounded-lg border border-[#e5e7eb] bg-white p-6">
-                  <div className="mb-5 flex items-center gap-3">
-                    <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#d4a5741a] text-[#d4a574]">
-                      <IconBox size={22} />
-                    </span>
-                    <div>
-                      <h3 className="m-0 text-lg font-semibold leading-7 text-[#1a1d29]">Version Details</h3>
-                      <p className="m-0 text-sm leading-5 text-[#6b7280]">Define the first sellable/configurable version.</p>
-                    </div>
+                <div className="product-form-section">
+                  <div className="product-form-section-title">
+                    <IconBox size={20} />
+                    <h3>Version Information</h3>
                   </div>
 
-                  <div className="grid gap-5 sm:grid-cols-2">
-                    <label className="block">
-                      <span className="text-sm font-medium leading-5 text-[#1a1d29]">Version Name</span>
-                      <input className="admin-form-input" name="version_name" placeholder="V1.0 Walnut Fabric" required type="text" />
-                    </label>
+                  <label className="product-form-field product-form-field-full">
+                    <span>Version Name *</span>
+                    <input className="admin-form-input" name="version_name" placeholder="e.g., Premium Oak, Standard Black" required type="text" />
+                  </label>
 
-                    <label className="block">
-                      <span className="text-sm font-medium leading-5 text-[#1a1d29]">Version Type</span>
-                      <select className="admin-form-input" name="version_type" defaultValue="Retail">
-                        <option value="Retail">Retail</option>
-                        <option value="Premium">Premium</option>
-                        <option value="Custom">Custom</option>
-                        <option value="Project">Project</option>
+                  <div className="product-form-grid">
+                    <label className="product-form-field">
+                      <span>Version Type *</span>
+                      <select className="admin-form-input" name="version_type" defaultValue="STANDARD">
+                        <option value="STANDARD">STANDARD</option>
+                        <option value="CUSTOM">CUSTOM</option>
+                        <option value="PROJECT_SPECIFIC">PROJECT_SPECIFIC</option>
                       </select>
                     </label>
 
-                    <label className="block">
-                      <span className="text-sm font-medium leading-5 text-[#1a1d29]">Material</span>
-                      <input className="admin-form-input" name="material" placeholder="Oak, fabric, steel..." type="text" />
-                    </label>
-
-                    <label className="block">
-                      <span className="text-sm font-medium leading-5 text-[#1a1d29]">Color</span>
-                      <input className="admin-form-input" name="color" placeholder="Warm Gray" type="text" />
-                    </label>
-
-                    <label className="block">
-                      <span className="text-sm font-medium leading-5 text-[#1a1d29]">Width</span>
-                      <input className="admin-form-input" name="width" placeholder="620" type="number" />
-                    </label>
-
-                    <label className="block">
-                      <span className="text-sm font-medium leading-5 text-[#1a1d29]">Height</span>
-                      <input className="admin-form-input" name="height" placeholder="980" type="number" />
-                    </label>
-
-                    <label className="block">
-                      <span className="text-sm font-medium leading-5 text-[#1a1d29]">Depth</span>
-                      <input className="admin-form-input" name="depth" placeholder="620" type="number" />
-                    </label>
-
-                    <label className="block">
-                      <span className="text-sm font-medium leading-5 text-[#1a1d29]">Estimated Price</span>
-                      <input className="admin-form-input" name="estimated_price" placeholder="$0" type="text" />
-                    </label>
-
-                    <label className="block">
-                      <span className="text-sm font-medium leading-5 text-[#1a1d29]">Status</span>
-                      <select className="admin-form-input" name="status" defaultValue="DRAFT">
-                        <option value="DRAFT">DRAFT</option>
-                        <option value="ACTIVE">ACTIVE</option>
-                        <option value="INACTIVE">INACTIVE</option>
+                    <label className="product-form-field">
+                      <span>Status</span>
+                      <select className="admin-form-input" defaultValue="ACTIVE" disabled>
+                        <option value="ACTIVE">Active</option>
                       </select>
                     </label>
-                  </div>
 
-                  <div className="mt-5 grid gap-3 sm:grid-cols-3">
-                    <label className="product-management-checkbox">
+                    <label className="product-form-field">
+                      <span>Material</span>
+                      <input className="admin-form-input" name="material" placeholder="e.g., Oak Wood, Leather" type="text" />
+                    </label>
+
+                    <label className="product-form-field">
+                      <span>Color</span>
+                      <input className="admin-form-input" name="color" placeholder="e.g., Natural, Black, White" type="text" />
+                    </label>
+                  </div>
+                </div>
+
+                <div className="product-form-section">
+                  <h3>Dimensions (cm)</h3>
+                  <div className="product-form-grid product-form-grid-three">
+                    <label className="product-form-field">
+                      <span>Width</span>
+                      <input className="admin-form-input" name="width" placeholder="0" type="number" />
+                    </label>
+
+                    <label className="product-form-field">
+                      <span>Height</span>
+                      <input className="admin-form-input" name="height" placeholder="0" type="number" />
+                    </label>
+
+                    <label className="product-form-field">
+                      <span>Depth</span>
+                      <input className="admin-form-input" name="depth" placeholder="0" type="number" />
+                    </label>
+                  </div>
+                </div>
+
+                <div className="product-form-section">
+                  <h3>Pricing</h3>
+                  <label className="product-form-field product-form-field-half">
+                    <span>Estimated Price</span>
+                    <input className="admin-form-input" name="estimated_price" placeholder="0.00" type="number" />
+                  </label>
+                </div>
+
+                <div className="product-form-section">
+                  <h3>Version Settings</h3>
+                  <div className="product-setting-list">
+                    <label>
                       <input name="is_default" type="checkbox" />
-                      Default version
+                      <span>
+                        <strong>Set as Default Version</strong>
+                        <small>This version will be the default for this product</small>
+                      </span>
                     </label>
-                    <label className="product-management-checkbox">
+                    <label>
                       <input name="is_public" type="checkbox" defaultChecked />
-                      Public
+                      <span>
+                        <strong>Is Public</strong>
+                        <small>Make this version visible to customers</small>
+                      </span>
                     </label>
-                    <label className="product-management-checkbox">
+                    <label>
                       <input name="is_project_specific" type="checkbox" />
-                      Project specific
+                      <span>
+                        <strong>Is Project Specific</strong>
+                        <small>This version is for a specific project only</small>
+                      </span>
                     </label>
                   </div>
                 </div>
+
+                <div className="product-form-section">
+                  <h3>Version Preview Images</h3>
+                  <label className="product-form-field product-form-field-full">
+                    <span>Main Version Image</span>
+                    <div className="product-upload-main">
+                      <IconUpload size={46} />
+                      <strong>Drag and drop or click to upload</strong>
+                      <small>PNG, JPG up to 10MB</small>
+                    </div>
+                  </label>
+
+                  <label className="product-form-field product-form-field-full">
+                    <span>Additional Version Images</span>
+                    <div className="product-upload-grid">
+                      {[0, 1, 2, 3].map((item) => (
+                        <div key={item} className="product-upload-tile">
+                          <IconUpload size={28} />
+                          <span>Upload</span>
+                        </div>
+                      ))}
+                    </div>
+                  </label>
+                </div>
+
+                {createVersionMutation.isError ? (
+                  <p className="product-form-error">{getProductServiceResultMessage(createVersionMutation.error)}</p>
+                ) : null}
               </section>
 
-              <aside className="space-y-6">
-                <section className="rounded-lg border border-[#e5e7eb] bg-white p-6">
-                  <h3 className="m-0 text-lg font-semibold leading-7 text-[#1a1d29]">Version Image</h3>
-                  <div className="product-management-upload mt-4">
-                    <IconUpload size={28} />
-                    <p>Upload version image</p>
-                    <span>Use preview or render image</span>
-                  </div>
-                </section>
-
-                <section className="rounded-lg border border-[#e5e7eb] bg-white p-6">
-                  <h3 className="m-0 text-lg font-semibold leading-7 text-[#1a1d29]">Save Version</h3>
-                  <p className="mt-2 text-sm leading-5 text-[#6b7280]">After saving, you will return to this product's version list.</p>
-                  <button className="mt-5 h-10 w-full rounded-md bg-[#d4a574] px-5 text-sm font-medium text-white" type="submit">
-                    Save Product Version
-                  </button>
-                </section>
-              </aside>
+              <div className="product-form-actions">
+                <button className="product-form-button product-form-button-secondary" type="button" onClick={() => navigate(`/admin/products/${productId}/versions`)}>
+                  Cancel
+                </button>
+                <button className="product-form-button product-form-button-primary" disabled={!product || createVersionMutation.isPending} type="submit">
+                  {createVersionMutation.isPending ? 'Saving...' : 'Save Version'}
+                </button>
+              </div>
             </form>
           </div>
         </section>

@@ -1,55 +1,74 @@
-import { IconArchive, IconEdit, IconEye, IconPackage, IconPlus } from '@tabler/icons-react';
+import { useMemo, useState } from 'react';
+import { IconEdit, IconPackage, IconPlus, IconSearch } from '@tabler/icons-react';
 import { useNavigate } from 'react-router-dom';
+
+import { getProductServiceResultMessage } from '@/services/api';
+import { useProductList } from '@/services/queries';
 
 import { AdminNavbar, AdminSidebar } from '../admincomponents';
 import './Productmanagement.css';
 
-const products = [
-  {
-    productId: 'prd-001',
-    productCode: 'PRD-2024-001',
-    productName: 'Modern Office Chair V3',
-    category: 'Seating',
-    description: 'Ergonomic office chair with breathable upholstery, adjustable height, and modular color options.',
-    status: 'ACTIVE',
-    versionCount: 4,
-  },
-  {
-    productId: 'prd-002',
-    productCode: 'PRD-2024-002',
-    productName: 'Executive Oak Desk',
-    category: 'Desks',
-    description: 'Premium oak executive desk with cable routing, storage drawers, and optional finish variants.',
-    status: 'ACTIVE',
-    versionCount: 3,
-  },
-  {
-    productId: 'prd-003',
-    productCode: 'PRD-2024-003',
-    productName: 'Conference Table Oak',
-    category: 'Tables',
-    description: 'Conference table system for meeting rooms with multiple dimensions and top materials.',
-    status: 'ACTIVE',
-    versionCount: 5,
-  },
-  {
-    productId: 'prd-004',
-    productCode: 'PRD-2024-004',
-    productName: 'Outdoor Patio Set',
-    category: 'Outdoor',
-    description: 'Weather-resistant patio furniture set with lounge seating, table, and outdoor fabric options.',
-    status: 'INACTIVE',
-    versionCount: 1,
-  },
-];
-
 const statusClassName: Record<string, string> = {
-  ACTIVE: 'bg-[#10b981]',
-  INACTIVE: 'bg-[#f59e0b]',
+  ACTIVE: 'product-management-status-active',
+  INACTIVE: 'product-management-status-inactive',
+  ARCHIVED: 'product-management-status-archived',
 };
 
 export function Productmanagement() {
   const navigate = useNavigate();
+  const [searchValue, setSearchValue] = useState('');
+  const [activeFilter, setActiveFilter] = useState('All');
+  const productListQuery = useProductList({ page: 1, limit: 100 });
+
+  const filteredProducts = useMemo(() => {
+    const products = productListQuery.data?.items ?? [];
+    const keyword = searchValue.trim().toLowerCase();
+
+    if (!keyword) {
+      return products;
+    }
+
+    return products.filter((product) => {
+      return (
+        product.productName.toLowerCase().includes(keyword) ||
+        (product.productCode ?? '').toLowerCase().includes(keyword) ||
+        product.categoryName.toLowerCase().includes(keyword) ||
+        (product.description ?? '').toLowerCase().includes(keyword) ||
+        product.status.toLowerCase().includes(keyword)
+      );
+    });
+  }, [productListQuery.data?.items, searchValue]);
+
+  const visibleProducts = useMemo(() => {
+    if (activeFilter === 'All') {
+      return filteredProducts;
+    }
+
+    const statusMap: Record<string, string[]> = {
+      Published: ['ACTIVE'],
+      Archived: ['ARCHIVED'],
+      Draft: ['DRAFT'],
+      'Pending Approval': ['PENDING_APPROVAL', 'PENDING'],
+      Approved: ['APPROVED'],
+      Rejected: ['REJECTED'],
+    };
+
+    const statuses = statusMap[activeFilter] ?? [];
+    return filteredProducts.filter((product) => statuses.includes(product.status));
+  }, [activeFilter, filteredProducts]);
+
+  const filterTabs = [
+    { label: 'All', count: filteredProducts.length },
+    { label: 'Draft', count: filteredProducts.filter((product) => String(product.status) === 'DRAFT').length },
+    {
+      label: 'Pending Approval',
+      count: filteredProducts.filter((product) => ['PENDING', 'PENDING_APPROVAL'].includes(product.status)).length,
+    },
+    { label: 'Approved', count: filteredProducts.filter((product) => String(product.status) === 'APPROVED').length },
+    { label: 'Published', count: filteredProducts.filter((product) => product.status === 'ACTIVE').length },
+    { label: 'Rejected', count: filteredProducts.filter((product) => String(product.status) === 'REJECTED').length },
+    { label: 'Archived', count: filteredProducts.filter((product) => product.status === 'ARCHIVED').length },
+  ];
 
   return (
     <main className="admin-dashboard-page">
@@ -59,64 +78,96 @@ export function Productmanagement() {
         <section className="admin-main">
           <AdminNavbar />
 
-          <div className="admin-content">
-            <div className="mb-6 flex flex-wrap items-start justify-between gap-6">
+          <div className="admin-content product-management-content">
+            <div className="product-management-heading">
               <div>
-                <h2 className="m-0 text-2xl font-semibold leading-8 text-[#1a1d29]">Product Management</h2>
-                <p className="mt-1 text-sm leading-5 text-[#6b7280]">Manage furniture products and their required product versions.</p>
+                <h2>Product Management</h2>
+                <p>Manage product catalog and inventory</p>
               </div>
               <button className="admin-button admin-button-primary" type="button" onClick={() => navigate('/admin/products/create')}>
                 <IconPlus size={16} />
-                Add Product
+                Create Product
               </button>
             </div>
 
-            <section className="grid gap-5 lg:grid-cols-2 xl:grid-cols-3">
-              {products.map((product) => (
-                <article key={product.productId} className="rounded-lg border border-[#e5e7eb] bg-white p-5">
-                  <div className="product-management-image mb-4">
-                    <IconPackage size={34} />
-                  </div>
+            <label className="product-management-search product-management-page-search">
+              <IconSearch size={18} />
+              <input
+                value={searchValue}
+                onChange={(event) => setSearchValue(event.target.value)}
+                placeholder="Search products..."
+                type="search"
+              />
+            </label>
 
-                  <div className="mb-3 flex items-start justify-between gap-3">
-                    <div>
-                      <h3 className="m-0 text-lg font-semibold leading-7 text-[#1a1d29]">{product.productName}</h3>
-                      <p className="mt-1 font-mono text-xs leading-4 text-[#6b7280]">{product.productCode}</p>
-                    </div>
-                    <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium leading-4 text-white ${statusClassName[product.status]}`}>
-                      {product.status}
-                    </span>
-                  </div>
-
-                  <p className="mb-2 text-sm font-medium leading-5 text-[#d4a574]">{product.category}</p>
-                  <p className="line-clamp-2 min-h-[40px] text-sm leading-5 text-[#6b7280]">{product.description}</p>
-
-                  <div className="my-4 flex items-center justify-between border-y border-[#e5e7eb] py-3">
-                    <span className="text-sm leading-5 text-[#6b7280]">Product Versions</span>
-                    <strong className="text-lg leading-7 text-[#1a1d29]">{product.versionCount}</strong>
-                  </div>
-
-                  <div className="flex flex-wrap gap-2">
-                    <button
-                      className="inline-flex h-9 items-center gap-2 rounded-md bg-[#d4a574] px-3 text-sm font-medium text-white"
-                      type="button"
-                      onClick={() => navigate(`/admin/products/${product.productId}/versions`)}
-                    >
-                      <IconEye size={16} />
-                      View Versions
-                    </button>
-                    <button className="inline-flex h-9 items-center gap-2 rounded-md border border-[#e5e7eb] bg-white px-3 text-sm font-medium text-[#1a1d29]" type="button">
-                      <IconEdit size={16} />
-                      Edit
-                    </button>
-                    <button className="inline-flex h-9 items-center gap-2 rounded-md border border-[#e5e7eb] bg-white px-3 text-sm font-medium text-[#1a1d29]" type="button">
-                      <IconArchive size={16} />
-                      Archive
-                    </button>
-                  </div>
-                </article>
+            <div className="product-management-filter-tabs">
+              {filterTabs.map((tab) => (
+                <button
+                  key={tab.label}
+                  className={activeFilter === tab.label ? 'is-active' : ''}
+                  type="button"
+                  onClick={() => setActiveFilter(tab.label)}
+                >
+                  {tab.label} <span>{tab.count}</span>
+                </button>
               ))}
-            </section>
+            </div>
+
+            {productListQuery.isLoading ? <div className="product-management-state">Loading products from API...</div> : null}
+
+            {productListQuery.isError ? (
+              <div className="product-management-state product-management-state-error">
+                {getProductServiceResultMessage(productListQuery.error)}
+              </div>
+            ) : null}
+
+            {!productListQuery.isLoading && !productListQuery.isError && visibleProducts.length === 0 ? (
+              <div className="product-management-state">No products found.</div>
+            ) : null}
+
+            {!productListQuery.isLoading && !productListQuery.isError && visibleProducts.length > 0 ? (
+              <section className="product-management-grid">
+                {visibleProducts.map((product) => (
+                  <article key={product.productId} className="product-card">
+                    <div className="product-card-media">
+                      <span className={`product-card-status ${statusClassName[product.status] ?? 'product-management-status-archived'}`}>
+                        {product.status}
+                      </span>
+                      <div className="product-card-placeholder">
+                        <IconPackage size={42} />
+                        <span>No image</span>
+                      </div>
+                    </div>
+                    <div className="product-card-body">
+                      <h3>{product.productName}</h3>
+                      <p className="product-card-category">{product.categoryName}</p>
+                      <p className="product-card-description">{product.description ?? 'No description.'}</p>
+                      <div className="product-card-meta">
+                        <span>{product.productCode ?? 'Auto-generated'}</span>
+                        <strong>{product.defaultVersion ? '1 version' : '0 versions'}</strong>
+                      </div>
+                      <div className="product-card-actions">
+                        <button className="product-card-button product-card-button-secondary" type="button">
+                          <IconEdit size={16} />
+                          Edit
+                        </button>
+                        <button
+                          className="product-card-button product-card-button-primary"
+                          type="button"
+                          onClick={() => navigate(`/admin/products/${product.productId}/versions`)}
+                        >
+                          Versions
+                        </button>
+                      </div>
+                    </div>
+                  </article>
+                ))}
+              </section>
+            ) : null}
+
+            <div className="product-management-note">
+              <strong>Note:</strong> Product versions will be locked after the first inventory item is created. Only Active versions can be approved.
+            </div>
           </div>
         </section>
       </div>
