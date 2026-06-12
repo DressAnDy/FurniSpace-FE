@@ -3,7 +3,6 @@ import {
   IconCalendar,
   IconChevronRight,
   IconCurrencyDollar,
-  IconFileText,
   IconFilter,
   IconHome,
   IconMapPin,
