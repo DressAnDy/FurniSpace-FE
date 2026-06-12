@@ -1,9 +1,9 @@
-import { type FormEvent } from 'react';
+import { type FormEvent, useState } from 'react';
 import { IconArrowLeft, IconPackage, IconUpload } from '@tabler/icons-react';
 import { useNavigate } from 'react-router-dom';
 
 import { getProductServiceResultMessage, normalizeOptionalText, normalizeRequiredText } from '@/services/api';
-import { useCategoryList, useCreateProduct } from '@/services/queries';
+import { useCategoryList, useCreateProduct, useUploadProductPreviewFile } from '@/services/queries';
 
 import { AdminNavbar, AdminSidebar } from '../admincomponents';
 import './Productmanagement.css';
@@ -12,7 +12,11 @@ export function CreateProductPage() {
   const navigate = useNavigate();
   const categoryListQuery = useCategoryList({ page: 1, limit: 100 });
   const createProductMutation = useCreateProduct();
+  const uploadProductPreviewMutation = useUploadProductPreviewFile();
+  const [previewFile, setPreviewFile] = useState<File | null>(null);
+  const [createdProductId, setCreatedProductId] = useState<string | null>(null);
   const categoryOptions = categoryListQuery.data?.items ?? [];
+  const isSaving = createProductMutation.isPending || uploadProductPreviewMutation.isPending;
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -26,15 +30,30 @@ export function CreateProductPage() {
     }
 
     try {
-      const createdProduct = await createProductMutation.mutateAsync({
-        categoryId,
-        productCode: normalizeOptionalText(formData.get('product_code')),
-        productName,
-        description: normalizeOptionalText(formData.get('description')),
-      });
+      const productId =
+        createdProductId ??
+        (
+          await createProductMutation.mutateAsync({
+            categoryId,
+            productCode: normalizeOptionalText(formData.get('product_code')),
+            productName,
+            description: normalizeOptionalText(formData.get('description')),
+          })
+        ).productId;
 
-      sessionStorage.setItem('admin.createdProductId', createdProduct.productId);
-      navigate(`/admin/products/${createdProduct.productId}/versions/create`);
+      setCreatedProductId(productId);
+
+      if (previewFile) {
+        await uploadProductPreviewMutation.mutateAsync({
+          productId,
+          file: previewFile,
+          description: 'Product preview image',
+        });
+        setPreviewFile(null);
+      }
+
+      sessionStorage.setItem('admin.createdProductId', productId);
+      navigate(`/admin/products/${productId}/versions/create`);
     } catch {
       // Error state is rendered from React Query mutation.
     }
@@ -59,6 +78,7 @@ export function CreateProductPage() {
             </div>
 
             <form className="product-form-shell" onSubmit={handleSubmit}>
+              <input name="status" type="hidden" value="ACTIVE" />
               <section className="product-form-card">
                 <div className="product-form-note">
                   <strong>Note:</strong> After creating the product, you will be prompted to create at least one product version.
@@ -95,13 +115,6 @@ export function CreateProductPage() {
                       </select>
                       {categoryListQuery.isError ? <em>{getProductServiceResultMessage(categoryListQuery.error)}</em> : null}
                     </label>
-
-                    <label className="product-form-field">
-                      <span>Status</span>
-                      <select className="admin-form-input" defaultValue="ACTIVE" disabled>
-                        <option value="ACTIVE">Active</option>
-                      </select>
-                    </label>
                   </div>
 
                   <label className="product-form-field product-form-field-full">
@@ -111,31 +124,32 @@ export function CreateProductPage() {
                 </div>
 
                 <div className="product-form-section">
-                  <h3>Product Preview Images</h3>
+                  <h3>Product Preview Image</h3>
                   <label className="product-form-field product-form-field-full">
                     <span>Main Product Image</span>
+                    <input
+                      accept="image/jpeg,image/png,image/webp,image/gif,image/svg+xml"
+                      className="product-upload-input"
+                      type="file"
+                      onChange={(event) => setPreviewFile(event.target.files?.[0] ?? null)}
+                    />
                     <div className="product-upload-main">
                       <IconUpload size={46} />
-                      <strong>Drag and drop or click to upload</strong>
-                      <small>PNG, JPG up to 10MB</small>
+                      <strong>{previewFile ? previewFile.name : 'Click to select product preview'}</strong>
+                      <small>Uploaded as PRODUCT_PREVIEW and visible to customers</small>
                     </div>
                   </label>
 
-                  <label className="product-form-field product-form-field-full">
-                    <span>Additional Product Images</span>
-                    <div className="product-upload-grid">
-                      {[0, 1, 2, 3].map((item) => (
-                        <div key={item} className="product-upload-tile">
-                          <IconUpload size={28} />
-                          <span>Upload</span>
-                        </div>
-                      ))}
-                    </div>
-                  </label>
+                  <p className="product-form-helper">Products currently accept only FileType.PRODUCT_PREVIEW.</p>
                 </div>
 
                 {createProductMutation.isError ? (
                   <p className="product-form-error">{getProductServiceResultMessage(createProductMutation.error)}</p>
+                ) : null}
+                {uploadProductPreviewMutation.isError ? (
+                  <p className="product-form-error">
+                    Product was created, but preview upload failed: {getProductServiceResultMessage(uploadProductPreviewMutation.error)}
+                  </p>
                 ) : null}
               </section>
 
@@ -148,10 +162,10 @@ export function CreateProductPage() {
                 </button>
                 <button
                   className="product-form-button product-form-button-primary"
-                  disabled={createProductMutation.isPending || categoryListQuery.isLoading || categoryOptions.length === 0}
+                  disabled={isSaving || categoryListQuery.isLoading || categoryOptions.length === 0}
                   type="submit"
                 >
-                  {createProductMutation.isPending ? 'Saving...' : 'Save & Create Version'}
+                  {isSaving ? 'Saving...' : 'Save & Create Version'}
                 </button>
               </div>
             </form>

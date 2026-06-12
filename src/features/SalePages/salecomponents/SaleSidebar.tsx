@@ -23,7 +23,7 @@ type SaleSidebarItem = {
 };
 
 const saleSidebarItems: SaleSidebarItem[] = [
-  { label: 'Dashboard', icon: IconHome, path: '/sale/dashbroad' },
+  { label: 'Dashboard', icon: IconHome, path: '/sales/dashbroad' },
   { label: 'Project Request Queue', icon: IconHome, path: '/sales/project-requests' },
   { label: 'Assigned Projects', icon: IconBriefcase, path: '/sales/assigned-projects' },
   { label: 'Active Projects', icon: IconBox },
@@ -66,7 +66,7 @@ export function SaleSidebar({ activeLabel }: SaleSidebarProps) {
 
       <nav className="sale-sidebar-nav flex flex-1 flex-col gap-1">
         {saleSidebarItems.map(({ label, icon: ItemIcon, path }) => {
-          const itemClass =
+          const staticItemClass =
             label === activeLabel
               ? 'sale-sidebar-item-active bg-[#c9a24d] text-[#171717] shadow-sm'
               : 'text-zinc-300 hover:bg-white/10 hover:text-white';
@@ -83,7 +83,7 @@ export function SaleSidebar({ activeLabel }: SaleSidebarProps) {
               <button
                 key={label}
                 type="button"
-                className={`sale-sidebar-item flex w-full items-center gap-3 rounded-lg px-3 py-3 text-left text-sm font-medium transition ${itemClass}`}
+                className={`sale-sidebar-item flex w-full items-center gap-3 rounded-lg px-3 py-3 text-left text-sm font-medium transition ${staticItemClass}`}
                 disabled
               >
                 {content}
@@ -95,7 +95,14 @@ export function SaleSidebar({ activeLabel }: SaleSidebarProps) {
             <NavLink
               key={label}
               to={path}
-              className={`sale-sidebar-item flex items-center gap-3 rounded-lg px-3 py-3 text-sm font-medium no-underline transition ${itemClass}`}
+              className={({ isActive }) => {
+                const itemClass =
+                  isActive || label === activeLabel
+                    ? 'sale-sidebar-item-active bg-[#c9a24d] text-[#171717] shadow-sm'
+                    : 'text-zinc-300 hover:bg-white/10 hover:text-white';
+
+                return `sale-sidebar-item flex items-center gap-3 rounded-lg px-3 py-3 text-sm font-medium no-underline transition ${itemClass}`;
+              }}
             >
               {content}
             </NavLink>

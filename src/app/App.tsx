@@ -62,11 +62,13 @@ export default function App() {
             <Route path="/admin-category-management" element={<Navigate to="/admin/categories" replace />} />
             <Route path="/admin-product-management" element={<Navigate to="/admin/products" replace />} />
             
-            <Route path="/sale" element={<Navigate to="/sale/dashbroad" replace />} />
-            <Route path="/sale/dashbroad" element={<SaleDashbroad />} />
+            <Route path="/sale" element={<Navigate to="/sales/dashbroad" replace />} />
+            <Route path="/sale/dashbroad" element={<Navigate to="/sales/dashbroad" replace />} />
             <Route path="/sales" element={<Navigate to="/sales/project-requests" replace />} />
+            <Route path="/sales/dashbroad" element={<SaleDashbroad />} />
             <Route path="/sales/project-requests" element={<ProjectRequestQueue />} />
             <Route path="/sales/assigned-projects" element={<AssignedProjects />} />
+            <Route path="/sales/assigned-projects/:projectId" element={<ProjectDetail />} />
             <Route path="/sales/schedules" element={<SaleSchedules />} />
             <Route path="/sales/quotations" element={<SaleQuotations />} />
             <Route path="/sales/project-requests/:projectId" element={<ProjectDetail />} />

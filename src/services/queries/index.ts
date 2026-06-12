@@ -13,10 +13,17 @@ export {
 } from './useCategories';
 export {
   productQueryKeys,
+  useArchiveFile,
   useCreateProduct,
   useCreateProductVersion,
+  useDeleteFile,
+  useFilesByReference,
   useProductDetail,
   useProductList,
   useSetDefaultProductVersion,
+  useUpdateProduct,
+  useUpdateProductVersion,
+  useUploadProductPreviewFile,
+  useUploadProductVersionFile,
 } from './useProducts';
 export { useCurrentUser, useLogin, useLogout, useRegister, useVerifyEmail } from './useAuth';

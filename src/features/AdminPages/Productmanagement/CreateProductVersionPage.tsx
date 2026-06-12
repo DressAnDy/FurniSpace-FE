@@ -1,4 +1,4 @@
-import { type FormEvent } from 'react';
+import { type FormEvent, useState } from 'react';
 import { IconArrowLeft, IconBox, IconUpload } from '@tabler/icons-react';
 import { useNavigate, useParams } from 'react-router-dom';
 
@@ -8,7 +8,7 @@ import {
   normalizeOptionalText,
   normalizeRequiredText,
 } from '@/services/api';
-import { useCreateProductVersion, useProductDetail } from '@/services/queries';
+import { useCreateProductVersion, useProductDetail, useUploadProductVersionFile } from '@/services/queries';
 
 import { AdminNavbar, AdminSidebar } from '../admincomponents';
 import './Productmanagement.css';
@@ -19,7 +19,13 @@ export function CreateProductVersionPage() {
   const effectiveProductId = productId ?? sessionStorage.getItem('admin.createdProductId') ?? undefined;
   const productQuery = useProductDetail(effectiveProductId);
   const createVersionMutation = useCreateProductVersion();
+  const uploadVersionFileMutation = useUploadProductVersionFile(effectiveProductId);
+  const [previewFile, setPreviewFile] = useState<File | null>(null);
+  const [modelFile, setModelFile] = useState<File | null>(null);
+  const [textureFile, setTextureFile] = useState<File | null>(null);
+  const [createdVersionId, setCreatedVersionId] = useState<string | null>(null);
   const product = productQuery.data;
+  const isSaving = createVersionMutation.isPending || uploadVersionFileMutation.isPending;
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -37,21 +43,57 @@ export function CreateProductVersionPage() {
     }
 
     try {
-      await createVersionMutation.mutateAsync({
-        productId: effectiveProductId,
-        versionCode,
-        versionName,
-        versionType: 'STANDARD',
-        material: normalizeOptionalText(formData.get('material')),
-        color: normalizeOptionalText(formData.get('color')),
-        width: normalizeOptionalNumber(formData.get('width')),
-        height: normalizeOptionalNumber(formData.get('height')),
-        depth: normalizeOptionalNumber(formData.get('depth')),
-        estimatedPrice: normalizeOptionalNumber(formData.get('estimated_price')),
-        isDefault: formData.get('is_default') === 'on',
-        isPublic: true,
-        isProjectSpecific: true,
-      });
+      const productVersionId =
+        createdVersionId ??
+        (
+          await createVersionMutation.mutateAsync({
+            productId: effectiveProductId,
+            versionCode,
+            versionName,
+            versionType: 'STANDARD',
+            material: normalizeOptionalText(formData.get('material')),
+            color: normalizeOptionalText(formData.get('color')),
+            width: normalizeOptionalNumber(formData.get('width')),
+            height: normalizeOptionalNumber(formData.get('height')),
+            depth: normalizeOptionalNumber(formData.get('depth')),
+            estimatedPrice: normalizeOptionalNumber(formData.get('estimated_price')),
+            isDefault: formData.get('is_default') === 'on',
+            isPublic: true,
+            isProjectSpecific: true,
+          })
+        ).productVersionId;
+
+      setCreatedVersionId(productVersionId);
+
+      if (previewFile) {
+        await uploadVersionFileMutation.mutateAsync({
+          productVersionId,
+          file: previewFile,
+          fileType: 'PRODUCT_PREVIEW',
+          description: 'Product version preview image',
+        });
+        setPreviewFile(null);
+      }
+
+      if (modelFile) {
+        await uploadVersionFileMutation.mutateAsync({
+          productVersionId,
+          file: modelFile,
+          fileType: 'MODEL_3D',
+          description: 'Product version 3D model',
+        });
+        setModelFile(null);
+      }
+
+      if (textureFile) {
+        await uploadVersionFileMutation.mutateAsync({
+          productVersionId,
+          file: textureFile,
+          fileType: 'TEXTURE',
+          description: 'Product version texture',
+        });
+        setTextureFile(null);
+      }
 
       sessionStorage.removeItem('admin.createdProductId');
       navigate(`/admin/products/${effectiveProductId}/versions`);
@@ -189,31 +231,58 @@ export function CreateProductVersionPage() {
                 </div>
 
                 <div className="product-form-section">
-                  <h3>Version Preview Images</h3>
+                  <h3>Version Files</h3>
                   <label className="product-form-field product-form-field-full">
                     <span>Main Version Image</span>
+                    <input
+                      accept="image/jpeg,image/png,image/webp,image/gif,image/svg+xml"
+                      className="product-upload-input"
+                      type="file"
+                      onChange={(event) => setPreviewFile(event.target.files?.[0] ?? null)}
+                    />
                     <div className="product-upload-main">
                       <IconUpload size={46} />
-                      <strong>Drag and drop or click to upload</strong>
-                      <small>PNG, JPG up to 10MB</small>
+                      <strong>{previewFile ? previewFile.name : 'Click to select version preview'}</strong>
+                      <small>Uploaded as PRODUCT_PREVIEW and visible to customers</small>
                     </div>
                   </label>
 
-                  <label className="product-form-field product-form-field-full">
-                    <span>Additional Version Images</span>
+                  <div className="product-form-field product-form-field-full">
+                    <span>Version Model and Texture</span>
                     <div className="product-upload-grid">
-                      {[0, 1, 2, 3].map((item) => (
-                        <div key={item} className="product-upload-tile">
+                      <label className="product-upload-tile">
+                        <input
+                          accept=".glb,.gltf,.obj,.fbx,.stl,.usdz,model/*,application/octet-stream"
+                          className="product-upload-input"
+                          type="file"
+                          onChange={(event) => setModelFile(event.target.files?.[0] ?? null)}
+                        />
+                        <IconUpload size={28} />
+                        <span>{modelFile ? modelFile.name : 'MODEL_3D'}</span>
+                      </label>
+                      <label className="product-upload-tile">
+                        <input
+                          accept="image/jpeg,image/png,image/webp,image/gif,image/svg+xml"
+                          className="product-upload-input"
+                          type="file"
+                          onChange={(event) => setTextureFile(event.target.files?.[0] ?? null)}
+                        />
                           <IconUpload size={28} />
-                          <span>Upload</span>
-                        </div>
-                      ))}
+                        <span>{textureFile ? textureFile.name : 'TEXTURE'}</span>
+                      </label>
                     </div>
-                  </label>
+                  </div>
+
+                  <p className="product-form-helper">Product versions accept PRODUCT_PREVIEW, MODEL_3D, and TEXTURE files.</p>
                 </div>
 
                 {createVersionMutation.isError ? (
                   <p className="product-form-error">{getProductServiceResultMessage(createVersionMutation.error)}</p>
+                ) : null}
+                {uploadVersionFileMutation.isError ? (
+                  <p className="product-form-error">
+                    Product version was created, but file upload failed: {getProductServiceResultMessage(uploadVersionFileMutation.error)}
+                  </p>
                 ) : null}
               </section>
 
@@ -221,8 +290,8 @@ export function CreateProductVersionPage() {
                 <button className="product-form-button product-form-button-secondary" type="button" onClick={() => navigate(`/admin/products/${effectiveProductId}/versions`)}>
                   Cancel
                 </button>
-                <button className="product-form-button product-form-button-primary" disabled={!product || createVersionMutation.isPending} type="submit">
-                  {createVersionMutation.isPending ? 'Saving...' : 'Save Version'}
+                <button className="product-form-button product-form-button-primary" disabled={!product || isSaving} type="submit">
+                  {isSaving ? 'Saving...' : 'Save Version'}
                 </button>
               </div>
             </form>
