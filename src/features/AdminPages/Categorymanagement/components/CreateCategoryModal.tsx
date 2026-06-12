@@ -4,29 +4,46 @@ import { IconCategory, IconX } from '@tabler/icons-react';
 type CreateCategoryModalProps = {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: () => void;
+  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  initialValues?: {
+    categoryName: string;
+    description: string | null;
+  };
+  isSubmitting?: boolean;
+  mode?: 'create' | 'edit';
+  errorMessage?: string | null;
 };
 
-export function CreateCategoryModal({ isOpen, onClose, onSubmit }: CreateCategoryModalProps) {
+export function CreateCategoryModal({
+  isOpen,
+  onClose,
+  onSubmit,
+  initialValues,
+  isSubmitting = false,
+  mode = 'create',
+  errorMessage,
+}: CreateCategoryModalProps) {
   if (!isOpen) {
     return null;
   }
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    onSubmit();
+    onSubmit(event);
   };
+  const title = mode === 'edit' ? 'Edit Category' : 'Create Category';
+  const submitLabel = mode === 'edit' ? 'Save Changes' : 'Create Category';
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-8">
-      <div className="w-full max-w-[520px] rounded-lg border border-[#e5e7eb] bg-white shadow-xl">
-        <div className="flex items-start justify-between gap-4 border-b border-[#e5e7eb] px-6 py-5">
+    <div className="category-modal-overlay">
+      <div className="category-modal-panel">
+        <div className="category-modal-header">
           <div>
-            <h2 className="m-0 text-lg font-semibold leading-6 text-[#1a1d29]">Create Category</h2>
-            <p className="mt-1 text-sm leading-5 text-[#6b7280]">Add a new product category to organize your furniture catalog.</p>
+            <h2>{title}</h2>
+            <p>Category status is managed by backend rules; this form only updates name and description.</p>
           </div>
           <button
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-[#6b7280] hover:bg-[#f3f4f6] hover:text-[#1a1d29]"
+            className="category-modal-icon-button"
             type="button"
             aria-label="Close create category modal"
             onClick={onClose}
@@ -35,61 +52,54 @@ export function CreateCategoryModal({ isOpen, onClose, onSubmit }: CreateCategor
           </button>
         </div>
 
-        <form className="px-6 py-5" onSubmit={handleSubmit}>
-          <div className="space-y-4">
-            <label className="block">
-              <span className="text-sm font-medium leading-5 text-[#1a1d29]">Category Name</span>
+        <form className="category-modal-form" onSubmit={handleSubmit}>
+          <div className="category-modal-fields">
+            <label className="category-modal-field">
+              <span>Category Name</span>
               <input
-                className="mt-2 h-10 w-full rounded-md border border-[#e5e7eb] bg-white px-3 text-sm text-[#1a1d29] outline-none placeholder:text-[#9ca3af] focus:border-[#d4a574] focus:ring-2 focus:ring-[#d4a57433]"
                 name="categoryName"
                 placeholder="Enter category name"
+                defaultValue={initialValues?.categoryName ?? ''}
                 type="text"
                 required
               />
             </label>
 
-            <label className="block">
-              <span className="text-sm font-medium leading-5 text-[#1a1d29]">Description</span>
+            <label className="category-modal-field">
+              <span>Description</span>
               <textarea
-                className="mt-2 min-h-[92px] w-full resize-none rounded-md border border-[#e5e7eb] bg-white px-3 py-2 text-sm text-[#1a1d29] outline-none placeholder:text-[#9ca3af] focus:border-[#d4a574] focus:ring-2 focus:ring-[#d4a57433]"
                 name="description"
                 placeholder="Describe this category"
+                defaultValue={initialValues?.description ?? ''}
               />
             </label>
 
-            <div className="grid gap-4 sm:grid-cols-2">
-              <label className="block">
-                <span className="text-sm font-medium leading-5 text-[#1a1d29]">Status</span>
-                <select
-                  className="mt-2 h-10 w-full rounded-md border border-[#e5e7eb] bg-white px-3 text-sm text-[#1a1d29] outline-none focus:border-[#d4a574] focus:ring-2 focus:ring-[#d4a57433]"
-                  name="status"
-                  defaultValue="ACTIVE"
-                >
-                  <option value="ACTIVE">ACTIVE</option>
-                  <option value="INACTIVE">INACTIVE</option>
-                </select>
-              </label>
-
-              <label className="block">
-                <span className="text-sm font-medium leading-5 text-[#1a1d29]">Icon</span>
-                <div className="mt-2 flex h-10 items-center gap-2 rounded-md border border-[#e5e7eb] bg-[#f8f9fa] px-3 text-sm text-[#6b7280]">
-                  <IconCategory size={18} />
-                  Category icon
-                </div>
-              </label>
+            <div className="category-modal-field">
+              <span>Icon</span>
+              <div className="category-modal-icon-preview">
+                <IconCategory size={18} />
+                Category icon
+              </div>
             </div>
           </div>
 
-          <div className="mt-6 flex justify-end gap-3">
+          {errorMessage ? <p className="category-modal-error">{errorMessage}</p> : null}
+
+          <div className="category-modal-actions">
             <button
-              className="h-9 rounded-md border border-[#e5e7eb] bg-white px-4 text-sm font-medium text-[#1a1d29] hover:bg-[#f3f4f6]"
+              className="category-modal-secondary"
               type="button"
               onClick={onClose}
+              disabled={isSubmitting}
             >
               Cancel
             </button>
-            <button className="h-9 rounded-md bg-[#d4a574] px-4 text-sm font-medium text-white hover:bg-[#c1905d]" type="submit">
-              Create Category
+            <button
+              className="category-modal-primary"
+              disabled={isSubmitting}
+              type="submit"
+            >
+              {isSubmitting ? 'Saving...' : submitLabel}
             </button>
           </div>
         </form>

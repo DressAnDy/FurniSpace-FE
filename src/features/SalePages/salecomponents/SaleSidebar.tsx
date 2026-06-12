@@ -6,12 +6,15 @@ import {
   IconClipboardList,
   IconFileDollar,
   IconHome,
+  IconLogout,
   IconMessage,
   IconShoppingBag,
   IconUsers,
   type Icon,
 } from '@tabler/icons-react';
-import { NavLink } from 'react-router-dom';
+import { NavLink, useNavigate } from 'react-router-dom';
+
+import { useLogout } from '@/services/queries';
 
 type SaleSidebarItem = {
   label: string;
@@ -20,7 +23,7 @@ type SaleSidebarItem = {
 };
 
 const saleSidebarItems: SaleSidebarItem[] = [
-  { label: 'Dashboard', icon: IconHome, path: '/sale/dashbroad' },
+  { label: 'Dashboard', icon: IconHome, path: '/sales/dashbroad' },
   { label: 'Project Request Queue', icon: IconHome, path: '/sales/project-requests' },
   { label: 'Assigned Projects', icon: IconBriefcase, path: '/sales/assigned-projects' },
   { label: 'Active Projects', icon: IconBox },
@@ -38,6 +41,17 @@ type SaleSidebarProps = {
 };
 
 export function SaleSidebar({ activeLabel }: SaleSidebarProps) {
+  const navigate = useNavigate();
+  const logoutMutation = useLogout();
+
+  function handleLogout() {
+    logoutMutation.mutate(undefined, {
+      onSettled: () => {
+        navigate('/login', { replace: true });
+      },
+    });
+  }
+
   return (
     <aside className="sale-sidebar flex min-h-screen w-[256px] shrink-0 flex-col bg-[#2d2d2d] text-white">
       <div className="sale-sidebar-brand mb-8 flex items-center gap-3 px-2">
@@ -52,7 +66,7 @@ export function SaleSidebar({ activeLabel }: SaleSidebarProps) {
 
       <nav className="sale-sidebar-nav flex flex-1 flex-col gap-1">
         {saleSidebarItems.map(({ label, icon: ItemIcon, path }) => {
-          const itemClass =
+          const staticItemClass =
             label === activeLabel
               ? 'sale-sidebar-item-active bg-[#c9a24d] text-[#171717] shadow-sm'
               : 'text-zinc-300 hover:bg-white/10 hover:text-white';
@@ -69,7 +83,7 @@ export function SaleSidebar({ activeLabel }: SaleSidebarProps) {
               <button
                 key={label}
                 type="button"
-                className={`sale-sidebar-item flex w-full items-center gap-3 rounded-lg px-3 py-3 text-left text-sm font-medium transition ${itemClass}`}
+                className={`sale-sidebar-item flex w-full items-center gap-3 rounded-lg px-3 py-3 text-left text-sm font-medium transition ${staticItemClass}`}
                 disabled
               >
                 {content}
@@ -81,13 +95,27 @@ export function SaleSidebar({ activeLabel }: SaleSidebarProps) {
             <NavLink
               key={label}
               to={path}
-              className={`sale-sidebar-item flex items-center gap-3 rounded-lg px-3 py-3 text-sm font-medium no-underline transition ${itemClass}`}
+              className={({ isActive }) => {
+                const itemClass =
+                  isActive || label === activeLabel
+                    ? 'sale-sidebar-item-active bg-[#c9a24d] text-[#171717] shadow-sm'
+                    : 'text-zinc-300 hover:bg-white/10 hover:text-white';
+
+                return `sale-sidebar-item flex items-center gap-3 rounded-lg px-3 py-3 text-sm font-medium no-underline transition ${itemClass}`;
+              }}
             >
               {content}
             </NavLink>
           );
         })}
       </nav>
+
+      <div className="sale-sidebar-footer">
+        <button className="sale-sidebar-logout" type="button" onClick={handleLogout} disabled={logoutMutation.isPending}>
+          <IconLogout size={18} />
+          <span>{logoutMutation.isPending ? 'Logging out...' : 'Logout'}</span>
+        </button>
+      </div>
     </aside>
   );
 }

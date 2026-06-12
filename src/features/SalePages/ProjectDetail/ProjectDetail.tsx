@@ -1,5 +1,6 @@
-import { useMemo, useState } from 'react';
-import { Navigate, useParams } from 'react-router-dom';
+import { IconArrowLeft } from '@tabler/icons-react';
+import { useEffect, useMemo, useState } from 'react';
+import { Navigate, useLocation, useNavigate, useParams } from 'react-router-dom';
 
 import { ProjectStatusBadge, ProjectTimeline, SaleNavbar, SaleSidebar } from '@/features/SalePages/salecomponents';
 
@@ -66,13 +67,14 @@ export type ProjectDetailProject = {
   }>;
 };
 
-const tabs: Array<{ id: ProjectDetailTab; label: string }> = [
+const baseTabs: Array<{ id: ProjectDetailTab; label: string }> = [
   { id: 'overview', label: 'Overview' },
   { id: 'customer', label: 'Customer Info' },
   { id: 'files', label: 'Files & Attachments' },
   { id: 'chat', label: 'Chat' },
-  { id: 'schedules', label: 'Schedules' },
 ];
+
+const assignedProjectTabs: Array<{ id: ProjectDetailTab; label: string }> = [...baseTabs, { id: 'schedules', label: 'Schedules' }];
 
 const timelineSteps = [
   'Submitted',
@@ -191,8 +193,21 @@ const projects: ProjectDetailProject[] = [
 
 export function ProjectDetail() {
   const { projectId } = useParams();
+  const location = useLocation();
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<ProjectDetailTab>('overview');
   const project = useMemo(() => projects.find((item) => item.id === projectId) ?? projects[0], [projectId]);
+  const isAssignedProjectRoute = location.pathname.startsWith('/sales/assigned-projects');
+  const activeSidebarLabel = isAssignedProjectRoute ? 'Assigned Projects' : 'Project Request Queue';
+  const visibleTabs = isAssignedProjectRoute ? assignedProjectTabs : baseTabs;
+  const backPath = isAssignedProjectRoute ? '/sales/assigned-projects' : '/sales/project-requests';
+  const backLabel = isAssignedProjectRoute ? 'Back to Assigned Projects' : 'Back to Project Request Queue';
+
+  useEffect(() => {
+    if (!isAssignedProjectRoute && activeTab === 'schedules') {
+      setActiveTab('overview');
+    }
+  }, [activeTab, isAssignedProjectRoute]);
 
   if (!project) {
     return <Navigate to="/sales/project-requests" replace />;
@@ -202,18 +217,22 @@ export function ProjectDetail() {
     if (activeTab === 'overview') return <OverviewTab project={project} />;
     if (activeTab === 'customer') return <CustomerInfoTab project={project} />;
     if (activeTab === 'files') return <FilesAttachmentsTab project={project} />;
-    if (activeTab === 'chat') return <ChatTab project={project} />;
-    return <SchedulesTab project={project} />;
+    if (activeTab === 'schedules' && isAssignedProjectRoute) return <SchedulesTab project={project} />;
+    return <ChatTab project={project} />;
   };
 
   return (
     <div className="project-detail-shell">
-      <SaleSidebar activeLabel="Project Request Queue" />
+      <SaleSidebar activeLabel={activeSidebarLabel} />
       <div className="project-detail-content">
         <SaleNavbar />
         <main className="project-detail-main">
           <section className="project-detail-header">
             <div>
+              <button className="project-detail-back-button" type="button" onClick={() => navigate(backPath)}>
+                <IconArrowLeft size={18} />
+                <span>{backLabel}</span>
+              </button>
               <div className="project-detail-title-row">
                 <h2>{project.projectName}</h2>
                 <ProjectStatusBadge status={project.status} />
@@ -236,7 +255,7 @@ export function ProjectDetail() {
 
           <section className="project-detail-tabs-section">
             <div className="project-detail-tabs">
-              {tabs.map((tab) => (
+              {visibleTabs.map((tab) => (
                 <button key={tab.id} className={activeTab === tab.id ? 'project-detail-tab-active' : ''} type="button" onClick={() => setActiveTab(tab.id)}>
                   {tab.label}
                 </button>

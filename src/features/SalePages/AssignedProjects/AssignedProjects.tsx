@@ -167,7 +167,7 @@ export function AssignedProjects() {
                       </td>
                       <td>{project.assignedSales}</td>
                       <td>
-                        <button type="button" onClick={() => navigate(`/sales/project-requests/${project.id}`)}>
+                        <button type="button" onClick={() => navigate(`/sales/assigned-projects/${project.id}`)}>
                           <IconEye size={16} />
                           View
                         </button>
