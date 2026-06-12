@@ -16,11 +16,10 @@ import detailGallery5Url from '@/assets/product-detail/gallery-5.png';
 import detailGallery6Url from '@/assets/product-detail/gallery-6.png';
 import detailHeroUrl from '@/assets/product-detail/hero.png';
 import terraSalonUrl from '@/assets/project-list/terra-salon.png';
+import { MainNavbar } from '@/features/MainPages/maincomponents';
 import { SiteFooter } from '@/shared/components';
 
 import './ProjectDetailPage.css';
-
-const navigation = ['Trang chủ', 'Về chúng tôi', 'Dự án', 'Dịch vụ'];
 
 const projectFacts = [
   { label: 'Quy mô', value: '1 Trệt' },
@@ -75,7 +74,7 @@ const latestProjects = Array.from({ length: 3 }, (_, index) => ({
 export function ProjectDetailPage() {
   return (
     <main className="project-detail-page">
-      <Header />
+      <MainNavbar activePath="/projects" classPrefix="project-detail" />
 
       <section className="project-detail-hero" aria-label="Terra Beauty Centre">
         <img src={detailHeroUrl} alt="" />
@@ -157,29 +156,6 @@ export function ProjectDetailPage() {
 
       <SiteFooter />
     </main>
-  );
-}
-
-function Header() {
-  return (
-    <header className="project-detail-header">
-      <a className="project-detail-brand" href="/">
-        <span className="project-detail-brand-mark">F</span>
-        <span className="project-detail-brand-divider" />
-        <span>FurniSpace</span>
-      </a>
-
-      <nav className="project-detail-nav" aria-label="Điều hướng chính">
-        {navigation.map((item) => (
-          <a key={item} href={`#${item}`}>
-            {item}
-          </a>
-        ))}
-        <a className="project-detail-nav-active" href="#thiet-ke-3d">
-          Thiết kế 3D
-        </a>
-      </nav>
-    </header>
   );
 }
 

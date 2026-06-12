@@ -1,30 +1,16 @@
 import {
   IconArrowRight,
-  IconBox,
   IconCheck,
   IconClipboardText,
-  IconFileText,
   IconHelp,
-  IconHome,
   IconMessageCircle,
-  IconPlus,
-  IconReceipt,
-  IconSparkles,
 } from '@tabler/icons-react';
+import { useNavigate } from 'react-router-dom';
 
 import warmScandinavianUrl from '@/assets/customer-dashboard/warm-scandinavian.png';
-import { CustomerUserSummary } from '@/shared/components/CustomerUserSummary';
+import { CustomerNavbar } from '@/features/CustomerPages/customercomponents';
 
 import './CustomerDashboardPage.css';
-
-const navigation = [
-  { icon: <IconHome size={15} stroke={1.8} />, label: 'My Projects' },
-  { icon: <IconFileText size={15} stroke={1.8} />, label: 'Design Proposals' },
-  { icon: <IconSparkles size={15} stroke={1.8} />, label: '2D/3D Review' },
-  { icon: <IconReceipt size={15} stroke={1.8} />, label: 'Quotations' },
-  { icon: <IconMessageCircle size={15} stroke={1.8} />, label: 'Project Chat' },
-  { icon: <IconBox size={15} stroke={1.8} />, label: 'Handover' },
-];
 
 const journeySteps = [
   { label: 'Request Submitted', status: 'complete' },
@@ -41,6 +27,7 @@ const quickActions = [
     badge: '2 New',
     description: '2 new proposals are waiting for your review',
     icon: <IconClipboardText size={22} stroke={1.7} />,
+    path: '/customer/proposals',
     tone: 'gold',
     title: 'Review Design Proposals',
   },
@@ -48,12 +35,14 @@ const quickActions = [
     badge: '1 Unread',
     description: 'Message from designer about your café project',
     icon: <IconMessageCircle size={22} stroke={1.7} />,
+    path: '/customer/projects',
     tone: 'stone',
     title: 'Project Chat',
   },
   {
     description: 'Share your thoughts on the Scandinavian concept',
     icon: <IconHelp size={22} stroke={1.7} />,
+    path: '/customer/proposals',
     tone: 'mint',
     title: 'Submit Feedback',
   },
@@ -91,9 +80,11 @@ const reviewItems = [
 ];
 
 export function CustomerDashboardPage() {
+  const navigate = useNavigate();
+
   return (
     <main className="customer-dashboard-page">
-      <TopNavigation />
+      <CustomerNavbar activeLabel="Home" classPrefix="customer-dashboard" />
 
       <div className="customer-dashboard-main">
         <section className="customer-dashboard-welcome">
@@ -110,7 +101,7 @@ export function CustomerDashboardPage() {
               </div>
               <p>Track progress and take next steps</p>
             </div>
-            <button type="button">
+            <button type="button" onClick={() => navigate('/customer/projects')}>
               Open Project
               <IconArrowRight size={16} stroke={1.8} />
             </button>
@@ -149,7 +140,7 @@ export function CustomerDashboardPage() {
               <strong>Action Required: Review Design Proposals</strong>
               <p>Your designer has published 2 new design proposals. Please review and provide feedback.</p>
             </div>
-            <button type="button">Review Now</button>
+            <button type="button" onClick={() => navigate('/customer/proposals')}>Review Now</button>
           </div>
         </section>
 
@@ -164,7 +155,7 @@ export function CustomerDashboardPage() {
                 {action.badge ? <span>{action.badge}</span> : null}
                 <h3>{action.title}</h3>
                 <p>{action.description}</p>
-                <button type="button">
+                <button type="button" onClick={() => navigate(action.path)}>
                   Take Action
                   <IconArrowRight size={14} stroke={1.8} />
                 </button>
@@ -213,43 +204,13 @@ export function CustomerDashboardPage() {
             <h2>Need Help?</h2>
             <p>Our team is here to assist you throughout your interior design journey.</p>
             <div>
-              <button type="button">Contact Your Team</button>
-              <button type="button">View Help Center</button>
+              <button type="button" onClick={() => navigate('/customer/projects')}>Contact Your Team</button>
+              <button type="button" onClick={() => navigate('/customer/dashboard')}>View Help Center</button>
             </div>
           </div>
         </section>
       </div>
     </main>
-  );
-}
-
-function TopNavigation() {
-  return (
-    <header className="customer-dashboard-topnav">
-      <a className="customer-dashboard-logo" href="/">
-        <span>
-          <IconBox size={19} stroke={1.8} />
-        </span>
-        <strong>FurniSpace</strong>
-      </a>
-
-      <nav aria-label="Customer navigation">
-        {navigation.map((item) => (
-          <a href={`#${item.label}`} key={item.label}>
-            {item.icon}
-            <span>{item.label}</span>
-          </a>
-        ))}
-      </nav>
-
-      <div className="customer-dashboard-userbar">
-        <button className="customer-dashboard-create" type="button">
-          <IconPlus size={15} stroke={2} />
-          Create Project Request
-        </button>
-        <CustomerUserSummary classPrefix="customer-dashboard" />
-      </div>
-    </header>
   );
 }
 
@@ -259,11 +220,13 @@ type DashboardPanelProps = {
 };
 
 function DashboardPanel({ children, title }: DashboardPanelProps) {
+  const href = title === 'Pending Your Review' ? '/customer/proposals' : '/customer/projects';
+
   return (
     <section className="customer-dashboard-panel">
       <div className="customer-dashboard-panel-head">
         <h2>{title}</h2>
-        <a href={`#${title}`}>View All</a>
+        <a href={href}>View All</a>
       </div>
       {children}
     </section>

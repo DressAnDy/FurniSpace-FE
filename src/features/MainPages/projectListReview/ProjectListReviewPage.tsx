@@ -1,9 +1,8 @@
 import terraSalonUrl from '@/assets/project-list/terra-salon.png';
+import { MainNavbar } from '@/features/MainPages/maincomponents';
 import { SiteFooter } from '@/shared/components';
 
 import './ProjectListReviewPage.css';
-
-const navigation = ['Trang chủ', 'Về chúng tôi', 'Dự án', 'Dịch vụ'];
 
 const categories = [
   'Khách sạn - Homestay',
@@ -35,7 +34,7 @@ const latestProjects = Array.from({ length: 3 }, (_, index) => ({
 export function ProjectListReviewPage() {
   return (
     <main className="project-review-page">
-      <Header />
+      <MainNavbar activePath="/projects" classPrefix="project-review" />
 
       <section className="project-review-shell">
         <aside className="project-review-filter" aria-label="Bộ lọc dự án">
@@ -81,29 +80,6 @@ export function ProjectListReviewPage() {
 
       <SiteFooter />
     </main>
-  );
-}
-
-function Header() {
-  return (
-    <header className="project-review-header">
-      <div className="project-review-brand">
-        <span className="project-review-brand-mark">F</span>
-        <span className="project-review-brand-divider" />
-        <span>FurniSpace</span>
-      </div>
-
-      <nav className="project-review-nav">
-        {navigation.map((item) => (
-          <a key={item} href={`#${item}`}>
-            {item}
-          </a>
-        ))}
-        <a className="project-review-nav-active" href="#thiet-ke-3d">
-          Thiết kế 3D
-        </a>
-      </nav>
-    </header>
   );
 }
 

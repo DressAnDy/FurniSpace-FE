@@ -72,7 +72,7 @@ export function CodeVerifyPage() {
         onSuccess: (result) => {
           sessionStorage.removeItem(AUTH_PENDING_EMAIL_KEY);
           setMessage(result.message);
-          navigate('/customer-dashboard');
+          navigate('/customer/dashboard');
         },
       },
     );

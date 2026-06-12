@@ -1,5 +1,6 @@
 import { IconPhone, IconShieldCheck } from '@tabler/icons-react';
 
+import { MainNavbar } from '@/features/MainPages/maincomponents';
 import { SiteFooter } from '@/shared/components';
 
 import './HomePage.css';
@@ -8,8 +9,6 @@ const introImage =
   'https://www.figma.com/api/mcp/asset/12205344-8b4b-44ed-ba40-3a6cfea787d5';
 const roomImage =
   'https://www.figma.com/api/mcp/asset/75893e0c-95a8-4696-89f9-c2f053ee2334';
-
-const navigation = ['Trang chủ', 'Về chúng tôi', 'Dự án', 'Dịch vụ'];
 
 const filters = ['Loại Hình', 'Phong Cách', 'Concept Dụng Thần'];
 
@@ -41,25 +40,15 @@ const commitments = [
 export function HomePage() {
   return (
     <main className="home-page">
-      <header className="home-header">
-        <div className="home-brand">
-          <span className="home-brand-mark" />
-          <span className="home-brand-divider" />
-          <span className="home-brand-name">FURNISPACE</span>
-        </div>
-
-        <nav className="home-nav">
-          {navigation.map((item) => (
-            <a key={item} href={`#${item}`} className="home-nav-link">
-              {item}
-            </a>
-          ))}
-          <a href="#thiet-ke-3d" className="home-nav-link home-nav-link-active">
-            Thiết kế 3D
-          </a>
-        </nav>
-      </header>
-
+      <MainNavbar
+        activePath="/"
+        activeClassName="home-nav-link-active"
+        brandLabel="FURNISPACE"
+        brandMarkLabel=""
+        brandNameClassName="home-brand-name"
+        classPrefix="home"
+        linkClassName="home-nav-link"
+      />
       <section className="home-hero section-container">
         <div className="home-hero-copy">
           <div className="home-kicker">

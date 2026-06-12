@@ -68,6 +68,11 @@
   background: #f5f3ef;
 }
 
+.customer-dashboard-topnav nav a.customer-dashboard-nav-active {
+  background: rgba(201, 161, 59, 0.12);
+  color: #9a6b13;
+}
+
 .customer-dashboard-userbar {
   display: flex;
   align-items: center;

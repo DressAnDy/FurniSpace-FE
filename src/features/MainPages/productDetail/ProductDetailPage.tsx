@@ -14,11 +14,10 @@ import tableAngleUrl from '@/assets/product-detail-shop/table-angle.png';
 import tableCloseupUrl from '@/assets/product-detail-shop/table-closeup.png';
 import tableMainUrl from '@/assets/product-detail-shop/table-main.png';
 import tableRoomUrl from '@/assets/product-detail-shop/table-room.png';
+import { MainNavbar } from '@/features/MainPages/maincomponents';
 import { SiteFooter } from '@/shared/components';
 
 import './ProductDetailPage.css';
-
-const navigation = ['Trang chủ', 'Về chúng tôi', 'Dự án', 'Dịch vụ'];
 
 const options = [
   {
@@ -47,7 +46,7 @@ const accordions = [
 export function ProductDetailPage() {
   return (
     <main className="product-detail-page">
-      <Header />
+      <MainNavbar activePath="/products" classPrefix="product-detail" />
 
       <section className="product-detail-shell">
         <div className="product-detail-gallery">
@@ -142,25 +141,3 @@ export function ProductDetailPage() {
   );
 }
 
-function Header() {
-  return (
-    <header className="product-detail-header">
-      <a className="product-detail-brand" href="/">
-        <span className="product-detail-brand-mark">F</span>
-        <span className="product-detail-brand-divider" />
-        <span>FurniSpace</span>
-      </a>
-
-      <nav className="product-detail-nav" aria-label="Điều hướng chính">
-        {navigation.map((item) => (
-          <a key={item} href={`#${item}`}>
-            {item}
-          </a>
-        ))}
-        <a className="product-detail-nav-active" href="#thiet-ke-3d">
-          Thiết kế 3D
-        </a>
-      </nav>
-    </header>
-  );
-}
