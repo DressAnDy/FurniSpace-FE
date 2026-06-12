@@ -3,43 +3,31 @@ import {
   IconChevronRight,
   IconCircleCheck,
   IconCircleX,
-  IconFileText,
   IconHome,
-  IconMessageCircle,
   IconMessageDots,
-  IconPlus,
-  IconReceipt,
   IconRefresh,
-  IconSparkles,
 } from '@tabler/icons-react';
+import { useNavigate } from 'react-router-dom';
 
 import './CustomerProposalDetailPage.css';
-import { CustomerUserSummary } from '@/shared/components/CustomerUserSummary';
-
-const navigation = [
-  { icon: <IconHome size={15} stroke={1.8} />, label: 'Home' },
-  { icon: <IconFileText size={15} stroke={1.8} />, label: 'My Projects' },
-  { active: true, icon: <IconFileText size={15} stroke={1.8} />, label: 'Design Proposals' },
-  { icon: <IconSparkles size={15} stroke={1.8} />, label: '2D/3D Review' },
-  { icon: <IconReceipt size={15} stroke={1.8} />, label: 'Quotations' },
-  { icon: <IconMessageCircle size={15} stroke={1.8} />, label: 'Project Chat' },
-  { icon: <IconBox size={15} stroke={1.8} />, label: 'Handover' },
-];
+import { CustomerNavbar } from '@/features/CustomerPages/customercomponents';
 
 const tableHeaders = ['Item Name', 'Type', 'Dimensions', 'Material', 'Qty', 'Unit Price', 'Total'];
 
 export function CustomerProposalDetailPage() {
+  const navigate = useNavigate();
+
   return (
     <main className="customer-proposal-detail-page">
-      <TopNavigation />
+      <CustomerNavbar activeLabel="Design Proposals" classPrefix="customer-proposal-detail" />
 
       <div className="customer-proposal-detail-main">
         <nav className="customer-proposal-detail-breadcrumb" aria-label="Breadcrumb">
-          <a href="/">
+          <a href="/customer/dashboard">
             <IconHome size={16} stroke={1.8} />
           </a>
           <IconChevronRight size={16} stroke={1.8} />
-          <a href="/customer-dashboard">Design Proposals</a>
+          <a href="/customer/proposals">Design Proposals</a>
           <IconChevronRight size={16} stroke={1.8} />
           <span>Industrial Modern Concept</span>
         </nav>
@@ -62,7 +50,7 @@ export function CustomerProposalDetailPage() {
               <span className="customer-proposal-detail-status">Published</span>
               <p>3 Scenes • 24 Items</p>
             </div>
-            <button type="button">
+            <button type="button" onClick={() => navigate('/customer/3d-preview')}>
               <IconBox size={20} stroke={1.8} />
               Open 2D/3D Review
             </button>
@@ -80,7 +68,7 @@ export function CustomerProposalDetailPage() {
 
         <section className="customer-proposal-detail-card customer-proposal-detail-row-card">
           <h2>3D Scenes (0)</h2>
-          <a href="/viewer3d">
+          <a href="/customer/3d-preview">
             View All in 2D/3D Viewer
             <IconChevronRight size={16} stroke={1.8} />
           </a>
@@ -131,36 +119,3 @@ export function CustomerProposalDetailPage() {
   );
 }
 
-function TopNavigation() {
-  return (
-    <header className="customer-proposal-detail-topnav">
-      <a className="customer-proposal-detail-logo" href="/">
-        <span>
-          <IconBox size={19} stroke={1.8} />
-        </span>
-        <strong>FurniSpace</strong>
-      </a>
-
-      <nav aria-label="Customer navigation">
-        {navigation.map((item) => (
-          <a
-            className={item.active ? 'customer-proposal-detail-nav-active' : undefined}
-            href={`#${item.label}`}
-            key={item.label}
-          >
-            {item.icon}
-            <span>{item.label}</span>
-          </a>
-        ))}
-      </nav>
-
-      <div className="customer-proposal-detail-userbar">
-        <button className="customer-proposal-detail-create" type="button">
-          <IconPlus size={15} stroke={2} />
-          Create Project Request
-        </button>
-        <CustomerUserSummary classPrefix="customer-proposal-detail" />
-      </div>
-    </header>
-  );
-}

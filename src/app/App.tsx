@@ -5,20 +5,20 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { queryClient } from '@/app/providers/queryClient';
 import { theme } from '@/app/providers/theme';
 import { CodeVerifyPage, LoginPage, RegisterPage } from '@/features/auth';
-import { Customer3dPreviewPage } from '@/features/customer3dPreview';
-import { CustomerDashboardPage } from '@/features/customerDashboard';
-import { CustomerProjectListPage } from '@/features/customerProjectList';
-import { CustomerProjectRequestPage } from '@/features/customerProjectRequest';
-import { CustomerProposalDetailPage } from '@/features/customerProposalDetail';
 import { AdminDashbroad } from '@/features/AdminPages/AdminDashbroad';
 import { Categorymanagement } from '@/features/AdminPages/Categorymanagement';
 import { CreateProductPage, CreateProductVersionPage, Productmanagement, ProductVersionManagement } from '@/features/AdminPages/Productmanagement';
 import { UserManagement } from '@/features/AdminPages/UserManagement';
-import { HomePage } from '@/features/home';
-import { ProductDetailPage } from '@/features/productDetail';
-import { ProductListPreviewPage } from '@/features/productListPreview';
-import { ProjectDetailPage } from '@/features/projectDetail';
-import { ProjectListReviewPage } from '@/features/projectListReview';
+import { Customer3dPreviewPage } from '@/features/CustomerPages/customer3dPreview';
+import { CustomerDashboardPage } from '@/features/CustomerPages/customerDashboard';
+import { CustomerProjectListPage } from '@/features/CustomerPages/customerProjectList';
+import { CustomerProjectRequestPage } from '@/features/CustomerPages/customerProjectRequest';
+import { CustomerProposalDetailPage } from '@/features/CustomerPages/customerProposalDetail';
+import { HomePage } from '@/features/MainPages/home';
+import { ProductDetailPage } from '@/features/MainPages/productDetail';
+import { ProductListPreviewPage } from '@/features/MainPages/productListPreview';
+import { ProjectDetailPage } from '@/features/MainPages/projectDetail';
+import { ProjectListReviewPage } from '@/features/MainPages/projectListReview';
 import { ProjectDetail } from '@/features/SalePages/ProjectDetail';
 import { ProjectRequestQueue } from '@/features/SalePages/ProjectRequestQueue';
 import { AssignedProjects } from '@/features/SalePages/AssignedProjects';
@@ -36,18 +36,29 @@ export default function App() {
           <Routes>
             <Route path="/" element={<HomePage />} />
             <Route path="/code-verify" element={<CodeVerifyPage />} />
-            <Route path="/customer-dashboard" element={<CustomerDashboardPage />} />
-            <Route path="/customer-3d-preview" element={<Customer3dPreviewPage />} />
-            <Route path="/customer-projects" element={<CustomerProjectListPage />} />
-            <Route path="/customer-project-request" element={<CustomerProjectRequestPage />} />
-            <Route path="/customer-proposal-detail" element={<CustomerProposalDetailPage />} />
             <Route path="/login" element={<LoginPage />} />
             <Route path="/register" element={<RegisterPage />} />
-            <Route path="/product-detail" element={<ProductDetailPage />} />
-            <Route path="/product-list-preview" element={<ProductListPreviewPage />} />
-            <Route path="/project-detail" element={<ProjectDetailPage />} />
-            <Route path="/project-list-review" element={<ProjectListReviewPage />} />
+            <Route path="/products" element={<ProductListPreviewPage />} />
+            <Route path="/products/detail" element={<ProductDetailPage />} />
+            <Route path="/projects" element={<ProjectListReviewPage />} />
+            <Route path="/projects/detail" element={<ProjectDetailPage />} />
+            <Route path="/product-detail" element={<Navigate to="/products/detail" replace />} />
+            <Route path="/product-list-preview" element={<Navigate to="/products" replace />} />
+            <Route path="/project-detail" element={<Navigate to="/projects/detail" replace />} />
+            <Route path="/project-list-review" element={<Navigate to="/projects" replace />} />
             <Route path="/viewer3d" element={<ViewerDemoPage />} />
+
+            <Route path="/customer" element={<Navigate to="/customer/dashboard" replace />} />
+            <Route path="/customer/dashboard" element={<CustomerDashboardPage />} />
+            <Route path="/customer/projects" element={<CustomerProjectListPage />} />
+            <Route path="/customer/project-request" element={<CustomerProjectRequestPage />} />
+            <Route path="/customer/proposals" element={<CustomerProposalDetailPage />} />
+            <Route path="/customer/3d-preview" element={<Customer3dPreviewPage />} />
+            <Route path="/customer-dashboard" element={<Navigate to="/customer/dashboard" replace />} />
+            <Route path="/customer-3d-preview" element={<Navigate to="/customer/3d-preview" replace />} />
+            <Route path="/customer-projects" element={<Navigate to="/customer/projects" replace />} />
+            <Route path="/customer-project-request" element={<Navigate to="/customer/project-request" replace />} />
+            <Route path="/customer-proposal-detail" element={<Navigate to="/customer/proposals" replace />} />
             
             <Route path="/admin" element={<Navigate to="/admin/dashbroad" replace />} />
             <Route path="/admin/dashbroad" element={<AdminDashbroad />} />

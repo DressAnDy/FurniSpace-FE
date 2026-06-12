@@ -12,11 +12,10 @@ import categoryTablesUrl from '@/assets/product-list/category-tables.png';
 import diningTableUrl from '@/assets/product-list/dining-table.png';
 import sofaUrl from '@/assets/product-list/sofa.png';
 import tableUrl from '@/assets/product-list/table.png';
+import { MainNavbar } from '@/features/MainPages/maincomponents';
 import { SiteFooter } from '@/shared/components';
 
 import './ProductListPreviewPage.css';
-
-const navigation = ['Trang chủ', 'Về chúng tôi', 'Dự án', 'Dịch vụ'];
 
 const categories = [
   { imageUrl: categoryNewArrivalsUrl, title: 'New arrivals' },
@@ -92,7 +91,7 @@ const products = [
 export function ProductListPreviewPage() {
   return (
     <main className="product-list-preview-page">
-      <Header />
+      <MainNavbar activePath="/products" classPrefix="product-list-preview" />
 
       <section className="product-list-preview-hero">
         <div className="product-list-preview-copy">
@@ -185,25 +184,3 @@ function ProductCard({ badge, imageUrl, material, price, swatches, title }: Prod
   );
 }
 
-function Header() {
-  return (
-    <header className="product-list-preview-header">
-      <a className="product-list-preview-brand" href="/">
-        <span className="product-list-preview-brand-mark">F</span>
-        <span className="product-list-preview-brand-divider" />
-        <span>FurniSpace</span>
-      </a>
-
-      <nav className="product-list-preview-nav" aria-label="Điều hướng chính">
-        {navigation.map((item) => (
-          <a key={item} href={`#${item}`}>
-            {item}
-          </a>
-        ))}
-        <a className="product-list-preview-nav-active" href="#thiet-ke-3d">
-          Thiết kế 3D
-        </a>
-      </nav>
-    </header>
-  );
-}

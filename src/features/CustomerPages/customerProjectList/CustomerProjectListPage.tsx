@@ -1,6 +1,5 @@
 import {
   IconArrowRight,
-  IconBox,
   IconCalendar,
   IconChevronRight,
   IconCurrencyDollar,
@@ -8,26 +7,13 @@ import {
   IconFilter,
   IconHome,
   IconMapPin,
-  IconMessageCircle,
-  IconPlus,
-  IconReceipt,
   IconSearch,
-  IconSparkles,
   IconUsers,
 } from '@tabler/icons-react';
+import { useNavigate } from 'react-router-dom';
 
 import './CustomerProjectListPage.css';
-import { CustomerUserSummary } from '@/shared/components/CustomerUserSummary';
-
-const navigation = [
-  { icon: <IconHome size={15} stroke={1.8} />, label: 'Home' },
-  { active: true, icon: <IconFileText size={15} stroke={1.8} />, label: 'My Projects' },
-  { icon: <IconFileText size={15} stroke={1.8} />, label: 'Design Proposals' },
-  { icon: <IconSparkles size={15} stroke={1.8} />, label: '2D/3D Review' },
-  { icon: <IconReceipt size={15} stroke={1.8} />, label: 'Quotations' },
-  { icon: <IconMessageCircle size={15} stroke={1.8} />, label: 'Project Chat' },
-  { icon: <IconBox size={15} stroke={1.8} />, label: 'Handover' },
-];
+import { CustomerNavbar } from '@/features/CustomerPages/customercomponents';
 
 const projects = [
   {
@@ -72,13 +58,15 @@ const projects = [
 ];
 
 export function CustomerProjectListPage() {
+  const navigate = useNavigate();
+
   return (
     <main className="customer-project-list-page">
-      <TopNavigation />
+      <CustomerNavbar activeLabel="My Projects" classPrefix="customer-project-list" />
 
       <div className="customer-project-list-main">
         <div className="customer-project-list-breadcrumb">
-          <a href="/">
+          <a href="/customer/dashboard">
             <IconHome size={16} stroke={1.8} />
           </a>
           <IconChevronRight size={16} stroke={1.8} />
@@ -90,7 +78,7 @@ export function CustomerProjectListPage() {
             <h1>My Projects</h1>
             <p>View and manage all your interior design projects</p>
           </div>
-          <button type="button">Create New Project</button>
+          <button type="button" onClick={() => navigate('/customer/project-request')}>Create New Project</button>
         </section>
 
         <section className="customer-project-list-filters" aria-label="Project filters">
@@ -170,6 +158,8 @@ function ProjectCard({
   title,
   type,
 }: ProjectCardProps) {
+  const navigate = useNavigate();
+
   return (
     <article className="customer-project-list-card">
       <div className="customer-project-list-card-cover">
@@ -219,7 +209,7 @@ function ProjectCard({
           <strong>Customer Review</strong>
         </div>
 
-        <button type="button">
+        <button type="button" onClick={() => navigate('/customer/proposals')}>
           Open Project
           <IconArrowRight size={16} stroke={1.8} />
         </button>
@@ -228,32 +218,3 @@ function ProjectCard({
   );
 }
 
-function TopNavigation() {
-  return (
-    <header className="customer-project-list-topnav">
-      <a className="customer-project-list-logo" href="/">
-        <span>
-          <IconBox size={19} stroke={1.8} />
-        </span>
-        <strong>FurniSpace</strong>
-      </a>
-
-      <nav aria-label="Customer navigation">
-        {navigation.map((item) => (
-          <a className={item.active ? 'customer-project-list-nav-active' : undefined} href={`#${item.label}`} key={item.label}>
-            {item.icon}
-            <span>{item.label}</span>
-          </a>
-        ))}
-      </nav>
-
-      <div className="customer-project-list-userbar">
-        <button className="customer-project-list-create" type="button">
-          <IconPlus size={15} stroke={2} />
-          Create Project Request
-        </button>
-        <CustomerUserSummary classPrefix="customer-project-list" />
-      </div>
-    </header>
-  );
-}

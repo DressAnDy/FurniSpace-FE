@@ -1,38 +1,21 @@
 import {
   IconArrowsMove,
-  IconBox,
   IconChevronLeft,
   IconChevronRight,
   IconCircleCheck,
   IconCube,
   IconEye,
-  IconFileText,
   IconGridDots,
-  IconHome,
   IconLayoutDashboard,
   IconMaximize,
-  IconMessageCircle,
   IconMessageDots,
-  IconPlus,
-  IconReceipt,
   IconRotateClockwise,
-  IconSparkles,
   IconZoomIn,
   IconZoomOut,
 } from '@tabler/icons-react';
 
 import './Customer3dPreviewPage.css';
-import { CustomerUserSummary } from '@/shared/components/CustomerUserSummary';
-
-const navigation = [
-  { icon: <IconHome size={15} stroke={1.8} />, label: 'Home' },
-  { icon: <IconFileText size={15} stroke={1.8} />, label: 'My Projects' },
-  { active: true, icon: <IconFileText size={15} stroke={1.8} />, label: 'Design Proposals' },
-  { icon: <IconSparkles size={15} stroke={1.8} />, label: '2D/3D Review' },
-  { icon: <IconReceipt size={15} stroke={1.8} />, label: 'Quotations' },
-  { icon: <IconMessageCircle size={15} stroke={1.8} />, label: 'Project Chat' },
-  { icon: <IconBox size={15} stroke={1.8} />, label: 'Handover' },
-];
+import { CustomerNavbar } from '@/features/CustomerPages/customercomponents';
 
 const sceneItems = [
   {
@@ -61,12 +44,12 @@ const viewerTools = [
 export function Customer3dPreviewPage() {
   return (
     <main className="customer-3d-preview-page">
-      <TopNavigation />
+      <CustomerNavbar activeLabel="2D/3D Review" classPrefix="customer-3d-preview" />
 
       <section className="customer-3d-preview-viewer" aria-label="Customer 3D preview">
         <div className="customer-3d-preview-toolbar">
           <div className="customer-3d-preview-titlebar">
-            <a href="/customer-proposal-detail" aria-label="Back to proposal detail">
+            <a href="/customer/proposals" aria-label="Back to proposal detail">
               <IconChevronLeft size={20} stroke={1.8} />
             </a>
             <span />
@@ -177,32 +160,3 @@ function PanelHeader({ title }: { title: string }) {
   );
 }
 
-function TopNavigation() {
-  return (
-    <header className="customer-3d-preview-topnav">
-      <a className="customer-3d-preview-logo" href="/">
-        <span>
-          <IconBox size={19} stroke={1.8} />
-        </span>
-        <strong>FurniSpace</strong>
-      </a>
-
-      <nav aria-label="Customer navigation">
-        {navigation.map((item) => (
-          <a className={item.active ? 'customer-3d-preview-nav-active' : undefined} href={`#${item.label}`} key={item.label}>
-            {item.icon}
-            <span>{item.label}</span>
-          </a>
-        ))}
-      </nav>
-
-      <div className="customer-3d-preview-userbar">
-        <button className="customer-3d-preview-create" type="button">
-          <IconPlus size={15} stroke={2} />
-          Create Project Request
-        </button>
-        <CustomerUserSummary classPrefix="customer-3d-preview" />
-      </div>
-    </header>
-  );
-}
