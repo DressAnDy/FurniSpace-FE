@@ -288,6 +288,16 @@
   margin-top: 24px;
 }
 
+.customer-project-list-state {
+  grid-column: 1 / -1;
+  margin: 0;
+  border: 1px solid #d9d4cc;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #78716c;
+  padding: 24px;
+}
+
 .customer-project-list-card {
   overflow: hidden;
   border: 1px solid #d9d4cc;

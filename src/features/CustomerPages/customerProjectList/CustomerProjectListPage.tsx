@@ -9,55 +9,37 @@ import {
   IconSearch,
   IconUsers,
 } from '@tabler/icons-react';
+import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 import './CustomerProjectListPage.css';
 import { CustomerNavbar } from '@/features/CustomerPages/customercomponents';
-
-const projects = [
-  {
-    area: '120 sqm',
-    budget: '$45.000 - $65.000',
-    code: 'PRJ-2026-001',
-    designer: 'Michael Torres',
-    location: '123 Downtown Avenue, Central Distr',
-    sales: 'Sarah Chen',
-    status: 'Awaiting Your Review',
-    statusTone: 'gold',
-    target: '15/8/2026',
-    title: 'Brew & Bean Café Interior',
-    type: 'Café',
-  },
-  {
-    area: '200 sqm',
-    budget: '$80.000 - $120.000',
-    code: 'PRJ-2026-002',
-    designer: 'Elena Martinez',
-    location: '456 Fashion District, Uptown M',
-    sales: 'James Wilson',
-    status: 'Proposal Selected',
-    statusTone: 'green',
-    target: '30/9/2026',
-    title: 'Luxe Fashion Showroom',
-    type: 'Fashion Retail',
-  },
-  {
-    area: '350 sqm',
-    budget: '$95.000 - $140.000',
-    code: 'PRJ-2026-003',
-    designer: 'David Kim',
-    location: '789 Innovation Park, Tech Distr',
-    sales: 'Lisa Anderson',
-    status: 'In Production',
-    statusTone: 'stone',
-    target: '15/10/2026',
-    title: 'TechHub Coworking Office',
-    type: 'Office',
-  },
-];
+import type { ProjectListItemDto, ProjectStatus } from '@/services/api/projects';
+import { useProjectList } from '@/services/queries/useProjects';
 
 export function CustomerProjectListPage() {
   const navigate = useNavigate();
+  const [keyword, setKeyword] = useState('');
+  const [status, setStatus] = useState<ProjectStatus | ''>('');
+  const [businessType, setBusinessType] = useState('');
+  const projectsQuery = useProjectList({
+    search: keyword,
+    status: status || null,
+    page: 1,
+    limit: 50,
+  });
+  const projects = projectsQuery.data?.items ?? [];
+  const visibleProjects = useMemo(() => {
+    const normalizedKeyword = keyword.trim().toLowerCase();
+
+    return projects.filter((project) => {
+      const searchableFields = [project.projectCode, project.projectName, project.businessType, project.status];
+      const matchesKeyword = !normalizedKeyword || searchableFields.some((value) => value.toLowerCase().includes(normalizedKeyword));
+      const matchesType = !businessType || project.businessType === businessType;
+
+      return matchesKeyword && matchesType;
+    });
+  }, [businessType, keyword, projects]);
 
   return (
     <main className="customer-project-list-page">
@@ -83,19 +65,30 @@ export function CustomerProjectListPage() {
         <section className="customer-project-list-filters" aria-label="Project filters">
           <label>
             <IconSearch size={17} stroke={1.8} />
-            <input type="search" placeholder="Search projects..." />
+            <input
+              type="search"
+              placeholder="Search projects..."
+              value={keyword}
+              onChange={(event) => setKeyword(event.target.value)}
+            />
           </label>
-          <select defaultValue="">
+          <select value={status} onChange={(event) => setStatus(event.target.value as ProjectStatus | '')}>
             <option value="">Status</option>
-            <option value="review">Awaiting review</option>
-            <option value="selected">Proposal selected</option>
-            <option value="production">In production</option>
+            <option value="SUBMITTED">Submitted</option>
+            <option value="NEED_BASIC_INFORMATION">Need Basic Information</option>
+            <option value="IN_CONSULTATION">In Consultation</option>
+            <option value="WAITING_FOR_DESIGNER_ASSIGNMENT">Waiting For Designer</option>
+            <option value="MEASUREMENT_REQUIRED">Measurement Required</option>
+            <option value="SPACE_VERIFIED">Space Verified</option>
+            <option value="REJECTED">Rejected</option>
           </select>
-          <select defaultValue="">
+          <select value={businessType} onChange={(event) => setBusinessType(event.target.value)}>
             <option value="">Project type</option>
-            <option value="cafe">Café</option>
-            <option value="retail">Fashion Retail</option>
-            <option value="office">Office</option>
+            <option value="Cafe">Cafe</option>
+            <option value="Retail">Retail</option>
+            <option value="Office">Office</option>
+            <option value="Restaurant">Restaurant</option>
+            <option value="Showroom">Showroom</option>
           </select>
           <button type="button">
             <IconFilter size={17} stroke={1.8} />
@@ -104,14 +97,19 @@ export function CustomerProjectListPage() {
         </section>
 
         <section className="customer-project-list-grid" aria-label="Projects">
-          {projects.map((project) => (
-            <ProjectCard key={project.code} {...project} />
+          {projectsQuery.isLoading ? <p className="customer-project-list-state">Loading projects...</p> : null}
+          {projectsQuery.isError ? <p className="customer-project-list-state">Could not load your projects.</p> : null}
+          {!projectsQuery.isLoading && !projectsQuery.isError && visibleProjects.length === 0 ? (
+            <p className="customer-project-list-state">No projects found. Create a project request to start the flow.</p>
+          ) : null}
+          {visibleProjects.map((project) => (
+            <ProjectCard key={project.projectId} project={project} />
           ))}
         </section>
 
         <footer className="customer-project-list-pagination">
           <p>
-            Showing <strong>1-3</strong> of <strong>12</strong> projects
+            Showing <strong>{visibleProjects.length}</strong> of <strong>{projectsQuery.data?.total ?? 0}</strong> projects
           </p>
           <div>
             <button disabled type="button">
@@ -120,9 +118,7 @@ export function CustomerProjectListPage() {
             <button className="customer-project-list-page-active" type="button">
               1
             </button>
-            <button type="button">2</button>
-            <button type="button">3</button>
-            <button type="button">Next</button>
+            <button disabled type="button">Next</button>
           </div>
         </footer>
       </div>
@@ -131,62 +127,41 @@ export function CustomerProjectListPage() {
 }
 
 type ProjectCardProps = {
-  area: string;
-  budget: string;
-  code: string;
-  designer: string;
-  location: string;
-  sales: string;
-  status: string;
-  statusTone: string;
-  target: string;
-  title: string;
-  type: string;
+  project: ProjectListItemDto;
 };
 
-function ProjectCard({
-  area,
-  budget,
-  code,
-  designer,
-  location,
-  sales,
-  status,
-  statusTone,
-  target,
-  title,
-  type,
-}: ProjectCardProps) {
+function ProjectCard({ project }: ProjectCardProps) {
   const navigate = useNavigate();
+  const stage = getProjectStage(project.status);
 
   return (
     <article className="customer-project-list-card">
       <div className="customer-project-list-card-cover">
         <div>
-          <strong>{type}</strong>
-          <span>{area}</span>
+          <strong>{project.businessType}</strong>
+          <span>{formatDate(project.submittedAt)}</span>
         </div>
-        <span className={`customer-project-list-status customer-project-list-status-${statusTone}`}>
-          {status}
+        <span className={`customer-project-list-status customer-project-list-status-${stage.tone}`}>
+          {stage.label}
         </span>
       </div>
 
       <div className="customer-project-list-card-body">
-        <h2>{title}</h2>
-        <p className="customer-project-list-code">{code}</p>
+        <h2>{project.projectName}</h2>
+        <p className="customer-project-list-code">{project.projectCode}</p>
 
         <div className="customer-project-list-detail-stack">
           <p>
             <IconMapPin size={16} stroke={1.8} />
-            {location}
+            Project address available in detail
           </p>
           <p>
             <IconCurrencyDollar size={16} stroke={1.8} />
-            {budget}
+            Budget available in detail
           </p>
           <p>
             <IconCalendar size={16} stroke={1.8} />
-            Target: {target}
+            Submitted: {formatDate(project.submittedAt)}
           </p>
         </div>
 
@@ -194,18 +169,18 @@ function ProjectCard({
           <div>
             <IconUsers size={16} stroke={1.8} />
             <span>Sales</span>
-            <strong>{sales}</strong>
+            <strong>{project.assignedSalesId ? 'Assigned' : 'Pending'}</strong>
           </div>
           <div>
             <IconUsers size={16} stroke={1.8} />
             <span>Designer</span>
-            <strong>{designer}</strong>
+            <strong>{project.assignedDesignerId ? 'Assigned' : 'Pending'}</strong>
           </div>
         </div>
 
         <div className="customer-project-list-stage">
           <span>Current Stage</span>
-          <strong>Customer Review</strong>
+          <strong>{stage.label}</strong>
         </div>
 
         <button type="button" onClick={() => navigate('/customer/proposals')}>
@@ -217,3 +192,37 @@ function ProjectCard({
   );
 }
 
+function getProjectStage(status: ProjectListItemDto['status']) {
+  const labels: Record<ProjectListItemDto['status'], { label: string; tone: string }> = {
+    SUBMITTED: { label: 'Submitted', tone: 'gold' },
+    NEED_BASIC_INFORMATION: { label: 'Need Info', tone: 'gold' },
+    IN_CONSULTATION: { label: 'In Consultation', tone: 'stone' },
+    WAITING_FOR_DESIGNER_ASSIGNMENT: { label: 'Waiting Designer', tone: 'stone' },
+    MEASUREMENT_REQUIRED: { label: 'Measurement Required', tone: 'stone' },
+    SPACE_VERIFIED: { label: 'Space Verified', tone: 'green' },
+    PROPOSAL_DRAFTING: { label: 'Proposal Drafting', tone: 'stone' },
+    WAITING_FOR_CUSTOMER_REVIEW: { label: 'Awaiting Your Review', tone: 'gold' },
+    REVISION_REQUESTED: { label: 'Revision Requested', tone: 'gold' },
+    PROPOSAL_SELECTED: { label: 'Proposal Selected', tone: 'green' },
+    QUOTATION_SENT: { label: 'Quotation Sent', tone: 'gold' },
+    QUOTATION_REVISION_REQUESTED: { label: 'Quotation Revision', tone: 'gold' },
+    ORDER_CONFIRMED: { label: 'Order Confirmed', tone: 'green' },
+    IN_PRODUCTION: { label: 'In Production', tone: 'stone' },
+    PRODUCTION_BLOCKED: { label: 'Production Blocked', tone: 'gold' },
+    READY_FOR_DELIVERY: { label: 'Ready For Delivery', tone: 'green' },
+    DELIVERING: { label: 'Delivering', tone: 'green' },
+    DELIVERED: { label: 'Delivered', tone: 'green' },
+    COMPLETED: { label: 'Completed', tone: 'green' },
+    REJECTED: { label: 'Rejected', tone: 'stone' },
+  };
+
+  return labels[status];
+}
+
+function formatDate(value: string) {
+  return new Intl.DateTimeFormat('en', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  }).format(new Date(value));
+}

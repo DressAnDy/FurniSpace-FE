@@ -102,6 +102,12 @@
   color: #ffffff;
 }
 
+.project-detail-header-actions button:disabled,
+.project-detail-primary-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
+}
+
 .project-timeline-card {
   border: 1px solid rgba(139, 111, 71, 0.15);
   border-radius: 12px;
@@ -246,6 +252,31 @@
   border-radius: 12px;
   background: #ffffff;
   padding: 24px;
+}
+
+.project-detail-state,
+.project-detail-muted,
+.project-detail-api-note {
+  color: #6b6b6b;
+  font-size: 14px;
+  line-height: 22px;
+}
+
+.project-detail-state p {
+  margin: 8px 0 0;
+}
+
+.project-detail-muted {
+  margin: 0;
+}
+
+.project-detail-api-note {
+  margin: 0;
+  border: 1px solid #bedbff;
+  border-radius: 8px;
+  background: #eff6ff;
+  color: #1c398e;
+  padding: 14px 16px;
 }
 
 .project-detail-tabs-section > .project-detail-card,

@@ -7,13 +7,18 @@ type OverviewTabProps = {
 export function OverviewTab({ project }: OverviewTabProps) {
   const projectInfo = [
     ['Business Type', project.businessType],
-    ['Total Area', project.totalArea],
-    ['Number of Floors', project.numberOfFloors],
-    ['Target Completion', project.targetCompletionDate],
-    ['Budget Range', project.budgetRange],
-  ];
+    ['Total Area', formatArea(project.totalAreaSqm)],
+    ['Number of Floors', formatNumber(project.numberOfFloors)],
+    ['Target Completion', formatDateOnly(project.targetCompletionDate)],
+    ['Budget Range', formatBudgetRange(project.budgetMin, project.budgetMax)],
+  ].filter(([, value]) => Boolean(value));
 
-  const actions = ['Update Basic Info', 'Assign Designer', 'Create Schedule', 'Create Quotation'];
+  const textBlocks = [
+    ['Project Address', project.projectAddress],
+    ['Business Purpose', project.businessPurpose],
+    ['Furniture Requirements', project.furnitureRequirement],
+    ['Description', project.description],
+  ].filter(([, value]) => Boolean(value));
 
   return (
     <div className="project-detail-overview project-detail-tab-panel">
@@ -21,31 +26,26 @@ export function OverviewTab({ project }: OverviewTabProps) {
         <header>
           <h3>Project Information</h3>
         </header>
-        <div className="project-detail-info-grid">
-          {projectInfo.map(([label, value]) => (
-            <div key={label} className="project-detail-info-item">
-              <span>{label}</span>
-              <strong>{value}</strong>
-            </div>
-          ))}
-        </div>
-        <div className="project-detail-section-divider" />
-        <div className="project-detail-text-block">
-          <span>Project Address</span>
-          <p>{project.address}</p>
-        </div>
-        <div className="project-detail-text-block">
-          <span>Business Purpose</span>
-          <p>{project.businessPurpose}</p>
-        </div>
-        <div className="project-detail-text-block">
-          <span>Furniture Requirements</span>
-          <p>{project.furnitureRequirement}</p>
-        </div>
-        <div className="project-detail-text-block">
-          <span>Description</span>
-          <p>{project.description}</p>
-        </div>
+
+        {projectInfo.length > 0 ? (
+          <div className="project-detail-info-grid">
+            {projectInfo.map(([label, value]) => (
+              <div key={label} className="project-detail-info-item">
+                <span>{label}</span>
+                <strong>{value}</strong>
+              </div>
+            ))}
+          </div>
+        ) : null}
+
+        {textBlocks.length > 0 ? <div className="project-detail-section-divider" /> : null}
+
+        {textBlocks.map(([label, value]) => (
+          <div key={label} className="project-detail-text-block">
+            <span>{label}</span>
+            <p>{value}</p>
+          </div>
+        ))}
       </section>
 
       <aside className="project-detail-side-stack">
@@ -53,37 +53,70 @@ export function OverviewTab({ project }: OverviewTabProps) {
           <header>
             <h3>Assigned Team</h3>
           </header>
-          <div className="project-detail-team-profile">
-            <div className="project-detail-team-avatar">SJ</div>
-            <div className="project-detail-team-copy">
-              <strong>{project.salesConsultant}</strong>
-              <span>Sales Consultant</span>
+          {project.assignedSalesId ? (
+            <div className="project-detail-team-profile">
+              <div className="project-detail-team-avatar">S</div>
+              <div className="project-detail-team-copy">
+                <strong>{project.assignedSalesId}</strong>
+                <span>Sales account id</span>
+              </div>
             </div>
-          </div>
-          <div className="project-detail-team-divider" />
-          <div className="project-detail-team-profile">
-            <div className="project-detail-team-avatar project-detail-team-avatar-designer">ED</div>
-            <div className="project-detail-team-copy">
-              <strong>{project.interiorDesigner}</strong>
-              <span>Interior Designer</span>
-              <em>Assigned on {project.designerAssignedDate}</em>
+          ) : null}
+          {project.assignedSalesId && project.assignedDesignerId ? <div className="project-detail-team-divider" /> : null}
+          {project.assignedDesignerId ? (
+            <div className="project-detail-team-profile">
+              <div className="project-detail-team-avatar project-detail-team-avatar-designer">D</div>
+              <div className="project-detail-team-copy">
+                <strong>{project.assignedDesignerId}</strong>
+                <span>Designer account id</span>
+              </div>
             </div>
-          </div>
+          ) : null}
+          {!project.assignedSalesId && !project.assignedDesignerId ? (
+            <p className="project-detail-muted">No team members have been assigned yet.</p>
+          ) : null}
         </section>
 
         <section className="project-detail-card">
           <header>
-            <h3>Quick Actions</h3>
+            <h3>Available Actions</h3>
           </header>
-          <div className="project-detail-action-list">
-            {actions.map((label) => (
-              <button key={label} type="button">
-                {label}
-              </button>
-            ))}
-          </div>
+          <p className="project-detail-muted">
+            Sales transitions are available in the project API guide, but this detail view currently wires only accept from submitted/need-info states.
+          </p>
         </section>
       </aside>
     </div>
   );
+}
+
+function formatArea(value: number | null) {
+  return typeof value === 'number' ? `${value} sqm` : null;
+}
+
+function formatNumber(value: number | null) {
+  return typeof value === 'number' ? String(value) : null;
+}
+
+function formatDateOnly(value: string | null) {
+  if (!value) return null;
+
+  return new Intl.DateTimeFormat('en', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  }).format(new Date(value));
+}
+
+function formatBudgetRange(min: number | null, max: number | null) {
+  if (typeof min !== 'number' && typeof max !== 'number') {
+    return null;
+  }
+
+  const formatter = new Intl.NumberFormat('en');
+  const minText = typeof min === 'number' ? formatter.format(min) : null;
+  const maxText = typeof max === 'number' ? formatter.format(max) : null;
+
+  if (minText && maxText) return `${minText} - ${maxText}`;
+  return minText ?? maxText;
 }

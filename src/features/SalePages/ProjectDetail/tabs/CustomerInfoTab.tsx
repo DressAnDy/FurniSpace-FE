@@ -9,28 +9,19 @@ export function CustomerInfoTab({ project }: CustomerInfoTabProps) {
     <section className="project-detail-card project-detail-tab-panel project-detail-customer-card">
       <header>
         <h3>Customer Information</h3>
+        <p>The project detail API currently returns customerId only.</p>
       </header>
-      <div className="project-detail-customer-profile">
-        <div className="project-detail-customer-avatar">{project.customer.initials}</div>
-        <div>
-          <h3>{project.customer.fullName}</h3>
-          <p>{project.customer.businessName}</p>
+      {project.customerId ? (
+        <div className="project-detail-contact-grid">
+          <div className="project-detail-contact-item">
+            <span>Customer Account Id</span>
+            <strong>{project.customerId}</strong>
+          </div>
         </div>
-      </div>
-      <div className="project-detail-contact-grid">
-        <div className="project-detail-contact-item">
-          <span>Email</span>
-          <strong>{project.customer.email}</strong>
-        </div>
-        <div className="project-detail-contact-item">
-          <span>Phone</span>
-          <strong>{project.customer.phone}</strong>
-        </div>
-      </div>
-      <div className="project-detail-badge-row">
-        <span className="project-detail-small-badge project-detail-small-badge-primary">{project.customer.accountStatus}</span>
-        <span className="project-detail-small-badge">{project.customer.emailStatus}</span>
-      </div>
+      ) : null}
+      <p className="project-detail-api-note">
+        Missing API in current guide: customer profile lookup for full name, email, phone, avatar, account status, and business profile.
+      </p>
     </section>
   );
 }

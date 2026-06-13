@@ -1,48 +1,82 @@
 import { IconDownload, IconEye, IconPaperclip, IconUpload } from '@tabler/icons-react';
 
-import type { ProjectDetailProject } from '../ProjectDetail';
+import { useProjectFiles } from '@/services/queries/useProjects';
 
 type FilesAttachmentsTabProps = {
-  project: ProjectDetailProject;
+  projectId: string;
 };
 
-export function FilesAttachmentsTab({ project }: FilesAttachmentsTabProps) {
+export function FilesAttachmentsTab({ projectId }: FilesAttachmentsTabProps) {
+  const filesQuery = useProjectFiles({
+    projectId,
+    page: 1,
+    limit: 50,
+  });
+  const files = filesQuery.data?.items ?? [];
+
   return (
     <section className="project-detail-card project-detail-tab-panel">
       <header className="project-detail-card-toolbar">
         <div>
           <h3>Files & Attachments</h3>
-          <p>Project documents and images uploaded by customer and team</p>
+          <p>Loaded from GET /projects/{projectId}/files.</p>
         </div>
-        <button className="project-detail-primary-button" type="button">
+        <button className="project-detail-primary-button" type="button" disabled>
           <IconUpload size={16} />
           Upload File
         </button>
       </header>
-      <div className="project-detail-file-grid">
-        {project.files.map((file) => (
-          <article key={file.id} className="project-detail-file-card">
-            <div className="project-detail-file-icon">
-              <IconPaperclip size={22} />
-            </div>
-            <div className="project-detail-file-copy">
-              <h4>{file.name}</h4>
-              <p>
-                {file.size} - {file.type}
-              </p>
-              <span>{file.createdDate}</span>
-            </div>
-            <div className="project-detail-file-actions">
-              <button type="button" aria-label={`Preview ${file.name}`}>
-                <IconEye size={17} />
-              </button>
-              <button type="button" aria-label={`Download ${file.name}`}>
-                <IconDownload size={17} />
-              </button>
-            </div>
-          </article>
-        ))}
-      </div>
+
+      {filesQuery.isLoading ? <p className="project-detail-muted">Loading project files...</p> : null}
+      {filesQuery.isError ? (
+        <p className="project-detail-api-note">
+          Could not load files from GET /projects/{projectId}/files. Project file access depends on participant/admin permissions.
+        </p>
+      ) : null}
+      {!filesQuery.isLoading && !filesQuery.isError && files.length === 0 ? (
+        <p className="project-detail-muted">No files have been uploaded for this project.</p>
+      ) : null}
+
+      {files.length > 0 ? (
+        <div className="project-detail-file-grid">
+          {files.map((file) => (
+            <article key={file.fileId} className="project-detail-file-card">
+              <div className="project-detail-file-icon">
+                <IconPaperclip size={22} />
+              </div>
+              <div className="project-detail-file-copy">
+                <h4>{file.originalFileName}</h4>
+                <p>
+                  {formatFileSize(file.fileSize)} - {file.fileType}
+                </p>
+                <span>{formatDate(file.uploadedAt)}</span>
+              </div>
+              <div className="project-detail-file-actions">
+                <button type="button" aria-label={`Preview ${file.originalFileName}`} onClick={() => window.open(file.publicUrl, '_blank', 'noopener,noreferrer')}>
+                  <IconEye size={17} />
+                </button>
+                <button type="button" aria-label={`Download ${file.originalFileName}`} onClick={() => window.open(file.publicUrl, '_blank', 'noopener,noreferrer')}>
+                  <IconDownload size={17} />
+                </button>
+              </div>
+            </article>
+          ))}
+        </div>
+      ) : null}
     </section>
   );
+}
+
+function formatFileSize(size: number) {
+  if (size < 1024) return `${size} B`;
+  if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
+  return `${(size / 1024 / 1024).toFixed(1)} MB`;
+}
+
+function formatDate(value: string) {
+  return new Intl.DateTimeFormat('en', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  }).format(new Date(value));
 }
