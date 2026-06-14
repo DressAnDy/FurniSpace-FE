@@ -137,7 +137,7 @@
 
 .assigned-projects-table-card table {
   width: 100%;
-  min-width: 1220px;
+  min-width: 980px;
   border-collapse: collapse;
   text-align: left;
 }
@@ -201,17 +201,13 @@
   font-weight: 500;
 }
 
-.assigned-projects-attachments {
-  display: inline-flex !important;
-  align-items: center;
-  gap: 6px;
-  margin: 0 !important;
-  color: #2d2d2d !important;
-  font-size: 14px !important;
+.assigned-projects-action-cell {
+  width: 96px;
 }
 
 .assigned-projects-table-card button {
   display: inline-flex;
+  min-width: 72px;
   height: 32px;
   align-items: center;
   justify-content: center;
@@ -223,6 +219,7 @@
   color: #2d2d2d;
   font-size: 14px;
   font-weight: 500;
+  white-space: nowrap;
 }
 
 .assigned-projects-table-card button:hover {

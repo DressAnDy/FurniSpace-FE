@@ -1,8 +1,10 @@
-import { IconEye, IconFileText, IconSearch, IconUserCheck } from '@tabler/icons-react';
+import { IconEye, IconSearch, IconUserCheck } from '@tabler/icons-react';
+import { useQueries } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 import { ProjectStatusBadge, SaleNavbar, SaleSidebar } from '@/features/SalePages/salecomponents';
+import { getAccountById, type AccountDto } from '@/services/api';
 import { useCurrentUser } from '@/services/queries/useAuth';
 import { useProjectList } from '@/services/queries/useProjects';
 
@@ -27,12 +29,54 @@ export function AssignedProjects() {
     },
   );
   const assignedProjects = assignedProjectsQuery.data?.items ?? [];
+  const accountIds = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          assignedProjects
+            .flatMap((project) => [project.customerId, project.assignedDesignerId])
+            .filter((accountId): accountId is string => Boolean(accountId)),
+        ),
+      ),
+    [assignedProjects],
+  );
+  const accountQueries = useQueries({
+    queries: accountIds.map((accountId) => ({
+      queryKey: ['accounts', 'detail', accountId],
+      queryFn: () => getAccountById(accountId),
+      enabled: Boolean(accountId),
+      staleTime: 5 * 60 * 1000,
+    })),
+  });
+  const accountById = useMemo(() => {
+    return accountQueries.reduce<Record<string, AccountDto>>((lookup, query, index) => {
+      const account = query.data;
+
+      if (account) {
+        lookup[accountIds[index]] = account;
+      }
+
+      return lookup;
+    }, {});
+  }, [accountIds, accountQueries]);
 
   const filteredProjects = useMemo(() => {
     const normalizedKeyword = keyword.trim().toLowerCase();
 
     return assignedProjects.filter((project) => {
-      const keywordFields = [project.projectCode, project.projectName, project.customerId, project.businessType, project.status];
+      const customer = accountById[project.customerId];
+      const designer = project.assignedDesignerId ? accountById[project.assignedDesignerId] : null;
+      const keywordFields = [
+        project.projectCode,
+        project.projectName,
+        project.customerId,
+        project.businessType,
+        project.status,
+        customer?.fullName ?? '',
+        customer?.email ?? '',
+        designer?.fullName ?? '',
+        designer?.email ?? '',
+      ];
       const matchesKeyword = !normalizedKeyword || keywordFields.some((value) => value.toLowerCase().includes(normalizedKeyword));
       const matchesStatus = status === 'All Status' || project.status === status;
       const matchesBusinessType = businessType === 'All Business Types' || project.businessType === businessType;
@@ -40,7 +84,7 @@ export function AssignedProjects() {
 
       return matchesKeyword && matchesStatus && matchesBusinessType && hasMovedOutOfQueue;
     });
-  }, [assignedProjects, businessType, keyword, status]);
+  }, [accountById, assignedProjects, businessType, keyword, status]);
 
   return (
     <div className="assigned-projects-shell">
@@ -87,7 +131,7 @@ export function AssignedProjects() {
               <table>
                 <thead>
                   <tr>
-                    {['Project Code', 'Project Name', 'Customer', 'Business Type', 'Area', 'Budget Range', 'Target Date', 'Status', 'Attachments', 'Assigned Sales', 'Actions'].map((header) => (
+                    {['Project Code', 'Project Name', 'Customer', 'Business Type', 'Status', 'Assigned Sales', 'Actions'].map((header) => (
                       <th key={header}>{header}</th>
                     ))}
                   </tr>
@@ -95,52 +139,51 @@ export function AssignedProjects() {
                 <tbody>
                   {currentUserQuery.isLoading || assignedProjectsQuery.isLoading ? (
                     <tr>
-                      <td colSpan={11}>Loading assigned projects...</td>
+                      <td colSpan={7}>Loading assigned projects...</td>
                     </tr>
                   ) : null}
                   {currentUserQuery.isError || assignedProjectsQuery.isError ? (
                     <tr>
-                      <td colSpan={11}>Could not load assigned projects.</td>
+                      <td colSpan={7}>Could not load assigned projects.</td>
                     </tr>
                   ) : null}
-                  {filteredProjects.map((project) => (
-                    <tr key={project.projectId}>
-                      <td className="assigned-projects-code">{project.projectCode}</td>
-                      <td>
-                        <strong>{project.projectName}</strong>
-                        <span>{project.submittedAt ? `Submitted ${formatDate(project.submittedAt)}` : '-'}</span>
-                      </td>
-                      <td>
-                        <strong>{project.customerId}</strong>
-                        <span>Customer account</span>
-                      </td>
-                      <td>
-                        <span className="assigned-projects-type">{project.businessType}</span>
-                      </td>
-                      <td>-</td>
-                      <td>-</td>
-                      <td>-</td>
-                      <td>
-                        <ProjectStatusBadge status={project.status} />
-                      </td>
-                      <td>
-                        <span className="assigned-projects-attachments">
-                          <IconFileText size={16} />
-                          -
-                        </span>
-                      </td>
-                      <td>{currentUser?.fullName ?? project.assignedSalesId ?? '-'}</td>
-                      <td>
-                        <button type="button" onClick={() => navigate(`/sales/assigned-projects/${project.projectId}`)}>
-                          <IconEye size={16} />
-                          View
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
+                  {filteredProjects.map((project) => {
+                    const customer = accountById[project.customerId];
+                    const designer = project.assignedDesignerId ? accountById[project.assignedDesignerId] : null;
+
+                    return (
+                      <tr key={project.projectId}>
+                        <td className="assigned-projects-code">{project.projectCode}</td>
+                        <td>
+                          <strong>{project.projectName}</strong>
+                          <span>{project.submittedAt ? `Submitted ${formatDate(project.submittedAt)}` : '-'}</span>
+                        </td>
+                        <td>
+                          <strong>{customer?.fullName ?? 'Loading customer...'}</strong>
+                          <span>{customer?.email ?? project.customerId}</span>
+                        </td>
+                        <td>
+                          <span className="assigned-projects-type">{project.businessType}</span>
+                        </td>
+                        <td>
+                          <ProjectStatusBadge status={project.status} />
+                        </td>
+                        <td>
+                          <strong>{project.assignedDesignerId ? designer?.fullName ?? 'Loading designer...' : 'Unassigned'}</strong>
+                          {project.assignedDesignerId ? <span>{designer?.email ?? project.assignedDesignerId}</span> : null}
+                        </td>
+                        <td className="assigned-projects-action-cell">
+                          <button type="button" onClick={() => navigate(`/sales/assigned-projects/${project.projectId}`)}>
+                            <IconEye size={16} />
+                            View
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
                   {!currentUserQuery.isLoading && !assignedProjectsQuery.isLoading && !currentUserQuery.isError && !assignedProjectsQuery.isError && filteredProjects.length === 0 ? (
                     <tr>
-                      <td colSpan={11}>No projects have moved into consultation yet.</td>
+                      <td colSpan={7}>No projects have moved into consultation yet.</td>
                     </tr>
                   ) : null}
                 </tbody>

@@ -1,5 +1,6 @@
 export { apiClient } from './client';
 export { httpClient } from './httpClient';
+export * from './accounts';
 export * from './categories';
 export * from './products';
 export type {

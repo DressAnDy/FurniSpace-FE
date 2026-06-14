@@ -71,7 +71,7 @@ export function ProjectDetail() {
 
   const renderActiveTab = () => {
     if (!project) return null;
-    if (activeTab === 'overview') return <OverviewTab project={project} />;
+    if (activeTab === 'overview') return <OverviewTab project={project} showAssignedTeam={isAssignedProjectRoute} />;
     if (activeTab === 'customer') return <CustomerInfoTab project={project} />;
     if (activeTab === 'files') return <FilesAttachmentsTab projectId={project.projectId} />;
     if (activeTab === 'schedules' && isAssignedProjectRoute) return <SchedulesTab project={project} />;

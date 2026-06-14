@@ -1,10 +1,35 @@
+import { useQueries } from '@tanstack/react-query';
+
+import { getAccountById, getAccountRoleName, type AccountDto } from '@/services/api';
+
 import type { ProjectDetailProject } from '../ProjectDetail';
 
 type OverviewTabProps = {
   project: ProjectDetailProject;
+  showAssignedTeam?: boolean;
 };
 
-export function OverviewTab({ project }: OverviewTabProps) {
+export function OverviewTab({ project, showAssignedTeam = false }: OverviewTabProps) {
+  const teamAccountIds = [project.assignedSalesId, project.assignedDesignerId].filter((accountId): accountId is string => Boolean(accountId));
+  const teamQueries = useQueries({
+    queries: teamAccountIds.map((accountId) => ({
+      queryKey: ['accounts', 'detail', accountId],
+      queryFn: () => getAccountById(accountId),
+      enabled: showAssignedTeam,
+      staleTime: 5 * 60 * 1000,
+    })),
+  });
+  const teamById = teamQueries.reduce<Record<string, AccountDto>>((lookup, query, index) => {
+    const account = query.data;
+
+    if (account) {
+      lookup[teamAccountIds[index]] = account;
+    }
+
+    return lookup;
+  }, {});
+  const assignedSales = project.assignedSalesId ? teamById[project.assignedSalesId] : null;
+  const assignedDesigner = project.assignedDesignerId ? teamById[project.assignedDesignerId] : null;
   const projectInfo = [
     ['Business Type', project.businessType],
     ['Total Area', formatArea(project.totalAreaSqm)],
@@ -48,46 +73,73 @@ export function OverviewTab({ project }: OverviewTabProps) {
         ))}
       </section>
 
-      <aside className="project-detail-side-stack">
-        <section className="project-detail-card">
+      {showAssignedTeam ? (
+        <section className="project-detail-card project-detail-team-card">
           <header>
             <h3>Assigned Team</h3>
+            <p>Sales and designer currently connected to this project.</p>
           </header>
-          {project.assignedSalesId ? (
-            <div className="project-detail-team-profile">
-              <div className="project-detail-team-avatar">S</div>
-              <div className="project-detail-team-copy">
-                <strong>{project.assignedSalesId}</strong>
-                <span>Sales account id</span>
-              </div>
-            </div>
-          ) : null}
-          {project.assignedSalesId && project.assignedDesignerId ? <div className="project-detail-team-divider" /> : null}
-          {project.assignedDesignerId ? (
-            <div className="project-detail-team-profile">
-              <div className="project-detail-team-avatar project-detail-team-avatar-designer">D</div>
-              <div className="project-detail-team-copy">
-                <strong>{project.assignedDesignerId}</strong>
-                <span>Designer account id</span>
-              </div>
-            </div>
-          ) : null}
-          {!project.assignedSalesId && !project.assignedDesignerId ? (
-            <p className="project-detail-muted">No team members have been assigned yet.</p>
-          ) : null}
-        </section>
 
-        <section className="project-detail-card">
-          <header>
-            <h3>Available Actions</h3>
-          </header>
-          <p className="project-detail-muted">
-            Sales transitions are available in the project API guide, but this detail view currently wires only accept from submitted/need-info states.
-          </p>
+          <div className="project-detail-team-grid">
+            <TeamMemberCard
+              label="Assigned Sales"
+              fallbackId={project.assignedSalesId}
+              account={assignedSales}
+              placeholder="Unassigned"
+              avatarClassName=""
+            />
+            <TeamMemberCard
+              label="Assigned Designer"
+              fallbackId={project.assignedDesignerId}
+              account={assignedDesigner}
+              placeholder="Unassigned"
+              avatarClassName="project-detail-team-avatar-designer"
+            />
+          </div>
         </section>
-      </aside>
+      ) : null}
     </div>
   );
+}
+
+type TeamMemberCardProps = {
+  label: string;
+  fallbackId: string | null;
+  account: AccountDto | null;
+  placeholder: string;
+  avatarClassName: string;
+};
+
+function TeamMemberCard({ label, fallbackId, account, placeholder, avatarClassName }: TeamMemberCardProps) {
+  const displayName = account?.fullName ?? (fallbackId ? 'Loading account...' : placeholder);
+  const roleName = account ? getAccountRoleName(account.roleId) : null;
+
+  return (
+    <article className="project-detail-team-member-card">
+      <div className={`project-detail-team-avatar ${avatarClassName}`}>{getInitial(displayName)}</div>
+      <div className="project-detail-team-copy">
+        <span>{label}</span>
+        <strong>{displayName}</strong>
+        {account ? <em>{account.email}</em> : fallbackId ? <em>{fallbackId}</em> : <em>No account assigned yet</em>}
+      </div>
+      <div className="project-detail-team-meta">
+        <span>Role</span>
+        <strong>{roleName ?? '-'}</strong>
+      </div>
+      <div className="project-detail-team-meta">
+        <span>Status</span>
+        <strong>{account?.status ?? '-'}</strong>
+      </div>
+      <div className="project-detail-team-meta">
+        <span>Phone</span>
+        <strong>{account?.phone ?? '-'}</strong>
+      </div>
+    </article>
+  );
+}
+
+function getInitial(value: string) {
+  return value.trim().charAt(0).toUpperCase() || '-';
 }
 
 function formatArea(value: number | null) {
