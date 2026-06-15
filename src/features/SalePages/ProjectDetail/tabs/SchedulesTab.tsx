@@ -1,5 +1,3 @@
-import { IconCalendar } from '@tabler/icons-react';
-
 import type { ProjectDetailProject } from '../ProjectDetail';
 
 type SchedulesTabProps = {
@@ -12,31 +10,15 @@ export function SchedulesTab({ project }: SchedulesTabProps) {
       <header className="project-detail-card-toolbar">
         <div>
           <h3>Project Schedules</h3>
-          <p>Scheduled consultations, measurements, and review sessions</p>
+          <p>{project.projectCode}</p>
         </div>
-        <button className="project-detail-primary-button" type="button">
+        <button className="project-detail-primary-button" type="button" disabled>
           Create Schedule
         </button>
       </header>
-      <div className="project-detail-schedule-list">
-        {project.schedules.map((schedule) => (
-          <article key={schedule.id} className="project-detail-schedule-card">
-            <div>
-              <div className="project-detail-schedule-title">
-                <h4>{schedule.title}</h4>
-                <span>{schedule.type}</span>
-              </div>
-              <p>{schedule.description}</p>
-              <div className="project-detail-schedule-meta">
-                <IconCalendar size={16} />
-                <span>{schedule.scheduledTime}</span>
-                <span>{schedule.location}</span>
-              </div>
-            </div>
-            <strong>{schedule.status}</strong>
-          </article>
-        ))}
-      </div>
+      <p className="project-detail-api-note">
+        Missing API in current guide: schedule list/create endpoints are not included in the Project module guide. The file API supports PROJECT_SCHEDULE as a reference type, but schedule records themselves are not documented here.
+      </p>
     </section>
   );
 }

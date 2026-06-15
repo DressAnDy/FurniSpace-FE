@@ -1,94 +1,71 @@
-import { IconChevronDown, IconEye, IconFileText, IconSearch } from '@tabler/icons-react';
+import { IconChevronDown, IconEye, IconSearch } from '@tabler/icons-react';
+import { useQueries } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 import { SaleNavbar, SaleSidebar } from '@/features/SalePages/salecomponents';
+import { getAccountById, type AccountDto } from '@/services/api';
+import { useAssignSalesToProject, useStaffProjectQueue } from '@/services/queries/useProjects';
 
 import './ProjectRequestQueue.css';
-
-type ProjectRequest = {
-  id: string;
-  projectCode: string;
-  customerName: string;
-  email: string;
-  businessType: string;
-  area: string;
-  budgetRange: string;
-  attachments: number;
-};
-
-const projectRequests: ProjectRequest[] = [
-  {
-    id: 'prj-2024-156',
-    projectCode: 'PRJ-2024-156',
-    customerName: 'Bean & Brew Co.',
-    email: 'contact@beanbrew.com',
-    businessType: 'Cafe',
-    area: '280 sqm',
-    budgetRange: '$50,000 - $80,000',
-    attachments: 12,
-  },
-  {
-    id: 'prj-2024-157',
-    projectCode: 'PRJ-2024-157',
-    customerName: 'Chic Style Ltd.',
-    email: 'info@chicstyle.com',
-    businessType: 'Fashion Store',
-    area: '180 sqm',
-    budgetRange: '$30,000 - $50,000',
-    attachments: 8,
-  },
-  {
-    id: 'prj-2024-158',
-    projectCode: 'PRJ-2024-158',
-    customerName: 'Tech Innovations Inc.',
-    email: 'facilities@techinno.com',
-    businessType: 'Office',
-    area: '450 sqm',
-    budgetRange: '$80,000 - $120,000',
-    attachments: 5,
-  },
-  {
-    id: 'prj-2024-159',
-    projectCode: 'PRJ-2024-159',
-    customerName: 'Urban Trends',
-    email: 'hello@urbantrends.com',
-    businessType: 'Retail',
-    area: '220 sqm',
-    budgetRange: '$40,000 - $60,000',
-    attachments: 15,
-  },
-  {
-    id: 'prj-2024-160',
-    projectCode: 'PRJ-2024-160',
-    customerName: 'Gourmet Bistro',
-    email: 'owner@gourmetbistro.com',
-    businessType: 'Restaurant',
-    area: '320 sqm',
-    budgetRange: '$60,000 - $90,000',
-    attachments: 10,
-  },
-];
 
 export function ProjectRequestQueue() {
   const navigate = useNavigate();
   const [keyword, setKeyword] = useState('');
   const [status, setStatus] = useState('Status');
   const [businessType, setBusinessType] = useState('Business Type');
-  const [budgetRange, setBudgetRange] = useState('Budget Range');
+  const assignSalesMutation = useAssignSalesToProject();
+  const projectQueueQuery = useStaffProjectQueue({
+    search: keyword,
+    page: 1,
+    limit: 50,
+  });
+  const projectRequests = projectQueueQuery.data?.items ?? [];
+  const customerIds = useMemo(
+    () => Array.from(new Set(projectRequests.map((request) => request.customerId).filter(Boolean))),
+    [projectRequests],
+  );
+  const customerQueries = useQueries({
+    queries: customerIds.map((customerId) => ({
+      queryKey: ['accounts', 'detail', customerId],
+      queryFn: () => getAccountById(customerId),
+      enabled: Boolean(customerId),
+      staleTime: 5 * 60 * 1000,
+    })),
+  });
+  const customerById = useMemo(() => {
+    return customerQueries.reduce<Record<string, AccountDto>>((lookup, query, index) => {
+      const customer = query.data;
+
+      if (customer) {
+        lookup[customerIds[index]] = customer;
+      }
+
+      return lookup;
+    }, {});
+  }, [customerIds, customerQueries]);
 
   const filteredRequests = useMemo(() => {
     const normalizedKeyword = keyword.trim().toLowerCase();
 
     return projectRequests.filter((request) => {
-      const searchableFields = [request.projectCode, request.customerName, request.email, request.businessType, request.area, request.budgetRange];
+      const customer = customerById[request.customerId];
+      const searchableFields = [
+        request.projectCode,
+        request.projectName,
+        request.customerId,
+        request.businessType,
+        request.status,
+        customer?.fullName ?? '',
+        customer?.email ?? '',
+      ];
       const matchesKeyword = !normalizedKeyword || searchableFields.some((value) => value.toLowerCase().includes(normalizedKeyword));
       const matchesBusinessType = businessType === 'Business Type' || request.businessType === businessType;
-      const matchesBudget = budgetRange === 'Budget Range' || request.budgetRange === budgetRange;
+      const matchesStatus = status === 'Status' || request.status === status;
 
-      return matchesKeyword && matchesBusinessType && matchesBudget && status;
+      return matchesKeyword && matchesBusinessType && matchesStatus;
     });
-  }, [budgetRange, businessType, keyword, status]);
+  }, [businessType, customerById, keyword, projectRequests, status]);
 
   return (
     <div className="project-request-queue-shell">
@@ -115,9 +92,8 @@ export function ProjectRequestQueue() {
                 />
               </label>
 
-              <FilterSelect value={status} onChange={setStatus} options={['Status', 'Submitted', 'In Consultation', 'Waiting For Designer']} />
+              <FilterSelect value={status} onChange={setStatus} options={['Status', 'SUBMITTED', 'NEED_BASIC_INFORMATION']} />
               <FilterSelect value={businessType} onChange={setBusinessType} options={['Business Type', 'Cafe', 'Fashion Store', 'Office', 'Retail', 'Restaurant']} />
-              <FilterSelect value={budgetRange} onChange={setBudgetRange} options={['Budget Range', '$30,000 - $50,000', '$40,000 - $60,000', '$50,000 - $80,000', '$60,000 - $90,000', '$80,000 - $120,000']} />
             </div>
           </section>
 
@@ -126,41 +102,73 @@ export function ProjectRequestQueue() {
               <table>
                 <thead>
                   <tr>
-                    {['Project Code', 'Customer', 'Business Type', 'Area', 'Budget Range', 'Attachments', 'Actions'].map((header) => (
+                    {['Project Code', 'Project Name', 'Customer', 'Business Type', 'Status', 'Submitted At', 'Actions'].map((header) => (
                       <th key={header}>{header}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredRequests.map((request) => (
-                    <tr key={request.id}>
-                      <td className="project-request-queue-code">{request.projectCode}</td>
-                      <td>
-                        <strong>{request.customerName}</strong>
-                        <span>{request.email}</span>
-                      </td>
-                      <td>
-                        <span className="project-request-queue-type">{request.businessType}</span>
-                      </td>
-                      <td>{request.area}</td>
-                      <td>{request.budgetRange}</td>
-                      <td>
-                        <span className="project-request-queue-attachments">
-                          <IconFileText size={16} />
-                          {request.attachments}
-                        </span>
-                      </td>
-                      <td>
-                        <button
-                          type="button"
-                          onClick={() => navigate(`/sales/project-requests/${request.id}`)}
-                        >
-                          <IconEye size={16} />
-                          View
-                        </button>
-                      </td>
+                  {projectQueueQuery.isLoading ? (
+                    <tr>
+                      <td colSpan={7}>Loading project requests...</td>
                     </tr>
-                  ))}
+                  ) : null}
+                  {projectQueueQuery.isError ? (
+                    <tr>
+                      <td colSpan={7}>Could not load project requests.</td>
+                    </tr>
+                  ) : null}
+                  {filteredRequests.map((request) => {
+                    const customer = customerById[request.customerId];
+
+                    return (
+                      <tr key={request.projectId}>
+                        <td className="project-request-queue-code">{request.projectCode}</td>
+                        <td>
+                          <strong>{request.projectName}</strong>
+                        </td>
+                        <td>
+                          <strong>{customer?.fullName ?? 'Loading customer...'}</strong>
+                          <span>{customer?.email ?? request.customerId}</span>
+                        </td>
+                        <td>
+                          <span className="project-request-queue-type">{request.businessType}</span>
+                        </td>
+                        <td>
+                          <span className="project-request-queue-status">{request.status.replace(/_/g, ' ')}</span>
+                        </td>
+                        <td>{formatDate(request.submittedAt)}</td>
+                        <td className="project-request-queue-action-cell">
+                          <div className="project-request-queue-actions">
+                            <button
+                              type="button"
+                              onClick={() => navigate(`/sales/project-requests/${request.projectId}`)}
+                            >
+                              <IconEye size={16} />
+                              View
+                            </button>
+                            <button
+                              type="button"
+                              disabled={assignSalesMutation.isPending}
+                              onClick={() =>
+                                assignSalesMutation.mutate({
+                                  projectId: request.projectId,
+                                  note: 'Accepted from project request queue.',
+                                })
+                              }
+                            >
+                              Accept
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  {!projectQueueQuery.isLoading && !projectQueueQuery.isError && filteredRequests.length === 0 ? (
+                    <tr>
+                      <td colSpan={7}>No submitted or information-needed projects found.</td>
+                    </tr>
+                  ) : null}
                 </tbody>
               </table>
             </div>
@@ -192,6 +200,14 @@ function FilterSelect({ value, onChange, options }: FilterSelectProps) {
       <IconChevronDown className="project-request-queue-select-icon" size={16} />
     </label>
   );
+}
+
+function formatDate(value: string) {
+  return new Intl.DateTimeFormat('en-US', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(new Date(value));
 }
 
 export default ProjectRequestQueue;

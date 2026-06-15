@@ -2,11 +2,69 @@ import {
   IconChevronLeft,
   IconUpload,
 } from '@tabler/icons-react';
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 import './CustomerProjectRequestPage.css';
 import { CustomerNavbar } from '@/features/CustomerPages/customercomponents';
+import {
+  getProjectServiceResultMessage,
+  normalizeOptionalNumber,
+  normalizeOptionalText,
+  normalizeRequiredText,
+} from '@/services/api/projects';
+import { useCreateProject, useUploadProjectFile } from '@/services/queries/useProjects';
 
 export function CustomerProjectRequestPage() {
+  const navigate = useNavigate();
+  const createProjectMutation = useCreateProject();
+  const uploadProjectFileMutation = useUploadProjectFile();
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [formMessage, setFormMessage] = useState<string | null>(null);
+  const isSubmitting = createProjectMutation.isPending || uploadProjectFileMutation.isPending;
+
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setFormMessage(null);
+
+    const formData = new FormData(event.currentTarget);
+
+    try {
+      const project = await createProjectMutation.mutateAsync({
+        projectName: normalizeRequiredText(formData.get('projectName')),
+        businessType: normalizeRequiredText(formData.get('businessType')),
+        projectAddress: normalizeOptionalText(formData.get('projectAddress')),
+        businessPurpose: normalizeOptionalText(formData.get('businessPurpose')),
+        furnitureRequirement: normalizeRequiredText(formData.get('furnitureRequirement')),
+        description: normalizeOptionalText(formData.get('description')),
+        totalAreaSqm: normalizeOptionalNumber(formData.get('totalAreaSqm')),
+        numberOfFloors: normalizeOptionalNumber(formData.get('numberOfFloors')),
+        budgetMin: normalizeOptionalNumber(formData.get('budgetMin')),
+        budgetMax: normalizeOptionalNumber(formData.get('budgetMax')),
+        targetCompletionDate: normalizeOptionalText(formData.get('targetCompletionDate')),
+      });
+
+      const uploads = await Promise.allSettled(
+        selectedFiles.map((file) =>
+          uploadProjectFileMutation.mutateAsync({
+            projectId: project.projectId,
+            file,
+            note: 'Customer project request attachment',
+          }),
+        ),
+      );
+      const failedUploads = uploads.filter((upload) => upload.status === 'rejected').length;
+
+      if (failedUploads > 0) {
+        setFormMessage(`Project was created, but ${failedUploads} file(s) could not be uploaded.`);
+      }
+
+      navigate('/customer/projects');
+    } catch (error) {
+      setFormMessage(getProjectServiceResultMessage(error));
+    }
+  }
+
   return (
     <main className="customer-project-request-page">
       <CustomerNavbar activeLabel="My Projects" classPrefix="customer-project-request" />
@@ -20,64 +78,66 @@ export function CustomerProjectRequestPage() {
         <p>Submit a new interior design project request to our team</p>
       </header>
 
-      <form className="customer-project-request-form">
+      <form className="customer-project-request-form" onSubmit={handleSubmit}>
         <FormSection title="Basic Information">
           <div className="customer-project-request-grid">
             <Field label="Project Name *">
-              <input placeholder="e.g., Downtown Coffee Shop Interior" type="text" />
+              <input name="projectName" placeholder="e.g., Downtown Coffee Shop Interior" required type="text" />
             </Field>
             <Field label="Business Type *">
-              <select defaultValue="">
+              <select defaultValue="" name="businessType" required>
                 <option value="" disabled>
                   Select business type
                 </option>
-                <option value="cafe">Café</option>
-                <option value="retail">Retail</option>
-                <option value="office">Office</option>
+                <option value="Cafe">Cafe</option>
+                <option value="Retail">Retail</option>
+                <option value="Office">Office</option>
+                <option value="Restaurant">Restaurant</option>
+                <option value="Showroom">Showroom</option>
               </select>
             </Field>
           </div>
 
           <Field label="Business Purpose">
-            <input placeholder="e.g., Specialty coffee shop with bakery section" type="text" />
+            <input name="businessPurpose" placeholder="e.g., Specialty coffee shop with bakery section" type="text" />
           </Field>
 
-          <Field label="Project Address *">
-            <input placeholder="Full address of the project location" type="text" />
+          <Field label="Project Address">
+            <input name="projectAddress" placeholder="Full address of the project location" type="text" />
           </Field>
 
           <Field label="Furniture Requirement *">
-            <textarea placeholder="e.g., Counter seating, dining tables, lounge area, display cases" rows={3} />
+            <textarea name="furnitureRequirement" placeholder="e.g., Counter seating, dining tables, lounge area, display cases" required rows={3} />
           </Field>
 
           <Field label="Additional Description">
-            <textarea placeholder="Describe your vision, style preferences, or specific requirements..." rows={4} />
+            <textarea name="description" placeholder="Describe your vision, style preferences, or specific requirements..." rows={4} />
           </Field>
         </FormSection>
 
         <FormSection title="Space Details">
           <div className="customer-project-request-grid">
-            <Field label="Total Area (sqm) *">
-              <input placeholder="e.g., 120" type="number" />
+            <Field label="Total Area (sqm)">
+              <input min="0" name="totalAreaSqm" placeholder="e.g., 120" step="0.1" type="number" />
             </Field>
-            <Field label="Number of Floors *">
-              <input placeholder="e.g., 1" type="number" />
+            <Field label="Number of Floors">
+              <input min="0" name="numberOfFloors" placeholder="e.g., 1" step="1" type="number" />
             </Field>
           </div>
         </FormSection>
 
         <FormSection title="Budget & Timeline">
           <div className="customer-project-request-grid">
-            <Field label="Minimum Budget ($) *">
-              <input placeholder="e.g., 45000" type="number" />
+            <Field label="Minimum Budget">
+              <input min="0" name="budgetMin" placeholder="e.g., 45000" type="number" />
             </Field>
-            <Field label="Maximum Budget ($) *">
-              <input placeholder="e.g., 65000" type="number" />
+            <Field label="Maximum Budget">
+              <input min="0" name="budgetMax" placeholder="e.g., 65000" type="number" />
             </Field>
           </div>
 
-          <Field label="Target Completion Date *">
-            <input type="date" />
+          <Field label="Target Completion Date">
+            <input name="targetCompletionDate" type="date" />
           </Field>
         </FormSection>
 
@@ -88,13 +148,24 @@ export function CustomerProjectRequestPage() {
           <label className="customer-project-request-upload">
             <IconUpload size={48} stroke={1.7} />
             <strong>Click to upload or drag and drop</strong>
-            <span>PNG, JPG, PDF up to 10MB each</span>
-            <input type="file" multiple />
+            <span>Images, PDFs, 3D files, documents up to backend limit</span>
+            <input
+              type="file"
+              multiple
+              onChange={(event) => setSelectedFiles(Array.from(event.target.files ?? []))}
+            />
           </label>
+          {selectedFiles.length > 0 ? (
+            <p className="customer-project-request-file-count">{selectedFiles.length} file(s) selected</p>
+          ) : null}
         </FormSection>
 
+        {formMessage ? <p className="customer-project-request-message">{formMessage}</p> : null}
+
         <div className="customer-project-request-actions">
-          <button type="submit">Submit Project Request</button>
+          <button disabled={isSubmitting} type="submit">
+            {isSubmitting ? 'Submitting...' : 'Submit Project Request'}
+          </button>
           <a href="/customer/projects">Cancel</a>
         </div>
 
@@ -102,9 +173,9 @@ export function CustomerProjectRequestPage() {
           <h2>What happens next?</h2>
           <ul>
             <li>Our sales team will review your request within 24 hours</li>
-            <li>You&apos;ll be assigned a dedicated sales representative and designer</li>
+            <li>You will be assigned a dedicated sales representative and designer</li>
             <li>We may schedule a site visit or consultation call</li>
-            <li>You&apos;ll receive design proposals for review</li>
+            <li>You will receive design proposals for review</li>
           </ul>
         </section>
       </form>
@@ -141,4 +212,3 @@ function Field({ children, label }: FieldProps) {
     </label>
   );
 }
-
