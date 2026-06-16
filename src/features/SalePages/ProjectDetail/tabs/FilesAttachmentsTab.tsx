@@ -45,10 +45,7 @@ export function FilesAttachmentsTab({ projectId }: FilesAttachmentsTabProps) {
                 <IconPaperclip size={22} />
               </div>
               <div className="project-detail-file-copy">
-                <h4>{file.originalFileName}</h4>
-                <p>
-                  {formatFileSize(file.fileSize)} - {file.fileType}
-                </p>
+                <p>{formatFileSize(file.fileSize)}</p>
                 <span>{formatDate(file.uploadedAt)}</span>
               </div>
               <div className="project-detail-file-actions">
