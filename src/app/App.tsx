@@ -20,6 +20,7 @@ import { ProductDetailPage } from '@/features/MainPages/productDetail';
 import { ProductListPreviewPage } from '@/features/MainPages/productListPreview';
 import { ProjectDetailPage } from '@/features/MainPages/projectDetail';
 import { ProjectListReviewPage } from '@/features/MainPages/projectListReview';
+import { UserProfilePage } from '@/features/MainPages/userProfile';
 import { ProjectDetail } from '@/features/SalePages/ProjectDetail';
 import { ProjectRequestQueue } from '@/features/SalePages/ProjectRequestQueue';
 import { AssignedProjects } from '@/features/SalePages/AssignedProjects';
@@ -43,6 +44,7 @@ export default function App() {
             <Route path="/products/detail" element={<ProductDetailPage />} />
             <Route path="/projects" element={<ProjectListReviewPage />} />
             <Route path="/projects/detail" element={<ProjectDetailPage />} />
+            <Route path="/user-profile" element={<UserProfilePage />} />
             <Route path="/viewer3d" element={<ViewerDemoPage />} />
 
             {/* Legacy redirects */}
