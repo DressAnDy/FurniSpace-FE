@@ -2,11 +2,11 @@
   position: sticky;
   top: 0;
   z-index: 50;
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   width: 100%;
   min-height: 80px;
   align-items: center;
-  justify-content: space-between;
   gap: 32px;
   box-sizing: border-box;
   border-radius: 0 0 2px 2px;
@@ -29,8 +29,9 @@
 
 .main-navbar .main-navbar-brand {
   display: flex;
-  min-width: 286px;
+  min-width: 0;
   align-items: center;
+  justify-self: start;
   gap: 8px;
   color: inherit;
   text-decoration: none;
@@ -44,55 +45,15 @@
   height: 50px;
   place-items: center;
   overflow: hidden;
-  border: 1px solid rgba(197, 156, 118, 0.52);
-  border-radius: 12px;
-  background:
-    linear-gradient(135deg, rgba(197, 156, 118, 0.12), transparent 44%),
-    #17110a;
-  box-shadow:
-    inset 0 0 0 1px rgba(255, 255, 255, 0.05),
-    0 10px 22px rgba(23, 17, 10, 0.14);
+  border-radius: 10px;
+  background: transparent;
 }
 
-.main-navbar .main-navbar-logo-wrap::before,
-.main-navbar .main-navbar-logo-wrap::after {
-  position: absolute;
-  border: 1px solid rgba(197, 156, 118, 0.42);
-  content: "";
-  pointer-events: none;
-}
-
-.main-navbar .main-navbar-logo-wrap::before {
-  inset: 8px;
-  border-radius: 8px;
-}
-
-.main-navbar .main-navbar-logo-wrap::after {
-  width: 20px;
-  height: 20px;
-  border-width: 1px 1px 0 0;
-  transform: rotate(-45deg) translateY(-3px);
-}
-
-.main-navbar .main-navbar-logo-glyph {
-  position: relative;
-  z-index: 1;
-  color: #c59c76;
-  font-family: Archivo, Arial, sans-serif;
-  font-size: 12px;
-  font-weight: 900;
-  letter-spacing: 0;
-  line-height: 1;
-}
-
-.main-navbar .main-navbar-logo-caption {
-  position: absolute;
-  bottom: 8px;
-  z-index: 1;
-  color: #c59c76;
-  font-size: 7px;
-  font-weight: 700;
-  letter-spacing: 0;
+.main-navbar .main-navbar-logo-image {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
 }
 
 .main-navbar .main-navbar-brand-name.main-navbar-brand-name {
@@ -107,8 +68,8 @@
 
 .main-navbar .main-navbar-nav {
   display: flex;
-  flex: 1 1 auto;
   align-items: center;
+  justify-self: center;
   justify-content: center;
   gap: clamp(28px, 3.1vw, 38px);
 }
@@ -117,13 +78,13 @@
 .main-navbar .main-navbar-action {
   position: relative;
   color: #0b0b0b;
-  font-family: "DM Sans", Arial, sans-serif;
+  font-family: "DM Sans", Inter, Arial, sans-serif;
   font-size: 16px;
   font-weight: 800;
   letter-spacing: 0;
   line-height: 20px;
   text-decoration: none;
-  text-transform: uppercase;
+  text-transform: none;
   white-space: nowrap;
   transition:
     color 220ms ease,
@@ -156,10 +117,11 @@
 
 .main-navbar .main-navbar-actions {
   display: flex;
-  min-width: 198px;
+  min-width: 0;
   align-items: center;
+  justify-self: end;
   justify-content: flex-end;
-  gap: 24px;
+  gap: 18px;
 }
 
 .main-navbar .main-navbar-action-login {
@@ -169,6 +131,173 @@
 .main-navbar .main-navbar-link:hover,
 .main-navbar .main-navbar-action:hover {
   color: #c59c76;
+}
+
+.main-navbar .main-navbar-account {
+  position: relative;
+}
+
+.main-navbar .main-navbar-user-button,
+.main-navbar .main-navbar-language {
+  border: 0;
+  cursor: pointer;
+  font-family: "DM Sans", Inter, Arial, sans-serif;
+}
+
+.main-navbar .main-navbar-user-button {
+  display: flex;
+  height: 44px;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 6px 4px 14px;
+  border-radius: 999px;
+  background: rgba(197, 156, 118, 0.1);
+  color: #0b0b0b;
+  transition:
+    background-color 220ms ease,
+    box-shadow 220ms ease,
+    transform 220ms ease;
+}
+
+.main-navbar .main-navbar-user-button:hover,
+.main-navbar .main-navbar-user-button[aria-expanded="true"] {
+  background: rgba(197, 156, 118, 0.18);
+  box-shadow: 0 10px 22px rgba(23, 17, 10, 0.1);
+  transform: translateY(-1px);
+}
+
+.main-navbar .main-navbar-user-name {
+  max-width: 150px;
+  overflow: hidden;
+  font-size: 14px;
+  font-weight: 800;
+  line-height: 1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.main-navbar .main-navbar-avatar {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  flex: 0 0 34px;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 50%;
+  background: #17110a;
+  color: #c59c76;
+  font-size: 12px;
+  font-weight: 900;
+  object-fit: cover;
+}
+
+.main-navbar .main-navbar-user-chevron {
+  color: #c59c76;
+  transition: transform 220ms ease;
+}
+
+.main-navbar .main-navbar-user-button[aria-expanded="true"] .main-navbar-user-chevron {
+  transform: rotate(180deg);
+}
+
+.main-navbar .main-navbar-account-menu {
+  position: absolute;
+  top: calc(100% + 12px);
+  right: 0;
+  z-index: 80;
+  display: flex;
+  min-width: 232px;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px;
+  border: 1px solid rgba(17, 17, 17, 0.08);
+  border-radius: 10px;
+  background: #ffffff;
+  box-shadow: 0 22px 52px rgba(17, 17, 17, 0.16);
+}
+
+.main-navbar .main-navbar-account-menu::before {
+  position: absolute;
+  top: -6px;
+  right: 22px;
+  width: 12px;
+  height: 12px;
+  background: #ffffff;
+  border-top: 1px solid rgba(17, 17, 17, 0.08);
+  border-left: 1px solid rgba(17, 17, 17, 0.08);
+  content: "";
+  transform: rotate(45deg);
+}
+
+.main-navbar .main-navbar-account-menu-item {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 10px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #17110a;
+  cursor: pointer;
+  font-family: "DM Sans", Inter, Arial, sans-serif;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.25;
+  padding: 11px 12px;
+  text-align: left;
+  text-decoration: none;
+  transition:
+    background-color 180ms ease,
+    color 180ms ease;
+}
+
+.main-navbar .main-navbar-account-menu-item svg {
+  flex: 0 0 auto;
+  color: #c59c76;
+}
+
+.main-navbar .main-navbar-account-menu-item:hover {
+  background: rgba(197, 156, 118, 0.12);
+  color: #9b734b;
+}
+
+.main-navbar .main-navbar-account-menu-item:disabled {
+  cursor: not-allowed;
+  opacity: 0.62;
+}
+
+.main-navbar .main-navbar-language {
+  display: flex;
+  height: 38px;
+  min-width: 58px;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 1px solid rgba(197, 156, 118, 0.42);
+  border-radius: 999px;
+  background: #ffffff;
+  color: #17110a;
+  font-size: 13px;
+  font-weight: 900;
+  letter-spacing: 0.4px;
+  transition:
+    background-color 220ms ease,
+    border-color 220ms ease,
+    color 220ms ease,
+    transform 220ms ease;
+}
+
+.main-navbar .main-navbar-language svg {
+  color: #c59c76;
+}
+
+.main-navbar .main-navbar-language:hover {
+  border-color: #c59c76;
+  background: rgba(197, 156, 118, 0.1);
+  color: #9b734b;
+  transform: translateY(-1px);
 }
 
 .main-navbar .main-navbar-logo-wrap,
@@ -191,7 +320,7 @@
   }
 
   .main-navbar .main-navbar-brand {
-    min-width: 245px;
+    min-width: 0;
   }
 
   .main-navbar .main-navbar-brand-name.main-navbar-brand-name {
@@ -208,8 +337,12 @@
   }
 
   .main-navbar .main-navbar-actions {
-    min-width: 172px;
-    gap: 18px;
+    min-width: 0;
+    gap: 12px;
+  }
+
+  .main-navbar .main-navbar-user-name {
+    max-width: 112px;
   }
 }
 
@@ -227,6 +360,7 @@
 
 @media (max-width: 900px) {
   .main-navbar.main-navbar {
+    display: flex;
     min-height: 96px;
     flex-wrap: wrap;
     justify-content: center;
@@ -245,5 +379,7 @@
 
   .main-navbar .main-navbar-actions {
     min-width: 0;
+    flex-wrap: wrap;
+    justify-content: center;
   }
 }

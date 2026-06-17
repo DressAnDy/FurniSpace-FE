@@ -66,10 +66,10 @@
 .project-review-shell {
   display: grid;
   grid-template-columns: 304px minmax(0, 1fr);
-  gap: 64px;
+  gap: 48px;
   width: 100%;
   margin: 42px 0 0;
-  padding: 0 32px 0 48px;
+  padding: 0 48px 96px;
 }
 
 .project-review-filter {
@@ -154,12 +154,15 @@
 .project-review-grid,
 .project-review-latest-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 384px));
-  gap: 70px 84px;
+  gap: 56px 40px;
+}
+
+.project-review-grid {
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
 }
 
 .product-card {
-  width: 384px;
+  width: 100%;
   height: 540px;
   overflow: hidden;
   background: #ffffff;
@@ -251,10 +254,6 @@
   .project-review-grid,
   .project-review-latest-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .product-card {
-    width: 100%;
   }
 
   .project-review-content h1 {

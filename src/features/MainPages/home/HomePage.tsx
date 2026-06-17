@@ -1,253 +1,160 @@
-import { IconPhone, IconShieldCheck } from '@tabler/icons-react';
-import { SiteFooter } from '@/shared/components/SiteFooter';
-import { useEffect, useState, type CSSProperties } from 'react';
+import { IconArrowRight, IconPhone, IconShieldCheck } from '@tabler/icons-react';
 
-import warmScandinavianImage from '@/assets/customer-dashboard/warm-scandinavian.png';
-import productDetailHeroImage from '@/assets/product-detail/hero.png';
 import galleryOneImage from '@/assets/product-detail/gallery-1.png';
 import galleryThreeImage from '@/assets/product-detail/gallery-3.png';
 import diningRoomImage from '@/assets/product-detail-shop/dining-room.png';
 import roomDetailImage from '@/assets/product-detail-shop/room-detail.png';
 import tableRoomImage from '@/assets/product-detail-shop/table-room.png';
 import terraSalonImage from '@/assets/project-list/terra-salon.png';
-import { MainNavbar } from '@/features/MainPages/maincomponents';
+import { MainFooter, MainNavbar } from '@/features/MainPages/maincomponents';
 
 import './HomePage.css';
 
-const filters = ['Loai hinh', 'Phong cach', 'Ngan sach', 'Dien tich'];
+const filters = ['Loại Hình', 'Phong Cách', 'Concept Dụng Thần'];
 
-const featuredProjects = [
+const projects = [
   {
     image: terraSalonImage,
-    meta: 'Cafe & lounge',
-    title: 'Bean & Brew flagship cafe concept',
+    title: 'Nội Thất Kim Lim Spirits Office & Lounge 5 Tầng Hiện Đại',
   },
   {
     image: galleryOneImage,
-    meta: 'Fashion retail',
-    title: 'Chic Style boutique showroom',
-  },
-  {
-    image: productDetailHeroImage,
-    meta: 'Office',
-    title: 'Tech studio collaborative workspace',
+    title: 'Không Gian Showroom Tối Giản Với Vật Liệu Gỗ Ấm',
   },
   {
     image: roomDetailImage,
-    meta: 'Showroom',
-    title: 'Material gallery and client suite',
+    title: 'Thiết Kế Cửa Hàng Thời Trang Hiện Đại Và Sang Trọng',
   },
   {
     image: diningRoomImage,
-    meta: 'Restaurant',
-    title: 'Warm dining room visualization',
+    title: 'Concept Nhà Hàng Với Ánh Sáng Và Chất Liệu Cao Cấp',
   },
   {
-    image: warmScandinavianImage,
-    meta: 'Retail space',
-    title: 'Scandinavian retail consultation area',
+    image: tableRoomImage,
+    title: 'Góc Tư Vấn Khách Hàng Cho Văn Phòng Kinh Doanh',
+  },
+  {
+    image: galleryThreeImage,
+    title: 'Phối Cảnh 3D Không Gian Trưng Bày Nội Thất',
   },
 ];
 
 const processSteps = [
-  {
-    number: '01',
-    title: 'Discovery & brief',
-    text: 'Clarify business goals, customer flow, site constraints, budget, and operational needs.',
-  },
-  {
-    number: '02',
-    title: 'Concept direction',
-    text: 'Shape moodboards, layout options, material direction, and a clear commercial design narrative.',
-  },
-  {
-    number: '03',
-    title: '3D visualization',
-    text: 'Build realistic 3D views so stakeholders can approve the space before production starts.',
-  },
-  {
-    number: '04',
-    title: 'Quotation & proposal',
-    text: 'Prepare scopes, furniture lists, production options, and transparent pricing for approval.',
-  },
-  {
-    number: '05',
-    title: 'Production & install',
-    text: 'Coordinate furniture production, site execution, quality control, and installation milestones.',
-  },
-  {
-    number: '06',
-    title: 'Handover & support',
-    text: 'Complete inspection, handover documents, warranty guidance, and post-launch support.',
-  },
+  ['01', 'Khảo sát & Tư vấn', 'Gặp gỡ khách hàng, khảo sát hiện trạng, xác định nhu cầu vận hành và phong cách phù hợp.'],
+  ['02', 'Thiết kế sơ bộ', 'Phác thảo mặt bằng, định hướng vật liệu, ánh sáng và luồng trải nghiệm trong không gian.'],
+  ['03', 'Thiết kế 3D', 'Dựng phối cảnh 3D để khách hàng hình dung rõ trước khi chốt phương án thi công.'],
+  ['04', 'Báo giá & Thi công', 'Hoàn thiện hồ sơ, dự toán chi phí, sản xuất nội thất và triển khai tại công trình.'],
+  ['05', 'Nghiệm thu', 'Kiểm tra chất lượng, hoàn thiện chi tiết và bàn giao không gian theo tiêu chuẩn đã thống nhất.'],
+  ['06', 'Bảo trì - Bảo hành', 'Đồng hành sau bàn giao với chính sách bảo hành, bảo trì và hỗ trợ vận hành.'],
 ];
 
 const commitments = [
-  {
-    title: 'Business-first design',
-    text: 'Every layout supports customer flow, brand experience, team operation, and measurable project goals.',
-  },
-  {
-    title: '3D clarity before build',
-    text: 'Realistic previews reduce uncertainty before quotation, production, and installation decisions.',
-  },
-  {
-    title: 'Transparent scope',
-    text: 'Design, furniture, material, and execution choices are documented before each major milestone.',
-  },
-  {
-    title: 'End-to-end support',
-    text: 'From concept to handover, FurniSpace keeps the project coordinated and accountable.',
-  },
+  ['Bảo hành 5 năm', 'Cam kết đồng hành dài hạn cho các hạng mục nội thất và thi công chính.'],
+  ['Đúng tiến độ', 'Quy trình rõ ràng giúp dự án bám sát thời gian khai trương và vận hành.'],
+  ['Chính sách hoàn tiền', 'Minh bạch phạm vi công việc, chi phí và điều kiện nghiệm thu.'],
+  ['Tư vấn miễn phí', 'Hỗ trợ định hướng giải pháp phù hợp ngân sách và mục tiêu kinh doanh.'],
 ];
 
-type RevealStyle = CSSProperties & {
-  '--reveal-delay'?: string;
-};
-
 export function HomePage() {
-  const [animationsReady, setAnimationsReady] = useState(false);
-
-  useEffect(() => {
-    setAnimationsReady(true);
-
-    const revealElements = Array.from(document.querySelectorAll<HTMLElement>('.home-reveal, .home-signature-motion'));
-    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-
-    if (prefersReducedMotion || !('IntersectionObserver' in window)) {
-      revealElements.forEach((element) => element.classList.add('is-visible'));
-      return;
-    }
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            entry.target.classList.add('is-visible');
-            observer.unobserve(entry.target);
-          }
-        });
-      },
-      { rootMargin: '0px 0px -12% 0px', threshold: 0.16 },
-    );
-
-    revealElements.forEach((element) => observer.observe(element));
-
-    return () => {
-      observer.disconnect();
-    };
-  }, []);
-
   return (
-    <main className={['home-page', animationsReady ? 'home-animations-ready' : null].filter(Boolean).join(' ')}>
+    <main className="home-page">
       <MainNavbar
         activePath="/"
         activeClassName="home-nav-link-active"
-        brandLabel="FURNISPACE"
+        brandLabel="FurniSpace"
         brandMarkLabel="FS"
         brandNameClassName="home-brand-name"
         classPrefix="home"
         linkClassName="home-nav-link"
       />
 
-      <section className="home-hero section-container home-signature-motion is-visible" aria-labelledby="home-hero-title">
+      <section className="home-hero section-container" aria-labelledby="home-hero-title">
         <div className="home-hero-copy">
-          <div className="home-kicker hero-kicker home-hero-reveal home-hero-reveal-1">
+          <div className="home-kicker">
             <span />
-            <p>Interior design & 3D visualization</p>
+            <p>Kiến trúc & Nội thất</p>
           </div>
 
-          <div className="home-hero-title-wrap">
+          <div>
             <h1 id="home-hero-title">
-              <span className="home-title-line hero-title-line home-hero-reveal home-hero-reveal-2">Business</span>
-              <span className="home-title-line hero-title-line home-hero-reveal home-hero-reveal-3">Interior Systems</span>
+              THIẾT KẾ
+              <br />
+              KIẾN TRÚC
             </h1>
-            <p className="home-hero-subtitle home-hero-reveal home-hero-reveal-1">from concept to handover</p>
+            <p className="home-hero-subtitle">và Nội thất</p>
           </div>
 
-          <hr className="home-hero-rule hero-divider-line" />
+          <hr />
 
-          <div className="home-signature home-hero-reveal home-hero-reveal-4">
+          <div className="home-signature">
             <strong>FurniSpace</strong>
             <span>DESIGN</span>
           </div>
 
-          <div className="home-actions home-hero-reveal home-hero-reveal-5">
+          <div className="home-actions">
             <button className="button button-dark" type="button">
-              Start a project
+              Bắt đầu thiết kế
             </button>
             <button className="button button-outline" type="button">
-              Book consult
+              Liên hệ
             </button>
           </div>
 
-          <div className="home-phone home-hero-reveal home-hero-reveal-6">
+          <div className="home-phone">
             <IconPhone size={16} />
             <span>+84 770 111 101</span>
           </div>
         </div>
 
-        <div className="home-hero-visual home-hero-visual-motion hero-visual-depth" aria-hidden="true">
-          <img className="home-hero-image hero-visual-panel hero-visual-panel-main" src={roomDetailImage} alt="" />
-          <img className="home-hero-inset hero-visual-panel hero-visual-panel-inset" src={tableRoomImage} alt="" />
-          <div className="home-hero-preview-card hero-preview-card">
-            <span>3D Proposal</span>
-            <strong>Retail Concept 92%</strong>
-          </div>
+        <div className="home-hero-visual" aria-hidden="true">
+          <img className="home-hero-image" src={roomDetailImage} alt="" />
+          <img className="home-hero-inset" src={tableRoomImage} alt="" />
         </div>
       </section>
 
-      <section className="home-intro home-signature-motion solution-section" aria-labelledby="home-intro-title">
+      <section className="home-intro" aria-labelledby="home-intro-title">
         <div className="section-container home-intro-grid">
-          <div className="home-intro-copy solution-copy">
+          <div className="home-intro-copy">
             <p className="home-eyebrow">FurniSpace</p>
-            <h2 id="home-intro-title">Spatial solutions for cafes, offices, showrooms, and retail brands</h2>
+            <h2 id="home-intro-title">Giải pháp thiết kế không gian cho doanh nghiệp</h2>
             <p>
-              FurniSpace turns business requirements into spatial strategy, 3D visual direction, quotation-ready proposals, furniture planning,
-              production coordination, installation, and handover support.
+              FurniSpace đồng hành cùng cafe, cửa hàng thời trang, văn phòng, showroom và không gian bán lẻ từ ý tưởng, thiết kế 3D, dự toán nội thất
+              đến thi công và bàn giao.
             </p>
             <button className="button button-gold" type="button">
-              Explore solution
+              Xem giải pháp
             </button>
           </div>
 
-          <div className="home-gallery solution-visual" aria-hidden="true">
-            <img className="home-gallery-back solution-visual-layer solution-visual-layer-back" src={diningRoomImage} alt="" />
-            <img className="home-gallery-front solution-visual-layer solution-visual-layer-front" src={galleryThreeImage} alt="" />
-            <div className="home-gallery-note solution-floating-card">
-              <span>Material board</span>
-              <strong>Warm wood / stone / linen</strong>
-            </div>
+          <div className="home-gallery" aria-hidden="true">
+            <img className="home-gallery-back" src={diningRoomImage} alt="" />
+            <img className="home-gallery-front" src={galleryThreeImage} alt="" />
           </div>
         </div>
       </section>
 
-      <section className="section-container home-projects portfolio-section home-signature-motion" aria-labelledby="home-projects-title">
+      <section className="section-container home-projects" aria-labelledby="home-projects-title">
         <SectionHeading
-          className="portfolio-heading"
           id="home-projects-title"
-          title="Featured commercial design concepts"
-          subtitle="Selected interior directions for cafes, fashion stores, offices, showrooms, and customer-facing spaces."
+          title="MẪU THIẾT KẾ NỔI BẬT"
+          subtitle="Các concept được chọn lọc cho không gian kinh doanh cần tính thẩm mỹ, hiệu quả vận hành và khả năng thi công rõ ràng."
         />
 
-        <div className="home-filter-row portfolio-filter-row" aria-label="Project filters">
+        <div className="home-filter-row" aria-label="Bộ lọc dự án">
           {filters.map((filter) => (
-            <select key={filter} className="home-filter portfolio-filter" defaultValue="">
+            <select key={filter} className="home-filter" defaultValue="">
               <option value="">{filter}</option>
             </select>
           ))}
           <button className="button button-filter-clear" type="button">
-            Clear filters
+            Xóa bộ lọc
           </button>
         </div>
 
         <div className="home-project-grid">
-          {featuredProjects.map((project, index) => (
-            <article key={project.title} className="home-project-card portfolio-card" style={{ '--reveal-delay': `${index * 90}ms` } as RevealStyle}>
-              <div className="portfolio-card-image">
-                <img src={project.image} alt="" />
-              </div>
-              <p>{project.meta}</p>
+          {projects.map((project) => (
+            <article key={project.title} className="home-project-card">
+              <img src={project.image} alt="" />
               <h3>{project.title}</h3>
             </article>
           ))}
@@ -255,34 +162,34 @@ export function HomePage() {
 
         <div className="home-center">
           <button className="button button-pill" type="button">
-            View all concepts
+            Xem tất cả
           </button>
         </div>
       </section>
 
-      <section className="home-process process-section home-signature-motion" aria-labelledby="home-process-title">
+      <section className="home-process" aria-labelledby="home-process-title">
         <div className="section-container home-process-grid">
-          <div className="process-heading">
-            <p className="home-eyebrow">Process</p>
+          <div>
+            <p className="home-eyebrow">Quy trình</p>
             <h2 id="home-process-title">
-              From brief
+              Từ ý tưởng
               <br />
-              to handover
+              đến bàn giao
             </h2>
           </div>
 
           <div className="home-process-content">
             <p className="home-process-intro">
-              A structured workflow keeps design intent, quotation decisions, production scope, and installation quality aligned.
+              Quy trình triển khai được chia thành từng bước rõ ràng để khách hàng dễ theo dõi thiết kế, ngân sách, tiến độ và chất lượng.
             </p>
 
             <div className="home-step-grid">
-              {processSteps.map((step, index) => (
-                <article key={step.number} className="home-step process-step" style={{ '--reveal-delay': `${index * 110}ms` } as RevealStyle}>
-                  <p className="home-step-number">{step.number}</p>
-                  <h3>{step.title}</h3>
-                  <p>{step.text}</p>
-                  <a href="#learn">Learn more</a>
+              {processSteps.map(([number, title, text]) => (
+                <article key={number} className="home-step">
+                  <p className="home-step-number">{number}</p>
+                  <h3>{title}</h3>
+                  <p>{text}</p>
+                  <a href="#learn">Tìm hiểu thêm</a>
                 </article>
               ))}
             </div>
@@ -290,33 +197,33 @@ export function HomePage() {
         </div>
       </section>
 
-      <section className="section-container home-commitments trust-section home-signature-motion" aria-labelledby="home-commitments-title">
+      <section className="section-container home-commitments" aria-labelledby="home-commitments-title">
         <SectionHeading
-          className="trust-heading"
-          eyebrow="Commitments"
+          eyebrow="Cam kết"
           id="home-commitments-title"
-          title="Reliable delivery for business spaces"
-          subtitle="Designed for teams that need beautiful, functional, quote-ready, and buildable interior solutions."
+          title="Đồng hành đáng tin cậy cho không gian kinh doanh"
+          subtitle="FurniSpace tập trung vào thiết kế đẹp, rõ công năng, dễ thi công và phù hợp mục tiêu vận hành của từng thương hiệu."
         />
 
         <div className="home-commit-grid">
-          {commitments.map((commitment, index) => (
-            <article key={commitment.title} className="home-commit-card trust-card" style={{ '--reveal-delay': `${index * 100}ms` } as RevealStyle}>
+          {commitments.map(([title, text]) => (
+            <article key={title} className="home-commit-card">
               <IconShieldCheck size={24} />
-              <h3>{commitment.title}</h3>
-              <p>{commitment.text}</p>
+              <h3>{title}</h3>
+              <p>{text}</p>
             </article>
           ))}
         </div>
 
-        <div className="home-cta cta-glow-panel">
+        <div className="home-cta">
           <div>
-            <h2>Ready to shape your next business space?</h2>
-            <p>Book a consultation and turn your brief into a clear design, proposal, and delivery plan.</p>
+            <h2>Sẵn sàng bắt đầu dự án của bạn?</h2>
+            <p>Trao đổi cùng FurniSpace để biến brief thành thiết kế, dự toán và kế hoạch triển khai rõ ràng.</p>
           </div>
           <div className="home-cta-actions">
             <button className="button button-light" type="button">
-              Free consultation
+              Tư vấn miễn phí
+              <IconArrowRight size={16} />
             </button>
             <button className="button button-transparent" type="button">
               +84 770 111 101
@@ -325,7 +232,7 @@ export function HomePage() {
         </div>
       </section>
 
-      <SiteFooter />
+      <MainFooter />
     </main>
   );
 }
