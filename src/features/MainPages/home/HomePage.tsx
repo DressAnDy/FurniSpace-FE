@@ -6,7 +6,7 @@ import diningRoomImage from '@/assets/product-detail-shop/dining-room.png';
 import roomDetailImage from '@/assets/product-detail-shop/room-detail.png';
 import tableRoomImage from '@/assets/product-detail-shop/table-room.png';
 import terraSalonImage from '@/assets/project-list/terra-salon.png';
-import { LangProvider, useLang } from '@/app/providers/LangContext';
+import { useLang } from '@/app/providers/LangContext';
 import { MainFooter, MainNavbar } from '@/features/MainPages/maincomponents';
 
 import './HomePage.css';
@@ -142,11 +142,7 @@ const homeContent = {
 } as const;
 
 export function HomePage() {
-  return (
-    <LangProvider>
-      <HomePageContent />
-    </LangProvider>
-  );
+  return <HomePageContent />;
 }
 
 function HomePageContent() {
@@ -329,7 +325,7 @@ function HomePageContent() {
         </div>
       </section>
 
-      <MainFooter lang={lang} />
+      <MainFooter />
     </main>
   );
 }

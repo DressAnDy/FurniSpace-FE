@@ -2,13 +2,9 @@ import { IconClock, IconMail, IconMapPin, IconPhone } from '@tabler/icons-react'
 import type { ReactNode } from 'react';
 
 import logoImage from '@/assets/Logo/Logo.png';
-import type { Lang } from '@/app/providers/LangContext';
+import { useLang } from '@/app/providers/LangContext';
 
 import './MainFooter.css';
-
-type MainFooterProps = {
-  lang?: Lang;
-};
 
 const footerContent = {
   vi: {
@@ -35,7 +31,8 @@ const footerContent = {
   },
 } as const;
 
-export function MainFooter({ lang = 'en' }: MainFooterProps) {
+export function MainFooter() {
+  const { lang } = useLang();
   const t = footerContent[lang];
 
   return (

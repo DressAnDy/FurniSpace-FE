@@ -5,6 +5,7 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { queryClient } from '@/app/providers/queryClient';
 import { theme } from '@/app/providers/theme';
 import { ProtectedRoute } from '@/app/providers/ProtectedRoute';
+import { LangProvider } from '@/app/providers/LangContext';
 import { CodeVerifyPage, LoginPage, RegisterPage } from '@/features/auth';
 import { AdminDashbroad } from '@/features/AdminPages/AdminDashbroad';
 import { Categorymanagement } from '@/features/AdminPages/Categorymanagement';
@@ -35,6 +36,7 @@ export default function App() {
     <QueryClientProvider client={queryClient}>
       <ThemeProvider theme={theme}>
         <CssBaseline />
+        <LangProvider>
         <BrowserRouter>
           <Routes>
             {/* ── Public routes ── */}
@@ -107,6 +109,7 @@ export default function App() {
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </BrowserRouter>
+        </LangProvider>
       </ThemeProvider>
     </QueryClientProvider>
   );
