@@ -124,7 +124,7 @@ function getPostLoginPath(role?: string) {
     return '/sale/dashbroad';
   }
 
-  return '/customer/dashboard';
+  return '/';
 }
 
 function normalizeRole(role?: string) {

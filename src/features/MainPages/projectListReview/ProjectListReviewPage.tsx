@@ -22,14 +22,6 @@ const featuredProjects = Array.from({ length: 6 }, (_, index) => ({
   year: '2025',
 }));
 
-const latestProjects = Array.from({ length: 3 }, (_, index) => ({
-  area: index === 2 ? '90m2' : '105m2',
-  category: 'Nhà hàng - Quán bar',
-  imageUrl: terraSalonUrl,
-  title: 'TERRA SALON',
-  year: '2025',
-}));
-
 
 export function ProjectListReviewPage() {
   return (
@@ -69,14 +61,6 @@ export function ProjectListReviewPage() {
         </div>
       </section>
 
-      <section className="project-review-latest">
-        <h2>Cập nhập mới</h2>
-        <div className="project-review-latest-grid">
-          {latestProjects.map((project, index) => (
-            <ProjectCard key={`latest-${index}`} {...project} compact />
-          ))}
-        </div>
-      </section>
 
       <SiteFooter />
     </main>
