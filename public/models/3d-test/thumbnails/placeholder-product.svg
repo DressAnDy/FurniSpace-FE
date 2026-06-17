@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="420" viewBox="0 0 640 420" role="img" aria-labelledby="title desc">
+  <title id="title">3D product placeholder</title>
+  <desc id="desc">Neutral FurniSpace placeholder thumbnail for local 3D test products.</desc>
+  <rect width="640" height="420" fill="#eef3ef"/>
+  <path d="M0 320h640v100H0z" fill="#dce6df"/>
+  <path d="M170 310h300l48 54H122z" fill="#c9d8cf"/>
+  <path d="M250 142h140l44 96H206z" fill="#356859"/>
+  <path d="M224 238h192v28H224z" fill="#27483f"/>
+  <path d="M244 266h24v70h-24zM372 266h24v70h-24z" fill="#27483f"/>
+  <path d="M284 108h72v34h-72z" fill="#c87b5a"/>
+  <path d="M284 142h72v96h-72z" fill="#b7c9bf"/>
+  <circle cx="320" cy="190" r="20" fill="#f4f6f3"/>
+  <path d="M112 92h416" stroke="#c8d6ce" stroke-width="8" stroke-linecap="round"/>
+  <path d="M112 92v230M528 92v230" stroke="#c8d6ce" stroke-width="8" stroke-linecap="round"/>
+</svg>

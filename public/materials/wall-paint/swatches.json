@@ -1,0 +1,36 @@
+{
+  "flooring": [
+    {
+      "id": "oak-floor",
+      "name": "Oak Floor",
+      "color": "#8B5A2B"
+    },
+    {
+      "id": "walnut-floor",
+      "name": "Walnut Floor",
+      "color": "#5C3A21"
+    },
+    {
+      "id": "gray-tile",
+      "name": "Gray Tile",
+      "color": "#A8A8A0"
+    }
+  ],
+  "wallPaint": [
+    {
+      "id": "balanced-tan",
+      "name": "Balanced Tan",
+      "color": "#BFAE8A"
+    },
+    {
+      "id": "warm-white",
+      "name": "Warm White",
+      "color": "#EFE9DD"
+    },
+    {
+      "id": "soft-gray",
+      "name": "Soft Gray",
+      "color": "#B8B8B0"
+    }
+  ]
+}

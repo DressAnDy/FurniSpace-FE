@@ -25,6 +25,7 @@ import { AssignedProjects } from '@/features/SalePages/AssignedProjects';
 import { SaleQuotations } from '@/features/SalePages/SaleQuotations';
 import { SaleSchedules } from '@/features/SalePages/SaleSchedules';
 import { SaleDashbroad } from '@/features/SalePages/SaleDashbroad';
+import { ThreeDTestPage } from '@/features/ThreeD/pages/ThreeDTestPage';
 import { ViewerDemoPage } from '@/features/viewer3d';
 
 export default function App() {
@@ -47,6 +48,7 @@ export default function App() {
             <Route path="/project-detail" element={<Navigate to="/projects/detail" replace />} />
             <Route path="/project-list-review" element={<Navigate to="/projects" replace />} />
             <Route path="/viewer3d" element={<ViewerDemoPage />} />
+            <Route path="/3d-lab" element={<ThreeDTestPage />} />
 
             <Route path="/customer" element={<Navigate to="/customer/dashboard" replace />} />
             <Route path="/customer/dashboard" element={<CustomerDashboardPage />} />
