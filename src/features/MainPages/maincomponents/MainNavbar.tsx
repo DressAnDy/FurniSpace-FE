@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 
 import logoImage from '@/assets/Logo/Logo.png';
+import { useLang } from '@/app/providers/LangContext';
 import { useCurrentUser, useLogout } from '@/services/queries';
 
 import './MainNavbar.css';
@@ -17,12 +18,30 @@ type MainNavbarProps = {
   linkClassName?: string;
 };
 
-const mainNavItems = [
-  { label: 'TRANG CHỦ', path: '/' },
-  { label: 'DỰ ÁN', path: '/projects' },
-  { label: 'SẢN PHẨM', path: '/products' },
-  { label: 'DỊCH VỤ', path: '/#services' },
-];
+const navPaths = ['/', '/projects', '/products', '/#services'];
+
+const navbarText = {
+  vi: {
+    nav: ['TRANG CHỦ', 'DỰ ÁN', 'SẢN PHẨM', 'DỊCH VỤ'],
+    register: 'ĐĂNG KÝ',
+    login: 'ĐĂNG NHẬP',
+    dashboard: 'Trung tâm quản lý',
+    profile: 'Thông tin người dùng',
+    logout: 'Đăng xuất',
+    loggingOut: 'Đang đăng xuất...',
+    switchLang: 'Switch to English',
+  },
+  en: {
+    nav: ['HOME', 'PROJECTS', 'PRODUCTS', 'SERVICES'],
+    register: 'SIGN UP',
+    login: 'LOG IN',
+    dashboard: 'My Dashboard',
+    profile: 'My Profile',
+    logout: 'Log out',
+    loggingOut: 'Logging out...',
+    switchLang: 'Chuyển sang Tiếng Việt',
+  },
+};
 
 function cx(...classNames: Array<string | undefined | false | null>) {
   return classNames.filter(Boolean).join(' ');
@@ -42,8 +61,10 @@ export function MainNavbar({
   const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false);
   const { data: user } = useCurrentUser();
   const logoutMutation = useLogout();
+  const { lang, setLang } = useLang();
+  const t = navbarText[lang];
   const resolvedBrandLabel = brandLabel.toLowerCase() === 'furnispace' ? 'FurniSpace' : brandLabel;
-  const displayName = user?.fullName?.trim() || user?.email || 'Kh\u00e1ch h\u00e0ng';
+  const displayName = user?.fullName?.trim() || user?.email || (lang === 'vi' ? 'Khách hàng' : 'Guest');
   const initials = getInitials(displayName);
 
   useEffect(() => {
@@ -92,8 +113,9 @@ export function MainNavbar({
       </NavLink>
 
       <nav className={cx(`${classPrefix}-nav`, 'main-navbar-nav')} aria-label="Main navigation">
-        {mainNavItems.map((item) => {
-          const isActive = activePath ? item.path === activePath : undefined;
+        {navPaths.map((path, index) => {
+          const label = t.nav[index];
+          const isActive = activePath ? path === activePath : undefined;
           const resolvedActiveClassName = activeClassName ?? `${classPrefix}-nav-active`;
 
           return (
@@ -105,11 +127,11 @@ export function MainNavbar({
                   undefined
                 );
               }}
-              end={item.path === '/'}
-              key={item.label}
-              to={item.path}
+              end={path === '/'}
+              key={path}
+              to={path}
             >
-              {item.label}
+              {label}
             </NavLink>
           );
         })}
@@ -134,15 +156,15 @@ export function MainNavbar({
               <div className="main-navbar-account-menu" role="menu">
                 <NavLink className="main-navbar-account-menu-item" role="menuitem" to="/customer/dashboard" onClick={() => setIsAccountMenuOpen(false)}>
                   <IconLayoutDashboard size={18} stroke={1.8} />
-                  <span>Trung tâm quản lý</span>
+                  <span>{t.dashboard}</span>
                 </NavLink>
                 <NavLink className="main-navbar-account-menu-item" role="menuitem" to="/user-profile" onClick={() => setIsAccountMenuOpen(false)}>
                   <IconUser size={18} stroke={1.8} />
-                  <span>Thông tin người dùng</span>
+                  <span>{t.profile}</span>
                 </NavLink>
                 <button className="main-navbar-account-menu-item" role="menuitem" type="button" onClick={handleLogout} disabled={logoutMutation.isPending}>
                   <IconLogout size={18} stroke={1.8} />
-                  <span>{logoutMutation.isPending ? 'Đang đăng xuất...' : 'Đăng xuất'}</span>
+                  <span>{logoutMutation.isPending ? t.loggingOut : t.logout}</span>
                 </button>
               </div>
             ) : null}
@@ -150,17 +172,22 @@ export function MainNavbar({
         ) : (
           <>
             <NavLink className="main-navbar-action" to="/register">
-              {'ĐĂNG KÝ'}
+              {t.register}
             </NavLink>
             <NavLink className="main-navbar-action main-navbar-action-login" to="/login">
-              {'ĐĂNG NHẬP'}
+              {t.login}
             </NavLink>
           </>
         )}
 
-        <button className="main-navbar-language" type="button" aria-label="Chuyển đổi ngôn ngữ">
+        <button
+          className="main-navbar-language"
+          type="button"
+          aria-label={t.switchLang}
+          onClick={() => setLang(lang === 'vi' ? 'en' : 'vi')}
+        >
           <IconGlobe size={18} stroke={1.8} />
-          <span>VI</span>
+          <span>{lang.toUpperCase()}</span>
         </button>
       </div>
     </header>
