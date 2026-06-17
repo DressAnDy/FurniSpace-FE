@@ -1,4 +1,5 @@
 import { IconPhone, IconShieldCheck } from '@tabler/icons-react';
+import { SiteFooter } from '@/shared/components/SiteFooter';
 import { useEffect, useState, type CSSProperties } from 'react';
 
 import warmScandinavianImage from '@/assets/customer-dashboard/warm-scandinavian.png';
@@ -97,21 +98,6 @@ const commitments = [
   {
     title: 'End-to-end support',
     text: 'From concept to handover, FurniSpace keeps the project coordinated and accountable.',
-  },
-];
-
-const footerColumns = [
-  {
-    title: 'Services',
-    links: ['Interior strategy', '3D visualization', 'Furniture planning', 'Production support'],
-  },
-  {
-    title: 'Business spaces',
-    links: ['Cafes', 'Fashion stores', 'Offices', 'Showrooms'],
-  },
-  {
-    title: 'Support',
-    links: ['Consultation', 'Quotation', 'Installation', 'Handover'],
   },
 ];
 
@@ -339,24 +325,7 @@ export function HomePage() {
         </div>
       </section>
 
-      <footer className="home-footer home-footer-reveal home-signature-motion">
-        <div className="section-container home-footer-grid">
-          <div className="home-footer-brand">
-            <span>FS</span>
-            <h2>FurniSpace</h2>
-            <p>Interior design, 3D visualization, furniture planning, and delivery support for business spaces.</p>
-          </div>
-
-          {footerColumns.map((column) => (
-            <div className="home-footer-column" key={column.title}>
-              <h3>{column.title}</h3>
-              {column.links.map((link) => (
-                <p key={link}>{link}</p>
-              ))}
-            </div>
-          ))}
-        </div>
-      </footer>
+      <SiteFooter />
     </main>
   );
 }
