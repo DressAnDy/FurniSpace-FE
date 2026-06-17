@@ -5,6 +5,12 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { queryClient } from '@/app/providers/queryClient';
 import { theme } from '@/app/providers/theme';
 import { CodeVerifyPage, LoginPage, RegisterPage } from '@/features/auth';
+import { Customer3dPreviewPage } from '@/features/customer3dPreview';
+import { CustomerChatPage } from '@/features/customerChat';
+import { CustomerDashboardPage } from '@/features/customerDashboard';
+import { CustomerProjectListPage } from '@/features/customerProjectList';
+import { CustomerProjectRequestPage } from '@/features/customerProjectRequest';
+import { CustomerProposalDetailPage } from '@/features/customerProposalDetail';
 import { AdminDashbroad } from '@/features/AdminPages/AdminDashbroad';
 import { Categorymanagement } from '@/features/AdminPages/Categorymanagement';
 import { CreateProductPage, CreateProductVersionPage, Productmanagement, ProductVersionManagement } from '@/features/AdminPages/Productmanagement';
@@ -36,6 +42,12 @@ export default function App() {
           <Routes>
             <Route path="/" element={<HomePage />} />
             <Route path="/code-verify" element={<CodeVerifyPage />} />
+            <Route path="/customer-chat" element={<CustomerChatPage />} />
+            <Route path="/customer-dashboard" element={<CustomerDashboardPage />} />
+            <Route path="/customer-3d-preview" element={<Customer3dPreviewPage />} />
+            <Route path="/customer-projects" element={<CustomerProjectListPage />} />
+            <Route path="/customer-project-request" element={<CustomerProjectRequestPage />} />
+            <Route path="/customer-proposal-detail" element={<CustomerProposalDetailPage />} />
             <Route path="/login" element={<LoginPage />} />
             <Route path="/register" element={<RegisterPage />} />
             <Route path="/products" element={<ProductListPreviewPage />} />
