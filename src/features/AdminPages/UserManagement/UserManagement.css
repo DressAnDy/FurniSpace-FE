@@ -17,35 +17,59 @@
 
 .user-management-tools {
   display: flex;
-  align-items: flex-start;
+  align-items: flex-end;
   justify-content: space-between;
   gap: 16px;
-  margin-bottom: 40px;
+  margin-bottom: 24px;
 }
 
 .user-management-search {
-  margin-top: 40px;
   max-width: 700px;
 }
 
-.user-management-placeholder {
-  display: block;
+.user-management-filter {
+  display: grid;
+  gap: 6px;
+  width: 180px;
+  color: #1a1d29;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 18px;
+}
+
+.user-management-filter select {
+  height: 40px;
+  border: 1px solid #e5e7eb;
   border-radius: 8px;
   background: #f3f4f6;
+  color: #1a1d29;
+  padding: 0 12px;
 }
 
-.user-management-placeholder-large {
-  width: 226px;
-  height: 122px;
+.user-management-total {
+  display: grid;
+  min-width: 120px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 10px 14px;
 }
 
-.user-management-placeholder-small {
-  width: 150px;
-  height: 85px;
+.user-management-total span {
+  color: #6b7280;
+  font-size: 12px;
+  line-height: 16px;
+}
+
+.user-management-total strong {
+  color: #1a1d29;
+  font-size: 20px;
+  line-height: 28px;
 }
 
 .user-management-table {
-  min-width: 980px;
+  width: 100%;
+  min-width: 1080px;
 }
 
 .user-management-table td {
@@ -64,10 +88,13 @@
 }
 
 .user-management-user span {
-  max-width: 100px;
+  max-width: 160px;
   color: #1a1d29;
   font-weight: 500;
   line-height: 20px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .user-management-avatar {
@@ -80,6 +107,13 @@
   border-radius: 999px;
   background: #d4a574;
   color: #ffffff;
+  overflow: hidden;
+}
+
+.user-management-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .user-management-role {
@@ -105,6 +139,10 @@
 
 .user-management-status-active {
   background: #10b981;
+}
+
+.user-management-status-inactive {
+  background: #6b7280;
 }
 
 .user-management-status-suspended {
@@ -135,10 +173,220 @@
   background: #f3f4f6;
 }
 
-@media (max-width: 1100px) {
-  .user-management-placeholder {
-    display: none;
-  }
+.user-management-actions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.user-management-state {
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #6b7280;
+  font-size: 14px;
+  line-height: 20px;
+  margin-bottom: 16px;
+  padding: 16px;
+}
+
+.user-management-state-error,
+.user-modal-error {
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  background: #fef2f2;
+  color: #b91c1c;
+  font-size: 14px;
+  line-height: 20px;
+  padding: 12px 14px;
+}
+
+.user-modal-overlay {
+  position: fixed;
+  z-index: 1000;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(17, 24, 39, 0.48);
+  padding: 32px 16px;
+}
+
+.user-modal-panel {
+  width: min(680px, 100%);
+  max-height: calc(100vh - 64px);
+  overflow-y: auto;
+  border: 3px solid #9a6b3d;
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 20px 45px rgba(15, 23, 42, 0.22), 0 0 0 6px rgba(212, 165, 116, 0.22);
+  padding: 24px;
+}
+
+.user-detail-panel {
+  width: min(760px, 100%);
+}
+
+.user-modal-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.user-modal-header h2,
+.user-modal-header p {
+  margin: 0;
+}
+
+.user-modal-header h2 {
+  color: #1a1d29;
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 28px;
+}
+
+.user-modal-header p {
+  margin-top: 4px;
+  color: #6b7280;
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.user-modal-icon-button {
+  display: inline-flex;
+  width: 32px;
+  height: 32px;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 32px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #6b7280;
+  cursor: pointer;
+}
+
+.user-modal-grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.user-modal-field {
+  display: grid;
+  gap: 8px;
+  color: #1a1d29;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 20px;
+}
+
+.user-modal-field-full {
+  grid-column: 1 / -1;
+}
+
+.user-modal-field input,
+.user-modal-field select {
+  width: 100%;
+  height: 40px;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  outline: 0;
+  background: #f3f4f6;
+  color: #1a1d29;
+  padding: 0 12px;
+  font-size: 14px;
+}
+
+.user-modal-field input:focus,
+.user-modal-field select:focus {
+  border-color: #d4a574;
+  box-shadow: 0 0 0 2px rgba(212, 165, 116, 0.2);
+}
+
+.user-modal-note {
+  border: 1px solid #bfdbfe;
+  border-radius: 8px;
+  background: #eff6ff;
+  color: #1d4ed8;
+  font-size: 14px;
+  line-height: 20px;
+  margin-top: 16px;
+  padding: 12px 14px;
+}
+
+.user-modal-error {
+  margin: 16px 0 0;
+}
+
+.user-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.user-modal-secondary,
+.user-modal-primary {
+  display: inline-flex;
+  height: 38px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  padding: 0 14px;
+}
+
+.user-modal-secondary {
+  border: 1px solid #e5e7eb;
+  background: #ffffff;
+  color: #1a1d29;
+}
+
+.user-modal-primary {
+  border: 1px solid #d4a574;
+  background: #d4a574;
+  color: #ffffff;
+}
+
+.user-modal-secondary:disabled,
+.user-modal-primary:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.user-detail-grid {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.user-detail-item {
+  min-width: 0;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #f8f7f5;
+  padding: 12px;
+}
+
+.user-detail-item span {
+  display: block;
+  color: #6b7280;
+  font-size: 12px;
+  line-height: 16px;
+  margin-bottom: 4px;
+}
+
+.user-detail-item strong {
+  display: block;
+  overflow-wrap: anywhere;
+  color: #1a1d29;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 20px;
 }
 
 @media (max-width: 760px) {
@@ -150,5 +398,33 @@
 
   .user-management-search {
     margin-top: 0;
+  }
+
+  .user-management-filter,
+  .user-management-total {
+    width: 100%;
+  }
+
+  .user-modal-overlay {
+    align-items: stretch;
+    padding: 16px;
+  }
+
+  .user-modal-panel {
+    max-height: calc(100vh - 32px);
+  }
+
+  .user-modal-grid,
+  .user-detail-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .user-modal-actions {
+    flex-direction: column-reverse;
+  }
+
+  .user-modal-secondary,
+  .user-modal-primary {
+    width: 100%;
   }
 }

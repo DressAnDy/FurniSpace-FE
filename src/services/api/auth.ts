@@ -1,7 +1,7 @@
 import { AxiosError } from 'axios';
 import axios from 'axios';
 
-import { removeLegacyAccessToken } from './tokenStore';
+import { getStoredAccessToken, removeStoredAccessToken, storeAccessToken } from './tokenStore';
 import type { AuthTokenData, CurrentUserData, RegisterData, ServiceResult } from './types';
 
 export const AUTH_PENDING_EMAIL_KEY = 'auth.pendingEmail';
@@ -29,6 +29,16 @@ const authApiClient = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
+});
+
+authApiClient.interceptors.request.use((config) => {
+  const token = getStoredAccessToken();
+
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+
+  return config;
 });
 
 export function normalizeEmail(email: string) {
@@ -72,6 +82,10 @@ export async function verifyEmail(input: VerifyEmailInput) {
     otpCode: input.otpCode.trim(),
   });
 
+  if (response.data.data?.access_token) {
+    storeAccessToken(response.data.data.access_token);
+  }
+
   return response.data;
 }
 
@@ -80,6 +94,10 @@ export async function login(input: LoginInput) {
     email: normalizeEmail(input.email),
     password: input.password,
   });
+
+  if (response.data.data?.access_token) {
+    storeAccessToken(response.data.data.access_token);
+  }
 
   return response.data;
 }
@@ -93,7 +111,7 @@ export async function getCurrentUser() {
 export async function logout() {
   const response = await authApiClient.post<ServiceResult<null>>('/auth/logout', {});
 
-  removeLegacyAccessToken();
+  removeStoredAccessToken();
   return response.data;
 }
 

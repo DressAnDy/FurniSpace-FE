@@ -1,8 +1,9 @@
 import { FormEvent, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate } from 'react-router-dom';
 
 import authHero from '@/assets/auth/register-hero.png';
-import { getServiceResultMessage, normalizeEmail } from '@/services/api/auth';
+import { getCurrentUser, getServiceResultMessage, normalizeEmail } from '@/services/api/auth';
 import { useLogin } from '@/services/queries';
 
 import './LoginPage.css';
@@ -14,6 +15,7 @@ const loginFields = [
 
 export function LoginPage() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const loginMutation = useLogin();
   const [message, setMessage] = useState('');
 
@@ -36,9 +38,18 @@ export function LoginPage() {
         onError: (error) => {
           setMessage(getServiceResultMessage(error));
         },
-        onSuccess: (result) => {
+        onSuccess: async (result) => {
           setMessage(result.message);
-          navigate('/customer-dashboard');
+
+          try {
+            const currentUserResult = await getCurrentUser();
+            const currentUser = currentUserResult.data;
+
+            queryClient.setQueryData(['auth', 'me'], currentUserResult);
+            navigate(getPostLoginPath(currentUser?.role), { replace: true });
+          } catch (error) {
+            setMessage(getServiceResultMessage(error));
+          }
         },
       },
     );
@@ -100,4 +111,22 @@ function validateLoginForm(input: { email: string; password: string }) {
   }
 
   return '';
+}
+
+function getPostLoginPath(role?: string) {
+  const normalizedRole = normalizeRole(role);
+
+  if (normalizedRole.includes('ADMIN')) {
+    return '/admin/dashbroad';
+  }
+
+  if (normalizedRole.includes('SALE')) {
+    return '/sale/dashbroad';
+  }
+
+  return '/customer/dashboard';
+}
+
+function normalizeRole(role?: string) {
+  return (role ?? '').trim().replace(/[\s-]+/g, '_').toUpperCase();
 }

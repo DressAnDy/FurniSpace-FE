@@ -9,6 +9,7 @@ import {
   IconFileDollar,
   IconFolder,
   IconHome,
+  IconLogout,
   IconMessage,
   IconPackage,
   IconSettings,
@@ -19,7 +20,9 @@ import {
   IconUsers,
   type Icon,
 } from '@tabler/icons-react';
-import { NavLink } from 'react-router-dom';
+import { NavLink, useNavigate } from 'react-router-dom';
+
+import { useLogout } from '@/services/queries';
 
 type SidebarItem = {
   label: string;
@@ -53,6 +56,17 @@ type AdminSidebarProps = {
 };
 
 export function AdminSidebar({ activeLabel }: AdminSidebarProps) {
+  const navigate = useNavigate();
+  const logoutMutation = useLogout();
+
+  function handleLogout() {
+    logoutMutation.mutate(undefined, {
+      onSettled: () => {
+        navigate('/login', { replace: true });
+      },
+    });
+  }
+
   return (
     <aside className="admin-sidebar">
       <div className="admin-brand">
@@ -89,6 +103,13 @@ export function AdminSidebar({ activeLabel }: AdminSidebarProps) {
           );
         })}
       </nav>
+
+      <div className="admin-sidebar-footer">
+        <button className="admin-logout-button" type="button" onClick={handleLogout} disabled={logoutMutation.isPending}>
+          <IconLogout size={16} />
+          <span>{logoutMutation.isPending ? 'Logging out...' : 'Logout'}</span>
+        </button>
+      </div>
     </aside>
   );
 }
