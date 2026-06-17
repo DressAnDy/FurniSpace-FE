@@ -6,56 +6,149 @@ import diningRoomImage from '@/assets/product-detail-shop/dining-room.png';
 import roomDetailImage from '@/assets/product-detail-shop/room-detail.png';
 import tableRoomImage from '@/assets/product-detail-shop/table-room.png';
 import terraSalonImage from '@/assets/project-list/terra-salon.png';
+import { useLang } from '@/app/providers/LangContext';
 import { MainFooter, MainNavbar } from '@/features/MainPages/maincomponents';
 
 import './HomePage.css';
 
-const filters = ['Loại Hình', 'Phong Cách', 'Concept Dụng Thần'];
-
-const projects = [
-  {
-    image: terraSalonImage,
-    title: 'Nội Thất Kim Lim Spirits Office & Lounge 5 Tầng Hiện Đại',
-  },
-  {
-    image: galleryOneImage,
-    title: 'Không Gian Showroom Tối Giản Với Vật Liệu Gỗ Ấm',
-  },
-  {
-    image: roomDetailImage,
-    title: 'Thiết Kế Cửa Hàng Thời Trang Hiện Đại Và Sang Trọng',
-  },
-  {
-    image: diningRoomImage,
-    title: 'Concept Nhà Hàng Với Ánh Sáng Và Chất Liệu Cao Cấp',
-  },
-  {
-    image: tableRoomImage,
-    title: 'Góc Tư Vấn Khách Hàng Cho Văn Phòng Kinh Doanh',
-  },
-  {
-    image: galleryThreeImage,
-    title: 'Phối Cảnh 3D Không Gian Trưng Bày Nội Thất',
-  },
+const projectImages = [
+  terraSalonImage,
+  galleryOneImage,
+  roomDetailImage,
+  diningRoomImage,
+  tableRoomImage,
+  galleryThreeImage,
 ];
 
-const processSteps = [
-  ['01', 'Khảo sát & Tư vấn', 'Gặp gỡ khách hàng, khảo sát hiện trạng, xác định nhu cầu vận hành và phong cách phù hợp.'],
-  ['02', 'Thiết kế sơ bộ', 'Phác thảo mặt bằng, định hướng vật liệu, ánh sáng và luồng trải nghiệm trong không gian.'],
-  ['03', 'Thiết kế 3D', 'Dựng phối cảnh 3D để khách hàng hình dung rõ trước khi chốt phương án thi công.'],
-  ['04', 'Báo giá & Thi công', 'Hoàn thiện hồ sơ, dự toán chi phí, sản xuất nội thất và triển khai tại công trình.'],
-  ['05', 'Nghiệm thu', 'Kiểm tra chất lượng, hoàn thiện chi tiết và bàn giao không gian theo tiêu chuẩn đã thống nhất.'],
-  ['06', 'Bảo trì - Bảo hành', 'Đồng hành sau bàn giao với chính sách bảo hành, bảo trì và hỗ trợ vận hành.'],
-];
-
-const commitments = [
-  ['Bảo hành 5 năm', 'Cam kết đồng hành dài hạn cho các hạng mục nội thất và thi công chính.'],
-  ['Đúng tiến độ', 'Quy trình rõ ràng giúp dự án bám sát thời gian khai trương và vận hành.'],
-  ['Chính sách hoàn tiền', 'Minh bạch phạm vi công việc, chi phí và điều kiện nghiệm thu.'],
-  ['Tư vấn miễn phí', 'Hỗ trợ định hướng giải pháp phù hợp ngân sách và mục tiêu kinh doanh.'],
-];
+const homeContent = {
+  vi: {
+    // Hero
+    kicker: 'Kiến trúc & Nội thất',
+    heroLine1: 'THIẾT KẾ',
+    heroLine2: 'KIẾN TRÚC',
+    heroSubtitle: 'và Nội thất',
+    startBtn: 'Bắt đầu thiết kế',
+    contactBtn: 'Liên hệ',
+    // Intro
+    introEyebrow: 'FurniSpace',
+    introTitle: 'Giải pháp thiết kế không gian cho doanh nghiệp',
+    introBody:
+      'FurniSpace đồng hành cùng cafe, cửa hàng thời trang, văn phòng, showroom và không gian bán lẻ từ ý tưởng, thiết kế 3D, dự toán nội thất đến thi công và bàn giao.',
+    exploreBtn: 'Xem giải pháp',
+    // Projects
+    projectsTitle: 'MẪU THIẾT KẾ NỔI BẬT',
+    projectsSubtitle:
+      'Các concept được chọn lọc cho không gian kinh doanh cần tính thẩm mỹ, hiệu quả vận hành và khả năng thi công rõ ràng.',
+    filters: ['Loại Hình', 'Phong Cách', 'Design Concept'],
+    clearFilters: 'Xóa bộ lọc',
+    viewAll: 'Xem tất cả',
+    projectTitles: [
+      'Nội Thất Kim Lim Spirits Office & Lounge 5 Tầng Hiện Đại',
+      'Không Gian Showroom Tối Giản Với Vật Liệu Gỗ Ấm',
+      'Thiết Kế Cửa Hàng Thời Trang Hiện Đại Và Sang Trọng',
+      'Concept Nhà Hàng Với Ánh Sáng Và Chất Liệu Cao Cấp',
+      'Góc Tư Vấn Khách Hàng Cho Văn Phòng Kinh Doanh',
+      'Phối Cảnh 3D Không Gian Trưng Bày Nội Thất',
+    ],
+    // Process
+    processEyebrow: 'Quy trình',
+    processTitle1: 'Từ ý tưởng',
+    processTitle2: 'đến bàn giao',
+    processIntro:
+      'Quy trình triển khai được chia thành từng bước rõ ràng để khách hàng dễ theo dõi thiết kế, ngân sách, tiến độ và chất lượng.',
+    learnMore: 'Tìm hiểu thêm',
+    steps: [
+      ['01', 'Khảo sát & Tư vấn', 'Gặp gỡ khách hàng, khảo sát hiện trạng, xác định nhu cầu vận hành và phong cách phù hợp.'],
+      ['02', 'Thiết kế sơ bộ', 'Phác thảo mặt bằng, định hướng vật liệu, ánh sáng và luồng trải nghiệm trong không gian.'],
+      ['03', 'Thiết kế 3D', 'Dựng phối cảnh 3D để khách hàng hình dung rõ trước khi chốt phương án thi công.'],
+      ['04', 'Báo giá & Thi công', 'Hoàn thiện hồ sơ, dự toán chi phí, sản xuất nội thất và triển khai tại công trình.'],
+      ['05', 'Nghiệm thu', 'Kiểm tra chất lượng, hoàn thiện chi tiết và bàn giao không gian theo tiêu chuẩn đã thống nhất.'],
+      ['06', 'Bảo trì - Bảo hành', 'Đồng hành sau bàn giao với chính sách bảo hành, bảo trì và hỗ trợ vận hành.'],
+    ],
+    // Commitments
+    commitmentsEyebrow: 'Cam kết',
+    commitmentsTitle: 'Đồng hành đáng tin cậy cho không gian kinh doanh',
+    commitmentsSubtitle:
+      'FurniSpace tập trung vào thiết kế đẹp, rõ công năng, dễ thi công và phù hợp mục tiêu vận hành của từng thương hiệu.',
+    commitments: [
+      ['Bảo hành 5 năm', 'Cam kết đồng hành dài hạn cho các hạng mục nội thất và thi công chính.'],
+      ['Đúng tiến độ', 'Quy trình rõ ràng giúp dự án bám sát thời gian khai trương và vận hành.'],
+      ['Chính sách hoàn tiền', 'Minh bạch phạm vi công việc, chi phí và điều kiện nghiệm thu.'],
+      ['Tư vấn miễn phí', 'Hỗ trợ định hướng giải pháp phù hợp ngân sách và mục tiêu kinh doanh.'],
+    ],
+    ctaTitle: 'Sẵn sàng bắt đầu dự án của bạn?',
+    ctaBody: 'Trao đổi cùng FurniSpace để biến brief thành thiết kế, dự toán và kế hoạch triển khai rõ ràng.',
+    ctaBtn: 'Tư vấn miễn phí',
+  },
+  en: {
+    // Hero
+    kicker: 'Architecture & Interior Design',
+    heroLine1: 'INTERIOR',
+    heroLine2: 'DESIGN',
+    heroSubtitle: '& Architecture',
+    startBtn: 'Start a project',
+    contactBtn: 'Contact us',
+    // Intro
+    introEyebrow: 'FurniSpace',
+    introTitle: 'Spatial design solutions for businesses',
+    introBody:
+      'FurniSpace partners with cafes, fashion stores, offices, showrooms, and retail spaces from concept to 3D visualization, furniture quotation, construction, and handover.',
+    exploreBtn: 'Explore solutions',
+    // Projects
+    projectsTitle: 'FEATURED DESIGN CONCEPTS',
+    projectsSubtitle:
+      'Curated concepts for commercial spaces that demand aesthetics, operational efficiency, and buildable clarity.',
+    filters: ['Space Type', 'Style', 'Design Concept'],
+    clearFilters: 'Clear filters',
+    viewAll: 'View all',
+    projectTitles: [
+      'Kim Lim Spirits 5-Floor Modern Office & Lounge',
+      'Minimalist Showroom With Warm Wood Materials',
+      'Modern & Luxurious Fashion Store Design',
+      'Restaurant Concept With Premium Lighting & Materials',
+      'Client Consultation Corner For Business Office',
+      '3D Rendering Of Furniture Exhibition Space',
+    ],
+    // Process
+    processEyebrow: 'Process',
+    processTitle1: 'From brief',
+    processTitle2: 'to handover',
+    processIntro:
+      'A structured workflow broken into clear steps so clients can track design decisions, budget, timeline, and quality.',
+    learnMore: 'Learn more',
+    steps: [
+      ['01', 'Discovery & Brief', 'Meet clients, assess the site, define operational needs and desired style.'],
+      ['02', 'Concept Direction', 'Sketch floor plans, define materials, lighting, and spatial flow direction.'],
+      ['03', '3D Visualization', 'Build photorealistic 3D views so stakeholders can approve the space before production.'],
+      ['04', 'Quotation & Production', 'Finalize documentation, cost estimates, furniture production, and on-site execution.'],
+      ['05', 'Handover', 'Quality inspection, final details, and handover according to agreed standards.'],
+      ['06', 'Support & Warranty', 'Post-handover support with warranty, maintenance, and operational guidance.'],
+    ],
+    // Commitments
+    commitmentsEyebrow: 'Commitments',
+    commitmentsTitle: 'Reliable delivery for business spaces',
+    commitmentsSubtitle:
+      "FurniSpace focuses on beautiful design, clear function, buildable execution, and alignment with each brand's operational goals.",
+    commitments: [
+      ['5-Year Warranty', 'Long-term commitment covering key furniture and construction items.'],
+      ['On Schedule', 'Clear workflow keeps projects aligned with opening and operational timelines.'],
+      ['Transparent Pricing', 'Scope, cost, and handover conditions are documented before each major milestone.'],
+      ['Free Consultation', 'Guidance on solutions tailored to your budget and business goals.'],
+    ],
+    ctaTitle: 'Ready to shape your next business space?',
+    ctaBody: 'Talk to FurniSpace and turn your brief into a clear design, quotation, and delivery plan.',
+    ctaBtn: 'Free consultation',
+  },
+} as const;
 
 export function HomePage() {
+  return <HomePageContent />;
+}
+
+function HomePageContent() {
+  const { lang } = useLang();
+  const t = homeContent[lang];
+
   return (
     <main className="home-page">
       <MainNavbar
@@ -68,20 +161,21 @@ export function HomePage() {
         linkClassName="home-nav-link"
       />
 
+      {/* Hero */}
       <section className="home-hero section-container" aria-labelledby="home-hero-title">
         <div className="home-hero-copy">
           <div className="home-kicker">
             <span />
-            <p>Kiến trúc & Nội thất</p>
+            <p>{t.kicker}</p>
           </div>
 
           <div>
             <h1 id="home-hero-title">
-              THIẾT KẾ
+              {t.heroLine1}
               <br />
-              KIẾN TRÚC
+              {t.heroLine2}
             </h1>
-            <p className="home-hero-subtitle">và Nội thất</p>
+            <p className="home-hero-subtitle">{t.heroSubtitle}</p>
           </div>
 
           <hr />
@@ -93,10 +187,10 @@ export function HomePage() {
 
           <div className="home-actions">
             <button className="button button-dark" type="button">
-              Bắt đầu thiết kế
+              {t.startBtn}
             </button>
             <button className="button button-outline" type="button">
-              Liên hệ
+              {t.contactBtn}
             </button>
           </div>
 
@@ -112,17 +206,15 @@ export function HomePage() {
         </div>
       </section>
 
+      {/* Intro */}
       <section className="home-intro" aria-labelledby="home-intro-title">
         <div className="section-container home-intro-grid">
           <div className="home-intro-copy">
-            <p className="home-eyebrow">FurniSpace</p>
-            <h2 id="home-intro-title">Giải pháp thiết kế không gian cho doanh nghiệp</h2>
-            <p>
-              FurniSpace đồng hành cùng cafe, cửa hàng thời trang, văn phòng, showroom và không gian bán lẻ từ ý tưởng, thiết kế 3D, dự toán nội thất
-              đến thi công và bàn giao.
-            </p>
+            <p className="home-eyebrow">{t.introEyebrow}</p>
+            <h2 id="home-intro-title">{t.introTitle}</h2>
+            <p>{t.introBody}</p>
             <button className="button button-gold" type="button">
-              Xem giải pháp
+              {t.exploreBtn}
             </button>
           </div>
 
@@ -133,63 +225,63 @@ export function HomePage() {
         </div>
       </section>
 
+      {/* Projects */}
       <section className="section-container home-projects" aria-labelledby="home-projects-title">
         <SectionHeading
           id="home-projects-title"
-          title="MẪU THIẾT KẾ NỔI BẬT"
-          subtitle="Các concept được chọn lọc cho không gian kinh doanh cần tính thẩm mỹ, hiệu quả vận hành và khả năng thi công rõ ràng."
+          title={t.projectsTitle}
+          subtitle={t.projectsSubtitle}
         />
 
-        <div className="home-filter-row" aria-label="Bộ lọc dự án">
-          {filters.map((filter) => (
+        <div className="home-filter-row" aria-label={lang === 'vi' ? 'Bộ lọc dự án' : 'Project filters'}>
+          {t.filters.map((filter) => (
             <select key={filter} className="home-filter" defaultValue="">
               <option value="">{filter}</option>
             </select>
           ))}
           <button className="button button-filter-clear" type="button">
-            Xóa bộ lọc
+            {t.clearFilters}
           </button>
         </div>
 
         <div className="home-project-grid">
-          {projects.map((project) => (
-            <article key={project.title} className="home-project-card">
-              <img src={project.image} alt="" />
-              <h3>{project.title}</h3>
+          {projectImages.map((image, index) => (
+            <article key={t.projectTitles[index]} className="home-project-card">
+              <img src={image} alt="" />
+              <h3>{t.projectTitles[index]}</h3>
             </article>
           ))}
         </div>
 
         <div className="home-center">
           <button className="button button-pill" type="button">
-            Xem tất cả
+            {t.viewAll}
           </button>
         </div>
       </section>
 
+      {/* Process */}
       <section className="home-process" aria-labelledby="home-process-title">
         <div className="section-container home-process-grid">
           <div>
-            <p className="home-eyebrow">Quy trình</p>
+            <p className="home-eyebrow">{t.processEyebrow}</p>
             <h2 id="home-process-title">
-              Từ ý tưởng
+              {t.processTitle1}
               <br />
-              đến bàn giao
+              {t.processTitle2}
             </h2>
           </div>
 
           <div className="home-process-content">
-            <p className="home-process-intro">
-              Quy trình triển khai được chia thành từng bước rõ ràng để khách hàng dễ theo dõi thiết kế, ngân sách, tiến độ và chất lượng.
-            </p>
+            <p className="home-process-intro">{t.processIntro}</p>
 
             <div className="home-step-grid">
-              {processSteps.map(([number, title, text]) => (
+              {t.steps.map(([number, title, text]) => (
                 <article key={number} className="home-step">
                   <p className="home-step-number">{number}</p>
                   <h3>{title}</h3>
                   <p>{text}</p>
-                  <a href="#learn">Tìm hiểu thêm</a>
+                  <a href="#learn">{t.learnMore}</a>
                 </article>
               ))}
             </div>
@@ -197,16 +289,17 @@ export function HomePage() {
         </div>
       </section>
 
+      {/* Commitments */}
       <section className="section-container home-commitments" aria-labelledby="home-commitments-title">
         <SectionHeading
-          eyebrow="Cam kết"
+          eyebrow={t.commitmentsEyebrow}
           id="home-commitments-title"
-          title="Đồng hành đáng tin cậy cho không gian kinh doanh"
-          subtitle="FurniSpace tập trung vào thiết kế đẹp, rõ công năng, dễ thi công và phù hợp mục tiêu vận hành của từng thương hiệu."
+          title={t.commitmentsTitle}
+          subtitle={t.commitmentsSubtitle}
         />
 
         <div className="home-commit-grid">
-          {commitments.map(([title, text]) => (
+          {t.commitments.map(([title, text]) => (
             <article key={title} className="home-commit-card">
               <IconShieldCheck size={24} />
               <h3>{title}</h3>
@@ -217,12 +310,12 @@ export function HomePage() {
 
         <div className="home-cta">
           <div>
-            <h2>Sẵn sàng bắt đầu dự án của bạn?</h2>
-            <p>Trao đổi cùng FurniSpace để biến brief thành thiết kế, dự toán và kế hoạch triển khai rõ ràng.</p>
+            <h2>{t.ctaTitle}</h2>
+            <p>{t.ctaBody}</p>
           </div>
           <div className="home-cta-actions">
             <button className="button button-light" type="button">
-              Tư vấn miễn phí
+              {t.ctaBtn}
               <IconArrowRight size={16} />
             </button>
             <button className="button button-transparent" type="button">

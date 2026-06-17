@@ -78,10 +78,10 @@
 .main-navbar .main-navbar-action {
   position: relative;
   color: #0b0b0b;
-  font-family: "DM Sans", Inter, Arial, sans-serif;
-  font-size: 16px;
-  font-weight: 800;
-  letter-spacing: 0;
+  font-family: "Be Vietnam Pro", "DM Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
   line-height: 20px;
   text-decoration: none;
   text-transform: none;
@@ -141,7 +141,7 @@
 .main-navbar .main-navbar-language {
   border: 0;
   cursor: pointer;
-  font-family: "DM Sans", Inter, Arial, sans-serif;
+  font-family: "Be Vietnam Pro", "DM Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
 }
 
 .main-navbar .main-navbar-user-button {
@@ -241,7 +241,7 @@
   background: transparent;
   color: #17110a;
   cursor: pointer;
-  font-family: "DM Sans", Inter, Arial, sans-serif;
+  font-family: "Be Vietnam Pro", "DM Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
   font-size: 14px;
   font-weight: 700;
   line-height: 1.25;
