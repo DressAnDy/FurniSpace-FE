@@ -5,17 +5,12 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { queryClient } from '@/app/providers/queryClient';
 import { theme } from '@/app/providers/theme';
 import { CodeVerifyPage, LoginPage, RegisterPage } from '@/features/auth';
-import { Customer3dPreviewPage } from '@/features/customer3dPreview';
-import { CustomerChatPage } from '@/features/customerChat';
-import { CustomerDashboardPage } from '@/features/customerDashboard';
-import { CustomerProjectListPage } from '@/features/customerProjectList';
-import { CustomerProjectRequestPage } from '@/features/customerProjectRequest';
-import { CustomerProposalDetailPage } from '@/features/customerProposalDetail';
 import { AdminDashbroad } from '@/features/AdminPages/AdminDashbroad';
 import { Categorymanagement } from '@/features/AdminPages/Categorymanagement';
 import { CreateProductPage, CreateProductVersionPage, Productmanagement, ProductVersionManagement } from '@/features/AdminPages/Productmanagement';
 import { UserManagement } from '@/features/AdminPages/UserManagement';
 import { Customer3dPreviewPage } from '@/features/CustomerPages/customer3dPreview';
+import { CustomerChatPage } from '@/features/CustomerPages/customerChat';
 import { CustomerDashboardPage } from '@/features/CustomerPages/customerDashboard';
 import { CustomerProjectListPage } from '@/features/CustomerPages/customerProjectList';
 import { CustomerProjectRequestPage } from '@/features/CustomerPages/customerProjectRequest';
@@ -42,36 +37,38 @@ export default function App() {
           <Routes>
             <Route path="/" element={<HomePage />} />
             <Route path="/code-verify" element={<CodeVerifyPage />} />
-            <Route path="/customer-chat" element={<CustomerChatPage />} />
-            <Route path="/customer-dashboard" element={<CustomerDashboardPage />} />
-            <Route path="/customer-3d-preview" element={<Customer3dPreviewPage />} />
-            <Route path="/customer-projects" element={<CustomerProjectListPage />} />
-            <Route path="/customer-project-request" element={<CustomerProjectRequestPage />} />
-            <Route path="/customer-proposal-detail" element={<CustomerProposalDetailPage />} />
             <Route path="/login" element={<LoginPage />} />
             <Route path="/register" element={<RegisterPage />} />
             <Route path="/products" element={<ProductListPreviewPage />} />
             <Route path="/products/detail" element={<ProductDetailPage />} />
             <Route path="/projects" element={<ProjectListReviewPage />} />
             <Route path="/projects/detail" element={<ProjectDetailPage />} />
+            <Route path="/viewer3d" element={<ViewerDemoPage />} />
+
+            {/* Legacy redirects */}
             <Route path="/product-detail" element={<Navigate to="/products/detail" replace />} />
             <Route path="/product-list-preview" element={<Navigate to="/products" replace />} />
             <Route path="/project-detail" element={<Navigate to="/projects/detail" replace />} />
             <Route path="/project-list-review" element={<Navigate to="/projects" replace />} />
-            <Route path="/viewer3d" element={<ViewerDemoPage />} />
 
+            {/* Customer routes */}
             <Route path="/customer" element={<Navigate to="/customer/dashboard" replace />} />
             <Route path="/customer/dashboard" element={<CustomerDashboardPage />} />
             <Route path="/customer/projects" element={<CustomerProjectListPage />} />
             <Route path="/customer/project-request" element={<CustomerProjectRequestPage />} />
             <Route path="/customer/proposals" element={<CustomerProposalDetailPage />} />
             <Route path="/customer/3d-preview" element={<Customer3dPreviewPage />} />
+            <Route path="/customer/chat" element={<CustomerChatPage />} />
+
+            {/* Customer legacy redirects */}
             <Route path="/customer-dashboard" element={<Navigate to="/customer/dashboard" replace />} />
             <Route path="/customer-3d-preview" element={<Navigate to="/customer/3d-preview" replace />} />
             <Route path="/customer-projects" element={<Navigate to="/customer/projects" replace />} />
             <Route path="/customer-project-request" element={<Navigate to="/customer/project-request" replace />} />
             <Route path="/customer-proposal-detail" element={<Navigate to="/customer/proposals" replace />} />
-            
+            <Route path="/customer-chat" element={<Navigate to="/customer/chat" replace />} />
+
+            {/* Admin routes */}
             <Route path="/admin" element={<Navigate to="/admin/dashbroad" replace />} />
             <Route path="/admin/dashbroad" element={<AdminDashbroad />} />
             <Route path="/admin/users" element={<UserManagement />} />
@@ -84,7 +81,8 @@ export default function App() {
             <Route path="/admin-user-management" element={<Navigate to="/admin/users" replace />} />
             <Route path="/admin-category-management" element={<Navigate to="/admin/categories" replace />} />
             <Route path="/admin-product-management" element={<Navigate to="/admin/products" replace />} />
-            
+
+            {/* Sales routes */}
             <Route path="/sale" element={<Navigate to="/sales/dashbroad" replace />} />
             <Route path="/sale/dashbroad" element={<Navigate to="/sales/dashbroad" replace />} />
             <Route path="/sales" element={<Navigate to="/sales/project-requests" replace />} />
@@ -95,6 +93,7 @@ export default function App() {
             <Route path="/sales/schedules" element={<SaleSchedules />} />
             <Route path="/sales/quotations" element={<SaleQuotations />} />
             <Route path="/sales/project-requests/:projectId" element={<ProjectDetail />} />
+
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </BrowserRouter>

@@ -87,6 +87,13 @@ export function CustomerChatPage() {
       <TopNavigation />
 
       <div className="customer-chat-body">
+        <header className="customer-chat-page-header">
+          <a className="customer-chat-back-link" href="/customer/projects">
+            <IconArrowLeft size={16} stroke={1.8} />
+            Back to Project
+          </a>
+          <h1>Project Chat</h1>
+        </header>
 
         <div className="customer-chat-layout">
           <aside className="customer-chat-sidebar">
@@ -152,8 +159,7 @@ export function CustomerChatPage() {
               </div>
             </div>
 
-            <div className="customer-chat-messages" aria-live="polite">
-            </div>
+            <div className="customer-chat-messages" aria-live="polite" />
 
             <div className="customer-chat-input-area">
               <button className="customer-chat-attach" type="button" aria-label="Attach file">
@@ -189,10 +195,10 @@ export function CustomerChatPage() {
               <p>Quick Links</p>
               <ul>
                 <li>
-                  <a href="/project-detail">View Project Details</a>
+                  <a href="/projects/detail">View Project Details</a>
                 </li>
                 <li>
-                  <a href="/customer-proposal-detail">View Proposals</a>
+                  <a href="/customer/proposals">View Proposals</a>
                 </li>
                 <li>
                   <a href="#">View Quotations</a>
