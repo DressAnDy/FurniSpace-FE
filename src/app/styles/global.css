@@ -27,3 +27,26 @@ body {
 #root {
   min-height: 100vh;
 }
+
+/* ── Auth loading screen ── */
+
+.auth-loading {
+  display: grid;
+  min-height: 100vh;
+  place-items: center;
+  background: #fafaf9;
+}
+
+.auth-loading-spinner {
+  display: block;
+  width: 36px;
+  height: 36px;
+  border: 3px solid #e7e5e4;
+  border-top-color: #c9a13b;
+  border-radius: 50%;
+  animation: auth-spin 0.7s linear infinite;
+}
+
+@keyframes auth-spin {
+  to { transform: rotate(360deg); }
+}
