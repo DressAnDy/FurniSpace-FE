@@ -1,8 +1,11 @@
 import {
   IconChevronLeft,
+  IconFileText,
+  IconPhoto,
   IconUpload,
+  IconX,
 } from '@tabler/icons-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 import './CustomerProjectRequestPage.css';
@@ -22,6 +25,23 @@ export function CustomerProjectRequestPage() {
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [formMessage, setFormMessage] = useState<string | null>(null);
   const isSubmitting = createProjectMutation.isPending || uploadProjectFileMutation.isPending;
+
+  function addSelectedFiles(fileList: FileList | null) {
+    if (!fileList?.length) {
+      return;
+    }
+
+    setSelectedFiles((currentFiles) => {
+      const existingFileKeys = new Set(currentFiles.map(getFileKey));
+      const newFiles = Array.from(fileList).filter((file) => !existingFileKeys.has(getFileKey(file)));
+
+      return [...currentFiles, ...newFiles];
+    });
+  }
+
+  function removeSelectedFile(fileToRemove: File) {
+    setSelectedFiles((currentFiles) => currentFiles.filter((file) => file !== fileToRemove));
+  }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -152,11 +172,25 @@ export function CustomerProjectRequestPage() {
             <input
               type="file"
               multiple
-              onChange={(event) => setSelectedFiles(Array.from(event.target.files ?? []))}
+              onChange={(event) => {
+                addSelectedFiles(event.target.files);
+                event.currentTarget.value = '';
+              }}
             />
           </label>
           {selectedFiles.length > 0 ? (
-            <p className="customer-project-request-file-count">{selectedFiles.length} file(s) selected</p>
+            <div className="customer-project-request-file-preview">
+              <p className="customer-project-request-file-count">{selectedFiles.length} file(s) selected</p>
+              <div className="customer-project-request-file-grid-preview">
+                {selectedFiles.map((file) => (
+                  <SelectedFilePreview
+                    file={file}
+                    key={`${file.name}-${file.lastModified}-${file.size}`}
+                    onRemove={() => removeSelectedFile(file)}
+                  />
+                ))}
+              </div>
+            </div>
           ) : null}
         </FormSection>
 
@@ -180,6 +214,51 @@ export function CustomerProjectRequestPage() {
         </section>
       </form>
     </main>
+  );
+}
+
+type SelectedFilePreviewProps = {
+  file: File;
+  onRemove: () => void;
+};
+
+function SelectedFilePreview({ file, onRemove }: SelectedFilePreviewProps) {
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const isImage = file.type.startsWith('image/');
+
+  useEffect(() => {
+    if (!isImage) {
+      setPreviewUrl(null);
+      return undefined;
+    }
+
+    const objectUrl = URL.createObjectURL(file);
+    setPreviewUrl(objectUrl);
+
+    return () => URL.revokeObjectURL(objectUrl);
+  }, [file, isImage]);
+
+  return (
+    <article className="customer-project-request-file-card">
+      <div className="customer-project-request-file-thumb">
+        {previewUrl ? (
+          <img alt={file.name} src={previewUrl} />
+        ) : isImage ? (
+          <IconPhoto size={28} stroke={1.7} />
+        ) : (
+          <IconFileText size={28} stroke={1.7} />
+        )}
+      </div>
+      <div className="customer-project-request-file-info">
+        <strong title={file.name}>{file.name}</strong>
+        <span>
+          {getReadableFileType(file)} - {formatFileSize(file.size)}
+        </span>
+      </div>
+      <button type="button" aria-label={`Remove ${file.name}`} onClick={onRemove}>
+        <IconX size={16} stroke={1.8} />
+      </button>
+    </article>
   );
 }
 
@@ -211,4 +290,30 @@ function Field({ children, label }: FieldProps) {
       {children}
     </label>
   );
+}
+
+function getReadableFileType(file: File) {
+  if (file.type) {
+    return file.type;
+  }
+
+  const extension = file.name.split('.').pop();
+
+  return extension ? extension.toUpperCase() : 'Unknown file';
+}
+
+function formatFileSize(size: number) {
+  if (size < 1024) {
+    return `${size} B`;
+  }
+
+  if (size < 1024 * 1024) {
+    return `${(size / 1024).toFixed(1)} KB`;
+  }
+
+  return `${(size / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function getFileKey(file: File) {
+  return `${file.name}-${file.size}-${file.lastModified}`;
 }
