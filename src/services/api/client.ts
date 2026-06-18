@@ -3,10 +3,6 @@ import axiosRetry from 'axios-retry';
 
 import { notifyError } from '@/shared/lib/toast';
 
-import { removeLegacyAccessToken } from './tokenStore';
-
-removeLegacyAccessToken();
-
 export const apiClient = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL ?? import.meta.env.VITE_API_URL,
   withCredentials: true,

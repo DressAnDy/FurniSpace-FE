@@ -1,6 +1,5 @@
 import { Navigate, Outlet } from 'react-router-dom';
 
-import { getStoredAccessToken } from '@/services/api/tokenStore';
 import { useCurrentUser } from '@/services/queries';
 
 type ProtectedRouteProps = {
@@ -20,12 +19,7 @@ type ProtectedRouteProps = {
  * 5. Sai role   → redirect /
  */
 export function ProtectedRoute({ allowedRoles }: ProtectedRouteProps) {
-  const token = getStoredAccessToken();
   const { data: user, isLoading, isError } = useCurrentUser();
-
-  if (!token) {
-    return <Navigate to="/" replace />;
-  }
 
   if (isLoading) {
     return (

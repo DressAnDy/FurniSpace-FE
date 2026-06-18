@@ -1,23 +1,11 @@
 import axios, { AxiosError } from 'axios';
 
-import { getStoredAccessToken } from './tokenStore';
-
 const projectApiClient = axios.create({
   baseURL: getProjectApiBaseUrl(),
   withCredentials: true,
   headers: {
     'Content-Type': 'application/json',
   },
-});
-
-projectApiClient.interceptors.request.use((config) => {
-  const token = getStoredAccessToken();
-
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
-
-  return config;
 });
 
 projectApiClient.interceptors.response.use(
