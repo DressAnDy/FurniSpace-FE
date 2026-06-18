@@ -2,9 +2,11 @@ import {
   ArcRotateCamera,
   Color3,
   HemisphericLight,
+  Mesh,
   MeshBuilder,
   Scene,
   StandardMaterial,
+  Texture,
   Tools,
   Vector3,
 } from 'babylonjs';
@@ -13,8 +15,57 @@ export type RoomGridOptions = {
   axisColor?: string;
   cellSize?: number;
   floorColor?: string;
+  floorTextureUrl?: string;
   gridColor?: string;
 };
+
+export type RoomPoint = {
+  x: number;
+  z: number;
+};
+
+export type RoomWall = {
+  end: RoomPoint;
+  id: string;
+  start: RoomPoint;
+};
+
+export type RoomShellOptions = {
+  fallbackColor?: string;
+  wallHeight: number;
+  wallMaterialId: string;
+  wallTextureUrl?: string;
+};
+
+function createTexturedMaterial(
+  name: string,
+  scene: Scene,
+  textureUrl: string | undefined,
+  fallbackColor: string,
+) {
+  const material = new StandardMaterial(name, scene);
+  material.diffuseColor = Color3.FromHexString(fallbackColor);
+  material.specularColor = Color3.Black();
+
+  if (textureUrl) {
+    const texture = new Texture(
+      textureUrl,
+      scene,
+      false,
+      true,
+      Texture.TRILINEAR_SAMPLINGMODE,
+      undefined,
+      () => {
+        material.diffuseTexture = null;
+      },
+    );
+    texture.uScale = 2;
+    texture.vScale = 2;
+    material.diffuseTexture = texture;
+  }
+
+  return material;
+}
 
 export function createDefaultCamera(scene: Scene, canvas: HTMLCanvasElement) {
   const camera = new ArcRotateCamera(
@@ -48,9 +99,12 @@ export function createRoomGrid(
   depth = 8,
   options: RoomGridOptions = {},
 ) {
-  const groundMaterial = new StandardMaterial('furnispace-ground-material', scene);
-  groundMaterial.diffuseColor = Color3.FromHexString(options.floorColor ?? '#f2f5f1');
-  groundMaterial.specularColor = Color3.Black();
+  const groundMaterial = createTexturedMaterial(
+    'furnispace-ground-material',
+    scene,
+    options.floorTextureUrl,
+    options.floorColor ?? '#f2f5f1',
+  );
 
   const ground = MeshBuilder.CreateGround(
     'furnispace-room-ground',
@@ -99,6 +153,64 @@ export function createRoomGrid(
   }
 
   return ground;
+}
+
+export function createRoomShell(
+  scene: Scene,
+  walls: RoomWall[],
+  options: RoomShellOptions,
+) {
+  const wallMaterial = createTexturedMaterial(
+    `furnispace-wall-material-${options.wallMaterialId}`,
+    scene,
+    options.wallTextureUrl,
+    options.fallbackColor ?? '#EFE9DD',
+  );
+
+  const wallMeshes = walls.map((wall) => {
+    const start = new Vector3(wall.start.x, options.wallHeight / 2, wall.start.z);
+    const end = new Vector3(wall.end.x, options.wallHeight / 2, wall.end.z);
+    const center = start.add(end).scale(0.5);
+    const length = Vector3.Distance(start, end);
+    const direction = end.subtract(start);
+    const angle = Math.atan2(direction.z, direction.x);
+    const mesh = MeshBuilder.CreateBox(
+      `furnispace-room-wall-${wall.id}`,
+      {
+        depth: 0.12,
+        height: options.wallHeight,
+        width: length,
+      },
+      scene,
+    );
+
+    mesh.position = center;
+    mesh.rotation.y = -angle;
+    mesh.material = wallMaterial;
+    mesh.metadata = {
+      kind: 'wall',
+      wallId: wall.id,
+    };
+
+    return mesh;
+  });
+
+  return wallMeshes;
+}
+
+export function disposeRoomShell(scene: Scene) {
+  scene.meshes
+    .filter((mesh): mesh is Mesh => mesh instanceof Mesh && mesh.metadata?.kind === 'wall')
+    .forEach((mesh) => mesh.dispose(false, true));
+}
+
+export function disposeRoomLayoutSurface(scene: Scene) {
+  scene.meshes
+    .filter((mesh) =>
+      mesh.name === 'furnispace-room-ground' ||
+      mesh.name.startsWith('furnispace-grid-')
+    )
+    .forEach((mesh) => mesh.dispose(false, true));
 }
 
 export function createDemoFurniture(scene: Scene) {

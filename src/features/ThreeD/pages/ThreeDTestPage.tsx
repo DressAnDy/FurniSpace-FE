@@ -1,163 +1,325 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
-import {
-  AbstractMesh,
-  ArcRotateCamera,
-  Color3,
-  Engine,
-  PointerEventTypes,
-  Scene,
-  SceneLoader,
-  StandardMaterial,
-  Tools,
-  TransformNode,
-  Vector3,
-} from 'babylonjs';
-import 'babylonjs-loaders';
 
-import { BabylonCanvas } from '@/features/ThreeD/components/BabylonCanvas';
+import { BlueprintCanvas } from '@/features/ThreeD/components/BlueprintCanvas';
+import { RoomPreview3D } from '@/features/ThreeD/components/RoomPreview3D';
+import type {
+  PlacedProduct3D,
+  ProductPlacementMode,
+  Vector3State,
+} from '@/features/ThreeD/components/RoomPreview3D';
+import { WallEditPanel } from '@/features/ThreeD/components/WallEditPanel';
+import type {
+  BlueprintTool,
+  MaterialSwatch,
+  RoomLayoutState,
+  RoomMaterialSelection,
+  RoomMaterialSwatches,
+  SelectedRoomItem,
+} from '@/features/ThreeD/types/roomLayout.types';
 import {
-  createDefaultCamera,
-  createDefaultLighting,
-  createRoomGrid,
-} from '@/features/ThreeD/utils/babylonSceneFactory';
-import { splitModelUrl } from '@/features/ThreeD/utils/modelUrl';
+  createDefaultRoomLayout,
+  getRoomBounds,
+  getRoomSize,
+  normalizeDoorAndOpeningDimensions,
+  updateWallDefaults,
+} from '@/features/ThreeD/utils/roomGeometry';
 
 import './ThreeDTestPage.css';
 
 type ViewMode = '2d' | '3d';
-
-type Vector3State = {
-  x: number;
-  y: number;
-  z: number;
-};
-
-type SceneObjectState = {
-  sceneObjectId: string;
-  modelName: string;
-  modelUrl: string;
-  position: Vector3State;
-  rotation: Vector3State;
-  scale: Vector3State;
-};
+type DesignPanel = 'products' | 'floor' | 'wall';
 
 type ProductModel = {
-  category: string;
   id: string;
   missingReferences?: string[];
   modelUrl: string;
   name: string;
-  path?: string;
-  sourceFolder?: string;
   thumbnailUrl: string;
 };
 
-type LoadedSceneObject = {
-  meshes: AbstractMesh[];
-  root: TransformNode;
-};
+const PLACEMENT_MODES: Array<{
+  label: string;
+  value: ProductPlacementMode;
+}> = [
+  { label: 'Floor', value: 'FLOOR' },
+  { label: 'On Object', value: 'ON_OBJECT' },
+  { label: 'Wall Mounted', value: 'WALL_MOUNTED' },
+  { label: 'Custom Height', value: 'CUSTOM_HEIGHT' },
+];
 
-type DragState = {
-  objectId: string;
-  y: number;
-};
+function getDefaultVector3(value: Partial<Vector3State> | undefined, fallback: Vector3State): Vector3State {
+  return {
+    x: value?.x ?? fallback.x,
+    y: value?.y ?? fallback.y,
+    z: value?.z ?? fallback.z,
+  };
+}
 
-type MaterialSwatch = {
-  color: string;
-  id: string;
-  name: string;
-};
+function getProductRotation(product: PlacedProduct3D) {
+  return getDefaultVector3(product.rotation, { x: 0, y: 0, z: 0 });
+}
 
-type RoomMaterialSwatches = {
-  flooring: MaterialSwatch[];
-  wallPaint: MaterialSwatch[];
-};
+function getProductScale(product: PlacedProduct3D) {
+  return getDefaultVector3(product.scale, { x: 1, y: 1, z: 1 });
+}
+
+function toDegrees(radians: number) {
+  return Math.round((radians * 180) / Math.PI);
+}
+
+function toRadians(degrees: number) {
+  return (degrees * Math.PI) / 180;
+}
+
+function normalizeDegrees(degrees: number) {
+  return ((degrees % 360) + 360) % 360;
+}
+
+const FLOOR_MATERIALS: RoomMaterialSelection[] = [
+  {
+    fallbackColor: '#8B5A2B',
+    id: 'wood-floor',
+    label: 'Wood Floor',
+    textureUrl: '/materials/flooring/woodfloor.jpg',
+    type: 'floor',
+  },
+];
+
+const WALL_TEXTURE_MATERIALS: RoomMaterialSelection[] = [
+  {
+    fallbackColor: '#D8D2C5',
+    id: 'wall-base',
+    label: 'Wall Base Paint',
+    textureUrl: '/materials/wall-paint/wallbase.jpg',
+    type: 'wall',
+  },
+  {
+    fallbackColor: '#BFAE8A',
+    id: 'wallpaper',
+    label: 'Wallpaper',
+    textureUrl: '/materials/wallpaper/wallpaper.jpg',
+    type: 'wallpaper',
+  },
+];
+
+const FALLBACK_SWATCHES: MaterialSwatch[] = [
+  { color: '#BFAE8A', id: 'balanced-tan', name: 'Balanced Tan' },
+  { color: '#EFE9DD', id: 'warm-white', name: 'Warm White' },
+  { color: '#B8B8B0', id: 'soft-gray', name: 'Soft Gray' },
+];
 
 const FALLBACK_PRODUCT_MODELS: ProductModel[] = [
   {
-    category: 'Chair01',
     id: 'fallback-metal-stool',
     modelUrl: '/models/3d-test/chair01/metal_stool_02_4k.gltf',
     name: 'Metal Stool',
-    sourceFolder: '/models/3d-test/chair01',
     thumbnailUrl: '/models/3d-test/thumbnails/placeholder-product.svg',
   },
 ];
 
-const FALLBACK_ROOM_SWATCHES: RoomMaterialSwatches = {
-  flooring: [
-    { color: '#8B5A2B', id: 'oak-floor', name: 'Oak Floor' },
-    { color: '#5C3A21', id: 'walnut-floor', name: 'Walnut Floor' },
-    { color: '#A8A8A0', id: 'gray-tile', name: 'Gray Tile' },
-  ],
-  wallPaint: [
-    { color: '#BFAE8A', id: 'balanced-tan', name: 'Balanced Tan' },
-    { color: '#EFE9DD', id: 'warm-white', name: 'Warm White' },
-    { color: '#B8B8B0', id: 'soft-gray', name: 'Soft Gray' },
-  ],
+const TOOL_ITEMS: Array<{
+  id: BlueprintTool;
+  label: string;
+  placeholder?: boolean;
+}> = [
+  { id: 'home', label: 'Home', placeholder: true },
+  { id: 'select', label: 'Select' },
+  { id: 'draw', label: 'Draw' },
+  { id: 'add-box', label: 'Add Box' },
+  { id: 'l-shape', label: 'Add L-Shape', placeholder: true },
+  { id: 'door', label: 'Add Door' },
+  { id: 'window', label: 'Add Window' },
+  { id: 'opening', label: 'Add Opening' },
+  { id: 'ceiling', label: 'Ceiling Options', placeholder: true },
+  { id: 'hide-labels', label: 'Hide Labels' },
+  { id: 'save', label: 'Save' },
+];
+
+function materialFromSwatch(swatch: MaterialSwatch): RoomMaterialSelection {
+  return {
+    fallbackColor: swatch.color,
+    id: swatch.id,
+    label: swatch.name,
+    type: 'wall',
+  };
+}
+
+function parseNumberInput(value: string, fallback: number) {
+  if (value.trim() === '') {
+    return 0;
+  }
+
+  const parsed = Number(value.replace(',', '.'));
+
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function getPolygonCenter(layout: RoomLayoutState) {
+  const total = layout.points.reduce(
+    (currentTotal, point) => ({
+      x: currentTotal.x + point.x,
+      y: currentTotal.y + point.y,
+    }),
+    { x: 0, y: 0 },
+  );
+
+  return {
+    x: total.x / layout.points.length,
+    y: total.y / layout.points.length,
+  };
+}
+
+function isPointInsidePolygon(point: { x: number; y: number }, polygon: Array<{ x: number; y: number }>) {
+  let isInside = false;
+
+  for (let index = 0, previousIndex = polygon.length - 1; index < polygon.length; previousIndex = index, index += 1) {
+    const current = polygon[index];
+    const previous = polygon[previousIndex];
+    const intersects = current.y > point.y !== previous.y > point.y &&
+      point.x < ((previous.x - current.x) * (point.y - current.y)) / (previous.y - current.y) + current.x;
+
+    if (intersects) {
+      isInside = !isInside;
+    }
+  }
+
+  return isInside;
+}
+
+function getProductPositionInsideRoom(layout: RoomLayoutState, index: number) {
+  const bounds = getRoomBounds(layout.points);
+  const width = Math.max(bounds.maxX - bounds.minX, 1);
+  const depth = Math.max(bounds.maxY - bounds.minY, 1);
+  const margin = Math.min(Math.max(Math.min(width, depth) * 0.08, 0.8), 4);
+  const columns = 4;
+  const usableWidth = Math.max(width - margin * 2, 1);
+  const usableDepth = Math.max(depth - margin * 2, 1);
+  const x = bounds.minX + margin + (usableWidth * (index % columns)) / Math.max(columns - 1, 1);
+  const y = bounds.minY + margin + (usableDepth * Math.floor(index / columns)) / Math.max(columns - 1, 1);
+  const candidate = { x, y };
+  const point = isPointInsidePolygon(candidate, layout.points) ? candidate : getPolygonCenter(layout);
+
+  return {
+    x: Number(point.x.toFixed(2)),
+    y: 0,
+    z: Number(point.y.toFixed(2)),
+  };
+}
+
+type CommitNumberInputProps = {
+  fallback: number;
+  min?: number;
+  onCommit: (value: number) => void;
+  step?: number;
+  value: number;
 };
 
-function createSceneObjectId(index: number) {
-  return `object-${String(index + 1).padStart(3, '0')}`;
-}
+function CommitNumberInput({ fallback, min, onCommit, step, value }: CommitNumberInputProps) {
+  const [draftValue, setDraftValue] = useState(String(value));
 
-function toVector3(value: Vector3State) {
-  return new Vector3(value.x, value.y, value.z);
-}
+  useEffect(() => {
+    setDraftValue(String(value));
+  }, [value]);
 
-function applySceneClearColor(scene: Scene, color: string) {
-  const nextColor = Color3.FromHexString(color);
-  scene.clearColor.set(nextColor.r, nextColor.g, nextColor.b, 1);
+  return (
+    <input
+      inputMode="decimal"
+      min={min}
+      step={step}
+      type="text"
+      value={draftValue}
+      onChange={(event) => setDraftValue(event.target.value)}
+      onKeyDown={(event) => {
+        if (event.key !== 'Enter') {
+          return;
+        }
+
+        const nextValue = parseNumberInput(draftValue, fallback);
+        const shouldApplyMin = draftValue.trim() !== '' && min !== undefined;
+        onCommit(shouldApplyMin ? Math.max(nextValue, min) : nextValue);
+      }}
+    />
+  );
 }
 
 export function ThreeDTestPage() {
-  const cameraRef = useRef<ArcRotateCamera | null>(null);
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const dragStateRef = useRef<DragState | null>(null);
-  const loadedObjectsRef = useRef<Map<string, LoadedSceneObject>>(new Map());
-  const sceneRef = useRef<Scene | null>(null);
-  const [objects, setObjects] = useState<SceneObjectState[]>([]);
+  const [activeTool, setActiveTool] = useState<BlueprintTool>('select');
+  const [hideLabels, setHideLabels] = useState(false);
+  const [layout, setLayout] = useState<RoomLayoutState | null>(null);
+  const [placedProducts, setPlacedProducts] = useState<PlacedProduct3D[]>([]);
+  const [designPanel, setDesignPanel] = useState<DesignPanel>('products');
   const [productModels, setProductModels] = useState<ProductModel[]>(FALLBACK_PRODUCT_MODELS);
-  const [productModelsStatus, setProductModelsStatus] = useState('Loading local model library...');
-  const [roomSwatches, setRoomSwatches] = useState<RoomMaterialSwatches>(FALLBACK_ROOM_SWATCHES);
-  const [selectedFlooringId, setSelectedFlooringId] = useState('oak-floor');
-  const [selectedWallPaintId, setSelectedWallPaintId] = useState('warm-white');
-  const [selectedObjectId, setSelectedObjectId] = useState<string | null>(null);
   const [saveMessage, setSaveMessage] = useState('');
-  const [viewMode, setViewMode] = useState<ViewMode>('3d');
+  const [selectedItem, setSelectedItem] = useState<SelectedRoomItem | null>(null);
+  const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
+  const [showProductInfo, setShowProductInfo] = useState(false);
+  const [freeRotateProductId, setFreeRotateProductId] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<ViewMode>('2d');
+  const [wallPaintSwatches, setWallPaintSwatches] = useState<MaterialSwatch[]>(FALLBACK_SWATCHES);
 
-  const selectedObject = useMemo(
-    () => objects.find((object) => object.sceneObjectId === selectedObjectId) ?? null,
-    [objects, selectedObjectId],
+  const wallMaterials = useMemo(
+    () => [
+      ...WALL_TEXTURE_MATERIALS,
+      ...wallPaintSwatches.map(materialFromSwatch),
+    ],
+    [wallPaintSwatches],
   );
 
-  const groupedProductModels = useMemo(
+  const floorMaterial = useMemo(
     () =>
-      productModels.reduce<Record<string, ProductModel[]>>((groups, model) => {
-        const category = model.category || 'Uncategorized';
-
-        return {
-          ...groups,
-          [category]: [...(groups[category] ?? []), model],
-        };
-      }, {}),
-    [productModels],
+      FLOOR_MATERIALS.find((material) => material.id === layout?.floorMaterialId) ??
+      FLOOR_MATERIALS[0],
+    [layout?.floorMaterialId],
   );
 
-  const selectedFlooring = useMemo(
+  const wallMaterial = useMemo(
     () =>
-      roomSwatches.flooring.find((swatch) => swatch.id === selectedFlooringId) ??
-      roomSwatches.flooring[0],
-    [roomSwatches.flooring, selectedFlooringId],
+      wallMaterials.find((material) => material.id === layout?.wallMaterialId) ??
+      WALL_TEXTURE_MATERIALS[0],
+    [layout?.wallMaterialId, wallMaterials],
   );
 
-  const selectedWallPaint = useMemo(
-    () =>
-      roomSwatches.wallPaint.find((swatch) => swatch.id === selectedWallPaintId) ??
-      roomSwatches.wallPaint[0],
-    [roomSwatches.wallPaint, selectedWallPaintId],
+  const roomSize = useMemo(
+    () => (layout ? getRoomSize(layout.points) : null),
+    [layout],
   );
+  const selectedProduct = useMemo(
+    () => placedProducts.find((product) => product.id === selectedProductId) ?? null,
+    [placedProducts, selectedProductId],
+  );
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadSwatches() {
+      try {
+        const response = await fetch('/materials/wall-paint/swatches.json', {
+          cache: 'no-store',
+        });
+
+        if (!response.ok) {
+          throw new Error(`Swatches request failed with ${response.status}.`);
+        }
+
+        const swatches = await response.json() as RoomMaterialSwatches;
+
+        if (isMounted) {
+          setWallPaintSwatches(swatches.wallPaint?.length ? swatches.wallPaint : FALLBACK_SWATCHES);
+        }
+      } catch {
+        if (isMounted) {
+          setWallPaintSwatches(FALLBACK_SWATCHES);
+        }
+      }
+    }
+
+    void loadSwatches();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   useEffect(() => {
     let isMounted = true;
@@ -169,33 +331,21 @@ export function ThreeDTestPage() {
         });
 
         if (!response.ok) {
-          throw new Error(`Model manifest request failed with ${response.status}.`);
+          throw new Error(`Product manifest request failed with ${response.status}.`);
         }
 
         const manifest = await response.json() as {
           models?: ProductModel[];
         };
-        const nextModels = manifest.models?.filter((model) => model.modelUrl || model.path) ?? [];
+        const models = manifest.models?.filter((model) => model.modelUrl) ?? [];
 
-        if (!isMounted) {
-          return;
+        if (isMounted) {
+          setProductModels(models.length ? models : FALLBACK_PRODUCT_MODELS);
         }
-
-        if (!nextModels.length) {
-          setProductModels(FALLBACK_PRODUCT_MODELS);
-          setProductModelsStatus('No models found in manifest. Showing fallback model.');
-          return;
-        }
-
-        setProductModels(nextModels);
-        setProductModelsStatus(`${nextModels.length} local model${nextModels.length === 1 ? '' : 's'} found.`);
       } catch {
-        if (!isMounted) {
-          return;
+        if (isMounted) {
+          setProductModels(FALLBACK_PRODUCT_MODELS);
         }
-
-        setProductModels(FALLBACK_PRODUCT_MODELS);
-        setProductModelsStatus('Model manifest not available. Showing fallback model.');
       }
     }
 
@@ -206,458 +356,594 @@ export function ThreeDTestPage() {
     };
   }, []);
 
-  useEffect(() => {
-    let isMounted = true;
+  const handleAddBox = useCallback(() => {
+    setLayout(createDefaultRoomLayout());
+    setPlacedProducts([]);
+    setSelectedItem(null);
+    setActiveTool('select');
+    setSaveMessage('');
+    setViewMode('2d');
+  }, []);
 
-    async function loadRoomSwatches() {
-      try {
-        const response = await fetch('/materials/wall-paint/swatches.json', {
-          cache: 'no-store',
-        });
-
-        if (!response.ok) {
-          throw new Error(`Material swatches request failed with ${response.status}.`);
-        }
-
-        const nextSwatches = await response.json() as RoomMaterialSwatches;
-
-        if (!isMounted) {
-          return;
-        }
-
-        setRoomSwatches({
-          flooring: nextSwatches.flooring?.length ? nextSwatches.flooring : FALLBACK_ROOM_SWATCHES.flooring,
-          wallPaint: nextSwatches.wallPaint?.length ? nextSwatches.wallPaint : FALLBACK_ROOM_SWATCHES.wallPaint,
-        });
-      } catch {
-        if (isMounted) {
-          setRoomSwatches(FALLBACK_ROOM_SWATCHES);
-        }
-      }
+  const handleSave = useCallback(() => {
+    if (!layout) {
+      setSaveMessage('Add a room before saving.');
+      return;
     }
 
-    void loadRoomSwatches();
-
-    return () => {
-      isMounted = false;
+    const layoutJson = {
+      ...layout,
+      floorMaterial,
+      wallpaper: wallMaterial.id === 'wallpaper' ? wallMaterial : null,
+      wallMaterial,
+      placedProducts,
+      sceneObjects: placedProducts.map((product) => ({
+        heightOffset: product.heightOffset ?? product.position.y,
+        mountedWallId: product.mountedWallId ?? null,
+        modelName: product.modelName,
+        modelUrl: product.modelUrl,
+        placementMode: product.placementMode ?? 'FLOOR',
+        position: product.position,
+        productId: product.productId ?? null,
+        rotation: getProductRotation(product),
+        scale: getProductScale(product),
+        sceneObjectId: product.id,
+        supportObjectId: product.supportObjectId ?? null,
+      })),
+      materials: {
+        floor: floorMaterial.id,
+        wall: wallMaterial.id,
+      },
     };
-  }, []);
 
-  const applyViewMode = useCallback((mode: ViewMode) => {
-    const camera = cameraRef.current;
+    console.log('FurniSpace room layout JSON', layoutJson);
+    localStorage.setItem('furnispace-3d-lab-room-layout', JSON.stringify(layoutJson));
+    setSaveMessage('Room layout saved locally and logged to console.');
+  }, [floorMaterial, layout, placedProducts, wallMaterial]);
 
-    if (!camera) {
-      return;
-    }
-
-    if (mode === '2d') {
-      camera.alpha = Tools.ToRadians(90);
-      camera.beta = Tools.ToRadians(2);
-      camera.radius = 8;
-      camera.setTarget(Vector3.Zero());
-      return;
-    }
-
-    camera.alpha = Tools.ToRadians(45);
-    camera.beta = Tools.ToRadians(62);
-    camera.radius = 7;
-    camera.setTarget(Vector3.Zero());
-  }, []);
-
-  const setObjectHighlight = useCallback((sceneObjectId: string | null) => {
-    loadedObjectsRef.current.forEach((loadedObject, objectId) => {
-      const isSelected = objectId === sceneObjectId;
-
-      loadedObject.meshes.forEach((mesh) => {
-        mesh.renderOverlay = isSelected;
-        mesh.overlayColor = Color3.FromHexString('#f2a541');
-        mesh.overlayAlpha = 0.35;
-        mesh.showBoundingBox = isSelected;
-      });
-    });
-  }, []);
-
-  const selectObject = useCallback(
-    (sceneObjectId: string | null) => {
-      setSelectedObjectId(sceneObjectId);
-      setObjectHighlight(sceneObjectId);
-    },
-    [setObjectHighlight],
-  );
-
-  const applyRoomMaterials = useCallback(() => {
-    const scene = sceneRef.current;
-
-    if (!scene) {
-      return;
-    }
-
-    const ground = scene.getMeshByName('furnispace-room-ground');
-    const groundMaterial = ground?.material;
-
-    if (groundMaterial instanceof StandardMaterial && selectedFlooring) {
-      groundMaterial.diffuseColor = Color3.FromHexString(selectedFlooring.color);
-    }
-
-    if (selectedWallPaint) {
-      applySceneClearColor(scene, selectedWallPaint.color);
-    }
-  }, [selectedFlooring, selectedWallPaint]);
-
-  useEffect(() => {
-    applyRoomMaterials();
-  }, [applyRoomMaterials]);
-
-  const applyObjectTransform = useCallback((object: SceneObjectState) => {
-    const loadedObject = loadedObjectsRef.current.get(object.sceneObjectId);
-
-    if (!loadedObject) {
-      return;
-    }
-
-    loadedObject.root.position = toVector3(object.position);
-    loadedObject.root.rotation = toVector3(object.rotation);
-    loadedObject.root.scaling = toVector3(object.scale);
-  }, []);
-
-  const loadSceneObject = useCallback(
-    async (scene: Scene, object: SceneObjectState) => {
-      if (loadedObjectsRef.current.has(object.sceneObjectId)) {
-        applyObjectTransform(object);
+  const handleToolClick = useCallback(
+    (tool: BlueprintTool) => {
+      if (tool === 'add-box') {
+        handleAddBox();
         return;
       }
 
-      const { fileName, rootUrl } = splitModelUrl(object.modelUrl);
-      const result = await SceneLoader.ImportMeshAsync('', rootUrl, fileName, scene);
-      const root = new TransformNode(`${object.sceneObjectId}-root`, scene);
-
-      result.meshes.forEach((mesh) => {
-        if (!mesh.parent) {
-          mesh.parent = root;
-        }
-
-        mesh.metadata = {
-          ...(mesh.metadata ?? {}),
-          modelName: object.modelName,
-          sceneObjectId: object.sceneObjectId,
-        };
-      });
-
-      loadedObjectsRef.current.set(object.sceneObjectId, {
-        meshes: result.meshes,
-        root,
-      });
-      applyObjectTransform(object);
-      setObjectHighlight(selectedObjectId);
-    },
-    [applyObjectTransform, selectedObjectId, setObjectHighlight],
-  );
-
-  const handleSceneReady = useCallback(
-    (scene: Scene, _engine: Engine, canvas: HTMLCanvasElement) => {
-      sceneRef.current = scene;
-      canvasRef.current = canvas;
-      cameraRef.current = createDefaultCamera(scene, canvas);
-      createDefaultLighting(scene);
-      createRoomGrid(scene, 9, 9, {
-        floorColor: selectedFlooring?.color,
-      });
-      applySceneClearColor(scene, selectedWallPaint?.color ?? '#EFE9DD');
-      applyViewMode(viewMode);
-
-      scene.onPointerObservable.add((pointerInfo) => {
-        if (pointerInfo.type === PointerEventTypes.POINTERDOWN) {
-          const sceneObjectId = pointerInfo.pickInfo?.pickedMesh?.metadata?.sceneObjectId as string | undefined;
-
-          if (sceneObjectId) {
-            const object = objects.find((currentObject) => currentObject.sceneObjectId === sceneObjectId);
-
-            selectObject(sceneObjectId);
-            dragStateRef.current = {
-              objectId: sceneObjectId,
-              y: object?.position.y ?? 0,
-            };
-            cameraRef.current?.detachControl();
-            pointerInfo.event.preventDefault();
-            return;
-          }
-
-          selectObject(null);
-        }
-
-        if (pointerInfo.type === PointerEventTypes.POINTERMOVE && dragStateRef.current) {
-          const floorPick = scene.pick(
-            scene.pointerX,
-            scene.pointerY,
-            (mesh) => mesh.metadata?.kind === 'floor',
-          );
-          const pickedPoint = floorPick?.pickedPoint;
-
-          if (!pickedPoint) {
-            return;
-          }
-
-          const { objectId, y } = dragStateRef.current;
-          const nextPosition = {
-            x: Number(pickedPoint.x.toFixed(3)),
-            y,
-            z: Number(pickedPoint.z.toFixed(3)),
-          };
-          const loadedObject = loadedObjectsRef.current.get(objectId);
-
-          if (loadedObject) {
-            loadedObject.root.position = toVector3(nextPosition);
-          }
-
-          setObjects((currentObjects) =>
-            currentObjects.map((object) =>
-              object.sceneObjectId === objectId
-                ? {
-                    ...object,
-                    position: nextPosition,
-                  }
-                : object,
-            ),
-          );
-          setSaveMessage('');
-        }
-
-        if (pointerInfo.type === PointerEventTypes.POINTERUP && dragStateRef.current) {
-          dragStateRef.current = null;
-          cameraRef.current?.attachControl(canvasRef.current, true);
-        }
-      });
-    },
-    [applyViewMode, objects, selectObject, selectedFlooring?.color, selectedWallPaint?.color, viewMode],
-  );
-
-  const handleAddModel = useCallback(
-    (model: ProductModel) => {
-      const nextIndex = objects.length;
-      const sceneObject: SceneObjectState = {
-        sceneObjectId: createSceneObjectId(nextIndex),
-        modelName: model.name,
-        modelUrl: model.modelUrl || model.path || '',
-        position: {
-          x: ((nextIndex % 3) - 1) * 0.9,
-          y: 0,
-          z: Math.floor(nextIndex / 3) * 0.9,
-        },
-        rotation: { x: 0, y: 0, z: 0 },
-        scale: { x: 1, y: 1, z: 1 },
-      };
-
-      setObjects((currentObjects) => [...currentObjects, sceneObject]);
-      selectObject(sceneObject.sceneObjectId);
-      setSaveMessage('');
-
-      if (sceneRef.current) {
-        void loadSceneObject(sceneRef.current, sceneObject).then(() => {
-          setObjectHighlight(sceneObject.sceneObjectId);
-        });
+      if (tool === 'hide-labels') {
+        setHideLabels((currentValue) => !currentValue);
+        setActiveTool(tool);
+        return;
       }
+
+      if (tool === 'save') {
+        handleSave();
+        setActiveTool(tool);
+        return;
+      }
+
+      setActiveTool(tool);
     },
-    [loadSceneObject, objects.length, selectObject, setObjectHighlight],
+    [handleAddBox, handleSave],
   );
 
-  const handlePreviewModel = useCallback((model: ProductModel) => {
-    window.open(model.modelUrl || model.path, '_blank', 'noopener,noreferrer');
+  const handleMaterialChange = useCallback(
+    (changes: Partial<Pick<RoomLayoutState, 'floorMaterialId' | 'wallMaterialId'>>) => {
+      setLayout((currentLayout) => (
+        currentLayout
+          ? {
+              ...currentLayout,
+              ...changes,
+            }
+          : currentLayout
+      ));
+      setSaveMessage('');
+    },
+    [],
+  );
+
+  const handleLayoutChange = useCallback((nextLayout: RoomLayoutState) => {
+    setLayout(normalizeDoorAndOpeningDimensions(nextLayout));
+    setSaveMessage('');
   }, []);
 
-  const handleResetScene = useCallback(() => {
-    loadedObjectsRef.current.forEach((loadedObject) => {
-      loadedObject.meshes.forEach((mesh) => mesh.dispose(false, true));
-      loadedObject.root.dispose();
-    });
-    loadedObjectsRef.current.clear();
-    setObjects([]);
-    selectObject(null);
-    setSaveMessage('');
-  }, [selectObject]);
+  const handleGlobalWallUpdate = useCallback(
+    (changes: Partial<Pick<RoomLayoutState, 'wallHeight' | 'wallThickness'>>) => {
+      setLayout((currentLayout) => (
+        currentLayout ? updateWallDefaults(currentLayout, changes) : currentLayout
+      ));
+      setSaveMessage('');
+    },
+    [],
+  );
 
-  const handleSaveScene = useCallback(() => {
-    const sceneJson = {
-      roomMaterials: {
-        flooring: selectedFlooring,
-        wallPaint: selectedWallPaint,
+  const handleAddProduct = useCallback((product: ProductModel, position?: PlacedProduct3D['position']) => {
+    if (!layout) {
+      setSaveMessage('Create a room layout before adding products.');
+      return;
+    }
+
+    if (product.missingReferences?.length) {
+      return;
+    }
+
+    setPlacedProducts((currentProducts) => {
+      const nextIndex = currentProducts.length;
+      return [
+        ...currentProducts,
+        {
+          heightOffset: position?.y ?? 0,
+          id: `product-${String(nextIndex + 1).padStart(3, '0')}`,
+          mountedWallId: null,
+          modelName: product.name,
+          modelUrl: product.modelUrl,
+          placementMode: 'FLOOR',
+          position: position ?? getProductPositionInsideRoom(layout, nextIndex),
+          productId: product.id,
+          rotation: { x: 0, y: 0, z: 0 },
+          scale: { x: 1, y: 1, z: 1 },
+          supportObjectId: null,
+        },
+      ];
+    });
+    setViewMode('3d');
+    setSelectedProductId(`product-${String(placedProducts.length + 1).padStart(3, '0')}`);
+    setSaveMessage('');
+  }, [layout, placedProducts.length]);
+
+  const handleProductDrop = useCallback((productModelId: string, position: PlacedProduct3D['position']) => {
+    const product = productModels.find((model) => model.id === productModelId);
+
+    if (!product) {
+      return;
+    }
+
+    handleAddProduct(product, position);
+  }, [handleAddProduct, productModels]);
+
+  const handleProductMove = useCallback((productId: string, position: PlacedProduct3D['position']) => {
+    setPlacedProducts((currentProducts) => currentProducts.map((product) => {
+      if (product.id !== productId) {
+        return product;
+      }
+
+      if (
+        product.position.x === position.x &&
+        product.position.y === position.y &&
+        product.position.z === position.z
+      ) {
+        return product;
+      }
+
+      return {
+        ...product,
+        heightOffset: product.placementMode === 'FLOOR' ? 0 : position.y,
+        position,
+      };
+    }));
+    setSaveMessage('');
+  }, []);
+
+  const updateProduct = useCallback((productId: string, updater: (product: PlacedProduct3D) => PlacedProduct3D) => {
+    setPlacedProducts((currentProducts) => currentProducts.map((product) => (
+      product.id === productId ? updater(product) : product
+    )));
+    setSaveMessage('');
+  }, []);
+
+  const handleDuplicateProduct = useCallback((product: PlacedProduct3D) => {
+    const duplicateId = `product-${String(placedProducts.length + 1).padStart(3, '0')}`;
+    const duplicate: PlacedProduct3D = {
+      ...product,
+      id: duplicateId,
+      position: {
+        ...product.position,
+        x: Number((product.position.x + 0.6).toFixed(2)),
+        z: Number((product.position.z + 0.6).toFixed(2)),
       },
-      savedAt: new Date().toISOString(),
-      objects,
     };
 
-    console.log('FurniSpace 3D Lab scene JSON', sceneJson);
-    setSaveMessage('Scene saved locally and logged to console.');
-  }, [objects, selectedFlooring, selectedWallPaint]);
+    setPlacedProducts((currentProducts) => [...currentProducts, duplicate]);
+    setSelectedProductId(duplicateId);
+    setShowProductInfo(false);
+    setFreeRotateProductId(null);
+    setSaveMessage('');
+  }, [placedProducts.length]);
 
-  const handleToggleViewMode = useCallback(() => {
-    const nextMode: ViewMode = viewMode === '3d' ? '2d' : '3d';
+  const handleDeleteProduct = useCallback((productId: string) => {
+    setPlacedProducts((currentProducts) => currentProducts.filter((product) => product.id !== productId));
+    setSelectedProductId(null);
+    setShowProductInfo(false);
+    setFreeRotateProductId(null);
+    setSaveMessage('');
+  }, []);
 
-    setViewMode(nextMode);
-    applyViewMode(nextMode);
-  }, [applyViewMode, viewMode]);
+  const handleRotateProduct45 = useCallback((productId: string) => {
+    updateProduct(productId, (product) => {
+      const rotation = getProductRotation(product);
+      const nextDegrees = normalizeDegrees(toDegrees(rotation.y) + 45);
+
+      return {
+        ...product,
+        rotation: {
+          ...rotation,
+          y: toRadians(nextDegrees),
+        },
+      };
+    });
+  }, [updateProduct]);
+
+  const handlePlacementModeChange = useCallback((productId: string, placementMode: ProductPlacementMode) => {
+    updateProduct(productId, (product) => {
+      const nextY = placementMode === 'FLOOR' ? 0 : product.position.y;
+
+      return {
+        ...product,
+        heightOffset: nextY,
+        mountedWallId: placementMode === 'WALL_MOUNTED' ? product.mountedWallId ?? null : null,
+        placementMode,
+        position: {
+          ...product.position,
+          y: nextY,
+        },
+        supportObjectId: placementMode === 'ON_OBJECT' ? product.supportObjectId ?? null : null,
+      };
+    });
+  }, [updateProduct]);
+
+  const handleHeightStep = useCallback((productId: string, step: number) => {
+    updateProduct(productId, (product) => {
+      const nextY = Math.max(0, Number((product.position.y + step).toFixed(2)));
+
+      return {
+        ...product,
+        heightOffset: nextY,
+        placementMode: product.placementMode === 'FLOOR' && nextY > 0 ? 'CUSTOM_HEIGHT' : product.placementMode ?? 'CUSTOM_HEIGHT',
+        position: {
+          ...product.position,
+          y: nextY,
+        },
+      };
+    });
+  }, [updateProduct]);
+
+  const handleResetProductToFloor = useCallback((productId: string) => {
+    updateProduct(productId, (product) => ({
+      ...product,
+      heightOffset: 0,
+      placementMode: 'FLOOR',
+      position: {
+        ...product.position,
+        y: 0,
+      },
+    }));
+  }, [updateProduct]);
+
+  const handleFreeRotateChange = useCallback((productId: string, degrees: number) => {
+    updateProduct(productId, (product) => {
+      const rotation = getProductRotation(product);
+
+      return {
+        ...product,
+        rotation: {
+          ...rotation,
+          y: toRadians(degrees),
+        },
+      };
+    });
+  }, [updateProduct]);
 
   return (
-    <main className="three-d-lab-page">
-      <header className="three-d-lab-header">
+    <main className="room-layout-page">
+      <header className="room-layout-header">
         <div>
-          <h1>FurniSpace 3D Scene Editor</h1>
-          <p>Prototype workspace for adding product models, selecting objects, switching views, and saving scene JSON.</p>
+          <h1>FurniSpace Room Layout Editor</h1>
+          <p>Draw a 2D blueprint first, edit wall data, then generate the 3D room preview from the same layout.</p>
         </div>
-        <RouterLink className="three-d-lab-link" to="/">
-          Back home
-        </RouterLink>
+        <div className="room-layout-header-actions">
+          <button type="button" onClick={() => setViewMode(viewMode === '2d' ? '3d' : '2d')}>
+            {viewMode === '2d' ? 'Switch to 3D' : 'Back to 2D'}
+          </button>
+          <RouterLink to="/">Back home</RouterLink>
+        </div>
       </header>
 
-      <section className="three-d-lab-shell">
-        <aside className="three-d-library-panel">
-          <div className="three-d-panel-heading">
-            <span>Product Model Library</span>
-            <strong>{productModels.length}</strong>
-          </div>
-          <p className="three-d-library-status">{productModelsStatus}</p>
-
-          <div className="three-d-model-list">
-            {Object.entries(groupedProductModels).map(([category, models]) => (
-              <section className="three-d-model-group" key={category}>
-                <h2>{category}</h2>
-                {models.map((model) => {
-                  const hasMissingReferences = Boolean(model.missingReferences?.length);
-
-                  return (
-                    <article className="three-d-model-card" key={model.id || model.modelUrl}>
-                      <div className="three-d-model-thumb">
-                        <img alt={model.name} src={model.thumbnailUrl} />
-                      </div>
-                      <div className="three-d-model-card-header">
-                        <h3>{model.name}</h3>
-                        <span className={hasMissingReferences ? 'is-warning' : 'is-ready'}>
-                          {hasMissingReferences ? 'Missing files' : 'Ready'}
-                        </span>
-                      </div>
-                      {hasMissingReferences && (
-                        <ul className="three-d-missing-list">
-                          {model.missingReferences?.map((reference) => (
-                            <li key={reference}>{reference}</li>
-                          ))}
-                        </ul>
-                      )}
-                      <div className="three-d-model-actions">
-                        <button
-                          disabled={hasMissingReferences}
-                          type="button"
-                          onClick={() => handleAddModel(model)}
-                        >
-                          Add to Scene
-                        </button>
-                        <button type="button" onClick={() => handlePreviewModel(model)}>
-                          Preview
-                        </button>
-                      </div>
-                    </article>
-                  );
-                })}
-              </section>
-            ))}
-          </div>
-        </aside>
-
-        <section className="three-d-workspace">
-          <div className="three-d-toolbar">
-            <div>
-              <strong>{viewMode === '3d' ? '3D perspective' : '2D top view'}</strong>
-              <span>{objects.length} object{objects.length === 1 ? '' : 's'} in scene</span>
+      <section className={`room-layout-shell is-${viewMode}`}>
+        {viewMode === '2d' ? (
+          <aside className="room-tool-menu room-build-sidebar" aria-label="Blueprint tools">
+            <div className="room-tool-list">
+              {TOOL_ITEMS.map((tool) => (
+                <button
+                  className={activeTool === tool.id ? 'is-active' : ''}
+                  disabled={tool.placeholder}
+                  key={tool.id}
+                  type="button"
+                  onClick={() => handleToolClick(tool.id)}
+                >
+                  <span>{tool.label}</span>
+                </button>
+              ))}
             </div>
-            <div className="three-d-toolbar-actions">
-              <button type="button" onClick={handleSaveScene}>
-                Save Scene
-              </button>
-              <button type="button" onClick={handleResetScene}>
-                Reset Scene
-              </button>
-              <button type="button" onClick={handleToggleViewMode}>
-                Toggle {viewMode === '3d' ? '2D' : '3D'}
-              </button>
-            </div>
-          </div>
 
-          <div className="three-d-scene-stage">
-            <BabylonCanvas className="three-d-canvas" onSceneReady={handleSceneReady} />
-            {!objects.length && (
-              <div className="three-d-empty-state">
-                Add a product model to start building the scene.
+            <section className="room-panel">
+              <div className="room-panel-heading">Room Defaults</div>
+              <div className="wall-edit-grid">
+                <label>
+                  <span>Wall Height</span>
+                  <CommitNumberInput
+                    fallback={layout?.wallHeight ?? 9}
+                    min={0}
+                    onCommit={(value) => handleGlobalWallUpdate({ wallHeight: value })}
+                    step={0.25}
+                    value={layout?.wallHeight ?? 9}
+                  />
+                </label>
+                <label>
+                  <span>Wall Thickness</span>
+                  <CommitNumberInput
+                    fallback={layout?.wallThickness ?? 0.3}
+                    min={0.1}
+                    onCommit={(value) => handleGlobalWallUpdate({ wallThickness: value })}
+                    step={0.05}
+                    value={layout?.wallThickness ?? 0.3}
+                  />
+                </label>
               </div>
+            </section>
+
+            <WallEditPanel
+              layout={layout}
+              selectedItem={selectedItem}
+              onLayoutChange={handleLayoutChange}
+              onSelectItem={setSelectedItem}
+            />
+          </aside>
+        ) : (
+          <aside className="room-design-sidebar" aria-label="3D design tools">
+            <div className="design-sidebar-menu">
+              <div className="design-sidebar-primary">
+                <button type="button" disabled>Menu</button>
+                <button type="button" disabled>Design From Photo</button>
+                <button
+                  className={designPanel === 'products' ? 'is-active' : ''}
+                  type="button"
+                  onClick={() => setDesignPanel('products')}
+                >
+                  Shop by Category
+                </button>
+                <button
+                  className={designPanel === 'wall' ? 'is-active' : ''}
+                  type="button"
+                  onClick={() => setDesignPanel('wall')}
+                >
+                  Wall Paint
+                </button>
+                <button
+                  className={designPanel === 'wall' ? 'is-active-secondary' : ''}
+                  type="button"
+                  onClick={() => setDesignPanel('wall')}
+                >
+                  Wallcoverings
+                </button>
+                <button
+                  className={designPanel === 'floor' ? 'is-active' : ''}
+                  type="button"
+                  onClick={() => setDesignPanel('floor')}
+                >
+                  Flooring
+                </button>
+                <button type="button" disabled>Lighting</button>
+                <button type="button" disabled>Design and Styling Content</button>
+              </div>
+              <div className="design-sidebar-footer">
+                <button type="button" onClick={() => setHideLabels((isHidden) => !isHidden)}>
+                  {hideLabels ? 'Show Labels' : 'Hide Labels'}
+                </button>
+                <button type="button" onClick={handleSave}>Save Project</button>
+                <button type="button" disabled>Share Project</button>
+                <button type="button" disabled>Add To Cart</button>
+              </div>
+            </div>
+
+            {designPanel === 'products' && (
+              <section className="design-panel-section">
+                <div className="room-product-search">
+                  <span>Search</span>
+                </div>
+                <div className="room-product-sidebar-heading">
+                  <strong>Shop by Category</strong>
+                </div>
+                <div className="product-catalog-list">
+                  {productModels.map((product) => {
+                    const disabled = Boolean(product.missingReferences?.length) || !layout;
+
+                    return (
+                      <article
+                        aria-label={product.name}
+                        className={disabled ? 'product-catalog-card is-disabled' : 'product-catalog-card'}
+                        draggable={!disabled}
+                        key={product.id}
+                        title={product.missingReferences?.length ? `${product.name} - missing files` : `Drag ${product.name} into the room`}
+                        onDragStart={(event) => {
+                          if (disabled) {
+                            event.preventDefault();
+                            return;
+                          }
+
+                          event.dataTransfer.effectAllowed = 'copy';
+                          event.dataTransfer.setData('application/x-furnispace-product-id', product.id);
+                        }}
+                      >
+                        <img alt={product.name} draggable={false} src={product.thumbnailUrl} />
+                      </article>
+                    );
+                  })}
+                </div>
+              </section>
             )}
-          </div>
 
-          {saveMessage && <div className="three-d-save-message">{saveMessage}</div>}
-        </section>
-
-        <aside className="three-d-properties-panel">
-          <div className="three-d-panel-heading">
-            <span>Room Materials</span>
-          </div>
-
-          <div className="three-d-material-section">
-            <h2>Flooring</h2>
-            <div className="three-d-swatch-grid">
-              {roomSwatches.flooring.map((swatch) => (
-                <button
-                  className={swatch.id === selectedFlooringId ? 'is-selected' : ''}
-                  key={swatch.id}
-                  title={swatch.name}
-                  type="button"
-                  onClick={() => setSelectedFlooringId(swatch.id)}
-                >
-                  <span style={{ backgroundColor: swatch.color }} />
-                  {swatch.name}
-                </button>
-              ))}
-            </div>
-
-            <h2>Wall Paint</h2>
-            <div className="three-d-swatch-grid">
-              {roomSwatches.wallPaint.map((swatch) => (
-                <button
-                  className={swatch.id === selectedWallPaintId ? 'is-selected' : ''}
-                  key={swatch.id}
-                  title={swatch.name}
-                  type="button"
-                  onClick={() => setSelectedWallPaintId(swatch.id)}
-                >
-                  <span style={{ backgroundColor: swatch.color }} />
-                  {swatch.name}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="three-d-panel-heading">
-            <span>Selected Object</span>
-          </div>
-
-          {selectedObject ? (
-            <div className="three-d-property-content">
-              <h2>{selectedObject.modelName}</h2>
-              <div className="three-d-status-pill">Selected</div>
-              <dl className="three-d-object-info">
-                <div>
-                  <dt>Object ID</dt>
-                  <dd>{selectedObject.sceneObjectId}</dd>
+            {designPanel === 'floor' && (
+              <section className="design-panel-section">
+                <div className="room-panel-heading">Flooring</div>
+                <div className="material-group">
+                  {FLOOR_MATERIALS.map((material) => (
+                    <button
+                      className={layout?.floorMaterialId === material.id ? 'material-option is-selected' : 'material-option'}
+                      key={material.id}
+                      type="button"
+                      onClick={() => handleMaterialChange({ floorMaterialId: material.id })}
+                    >
+                      <span style={{ backgroundColor: material.fallbackColor }} />
+                      {material.label}
+                    </button>
+                  ))}
                 </div>
-                <div>
-                  <dt>Position</dt>
-                  <dd>
-                    X {selectedObject.position.x.toFixed(2)} / Y {selectedObject.position.y.toFixed(2)} / Z{' '}
-                    {selectedObject.position.z.toFixed(2)}
-                  </dd>
+              </section>
+            )}
+
+            {designPanel === 'wall' && (
+              <section className="design-panel-section">
+                <div className="room-panel-heading">Wall Paint / Wallpaper</div>
+                <div className="material-group">
+                  {WALL_TEXTURE_MATERIALS.map((material) => (
+                    <button
+                      className={layout?.wallMaterialId === material.id ? 'material-option is-selected' : 'material-option'}
+                      key={material.id}
+                      type="button"
+                      onClick={() => handleMaterialChange({ wallMaterialId: material.id })}
+                    >
+                      <span style={{ backgroundColor: material.fallbackColor }} />
+                      {material.label}
+                    </button>
+                  ))}
+                  {wallPaintSwatches.map((swatch) => (
+                    <button
+                      className={layout?.wallMaterialId === swatch.id ? 'material-option is-selected' : 'material-option'}
+                      key={swatch.id}
+                      type="button"
+                      onClick={() => handleMaterialChange({ wallMaterialId: swatch.id })}
+                    >
+                      <span style={{ backgroundColor: swatch.color }} />
+                      {swatch.name}
+                    </button>
+                  ))}
                 </div>
-              </dl>
-              <p>Drag the selected object across the grid floor to reposition it.</p>
+              </section>
+            )}
+          </aside>
+        )}
+
+        <section className="room-workspace">
+          <div className="room-workspace-toolbar">
+            <div>
+              <strong>{viewMode === '2d' ? '2D Blueprint Floor Plan' : '3D Room Preview'}</strong>
+              <span>
+                {layout && roomSize
+                  ? `${roomSize.width.toFixed(1)} ft x ${roomSize.depth.toFixed(1)} ft | wall ${layout.wallHeight.toFixed(1)} ft`
+                  : 'No room yet'}
+              </span>
             </div>
+            <div className="room-workspace-actions">
+              <button type="button" onClick={handleAddBox}>Add Box</button>
+              <button type="button" onClick={handleSave}>Save</button>
+              {viewMode === '3d' && (
+                <button type="button" onClick={() => setDesignPanel('products')}>
+                  Product List
+                </button>
+              )}
+              <button type="button" onClick={() => setViewMode(viewMode === '2d' ? '3d' : '2d')}>
+                Toggle 2D/3D
+              </button>
+            </div>
+          </div>
+
+          {viewMode === '2d' ? (
+            <BlueprintCanvas
+              activeTool={activeTool}
+              floorFillColor={floorMaterial.fallbackColor}
+              hideLabels={hideLabels}
+              layout={layout}
+              selectedItem={selectedItem}
+              wallFillColor={wallMaterial.fallbackColor}
+              onLayoutChange={handleLayoutChange}
+              onMessage={setSaveMessage}
+              onSelectItem={setSelectedItem}
+            />
           ) : (
-            <p className="three-d-panel-empty">Click an object in the scene to inspect it.</p>
+            <RoomPreview3D
+              floorMaterial={floorMaterial}
+              layout={layout}
+              onProductDrop={handleProductDrop}
+              onProductMove={handleProductMove}
+              onProductSelect={(productId) => {
+                setSelectedProductId(productId);
+                setShowProductInfo(false);
+                setFreeRotateProductId(null);
+              }}
+              placedProducts={placedProducts}
+              selectedProductId={selectedProductId}
+              wallMaterial={wallMaterial}
+            />
           )}
-        </aside>
+
+          {viewMode === '3d' && selectedProduct && (
+            <div className="product-floating-menu">
+              <div className="product-floating-actions">
+                <button type="button" onClick={() => handleRotateProduct45(selectedProduct.id)}>Rotate 45</button>
+                <button type="button" onClick={() => setFreeRotateProductId(selectedProduct.id)}>Free Rotate</button>
+                <button type="button" onClick={() => setShowProductInfo((isOpen) => !isOpen)}>Info</button>
+                <button type="button" onClick={() => handleDuplicateProduct(selectedProduct)}>Duplicate</button>
+                <button type="button" disabled>Replace</button>
+                <button type="button" disabled>Zoom To</button>
+                <button type="button" className="is-danger" onClick={() => handleDeleteProduct(selectedProduct.id)}>Delete</button>
+                <button type="button" disabled>Lock</button>
+              </div>
+
+              {showProductInfo && (
+                <div className="object-info-box">
+                  <dl>
+                    <div><dt>Product name</dt><dd>{selectedProduct.modelName}</dd></div>
+                    <div><dt>Product ID</dt><dd>{selectedProduct.productId ?? 'Local test model'}</dd></div>
+                    <div><dt>Model URL</dt><dd>{selectedProduct.modelUrl}</dd></div>
+                    <div><dt>Position</dt><dd>{selectedProduct.position.x}, {selectedProduct.position.y}, {selectedProduct.position.z}</dd></div>
+                    <div><dt>Rotation Y</dt><dd>{normalizeDegrees(toDegrees(getProductRotation(selectedProduct).y))} deg</dd></div>
+                    <div><dt>Placement</dt><dd>{selectedProduct.placementMode ?? 'FLOOR'}</dd></div>
+                  </dl>
+                </div>
+              )}
+
+              {freeRotateProductId === selectedProduct.id && (
+                <div className="object-rotate-box">
+                  <label>
+                    <span>Rotation Y: {normalizeDegrees(toDegrees(getProductRotation(selectedProduct).y))} deg</span>
+                    <input
+                      max="360"
+                      min="0"
+                      type="range"
+                      value={normalizeDegrees(toDegrees(getProductRotation(selectedProduct).y))}
+                      onChange={(event) => handleFreeRotateChange(selectedProduct.id, Number(event.target.value))}
+                    />
+                  </label>
+                  <button type="button" onClick={() => setFreeRotateProductId(null)}>Done</button>
+                </div>
+              )}
+
+              <div className="product-floating-placement">
+                <select
+                  value={selectedProduct.placementMode ?? 'FLOOR'}
+                  onChange={(event) => handlePlacementModeChange(selectedProduct.id, event.target.value as ProductPlacementMode)}
+                >
+                  {PLACEMENT_MODES.map((mode) => (
+                    <option key={mode.value} value={mode.value}>{mode.label}</option>
+                  ))}
+                </select>
+                <button type="button" onClick={() => handleHeightStep(selectedProduct.id, 0.1)}>Height +</button>
+                <button type="button" onClick={() => handleHeightStep(selectedProduct.id, -0.1)}>Height -</button>
+                <button type="button" onClick={() => handleResetProductToFloor(selectedProduct.id)}>To Floor</button>
+              </div>
+            </div>
+          )}
+
+          {saveMessage && <div className="room-save-message">{saveMessage}</div>}
+        </section>
       </section>
     </main>
   );
