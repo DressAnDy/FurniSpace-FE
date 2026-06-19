@@ -14,23 +14,12 @@ import {
   IconSparkles,
   IconVideo,
 } from '@tabler/icons-react';
+import { useMemo, useState } from 'react';
 
+import { mockConversations, mockConversationMessages, type ChatRoleBadge } from '@/features/CustomerPages/mockData';
 import { CustomerUserSummary } from '@/shared/components/CustomerUserSummary';
 
 import './CustomerChatPage.css';
-
-type RoleBadge = 'sales' | 'designer' | 'general';
-
-type ConversationItem = {
-  id: string;
-  initials: string;
-  name: string;
-  role: RoleBadge;
-  roleLabel: string;
-  lastMessage: string;
-  timestamp: string;
-  unread?: number;
-};
 
 const navigation = [
   { icon: <IconHome size={15} stroke={1.8} />, label: 'My Projects' },
@@ -41,47 +30,35 @@ const navigation = [
   { icon: <IconBox size={15} stroke={1.8} />, label: 'Handover' },
 ];
 
-const conversations: ConversationItem[] = [
-  {
-    id: 'sc',
-    initials: 'SC',
-    lastMessage: "I've reviewed your budget. Let me prepare a detailed breakdown.",
-    name: 'Sarah Chen',
-    role: 'sales',
-    roleLabel: 'Sales Representative',
-    timestamp: '15:30:00 6/6/2026',
-    unread: 2,
-  },
-  {
-    id: 'mt',
-    initials: 'MT',
-    lastMessage: "I've published the new proposal. Please take a look!",
-    name: 'Michael Torres',
-    role: 'designer',
-    roleLabel: 'Interior Designer',
-    timestamp: '23:45:00 5/6/2026',
-    unread: 1,
-  },
-  {
-    id: 'pt',
-    initials: 'PT',
-    lastMessage: "Thank you for your patience. We're working on the updates.",
-    name: 'Project Team',
-    role: 'general',
-    roleLabel: 'General Discussion',
-    timestamp: '21:20:00 4/6/2026',
-  },
-];
-
-const activeConversation = conversations[0];
-
-const roleBadgeLabels: Record<RoleBadge, string> = {
+const roleBadgeLabels: Record<ChatRoleBadge, string> = {
   designer: 'DESIGNER',
   general: 'GENERAL',
   sales: 'SALES',
 };
 
 export function CustomerChatPage() {
+  const [searchKeyword, setSearchKeyword] = useState('');
+  const [activeConversationId, setActiveConversationId] = useState(mockConversations[0]?.id ?? '');
+
+  const filteredConversations = useMemo(() => {
+    const normalizedKeyword = searchKeyword.trim().toLowerCase();
+
+    if (!normalizedKeyword) {
+      return mockConversations;
+    }
+
+    return mockConversations.filter((conversation) => {
+      return (
+        conversation.name.toLowerCase().includes(normalizedKeyword) ||
+        conversation.lastMessage.toLowerCase().includes(normalizedKeyword) ||
+        conversation.roleLabel.toLowerCase().includes(normalizedKeyword)
+      );
+    });
+  }, [searchKeyword]);
+
+  const activeConversation = filteredConversations.find((conversation) => conversation.id === activeConversationId) ?? filteredConversations[0];
+  const activeMessages = activeConversation ? (mockConversationMessages[activeConversation.id] ?? []) : [];
+
   return (
     <main className="customer-chat-page">
       <TopNavigation />
@@ -100,17 +77,17 @@ export function CustomerChatPage() {
             <div className="customer-chat-search-wrapper">
               <label className="customer-chat-search">
                 <IconSearch size={16} stroke={1.8} />
-                <input type="search" placeholder="Search chats..." />
+                <input type="search" placeholder="Search chats..." value={searchKeyword} onChange={(event) => setSearchKeyword(event.target.value)} />
               </label>
             </div>
 
             <ul className="customer-chat-list">
-              {conversations.map((conv) => (
+              {filteredConversations.map((conv) => (
                 <li
                   key={conv.id}
-                  className={`customer-chat-list-item${conv.id === activeConversation.id ? ' customer-chat-list-item-active' : ''}`}
+                  className={`customer-chat-list-item${conv.id === activeConversation?.id ? ' customer-chat-list-item-active' : ''}`}
                 >
-                  <button type="button">
+                  <button type="button" onClick={() => setActiveConversationId(conv.id)}>
                     <span className="customer-chat-avatar">{conv.initials}</span>
 
                     <div className="customer-chat-list-info">
@@ -140,10 +117,10 @@ export function CustomerChatPage() {
           <section className="customer-chat-main" aria-label="Chat messages">
             <div className="customer-chat-conversation-header">
               <div className="customer-chat-conversation-identity">
-                <span className="customer-chat-avatar">{activeConversation.initials}</span>
+                <span className="customer-chat-avatar">{activeConversation?.initials ?? '--'}</span>
                 <div>
-                  <strong>{activeConversation.name}</strong>
-                  <span>{activeConversation.roleLabel}</span>
+                  <strong>{activeConversation?.name ?? 'No conversation selected'}</strong>
+                  <span>{activeConversation?.roleLabel ?? 'Choose a conversation on the left panel'}</span>
                 </div>
               </div>
               <div className="customer-chat-conversation-actions">
@@ -159,7 +136,14 @@ export function CustomerChatPage() {
               </div>
             </div>
 
-            <div className="customer-chat-messages" aria-live="polite" />
+            <div className="customer-chat-messages" aria-live="polite">
+              {activeMessages.map((message) => (
+                <article className={`customer-chat-message customer-chat-message-${message.sender}`} key={message.id}>
+                  <p>{message.text}</p>
+                  <time>{message.timestamp}</time>
+                </article>
+              ))}
+            </div>
 
             <div className="customer-chat-input-area">
               <button className="customer-chat-attach" type="button" aria-label="Attach file">

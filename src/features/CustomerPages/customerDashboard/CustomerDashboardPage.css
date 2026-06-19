@@ -162,7 +162,26 @@
 }
 
 .customer-dashboard-main {
-  padding: 32px 24px 40px;
+  max-width: 1360px;
+  margin: 0 auto;
+  padding: 28px 24px 40px;
+}
+
+.customer-dashboard-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 7fr) minmax(280px, 3fr);
+  gap: 24px;
+  align-items: start;
+}
+
+.customer-dashboard-primary > section + section,
+.customer-dashboard-primary > .customer-dashboard-panel {
+  margin-top: 24px;
+}
+
+.customer-dashboard-sidebar {
+  display: grid;
+  gap: 16px;
 }
 
 .customer-dashboard-welcome {
@@ -208,7 +227,6 @@
 }
 
 .customer-dashboard-project-card {
-  margin-top: 32px;
   padding: 32px;
 }
 
@@ -402,13 +420,13 @@
 }
 
 .customer-dashboard-section {
-  margin-top: 32px;
+  margin-top: 0;
 }
 
 .customer-dashboard-quick-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 24px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
   margin-top: 16px;
 }
 
@@ -573,11 +591,10 @@
   display: grid;
   grid-template-columns: 48px minmax(0, 1fr);
   gap: 16px;
-  margin-top: 32px;
   border: 1px solid #bedbff;
   border-radius: 12px;
   background: linear-gradient(173deg, #eff6ff 0%, rgba(219, 234, 254, 0.5) 100%);
-  padding: 24px;
+  padding: 20px;
 }
 
 .customer-dashboard-help-icon {
@@ -596,6 +613,11 @@
   font-size: 14px;
 }
 
+.customer-dashboard-help div > div {
+  display: grid;
+  gap: 8px;
+}
+
 .customer-dashboard-help button {
   min-height: 36px;
   border: 1px solid #d9d4cc;
@@ -612,7 +634,34 @@
   border-color: #155dfc;
   background: #155dfc;
   color: #ffffff;
-  margin-right: 12px;
+}
+
+.customer-dashboard-milestones .customer-dashboard-panel-head {
+  margin-bottom: 14px;
+}
+
+.customer-dashboard-milestone-list {
+  display: grid;
+  gap: 10px;
+}
+
+.customer-dashboard-milestone-list article {
+  border: 1px solid #ece7dc;
+  border-radius: 10px;
+  background: #fcfbf8;
+  padding: 12px;
+}
+
+.customer-dashboard-milestone-list strong {
+  color: #9a6b13;
+  font-size: 12px;
+}
+
+.customer-dashboard-milestone-list p {
+  margin: 6px 0 0;
+  color: #44403c;
+  font-size: 13px;
+  line-height: 1.45;
 }
 
 @media (max-width: 1180px) {
@@ -632,6 +681,7 @@
     margin-left: auto;
   }
 
+  .customer-dashboard-layout,
   .customer-dashboard-project-meta,
   .customer-dashboard-quick-grid,
   .customer-dashboard-two-column {

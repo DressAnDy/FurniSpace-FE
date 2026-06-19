@@ -13,24 +13,11 @@ import {
   IconZoomIn,
   IconZoomOut,
 } from '@tabler/icons-react';
+import { useState } from 'react';
 
 import './Customer3dPreviewPage.css';
 import { CustomerNavbar } from '@/features/CustomerPages/customercomponents';
-
-const sceneItems = [
-  {
-    name: 'Oak Dining Table - 4 Seater',
-    price: '$650',
-    quantity: '6x',
-    type: 'TABLE',
-  },
-  {
-    name: 'Bentwood Dining Chair',
-    price: '$180',
-    quantity: '24x',
-    type: 'CHAIR',
-  },
-];
+import { mockProposalItems, mockProposalScenes } from '@/features/CustomerPages/mockData';
 
 const viewerTools = [
   { icon: <IconArrowsMove size={20} stroke={1.8} />, label: 'Pan scene' },
@@ -42,6 +29,9 @@ const viewerTools = [
 ];
 
 export function Customer3dPreviewPage() {
+  const [activeSceneIndex, setActiveSceneIndex] = useState(0);
+  const activeScene = mockProposalScenes[activeSceneIndex];
+
   return (
     <main className="customer-3d-preview-page">
       <CustomerNavbar activeLabel="2D/3D Review" classPrefix="customer-3d-preview" />
@@ -77,7 +67,20 @@ export function Customer3dPreviewPage() {
         <div className="customer-3d-preview-workspace">
           <aside className="customer-3d-preview-left-panel" aria-label="Scenes">
             <PanelHeader title="Scenes" />
-            <div className="customer-3d-preview-empty-list" />
+            <div className="customer-3d-preview-scene-list">
+              {mockProposalScenes.map((scene, index) => (
+                <button
+                  type="button"
+                  key={scene.id}
+                  className={index === activeSceneIndex ? 'customer-3d-preview-scene-active' : undefined}
+                  onClick={() => setActiveSceneIndex(index)}
+                >
+                  <strong>{scene.name}</strong>
+                  <span>{scene.id}</span>
+                  <p>{scene.note}</p>
+                </button>
+              ))}
+            </div>
           </aside>
 
           <div className="customer-3d-preview-stage">
@@ -97,7 +100,7 @@ export function Customer3dPreviewPage() {
             <div className="customer-3d-preview-scene-card">
               <strong>3D Scene View</strong>
               <span />
-              <p>Scene ID: ...</p>
+              <p>Scene ID: {activeScene.id}</p>
             </div>
 
             <div className="customer-3d-preview-canvas-mark">
@@ -105,11 +108,18 @@ export function Customer3dPreviewPage() {
             </div>
 
             <div className="customer-3d-preview-pager" aria-label="Scene pagination">
-              <button type="button" aria-label="Previous scene">
+              <button type="button" aria-label="Previous scene" disabled={activeSceneIndex === 0} onClick={() => setActiveSceneIndex((current) => current - 1)}>
                 <IconChevronLeft size={18} stroke={1.8} />
               </button>
-              <span>0 of 0</span>
-              <button type="button" aria-label="Next scene" disabled>
+              <span>
+                {activeSceneIndex + 1} of {mockProposalScenes.length}
+              </span>
+              <button
+                type="button"
+                aria-label="Next scene"
+                disabled={activeSceneIndex === mockProposalScenes.length - 1}
+                onClick={() => setActiveSceneIndex((current) => current + 1)}
+              >
                 <IconChevronRight size={18} stroke={1.8} />
               </button>
             </div>
@@ -118,15 +128,15 @@ export function Customer3dPreviewPage() {
           <aside className="customer-3d-preview-right-panel" aria-label="Scene items">
             <PanelHeader title="Scene Items" />
             <div className="customer-3d-preview-item-list">
-              {sceneItems.map((item) => (
-                <article className="customer-3d-preview-item-card" key={item.name}>
+              {mockProposalItems.map((item) => (
+                <article className="customer-3d-preview-item-card" key={item.id}>
                   <div>
                     <strong>{item.name}</strong>
-                    <span>{item.type}</span>
+                    <span>{item.type.toUpperCase()}</span>
                   </div>
                   <div>
-                    <span>{item.quantity}</span>
-                    <strong>{item.price}</strong>
+                    <span>{item.quantity}x</span>
+                    <strong>${item.unitPrice.toLocaleString('en-US')}</strong>
                   </div>
                 </article>
               ))}
