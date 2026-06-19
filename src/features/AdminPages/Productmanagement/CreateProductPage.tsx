@@ -1,5 +1,5 @@
 import { type DragEvent, type FormEvent, useEffect, useState } from 'react';
-import { IconArrowLeft, IconPackage, IconPhoto, IconUpload } from '@tabler/icons-react';
+import { IconArrowLeft, IconPackage, IconPhoto, IconRefresh, IconUpload, IconX } from '@tabler/icons-react';
 import { useNavigate } from 'react-router-dom';
 
 import { getProductServiceResultMessage, normalizeOptionalText, normalizeRequiredText } from '@/services/api';
@@ -8,32 +8,157 @@ import { useCategoryList, useCreateProduct, useUploadProductPreviewFile } from '
 import { AdminNavbar, AdminSidebar } from '../admincomponents';
 import './Productmanagement.css';
 
+const MAX_PREVIEW_IMAGES = 5;
+
+type PreviewUploadStatus = 'pending' | 'uploading' | 'uploaded' | 'failed';
+
+type PreviewUploadItem = {
+  id: string;
+  file: File;
+  progress: number;
+  status: PreviewUploadStatus;
+  errorMessage?: string;
+};
+
 export function CreateProductPage() {
   const navigate = useNavigate();
   const categoryListQuery = useCategoryList({ page: 1, limit: 100 });
   const createProductMutation = useCreateProduct();
   const uploadProductPreviewMutation = useUploadProductPreviewFile();
-  const [previewFiles, setPreviewFiles] = useState<File[]>([]);
+  const [previewItems, setPreviewItems] = useState<PreviewUploadItem[]>([]);
   const [draggingFileIndex, setDraggingFileIndex] = useState<number | null>(null);
   const [createdProductId, setCreatedProductId] = useState<string | null>(null);
+  const [imageMessage, setImageMessage] = useState<string | null>(null);
+  const [formMessage, setFormMessage] = useState<string | null>(null);
   const categoryOptions = categoryListQuery.data?.items ?? [];
   const isSaving = createProductMutation.isPending || uploadProductPreviewMutation.isPending;
 
   const movePreviewFile = (fromIndex: number, toIndex: number) => {
-    if (fromIndex === toIndex || fromIndex < 0 || toIndex < 0 || fromIndex >= previewFiles.length || toIndex >= previewFiles.length) {
+    if (fromIndex === toIndex || fromIndex < 0 || toIndex < 0 || fromIndex >= previewItems.length || toIndex >= previewItems.length) {
       return;
     }
 
-    setPreviewFiles((currentFiles) => {
-      const nextFiles = [...currentFiles];
-      const [movedFile] = nextFiles.splice(fromIndex, 1);
-      nextFiles.splice(toIndex, 0, movedFile);
-      return nextFiles;
+    setPreviewItems((currentItems) => {
+      const nextItems = [...currentItems];
+      const [movedFile] = nextItems.splice(fromIndex, 1);
+      nextItems.splice(toIndex, 0, movedFile);
+      return nextItems;
     });
+  };
+
+  const addPreviewFiles = (fileList: FileList | null) => {
+    if (!fileList?.length) {
+      return;
+    }
+
+    let nextMessage: string | null = null;
+
+    setPreviewItems((currentItems) => {
+      const incomingFiles = Array.from(fileList);
+      const remainingSlots = MAX_PREVIEW_IMAGES - currentItems.length;
+
+      if (remainingSlots <= 0) {
+        nextMessage = `You can upload up to ${MAX_PREVIEW_IMAGES} images.`;
+        return currentItems;
+      }
+
+      const acceptedFiles = incomingFiles.slice(0, remainingSlots);
+      const nextItems = [
+        ...currentItems,
+        ...acceptedFiles.map((file) => ({
+          id: getLocalPreviewId(file),
+          file,
+          progress: 0,
+          status: 'pending' as PreviewUploadStatus,
+        })),
+      ];
+
+      if (incomingFiles.length > remainingSlots) {
+        nextMessage = `Only ${MAX_PREVIEW_IMAGES} images are allowed. Extra files were skipped.`;
+      }
+
+      return nextItems;
+    });
+
+    setImageMessage(nextMessage);
+  };
+
+  const removePreviewItem = (itemId: string) => {
+    setPreviewItems((currentItems) => currentItems.filter((item) => item.id !== itemId));
+    setImageMessage(null);
+  };
+
+  const uploadSinglePreview = async (item: PreviewUploadItem, productId: string) => {
+    setPreviewItems((currentItems) =>
+      currentItems.map((currentItem) =>
+        currentItem.id === item.id
+          ? { ...currentItem, status: 'uploading', progress: 0, errorMessage: undefined }
+          : currentItem,
+      ),
+    );
+
+    try {
+      await uploadProductPreviewMutation.mutateAsync({
+        productId,
+        file: item.file,
+        description: 'Product preview image',
+        onUploadProgress: (progressPercent: number) => {
+          setPreviewItems((currentItems) =>
+            currentItems.map((currentItem) =>
+              currentItem.id === item.id
+                ? { ...currentItem, status: 'uploading', progress: progressPercent }
+                : currentItem,
+            ),
+          );
+        },
+      });
+
+      setPreviewItems((currentItems) =>
+        currentItems.map((currentItem) =>
+          currentItem.id === item.id
+            ? { ...currentItem, status: 'uploaded', progress: 100, errorMessage: undefined }
+            : currentItem,
+        ),
+      );
+
+      return true;
+    } catch (error) {
+      setPreviewItems((currentItems) =>
+        currentItems.map((currentItem) =>
+          currentItem.id === item.id
+            ? {
+                ...currentItem,
+                status: 'failed',
+                progress: 0,
+                errorMessage: getProductServiceResultMessage(error),
+              }
+            : currentItem,
+        ),
+      );
+
+      return false;
+    }
+  };
+
+  const handleRetryUpload = async (itemId: string) => {
+    if (!createdProductId) {
+      setFormMessage('Please create product first before retrying uploads.');
+      return;
+    }
+
+    const item = previewItems.find((candidate) => candidate.id === itemId);
+
+    if (!item) {
+      return;
+    }
+
+    setFormMessage(null);
+    await uploadSinglePreview(item, createdProductId);
   };
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    setFormMessage(null);
     const formData = new FormData(event.currentTarget);
 
     const productName = normalizeRequiredText(formData.get('product_name'));
@@ -57,15 +182,22 @@ export function CreateProductPage() {
 
       setCreatedProductId(productId);
 
-      if (previewFiles.length > 0) {
-        for (const previewFile of previewFiles) {
-          await uploadProductPreviewMutation.mutateAsync({
-            productId,
-            file: previewFile,
-            description: 'Product preview image',
-          });
+      if (previewItems.length > 0) {
+        const candidates = previewItems.filter((item) => item.status !== 'uploaded');
+        let failedUploads = 0;
+
+        for (const previewItem of candidates) {
+          const isUploaded = await uploadSinglePreview(previewItem, productId);
+
+          if (!isUploaded) {
+            failedUploads += 1;
+          }
         }
-        setPreviewFiles([]);
+
+        if (failedUploads > 0) {
+          setFormMessage(`Product created, but ${failedUploads} image(s) failed. Please retry failed images.`);
+          return;
+        }
       }
 
       sessionStorage.setItem('admin.createdProductId', productId);
@@ -149,18 +281,20 @@ export function CreateProductPage() {
                     <label className="product-image-dropzone">
                       <input
                         accept="image/jpeg,image/png,image/webp,image/gif,image/svg+xml"
-                        className="product-upload-input"
+                        className="product-upload-input product-upload-input-overlay"
                         type="file"
                         multiple
+                        onClick={(event) => {
+                          event.currentTarget.value = '';
+                        }}
                         onChange={(event) => {
-                          const files = event.target.files ? Array.from(event.target.files) : [];
-                          setPreviewFiles(files);
+                          addPreviewFiles(event.target.files);
                           setDraggingFileIndex(null);
                         }}
                       />
                       <div className="product-upload-main">
                         <IconUpload size={46} />
-                        <strong>{previewFiles.length > 0 ? `${previewFiles.length} image(s) selected` : 'Click to select product images'}</strong>
+                        <strong>{previewItems.length > 0 ? `${previewItems.length} image(s) selected` : 'Click to select product images'}</strong>
                         <small>All files are uploaded as PRODUCT_PREVIEW and visible to customers</small>
                       </div>
                     </label>
@@ -171,8 +305,14 @@ export function CreateProductPage() {
                           <span>Cover Image</span>
                           <small>Cover updates automatically from image at position 1</small>
                         </div>
-                        {previewFiles[0] ? (
-                          <ProductImagePreviewTile file={previewFiles[0]} isCover draggable={false} />
+                        {previewItems[0] ? (
+                          <ProductImagePreviewTile
+                            item={previewItems[0]}
+                            isCover
+                            draggable={false}
+                            onRemove={() => removePreviewItem(previewItems[0].id)}
+                            onRetry={() => handleRetryUpload(previewItems[0].id)}
+                          />
                         ) : (
                           <div className="product-image-cover-empty">No image selected</div>
                         )}
@@ -181,13 +321,15 @@ export function CreateProductPage() {
                     </div>
                   </div>
 
-                  {previewFiles.length > 0 ? (
+                  {previewItems.length > 0 ? (
                     <div className="product-image-strip">
-                      {previewFiles.map((file, index) => (
+                      {previewItems.map((item, index) => (
                         <ProductImagePreviewTile
-                          file={file}
-                          key={`${file.name}-${file.size}-${file.lastModified}`}
+                          item={item}
+                          key={item.id}
                           isCover={index === 0}
+                          onRemove={() => removePreviewItem(item.id)}
+                          onRetry={() => handleRetryUpload(item.id)}
                           onDragEnd={() => setDraggingFileIndex(null)}
                           onDragOver={(event) => event.preventDefault()}
                           onDragStart={() => setDraggingFileIndex(index)}
@@ -203,17 +345,14 @@ export function CreateProductPage() {
                     </div>
                   ) : null}
 
+                  {imageMessage ? <p className="product-form-error">{imageMessage}</p> : null}
                   <p className="product-form-helper">Products currently accept only FileType.PRODUCT_PREVIEW. Reorder by drag and drop; image at position 1 is always the cover.</p>
                 </div>
 
                 {createProductMutation.isError ? (
                   <p className="product-form-error">{getProductServiceResultMessage(createProductMutation.error)}</p>
                 ) : null}
-                {uploadProductPreviewMutation.isError ? (
-                  <p className="product-form-error">
-                    Product was created, but preview upload failed: {getProductServiceResultMessage(uploadProductPreviewMutation.error)}
-                  </p>
-                ) : null}
+                {formMessage ? <p className="product-form-error">{formMessage}</p> : null}
               </section>
 
               <div className="product-form-actions">
@@ -242,18 +381,30 @@ export function CreateProductPage() {
 export default CreateProductPage;
 
 type ProductImagePreviewTileProps = {
-  file: File;
+  item: PreviewUploadItem;
   draggable?: boolean;
   isCover?: boolean;
+  onRemove?: () => void;
+  onRetry?: () => void;
   onDragEnd?: () => void;
   onDragOver?: (event: DragEvent<HTMLDivElement>) => void;
   onDragStart?: () => void;
   onDrop?: (event: DragEvent<HTMLDivElement>) => void;
 };
 
-function ProductImagePreviewTile({ file, draggable = true, isCover = false, onDragEnd, onDragOver, onDragStart, onDrop }: ProductImagePreviewTileProps) {
+function ProductImagePreviewTile({
+  item,
+  draggable = true,
+  isCover = false,
+  onRemove,
+  onRetry,
+  onDragEnd,
+  onDragOver,
+  onDragStart,
+  onDrop,
+}: ProductImagePreviewTileProps) {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const isImage = file.type.startsWith('image/');
+  const isImage = item.file.type.startsWith('image/');
 
   useEffect(() => {
     if (!isImage) {
@@ -261,24 +412,47 @@ function ProductImagePreviewTile({ file, draggable = true, isCover = false, onDr
       return undefined;
     }
 
-    const objectUrl = URL.createObjectURL(file);
+    const objectUrl = URL.createObjectURL(item.file);
     setPreviewUrl(objectUrl);
 
     return () => URL.revokeObjectURL(objectUrl);
-  }, [file, isImage]);
+  }, [item.file, isImage]);
 
   return (
     <div
-      className={`product-upload-tile product-upload-tile-preview${isCover ? ' product-upload-tile-cover' : ''}`}
+      className={`product-upload-tile product-upload-tile-preview product-upload-tile-status-${item.status}${isCover ? ' product-upload-tile-cover' : ''}`}
       draggable={draggable}
       onDragEnd={onDragEnd}
       onDragOver={onDragOver}
       onDragStart={onDragStart}
       onDrop={onDrop}
     >
+      <div className="product-upload-tile-actions">
+        {item.status === 'failed' && onRetry ? (
+          <button type="button" onClick={onRetry} aria-label={`Retry ${item.file.name}`}>
+            <IconRefresh size={14} />
+          </button>
+        ) : null}
+        {onRemove ? (
+          <button type="button" onClick={onRemove} aria-label={`Remove ${item.file.name}`}>
+            <IconX size={14} />
+          </button>
+        ) : null}
+      </div>
       {isCover ? <span className="product-upload-cover-badge">Cover</span> : null}
-      {previewUrl ? <img alt={file.name} src={previewUrl} /> : <IconPhoto size={28} />}
-      <span title={file.name}>{file.name}</span>
+      {previewUrl ? <img alt={item.file.name} src={previewUrl} /> : <IconPhoto size={28} />}
+      <span title={item.file.name}>{item.file.name}</span>
+      <div className="product-upload-progress">
+        <span style={{ width: `${item.progress}%` }} />
+      </div>
+      <small className={`product-upload-status product-upload-status-${item.status}`}>
+        {item.status === 'uploading' ? `Uploading ${item.progress}%` : item.status === 'uploaded' ? 'Uploaded' : item.status === 'failed' ? 'Failed' : 'Pending'}
+      </small>
+      {item.errorMessage ? <small className="product-upload-error">{item.errorMessage}</small> : null}
     </div>
   );
+}
+
+function getLocalPreviewId(file: File) {
+  return `${file.name}-${file.size}-${file.lastModified}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }

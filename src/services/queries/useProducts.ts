@@ -123,8 +123,8 @@ export function useUploadProductPreviewFile() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (input: { productId: string; file: File; description?: string | null }) =>
-      uploadProductPreviewFile(input.productId, input.file, input.description),
+    mutationFn: (input: { productId: string; file: File; description?: string | null; onUploadProgress?: (progressPercent: number) => void }) =>
+      uploadProductPreviewFile(input.productId, input.file, input.description, { onUploadProgress: input.onUploadProgress }),
     onSuccess: (data) => {
       void queryClient.invalidateQueries({ queryKey: productQueryKeys.all });
       void queryClient.invalidateQueries({ queryKey: productQueryKeys.detail(data.referenceId) });

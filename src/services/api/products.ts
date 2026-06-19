@@ -380,7 +380,14 @@ export async function setDefaultProductVersion(productVersionId: string) {
   return response.data.data;
 }
 
-export async function uploadProductPreviewFile(productId: string, file: File, description?: string | null) {
+export async function uploadProductPreviewFile(
+  productId: string,
+  file: File,
+  description?: string | null,
+  options?: {
+    onUploadProgress?: (progressPercent: number) => void;
+  },
+) {
   const formData = new FormData();
   formData.append('file', file);
   formData.append('fileType', 'PRODUCT_PREVIEW');
@@ -393,6 +400,14 @@ export async function uploadProductPreviewFile(productId: string, file: File, de
   const response = await productApiClient.post<ServiceResult<CatalogFileUploadResponseDto>>(`/products/${productId}/files`, formData, {
     headers: {
       'Content-Type': 'multipart/form-data',
+    },
+    onUploadProgress: (event) => {
+      if (!options?.onUploadProgress || !event.total) {
+        return;
+      }
+
+      const progressPercent = Math.min(100, Math.round((event.loaded / event.total) * 100));
+      options.onUploadProgress(progressPercent);
     },
   });
 
