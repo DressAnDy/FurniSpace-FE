@@ -351,6 +351,22 @@
   text-decoration: none;
 }
 
+.customer-proposal-detail-scene-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.customer-proposal-detail-scene-chips span {
+  border: 1px solid #e7e5e4;
+  border-radius: 999px;
+  background: #fafaf9;
+  color: #44403c;
+  font-size: 12px;
+  padding: 5px 10px;
+}
+
 .customer-proposal-detail-items > div:first-child {
   display: flex;
   align-items: center;
@@ -385,6 +401,17 @@
 }
 
 .customer-proposal-detail-items th:nth-child(n + 5) {
+  text-align: right;
+}
+
+.customer-proposal-detail-items td {
+  border-bottom: 1px solid #f0ece5;
+  color: #111111;
+  font-size: 14px;
+  padding: 14px 16px;
+}
+
+.customer-proposal-detail-items td:nth-child(n + 5) {
   text-align: right;
 }
 

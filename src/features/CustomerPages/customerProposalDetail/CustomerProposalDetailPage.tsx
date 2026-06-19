@@ -11,11 +11,13 @@ import { useNavigate } from 'react-router-dom';
 
 import './CustomerProposalDetailPage.css';
 import { CustomerNavbar } from '@/features/CustomerPages/customercomponents';
+import { mockProposalItems, mockProposalScenes } from '@/features/CustomerPages/mockData';
 
 const tableHeaders = ['Item Name', 'Type', 'Dimensions', 'Material', 'Qty', 'Unit Price', 'Total'];
 
 export function CustomerProposalDetailPage() {
   const navigate = useNavigate();
+  const totalEstimated = mockProposalItems.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0);
 
   return (
     <main className="customer-proposal-detail-page">
@@ -67,7 +69,12 @@ export function CustomerProposalDetailPage() {
         </section>
 
         <section className="customer-proposal-detail-card customer-proposal-detail-row-card">
-          <h2>3D Scenes (0)</h2>
+          <h2>3D Scenes ({mockProposalScenes.length})</h2>
+          <div className="customer-proposal-detail-scene-chips">
+            {mockProposalScenes.map((scene) => (
+              <span key={scene.id}>{scene.name}</span>
+            ))}
+          </div>
           <a href="/customer/3d-preview">
             View All in 2D/3D Viewer
             <IconChevronRight size={16} stroke={1.8} />
@@ -76,8 +83,8 @@ export function CustomerProposalDetailPage() {
 
         <section className="customer-proposal-detail-card customer-proposal-detail-items">
           <div>
-            <h2>Furniture & Items (0)</h2>
-            <p>Total Estimated: $0</p>
+            <h2>Furniture & Items ({mockProposalItems.length})</h2>
+            <p>Total Estimated: ${totalEstimated.toLocaleString('en-US')}</p>
           </div>
           <div className="customer-proposal-detail-table-wrap">
             <table>
@@ -88,6 +95,19 @@ export function CustomerProposalDetailPage() {
                   ))}
                 </tr>
               </thead>
+              <tbody>
+                {mockProposalItems.map((item) => (
+                  <tr key={item.id}>
+                    <td>{item.name}</td>
+                    <td>{item.type}</td>
+                    <td>{item.dimensions}</td>
+                    <td>{item.material}</td>
+                    <td>{item.quantity}</td>
+                    <td>${item.unitPrice.toLocaleString('en-US')}</td>
+                    <td>${(item.quantity * item.unitPrice).toLocaleString('en-US')}</td>
+                  </tr>
+                ))}
+              </tbody>
             </table>
           </div>
         </section>
