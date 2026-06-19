@@ -124,6 +124,10 @@ function getPostLoginPath(role?: string) {
     return '/sale/dashbroad';
   }
 
+  if (normalizedRole.includes('DESIGNER')) {
+    return '/designer/dashbroad';
+  }
+
   return '/';
 }
 

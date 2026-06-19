@@ -1,0 +1,1 @@
+export { DesignerProjectDetail } from './DesignerProjectDetail';
