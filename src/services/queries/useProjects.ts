@@ -1,17 +1,21 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import {
+  assignDesignerToProject,
   assignSalesToProject,
   createProject,
   getProjectById,
   getProjectFiles,
   getProjects,
+  updateProjectStatus,
   uploadProjectFile,
   type CreateProjectInput,
+  type AssignDesignerInput,
   type ProjectListParams,
   type ProjectListItemDto,
   type ProjectFileListParams,
   type ProjectStatus,
+  type UpdateProjectStatusInput,
 } from '@/services/api/projects';
 
 export const projectQueryKeys = {
@@ -77,6 +81,30 @@ export function useAssignSalesToProject() {
     mutationFn: (input: { projectId: string; note?: string | null }) => assignSalesToProject(input.projectId, input.note),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: projectQueryKeys.all });
+    },
+  });
+}
+
+export function useAssignDesignerToProject() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (input: AssignDesignerInput) => assignDesignerToProject(input),
+    onSuccess: (data) => {
+      void queryClient.invalidateQueries({ queryKey: projectQueryKeys.all });
+      void queryClient.invalidateQueries({ queryKey: projectQueryKeys.detail(data.projectId) });
+    },
+  });
+}
+
+export function useUpdateProjectStatus() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (input: UpdateProjectStatusInput) => updateProjectStatus(input),
+    onSuccess: (data) => {
+      void queryClient.invalidateQueries({ queryKey: projectQueryKeys.all });
+      void queryClient.invalidateQueries({ queryKey: projectQueryKeys.detail(data.projectId) });
     },
   });
 }

@@ -91,12 +91,34 @@ export type AccountListData = {
   hasNextPage: boolean;
 };
 
+export type AvailableDesignerDto = Omit<AccountDto, 'roleId' | 'deletedAt'> & {
+  currentActiveProjectCount: number;
+  maxActiveProjects: number;
+  availableSlot: number;
+};
+
+export type AvailableDesignerListData = {
+  items: AvailableDesignerDto[];
+  page: number;
+  pageSize: number;
+  totalItems: number;
+  totalPages: number;
+  hasPreviousPage: boolean;
+  hasNextPage: boolean;
+};
+
 export type AccountListParams = {
   page?: number;
   pageSize?: number;
   search?: string | null;
   status?: AccountStatus | null;
   includeDeleted?: boolean;
+};
+
+export type AvailableDesignerListParams = {
+  page?: number;
+  pageSize?: number;
+  search?: string | null;
 };
 
 export type CreateAccountInput = {
@@ -185,6 +207,18 @@ export async function getAccountById(accountId: string) {
 
 export async function getAdminAccountDetail(accountId: string) {
   const response = await accountApiClient.get<ServiceResult<AdminAccountDetailDto>>(`/admin/accounts/${accountId}`);
+
+  return response.data.data;
+}
+
+export async function getAvailableDesigners(params: AvailableDesignerListParams = {}) {
+  const response = await accountApiClient.get<ServiceResult<AvailableDesignerListData>>('/accounts/designers/available', {
+    params: {
+      page: params.page ?? 1,
+      pageSize: params.pageSize ?? 10,
+      search: params.search?.trim() || undefined,
+    },
+  });
 
   return response.data.data;
 }

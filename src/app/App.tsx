@@ -26,6 +26,11 @@ import { UserProfilePage } from '@/features/MainPages/userProfile';
 import { ProjectDetail } from '@/features/SalePages/ProjectDetail';
 import { ProjectRequestQueue } from '@/features/SalePages/ProjectRequestQueue';
 import { AssignedProjects } from '@/features/SalePages/AssignedProjects';
+import { DesignerAssignedProjects } from '@/features/DesignerPages/DesignerAssignedProjects';
+import { DesignerDashbroad } from '@/features/DesignerPages/DesignerDashbroad';
+import { DesignerProductLibrary } from '@/features/DesignerPages/DesignerProductLibrary';
+import { DesignerProjectDetail } from '@/features/DesignerPages/DesignerProjectDetail';
+import { DesignerSchedules } from '@/features/DesignerPages/DesignerSchedules';
 import { SaleQuotations } from '@/features/SalePages/SaleQuotations';
 import { SaleSchedules } from '@/features/SalePages/SaleSchedules';
 import { SaleDashbroad } from '@/features/SalePages/SaleDashbroad';
@@ -75,7 +80,7 @@ export default function App() {
             </Route>
 
             {/* ── Customer routes (role: CUSTOMER) ── */}
-            <Route element={<ProtectedRoute allowedRoles={['CUSTOMER']} />}>
+            <Route element={<ProtectedRoute allowedRoles={['CUSTOMER', 'USER']} />}>
               <Route path="/customer" element={<Navigate to="/customer/dashboard" replace />} />
               <Route path="/customer/dashboard" element={<CustomerDashboardPage />} />
               <Route path="/customer/projects" element={<CustomerProjectListPage />} />
@@ -104,6 +109,16 @@ export default function App() {
               <Route path="/sales/schedules" element={<SaleSchedules />} />
               <Route path="/sales/quotations" element={<SaleQuotations />} />
               <Route path="/sales/project-requests/:projectId" element={<ProjectDetail />} />
+            </Route>
+
+            {/* Designer routes (role: DESIGNER) */}
+            <Route element={<ProtectedRoute allowedRoles={['DESIGNER']} />}>
+              <Route path="/designer" element={<Navigate to="/designer/dashbroad" replace />} />
+              <Route path="/designer/dashbroad" element={<DesignerDashbroad />} />
+              <Route path="/designer/assigned-projects" element={<DesignerAssignedProjects />} />
+              <Route path="/designer/assigned-projects/:projectId" element={<DesignerProjectDetail />} />
+              <Route path="/designer/product-library" element={<DesignerProductLibrary />} />
+              <Route path="/designer/schedules" element={<DesignerSchedules />} />
             </Route>
 
             <Route path="*" element={<Navigate to="/" replace />} />
