@@ -1,3 +1,24 @@
-.designer-assigned-projects-page {
-  min-height: 100%;
-}
+.designer-assigned-header { margin-bottom: 28px; }
+.designer-assigned-header h2 { margin: 0; color: #18181b; font-size: 30px; font-weight: 600; }
+.designer-assigned-header p { margin: 8px 0 0; color: #71717a; font-size: 14px; }
+.designer-assigned-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 24px; padding: 16px; }
+.designer-assigned-search { display: flex; min-width: 0; height: 44px; flex: 1; align-items: center; gap: 12px; border-radius: 12px; background: #f4f4f5; padding: 0 16px; color: #71717a; }
+.designer-assigned-search input { width: 100%; border: 0; background: transparent; color: #27272a; font-size: 14px; outline: 0; }
+.designer-assigned-filters { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.designer-assigned-filters > span { color: #71717a; font-size: 12px; font-weight: 600; }
+.designer-assigned-filters select { height: 40px; border: 1px solid #e4e4e7; border-radius: 999px; background: #fff; padding: 0 16px; color: #52525b; font-size: 12px; font-weight: 600; outline: 0; }
+.designer-assigned-filter-button { display: grid; width: 40px; height: 40px; place-items: center; border: 0; border-radius: 50%; background: #f4ead8; color: #9a713b; }
+.designer-assigned-message { margin-bottom: 24px; padding: 20px; font-size: 14px; font-weight: 500; }
+.designer-assigned-error { color: #b91c1c; }
+.designer-assigned-table-card { overflow: hidden; }
+.designer-assigned-table-scroll { overflow-x: auto; }
+.designer-assigned-table { width: 100%; min-width: 980px; border-collapse: collapse; color: #52525b; font-size: 14px; text-align: left; }
+.designer-assigned-table thead { background: #fafafa; color: #a1a1aa; font-size: 12px; letter-spacing: .04em; text-transform: uppercase; }
+.designer-assigned-table th { padding: 16px 20px; font-weight: 600; }
+.designer-assigned-table td { border-top: 1px solid #f4f4f5; padding: 20px; }
+.designer-assigned-primary,.designer-assigned-account { margin: 0; color: #18181b; font-weight: 600; }
+.designer-assigned-account { color: #3f3f46; font-weight: 500; }
+.designer-assigned-secondary { color: #71717a; font-size: 12px; }
+.designer-assigned-view-link { color: #9a713b; font-size: 12px; font-weight: 600; text-decoration: none; }
+.designer-assigned-empty { color: #71717a; text-align: center; }
+@media (max-width: 1024px) { .designer-assigned-toolbar { align-items: stretch; flex-direction: column; } }

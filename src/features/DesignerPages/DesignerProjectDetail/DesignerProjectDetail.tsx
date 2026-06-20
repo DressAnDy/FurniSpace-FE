@@ -93,16 +93,16 @@ export function DesignerProjectDetail() {
           <span>Back to Assigned Projects</span>
         </Link>
 
-        {projectQuery.isLoading ? <section className="designer-card p-6 text-sm font-medium text-zinc-500">Loading project detail...</section> : null}
-        {projectQuery.isError ? <section className="designer-card p-6 text-sm font-medium text-red-700">{getProjectServiceResultMessage(projectQuery.error)}</section> : null}
+        {projectQuery.isLoading ? <section className="designer-card designer-project-state">Loading project detail...</section> : null}
+        {projectQuery.isError ? <section className="designer-card designer-project-state designer-project-state-error">{getProjectServiceResultMessage(projectQuery.error)}</section> : null}
 
         {project ? (
           <>
             <section className="designer-project-hero">
-              <div className="min-w-0">
-                <div className="mb-4 flex flex-wrap items-center gap-3">
+              <div className="designer-project-hero-main">
+                <div className="designer-project-hero-meta">
                   <span className={`designer-project-status designer-project-status-${getStatusTone(project.status)}`}>{formatEnumLabel(project.status)}</span>
-                  <span className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-400">{project.projectCode}</span>
+                  <span className="designer-project-code">{project.projectCode}</span>
                 </div>
                 <h2>{project.projectName}</h2>
                 <p>{project.description ?? project.furnitureRequirement}</p>
@@ -121,7 +121,7 @@ export function DesignerProjectDetail() {
                   <span>{getProjectProgress(project.status)}%</span>
                 </div>
                 <p>Design Progress</p>
-                <div className="mt-5 grid gap-2">
+                <div className="designer-project-progress-actions">
                   <button className="designer-project-detail-button designer-project-detail-button-primary" type="button">
                     <IconPlus size={17} />
                     Create Proposal
@@ -160,12 +160,12 @@ export function DesignerProjectDetail() {
               </div>
 
               {!activeTabConfig.component ? (
-                <section className="designer-card p-6">
-                  <div className="flex items-center gap-3">
-                    <IconFileText className="text-[#9a713b]" size={22} />
+                <section className="designer-card designer-project-placeholder">
+                  <div className="designer-project-placeholder-row">
+                    <IconFileText className="designer-project-placeholder-icon" size={22} />
                     <div>
-                      <h3 className="text-lg font-semibold text-zinc-950">{activeTabConfig.label}</h3>
-                      <p className="mt-1 text-sm text-zinc-500">This section is reserved for the next designer workflow implementation.</p>
+                      <h3>{activeTabConfig.label}</h3>
+                      <p>This section is reserved for the next designer workflow implementation.</p>
                     </div>
                   </div>
                 </section>

@@ -35,34 +35,33 @@ export function SchedulesTab({ project }: SchedulesTabProps) {
   }
 
   return (
-    <section className="designer-card p-6">
-      <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+    <section className="designer-card designer-project-section-card">
+      <div className="designer-project-section-toolbar">
         <div>
-          <h3 className="text-lg font-semibold text-zinc-950">Schedules</h3>
-          <p className="mt-1 text-sm text-zinc-500">{project.projectCode} - project meetings and design review sessions.</p>
+          <h3>Schedules</h3><p>{project.projectCode} - project meetings and design review sessions.</p>
         </div>
       </div>
 
-      {schedulesQuery.isLoading ? <p className="m-0 text-sm font-medium text-zinc-500">Loading project schedules...</p> : null}
-      {schedulesQuery.isError ? <p className="m-0 text-sm font-medium text-red-700">{getProjectScheduleServiceResultMessage(schedulesQuery.error)}</p> : null}
-      {!schedulesQuery.isLoading && !schedulesQuery.isError && schedules.length === 0 ? <p className="m-0 text-sm font-medium text-zinc-500">No schedules have been created for this project yet.</p> : null}
-      {statusMessage ? <p className={`mb-4 rounded-xl bg-zinc-50 px-4 py-3 text-sm font-medium ${statusMessage.toLowerCase().includes('success') ? 'text-green-700' : 'text-red-700'}`}>{statusMessage}</p> : null}
+      {schedulesQuery.isLoading ? <p className="designer-project-empty-text">Loading project schedules...</p> : null}
+      {schedulesQuery.isError ? <p className="designer-project-empty-text designer-project-state-error">{getProjectScheduleServiceResultMessage(schedulesQuery.error)}</p> : null}
+      {!schedulesQuery.isLoading && !schedulesQuery.isError && schedules.length === 0 ? <p className="designer-project-empty-text">No schedules have been created for this project yet.</p> : null}
+      {statusMessage ? <p className={`designer-project-schedule-message ${statusMessage.toLowerCase().includes('success') ? 'designer-project-message-success' : 'designer-project-state-error'}`}>{statusMessage}</p> : null}
 
-      <div className="space-y-4">
+      <div className="designer-project-schedule-list">
         {schedules.map((schedule) => (
           <article className="designer-project-schedule-card" key={schedule.scheduleId}>
             <div>
-              <div className="flex flex-wrap items-center gap-3">
+              <div className="designer-project-schedule-heading">
                 <div className="designer-project-file-icon">
                   <IconCalendarEvent size={21} stroke={1.8} />
                 </div>
                 <div>
-                  <h4 className="m-0 text-base font-semibold text-zinc-950">{schedule.title ?? formatEnumLabel(schedule.scheduleType)}</h4>
-                  <p className="mt-1 text-sm text-zinc-500">{formatEnumLabel(schedule.scheduleType)} - {formatEnumLabel(schedule.status)}</p>
+                  <h4>{schedule.title ?? formatEnumLabel(schedule.scheduleType)}</h4>
+                  <p>{formatEnumLabel(schedule.scheduleType)} - {formatEnumLabel(schedule.status)}</p>
                 </div>
               </div>
-              {schedule.description ? <p className="mt-4 max-w-3xl text-sm leading-6 text-zinc-600">{schedule.description}</p> : null}
-              <div className="mt-5 grid gap-3 md:grid-cols-3">
+              {schedule.description ? <p className="designer-project-schedule-description">{schedule.description}</p> : null}
+              <div className="designer-project-schedule-meta-grid">
                 <span className="designer-project-schedule-meta">
                   <IconClock size={15} />
                   {formatDateTimeRange(schedule.scheduledStart, schedule.scheduledEnd)}

@@ -19,7 +19,6 @@ export function FilesAttachmentsTab({ projectId }: FilesAttachmentsTabProps) {
       <header className="project-detail-card-toolbar">
         <div>
           <h3>Files & Attachments</h3>
-          <p>Loaded from GET /projects/{projectId}/files.</p>
         </div>
         <button className="project-detail-primary-button" type="button" disabled>
           <IconUpload size={16} />
@@ -30,7 +29,7 @@ export function FilesAttachmentsTab({ projectId }: FilesAttachmentsTabProps) {
       {filesQuery.isLoading ? <p className="project-detail-muted">Loading project files...</p> : null}
       {filesQuery.isError ? (
         <p className="project-detail-api-note">
-          Could not load files from GET /projects/{projectId}/files. Project file access depends on participant/admin permissions.
+          Could not load files. Project file access depends on participant/admin permissions.
         </p>
       ) : null}
       {!filesQuery.isLoading && !filesQuery.isError && files.length === 0 ? (

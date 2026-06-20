@@ -14,6 +14,8 @@ import {
   type ProjectListParams,
   type ProjectListItemDto,
   type ProjectFileListParams,
+  type FileType,
+  type FileVisibility,
   type ProjectStatus,
   type UpdateProjectStatusInput,
 } from '@/services/api/projects';
@@ -66,11 +68,32 @@ export function useCreateProject() {
 }
 
 export function useUploadProjectFile() {
+  const queryClient = useQueryClient();
+
   return useMutation({
-    mutationFn: (input: { projectId: string; file: File; note?: string | null }) =>
+    mutationFn: (input: {
+      projectId: string;
+      file: File;
+      fileType?: FileType;
+      visibility?: FileVisibility;
+      note?: string | null;
+    }) =>
       uploadProjectFile(input.projectId, input.file, {
+        fileType: input.fileType,
+        visibility: input.visibility,
         note: input.note,
       }),
+    onSuccess: (_data, input) => {
+      void queryClient.invalidateQueries({
+        predicate: (query) =>
+          query.queryKey[0] === 'projects' &&
+          query.queryKey[1] === 'files' &&
+          typeof query.queryKey[2] === 'object' &&
+          query.queryKey[2] !== null &&
+          'projectId' in query.queryKey[2] &&
+          query.queryKey[2].projectId === input.projectId,
+      });
+    },
   });
 }
 

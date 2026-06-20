@@ -11,9 +11,8 @@ const messages = [
 export function ChatTab() {
   return (
     <section className="designer-card designer-project-chat-card">
-      <div className="border-b border-zinc-100 p-6">
-        <h3 className="text-lg font-semibold text-zinc-950">Project Chat</h3>
-        <p className="mt-1 text-sm text-zinc-500">Shared conversation with sales and customer.</p>
+      <div className="designer-project-chat-header">
+        <h3>Project Chat</h3><p>Shared conversation with sales and customer.</p>
       </div>
       <div className="designer-project-message-list">
         {messages.map((message) => (

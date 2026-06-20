@@ -325,11 +325,7 @@ export async function uploadProjectFile(
     formData.append('note', options.note.trim());
   }
 
-  const response = await projectApiClient.post<ServiceResult<ProjectFileUploadResponseDto>>(`/projects/${projectId}/files`, formData, {
-    headers: {
-      'Content-Type': 'multipart/form-data',
-    },
-  });
+  const response = await projectApiClient.post<ServiceResult<ProjectFileUploadResponseDto>>(`/projects/${projectId}/files`, formData);
 
   return response.data.data;
 }

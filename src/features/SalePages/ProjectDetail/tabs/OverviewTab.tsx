@@ -36,7 +36,10 @@ export function OverviewTab({ project, showAssignedTeam = false }: OverviewTabPr
   }, {});
   const assignedSales = project.assignedSalesId ? teamById[project.assignedSalesId] : null;
   const assignedDesigner = project.assignedDesignerId ? teamById[project.assignedDesignerId] : null;
-  const availableDesignersQuery = useAvailableDesigners({ page: 1, pageSize: 100 }, { enabled: showAssignedTeam });
+  const availableDesignersQuery = useAvailableDesigners(
+    { page: 1, pageSize: 100 },
+    { enabled: showAssignedTeam && !project.assignedDesignerId },
+  );
   const assignDesignerMutation = useAssignDesignerToProject();
   const availableDesigners = availableDesignersQuery.data?.items ?? [];
   const selectedDesigner = useMemo(
@@ -146,9 +149,10 @@ export function OverviewTab({ project, showAssignedTeam = false }: OverviewTabPr
             />
           </div>
 
-          <div className="project-detail-section-divider" />
+          {!project.assignedDesignerId ? <div className="project-detail-section-divider" /> : null}
 
-          <form className="project-detail-designer-assignment" onSubmit={handleAssignDesigner}>
+          {!project.assignedDesignerId ? (
+            <form className="project-detail-designer-assignment" onSubmit={handleAssignDesigner}>
             <div className="project-detail-designer-form">
               <h4>Assignment Details</h4>
               <p className="project-detail-designer-selected">
@@ -218,7 +222,8 @@ export function OverviewTab({ project, showAssignedTeam = false }: OverviewTabPr
                 ))}
               </div>
             </div>
-          </form>
+            </form>
+          ) : null}
         </section>
       ) : null}
     </div>

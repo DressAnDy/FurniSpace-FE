@@ -5,15 +5,14 @@ const proposals = [
 
 export function ProposalsTab() {
   return (
-    <section className="designer-card overflow-hidden">
-      <div className="flex flex-col gap-4 border-b border-zinc-100 p-6 md:flex-row md:items-center md:justify-between">
+    <section className="designer-card designer-project-table-card">
+      <div className="designer-project-section-toolbar">
         <div>
-          <h3 className="text-lg font-semibold text-zinc-950">Proposals</h3>
-          <p className="mt-1 text-sm text-zinc-500">2 proposals for this project.</p>
+          <h3>Proposals</h3><p>2 proposals for this project.</p>
         </div>
         <button className="designer-project-detail-button designer-project-detail-button-primary" type="button">Create Proposal</button>
       </div>
-      <div className="overflow-x-auto">
+      <div className="designer-project-table-scroll">
         <table className="designer-project-table">
           <thead>
             <tr>
@@ -36,9 +35,9 @@ export function ProposalsTab() {
                 <td>{proposal.feedback}</td>
                 <td>{proposal.updated}</td>
                 <td>
-                  <div className="flex gap-3">
-                    <button className="text-xs font-semibold text-[#9a713b]" type="button">Open</button>
-                    <button className="text-xs font-semibold text-zinc-500" type="button">Edit</button>
+                  <div className="designer-project-table-actions">
+                    <button className="designer-project-table-open" type="button">Open</button>
+                    <button type="button">Edit</button>
                   </div>
                 </td>
               </tr>
