@@ -3,7 +3,13 @@ import { IconArrowLeft, IconPackage, IconPhoto, IconRefresh, IconUpload, IconX }
 import { useNavigate } from 'react-router-dom';
 
 import { getProductServiceResultMessage, normalizeOptionalText, normalizeRequiredText } from '@/services/api';
-import { useCategoryList, useCreateProduct, useUploadProductPreviewFile } from '@/services/queries';
+import {
+  useCategoryList,
+  useCreateProduct,
+  useDeleteProductPreviewImage,
+  useReorderProductPreviewImages,
+  useUploadProductPreviewFile,
+} from '@/services/queries';
 
 import { AdminNavbar, AdminSidebar } from '../admincomponents';
 import './Productmanagement.css';
@@ -15,6 +21,7 @@ type PreviewUploadStatus = 'pending' | 'uploading' | 'uploaded' | 'failed';
 type PreviewUploadItem = {
   id: string;
   file: File;
+  fileId?: string;
   progress: number;
   status: PreviewUploadStatus;
   errorMessage?: string;
@@ -25,25 +32,49 @@ export function CreateProductPage() {
   const categoryListQuery = useCategoryList({ page: 1, limit: 100 });
   const createProductMutation = useCreateProduct();
   const uploadProductPreviewMutation = useUploadProductPreviewFile();
+  const reorderProductPreviewMutation = useReorderProductPreviewImages();
+  const deleteProductPreviewMutation = useDeleteProductPreviewImage();
   const [previewItems, setPreviewItems] = useState<PreviewUploadItem[]>([]);
   const [draggingFileIndex, setDraggingFileIndex] = useState<number | null>(null);
   const [createdProductId, setCreatedProductId] = useState<string | null>(null);
   const [imageMessage, setImageMessage] = useState<string | null>(null);
   const [formMessage, setFormMessage] = useState<string | null>(null);
   const categoryOptions = categoryListQuery.data?.items ?? [];
-  const isSaving = createProductMutation.isPending || uploadProductPreviewMutation.isPending;
+  const isSaving =
+    createProductMutation.isPending ||
+    uploadProductPreviewMutation.isPending ||
+    reorderProductPreviewMutation.isPending ||
+    deleteProductPreviewMutation.isPending;
 
-  const movePreviewFile = (fromIndex: number, toIndex: number) => {
+  const syncPreviewOrderOnServer = async (productId: string, items: PreviewUploadItem[]) => {
+    const fileIds = items.map((item) => item.fileId).filter((fileId): fileId is string => Boolean(fileId));
+
+    if (fileIds.length === 0 || fileIds.length !== items.length) {
+      return true;
+    }
+
+    try {
+      await reorderProductPreviewMutation.mutateAsync({ productId, fileIds });
+      return true;
+    } catch (error) {
+      setFormMessage(getProductServiceResultMessage(error));
+      return false;
+    }
+  };
+
+  const movePreviewFile = async (fromIndex: number, toIndex: number) => {
     if (fromIndex === toIndex || fromIndex < 0 || toIndex < 0 || fromIndex >= previewItems.length || toIndex >= previewItems.length) {
       return;
     }
 
-    setPreviewItems((currentItems) => {
-      const nextItems = [...currentItems];
-      const [movedFile] = nextItems.splice(fromIndex, 1);
-      nextItems.splice(toIndex, 0, movedFile);
-      return nextItems;
-    });
+    const nextItems = [...previewItems];
+    const [movedFile] = nextItems.splice(fromIndex, 1);
+    nextItems.splice(toIndex, 0, movedFile);
+    setPreviewItems(nextItems);
+
+    if (createdProductId) {
+      await syncPreviewOrderOnServer(createdProductId, nextItems);
+    }
   };
 
   const addPreviewFiles = (fileList: FileList | null) => {
@@ -83,12 +114,26 @@ export function CreateProductPage() {
     setImageMessage(nextMessage);
   };
 
-  const removePreviewItem = (itemId: string) => {
+  const removePreviewItem = async (itemId: string) => {
+    const targetItem = previewItems.find((item) => item.id === itemId);
+
+    if (createdProductId && targetItem?.fileId) {
+      try {
+        await deleteProductPreviewMutation.mutateAsync({
+          productId: createdProductId,
+          fileId: targetItem.fileId,
+        });
+      } catch (error) {
+        setImageMessage(getProductServiceResultMessage(error));
+        return;
+      }
+    }
+
     setPreviewItems((currentItems) => currentItems.filter((item) => item.id !== itemId));
     setImageMessage(null);
   };
 
-  const uploadSinglePreview = async (item: PreviewUploadItem, productId: string) => {
+  const uploadSinglePreview = async (item: PreviewUploadItem, productId: string, displayOrder: number) => {
     setPreviewItems((currentItems) =>
       currentItems.map((currentItem) =>
         currentItem.id === item.id
@@ -98,10 +143,11 @@ export function CreateProductPage() {
     );
 
     try {
-      await uploadProductPreviewMutation.mutateAsync({
+      const uploadedPreview = await uploadProductPreviewMutation.mutateAsync({
         productId,
         file: item.file,
         description: 'Product preview image',
+        displayOrder,
         onUploadProgress: (progressPercent: number) => {
           setPreviewItems((currentItems) =>
             currentItems.map((currentItem) =>
@@ -116,12 +162,18 @@ export function CreateProductPage() {
       setPreviewItems((currentItems) =>
         currentItems.map((currentItem) =>
           currentItem.id === item.id
-            ? { ...currentItem, status: 'uploaded', progress: 100, errorMessage: undefined }
+            ? {
+                ...currentItem,
+                fileId: uploadedPreview.fileId,
+                status: 'uploaded',
+                progress: 100,
+                errorMessage: undefined,
+              }
             : currentItem,
         ),
       );
 
-      return true;
+      return uploadedPreview.fileId;
     } catch (error) {
       setPreviewItems((currentItems) =>
         currentItems.map((currentItem) =>
@@ -136,7 +188,7 @@ export function CreateProductPage() {
         ),
       );
 
-      return false;
+      return null;
     }
   };
 
@@ -152,8 +204,10 @@ export function CreateProductPage() {
       return;
     }
 
+    const itemIndex = previewItems.findIndex((candidate) => candidate.id === itemId);
+
     setFormMessage(null);
-    await uploadSinglePreview(item, createdProductId);
+    await uploadSinglePreview(item, createdProductId, itemIndex + 1);
   };
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -183,20 +237,39 @@ export function CreateProductPage() {
       setCreatedProductId(productId);
 
       if (previewItems.length > 0) {
-        const candidates = previewItems.filter((item) => item.status !== 'uploaded');
+        const uploadQueue = previewItems.filter((item) => item.status !== 'uploaded');
+        const uploadedFileIds = new Map<string, string>(
+          previewItems.filter((item) => item.fileId).map((item) => [item.id, item.fileId as string]),
+        );
         let failedUploads = 0;
 
-        for (const previewItem of candidates) {
-          const isUploaded = await uploadSinglePreview(previewItem, productId);
+        for (const previewItem of uploadQueue) {
+          const itemIndex = previewItems.findIndex((item) => item.id === previewItem.id);
+          const uploadedFileId = await uploadSinglePreview(previewItem, productId, itemIndex + 1);
 
-          if (!isUploaded) {
+          if (!uploadedFileId) {
             failedUploads += 1;
+          } else {
+            uploadedFileIds.set(previewItem.id, uploadedFileId);
           }
         }
 
         if (failedUploads > 0) {
           setFormMessage(`Product created, but ${failedUploads} image(s) failed. Please retry failed images.`);
           return;
+        }
+
+        const orderedFileIds = previewItems
+          .map((item) => uploadedFileIds.get(item.id))
+          .filter((fileId): fileId is string => Boolean(fileId));
+
+        if (orderedFileIds.length > 0) {
+          try {
+            await reorderProductPreviewMutation.mutateAsync({ productId, fileIds: orderedFileIds });
+          } catch (error) {
+            setFormMessage(getProductServiceResultMessage(error));
+            return;
+          }
         }
       }
 
@@ -336,7 +409,7 @@ export function CreateProductPage() {
                           onDrop={(event) => {
                             event.preventDefault();
                             if (draggingFileIndex !== null) {
-                              movePreviewFile(draggingFileIndex, index);
+                              void movePreviewFile(draggingFileIndex, index);
                               setDraggingFileIndex(null);
                             }
                           }}

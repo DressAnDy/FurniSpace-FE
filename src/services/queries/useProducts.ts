@@ -5,9 +5,12 @@ import {
   createProduct,
   createProductVersion,
   deleteFile,
+  deleteProductPreviewImage,
   getFilesByReference,
   getProductById,
+  getProductPreviewImages,
   getProducts,
+  reorderProductPreviewImages,
   setDefaultProductVersion,
   updateProduct,
   updateProductVersion,
@@ -26,6 +29,7 @@ export const productQueryKeys = {
   all: ['products'] as const,
   list: (params?: ProductListParams) => ['products', 'list', params] as const,
   detail: (productId: string) => ['products', 'detail', productId] as const,
+  previewImages: (productId: string) => ['products', 'preview-images', productId] as const,
   filesByReference: (params: FileReferenceListParams) => ['products', 'files-by-reference', params] as const,
 };
 
@@ -119,15 +123,60 @@ export function useFilesByReference(params?: FileReferenceListParams) {
   });
 }
 
+export function useProductPreviewImages(productId?: string) {
+  return useQuery({
+    queryKey: productQueryKeys.previewImages(productId ?? ''),
+    queryFn: () => getProductPreviewImages(productId ?? ''),
+    enabled: Boolean(productId),
+  });
+}
+
 export function useUploadProductPreviewFile() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (input: { productId: string; file: File; description?: string | null; onUploadProgress?: (progressPercent: number) => void }) =>
-      uploadProductPreviewFile(input.productId, input.file, input.description, { onUploadProgress: input.onUploadProgress }),
+    mutationFn: (input: {
+      productId: string;
+      file: File;
+      description?: string | null;
+      displayOrder?: number;
+      onUploadProgress?: (progressPercent: number) => void;
+    }) =>
+      uploadProductPreviewFile(input.productId, input.file, {
+        description: input.description,
+        displayOrder: input.displayOrder,
+        onUploadProgress: input.onUploadProgress,
+      }),
+    onSuccess: (_data, variables) => {
+      void queryClient.invalidateQueries({ queryKey: productQueryKeys.all });
+      void queryClient.invalidateQueries({ queryKey: productQueryKeys.detail(variables.productId) });
+      void queryClient.invalidateQueries({ queryKey: productQueryKeys.previewImages(variables.productId) });
+    },
+  });
+}
+
+export function useReorderProductPreviewImages() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (input: { productId: string; fileIds: string[] }) => reorderProductPreviewImages(input.productId, input.fileIds),
     onSuccess: (data) => {
       void queryClient.invalidateQueries({ queryKey: productQueryKeys.all });
-      void queryClient.invalidateQueries({ queryKey: productQueryKeys.detail(data.referenceId) });
+      void queryClient.invalidateQueries({ queryKey: productQueryKeys.detail(data.productId) });
+      void queryClient.invalidateQueries({ queryKey: productQueryKeys.previewImages(data.productId) });
+    },
+  });
+}
+
+export function useDeleteProductPreviewImage() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (input: { productId: string; fileId: string }) => deleteProductPreviewImage(input.productId, input.fileId),
+    onSuccess: (data) => {
+      void queryClient.invalidateQueries({ queryKey: productQueryKeys.all });
+      void queryClient.invalidateQueries({ queryKey: productQueryKeys.detail(data.productId) });
+      void queryClient.invalidateQueries({ queryKey: productQueryKeys.previewImages(data.productId) });
     },
   });
 }
