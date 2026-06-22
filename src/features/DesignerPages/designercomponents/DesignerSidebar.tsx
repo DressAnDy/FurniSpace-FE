@@ -46,18 +46,18 @@ export function DesignerSidebar({ activeLabel }: DesignerSidebarProps) {
   }
 
   return (
-    <aside className="designer-sidebar flex min-h-screen w-[244px] shrink-0 flex-col bg-[#2f2f2f] px-5 py-6 text-white">
-      <div className="mb-10 flex items-center gap-3">
-        <img className="h-11 w-11 rounded-xl object-contain" src={logoImage} alt="" />
+    <aside className="designer-sidebar">
+      <div className="designer-sidebar-brand">
+        <img src={logoImage} alt="" />
         <div>
-          <h1 className="text-[15px] font-semibold leading-5">FurniSpace</h1>
-          <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-zinc-400">Designer</p>
+          <h1>FurniSpace</h1>
+          <p>Designer</p>
         </div>
       </div>
 
-      <nav className="flex flex-1 flex-col gap-1.5">
+      <nav className="designer-sidebar-nav">
         {designerSidebarItems.map(({ label, icon: ItemIcon, path }) => {
-          const activeClass = label === activeLabel ? 'bg-[#c7a15f] text-[#171717] shadow-sm' : 'text-zinc-300 hover:bg-white/10 hover:text-white';
+          const activeClass = label === activeLabel ? 'designer-sidebar-item-active' : '';
           const content = (
             <>
               <ItemIcon size={18} stroke={1.9} />
@@ -68,7 +68,7 @@ export function DesignerSidebar({ activeLabel }: DesignerSidebarProps) {
           if (!path) {
             return (
               <button
-                className={`flex h-10 items-center gap-3 rounded-xl px-3 text-left text-[13px] font-medium transition ${activeClass}`}
+                className={`designer-sidebar-item ${activeClass}`}
                 disabled
                 key={label}
                 type="button"
@@ -81,9 +81,7 @@ export function DesignerSidebar({ activeLabel }: DesignerSidebarProps) {
           return (
             <NavLink
               className={({ isActive }) =>
-                `flex h-10 items-center gap-3 rounded-xl px-3 text-[13px] font-medium no-underline transition ${
-                  isActive || label === activeLabel ? 'bg-[#c7a15f] text-[#171717] shadow-sm' : 'text-zinc-300 hover:bg-white/10 hover:text-white'
-                }`
+                `designer-sidebar-item ${isActive || label === activeLabel ? 'designer-sidebar-item-active' : ''}`
               }
               key={label}
               to={path}
@@ -94,13 +92,13 @@ export function DesignerSidebar({ activeLabel }: DesignerSidebarProps) {
         })}
       </nav>
 
-      <div className="space-y-3">
-        <button className="flex h-10 items-center gap-3 rounded-xl px-3 text-[13px] font-medium text-zinc-300 transition hover:bg-white/10" type="button">
+      <div className="designer-sidebar-actions">
+        <button className="designer-sidebar-item" type="button">
           <IconChevronLeft size={18} stroke={1.9} />
           <span>Collapse</span>
         </button>
         <button
-          className="flex h-10 w-full items-center gap-3 rounded-xl px-3 text-left text-[13px] font-medium text-zinc-300 transition hover:bg-white/10 disabled:opacity-60"
+          className="designer-sidebar-item designer-sidebar-logout"
           disabled={logoutMutation.isPending}
           onClick={handleLogout}
           type="button"
