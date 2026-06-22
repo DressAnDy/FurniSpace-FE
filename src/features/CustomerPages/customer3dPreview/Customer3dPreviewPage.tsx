@@ -1,145 +1,167 @@
+import { useMemo, useRef, useState } from 'react';
 import {
-  IconArrowsMove,
   IconChevronLeft,
-  IconChevronRight,
   IconCircleCheck,
   IconCube,
-  IconEye,
-  IconGridDots,
   IconLayoutDashboard,
   IconMaximize,
   IconMessageDots,
-  IconRotateClockwise,
-  IconZoomIn,
-  IconZoomOut,
 } from '@tabler/icons-react';
+import { useNavigate } from 'react-router-dom';
 
-import './Customer3dPreviewPage.css';
 import { CustomerNavbar } from '@/features/CustomerPages/customercomponents';
+import { BlueprintCanvas } from '@/features/ThreeD/components/BlueprintCanvas';
+import { RoomPreview3D } from '@/features/ThreeD/components/RoomPreview3D';
+import {
+  MOCK_FLOOR_MATERIAL,
+  MOCK_PLACED_PRODUCTS,
+  MOCK_PROPOSAL,
+  MOCK_PROPOSAL_ITEMS,
+  MOCK_PROPOSAL_SCENES,
+  MOCK_ROOM_LAYOUT,
+  MOCK_WALL_MATERIAL,
+} from '@/features/ThreeD/mocks/proposalScene.mock';
+import '@/features/ThreeD/pages/ThreeDTestPage.css';
+import './Customer3dPreviewPage.css';
 
-const sceneItems = [
-  {
-    name: 'Oak Dining Table - 4 Seater',
-    price: '$650',
-    quantity: '6x',
-    type: 'TABLE',
-  },
-  {
-    name: 'Bentwood Dining Chair',
-    price: '$180',
-    quantity: '24x',
-    type: 'CHAIR',
-  },
-];
-
-const viewerTools = [
-  { icon: <IconArrowsMove size={20} stroke={1.8} />, label: 'Pan scene' },
-  { icon: <IconRotateClockwise size={20} stroke={1.8} />, label: 'Rotate scene' },
-  { icon: <IconZoomIn size={20} stroke={1.8} />, label: 'Zoom in' },
-  { icon: <IconZoomOut size={20} stroke={1.8} />, label: 'Zoom out' },
-  { divider: true, icon: <IconGridDots size={20} stroke={1.8} />, label: 'Toggle grid' },
-  { icon: <IconEye size={20} stroke={1.8} />, label: 'Preview visibility' },
-];
+type ViewMode = '2d' | '3d';
 
 export function Customer3dPreviewPage() {
+  const navigate = useNavigate();
+  const stageRef = useRef<HTMLDivElement>(null);
+  const [viewMode, setViewMode] = useState<ViewMode>('3d');
+  const [selectedObjectId, setSelectedObjectId] = useState<string | null>(null);
+  const [decisionMessage, setDecisionMessage] = useState('');
+  const selectedObject = useMemo(
+    () => MOCK_PLACED_PRODUCTS.find((object) => object.id === selectedObjectId) ?? null,
+    [selectedObjectId],
+  );
+  const publishedScenes = MOCK_PROPOSAL_SCENES.filter((scene) => scene.status === 'PUBLISHED');
+
   return (
     <main className="customer-3d-preview-page">
       <CustomerNavbar activeLabel="2D/3D Review" classPrefix="customer-3d-preview" />
 
-      <section className="customer-3d-preview-viewer" aria-label="Customer 3D preview">
+      <section className="customer-3d-preview-viewer" aria-label="Customer proposal scene review">
         <div className="customer-3d-preview-toolbar">
           <div className="customer-3d-preview-titlebar">
-            <a href="/customer/proposals" aria-label="Back to proposal detail">
+            <button type="button" aria-label="Back to proposal detail" onClick={() => navigate('/customer/proposals')}>
               <IconChevronLeft size={20} stroke={1.8} />
-            </a>
+            </button>
             <span />
-            <strong>Industrial Modern Concept</strong>
+            <div>
+              <strong>{MOCK_PROPOSAL.name}</strong>
+              <small>Customer review · read-only</small>
+            </div>
           </div>
 
           <div className="customer-3d-preview-actions">
             <div className="customer-3d-preview-view-switch" role="tablist" aria-label="Preview mode">
-              <button type="button" role="tab">
-                <IconLayoutDashboard size={16} stroke={1.8} />
-                2D Floor Plan
+              <button
+                className={viewMode === '2d' ? 'customer-3d-preview-view-active' : ''}
+                type="button"
+                role="tab"
+                aria-selected={viewMode === '2d'}
+                onClick={() => setViewMode('2d')}
+              >
+                <IconLayoutDashboard size={16} stroke={1.8} /> 2D Floor Plan
               </button>
-              <button className="customer-3d-preview-view-active" type="button" role="tab" aria-selected="true">
-                <IconCube size={16} stroke={1.8} />
-                3D View
+              <button
+                className={viewMode === '3d' ? 'customer-3d-preview-view-active' : ''}
+                type="button"
+                role="tab"
+                aria-selected={viewMode === '3d'}
+                onClick={() => setViewMode('3d')}
+              >
+                <IconCube size={16} stroke={1.8} /> 3D View
               </button>
             </div>
             <span className="customer-3d-preview-status">Published</span>
-            <button className="customer-3d-preview-icon-button" type="button" aria-label="Fullscreen preview">
+            <button
+              className="customer-3d-preview-icon-button"
+              type="button"
+              aria-label="Fullscreen preview"
+              onClick={() => void stageRef.current?.requestFullscreen?.()}
+            >
               <IconMaximize size={20} stroke={1.8} />
             </button>
           </div>
         </div>
 
         <div className="customer-3d-preview-workspace">
-          <aside className="customer-3d-preview-left-panel" aria-label="Scenes">
+          <aside className="customer-3d-preview-left-panel" aria-label="Published scenes">
             <PanelHeader title="Scenes" />
-            <div className="customer-3d-preview-empty-list" />
-          </aside>
-
-          <div className="customer-3d-preview-stage">
-            <div className="customer-3d-preview-tool-stack" aria-label="Scene tools">
-              {viewerTools.map((tool) => (
-                <button
-                  className={tool.divider ? 'customer-3d-preview-tool-divider' : undefined}
-                  type="button"
-                  aria-label={tool.label}
-                  key={tool.label}
-                >
-                  {tool.icon}
+            <div className="customer-scene-list">
+              {publishedScenes.map((scene, index) => (
+                <button className="is-active" key={scene.sceneId} type="button">
+                  <span>{String(index + 1).padStart(2, '0')}</span>
+                  <div><strong>{scene.name}</strong><small>Version {scene.version}</small></div>
                 </button>
               ))}
             </div>
+          </aside>
+
+          <div className="customer-3d-preview-stage" ref={stageRef}>
+            <div className="customer-scene-renderer">
+              {viewMode === '3d' ? (
+                <RoomPreview3D
+                  floorMaterial={MOCK_FLOOR_MATERIAL}
+                  layout={MOCK_ROOM_LAYOUT}
+                  placedProducts={MOCK_PLACED_PRODUCTS}
+                  readOnly
+                  selectedProductId={selectedObjectId}
+                  wallMaterial={MOCK_WALL_MATERIAL}
+                  onProductSelect={(productId) => setSelectedObjectId(productId)}
+                />
+              ) : (
+                <BlueprintCanvas
+                  activeTool="select"
+                  floorFillColor={MOCK_FLOOR_MATERIAL.fallbackColor}
+                  hideLabels={false}
+                  layout={MOCK_ROOM_LAYOUT}
+                  readOnly
+                  selectedItem={null}
+                  wallFillColor={MOCK_WALL_MATERIAL.fallbackColor}
+                  onLayoutChange={() => undefined}
+                  onSelectItem={() => undefined}
+                />
+              )}
+            </div>
 
             <div className="customer-3d-preview-scene-card">
-              <strong>3D Scene View</strong>
+              <strong>{publishedScenes[0]?.name}</strong>
               <span />
-              <p>Scene ID: ...</p>
+              <p>{viewMode === '3d' ? 'Orbit, pan and zoom enabled' : 'Top-down floor plan'}</p>
             </div>
 
-            <div className="customer-3d-preview-canvas-mark">
-              <IconCube size={96} stroke={1.2} />
-            </div>
-
-            <div className="customer-3d-preview-pager" aria-label="Scene pagination">
-              <button type="button" aria-label="Previous scene">
-                <IconChevronLeft size={18} stroke={1.8} />
-              </button>
-              <span>0 of 0</span>
-              <button type="button" aria-label="Next scene" disabled>
-                <IconChevronRight size={18} stroke={1.8} />
-              </button>
-            </div>
+            <div className="customer-readonly-notice">Published scene · editing disabled</div>
           </div>
 
           <aside className="customer-3d-preview-right-panel" aria-label="Scene items">
             <PanelHeader title="Scene Items" />
+            {selectedObject && (
+              <div className="customer-selected-object">
+                <span>Selected object</span>
+                <strong>{selectedObject.modelName}</strong>
+                <small>{selectedObject.productId}</small>
+              </div>
+            )}
             <div className="customer-3d-preview-item-list">
-              {sceneItems.map((item) => (
-                <article className="customer-3d-preview-item-card" key={item.name}>
-                  <div>
-                    <strong>{item.name}</strong>
-                    <span>{item.type}</span>
-                  </div>
-                  <div>
-                    <span>{item.quantity}</span>
-                    <strong>{item.price}</strong>
-                  </div>
+              {MOCK_PROPOSAL_ITEMS.map((item) => (
+                <article className="customer-3d-preview-item-card" key={item.productVersionId}>
+                  <div><strong>{item.name}</strong><span>{item.type} · {item.material}</span></div>
+                  <div><span>{item.quantity}x</span><strong>{new Intl.NumberFormat('vi-VN').format(item.estimatedPrice)} VND</strong></div>
                 </article>
               ))}
             </div>
 
+            {decisionMessage && <div className="customer-decision-message">{decisionMessage}</div>}
             <div className="customer-3d-preview-decision">
-              <button type="button">
-                <IconMessageDots size={18} stroke={1.8} />
-                Submit Feedback
+              <button type="button" onClick={() => setDecisionMessage('Feedback draft opened for this proposal scene.')}>
+                <IconMessageDots size={18} stroke={1.8} /> Request Revision
               </button>
-              <button type="button">
-                <IconCircleCheck size={18} stroke={1.8} />
-                Approve Scene
+              <button type="button" onClick={() => setDecisionMessage('Proposal selection recorded in demo mode.')}>
+                <IconCircleCheck size={18} stroke={1.8} /> Select Proposal
               </button>
             </div>
           </aside>
@@ -150,13 +172,5 @@ export function Customer3dPreviewPage() {
 }
 
 function PanelHeader({ title }: { title: string }) {
-  return (
-    <header className="customer-3d-preview-panel-header">
-      <h2>{title}</h2>
-      <button type="button" aria-label={`Collapse ${title}`}>
-        <IconChevronLeft size={20} stroke={1.8} />
-      </button>
-    </header>
-  );
+  return <header className="customer-3d-preview-panel-header"><h2>{title}</h2></header>;
 }
-

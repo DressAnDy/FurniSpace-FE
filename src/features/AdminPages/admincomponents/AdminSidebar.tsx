@@ -36,7 +36,7 @@ const sidebarItems: SidebarItem[] = [
   { label: 'Product Categories', icon: IconTags, path: '/admin/categories' },
   { label: 'Products', icon: IconPackage, path: '/admin/products' },
   { label: 'Product Versions', icon: IconBox, path: '/admin/products' },
-  { label: '3D Model & File Library', icon: IconCube },
+  { label: '3D Model & File Library', icon: IconCube, path: '/admin/catalog/models' },
   { label: 'Projects', icon: IconFolder },
   { label: 'Project Chats', icon: IconMessage },
   { label: 'Proposals & Scenes', icon: IconClipboardCheck },

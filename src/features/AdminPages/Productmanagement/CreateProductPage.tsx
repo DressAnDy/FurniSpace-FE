@@ -7,6 +7,7 @@ import { useCategoryList, useCreateProduct, useUploadProductPreviewFile } from '
 
 import { AdminNavbar, AdminSidebar } from '../admincomponents';
 import './Productmanagement.css';
+import { SelectedImagePreview } from './SelectedImagePreview';
 
 export function CreateProductPage() {
   const navigate = useNavigate();
@@ -134,7 +135,11 @@ export function CreateProductPage() {
                       onChange={(event) => setPreviewFile(event.target.files?.[0] ?? null)}
                     />
                     <div className="product-upload-main">
-                      <IconUpload size={46} />
+                      {previewFile ? (
+                        <SelectedImagePreview className="product-upload-main-preview" file={previewFile} />
+                      ) : (
+                        <IconUpload size={46} />
+                      )}
                       <strong>{previewFile ? previewFile.name : 'Click to select product preview'}</strong>
                       <small>Uploaded as PRODUCT_PREVIEW and visible to customers</small>
                     </div>

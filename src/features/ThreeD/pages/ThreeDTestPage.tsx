@@ -1,14 +1,23 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Link as RouterLink } from 'react-router-dom';
+import { IconMenu2, IconSearch, IconX } from '@tabler/icons-react';
+import { Link as RouterLink, useParams } from 'react-router-dom';
 
 import { BlueprintCanvas } from '@/features/ThreeD/components/BlueprintCanvas';
+import { ModelViewer } from '@/features/ThreeD/components/ModelViewer';
 import { RoomPreview3D } from '@/features/ThreeD/components/RoomPreview3D';
 import type {
   PlacedProduct3D,
+  ProductPlacementUpdate,
   ProductPlacementMode,
+  ProductMeasurements,
   Vector3State,
 } from '@/features/ThreeD/components/RoomPreview3D';
-import { WallEditPanel } from '@/features/ThreeD/components/WallEditPanel';
+import {
+  MOCK_PLACED_PRODUCTS,
+  MOCK_PROPOSAL,
+  MOCK_PROJECT,
+  MOCK_ROOM_LAYOUT,
+} from '@/features/ThreeD/mocks/proposalScene.mock';
 import type {
   BlueprintTool,
   MaterialSwatch,
@@ -19,6 +28,7 @@ import type {
 } from '@/features/ThreeD/types/roomLayout.types';
 import {
   createDefaultRoomLayout,
+  getRoomArea,
   getRoomBounds,
   getRoomSize,
   normalizeDoorAndOpeningDimensions,
@@ -28,7 +38,7 @@ import {
 import './ThreeDTestPage.css';
 
 type ViewMode = '2d' | '3d';
-type DesignPanel = 'products' | 'floor' | 'wall';
+type DesignPanel = 'products' | 'floor' | 'wall' | null;
 
 type ProductModel = {
   id: string;
@@ -244,14 +254,40 @@ function CommitNumberInput({ fallback, min, onCommit, step, value }: CommitNumbe
 }
 
 export function ThreeDTestPage() {
+  const { sceneId } = useParams();
+  const isProposalScene = Boolean(sceneId);
   const [activeTool, setActiveTool] = useState<BlueprintTool>('select');
   const [hideLabels, setHideLabels] = useState(false);
-  const [layout, setLayout] = useState<RoomLayoutState | null>(null);
-  const [placedProducts, setPlacedProducts] = useState<PlacedProduct3D[]>([]);
+  const [layout, setLayout] = useState<RoomLayoutState | null>(() => (
+    isProposalScene
+      ? {
+          ...MOCK_ROOM_LAYOUT,
+          doors: MOCK_ROOM_LAYOUT.doors.map((door) => ({ ...door })),
+          openings: MOCK_ROOM_LAYOUT.openings.map((opening) => ({ ...opening })),
+          points: MOCK_ROOM_LAYOUT.points.map((point) => ({ ...point })),
+          walls: MOCK_ROOM_LAYOUT.walls.map((wall) => ({ ...wall })),
+          windows: MOCK_ROOM_LAYOUT.windows.map((windowOpening) => ({ ...windowOpening })),
+        }
+      : null
+  ));
+  const [placedProducts, setPlacedProducts] = useState<PlacedProduct3D[]>(() => (
+    isProposalScene
+      ? MOCK_PLACED_PRODUCTS.map((product) => ({
+          ...product,
+          position: { ...product.position },
+          rotation: product.rotation ? { ...product.rotation } : undefined,
+          scale: product.scale ? { ...product.scale } : undefined,
+        }))
+      : []
+  ));
   const [designPanel, setDesignPanel] = useState<DesignPanel>('products');
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [panelSearch, setPanelSearch] = useState('');
   const [productModels, setProductModels] = useState<ProductModel[]>(FALLBACK_PRODUCT_MODELS);
   const [saveMessage, setSaveMessage] = useState('');
   const [selectedItem, setSelectedItem] = useState<SelectedRoomItem | null>(null);
+  const [comparisonProductId, setComparisonProductId] = useState<string | null>(null);
+  const [productMeasurements, setProductMeasurements] = useState<ProductMeasurements | null>(null);
   const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
   const [showProductInfo, setShowProductInfo] = useState(false);
   const [freeRotateProductId, setFreeRotateProductId] = useState<string | null>(null);
@@ -284,10 +320,24 @@ export function ThreeDTestPage() {
     () => (layout ? getRoomSize(layout.points) : null),
     [layout],
   );
+  const roomArea = useMemo(() => (layout ? getRoomArea(layout) : 0), [layout]);
   const selectedProduct = useMemo(
     () => placedProducts.find((product) => product.id === selectedProductId) ?? null,
     [placedProducts, selectedProductId],
   );
+  const filteredProductModels = useMemo(() => {
+    const normalizedSearch = panelSearch.trim().toLowerCase();
+
+    return normalizedSearch
+      ? productModels.filter((product) => product.name.toLowerCase().includes(normalizedSearch))
+      : productModels;
+  }, [panelSearch, productModels]);
+
+  const openDesignPanel = useCallback((panel: Exclude<DesignPanel, null>) => {
+    setDesignPanel(panel);
+    setIsSidebarCollapsed(false);
+    setPanelSearch('');
+  }, []);
 
   useEffect(() => {
     let isMounted = true;
@@ -359,6 +409,8 @@ export function ThreeDTestPage() {
   const handleAddBox = useCallback(() => {
     setLayout(createDefaultRoomLayout());
     setPlacedProducts([]);
+    setComparisonProductId(null);
+    setProductMeasurements(null);
     setSelectedItem(null);
     setActiveTool('select');
     setSaveMessage('');
@@ -397,9 +449,12 @@ export function ThreeDTestPage() {
     };
 
     console.log('FurniSpace room layout JSON', layoutJson);
-    localStorage.setItem('furnispace-3d-lab-room-layout', JSON.stringify(layoutJson));
+    localStorage.setItem(
+      isProposalScene ? `furnispace-proposal-scene-${sceneId}` : 'furnispace-3d-lab-room-layout',
+      JSON.stringify(layoutJson),
+    );
     setSaveMessage('Room layout saved locally and logged to console.');
-  }, [floorMaterial, layout, placedProducts, wallMaterial]);
+  }, [floorMaterial, isProposalScene, layout, placedProducts, sceneId, wallMaterial]);
 
   const handleToolClick = useCallback(
     (tool: BlueprintTool) => {
@@ -410,6 +465,7 @@ export function ThreeDTestPage() {
 
       if (tool === 'hide-labels') {
         setHideLabels((currentValue) => !currentValue);
+        setIsSidebarCollapsed(true);
         setActiveTool(tool);
         return;
       }
@@ -485,6 +541,7 @@ export function ThreeDTestPage() {
       ];
     });
     setViewMode('3d');
+    setComparisonProductId(null);
     setSelectedProductId(`product-${String(placedProducts.length + 1).padStart(3, '0')}`);
     setSaveMessage('');
   }, [layout, placedProducts.length]);
@@ -499,7 +556,11 @@ export function ThreeDTestPage() {
     handleAddProduct(product, position);
   }, [handleAddProduct, productModels]);
 
-  const handleProductMove = useCallback((productId: string, position: PlacedProduct3D['position']) => {
+  const handleProductMove = useCallback((
+    productId: string,
+    position: PlacedProduct3D['position'],
+    placementUpdate?: ProductPlacementUpdate,
+  ) => {
     setPlacedProducts((currentProducts) => currentProducts.map((product) => {
       if (product.id !== productId) {
         return product;
@@ -516,6 +577,7 @@ export function ThreeDTestPage() {
       return {
         ...product,
         heightOffset: product.placementMode === 'FLOOR' ? 0 : position.y,
+        ...placementUpdate,
         position,
       };
     }));
@@ -542,6 +604,7 @@ export function ThreeDTestPage() {
     };
 
     setPlacedProducts((currentProducts) => [...currentProducts, duplicate]);
+    setComparisonProductId(null);
     setSelectedProductId(duplicateId);
     setShowProductInfo(false);
     setFreeRotateProductId(null);
@@ -550,6 +613,8 @@ export function ThreeDTestPage() {
 
   const handleDeleteProduct = useCallback((productId: string) => {
     setPlacedProducts((currentProducts) => currentProducts.filter((product) => product.id !== productId));
+    setComparisonProductId(null);
+    setProductMeasurements(null);
     setSelectedProductId(null);
     setShowProductInfo(false);
     setFreeRotateProductId(null);
@@ -609,11 +674,13 @@ export function ThreeDTestPage() {
     updateProduct(productId, (product) => ({
       ...product,
       heightOffset: 0,
+      mountedWallId: null,
       placementMode: 'FLOOR',
       position: {
         ...product.position,
         y: 0,
       },
+      supportObjectId: null,
     }));
   }, [updateProduct]);
 
@@ -631,24 +698,55 @@ export function ThreeDTestPage() {
     });
   }, [updateProduct]);
 
+  const handleScaleStep = useCallback((
+    productId: string,
+    axis: keyof Vector3State,
+    step: number,
+  ) => {
+    updateProduct(productId, (product) => {
+      const scale = getProductScale(product);
+
+      return {
+        ...product,
+        scale: {
+          ...scale,
+          [axis]: Number(Math.min(5, Math.max(0.1, scale[axis] + step)).toFixed(2)),
+        },
+      };
+    });
+  }, [updateProduct]);
+
   return (
     <main className="room-layout-page">
       <header className="room-layout-header">
         <div>
-          <h1>FurniSpace Room Layout Editor</h1>
-          <p>Draw a 2D blueprint first, edit wall data, then generate the 3D room preview from the same layout.</p>
+          <h1>{isProposalScene ? `${MOCK_PROPOSAL.name} · ${sceneId}` : 'FurniSpace Room Layout Editor'}</h1>
+          <p>{isProposalScene ? `${MOCK_PROJECT.name} · Designer official scene editor` : 'Draw a 2D blueprint first, edit wall data, then generate the 3D room preview from the same layout.'}</p>
         </div>
         <div className="room-layout-header-actions">
           <button type="button" onClick={() => setViewMode(viewMode === '2d' ? '3d' : '2d')}>
             {viewMode === '2d' ? 'Switch to 3D' : 'Back to 2D'}
           </button>
-          <RouterLink to="/">Back home</RouterLink>
+          <RouterLink to={isProposalScene ? `/designer/projects/${MOCK_PROJECT.projectId}/proposals/${MOCK_PROPOSAL.proposalId}` : '/'}>
+            {isProposalScene ? 'Back to Proposal' : 'Back home'}
+          </RouterLink>
         </div>
       </header>
 
-      <section className={`room-layout-shell is-${viewMode}`}>
+      <section className={[
+        'room-layout-shell',
+        `is-${viewMode}`,
+        isSidebarCollapsed ? 'is-sidebar-collapsed' : '',
+        viewMode === '3d' && !designPanel ? 'is-design-panel-closed' : '',
+      ].filter(Boolean).join(' ')}>
         {viewMode === '2d' ? (
-          <aside className="room-tool-menu room-build-sidebar" aria-label="Blueprint tools">
+          <aside className={isSidebarCollapsed ? 'room-tool-menu room-sidebar-rail' : 'room-tool-menu room-build-sidebar'} aria-label="Blueprint tools">
+            {isSidebarCollapsed ? (
+              <button aria-label="Show blueprint menu" title="Show menu" type="button" onClick={() => setIsSidebarCollapsed(false)}>
+                <IconMenu2 size={22} />
+              </button>
+            ) : (
+              <>
             <div className="room-tool-list">
               {TOOL_ITEMS.map((tool) => (
                 <button
@@ -688,16 +786,17 @@ export function ThreeDTestPage() {
                 </label>
               </div>
             </section>
-
-            <WallEditPanel
-              layout={layout}
-              selectedItem={selectedItem}
-              onLayoutChange={handleLayoutChange}
-              onSelectItem={setSelectedItem}
-            />
+              </>
+            )}
           </aside>
         ) : (
-          <aside className="room-design-sidebar" aria-label="3D design tools">
+          <aside className={isSidebarCollapsed ? 'room-design-sidebar room-sidebar-rail' : 'room-design-sidebar'} aria-label="3D design tools">
+            {isSidebarCollapsed ? (
+              <button aria-label="Show design menu" title="Show menu" type="button" onClick={() => setIsSidebarCollapsed(false)}>
+                <IconMenu2 size={22} />
+              </button>
+            ) : (
+              <>
             <div className="design-sidebar-menu">
               <div className="design-sidebar-primary">
                 <button type="button" disabled>Menu</button>
@@ -705,28 +804,28 @@ export function ThreeDTestPage() {
                 <button
                   className={designPanel === 'products' ? 'is-active' : ''}
                   type="button"
-                  onClick={() => setDesignPanel('products')}
+                  onClick={() => openDesignPanel('products')}
                 >
                   Shop by Category
                 </button>
                 <button
                   className={designPanel === 'wall' ? 'is-active' : ''}
                   type="button"
-                  onClick={() => setDesignPanel('wall')}
+                  onClick={() => openDesignPanel('wall')}
                 >
                   Wall Paint
                 </button>
                 <button
                   className={designPanel === 'wall' ? 'is-active-secondary' : ''}
                   type="button"
-                  onClick={() => setDesignPanel('wall')}
+                  onClick={() => openDesignPanel('wall')}
                 >
                   Wallcoverings
                 </button>
                 <button
                   className={designPanel === 'floor' ? 'is-active' : ''}
                   type="button"
-                  onClick={() => setDesignPanel('floor')}
+                  onClick={() => openDesignPanel('floor')}
                 >
                   Flooring
                 </button>
@@ -734,7 +833,10 @@ export function ThreeDTestPage() {
                 <button type="button" disabled>Design and Styling Content</button>
               </div>
               <div className="design-sidebar-footer">
-                <button type="button" onClick={() => setHideLabels((isHidden) => !isHidden)}>
+                <button type="button" onClick={() => {
+                  setHideLabels((isHidden) => !isHidden);
+                  setIsSidebarCollapsed(true);
+                }}>
                   {hideLabels ? 'Show Labels' : 'Hide Labels'}
                 </button>
                 <button type="button" onClick={handleSave}>Save Project</button>
@@ -743,16 +845,29 @@ export function ThreeDTestPage() {
               </div>
             </div>
 
+            {designPanel && (
+              <div className="design-panel-content">
+              <div className="design-panel-toolbar">
+                <IconSearch size={18} />
+                <input
+                  aria-label="Search design content"
+                  placeholder="Search"
+                  type="search"
+                  value={panelSearch}
+                  onChange={(event) => setPanelSearch(event.target.value)}
+                />
+                <button aria-label="Close content panel" title="Close panel" type="button" onClick={() => setDesignPanel(null)}>
+                  <IconX size={19} />
+                </button>
+              </div>
+
             {designPanel === 'products' && (
               <section className="design-panel-section">
-                <div className="room-product-search">
-                  <span>Search</span>
-                </div>
                 <div className="room-product-sidebar-heading">
                   <strong>Shop by Category</strong>
                 </div>
                 <div className="product-catalog-list">
-                  {productModels.map((product) => {
+                  {filteredProductModels.map((product) => {
                     const disabled = Boolean(product.missingReferences?.length) || !layout;
 
                     return (
@@ -772,7 +887,13 @@ export function ThreeDTestPage() {
                           event.dataTransfer.setData('application/x-furnispace-product-id', product.id);
                         }}
                       >
-                        <img alt={product.name} draggable={false} src={product.thumbnailUrl} />
+                        {product.thumbnailUrl.includes('placeholder-product') ? (
+                          <div className="product-live-thumbnail" aria-hidden="true">
+                            <ModelViewer height="100%" modelUrl={product.modelUrl} showGrid={false} />
+                          </div>
+                        ) : (
+                          <img alt={product.name} draggable={false} src={product.thumbnailUrl} />
+                        )}
                       </article>
                     );
                   })}
@@ -784,7 +905,9 @@ export function ThreeDTestPage() {
               <section className="design-panel-section">
                 <div className="room-panel-heading">Flooring</div>
                 <div className="material-group">
-                  {FLOOR_MATERIALS.map((material) => (
+                  {FLOOR_MATERIALS.filter((material) =>
+                    material.label.toLowerCase().includes(panelSearch.trim().toLowerCase()),
+                  ).map((material) => (
                     <button
                       className={layout?.floorMaterialId === material.id ? 'material-option is-selected' : 'material-option'}
                       key={material.id}
@@ -803,7 +926,9 @@ export function ThreeDTestPage() {
               <section className="design-panel-section">
                 <div className="room-panel-heading">Wall Paint / Wallpaper</div>
                 <div className="material-group">
-                  {WALL_TEXTURE_MATERIALS.map((material) => (
+                  {WALL_TEXTURE_MATERIALS.filter((material) =>
+                    material.label.toLowerCase().includes(panelSearch.trim().toLowerCase()),
+                  ).map((material) => (
                     <button
                       className={layout?.wallMaterialId === material.id ? 'material-option is-selected' : 'material-option'}
                       key={material.id}
@@ -814,7 +939,9 @@ export function ThreeDTestPage() {
                       {material.label}
                     </button>
                   ))}
-                  {wallPaintSwatches.map((swatch) => (
+                  {wallPaintSwatches.filter((swatch) =>
+                    swatch.name.toLowerCase().includes(panelSearch.trim().toLowerCase()),
+                  ).map((swatch) => (
                     <button
                       className={layout?.wallMaterialId === swatch.id ? 'material-option is-selected' : 'material-option'}
                       key={swatch.id}
@@ -828,6 +955,10 @@ export function ThreeDTestPage() {
                 </div>
               </section>
             )}
+              </div>
+            )}
+              </>
+            )}
           </aside>
         )}
 
@@ -837,7 +968,7 @@ export function ThreeDTestPage() {
               <strong>{viewMode === '2d' ? '2D Blueprint Floor Plan' : '3D Room Preview'}</strong>
               <span>
                 {layout && roomSize
-                  ? `${roomSize.width.toFixed(1)} ft x ${roomSize.depth.toFixed(1)} ft | wall ${layout.wallHeight.toFixed(1)} ft`
+                  ? `${roomSize.width.toFixed(1)} ft x ${roomSize.depth.toFixed(1)} ft | ${roomArea.toFixed(1)} sq ft | wall ${layout.wallHeight.toFixed(1)} ft`
                   : 'No room yet'}
               </span>
             </div>
@@ -845,7 +976,7 @@ export function ThreeDTestPage() {
               <button type="button" onClick={handleAddBox}>Add Box</button>
               <button type="button" onClick={handleSave}>Save</button>
               {viewMode === '3d' && (
-                <button type="button" onClick={() => setDesignPanel('products')}>
+                <button type="button" onClick={() => openDesignPanel('products')}>
                   Product List
                 </button>
               )}
@@ -869,12 +1000,20 @@ export function ThreeDTestPage() {
             />
           ) : (
             <RoomPreview3D
+              comparisonProductId={comparisonProductId}
               floorMaterial={floorMaterial}
               layout={layout}
+              onMeasurementsChange={setProductMeasurements}
               onProductDrop={handleProductDrop}
               onProductMove={handleProductMove}
-              onProductSelect={(productId) => {
+              onProductSelect={(productId, additive) => {
+                if (additive && selectedProductId && productId && productId !== selectedProductId) {
+                  setComparisonProductId(productId);
+                  return;
+                }
+
                 setSelectedProductId(productId);
+                setComparisonProductId(null);
                 setShowProductInfo(false);
                 setFreeRotateProductId(null);
               }}
@@ -886,6 +1025,12 @@ export function ThreeDTestPage() {
 
           {viewMode === '3d' && selectedProduct && (
             <div className="product-floating-menu">
+              <div className="product-floating-header">
+                <strong>{selectedProduct.modelName}</strong>
+                <button aria-label="Close object menu" title="Close" type="button" onClick={() => setSelectedProductId(null)}>
+                  <IconX size={17} />
+                </button>
+              </div>
               <div className="product-floating-actions">
                 <button type="button" onClick={() => handleRotateProduct45(selectedProduct.id)}>Rotate 45</button>
                 <button type="button" onClick={() => setFreeRotateProductId(selectedProduct.id)}>Free Rotate</button>
@@ -938,6 +1083,31 @@ export function ThreeDTestPage() {
                 <button type="button" onClick={() => handleHeightStep(selectedProduct.id, 0.1)}>Height +</button>
                 <button type="button" onClick={() => handleHeightStep(selectedProduct.id, -0.1)}>Height -</button>
                 <button type="button" onClick={() => handleResetProductToFloor(selectedProduct.id)}>To Floor</button>
+              </div>
+
+              <div className="product-scale-controls">
+                {(['x', 'y', 'z'] as const).map((axis) => (
+                  <div key={axis}>
+                    <span>{axis.toUpperCase()}</span>
+                    <button aria-label={`Decrease scale ${axis}`} type="button" onClick={() => handleScaleStep(selectedProduct.id, axis, -0.1)}>-</button>
+                    <output>{getProductScale(selectedProduct)[axis].toFixed(2)}</output>
+                    <button aria-label={`Increase scale ${axis}`} type="button" onClick={() => handleScaleStep(selectedProduct.id, axis, 0.1)}>+</button>
+                  </div>
+                ))}
+              </div>
+
+              <div className="product-measurements">
+                <strong>Measurements</strong>
+                <span>
+                  Nearest wall: {productMeasurements?.nearestWall
+                    ? `${productMeasurements.nearestWall.distance.toFixed(2)} ft (${productMeasurements.nearestWall.wallId})`
+                    : 'Unavailable'}
+                </span>
+                <span>
+                  Object distance: {productMeasurements?.comparedObject
+                    ? `${productMeasurements.comparedObject.distance.toFixed(2)} ft (${productMeasurements.comparedObject.productId})`
+                    : 'Shift + click another object'}
+                </span>
               </div>
             </div>
           )}

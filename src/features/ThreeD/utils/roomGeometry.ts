@@ -4,6 +4,7 @@ import type {
   DoorOpening,
   DoorSwingDirection,
   RoomLayoutState,
+  RoomOpeningItem,
   WallOpening,
   WindowOpening,
 } from '@/features/ThreeD/types/roomLayout.types';
@@ -72,16 +73,69 @@ function getOpeningOffset(wallLength: number, width: number, offset: number) {
   return Number(clamp(offset, width / 2, Math.max(wallLength - width / 2, width / 2)).toFixed(2));
 }
 
-function getOpeningDimensionsForWall(layout: RoomLayoutState, wall: BlueprintWall, offset: number) {
-  const wallLength = getWallLength(wall, layout.points);
-  const height = getDefaultWallOpeningHeight(wall.height);
-  const width = getDefaultWallOpeningWidth(wallLength, height);
+const MIN_OPENING_SIZE = 0.5;
+const MIN_OPENING_GAP = 0.05;
+const MIN_WALL_ABOVE_OPENING = 0.25;
 
-  return {
-    height,
-    offset: getOpeningOffset(wallLength, width, offset),
-    width,
-  };
+type OpeningItemType = 'door' | 'window' | 'opening';
+
+function getOpeningItems(layout: RoomLayoutState) {
+  return [...layout.doors, ...layout.windows, ...layout.openings];
+}
+
+function intervalsOverlap(
+  left: { end: number; start: number },
+  right: { end: number; start: number },
+) {
+  return left.start < right.end + MIN_OPENING_GAP && left.end > right.start - MIN_OPENING_GAP;
+}
+
+function findValidOpeningOffset(
+  layout: RoomLayoutState,
+  wallId: string,
+  width: number,
+  desiredOffset: number,
+  excludedItemId?: string,
+) {
+  const wall = layout.walls.find((candidate) => candidate.id === wallId);
+
+  if (!wall) {
+    return null;
+  }
+
+  const wallLength = getWallLength(wall, layout.points);
+  const safeWidth = clamp(width, MIN_OPENING_SIZE, wallLength);
+  const halfWidth = safeWidth / 2;
+  const minOffset = halfWidth;
+  const maxOffset = Math.max(wallLength - halfWidth, halfWidth);
+  const otherIntervals = getOpeningItems(layout)
+    .filter((item) => item.wallId === wallId && item.id !== excludedItemId)
+    .map((item) => ({
+      end: item.offset + item.width / 2,
+      start: item.offset - item.width / 2,
+    }));
+  const candidates = [
+    clamp(desiredOffset, minOffset, maxOffset),
+    minOffset,
+    maxOffset,
+    ...otherIntervals.flatMap((interval) => [
+      interval.start - MIN_OPENING_GAP - halfWidth,
+      interval.end + MIN_OPENING_GAP + halfWidth,
+    ]),
+  ]
+    .map((candidate) => clamp(candidate, minOffset, maxOffset))
+    .sort((left, right) => Math.abs(left - desiredOffset) - Math.abs(right - desiredOffset));
+
+  const validOffset = candidates.find((candidate) => {
+    const candidateInterval = {
+      end: candidate + halfWidth,
+      start: candidate - halfWidth,
+    };
+
+    return otherIntervals.every((interval) => !intervalsOverlap(candidateInterval, interval));
+  });
+
+  return validOffset === undefined ? null : Number(validOffset.toFixed(2));
 }
 
 export function normalizeDoorAndOpeningDimensions(
@@ -97,9 +151,14 @@ export function normalizeDoorAndOpeningDimensions(
         return door;
       }
 
+      const wallLength = getWallLength(wall, layout.points);
+      const width = Number(clamp(door.width, MIN_OPENING_SIZE, wallLength).toFixed(2));
+
       return {
         ...door,
-        ...getOpeningDimensionsForWall(layout, wall, door.offset),
+        height: Number(clamp(door.height, MIN_OPENING_SIZE, Math.max(wall.height - MIN_WALL_ABOVE_OPENING, MIN_OPENING_SIZE)).toFixed(2)),
+        offset: getOpeningOffset(wallLength, width, door.offset),
+        width,
       };
     }),
     openings: layout.openings.map((opening) => {
@@ -109,9 +168,32 @@ export function normalizeDoorAndOpeningDimensions(
         return opening;
       }
 
+      const wallLength = getWallLength(wall, layout.points);
+      const width = Number(clamp(opening.width, MIN_OPENING_SIZE, wallLength).toFixed(2));
+
       return {
         ...opening,
-        ...getOpeningDimensionsForWall(layout, wall, opening.offset),
+        height: Number(clamp(opening.height, MIN_OPENING_SIZE, Math.max(wall.height - MIN_WALL_ABOVE_OPENING, MIN_OPENING_SIZE)).toFixed(2)),
+        offset: getOpeningOffset(wallLength, width, opening.offset),
+        width,
+      };
+    }),
+    windows: layout.windows.map((windowOpening) => {
+      const wall = layout.walls.find((candidate) => candidate.id === windowOpening.wallId);
+
+      if (!wall || !wallIds.has(wall.id)) {
+        return windowOpening;
+      }
+
+      const wallLength = getWallLength(wall, layout.points);
+      const width = Number(clamp(windowOpening.width, MIN_OPENING_SIZE, wallLength).toFixed(2));
+      const maxHeight = Math.max(wall.height - windowOpening.sillHeight - MIN_WALL_ABOVE_OPENING, MIN_OPENING_SIZE);
+
+      return {
+        ...windowOpening,
+        height: Number(clamp(windowOpening.height, MIN_OPENING_SIZE, maxHeight).toFixed(2)),
+        offset: getOpeningOffset(wallLength, width, windowOpening.offset),
+        width,
       };
     }),
   };
@@ -238,10 +320,16 @@ export function addDoorToWall(layout: RoomLayoutState, wallId: string, offset: n
   const wallLength = getWallLength(wall, layout.points);
   const height = getDefaultWallOpeningHeight(wall.height);
   const width = getDefaultWallOpeningWidth(wallLength, height);
+  const validOffset = findValidOpeningOffset(layout, wallId, width, offset);
+
+  if (validOffset === null) {
+    return layout;
+  }
+
   const door: DoorOpening = {
     height,
     id: getNextNumericId(layout.doors, 'door-'),
-    offset: getOpeningOffset(wallLength, width, offset),
+    offset: validOffset,
     swingDirection: 'IN_LEFT',
     type: 'DOOR',
     wallId,
@@ -263,10 +351,16 @@ export function addWindowToWall(layout: RoomLayoutState, wallId: string, offset:
 
   const wallLength = getWallLength(wall, layout.points);
   const width = Math.min(4, Math.max(wallLength * 0.5, 1));
+  const validOffset = findValidOpeningOffset(layout, wallId, width, offset);
+
+  if (validOffset === null) {
+    return layout;
+  }
+
   const windowOpening: WindowOpening = {
     height: 4,
     id: getNextNumericId(layout.windows, 'window-'),
-    offset: Number(clamp(offset, width / 2, Math.max(wallLength - width / 2, width / 2)).toFixed(2)),
+    offset: validOffset,
     sillHeight: 3,
     type: 'WINDOW',
     wallId,
@@ -289,10 +383,16 @@ export function addOpeningToWall(layout: RoomLayoutState, wallId: string, offset
   const wallLength = getWallLength(wall, layout.points);
   const height = getDefaultWallOpeningHeight(wall.height);
   const width = getDefaultWallOpeningWidth(wallLength, height);
+  const validOffset = findValidOpeningOffset(layout, wallId, width, offset);
+
+  if (validOffset === null) {
+    return layout;
+  }
+
   const opening: WallOpening = {
     height,
     id: getNextNumericId(layout.openings, 'opening-'),
-    offset: getOpeningOffset(wallLength, width, offset),
+    offset: validOffset,
     type: 'OPENING',
     wallId,
     width,
@@ -314,6 +414,15 @@ export function formatFeetInches(value: number) {
 }
 
 export function getRoomBounds(points: BlueprintPoint[]) {
+  if (!points.length) {
+    return {
+      maxX: 0,
+      maxY: 0,
+      minX: 0,
+      minY: 0,
+    };
+  }
+
   const xs = points.map((point) => point.x);
   const ys = points.map((point) => point.y);
 
@@ -332,6 +441,86 @@ export function getRoomSize(points: BlueprintPoint[]) {
     depth: bounds.maxY - bounds.minY,
     width: bounds.maxX - bounds.minX,
   };
+}
+
+export function getClosedRoomBoundary(layout: RoomLayoutState) {
+  const adjacency = new Map<string, string[]>();
+
+  layout.walls.forEach((wall) => {
+    adjacency.set(wall.startPointId, [...(adjacency.get(wall.startPointId) ?? []), wall.endPointId]);
+    adjacency.set(wall.endPointId, [...(adjacency.get(wall.endPointId) ?? []), wall.startPointId]);
+  });
+
+  const visited = new Set<string>();
+  const boundaries: BlueprintPoint[][] = [];
+
+  adjacency.forEach((_neighbors, startPointId) => {
+    if (visited.has(startPointId)) {
+      return;
+    }
+
+    const componentIds: string[] = [];
+    const pending = [startPointId];
+
+    while (pending.length) {
+      const pointId = pending.pop();
+
+      if (!pointId || visited.has(pointId)) {
+        continue;
+      }
+
+      visited.add(pointId);
+      componentIds.push(pointId);
+      (adjacency.get(pointId) ?? []).forEach((neighborId) => pending.push(neighborId));
+    }
+
+    if (componentIds.length < 3 || componentIds.some((pointId) => adjacency.get(pointId)?.length !== 2)) {
+      return;
+    }
+
+    const orderedIds = [componentIds[0]];
+    let previousId: string | null = null;
+    let currentId = componentIds[0];
+
+    while (orderedIds.length <= componentIds.length) {
+      const nextId = (adjacency.get(currentId) ?? []).find((candidate) => candidate !== previousId);
+
+      if (!nextId || nextId === orderedIds[0]) {
+        break;
+      }
+
+      orderedIds.push(nextId);
+      previousId = currentId;
+      currentId = nextId;
+    }
+
+    if (orderedIds.length === componentIds.length) {
+      boundaries.push(orderedIds.map((pointId) => getPointById(layout.points, pointId)));
+    }
+  });
+
+  return boundaries.sort((left, right) => getPolygonArea(right) - getPolygonArea(left))[0] ?? [];
+}
+
+function getPolygonArea(points: BlueprintPoint[]) {
+  if (points.length < 3) {
+    return 0;
+  }
+
+  const doubledArea = points.reduce((total, point, index) => {
+    const nextPoint = points[(index + 1) % points.length];
+    return total + point.x * nextPoint.y - nextPoint.x * point.y;
+  }, 0);
+
+  return Math.abs(doubledArea) / 2;
+}
+
+export function getRoomArea(layout: RoomLayoutState) {
+  return Number(getPolygonArea(getClosedRoomBoundary(layout)).toFixed(2));
+}
+
+export function isRoomBoundaryClosed(layout: RoomLayoutState) {
+  return getClosedRoomBoundary(layout).length >= 3;
 }
 
 export function movePoint(
@@ -378,6 +567,80 @@ export function deleteOpeningItem(
   };
 }
 
+export function deleteWall(layout: RoomLayoutState, wallId: string) {
+  const walls = layout.walls.filter((wall) => wall.id !== wallId);
+  const usedPointIds = new Set(walls.flatMap((wall) => [wall.startPointId, wall.endPointId]));
+
+  return {
+    ...layout,
+    doors: layout.doors.filter((door) => door.wallId !== wallId),
+    openings: layout.openings.filter((opening) => opening.wallId !== wallId),
+    points: layout.points.filter((point) => usedPointIds.has(point.id)),
+    walls,
+    windows: layout.windows.filter((windowOpening) => windowOpening.wallId !== wallId),
+  };
+}
+
+export function updateOpeningItem(
+  layout: RoomLayoutState,
+  itemType: OpeningItemType,
+  itemId: string,
+  changes: Partial<Pick<RoomOpeningItem, 'height' | 'offset' | 'width'>>,
+) {
+  const collection = itemType === 'door'
+    ? layout.doors
+    : itemType === 'window'
+      ? layout.windows
+      : layout.openings;
+  const item = collection.find((candidate) => candidate.id === itemId);
+
+  if (!item) {
+    return layout;
+  }
+
+  const wall = layout.walls.find((candidate) => candidate.id === item.wallId);
+
+  if (!wall) {
+    return layout;
+  }
+
+  const wallLength = getWallLength(wall, layout.points);
+  const width = Number(clamp(changes.width ?? item.width, MIN_OPENING_SIZE, wallLength).toFixed(2));
+  const validOffset = findValidOpeningOffset(
+    layout,
+    wall.id,
+    width,
+    changes.offset ?? item.offset,
+    item.id,
+  );
+
+  if (validOffset === null) {
+    return layout;
+  }
+
+  const maxHeight = item.type === 'WINDOW'
+    ? Math.max(wall.height - item.sillHeight - MIN_WALL_ABOVE_OPENING, MIN_OPENING_SIZE)
+    : Math.max(wall.height - MIN_WALL_ABOVE_OPENING, MIN_OPENING_SIZE);
+  const height = Number(clamp(changes.height ?? item.height, MIN_OPENING_SIZE, maxHeight).toFixed(2));
+  const updateItem = <T extends RoomOpeningItem>(candidate: T): T => (
+    candidate.id === item.id
+      ? {
+          ...candidate,
+          height,
+          offset: validOffset,
+          width,
+        }
+      : candidate
+  );
+
+  return {
+    ...layout,
+    doors: layout.doors.map(updateItem),
+    openings: layout.openings.map(updateItem),
+    windows: layout.windows.map(updateItem),
+  };
+}
+
 export function updateDoorSwingDirection(
   layout: RoomLayoutState,
   doorId: string,
@@ -392,6 +655,39 @@ export function updateDoorSwingDirection(
             swingDirection,
           }
         : door,
+    ),
+  };
+}
+
+export function updateWindowSillHeight(
+  layout: RoomLayoutState,
+  windowId: string,
+  sillHeight: number,
+) {
+  const windowOpening = layout.windows.find((candidate) => candidate.id === windowId);
+
+  if (!windowOpening) {
+    return layout;
+  }
+
+  const wall = layout.walls.find((candidate) => candidate.id === windowOpening.wallId);
+
+  if (!wall) {
+    return layout;
+  }
+
+  const maxSillHeight = Math.max(
+    wall.height - windowOpening.height - MIN_WALL_ABOVE_OPENING,
+    0,
+  );
+  const nextSillHeight = Number(clamp(sillHeight, 0, maxSillHeight).toFixed(2));
+
+  return {
+    ...layout,
+    windows: layout.windows.map((candidate) =>
+      candidate.id === windowId
+        ? { ...candidate, sillHeight: nextSillHeight }
+        : candidate,
     ),
   };
 }

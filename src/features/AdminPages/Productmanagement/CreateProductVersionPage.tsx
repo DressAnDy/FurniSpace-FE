@@ -12,6 +12,7 @@ import { useCreateProductVersion, useProductDetail, useUploadProductVersionFile 
 
 import { AdminNavbar, AdminSidebar } from '../admincomponents';
 import './Productmanagement.css';
+import { SelectedImagePreview } from './SelectedImagePreview';
 
 export function CreateProductVersionPage() {
   const navigate = useNavigate();
@@ -59,7 +60,7 @@ export function CreateProductVersionPage() {
             estimatedPrice: normalizeOptionalNumber(formData.get('estimated_price')),
             isDefault: formData.get('is_default') === 'on',
             isPublic: true,
-            isProjectSpecific: true,
+            isProjectSpecific: false,
           })
         ).productVersionId;
 
@@ -241,7 +242,11 @@ export function CreateProductVersionPage() {
                       onChange={(event) => setPreviewFile(event.target.files?.[0] ?? null)}
                     />
                     <div className="product-upload-main">
-                      <IconUpload size={46} />
+                      {previewFile ? (
+                        <SelectedImagePreview className="product-upload-main-preview" file={previewFile} />
+                      ) : (
+                        <IconUpload size={46} />
+                      )}
                       <strong>{previewFile ? previewFile.name : 'Click to select version preview'}</strong>
                       <small>Uploaded as PRODUCT_PREVIEW and visible to customers</small>
                     </div>
@@ -267,7 +272,11 @@ export function CreateProductVersionPage() {
                           type="file"
                           onChange={(event) => setTextureFile(event.target.files?.[0] ?? null)}
                         />
+                        {textureFile ? (
+                          <SelectedImagePreview className="product-upload-tile-preview" file={textureFile} />
+                        ) : (
                           <IconUpload size={28} />
+                        )}
                         <span>{textureFile ? textureFile.name : 'TEXTURE'}</span>
                       </label>
                     </div>

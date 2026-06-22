@@ -18,22 +18,28 @@ import { fitCameraToMeshes } from '@/features/ThreeD/utils/fitCameraToModel';
 import { isSupportedModelUrl, splitModelUrl } from '@/features/ThreeD/utils/modelUrl';
 
 export type ModelViewerProps = {
-  modelUrl?: string;
-  height?: number | string;
   autoRotate?: boolean;
+  fallbackImageUrl?: string;
+  height?: number | string;
+  modelUrl?: string;
+  onStatusChange?: (status: ModelViewerStatus, error: string | null) => void;
   showGrid?: boolean;
 };
 
+export type ModelViewerStatus = 'idle' | 'loading' | 'ready' | 'error';
+
 export function ModelViewer({
   autoRotate = false,
+  fallbackImageUrl,
   height = 420,
   modelUrl,
+  onStatusChange,
   showGrid = true,
 }: ModelViewerProps) {
   const cameraRef = useRef<ArcRotateCamera | null>(null);
   const importedMeshesRef = useRef<AbstractMesh[]>([]);
   const sceneRef = useRef<Scene | null>(null);
-  const [status, setStatus] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
+  const [status, setStatus] = useState<ModelViewerStatus>('idle');
   const [error, setError] = useState<string | null>(null);
 
   const disposeImportedMeshes = useCallback(() => {
@@ -94,6 +100,10 @@ export function ModelViewer({
   );
 
   useEffect(() => {
+    onStatusChange?.(status, error);
+  }, [error, onStatusChange, status]);
+
+  useEffect(() => {
     if (!sceneRef.current) {
       return;
     }
@@ -123,8 +133,11 @@ export function ModelViewer({
       />
       {status !== 'ready' && (
         <div className="three-d-overlay">
+          {(status === 'idle' || status === 'error') && fallbackImageUrl && (
+            <img alt="Product preview fallback" src={fallbackImageUrl} />
+          )}
           {status === 'loading' && <span>Loading 3D model...</span>}
-          {status === 'idle' && <span>Enter a GLB/glTF URL to test model loading.</span>}
+          {status === 'idle' && <span>No MODEL_3D file is available.</span>}
           {status === 'error' && <span>{error ?? '3D model failed to load.'}</span>}
         </div>
       )}

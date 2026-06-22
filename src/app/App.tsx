@@ -9,11 +9,14 @@ import { AdminDashbroad } from '@/features/AdminPages/AdminDashbroad';
 import { Categorymanagement } from '@/features/AdminPages/Categorymanagement';
 import { CreateProductPage, CreateProductVersionPage, Productmanagement, ProductVersionManagement } from '@/features/AdminPages/Productmanagement';
 import { UserManagement } from '@/features/AdminPages/UserManagement';
+import { CatalogModelManagementPage, ProductModelWorkspacePage } from '@/features/AdminPages/CatalogModelManagement';
 import { Customer3dPreviewPage } from '@/features/CustomerPages/customer3dPreview';
 import { CustomerDashboardPage } from '@/features/CustomerPages/customerDashboard';
 import { CustomerProjectListPage } from '@/features/CustomerPages/customerProjectList';
 import { CustomerProjectRequestPage } from '@/features/CustomerPages/customerProjectRequest';
 import { CustomerProposalDetailPage } from '@/features/CustomerPages/customerProposalDetail';
+import { DesignerAssignedProjects } from '@/features/DesignerPages/DesignerAssignedProjects';
+import { DesignerProposalWorkspace } from '@/features/DesignerPages/DesignerProposalWorkspace';
 import { HomePage } from '@/features/MainPages/home';
 import { ProductDetailPage } from '@/features/MainPages/productDetail';
 import { ProductListPreviewPage } from '@/features/MainPages/productListPreview';
@@ -49,6 +52,11 @@ export default function App() {
             <Route path="/project-list-review" element={<Navigate to="/projects" replace />} />
             <Route path="/viewer3d" element={<ViewerDemoPage />} />
             <Route path="/3d-lab" element={<ThreeDTestPage />} />
+            <Route path="/proposal-scenes/:sceneId/room-planner" element={<ThreeDTestPage />} />
+
+            <Route path="/designer" element={<Navigate to="/designer/assigned-projects" replace />} />
+            <Route path="/designer/assigned-projects" element={<DesignerAssignedProjects />} />
+            <Route path="/designer/projects/:projectId/proposals/:proposalId" element={<DesignerProposalWorkspace />} />
 
             <Route path="/customer" element={<Navigate to="/customer/dashboard" replace />} />
             <Route path="/customer/dashboard" element={<CustomerDashboardPage />} />
@@ -70,6 +78,8 @@ export default function App() {
             <Route path="/admin/products/create" element={<CreateProductPage />} />
             <Route path="/admin/products/:productId/versions" element={<ProductVersionManagement />} />
             <Route path="/admin/products/:productId/versions/create" element={<CreateProductVersionPage />} />
+            <Route path="/admin/catalog/models" element={<CatalogModelManagementPage />} />
+            <Route path="/admin/catalog/models/:productId/:productVersionId" element={<ProductModelWorkspacePage />} />
             <Route path="/admin-dashbroad" element={<Navigate to="/admin/dashbroad" replace />} />
             <Route path="/admin-user-management" element={<Navigate to="/admin/users" replace />} />
             <Route path="/admin-category-management" element={<Navigate to="/admin/categories" replace />} />

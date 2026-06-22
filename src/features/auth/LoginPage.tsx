@@ -6,6 +6,7 @@ import authHero from '@/assets/auth/register-hero.png';
 import { getCurrentUser, getServiceResultMessage, normalizeEmail } from '@/services/api/auth';
 import { useLogin } from '@/services/queries';
 
+import { getPostLoginPath } from './authRedirect';
 import './LoginPage.css';
 
 const loginFields = [
@@ -113,20 +114,3 @@ function validateLoginForm(input: { email: string; password: string }) {
   return '';
 }
 
-function getPostLoginPath(role?: string) {
-  const normalizedRole = normalizeRole(role);
-
-  if (normalizedRole.includes('ADMIN')) {
-    return '/admin/dashbroad';
-  }
-
-  if (normalizedRole.includes('SALE')) {
-    return '/sale/dashbroad';
-  }
-
-  return '/customer/dashboard';
-}
-
-function normalizeRole(role?: string) {
-  return (role ?? '').trim().replace(/[\s-]+/g, '_').toUpperCase();
-}

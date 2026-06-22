@@ -726,6 +726,18 @@
   margin-top: 4px;
 }
 
+.product-version-card .product-card-actions {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.product-upload-main-preview {
+  width: min(100%, 440px);
+  height: 220px;
+  border-radius: 8px;
+  object-fit: contain;
+  background: #f8f7f5;
+}
+
 .product-form-helper {
   color: #6b7280;
   font-size: 13px;
@@ -757,6 +769,15 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.product-upload-tile-preview {
+  width: 100%;
+  min-height: 0;
+  flex: 1;
+  border-radius: 6px;
+  object-fit: contain;
+  background: #f8f7f5;
 }
 
 .product-setting-list {

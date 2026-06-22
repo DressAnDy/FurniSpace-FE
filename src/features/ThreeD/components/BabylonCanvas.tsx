@@ -44,9 +44,22 @@ export function BabylonCanvas({ className, onRender, onSceneReady }: BabylonCanv
     const handleResize = () => {
       engine.resize();
     };
+    let resizeFrame = 0;
+    const scheduleResize = () => {
+      window.cancelAnimationFrame(resizeFrame);
+      resizeFrame = window.requestAnimationFrame(handleResize);
+    };
+    const resizeObserver = typeof ResizeObserver === 'undefined'
+      ? null
+      : new ResizeObserver(scheduleResize);
+
+    resizeObserver?.observe(canvas.parentElement ?? canvas);
     window.addEventListener('resize', handleResize);
+    scheduleResize();
 
     return () => {
+      resizeObserver?.disconnect();
+      window.cancelAnimationFrame(resizeFrame);
       window.removeEventListener('resize', handleResize);
       engine.stopRenderLoop(renderLoop);
       scene.dispose();

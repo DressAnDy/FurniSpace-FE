@@ -11,11 +11,21 @@ import { useNavigate } from 'react-router-dom';
 
 import './CustomerProposalDetailPage.css';
 import { CustomerNavbar } from '@/features/CustomerPages/customercomponents';
+import scenePreview from '@/assets/product-detail-shop/table-room.png';
+import {
+  MOCK_PROPOSAL,
+  MOCK_PROPOSAL_ITEMS,
+  MOCK_PROPOSAL_SCENES,
+} from '@/features/ThreeD/mocks/proposalScene.mock';
 
 const tableHeaders = ['Item Name', 'Type', 'Dimensions', 'Material', 'Qty', 'Unit Price', 'Total'];
 
 export function CustomerProposalDetailPage() {
   const navigate = useNavigate();
+  const estimatedTotal = MOCK_PROPOSAL_ITEMS.reduce(
+    (total, item) => total + item.estimatedPrice * item.quantity,
+    0,
+  );
 
   return (
     <main className="customer-proposal-detail-page">
@@ -33,10 +43,11 @@ export function CustomerProposalDetailPage() {
         </nav>
 
         <section className="customer-proposal-detail-hero">
+          <img className="customer-proposal-detail-hero-media" alt="Published interior proposal" src={scenePreview} />
           <div className="customer-proposal-detail-hero-copy">
             <div>
-              <h1>Industrial Modern Concept</h1>
-              <span>Version 1</span>
+              <h1>{MOCK_PROPOSAL.name}</h1>
+              <span>Version {MOCK_PROPOSAL.version}</span>
             </div>
             <p>An edgy café design with exposed brick, metal fixtures, and reclaimed wood elements</p>
             <ul>
@@ -48,7 +59,7 @@ export function CustomerProposalDetailPage() {
           <div className="customer-proposal-detail-hero-footer">
             <div>
               <span className="customer-proposal-detail-status">Published</span>
-              <p>3 Scenes • 24 Items</p>
+              <p>{MOCK_PROPOSAL_SCENES.filter((scene) => scene.status === 'PUBLISHED').length} Published Scene • {MOCK_PROPOSAL_ITEMS.reduce((sum, item) => sum + item.quantity, 0)} Items</p>
             </div>
             <button type="button" onClick={() => navigate('/customer/3d-preview')}>
               <IconBox size={20} stroke={1.8} />
@@ -67,7 +78,7 @@ export function CustomerProposalDetailPage() {
         </section>
 
         <section className="customer-proposal-detail-card customer-proposal-detail-row-card">
-          <h2>3D Scenes (0)</h2>
+          <h2>3D Scenes ({MOCK_PROPOSAL_SCENES.filter((scene) => scene.status === 'PUBLISHED').length})</h2>
           <a href="/customer/3d-preview">
             View All in 2D/3D Viewer
             <IconChevronRight size={16} stroke={1.8} />
@@ -76,8 +87,8 @@ export function CustomerProposalDetailPage() {
 
         <section className="customer-proposal-detail-card customer-proposal-detail-items">
           <div>
-            <h2>Furniture & Items (0)</h2>
-            <p>Total Estimated: $0</p>
+            <h2>Furniture & Items ({MOCK_PROPOSAL_ITEMS.length})</h2>
+            <p>Total Estimated: {new Intl.NumberFormat('vi-VN').format(estimatedTotal)} VND</p>
           </div>
           <div className="customer-proposal-detail-table-wrap">
             <table>
@@ -88,6 +99,19 @@ export function CustomerProposalDetailPage() {
                   ))}
                 </tr>
               </thead>
+              <tbody>
+                {MOCK_PROPOSAL_ITEMS.map((item) => (
+                  <tr key={item.productVersionId}>
+                    <td>{item.name}</td>
+                    <td>{item.type}</td>
+                    <td>-</td>
+                    <td>{item.material}</td>
+                    <td>{item.quantity}</td>
+                    <td>{new Intl.NumberFormat('vi-VN').format(item.estimatedPrice)} VND</td>
+                    <td>{new Intl.NumberFormat('vi-VN').format(item.estimatedPrice * item.quantity)} VND</td>
+                  </tr>
+                ))}
+              </tbody>
             </table>
           </div>
         </section>

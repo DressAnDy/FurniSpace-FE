@@ -12,7 +12,10 @@ import {
   addOpeningToWall,
   addWallSegment,
   addWindowToWall,
+  deleteOpeningItem,
+  deleteWall,
   formatFeetInches,
+  getClosedRoomBoundary,
   getPointById,
   getPointAtWallOffset,
   getRoomBounds,
@@ -22,6 +25,10 @@ import {
   getPointOffsetOnWall,
   movePoint,
   moveWallAlongNormal,
+  updateOpeningItem,
+  updateDoorSwingDirection,
+  updateWindowSillHeight,
+  updateWall,
 } from '@/features/ThreeD/utils/roomGeometry';
 
 export type BlueprintCanvasProps = {
@@ -32,6 +39,7 @@ export type BlueprintCanvasProps = {
   onLayoutChange: (layout: RoomLayoutState) => void;
   onMessage?: (message: string) => void;
   onSelectItem: (item: SelectedRoomItem | null) => void;
+  readOnly?: boolean;
   selectedItem: SelectedRoomItem | null;
   wallFillColor: string;
 };
@@ -71,6 +79,21 @@ type DragWallState = {
   wallId: string;
 };
 
+type DragOpeningState = {
+  itemId: string;
+  itemType: 'door' | 'window' | 'opening';
+  transform: CanvasTransform;
+  viewOffset: ViewOffset;
+  wallId: string;
+};
+
+type ItemEditorMenuState = {
+  itemId: string;
+  itemType: 'wall' | 'door' | 'window' | 'opening';
+  x: number;
+  y: number;
+};
+
 function clamp(value: number, min: number, max: number) {
   return Math.min(Math.max(value, min), max);
 }
@@ -90,11 +113,14 @@ export function BlueprintCanvas({
   onLayoutChange,
   onMessage,
   onSelectItem,
+  readOnly = false,
   selectedItem,
   wallFillColor,
 }: BlueprintCanvasProps) {
   const [dragPoint, setDragPoint] = useState<DragPointState | null>(null);
   const [dragWall, setDragWall] = useState<DragWallState | null>(null);
+  const [dragOpening, setDragOpening] = useState<DragOpeningState | null>(null);
+  const [itemEditorMenu, setItemEditorMenu] = useState<ItemEditorMenuState | null>(null);
   const [isPanning, setIsPanning] = useState(false);
   const [pendingWallStart, setPendingWallStart] = useState<Pick<BlueprintPoint, 'x' | 'y'> | null>(null);
   const [panStart, setPanStart] = useState<{ pointerX: number; pointerY: number; x: number; y: number } | null>(null);
@@ -127,8 +153,8 @@ export function BlueprintCanvas({
     };
   }, [layout, zoom]);
 
-  const activeTransform = dragPoint?.transform ?? dragWall?.transform ?? autoTransform;
-  const activeViewOffset = dragPoint?.viewOffset ?? dragWall?.viewOffset ?? viewOffset;
+  const activeTransform = dragPoint?.transform ?? dragWall?.transform ?? dragOpening?.transform ?? autoTransform;
+  const activeViewOffset = dragPoint?.viewOffset ?? dragWall?.viewOffset ?? dragOpening?.viewOffset ?? viewOffset;
 
   function toSvgPoint(point: Pick<BlueprintPoint, 'x' | 'y'>) {
     return {
@@ -172,7 +198,7 @@ export function BlueprintCanvas({
   }
 
   function handlePointerMove(event: PointerEvent<SVGSVGElement>) {
-    if (isPanning && panStart && !dragPoint && !dragWall) {
+    if (isPanning && panStart && !dragPoint && !dragWall && !dragOpening) {
       setViewOffset({
         x: panStart.x + event.clientX - panStart.pointerX,
         y: panStart.y + event.clientY - panStart.pointerY,
@@ -184,7 +210,7 @@ export function BlueprintCanvas({
       return;
     }
 
-    const activeDrag = dragPoint ?? dragWall;
+    const activeDrag = dragPoint ?? dragWall ?? dragOpening;
     const nextPoint = activeDrag
       ? fromPointer(event, activeDrag.transform, activeDrag.viewOffset)
       : fromPointer(event);
@@ -196,6 +222,22 @@ export function BlueprintCanvas({
           y: Number(clamp(nextPoint.y, MIN_LAYOUT_COORDINATE, MAX_LAYOUT_COORDINATE).toFixed(2)),
         }),
       );
+      return;
+    }
+
+    if (dragOpening) {
+      const wall = layout.walls.find((candidate) => candidate.id === dragOpening.wallId);
+
+      if (!wall) {
+        return;
+      }
+
+      onLayoutChange(updateOpeningItem(
+        layout,
+        dragOpening.itemType,
+        dragOpening.itemId,
+        { offset: getPointOffsetOnWall(wall, layout.points, nextPoint) },
+      ));
       return;
     }
 
@@ -234,6 +276,7 @@ export function BlueprintCanvas({
   }
 
   function handleBlueprintSurfacePointerDown(event: PointerEvent<SVGSVGElement>) {
+    setItemEditorMenu(null);
     if (!isBlueprintSurface(event.target)) {
       return;
     }
@@ -282,7 +325,6 @@ export function BlueprintCanvas({
     }
 
     event.stopPropagation();
-    event.currentTarget.setPointerCapture(event.pointerId);
 
     const wall = layout.walls.find((candidate) => candidate.id === wallId);
 
@@ -292,21 +334,21 @@ export function BlueprintCanvas({
 
     const offset = getPointOffsetOnWall(wall, layout.points, fromPointer(event));
 
-    if (activeTool === 'door') {
+    if (event.button === 0 && activeTool === 'door') {
       onLayoutChange(addDoorToWall(layout, wall.id, offset));
       onSelectItem({ id: wall.id, type: 'wall' });
       onMessage?.('Door added to wall.');
       return;
     }
 
-    if (activeTool === 'window') {
+    if (event.button === 0 && activeTool === 'window') {
       onLayoutChange(addWindowToWall(layout, wall.id, offset));
       onSelectItem({ id: wall.id, type: 'wall' });
       onMessage?.('Window added to wall.');
       return;
     }
 
-    if (activeTool === 'opening') {
+    if (event.button === 0 && activeTool === 'opening') {
       onLayoutChange(addOpeningToWall(layout, wall.id, offset));
       onSelectItem({ id: wall.id, type: 'wall' });
       onMessage?.('Opening added to wall.');
@@ -315,11 +357,32 @@ export function BlueprintCanvas({
 
     onSelectItem({ id: wall.id, type: 'wall' });
 
-    if (activeTool !== 'select') {
+    if (activeTool !== 'select' || readOnly) {
+      return;
+    }
+
+    if (event.button === 0) {
+      const bounds = event.currentTarget.ownerSVGElement?.getBoundingClientRect();
+
+      if (bounds) {
+        setItemEditorMenu({
+          itemId: wall.id,
+          itemType: 'wall',
+          x: clamp(event.clientX - bounds.left, 12, Math.max(bounds.width - 310, 12)),
+          y: clamp(event.clientY - bounds.top, 12, Math.max(bounds.height - 360, 12)),
+        });
+      }
+
+      return;
+    }
+
+    if (event.button !== 2) {
       return;
     }
 
     const snapshot = getDragSnapshot();
+    event.currentTarget.setPointerCapture(event.pointerId);
+    setItemEditorMenu(null);
     setDragWall({
       originalPoints: layout.points.map((point) => ({ ...point })),
       start: fromPointer(event, snapshot.transform, snapshot.viewOffset),
@@ -338,12 +401,14 @@ export function BlueprintCanvas({
   function finishPointerInteraction() {
     setDragPoint(null);
     setDragWall(null);
+    setDragOpening(null);
     setIsPanning(false);
     setPanStart(null);
   }
 
-  const polygonPoints = layout
-    ? layout.points
+  const closedBoundary = layout ? getClosedRoomBoundary(layout) : [];
+  const polygonPoints = closedBoundary.length
+    ? closedBoundary
         .map((point) => {
           const svgPoint = toSvgPoint(point);
           return `${svgPoint.x},${svgPoint.y}`;
@@ -353,8 +418,29 @@ export function BlueprintCanvas({
   const canvasClassName = [
     'blueprint-canvas',
     `is-tool-${activeTool}`,
+    dragWall || dragOpening ? 'is-moving-item' : '',
     pendingWallStart ? 'is-drawing-wall' : '',
   ].filter(Boolean).join(' ');
+  const contextOpening = itemEditorMenu && itemEditorMenu.itemType !== 'wall' && layout
+    ? [...layout.doors, ...layout.windows, ...layout.openings]
+        .find((item) => item.id === itemEditorMenu.itemId) ?? null
+    : null;
+  const contextWall = itemEditorMenu?.itemType === 'wall' && layout
+    ? layout.walls.find((wall) => wall.id === itemEditorMenu.itemId) ?? null
+    : null;
+
+  function adjustOpeningDimension(dimension: 'height' | 'width', delta: number) {
+    if (!layout || !itemEditorMenu || itemEditorMenu.itemType === 'wall' || !contextOpening) {
+      return;
+    }
+
+    onLayoutChange(updateOpeningItem(
+      layout,
+      itemEditorMenu.itemType,
+      contextOpening.id,
+      { [dimension]: contextOpening[dimension] + delta },
+    ));
+  }
 
   return (
     <div className="blueprint-canvas-shell">
@@ -386,6 +472,7 @@ export function BlueprintCanvas({
         className={canvasClassName}
         role="img"
         viewBox={`0 0 ${VIEWBOX_WIDTH} ${VIEWBOX_HEIGHT}`}
+        onContextMenu={(event) => event.preventDefault()}
         onPointerMove={handlePointerMove}
         onPointerDown={(event) => {
           if (activeTool !== 'select') {
@@ -393,7 +480,7 @@ export function BlueprintCanvas({
             return;
           }
 
-          if (event.button !== 0 || dragPoint || dragWall || activeTool !== 'select') {
+          if (event.button !== 0 || dragPoint || dragWall || dragOpening || activeTool !== 'select') {
             return;
           }
 
@@ -429,7 +516,9 @@ export function BlueprintCanvas({
 
         {layout && (
           <>
-            <polygon className="blueprint-room-fill blueprint-click-surface" fill={floorFillColor} points={polygonPoints} />
+            {closedBoundary.length >= 3 && (
+              <polygon className="blueprint-room-fill blueprint-click-surface" fill={floorFillColor} points={polygonPoints} />
+            )}
             {layout.walls.map((wall) => {
               const start = toSvgPoint(getPointById(layout.points, wall.startPointId));
               const end = toSvgPoint(getPointById(layout.points, wall.endPointId));
@@ -447,6 +536,7 @@ export function BlueprintCanvas({
                     x2={end.x}
                     y1={start.y}
                     y2={end.y}
+                    onContextMenu={(event) => event.preventDefault()}
                     onPointerDown={(event) => handleWallPointerDown(event, wall.id)}
                   />
                   {!hideLabels && (
@@ -488,9 +578,47 @@ export function BlueprintCanvas({
                 <g
                   className={isSelected ? 'blueprint-opening is-selected' : 'blueprint-opening'}
                   key={openingItem.id}
+                  onContextMenu={(event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                  }}
                   onPointerDown={(event) => {
                     event.stopPropagation();
                     onSelectItem({ id: openingItem.id, type: itemType });
+
+                    if (activeTool !== 'select' || readOnly) {
+                      return;
+                    }
+
+                    if (event.button === 0) {
+                      const bounds = event.currentTarget.ownerSVGElement?.getBoundingClientRect();
+
+                      if (bounds) {
+                        setItemEditorMenu({
+                          itemId: openingItem.id,
+                          itemType,
+                          x: clamp(event.clientX - bounds.left, 12, Math.max(bounds.width - 310, 12)),
+                          y: clamp(event.clientY - bounds.top, 12, Math.max(bounds.height - 430, 12)),
+                        });
+                      }
+
+                      return;
+                    }
+
+                    if (event.button !== 2) {
+                      return;
+                    }
+
+                    const snapshot = getDragSnapshot();
+                    event.currentTarget.setPointerCapture(event.pointerId);
+                    setItemEditorMenu(null);
+                    setDragOpening({
+                      itemId: openingItem.id,
+                      itemType,
+                      transform: snapshot.transform,
+                      viewOffset: snapshot.viewOffset,
+                      wallId: openingItem.wallId,
+                    });
                   }}
                 >
                   <line
@@ -538,7 +666,7 @@ export function BlueprintCanvas({
                   key={point.id}
                   r="9"
                   onPointerDown={(event) => {
-                    if (activeTool !== 'select') {
+                    if (activeTool !== 'select' || readOnly) {
                       return;
                     }
 
@@ -559,6 +687,173 @@ export function BlueprintCanvas({
           </>
         )}
       </svg>
+      {itemEditorMenu?.itemType === 'wall' && contextWall && layout && (
+        <div
+          className="blueprint-opening-menu"
+          role="dialog"
+          aria-label="Edit wall"
+          style={{ left: itemEditorMenu.x, top: itemEditorMenu.y }}
+          onPointerDown={(event) => event.stopPropagation()}
+        >
+          <div className="blueprint-opening-menu-header">
+            <strong>Edit Wall</strong>
+            <button aria-label="Close editor" type="button" onClick={() => setItemEditorMenu(null)}>x</button>
+          </div>
+          <div className="blueprint-opening-stepper">
+            <div>
+              <button
+                aria-label="Decrease wall height"
+                type="button"
+                onClick={() => onLayoutChange(updateWall(layout, contextWall.id, {
+                  height: Math.max(0, contextWall.height - 0.25),
+                }))}
+              >
+                &lsaquo;
+              </button>
+              <span>{formatFeetInches(contextWall.height)}</span>
+              <button
+                aria-label="Increase wall height"
+                type="button"
+                onClick={() => onLayoutChange(updateWall(layout, contextWall.id, {
+                  height: contextWall.height + 0.25,
+                }))}
+              >
+                &rsaquo;
+              </button>
+            </div>
+            <label>Height</label>
+          </div>
+          <div className="blueprint-opening-stepper">
+            <div>
+              <button
+                aria-label="Decrease wall thickness"
+                type="button"
+                onClick={() => onLayoutChange(updateWall(layout, contextWall.id, {
+                  thickness: Math.max(0.1, contextWall.thickness - 0.05),
+                }))}
+              >
+                &lsaquo;
+              </button>
+              <span>{formatFeetInches(contextWall.thickness)}</span>
+              <button
+                aria-label="Increase wall thickness"
+                type="button"
+                onClick={() => onLayoutChange(updateWall(layout, contextWall.id, {
+                  thickness: contextWall.thickness + 0.05,
+                }))}
+              >
+                &rsaquo;
+              </button>
+            </div>
+            <label>Thickness</label>
+          </div>
+          <button
+            className="blueprint-opening-menu-action is-danger"
+            type="button"
+            onClick={() => {
+              onLayoutChange(deleteWall(layout, contextWall.id));
+              onSelectItem(null);
+              setItemEditorMenu(null);
+            }}
+          >
+            Delete Wall
+          </button>
+        </div>
+      )}
+      {itemEditorMenu && itemEditorMenu.itemType !== 'wall' && contextOpening && layout && (
+        <div
+          className="blueprint-opening-menu"
+          role="dialog"
+          aria-label={`Edit ${itemEditorMenu.itemType}`}
+          style={{ left: itemEditorMenu.x, top: itemEditorMenu.y }}
+          onPointerDown={(event) => event.stopPropagation()}
+        >
+          <div className="blueprint-opening-menu-header">
+            <strong>{`Edit ${contextOpening.type.charAt(0)}${contextOpening.type.slice(1).toLowerCase()}`}</strong>
+            <button aria-label="Close editor" type="button" onClick={() => setItemEditorMenu(null)}>x</button>
+          </div>
+          {(['height', 'width'] as const).map((dimension) => (
+            <div className="blueprint-opening-stepper" key={dimension}>
+              <div>
+                <button
+                  aria-label={`Decrease ${dimension}`}
+                  type="button"
+                  onClick={() => adjustOpeningDimension(dimension, -0.25)}
+                >
+                  &lsaquo;
+                </button>
+                <span>{formatFeetInches(contextOpening[dimension])}</span>
+                <button
+                  aria-label={`Increase ${dimension}`}
+                  type="button"
+                  onClick={() => adjustOpeningDimension(dimension, 0.25)}
+                >
+                  &rsaquo;
+                </button>
+              </div>
+              <label>{dimension.charAt(0).toUpperCase() + dimension.slice(1)}</label>
+            </div>
+          ))}
+          {contextOpening.type === 'WINDOW' && (
+            <div className="blueprint-opening-stepper">
+              <div>
+                <button
+                  aria-label="Decrease floor offset"
+                  type="button"
+                  onClick={() => onLayoutChange(updateWindowSillHeight(
+                    layout,
+                    contextOpening.id,
+                    contextOpening.sillHeight - 0.25,
+                  ))}
+                >
+                  &lsaquo;
+                </button>
+                <span>{formatFeetInches(contextOpening.sillHeight)}</span>
+                <button
+                  aria-label="Increase floor offset"
+                  type="button"
+                  onClick={() => onLayoutChange(updateWindowSillHeight(
+                    layout,
+                    contextOpening.id,
+                    contextOpening.sillHeight + 0.25,
+                  ))}
+                >
+                  &rsaquo;
+                </button>
+              </div>
+              <label>Floor Offset</label>
+            </div>
+          )}
+          {contextOpening.type === 'DOOR' && (
+            <button
+              className="blueprint-opening-menu-action"
+              type="button"
+              onClick={() => onLayoutChange(updateDoorSwingDirection(
+                layout,
+                contextOpening.id,
+                contextOpening.swingDirection === 'IN_LEFT' ? 'IN_RIGHT' : 'IN_LEFT',
+              ))}
+            >
+              Flip Hinge
+            </button>
+          )}
+          <button
+            className="blueprint-opening-menu-action is-danger"
+            type="button"
+            onClick={() => {
+              onLayoutChange(deleteOpeningItem(
+                layout,
+                contextOpening.type.toLowerCase() as 'door' | 'window' | 'opening',
+                contextOpening.id,
+              ));
+              onSelectItem(null);
+              setItemEditorMenu(null);
+            }}
+          >
+            Delete
+          </button>
+        </div>
+      )}
     </div>
   );
 }

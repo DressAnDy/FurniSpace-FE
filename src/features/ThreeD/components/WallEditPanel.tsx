@@ -7,8 +7,10 @@ import type {
 } from '@/features/ThreeD/types/roomLayout.types';
 import {
   deleteOpeningItem,
+  deleteWall,
   getWallLength,
   updateDoorSwingDirection,
+  updateOpeningItem,
   updateWall,
 } from '@/features/ThreeD/utils/roomGeometry';
 
@@ -107,6 +109,7 @@ export function WallEditPanel({
 
   if (selectedOpening && selectedItem?.type !== 'wall') {
     const linkedWall = layout.walls.find((wall) => wall.id === selectedOpening.wallId);
+    const itemType = selectedOpening.type.toLowerCase() as 'door' | 'window' | 'opening';
     const heading = selectedOpening.type === 'DOOR'
       ? 'Edit Door'
       : selectedOpening.type === 'WINDOW'
@@ -135,11 +138,33 @@ export function WallEditPanel({
           </label>
           <label>
             <span>Width</span>
-            <input readOnly value={`${selectedOpening.width.toFixed(2)} ft`} />
+            <CommitNumberInput
+              fallback={selectedOpening.width}
+              min={0.5}
+              onCommit={(value) => onLayoutChange(updateOpeningItem(
+                layout,
+                itemType,
+                selectedOpening.id,
+                { width: value },
+              ))}
+              step={0.1}
+              value={selectedOpening.width}
+            />
           </label>
           <label>
             <span>Height</span>
-            <input readOnly value={`${selectedOpening.height.toFixed(2)} ft`} />
+            <CommitNumberInput
+              fallback={selectedOpening.height}
+              min={0.5}
+              onCommit={(value) => onLayoutChange(updateOpeningItem(
+                layout,
+                itemType,
+                selectedOpening.id,
+                { height: value },
+              ))}
+              step={0.1}
+              value={selectedOpening.height}
+            />
           </label>
           {selectedOpening.type === 'DOOR' && (
             <label>
@@ -170,7 +195,6 @@ export function WallEditPanel({
           <button
             type="button"
             onClick={() => {
-              const itemType = selectedOpening.type.toLowerCase() as 'door' | 'window' | 'opening';
               onLayoutChange(deleteOpeningItem(layout, itemType, selectedOpening.id));
               onSelectItem(null);
             }}
@@ -232,7 +256,15 @@ export function WallEditPanel({
         </label>
       </div>
       <div className="wall-placeholder-actions">
-        <button disabled type="button">Delete Wall</button>
+        <button
+          type="button"
+          onClick={() => {
+            onLayoutChange(deleteWall(layout, selectedWall.id));
+            onSelectItem(null);
+          }}
+        >
+          Delete Wall
+        </button>
         <button disabled type="button">Split Wall</button>
       </div>
     </section>

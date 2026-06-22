@@ -197,12 +197,22 @@
 }
 
 .customer-proposal-detail-hero::before {
+  display: none;
+}
+
+.customer-proposal-detail-hero-media {
   display: block;
-  min-height: 558px;
-  background:
-    linear-gradient(0deg, rgba(0, 0, 0, 0.62) 0%, rgba(0, 0, 0, 0) 45%),
-    linear-gradient(135deg, #f1f1f0 0%, #cfcfcd 48%, #777777 100%);
+  height: 558px;
+  object-fit: cover;
+  width: 100%;
+}
+
+.customer-proposal-detail-hero::after {
+  background: linear-gradient(0deg, rgba(0, 0, 0, 0.68) 0%, rgba(0, 0, 0, 0.05) 58%);
   content: "";
+  inset: 0 0 112px;
+  pointer-events: none;
+  position: absolute;
 }
 
 .customer-proposal-detail-hero {

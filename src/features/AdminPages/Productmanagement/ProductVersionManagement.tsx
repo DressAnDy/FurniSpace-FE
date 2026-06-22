@@ -1,5 +1,5 @@
 import { type FormEvent, useState } from 'react';
-import { IconArrowLeft, IconBox, IconCheck, IconEdit, IconPlus, IconX } from '@tabler/icons-react';
+import { IconArrowLeft, IconBox, IconCheck, IconCube, IconEdit, IconPlus, IconX } from '@tabler/icons-react';
 import { useNavigate, useParams } from 'react-router-dom';
 
 import {
@@ -188,6 +188,14 @@ export function ProductVersionManagement() {
                     </div>
 
                     <div className="product-card-actions">
+                      <button
+                        className="product-card-button product-card-button-secondary"
+                        type="button"
+                        onClick={() => navigate(`/admin/catalog/models/${productId}/${version.productVersionId}`)}
+                      >
+                        <IconCube size={16} />
+                        3D Assets
+                      </button>
                       <button
                         className="product-card-button product-card-button-secondary"
                         type="button"

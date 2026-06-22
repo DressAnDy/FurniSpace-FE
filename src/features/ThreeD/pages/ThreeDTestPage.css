@@ -79,6 +79,15 @@
   grid-template-columns: minmax(520px, 48vw) minmax(0, 1fr);
 }
 
+.room-layout-shell.is-3d.is-design-panel-closed {
+  grid-template-columns: 176px minmax(0, 1fr);
+}
+
+.room-layout-shell.is-sidebar-collapsed,
+.room-layout-shell.is-3d.is-sidebar-collapsed {
+  grid-template-columns: 52px minmax(0, 1fr);
+}
+
 .room-tool-menu,
 .room-design-sidebar,
 .room-product-sidebar,
@@ -217,6 +226,74 @@
   min-width: 0;
   overflow: auto;
   padding: 16px 20px;
+}
+
+.design-panel-content {
+  display: grid;
+  grid-template-rows: 62px minmax(0, 1fr);
+  min-width: 0;
+  overflow: hidden;
+}
+
+.design-panel-toolbar {
+  align-items: center;
+  border-bottom: 1px solid #d7dde0;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: auto minmax(0, 1fr) 38px;
+  padding: 10px 14px;
+}
+
+.design-panel-toolbar input {
+  background: #ffffff;
+  border: 1px solid #d7dde0;
+  color: #304850;
+  font: inherit;
+  height: 40px;
+  min-width: 0;
+  padding: 0 10px;
+}
+
+.design-panel-toolbar button {
+  align-items: center;
+  background: #ffffff;
+  border: 1px solid #d7dde0;
+  color: #52636a;
+  cursor: pointer;
+  display: flex;
+  height: 38px;
+  justify-content: center;
+  padding: 0;
+  width: 38px;
+}
+
+.product-live-thumbnail,
+.product-live-thumbnail .three-d-viewer,
+.product-live-thumbnail .three-d-canvas {
+  height: 100%;
+  width: 100%;
+}
+
+.product-live-thumbnail {
+  pointer-events: none;
+  position: relative;
+}
+
+.product-live-thumbnail .three-d-viewer {
+  position: relative;
+}
+
+.product-live-thumbnail .three-d-overlay {
+  align-items: center;
+  background: rgba(255, 255, 255, 0.82);
+  color: #65737a;
+  display: flex;
+  font-size: 10px;
+  inset: 0;
+  justify-content: center;
+  padding: 6px;
+  position: absolute;
+  text-align: center;
 }
 
 .room-product-sidebar {
@@ -452,10 +529,12 @@
 }
 
 .blueprint-canvas.is-tool-select .blueprint-wall {
-  cursor: grab;
+  cursor: pointer;
 }
 
-.blueprint-wall:active {
+.blueprint-canvas.is-moving-item,
+.blueprint-canvas.is-moving-item .blueprint-wall,
+.blueprint-canvas.is-moving-item .blueprint-opening {
   cursor: grabbing;
 }
 
@@ -488,6 +567,10 @@
 }
 
 .blueprint-opening {
+  cursor: pointer;
+}
+
+.blueprint-canvas.is-tool-select .blueprint-opening {
   cursor: pointer;
 }
 
@@ -543,6 +626,123 @@
   pointer-events: none;
   stroke: rgba(7, 39, 64, 0.76);
   stroke-width: 3px;
+}
+
+.blueprint-opening-menu {
+  background: #ffffff;
+  border: 1px solid #d8e0e3;
+  box-shadow: 0 14px 34px rgba(10, 32, 43, 0.24);
+  color: #37474f;
+  padding: 16px;
+  position: absolute;
+  width: min(280px, calc(100% - 24px));
+  z-index: 5;
+}
+
+.room-sidebar-rail {
+  align-content: start;
+  background: #ffffff;
+  border-right: 1px solid #d7dde0;
+  display: block;
+  overflow: hidden;
+  padding: 0;
+}
+
+.room-sidebar-rail > button {
+  align-items: center;
+  background: #ffffff;
+  border: 0;
+  color: #41545c;
+  cursor: pointer;
+  display: flex;
+  height: 52px;
+  justify-content: center;
+  min-height: 52px;
+  padding: 0;
+  width: 52px;
+}
+
+.blueprint-opening-menu-header {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.blueprint-opening-menu-header strong {
+  font-size: 20px;
+}
+
+.blueprint-opening-menu-header button {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  color: #66777e;
+  cursor: pointer;
+  display: inline-flex;
+  font-size: 20px;
+  height: 32px;
+  justify-content: center;
+  width: 32px;
+}
+
+.blueprint-opening-stepper {
+  margin-bottom: 12px;
+  text-align: center;
+}
+
+.blueprint-opening-stepper > div {
+  border: 1px solid #aebbc0;
+  display: grid;
+  grid-template-columns: 54px 1fr 54px;
+  min-height: 52px;
+}
+
+.blueprint-opening-stepper button {
+  background: #ffffff;
+  border: 0;
+  color: #5e6b70;
+  cursor: pointer;
+  font-size: 32px;
+}
+
+.blueprint-opening-stepper button:hover {
+  background: #eef4f5;
+}
+
+.blueprint-opening-stepper span {
+  align-items: center;
+  background: #f1f3f4;
+  display: flex;
+  font-size: 18px;
+  font-weight: 800;
+  justify-content: center;
+}
+
+.blueprint-opening-stepper label {
+  color: #66777e;
+  display: block;
+  margin-top: 5px;
+}
+
+.blueprint-opening-menu-action {
+  background: #ffffff;
+  border: 1px solid #d6dfe2;
+  color: #45565d;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 800;
+  margin-top: 8px;
+  min-height: 46px;
+  width: 100%;
+}
+
+.blueprint-opening-menu-action:hover {
+  background: #eef4f5;
+}
+
+.blueprint-opening-menu-action.is-danger {
+  color: #a43b35;
 }
 
 .room-preview-3d {
@@ -698,14 +898,14 @@
   background: #ffffff;
   box-shadow: 0 16px 34px rgba(23, 35, 40, 0.22);
   display: grid;
-  gap: 10px;
-  left: 76px;
-  max-height: calc(100% - 132px);
+  gap: 8px;
+  left: 24px;
+  max-height: calc(100% - 112px);
   overflow: auto;
-  padding: 14px 20px 14px 16px;
+  padding: 10px 16px 10px 12px;
   position: absolute;
   top: 86px;
-  width: min(430px, calc(100% - 140px));
+  width: min(320px, calc(100% - 48px));
   z-index: 8;
 }
 
@@ -714,12 +914,38 @@
   content: '';
   inset: 0 0 0 auto;
   position: absolute;
-  width: 14px;
+  width: 8px;
+}
+
+.product-floating-header {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+  min-width: 0;
+}
+
+.product-floating-header strong {
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.product-floating-header button {
+  align-items: center;
+  background: transparent;
+  color: #5f6d72;
+  display: flex;
+  height: 28px;
+  justify-content: center;
+  padding: 0;
+  width: 28px;
 }
 
 .product-floating-actions {
   display: grid;
-  gap: 10px 16px;
+  gap: 4px 8px;
   grid-template-columns: 1fr 1fr;
 }
 
@@ -728,8 +954,8 @@
   background: #ffffff;
   color: #636d72;
   display: flex;
-  font-size: 15px;
-  min-height: 34px;
+  font-size: 12px;
+  min-height: 28px;
   padding: 4px 6px;
   text-align: left;
 }
@@ -747,7 +973,7 @@
   border-top: 1px solid #e7ecef;
   display: grid;
   gap: 8px;
-  grid-template-columns: 1fr repeat(3, auto);
+  grid-template-columns: 1fr 1fr;
   padding-top: 10px;
 }
 
@@ -756,6 +982,54 @@
   background: #f2f5f6;
   color: #304850;
   padding: 8px 10px;
+}
+
+.product-scale-controls {
+  border-top: 1px solid #e7ecef;
+  display: grid;
+  gap: 5px;
+  padding-top: 8px;
+}
+
+.product-scale-controls > div {
+  align-items: center;
+  display: grid;
+  gap: 5px;
+  grid-template-columns: 24px 28px minmax(48px, 1fr) 28px;
+}
+
+.product-scale-controls span,
+.product-scale-controls output {
+  color: #52636a;
+  font-size: 12px;
+  font-weight: 800;
+  text-align: center;
+}
+
+.product-scale-controls button {
+  background: #eef3f4;
+  color: #304850;
+  height: 27px;
+  padding: 0;
+}
+
+.product-measurements {
+  background: #f6f8f9;
+  border-top: 1px solid #d8e0e4;
+  display: grid;
+  gap: 5px;
+  padding: 10px;
+}
+
+.product-measurements strong {
+  color: #304850;
+  font-size: 12px;
+  text-transform: uppercase;
+}
+
+.product-measurements span {
+  color: #566a72;
+  font-size: 12px;
 }
 
 .wall-tabs {

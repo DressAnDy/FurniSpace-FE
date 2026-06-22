@@ -5,7 +5,7 @@ export type { BlueprintCanvasProps } from './BlueprintCanvas';
 export { MaterialPanel } from './MaterialPanel';
 export type { MaterialPanelProps } from './MaterialPanel';
 export { ModelViewer } from './ModelViewer';
-export type { ModelViewerProps } from './ModelViewer';
+export type { ModelViewerProps, ModelViewerStatus } from './ModelViewer';
 export { RoomPreview3D } from './RoomPreview3D';
 export type { RoomPreview3DProps } from './RoomPreview3D';
 export { SceneEditorCanvas } from './SceneEditorCanvas';
