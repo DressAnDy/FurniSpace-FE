@@ -41,7 +41,10 @@ export function OverviewTab({ project, showAssignedTeam = false }: OverviewTabPr
     { enabled: showAssignedTeam && !project.assignedDesignerId },
   );
   const assignDesignerMutation = useAssignDesignerToProject();
-  const availableDesigners = availableDesignersQuery.data?.items ?? [];
+  const availableDesigners = useMemo(
+    () => availableDesignersQuery.data?.items ?? [],
+    [availableDesignersQuery.data?.items],
+  );
   const selectedDesigner = useMemo(
     () => availableDesigners.find((designer) => designer.accountId === project.assignedDesignerId) ?? null,
     [availableDesigners, project.assignedDesignerId],

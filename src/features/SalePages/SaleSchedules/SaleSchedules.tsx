@@ -65,7 +65,7 @@ export function SaleSchedules() {
     },
     { enabled: Boolean(currentUser?.accountId) },
   );
-  const projects = projectsQuery.data?.items ?? [];
+  const projects = useMemo(() => projectsQuery.data?.items ?? [], [projectsQuery.data?.items]);
   const scheduleQueries = useQueries({
     queries: projects.map((project) => {
       const params = {
