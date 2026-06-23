@@ -12,6 +12,8 @@ import { NavLink, useNavigate } from 'react-router-dom';
 
 import { CustomerUserSummary } from '@/shared/components/CustomerUserSummary';
 
+import './CustomerTheme.css';
+
 type CustomerNavbarItem = {
   label: string;
   path: string;

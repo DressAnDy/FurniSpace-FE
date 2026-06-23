@@ -1,7 +1,6 @@
 import {
   IconArrowRight,
   IconCheck,
-  IconClipboardText,
   IconHelp,
   IconMessageCircle,
 } from '@tabler/icons-react';
@@ -22,31 +21,6 @@ const journeySteps = [
   { label: 'Order Confirmed', status: 'pending' },
 ];
 
-const quickActions = [
-  {
-    badge: '2 New',
-    description: '2 new proposals are waiting for your review',
-    icon: <IconClipboardText size={22} stroke={1.7} />,
-    path: '/customer/proposals',
-    tone: 'gold',
-    title: 'Review Design Proposals',
-  },
-  {
-    badge: '1 Unread',
-    description: 'Message from designer about your café project',
-    icon: <IconMessageCircle size={22} stroke={1.7} />,
-    path: '/customer/projects',
-    tone: 'stone',
-    title: 'Project Chat',
-  },
-  {
-    description: 'Share your thoughts on the Scandinavian concept',
-    icon: <IconHelp size={22} stroke={1.7} />,
-    path: '/customer/proposals',
-    tone: 'mint',
-    title: 'Submit Feedback',
-  },
-];
 
 const updates = [
   {
@@ -149,26 +123,6 @@ export function CustomerDashboardPage() {
                   <p>Your designer has published 2 new design proposals. Please review and provide feedback.</p>
                 </div>
                 <button type="button" onClick={() => navigate('/customer/proposals')}>Review Now</button>
-              </div>
-            </section>
-
-            <section className="customer-dashboard-section">
-              <h2>Quick Actions</h2>
-              <div className="customer-dashboard-quick-grid">
-                {quickActions.map((action) => (
-                  <article className="customer-dashboard-quick-card" key={action.title}>
-                    <div className={`customer-dashboard-quick-icon customer-dashboard-quick-icon-${action.tone}`}>
-                      {action.icon}
-                    </div>
-                    {action.badge ? <span>{action.badge}</span> : null}
-                    <h3>{action.title}</h3>
-                    <p>{action.description}</p>
-                    <button type="button" onClick={() => navigate(action.path)}>
-                      Take Action
-                      <IconArrowRight size={14} stroke={1.8} />
-                    </button>
-                  </article>
-                ))}
               </div>
             </section>
 

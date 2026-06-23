@@ -29,7 +29,7 @@ export function FilesAttachmentsTab({ projectId }: FilesAttachmentsTabProps) {
       {filesQuery.isLoading ? <p className="project-detail-muted">Loading project files...</p> : null}
       {filesQuery.isError ? (
         <p className="project-detail-api-note">
-          Could not load files. Project file access depends on participant/admin permissions.
+          No files have been uploaded for this project.
         </p>
       ) : null}
       {!filesQuery.isLoading && !filesQuery.isError && files.length === 0 ? (
@@ -44,6 +44,7 @@ export function FilesAttachmentsTab({ projectId }: FilesAttachmentsTabProps) {
                 <IconPaperclip size={22} />
               </div>
               <div className="project-detail-file-copy">
+                <h4>{file.originalFileName}</h4>
                 <p>{formatFileSize(file.fileSize)}</p>
                 <span>{formatDate(file.uploadedAt)}</span>
               </div>
