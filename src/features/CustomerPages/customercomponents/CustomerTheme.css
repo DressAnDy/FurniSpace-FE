@@ -1,0 +1,313 @@
+:is(
+  .customer-dashboard-page,
+  .customer-project-list-page,
+  .customer-project-request-page,
+  .customer-3d-preview-page,
+  .customer-chat-page,
+  .customer-proposal-detail-page
+) {
+  background: #faf9f7;
+  color: #2d2d2d;
+}
+
+:is(
+  .customer-dashboard-page,
+  .customer-project-list-page,
+  .customer-project-request-page,
+  .customer-3d-preview-page,
+  .customer-chat-page,
+  .customer-proposal-detail-page
+) :is(
+  .customer-dashboard-topnav,
+  .customer-project-list-topnav,
+  .customer-project-request-topnav,
+  .customer-3d-preview-topnav,
+  .customer-chat-topnav,
+  .customer-proposal-detail-topnav
+) {
+  border-bottom-color: rgba(139, 111, 71, 0.15);
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: none;
+}
+
+:is(
+  .customer-dashboard-page,
+  .customer-project-list-page,
+  .customer-project-request-page,
+  .customer-3d-preview-page,
+  .customer-chat-page,
+  .customer-proposal-detail-page
+) :is(
+  .customer-dashboard-logo,
+  .customer-project-list-logo,
+  .customer-project-request-logo,
+  .customer-3d-preview-logo,
+  .customer-chat-logo,
+  .customer-proposal-detail-logo
+) {
+  color: #8b6f47;
+}
+
+:is(
+  .customer-dashboard-page,
+  .customer-project-list-page,
+  .customer-project-request-page,
+  .customer-3d-preview-page,
+  .customer-chat-page,
+  .customer-proposal-detail-page
+) :is(
+  .customer-dashboard-logo,
+  .customer-project-list-logo,
+  .customer-project-request-logo,
+  .customer-3d-preview-logo,
+  .customer-chat-logo,
+  .customer-proposal-detail-logo
+) span {
+  background: #8b6f47;
+  box-shadow: none;
+}
+
+:is(
+  .customer-dashboard-page,
+  .customer-project-list-page,
+  .customer-project-request-page,
+  .customer-3d-preview-page,
+  .customer-chat-page,
+  .customer-proposal-detail-page
+) :is(
+  .customer-dashboard-topnav,
+  .customer-project-list-topnav,
+  .customer-project-request-topnav,
+  .customer-3d-preview-topnav,
+  .customer-chat-topnav,
+  .customer-proposal-detail-topnav
+) nav a {
+  border-color: transparent;
+  color: #6b6b6b;
+}
+
+:is(
+  .customer-dashboard-page,
+  .customer-project-list-page,
+  .customer-project-request-page,
+  .customer-3d-preview-page,
+  .customer-chat-page,
+  .customer-proposal-detail-page
+) :is(
+  .customer-dashboard-topnav,
+  .customer-project-list-topnav,
+  .customer-project-request-topnav,
+  .customer-3d-preview-topnav,
+  .customer-chat-topnav,
+  .customer-proposal-detail-topnav
+) nav a:hover {
+  background: #f5f1ec;
+  color: #2d2d2d;
+}
+
+:is(
+  .customer-dashboard-page,
+  .customer-project-list-page,
+  .customer-project-request-page,
+  .customer-3d-preview-page,
+  .customer-chat-page,
+  .customer-proposal-detail-page
+) :is(
+  .customer-dashboard-nav-active,
+  .customer-project-list-nav-active,
+  .customer-project-request-nav-active,
+  .customer-3d-preview-nav-active,
+  .customer-chat-nav-active,
+  .customer-proposal-detail-nav-active
+) {
+  border-color: rgba(139, 111, 71, 0.2) !important;
+  background: #f5f1ec !important;
+  color: #8b6f47 !important;
+}
+
+:is(
+  .customer-dashboard-page,
+  .customer-project-list-page,
+  .customer-project-request-page,
+  .customer-3d-preview-page,
+  .customer-chat-page,
+  .customer-proposal-detail-page
+) :is(
+  .customer-dashboard-create,
+  .customer-project-list-create,
+  .customer-project-request-create,
+  .customer-3d-preview-create,
+  .customer-chat-create,
+  .customer-proposal-detail-create
+) {
+  background: #8b6f47;
+}
+
+:is(
+  .customer-dashboard-page,
+  .customer-project-list-page,
+  .customer-project-request-page,
+  .customer-3d-preview-page,
+  .customer-chat-page,
+  .customer-proposal-detail-page
+) :is(
+  .customer-dashboard-bell,
+  .customer-project-list-bell,
+  .customer-project-request-bell,
+  .customer-3d-preview-bell,
+  .customer-chat-bell,
+  .customer-proposal-detail-bell
+) {
+  border: 1px solid rgba(139, 111, 71, 0.15);
+  background: #faf9f7;
+  color: #2d2d2d;
+}
+
+:is(
+  .customer-dashboard-page,
+  .customer-project-list-page,
+  .customer-project-request-page,
+  .customer-3d-preview-page,
+  .customer-chat-page,
+  .customer-proposal-detail-page
+) :is(
+  .customer-dashboard-user,
+  .customer-project-list-user,
+  .customer-project-request-user,
+  .customer-3d-preview-user,
+  .customer-chat-user,
+  .customer-proposal-detail-user
+) {
+  border: 1px solid rgba(139, 111, 71, 0.15);
+  border-radius: 999px;
+  background: #ffffff;
+  padding: 3px 6px 3px 12px;
+}
+
+:is(
+  .customer-dashboard-page,
+  .customer-project-list-page,
+  .customer-project-request-page,
+  .customer-3d-preview-page,
+  .customer-chat-page,
+  .customer-proposal-detail-page
+) :is(
+  .customer-dashboard-user,
+  .customer-project-list-user,
+  .customer-project-request-user,
+  .customer-3d-preview-user,
+  .customer-chat-user,
+  .customer-proposal-detail-user
+) > span {
+  background: #8b6f47;
+}
+
+:is(
+  .customer-dashboard-page,
+  .customer-project-list-page,
+  .customer-project-request-page,
+  .customer-3d-preview-page,
+  .customer-chat-page,
+  .customer-proposal-detail-page
+) :is(
+  .customer-dashboard-user,
+  .customer-project-list-user,
+  .customer-project-request-user,
+  .customer-3d-preview-user,
+  .customer-chat-user,
+  .customer-proposal-detail-user
+) strong {
+  color: #2d2d2d;
+}
+
+:is(
+  .customer-dashboard-page,
+  .customer-project-list-page,
+  .customer-project-request-page,
+  .customer-3d-preview-page,
+  .customer-chat-page,
+  .customer-proposal-detail-page
+) :is(
+  .customer-dashboard-user,
+  .customer-project-list-user,
+  .customer-project-request-user,
+  .customer-3d-preview-user,
+  .customer-chat-user,
+  .customer-proposal-detail-user
+) div span {
+  color: #6b6b6b;
+}
+
+:is(
+  .customer-dashboard-project-card,
+  .customer-dashboard-panel,
+  .customer-project-list-card,
+  .customer-project-list-filters,
+  .customer-project-request-header,
+  .customer-project-request-section,
+  .customer-project-request-tip,
+  .customer-proposal-detail-hero,
+  .customer-proposal-detail-card
+) {
+  border-color: rgba(139, 111, 71, 0.15);
+  box-shadow: none;
+}
+
+:is(
+  .customer-dashboard-project-head button,
+  .customer-dashboard-action-required button,
+  .customer-project-list-heading button,
+  .customer-project-list-card-body > button,
+  .customer-project-request-actions button,
+  .customer-proposal-detail-hero-footer button,
+  .customer-chat-send,
+  .customer-3d-preview-decision button:first-child
+) {
+  background: #8b6f47;
+}
+
+:is(
+  .customer-dashboard-status,
+  .customer-dashboard-review-list article span,
+  .customer-project-list-status,
+  .customer-3d-preview-status,
+  .customer-proposal-detail-status
+) {
+  border-color: rgba(139, 111, 71, 0.28);
+  background: #f5f1ec;
+  color: #8b6f47;
+}
+
+.customer-dashboard-welcome {
+  background:
+    linear-gradient(135deg, rgba(31, 26, 23, 0.94), rgba(62, 54, 45, 0.94)),
+    #2f2f2f;
+}
+
+.customer-dashboard-welcome::after {
+  background: linear-gradient(135deg, rgba(199, 161, 95, 0.24), rgba(255, 255, 255, 0));
+}
+
+.customer-dashboard-step-complete span,
+.customer-dashboard-step-complete:not(:last-child)::after {
+  background: #8b6f47;
+}
+
+.customer-dashboard-step-current span {
+  background: #c19a5b;
+}
+
+.customer-dashboard-step-current p,
+.customer-dashboard-panel-head a,
+.customer-project-list-pagination .customer-project-list-page-active,
+.customer-project-list-breadcrumb span,
+.customer-project-request-header a:hover,
+.customer-proposal-detail-row-card a {
+  color: #8b6f47;
+}
+
+.customer-project-list-pagination .customer-project-list-page-active {
+  border-color: #8b6f47;
+  background: #8b6f47;
+  color: #ffffff;
+}
