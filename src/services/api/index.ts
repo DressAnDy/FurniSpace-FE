@@ -3,6 +3,7 @@ export { httpClient } from './httpClient';
 export * from './accounts';
 export * from './categories';
 export * from './products';
+export * from './projectChats';
 export type {
   ApiResponse,
   Asset,

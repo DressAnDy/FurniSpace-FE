@@ -6,13 +6,15 @@ import {
   IconCube,
   IconEdit,
   IconFileText,
+  IconMessageCircle,
   IconPackage,
   IconPlus,
 } from '@tabler/icons-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 
 import scenePreview from '@/assets/product-detail-shop/table-room.png';
 import { DesignerShell } from '@/features/DesignerPages/components/DesignerShell';
+import { ProjectChatPanel } from '@/features/projectChat/ProjectChatPanel';
 import { RoomPreview3D } from '@/features/ThreeD/components/RoomPreview3D';
 import {
   MOCK_FLOOR_MATERIAL,
@@ -28,10 +30,11 @@ import '@/features/ThreeD/pages/ThreeDTestPage.css';
 
 import './DesignerProposalWorkspace.css';
 
-type WorkspaceTab = 'scenes' | 'items' | 'review';
+type WorkspaceTab = 'scenes' | 'items' | 'review' | 'chat';
 
 export function DesignerProposalWorkspace() {
   const navigate = useNavigate();
+  const { projectId } = useParams();
   const [activeTab, setActiveTab] = useState<WorkspaceTab>('scenes');
   const [message, setMessage] = useState('');
   const [previewObjectId, setPreviewObjectId] = useState<string | null>(null);
@@ -49,6 +52,7 @@ export function DesignerProposalWorkspace() {
         <button className={activeTab === 'scenes' ? 'is-active' : ''} type="button" onClick={() => setActiveTab('scenes')}><IconCube size={16} /> Scenes</button>
         <button className={activeTab === 'items' ? 'is-active' : ''} type="button" onClick={() => setActiveTab('items')}><IconPackage size={16} /> Proposal Items</button>
         <button className={activeTab === 'review' ? 'is-active' : ''} type="button" onClick={() => setActiveTab('review')}><IconFileText size={16} /> Customer Review</button>
+        <button className={activeTab === 'chat' ? 'is-active' : ''} type="button" onClick={() => setActiveTab('chat')}><IconMessageCircle size={16} /> Chat</button>
       </nav>
 
       {message && <div className="designer-proposal-message">{message}</div>}
@@ -100,6 +104,18 @@ export function DesignerProposalWorkspace() {
             <span>{previewObjectId ? `Selected object: ${previewObjectId}` : 'Select an object to inspect the Customer-facing scene.'}</span>
             <button type="button" onClick={() => setMessage('Customer review activity refreshed in demo mode.')}>Refresh Review Status</button>
           </footer>
+        </section>
+      )}
+
+      {activeTab === 'chat' && (
+        <section className="designer-chat-section">
+          <ProjectChatPanel
+            canClose
+            preferredChatType="DESIGNER"
+            projectCode={MOCK_PROJECT.projectCode}
+            projectId={projectId ?? MOCK_PROJECT.projectId}
+            title="Designer Chat with Customer"
+          />
         </section>
       )}
     </DesignerShell>

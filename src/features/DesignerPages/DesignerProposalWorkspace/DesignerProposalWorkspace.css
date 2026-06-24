@@ -11,6 +11,7 @@
 .designer-proposal-tabs button.is-active { border-bottom-color: #2d8195; color: #244f5d; font-weight: 700; }
 .designer-proposal-message { background: #e7f2f5; border-left: 3px solid #2d8195; color: #35535e; margin-top: 16px; padding: 10px 12px; }
 .designer-scenes-section, .designer-items-section, .designer-review-section { background: #fff; border: 1px solid #d8e0e4; margin-top: 18px; }
+.designer-chat-section { margin-top: 18px; }
 .designer-scenes-section > header, .designer-items-section > header { align-items: center; border-bottom: 1px solid #d8e0e4; display: flex; justify-content: space-between; padding: 18px 20px; }
 .designer-scenes-section h2, .designer-items-section h2 { font-size: 17px; margin: 0; }
 .designer-scenes-section header p, .designer-items-section header p { color: #6c7c84; font-size: 13px; margin: 3px 0 0; }
