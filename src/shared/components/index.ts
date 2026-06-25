@@ -4,4 +4,5 @@ export { DataTable } from './DataTable';
 export type { DataTableProps } from './DataTable';
 export { Modal } from './Modal';
 export type { ModalProps } from './Modal';
+export { NotificationBell } from './NotificationBell';
 export { SiteFooter } from './SiteFooter';

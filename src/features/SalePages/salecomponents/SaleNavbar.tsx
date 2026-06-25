@@ -1,4 +1,6 @@
-import { IconBell, IconChevronDown, IconPlus, IconSearch } from '@tabler/icons-react';
+import { IconChevronDown, IconPlus, IconSearch } from '@tabler/icons-react';
+
+import { NotificationBell } from '@/shared/components/NotificationBell';
 
 export function SaleNavbar() {
   return (
@@ -21,10 +23,7 @@ export function SaleNavbar() {
           Quick Action
           <IconChevronDown size={14} />
         </button>
-        <button className="sale-icon-button relative flex h-11 w-11 items-center justify-center rounded-lg border border-zinc-200 text-zinc-600" type="button" aria-label="Notifications">
-          <IconBell size={20} />
-          <span className="absolute right-3 top-3 h-2 w-2 rounded-full bg-red-500" />
-        </button>
+        <NotificationBell buttonClassName="sale-icon-button relative flex h-11 w-11 items-center justify-center rounded-lg border border-zinc-200 text-zinc-600" />
         <div className="sale-user-copy text-right">
           <p className="text-sm font-semibold text-zinc-900">Sarah Johnson</p>
           <span className="text-xs text-zinc-500">Sales Consultant</span>

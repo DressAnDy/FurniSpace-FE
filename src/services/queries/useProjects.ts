@@ -19,6 +19,7 @@ import {
   type ProjectStatus,
   type UpdateProjectStatusInput,
 } from '@/services/api/projects';
+import { projectChatQueryKeys } from './useProjectChats';
 
 export const projectQueryKeys = {
   all: ['projects'] as const,
@@ -116,6 +117,7 @@ export function useAssignDesignerToProject() {
     onSuccess: (data) => {
       void queryClient.invalidateQueries({ queryKey: projectQueryKeys.all });
       void queryClient.invalidateQueries({ queryKey: projectQueryKeys.detail(data.projectId) });
+      void queryClient.invalidateQueries({ queryKey: projectChatQueryKeys.all });
     },
   });
 }
@@ -128,6 +130,7 @@ export function useUpdateProjectStatus() {
     onSuccess: (data) => {
       void queryClient.invalidateQueries({ queryKey: projectQueryKeys.all });
       void queryClient.invalidateQueries({ queryKey: projectQueryKeys.detail(data.projectId) });
+      void queryClient.invalidateQueries({ queryKey: projectChatQueryKeys.all });
     },
   });
 }
