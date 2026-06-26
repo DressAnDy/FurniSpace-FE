@@ -20,7 +20,7 @@ export function SaleNavbar() {
           type="button"
         >
           <IconPlus size={16} />
-          Quick Action
+          Quick Actions
           <IconChevronDown size={14} />
         </button>
         <NotificationBell buttonClassName="sale-icon-button relative flex h-11 w-11 items-center justify-center rounded-lg border border-zinc-200 text-zinc-600" />
