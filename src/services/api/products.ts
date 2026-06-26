@@ -3,9 +3,14 @@ import axios, { AxiosError } from 'axios';
 const productApiClient = axios.create({
   baseURL: getProductApiBaseUrl(),
   withCredentials: true,
-  headers: {
-    'Content-Type': 'application/json',
-  },
+});
+
+productApiClient.interceptors.request.use((config) => {
+  if (config.data instanceof FormData) {
+    clearMultipartContentType(config.headers);
+  }
+
+  return config;
 });
 
 productApiClient.interceptors.response.use(
@@ -390,11 +395,7 @@ export async function uploadProductPreviewFile(productId: string, file: File, de
     formData.append('description', description.trim());
   }
 
-  const response = await productApiClient.post<ServiceResult<CatalogFileUploadResponseDto>>(`/products/${productId}/files`, formData, {
-    headers: {
-      'Content-Type': 'multipart/form-data',
-    },
-  });
+  const response = await productApiClient.post<ServiceResult<CatalogFileUploadResponseDto>>(`/products/${productId}/files`, formData);
 
   return response.data.data;
 }
@@ -417,11 +418,6 @@ export async function uploadProductVersionFile(
   const response = await productApiClient.post<ServiceResult<CatalogFileUploadResponseDto>>(
     `/api/ProductVersions/product-versions/${productVersionId}/files`,
     formData,
-    {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-    },
   );
 
   return response.data.data;
@@ -464,4 +460,26 @@ function getProductApiBaseUrl() {
   const configuredApiUrl = import.meta.env.VITE_API_BASE_URL ?? import.meta.env.VITE_API_URL;
 
   return configuredApiUrl?.replace(/\/api\/?$/, '');
+}
+
+function clearMultipartContentType(headers: unknown) {
+  const headerBag = headers as {
+    delete?: (name: string) => boolean;
+    set?: (name: string, value?: string | false) => void;
+    [key: string]: unknown;
+  };
+
+  if (typeof headerBag.delete === 'function') {
+    headerBag.delete('Content-Type');
+    headerBag.delete('content-type');
+    return;
+  }
+
+  if (typeof headerBag.set === 'function') {
+    headerBag.set('Content-Type', false);
+    return;
+  }
+
+  delete headerBag['Content-Type'];
+  delete headerBag['content-type'];
 }

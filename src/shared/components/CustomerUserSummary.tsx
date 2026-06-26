@@ -1,8 +1,9 @@
-import { IconBell, IconChevronDown, IconLogout, IconUserCircle } from '@tabler/icons-react';
+import { IconChevronDown, IconLogout, IconUserCircle } from '@tabler/icons-react';
 import { useEffect, useRef, useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 
 import { useCurrentUser, useLogout } from '@/services/queries';
+import { NotificationBell } from '@/shared/components/NotificationBell';
 
 import './CustomerUserSummary.css';
 
@@ -59,10 +60,7 @@ export function CustomerUserSummary({ classPrefix }: CustomerUserSummaryProps) {
 
   return (
     <>
-      <button className={`${classPrefix}-bell`} aria-label="Notifications" type="button">
-        <IconBell size={20} stroke={1.8} />
-        <span />
-      </button>
+      <NotificationBell buttonClassName={`${classPrefix}-bell`} />
       <div className="customer-user-summary-menu-wrap" ref={menuRef}>
         <button
           aria-expanded={isMenuOpen}

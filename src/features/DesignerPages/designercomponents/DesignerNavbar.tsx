@@ -1,4 +1,6 @@
-import { IconBell, IconChevronDown, IconSearch } from '@tabler/icons-react';
+import { IconChevronDown, IconSearch } from '@tabler/icons-react';
+
+import { NotificationBell } from '@/shared/components/NotificationBell';
 
 type DesignerNavbarProps = {
   activeLabel: string;
@@ -19,10 +21,7 @@ export function DesignerNavbar({ activeLabel, searchPlaceholder = 'Search projec
       </label>
 
       <div className="designer-topbar-account">
-        <button className="designer-topbar-notification" type="button" aria-label="Notifications">
-          <IconBell size={19} stroke={1.8} />
-          <span />
-        </button>
+        <NotificationBell buttonClassName="designer-topbar-notification" />
         <div className="designer-topbar-avatar">DS</div>
         <div className="designer-topbar-profile">
           <p>David Smith</p>
