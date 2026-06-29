@@ -220,7 +220,8 @@
 
 .customer-dashboard-project-card,
 .customer-dashboard-panel,
-.customer-dashboard-quick-card {
+.customer-dashboard-quick-card,
+.customer-dashboard-empty-project {
   border: 1px solid rgba(139, 111, 71, 0.15);
   border-radius: 12px;
   background: #ffffff;
@@ -228,6 +229,64 @@
 
 .customer-dashboard-project-card {
   padding: 32px;
+}
+
+.customer-dashboard-empty-project {
+  display: grid;
+  grid-template-columns: 56px minmax(0, 1fr) auto;
+  gap: 18px;
+  align-items: center;
+  padding: 28px;
+}
+
+.customer-dashboard-empty-icon {
+  display: grid;
+  width: 56px;
+  height: 56px;
+  place-items: center;
+  border-radius: 12px;
+  background: #f5f1ec;
+  color: #8b6f47;
+}
+
+.customer-dashboard-empty-project h2 {
+  margin: 0;
+  color: #2d2d2d;
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.customer-dashboard-empty-project p {
+  margin: 8px 0 0;
+  color: #6b6b6b;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.customer-dashboard-empty-project button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 0;
+  border-radius: 8px;
+  background: #8b6f47;
+  color: #ffffff;
+  cursor: pointer;
+  font: inherit;
+  font-size: 14px;
+  padding: 10px 16px;
+}
+
+.customer-dashboard-state,
+.customer-dashboard-api-note {
+  margin: 0;
+  color: #6b6b6b;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.customer-dashboard-api-note {
+  color: #b42318;
 }
 
 .customer-dashboard-project-head,
@@ -640,6 +699,30 @@
   margin-bottom: 14px;
 }
 
+.customer-dashboard-schedule-intro {
+  margin: -4px 0 14px;
+  color: #6b6b6b;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.customer-dashboard-schedule-message {
+  margin: 0 0 12px;
+  border: 1px solid #bbf7d0;
+  border-radius: 8px;
+  background: #f0fdf4;
+  color: #166534;
+  font-size: 13px;
+  line-height: 1.45;
+  padding: 10px 12px;
+}
+
+.customer-dashboard-schedule-message-error {
+  border-color: #fecaca;
+  background: #fef2f2;
+  color: #991b1b;
+}
+
 .customer-dashboard-milestone-list {
   display: grid;
   gap: 10px;
@@ -657,11 +740,55 @@
   font-size: 12px;
 }
 
+.customer-dashboard-milestone-list h3 {
+  margin: 6px 0 0;
+  color: #2d2d2d;
+  font-size: 14px;
+  font-weight: 700;
+}
+
 .customer-dashboard-milestone-list p {
   margin: 6px 0 0;
   color: #6b6b6b;
   font-size: 13px;
   line-height: 1.45;
+}
+
+.customer-dashboard-milestone-list article > span {
+  display: inline-flex;
+  margin-top: 10px;
+  border-radius: 999px;
+  background: #f5f1ec;
+  color: #8b6f47;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+  padding: 5px 9px;
+}
+
+.customer-dashboard-schedule-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.customer-dashboard-schedule-actions button {
+  min-height: 32px;
+  border: 1px solid #8b6f47;
+  border-radius: 8px;
+  background: #8b6f47;
+  color: #ffffff;
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 0 12px;
+}
+
+.customer-dashboard-schedule-actions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
 }
 
 @media (max-width: 1180px) {
@@ -706,6 +833,7 @@
 
   .customer-dashboard-welcome,
   .customer-dashboard-project-card,
+  .customer-dashboard-empty-project,
   .customer-dashboard-panel,
   .customer-dashboard-help {
     padding: 20px;
@@ -713,9 +841,14 @@
 
   .customer-dashboard-project-head,
   .customer-dashboard-title-row,
+  .customer-dashboard-empty-project,
   .customer-dashboard-action-required {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .customer-dashboard-empty-project {
+    grid-template-columns: 1fr;
   }
 
   .customer-dashboard-action-required {

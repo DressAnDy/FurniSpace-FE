@@ -239,8 +239,8 @@ type ScheduleCardProps = {
 };
 
 function ScheduleCard({ project, schedule, isUpdating, onCancel, onComplete, onReschedule }: ScheduleCardProps) {
-  const canReschedule = schedule.status === 'PENDING_CONFIRMATION' || schedule.status === 'CONFIRMED';
-  const canCancel = canReschedule;
+  const canReschedule = schedule.status === 'PENDING_CONFIRMATION' || schedule.status === 'CONFIRMED' || schedule.status === 'CANCELLED';
+  const canCancel = schedule.status === 'PENDING_CONFIRMATION' || schedule.status === 'CONFIRMED';
   const canComplete = schedule.status === 'CONFIRMED';
 
   return (
@@ -261,7 +261,7 @@ function ScheduleCard({ project, schedule, isUpdating, onCancel, onComplete, onR
       </div>
       {canReschedule || canComplete || canCancel ? (
         <div className="sale-schedules-actions">
-          {canReschedule ? <button disabled={isUpdating} type="button" onClick={onReschedule}>Reschedule</button> : null}
+          {canReschedule ? <button disabled={isUpdating} type="button" onClick={onReschedule}>{schedule.status === 'CANCELLED' ? 'Update Schedule' : 'Reschedule'}</button> : null}
           {canComplete ? <button disabled={isUpdating} type="button" onClick={onComplete}>Mark Complete</button> : null}
           {canCancel ? <button className="sale-schedules-cancel-button" disabled={isUpdating} type="button" onClick={onCancel}>Cancel</button> : null}
         </div>
