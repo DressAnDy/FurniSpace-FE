@@ -1,5 +1,7 @@
 import axios, { AxiosError } from 'axios';
 
+import { shouldRedirectUnauthorized } from '@/shared/config/authPreview';
+
 const accountApiClient = axios.create({
   baseURL: getAccountApiBaseUrl(),
   withCredentials: true,
@@ -11,7 +13,7 @@ const accountApiClient = axios.create({
 accountApiClient.interceptors.response.use(
   (response) => response,
   (error: AxiosError) => {
-    if (error.response?.status === 401 && window.location.pathname !== '/login') {
+    if (error.response?.status === 401 && shouldRedirectUnauthorized()) {
       window.location.assign('/login');
     }
 

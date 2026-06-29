@@ -15,6 +15,67 @@
   padding: 24px;
 }
 
+.user-role-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.user-role-stat-card {
+  display: flex;
+  min-height: 116px;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 12px 30px rgba(26, 29, 41, 0.05);
+  padding: 18px;
+}
+
+.user-role-stat-copy {
+  min-width: 0;
+}
+
+.user-role-stat-copy span,
+.user-role-stat-copy p {
+  margin: 0;
+  color: #6b7280;
+  font-size: 13px;
+  line-height: 18px;
+}
+
+.user-role-stat-copy span {
+  display: block;
+  font-weight: 600;
+}
+
+.user-role-stat-copy strong {
+  display: block;
+  margin-top: 8px;
+  color: #111827;
+  font-size: 30px;
+  font-weight: 600;
+  line-height: 36px;
+}
+
+.user-role-stat-copy p {
+  margin-top: 6px;
+}
+
+.user-role-stat-icon {
+  display: flex;
+  width: 44px;
+  height: 44px;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 44px;
+  border-radius: 8px;
+  color: #ffffff;
+}
+
 .user-management-tools {
   display: flex;
   align-items: flex-end;
@@ -394,6 +455,10 @@
   .user-management-tools {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .user-role-stat-grid {
+    grid-template-columns: 1fr;
   }
 
   .user-management-search {

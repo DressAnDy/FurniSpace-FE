@@ -1,5 +1,5 @@
-import { type FormEvent, useState } from 'react';
-import { IconEdit, IconEye, IconPlus, IconSearch, IconTrash, IconUser, IconX } from '@tabler/icons-react';
+import { type FormEvent, useMemo, useState } from 'react';
+import { IconBriefcase, IconEdit, IconEye, IconPlus, IconSearch, IconTrash, IconUser, IconUsers, IconX } from '@tabler/icons-react';
 
 import {
   ACCOUNT_ROLE_OPTIONS,
@@ -45,6 +45,16 @@ export function UserManagement() {
 
   const accounts = accountListQuery.data?.items ?? [];
   const totalAccounts = accountListQuery.data?.totalItems ?? accounts.length;
+  const roleStats = useMemo(() => {
+    const countRole = (roleName: string) =>
+      accounts.filter((account) => getAccountRoleName(account.roleId).toUpperCase() === roleName).length;
+
+    return [
+      { label: 'Customer', value: countRole('CUSTOMER'), icon: IconUsers, tone: 'blue' },
+      { label: 'Saler', value: countRole('SALES'), icon: IconBriefcase, tone: 'gold' },
+      { label: 'Design', value: countRole('DESIGNER'), icon: IconEdit, tone: 'violet' },
+    ];
+  }, [accounts]);
   const isFormOpen = isCreateModalOpen || Boolean(editingAccount);
   const formMode: AccountFormMode = editingAccount ? 'edit' : 'create';
   const isSubmitting = createAccountMutation.isPending || updateAccountMutation.isPending;
@@ -158,6 +168,21 @@ export function UserManagement() {
                 Create Staff Account
               </button>
             </div>
+
+            <section className="user-role-stat-grid" aria-label="Role overview">
+              {roleStats.map(({ label, value, icon: Icon, tone }) => (
+                <article key={label} className="user-role-stat-card">
+                  <div className="user-role-stat-copy">
+                    <span>{label}</span>
+                    <strong>{value}</strong>
+                    <p>Accounts in current view</p>
+                  </div>
+                  <div className={`user-role-stat-icon admin-tone-${tone}`}>
+                    <Icon size={22} />
+                  </div>
+                </article>
+              ))}
+            </section>
 
             <section className="admin-card user-management-card">
               <div className="user-management-tools">

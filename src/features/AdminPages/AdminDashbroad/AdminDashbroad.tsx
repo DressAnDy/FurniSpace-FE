@@ -1,22 +1,46 @@
 import type { ReactNode } from 'react';
-import { IconBriefcase, IconChartLine, IconCube, IconUsers } from '@tabler/icons-react';
+import {
+  IconBriefcase,
+  IconBuildingFactory,
+  IconChartLine,
+  IconClipboardCheck,
+  IconCube,
+  IconShoppingCartCheck,
+  IconTruckDelivery,
+} from '@tabler/icons-react';
 
 import { AdminNavbar, AdminSidebar } from '../admincomponents';
 import './AdminDashbroad.css';
 
 const stats = [
-  { label: 'Total Users', value: '1,248', delta: '+12%', icon: IconUsers, tone: 'blue' },
-  { label: 'Active Projects', value: '75', delta: '+8%', icon: IconBriefcase, tone: 'gold' },
-  { label: 'Total Products', value: '342', delta: '+18', icon: IconCube, tone: 'green' },
-  { label: 'Revenue This Month', value: '$245K', delta: '+23%', icon: IconChartLine, tone: 'amber' },
-  { label: 'Active Customers', value: '432' },
-  { label: 'Sales Consultants', value: '28' },
-  { label: 'Designers', value: '15' },
-  { label: 'Production Staff', value: '42' },
-  { label: 'Quotations Sent', value: '38' },
-  { label: 'Orders Confirmed', value: '52' },
-  { label: 'In Production', value: '15' },
-  { label: 'Ready For Delivery', value: '8' },
+  {
+    title: 'Project',
+    description: 'Pipeline and catalog coverage',
+    icon: IconBriefcase,
+    tone: 'gold',
+    metrics: [
+      { label: 'Active Projects', value: '75', delta: '+8%', icon: IconBriefcase, tone: 'gold' },
+      { label: 'Total Products', value: '342', delta: '+18', icon: IconCube, tone: 'blue' },
+    ],
+  },
+  {
+    title: 'Revenue ',
+    description: 'Monthly commercial performance',
+    icon: IconChartLine,
+    tone: 'green',
+    metrics: [{ label: 'Revenue This Month', value: '$245K', delta: '+23%', icon: IconChartLine, tone: 'green' }],
+  },
+  {
+    title: 'Order',
+    description: 'Confirmed and fulfillment status',
+    icon: IconShoppingCartCheck,
+    tone: 'dark-green',
+    metrics: [
+      { label: 'Orders Confirmed', value: '52', delta: '+11%', icon: IconShoppingCartCheck, tone: 'dark-green' },
+      { label: 'In Production', value: '15', delta: '+4', icon: IconBuildingFactory, tone: 'amber' },
+      { label: 'Ready For Delivery', value: '8', delta: '+2', icon: IconTruckDelivery, tone: 'cyan' },
+    ],
+  },
 ];
 
 const projectStatuses = [
@@ -75,19 +99,38 @@ export function AdminDashbroad() {
               <p>Overview of FurniSpace operations and metrics</p>
             </div>
 
-            <section className="admin-stat-grid">
-              {stats.map(({ label, value, delta, icon: Icon, tone }) => (
-                <article key={label} className="admin-stat-card">
-                  <div>
-                    <p>{label}</p>
-                    <strong>{value}</strong>
-                    {delta ? <span>+ {delta}</span> : null}
-                  </div>
-                  {Icon && tone ? (
-                    <div className={`admin-stat-icon admin-tone-${tone}`}>
-                      <Icon size={22} />
+            <section className="admin-stat-layer-grid">
+              {stats.map(({ title, description, icon: LayerIcon, tone, metrics }) => (
+                <article key={title} className="admin-stat-layer-card">
+                  <div className="admin-stat-layer-heading">
+                    <div>
+                      <h3>{title}</h3>
+                      <p>{description}</p>
                     </div>
-                  ) : null}
+                    <div className={`admin-stat-icon admin-tone-${tone}`}>
+                      <LayerIcon size={22} />
+                    </div>
+                  </div>
+
+                  <div className="admin-stat-metric-list">
+                    {metrics.map(({ label, value, delta, icon: Icon, tone: metricTone }) => (
+                      <div key={label} className="admin-stat-metric">
+                        <div className={`admin-stat-metric-icon admin-tone-${metricTone}`}>
+                          <Icon size={18} />
+                        </div>
+                        <div className="admin-stat-copy">
+                          <p>{label}</p>
+                          <strong>{value}</strong>
+                        </div>
+                        {delta ? (
+                          <span className="admin-stat-delta">
+                            <IconClipboardCheck size={14} />
+                            {delta}
+                          </span>
+                        ) : null}
+                      </div>
+                    ))}
+                  </div>
                 </article>
               ))}
             </section>

@@ -29,10 +29,15 @@ export function useLogin() {
   });
 }
 
-export function useCurrentUser() {
+type UseCurrentUserOptions = {
+  enabled?: boolean;
+};
+
+export function useCurrentUser(options: UseCurrentUserOptions = {}) {
   return useQuery({
     queryKey: ['auth', 'me'],
     queryFn: getCurrentUser,
+    enabled: options.enabled ?? true,
     retry: false,
     staleTime: 60_000,
     select: (result) => result.data,
