@@ -24,7 +24,7 @@ export function DesignerSchedules() {
     page: 1,
     limit: 50,
   });
-  const schedules = schedulesQuery.data?.items ?? [];
+  const schedules = useMemo(() => schedulesQuery.data?.items ?? [], [schedulesQuery.data?.items]);
   const updateScheduleStatusMutation = useUpdateProjectScheduleStatus();
   const projectIds = useMemo(() => Array.from(new Set(schedules.map((schedule) => schedule.projectId))), [schedules]);
   const projectQueries = useQueries({
@@ -64,89 +64,89 @@ export function DesignerSchedules() {
 
   return (
     <DesignerLayout activeLabel="My Schedule">
-      <section className="mb-7">
-        <h2 className="text-3xl font-semibold tracking-tight">Schedules</h2>
-        <p className="mt-2 text-sm text-zinc-500">
+      <section className="designer-schedules-header">
+        <h2>Schedules</h2>
+        <p>
           {schedulesQuery.isLoading ? 'Loading your assigned schedules...' : `${schedulesQuery.data?.total ?? 0} assigned schedules`}
         </p>
       </section>
 
-      <section className="designer-card mb-6 flex flex-wrap items-center gap-3 p-4">
-        <span className="text-xs font-semibold uppercase tracking-wide text-zinc-400">Type:</span>
+      <section className="designer-card designer-schedules-filters">
+        <span className="designer-schedules-filter-label">Type:</span>
         {scheduleTypeOptions.map((option) => (
-          <button className={scheduleType === option ? 'designer-pill px-4 py-2 text-xs font-semibold' : 'rounded-full border border-zinc-200 px-4 py-2 text-xs font-semibold text-zinc-600'} key={option} type="button" onClick={() => setScheduleType(option)}>
+          <button className={scheduleType === option ? 'designer-schedules-filter designer-schedules-filter-active' : 'designer-schedules-filter'} key={option} type="button" onClick={() => setScheduleType(option)}>
             {option === 'ALL' ? 'All' : formatEnumLabel(option)}
           </button>
         ))}
-        <span className="ml-0 text-xs font-semibold uppercase tracking-wide text-zinc-400 lg:ml-6">Status:</span>
+        <span className="designer-schedules-filter-label designer-schedules-status-label">Status:</span>
         {scheduleStatusOptions.map((option) => (
-          <button className={status === option ? 'designer-pill px-4 py-2 text-xs font-semibold' : 'rounded-full border border-zinc-200 px-4 py-2 text-xs font-semibold text-zinc-600'} key={option} type="button" onClick={() => setStatus(option)}>
+          <button className={status === option ? 'designer-schedules-filter designer-schedules-filter-active' : 'designer-schedules-filter'} key={option} type="button" onClick={() => setStatus(option)}>
             {option === 'ALL' ? 'All' : formatEnumLabel(option)}
           </button>
         ))}
       </section>
 
       {schedulesQuery.isError ? (
-        <section className="designer-card p-5 text-sm font-medium text-red-700">
+        <section className="designer-card designer-schedules-message designer-schedules-error">
           {getProjectScheduleServiceResultMessage(schedulesQuery.error)}
         </section>
       ) : null}
 
       {!schedulesQuery.isLoading && !schedulesQuery.isError && schedules.length === 0 ? (
-        <section className="designer-card p-5 text-sm font-medium text-zinc-500">
+        <section className="designer-card designer-schedules-message">
           You do not have assigned schedules yet.
         </section>
       ) : null}
 
       {statusMessage ? (
-        <section className={`designer-card mb-4 p-4 text-sm font-medium ${statusMessage.toLowerCase().includes('success') ? 'text-green-700' : 'text-red-700'}`}>
+        <section className={`designer-card designer-schedules-status-message ${statusMessage.toLowerCase().includes('success') ? 'designer-schedules-success' : 'designer-schedules-error'}`}>
           {statusMessage}
         </section>
       ) : null}
 
-      <section className="space-y-4">
+      <section className="designer-schedules-list">
         {schedules.map((schedule) => {
           const project = projectById[schedule.projectId];
 
           return (
-            <article className="designer-card p-5" key={schedule.scheduleId}>
-              <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
-                <div className="flex gap-4">
-                  <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-[#f4ead8] text-[#9a713b]">
+            <article className="designer-card designer-schedule-card" key={schedule.scheduleId}>
+              <div className="designer-schedule-card-layout">
+                <div className="designer-schedule-main">
+                  <span className="designer-schedule-icon">
                     <IconCalendarEvent size={22} />
                   </span>
                   <div>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <h3 className="text-base font-semibold text-zinc-950">{schedule.title ?? formatEnumLabel(schedule.scheduleType)}</h3>
-                      <span className="designer-pill px-3 py-1 text-[11px] font-semibold">{formatEnumLabel(schedule.scheduleType)}</span>
+                    <div className="designer-schedule-title-row">
+                      <h3>{schedule.title ?? formatEnumLabel(schedule.scheduleType)}</h3>
+                      <span className="designer-pill designer-schedule-type">{formatEnumLabel(schedule.scheduleType)}</span>
                     </div>
-                    <p className="mt-1 text-sm text-zinc-500">
+                    <p className="designer-schedule-project">
                       {project ? `${project.projectCode} - ${project.projectName}` : `Project ${schedule.projectId}`}
                     </p>
-                    {schedule.description ? <p className="mt-2 max-w-2xl text-sm leading-6 text-zinc-600">{schedule.description}</p> : null}
-                    <div className="mt-4 flex flex-wrap gap-4 text-xs font-medium text-zinc-500">
-                      <span className="inline-flex items-center gap-1.5">
+                    {schedule.description ? <p className="designer-schedule-description">{schedule.description}</p> : null}
+                    <div className="designer-schedule-meta-list">
+                      <span>
                         <IconClock size={15} />
                         {formatDateTimeRange(schedule.scheduledStart, schedule.scheduledEnd)}
                       </span>
                       {schedule.location ? (
-                        <span className="inline-flex items-center gap-1.5">
+                        <span>
                           <IconMapPin size={15} />
                           {schedule.location}
                         </span>
                       ) : null}
-                      <span className="inline-flex items-center gap-1.5">
+                      <span>
                         <IconUsers size={15} />
                         Assigned to you
                       </span>
                     </div>
                   </div>
                 </div>
-                <div className="flex items-center gap-3">
-                  <span className="rounded-full bg-zinc-100 px-3 py-1 text-xs font-semibold text-zinc-600">{formatEnumLabel(schedule.status)}</span>
+                <div className="designer-schedule-actions">
+                  <span className="designer-schedule-status">{formatEnumLabel(schedule.status)}</span>
                   {schedule.status === 'PENDING_CONFIRMATION' ? (
                     <button
-                      className="rounded-full bg-[#c7a15f] px-4 py-2 text-xs font-semibold text-zinc-950 disabled:cursor-not-allowed disabled:opacity-60"
+                      className="designer-schedule-confirm"
                       type="button"
                       disabled={updateScheduleStatusMutation.isPending}
                       onClick={() => void handleConfirmSchedule(schedule.scheduleId)}
@@ -154,7 +154,7 @@ export function DesignerSchedules() {
                       {updateScheduleStatusMutation.isPending ? 'Confirming...' : 'Confirm'}
                     </button>
                   ) : null}
-                  <Link className="rounded-full bg-[#1f1a17] px-4 py-2 text-xs font-semibold text-white no-underline" to={`/designer/assigned-projects/${schedule.projectId}`}>Open</Link>
+                  <Link className="designer-schedule-open" to={`/designer/assigned-projects/${schedule.projectId}`}>Open</Link>
                 </div>
               </div>
             </article>

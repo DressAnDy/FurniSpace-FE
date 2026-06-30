@@ -17,11 +17,13 @@ import { CustomerDashboardPage } from '@/features/CustomerPages/customerDashboar
 import { CustomerProjectListPage } from '@/features/CustomerPages/customerProjectList';
 import { CustomerProjectRequestPage } from '@/features/CustomerPages/customerProjectRequest';
 import { CustomerProposalDetailPage } from '@/features/CustomerPages/customerProposalDetail';
+import { CustomerSchedulesPage } from '@/features/CustomerPages/customerSchedules';
 import { HomePage } from '@/features/MainPages/home';
 import { ProductDetailPage } from '@/features/MainPages/productDetail';
 import { ProductListPreviewPage } from '@/features/MainPages/productListPreview';
 import { ProjectDetailPage } from '@/features/MainPages/projectDetail';
 import { ProjectListReviewPage } from '@/features/MainPages/projectListReview';
+import { ServicesPage } from '@/features/MainPages/services';
 import { UserProfilePage } from '@/features/MainPages/userProfile';
 import { ProjectDetail } from '@/features/SalePages/ProjectDetail';
 import { ProjectRequestQueue } from '@/features/SalePages/ProjectRequestQueue';
@@ -53,6 +55,7 @@ export default function App() {
             <Route path="/products/detail" element={<ProductDetailPage />} />
             <Route path="/projects" element={<ProjectListReviewPage />} />
             <Route path="/projects/detail" element={<ProjectDetailPage />} />
+            <Route path="/services" element={<ServicesPage />} />
             <Route path="/user-profile" element={<UserProfilePage />} />
             <Route path="/viewer3d" element={<ViewerDemoPage />} />
 
@@ -85,6 +88,7 @@ export default function App() {
               <Route path="/customer/dashboard" element={<CustomerDashboardPage />} />
               <Route path="/customer/projects" element={<CustomerProjectListPage />} />
               <Route path="/customer/project-request" element={<CustomerProjectRequestPage />} />
+              <Route path="/customer/schedules" element={<CustomerSchedulesPage />} />
               <Route path="/customer/proposals" element={<CustomerProposalDetailPage />} />
               <Route path="/customer/3d-preview" element={<Customer3dPreviewPage />} />
               <Route path="/customer/chat" element={<CustomerChatPage />} />
@@ -93,6 +97,7 @@ export default function App() {
               <Route path="/customer-3d-preview" element={<Navigate to="/customer/3d-preview" replace />} />
               <Route path="/customer-projects" element={<Navigate to="/customer/projects" replace />} />
               <Route path="/customer-project-request" element={<Navigate to="/customer/project-request" replace />} />
+              <Route path="/customer-schedules" element={<Navigate to="/customer/schedules" replace />} />
               <Route path="/customer-proposal-detail" element={<Navigate to="/customer/proposals" replace />} />
               <Route path="/customer-chat" element={<Navigate to="/customer/chat" replace />} />
             </Route>

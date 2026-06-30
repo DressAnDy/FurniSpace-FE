@@ -1,11 +1,24 @@
 import axios, { AxiosError } from 'axios';
 
+import { getStoredAccessToken } from './tokenStore';
+
 const projectApiClient = axios.create({
   baseURL: getProjectApiBaseUrl(),
   withCredentials: true,
-  headers: {
-    'Content-Type': 'application/json',
-  },
+});
+
+projectApiClient.interceptors.request.use((config) => {
+  const token = getStoredAccessToken();
+
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+
+  if (config.data instanceof FormData) {
+    clearMultipartContentType(config.headers);
+  }
+
+  return config;
 });
 
 projectApiClient.interceptors.response.use(
@@ -325,11 +338,7 @@ export async function uploadProjectFile(
     formData.append('note', options.note.trim());
   }
 
-  const response = await projectApiClient.post<ServiceResult<ProjectFileUploadResponseDto>>(`/projects/${projectId}/files`, formData, {
-    headers: {
-      'Content-Type': 'multipart/form-data',
-    },
-  });
+  const response = await projectApiClient.post<ServiceResult<ProjectFileUploadResponseDto>>(`/projects/${projectId}/files`, formData);
 
   return response.data.data;
 }
@@ -382,4 +391,25 @@ function getProjectApiBaseUrl() {
   const configuredApiUrl = import.meta.env.VITE_API_BASE_URL ?? import.meta.env.VITE_API_URL;
 
   return configuredApiUrl?.replace(/\/api\/?$/, '');
+}
+
+function clearMultipartContentType(headers: unknown) {
+  const headerBag = headers as {
+    set?: (name: string, value?: string | false) => void;
+    [key: string]: unknown;
+  };
+
+  if (typeof headerBag.delete === 'function') {
+    headerBag.delete('Content-Type');
+    headerBag.delete('content-type');
+    return;
+  }
+
+  if (typeof headerBag.set === 'function') {
+    headerBag.set('Content-Type', false);
+    return;
+  }
+
+  delete headerBag['Content-Type'];
+  delete headerBag['content-type'];
 }

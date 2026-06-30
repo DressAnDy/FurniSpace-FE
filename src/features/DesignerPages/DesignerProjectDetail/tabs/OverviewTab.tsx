@@ -23,12 +23,12 @@ export function OverviewTab({ project }: OverviewTabProps) {
 
   return (
     <div className="designer-project-detail-panel">
-      <section className="designer-card p-6">
-        <header className="mb-6">
-          <h3 className="text-lg font-semibold text-zinc-950">Project Information</h3>
-          <p className="mt-1 text-sm text-zinc-500">Core project brief shared by sales and customer.</p>
+      <section className="designer-card designer-project-section-card">
+        <header className="designer-project-section-header">
+          <h3>Project Information</h3>
+          <p>Core project brief shared by sales and customer.</p>
         </header>
-        <div className="grid gap-x-10 gap-y-5 md:grid-cols-2 xl:grid-cols-4">
+        <div className="designer-project-info-grid">
           {projectInformation.map(([label, value]) => (
             <div className="designer-project-detail-info" key={label}>
               <span>{label}</span>
@@ -38,12 +38,12 @@ export function OverviewTab({ project }: OverviewTabProps) {
         </div>
       </section>
 
-      <section className="designer-card p-6">
-        <header className="mb-6">
-          <h3 className="text-lg font-semibold text-zinc-950">Customer Requirements</h3>
+      <section className="designer-card designer-project-section-card">
+        <header className="designer-project-section-header">
+          <h3>Customer Requirements</h3>
         </header>
         {requirements.length > 0 ? (
-          <div className="space-y-5">
+          <div className="designer-project-requirements-list">
             {requirements.map(([label, value]) => (
               <div className="designer-project-detail-text-block" key={label}>
                 <span>{label}</span>
@@ -52,7 +52,7 @@ export function OverviewTab({ project }: OverviewTabProps) {
             ))}
           </div>
         ) : (
-          <p className="m-0 text-sm text-zinc-500">No additional customer requirements have been provided yet.</p>
+          <p className="designer-project-empty-text">No additional customer requirements have been provided yet.</p>
         )}
       </section>
     </div>
