@@ -499,7 +499,6 @@ export async function uploadProductPreviewFile(
       options.onUploadProgress(progressPercent);
     },
   });
-  const response = await productApiClient.post<ServiceResult<CatalogFileUploadResponseDto>>(`/products/${productId}/files`, formData);
 
   return response.data.data;
 }
