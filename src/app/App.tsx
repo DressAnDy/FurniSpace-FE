@@ -6,6 +6,7 @@ import { queryClient } from '@/app/providers/queryClient';
 import { theme } from '@/app/providers/theme';
 import { CodeVerifyPage, LoginPage, RegisterPage } from '@/features/auth';
 import { AdminDashbroad } from '@/features/AdminPages/AdminDashbroad';
+import { AdminThreeDLabPage } from '@/features/AdminPages/AdminThreeDLab';
 import { Categorymanagement } from '@/features/AdminPages/Categorymanagement';
 import { CreateProductPage, CreateProductVersionPage, Productmanagement, ProductVersionManagement } from '@/features/AdminPages/Productmanagement';
 import { UserManagement } from '@/features/AdminPages/UserManagement';
@@ -80,6 +81,7 @@ export default function App() {
             <Route path="/admin/products/:productId/versions/create" element={<CreateProductVersionPage />} />
             <Route path="/admin/catalog/models" element={<CatalogModelManagementPage />} />
             <Route path="/admin/catalog/models/:productId/:productVersionId" element={<ProductModelWorkspacePage />} />
+            <Route path="/admin/3d-lab" element={<AdminThreeDLabPage />} />
             <Route path="/admin-dashbroad" element={<Navigate to="/admin/dashbroad" replace />} />
             <Route path="/admin-user-management" element={<Navigate to="/admin/users" replace />} />
             <Route path="/admin-category-management" element={<Navigate to="/admin/categories" replace />} />

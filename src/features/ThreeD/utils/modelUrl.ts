@@ -36,3 +36,19 @@ export function isSupportedModelUrl(url: string) {
 
   return /\.(glb|gltf)$/i.test(pathname);
 }
+
+export function isFirebaseStorageModelUrl(url: string) {
+  return /firebasestorage\.googleapis\.com|\.firebasestorage\.app/i.test(url);
+}
+
+export function getModelLoadErrorMessage(cause: unknown, modelUrl?: string) {
+  const rawMessage = cause instanceof Error ? cause.message : 'Unable to load 3D model.';
+  const maybeCorsBlocked = modelUrl && isFirebaseStorageModelUrl(modelUrl) &&
+    /failed|network|load|cors|xmlhttprequest|fetch/i.test(rawMessage);
+
+  if (maybeCorsBlocked) {
+    return 'Cannot load this Firebase Storage MODEL_3D because the bucket CORS policy does not allow this app origin. Add http://localhost:5173 to Firebase Storage CORS, then reload and try again.';
+  }
+
+  return rawMessage;
+}

@@ -36,6 +36,7 @@ import {
   getWallLength,
   getWallNormal,
 } from '@/features/ThreeD/utils/roomGeometry';
+import { getModelLoadErrorMessage } from '@/features/ThreeD/utils/modelUrl';
 
 export type RoomPreview3DProps = {
   comparisonProductId?: string | null;
@@ -48,6 +49,7 @@ export type RoomPreview3DProps = {
     position: PlacedProduct3D['position'],
     placementUpdate?: ProductPlacementUpdate,
   ) => void;
+  onProductLoadError?: (productId: string, message: string) => void;
   onProductSelect?: (productId: string | null, additive: boolean) => void;
   placedProducts?: PlacedProduct3D[];
   readOnly?: boolean;
@@ -75,6 +77,7 @@ export type Vector3State = {
 };
 
 export type PlacedProduct3D = {
+  fileId?: string;
   heightOffset?: number;
   id: string;
   mountedWallId?: string | null;
@@ -83,8 +86,10 @@ export type PlacedProduct3D = {
   placementMode?: ProductPlacementMode;
   position: Vector3State;
   productId?: string;
+  productVersionId?: string;
   rotation?: Vector3State;
   scale?: Vector3State;
+  source?: 'api' | 'local' | 'uploaded';
   supportObjectId?: string | null;
 };
 
@@ -117,6 +122,61 @@ type WallCutout = {
   opening: RoomOpeningItem;
   start: number;
 };
+
+function getProductRootGroundOffsetY(root: TransformNode) {
+  const localGroundOffsetY = Number(root.metadata?.localGroundOffsetY ?? 0);
+
+  return localGroundOffsetY * root.scaling.y;
+}
+
+function setProductRootPosition(root: TransformNode, position: Vector3State) {
+  root.position = new Vector3(
+    position.x,
+    position.y + getProductRootGroundOffsetY(root),
+    position.z,
+  );
+}
+
+function getProductAnchorPosition(root: TransformNode): Vector3State {
+  return {
+    x: root.position.x,
+    y: root.position.y - getProductRootGroundOffsetY(root),
+    z: root.position.z,
+  };
+}
+
+function getProductMeshBounds(scene: Scene, productId: string) {
+  const modelMeshes = scene.meshes.filter(
+    (mesh) =>
+      mesh.metadata?.source === 'product-preview' &&
+      mesh.metadata?.productId === productId &&
+      !mesh.metadata?.interactionProxy &&
+      mesh.getTotalVertices() > 0,
+  );
+
+  if (!modelMeshes.length) {
+    return null;
+  }
+
+  modelMeshes.forEach((mesh) => {
+    mesh.computeWorldMatrix(true);
+  });
+
+  return modelMeshes.reduce(
+    (currentBounds, mesh) => {
+      const boundingBox = mesh.getBoundingInfo().boundingBox;
+
+      return {
+        max: Vector3.Maximize(currentBounds.max, boundingBox.maximumWorld),
+        min: Vector3.Minimize(currentBounds.min, boundingBox.minimumWorld),
+      };
+    },
+    {
+      max: modelMeshes[0].getBoundingInfo().boundingBox.maximumWorld.clone(),
+      min: modelMeshes[0].getBoundingInfo().boundingBox.minimumWorld.clone(),
+    },
+  );
+}
 
 function createMaterial(
   scene: Scene,
@@ -477,7 +537,7 @@ async function loadProductPreview(scene: Scene, product: PlacedProduct3D) {
   const currentRoot = getProductRoot(scene, product.id);
 
   if (currentRoot) {
-    currentRoot.position = new Vector3(product.position.x, product.position.y, product.position.z);
+    setProductRootPosition(currentRoot, product.position);
     return currentRoot;
   }
 
@@ -511,6 +571,17 @@ async function loadProductPreview(scene: Scene, product: PlacedProduct3D) {
       source: 'product-preview',
     };
   });
+  const bounds = getProductMeshBounds(scene, product.id);
+
+  if (bounds) {
+    const scaleY = root.scaling.y || 1;
+    root.metadata = {
+      ...(root.metadata ?? {}),
+      localGroundOffsetY: (root.position.y - bounds.min.y) / scaleY,
+    };
+  }
+
+  setProductRootPosition(root, product.position);
   createProductInteractionProxy(scene, root, product.id, product.modelName);
 
   return root;
@@ -522,47 +593,28 @@ function createProductInteractionProxy(
   productId: string,
   productName: string,
 ) {
-  const modelMeshes = scene.meshes.filter(
-    (mesh) =>
-      mesh.metadata?.source === 'product-preview' &&
-      mesh.metadata?.productId === productId &&
-      !mesh.metadata?.interactionProxy &&
-      mesh.getTotalVertices() > 0,
-  );
+  const bounds = getProductMeshBounds(scene, productId);
 
-  if (!modelMeshes.length) {
+  if (!bounds) {
     return;
   }
 
-  modelMeshes.forEach((mesh) => {
-    mesh.computeWorldMatrix(true);
-  });
-
-  const bounds = modelMeshes.reduce(
-    (currentBounds, mesh) => {
-      const boundingBox = mesh.getBoundingInfo().boundingBox;
-
-      return {
-        max: Vector3.Maximize(currentBounds.max, boundingBox.maximumWorld),
-        min: Vector3.Minimize(currentBounds.min, boundingBox.minimumWorld),
-      };
-    },
-    {
-      max: modelMeshes[0].getBoundingInfo().boundingBox.maximumWorld.clone(),
-      min: modelMeshes[0].getBoundingInfo().boundingBox.minimumWorld.clone(),
-    },
-  );
   const size = bounds.max.subtract(bounds.min);
   const center = bounds.min.add(size.scale(0.5));
   const rootWorldMatrix = root.getWorldMatrix();
   const rootWorldMatrixInverted = rootWorldMatrix.clone().invert();
   const centerLocal = Vector3.TransformCoordinates(center, rootWorldMatrixInverted);
+  const localSize = new Vector3(
+    size.x / Math.max(Math.abs(root.scaling.x), 0.0001),
+    size.y / Math.max(Math.abs(root.scaling.y), 0.0001),
+    size.z / Math.max(Math.abs(root.scaling.z), 0.0001),
+  );
   const proxy = MeshBuilder.CreateBox(
     `product-preview-${productId}-interaction-proxy`,
     {
-      depth: Math.max(size.z, 0.04),
-      height: Math.max(size.y, 0.04),
-      width: Math.max(size.x, 0.04),
+      depth: Math.max(localSize.z, 0.04),
+      height: Math.max(localSize.y, 0.04),
+      width: Math.max(localSize.x, 0.04),
     },
     scene,
   );
@@ -589,9 +641,9 @@ function createProductInteractionProxy(
       centerOffsetX: centerLocal.x,
       centerOffsetY: centerLocal.y,
       centerOffsetZ: centerLocal.z,
-      halfX: Math.max(size.x / 2, 0.02),
-      halfY: Math.max(size.y / 2, 0.02),
-      halfZ: Math.max(size.z / 2, 0.02),
+      halfX: Math.max(localSize.x / 2, 0.02),
+      halfY: Math.max(localSize.y / 2, 0.02),
+      halfZ: Math.max(localSize.z / 2, 0.02),
     } satisfies ProductFootprint,
   };
 }
@@ -650,7 +702,7 @@ function getProductFootprint(root: TransformNode | undefined) {
 
   return {
     centerOffsetX: footprint.centerOffsetX * root.scaling.x,
-    centerOffsetY: footprint.centerOffsetY * root.scaling.y,
+    centerOffsetY: getProductRootGroundOffsetY(root) + footprint.centerOffsetY * root.scaling.y,
     centerOffsetZ: footprint.centerOffsetZ * root.scaling.z,
     halfX: footprint.halfX * Math.abs(root.scaling.x),
     halfY: footprint.halfY * Math.abs(root.scaling.y),
@@ -935,6 +987,7 @@ function syncProductPreviews(
   layout: RoomLayoutState | null,
   onProductMove?: RoomPreview3DProps['onProductMove'],
   onProductReady?: () => void,
+  onProductLoadError?: RoomPreview3DProps['onProductLoadError'],
 ) {
   const nextProductIds = new Set(products.map((product) => product.id));
 
@@ -961,7 +1014,7 @@ function syncProductPreviews(
       const nextPosition = layout && product.placementMode !== 'WALL_MOUNTED'
         ? getNearestValidProductPosition(scene, product.id, product.position, layout) ?? product.position
         : product.position;
-      root.position = new Vector3(nextPosition.x, nextPosition.y, nextPosition.z);
+      setProductRootPosition(root, nextPosition);
 
       if (layout && !arePositionsEqual(nextPosition, product.position)) {
         onProductMove?.(product.id, nextPosition);
@@ -986,13 +1039,15 @@ function syncProductPreviews(
         return;
       }
 
-      loadedRoot.position = new Vector3(nextPosition.x, nextPosition.y, nextPosition.z);
+      setProductRootPosition(loadedRoot, nextPosition);
 
       if (!arePositionsEqual(nextPosition, product.position)) {
         onProductMove?.(product.id, nextPosition);
       }
 
       onProductReady?.();
+    }).catch((cause) => {
+      onProductLoadError?.(product.id, getModelLoadErrorMessage(cause, product.modelUrl));
     });
   });
 }
@@ -1074,6 +1129,7 @@ export function RoomPreview3D({
   layout,
   onMeasurementsChange,
   onProductDrop,
+  onProductLoadError,
   onProductMove,
   onProductSelect,
   placedProducts = [],
@@ -1086,6 +1142,7 @@ export function RoomPreview3D({
   const dragProductRef = useRef<DragProductState | null>(null);
   const layoutRef = useRef(layout);
   const onProductDropRef = useRef(onProductDrop);
+  const onProductLoadErrorRef = useRef(onProductLoadError);
   const onProductMoveRef = useRef(onProductMove);
   const onProductSelectRef = useRef(onProductSelect);
   const onMeasurementsChangeRef = useRef(onMeasurementsChange);
@@ -1100,6 +1157,10 @@ export function RoomPreview3D({
   useEffect(() => {
     onProductDropRef.current = onProductDrop;
   }, [onProductDrop]);
+
+  useEffect(() => {
+    onProductLoadErrorRef.current = onProductLoadError;
+  }, [onProductLoadError]);
 
   useEffect(() => {
     onProductMoveRef.current = onProductMove;
@@ -1168,7 +1229,14 @@ export function RoomPreview3D({
       return;
     }
 
-    syncProductPreviews(scene, placedProducts, layoutRef.current, onProductMoveRef.current, refreshMeasurements);
+    syncProductPreviews(
+      scene,
+      placedProducts,
+      layoutRef.current,
+      onProductMoveRef.current,
+      refreshMeasurements,
+      onProductLoadErrorRef.current,
+    );
     refreshMeasurements();
   }, [placedProducts, refreshMeasurements]);
 
@@ -1353,16 +1421,8 @@ export function RoomPreview3D({
                 placementMode,
                 pointerStartY: pointerInfo.event.clientY,
                 productId,
-                position: {
-                  x: productRoot?.position.x ?? 0,
-                  y: productRoot?.position.y ?? 0,
-                  z: productRoot?.position.z ?? 0,
-                },
-                startPosition: {
-                  x: productRoot?.position.x ?? 0,
-                  y: productRoot?.position.y ?? 0,
-                  z: productRoot?.position.z ?? 0,
-                },
+                position: productRoot ? getProductAnchorPosition(productRoot) : { x: 0, y: 0, z: 0 },
+                startPosition: productRoot ? getProductAnchorPosition(productRoot) : { x: 0, y: 0, z: 0 },
               };
               camera.detachControl();
               canvas.style.cursor = 'grabbing';
@@ -1458,7 +1518,7 @@ export function RoomPreview3D({
               }
 
               if (root) {
-                root.position = new Vector3(nextPosition.x, nextPosition.y, nextPosition.z);
+                setProductRootPosition(root, nextPosition);
               }
 
               dragProductRef.current = {
@@ -1498,7 +1558,14 @@ export function RoomPreview3D({
 
           if (layout) {
             buildRoomPreview(scene, layout, floorMaterial, wallMaterial);
-            syncProductPreviews(scene, placedProducts, layout, onProductMoveRef.current, refreshMeasurements);
+            syncProductPreviews(
+              scene,
+              placedProducts,
+              layout,
+              onProductMoveRef.current,
+              refreshMeasurements,
+              onProductLoadErrorRef.current,
+            );
             frameRoom(camera, layout);
           }
         }}

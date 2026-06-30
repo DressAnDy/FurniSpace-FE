@@ -137,8 +137,20 @@ export function useUploadProductVersionFile(productId?: string) {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (input: { productVersionId: string; file: File; fileType?: ProductVersionFileType; description?: string | null }) =>
-      uploadProductVersionFile(input.productVersionId, input.file, input.fileType, input.description),
+    mutationFn: (input: {
+      description?: string | null;
+      file: File;
+      fileType?: ProductVersionFileType;
+      productVersionId: string;
+      skipAuthRedirect?: boolean;
+    }) =>
+      uploadProductVersionFile(
+        input.productVersionId,
+        input.file,
+        input.fileType,
+        input.description,
+        { skipAuthRedirect: input.skipAuthRedirect },
+      ),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: productQueryKeys.all });
 

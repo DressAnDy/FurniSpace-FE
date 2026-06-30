@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { type ChangeEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import { IconMenu2, IconSearch, IconX } from '@tabler/icons-react';
-import { Link as RouterLink, useParams } from 'react-router-dom';
+import { Link as RouterLink, useLocation, useParams } from 'react-router-dom';
 
 import { BlueprintCanvas } from '@/features/ThreeD/components/BlueprintCanvas';
 import { ModelViewer } from '@/features/ThreeD/components/ModelViewer';
@@ -34,6 +34,17 @@ import {
   normalizeDoorAndOpeningDimensions,
   updateWallDefaults,
 } from '@/features/ThreeD/utils/roomGeometry';
+import {
+  getProductById,
+  getProducts,
+  getProductServiceResultMessage,
+  type CatalogFileDto,
+  type ProductDetailDto,
+  type ProductVersionDto,
+} from '@/services/api';
+import {
+  useUploadProductVersionFile,
+} from '@/services/queries';
 
 import './ThreeDTestPage.css';
 
@@ -41,12 +52,17 @@ type ViewMode = '2d' | '3d';
 type DesignPanel = 'products' | 'floor' | 'wall' | null;
 
 type ProductModel = {
+  fileId?: string;
   id: string;
   missingReferences?: string[];
   modelUrl: string;
   name: string;
+  productVersionId?: string;
+  source?: 'api' | 'local' | 'uploaded';
   thumbnailUrl: string;
 };
+
+const SAMPLE_GLB_MODEL_URL = '/models/3d-glb/0nNpYUIydlKJF-S5CcySF.glb';
 
 const PLACEMENT_MODES: Array<{
   label: string;
@@ -57,6 +73,7 @@ const PLACEMENT_MODES: Array<{
   { label: 'Wall Mounted', value: 'WALL_MOUNTED' },
   { label: 'Custom Height', value: 'CUSTOM_HEIGHT' },
 ];
+const API_PRODUCT_DEFAULT_SCALE = 5;
 
 function getDefaultVector3(value: Partial<Vector3State> | undefined, fallback: Vector3State): Vector3State {
   return {
@@ -72,6 +89,14 @@ function getProductRotation(product: PlacedProduct3D) {
 
 function getProductScale(product: PlacedProduct3D) {
   return getDefaultVector3(product.scale, { x: 1, y: 1, z: 1 });
+}
+
+function getInitialProductScale(product: ProductModel): Vector3State {
+  const scale = product.source === 'api' || product.source === 'uploaded'
+    ? API_PRODUCT_DEFAULT_SCALE
+    : 1;
+
+  return { x: scale, y: scale, z: scale };
 }
 
 function toDegrees(radians: number) {
@@ -124,9 +149,50 @@ const FALLBACK_PRODUCT_MODELS: ProductModel[] = [
     id: 'fallback-metal-stool',
     modelUrl: '/models/3d-test/chair01/metal_stool_02_4k.gltf',
     name: 'Metal Stool',
+    source: 'local',
     thumbnailUrl: '/models/3d-test/thumbnails/placeholder-product.svg',
   },
 ];
+
+function getCatalogModelFile(files: CatalogFileDto[] | undefined) {
+  return files?.find((file) => file.fileType === 'MODEL_3D') ?? null;
+}
+
+function getVersionThumbnail(product: ProductDetailDto, version: ProductVersionDto) {
+  return version.thumbnail?.fileUrl ??
+    product.thumbnail?.fileUrl ??
+    version.files?.find((file) => file.fileType === 'PRODUCT_PREVIEW')?.fileUrl ??
+    '/models/3d-test/thumbnails/placeholder-product.svg';
+}
+
+function mapCatalogVersionToModel(product: ProductDetailDto, version: ProductVersionDto): ProductModel | null {
+  const modelFile = getCatalogModelFile(version.files);
+
+  if (!modelFile?.fileUrl) {
+    return null;
+  }
+
+  return {
+    fileId: modelFile.fileId,
+    id: `api-${version.productVersionId}`,
+    modelUrl: modelFile.fileUrl,
+    name: `${product.productName} - ${version.versionName}`,
+    productVersionId: version.productVersionId,
+    source: 'api',
+    thumbnailUrl: getVersionThumbnail(product, version),
+  };
+}
+
+function mergeProductModels(...groups: ProductModel[][]) {
+  const models = new Map<string, ProductModel>();
+
+  groups.flat().forEach((model) => {
+    const key = model.productVersionId ? `version-${model.productVersionId}` : model.id;
+    models.set(key, model);
+  });
+
+  return [...models.values()];
+}
 
 const TOOL_ITEMS: Array<{
   id: BlueprintTool;
@@ -255,7 +321,10 @@ function CommitNumberInput({ fallback, min, onCommit, step, value }: CommitNumbe
 
 export function ThreeDTestPage() {
   const { sceneId } = useParams();
+  const location = useLocation();
   const isProposalScene = Boolean(sceneId);
+  const isAdminLab = location.pathname.startsWith('/admin/3d-lab');
+  const uploadModelMutation = useUploadProductVersionFile();
   const [activeTool, setActiveTool] = useState<BlueprintTool>('select');
   const [hideLabels, setHideLabels] = useState(false);
   const [layout, setLayout] = useState<RoomLayoutState | null>(() => (
@@ -284,6 +353,11 @@ export function ThreeDTestPage() {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [panelSearch, setPanelSearch] = useState('');
   const [productModels, setProductModels] = useState<ProductModel[]>(FALLBACK_PRODUCT_MODELS);
+  const [apiProductModels, setApiProductModels] = useState<ProductModel[]>([]);
+  const [catalogModelMessage, setCatalogModelMessage] = useState('Loading catalog MODEL_3D files...');
+  const [uploadedProductModels, setUploadedProductModels] = useState<ProductModel[]>([]);
+  const [modelUploadProductVersionId, setModelUploadProductVersionId] = useState('');
+  const [modelUploadMessage, setModelUploadMessage] = useState('');
   const [saveMessage, setSaveMessage] = useState('');
   const [selectedItem, setSelectedItem] = useState<SelectedRoomItem | null>(null);
   const [comparisonProductId, setComparisonProductId] = useState<string | null>(null);
@@ -325,18 +399,142 @@ export function ThreeDTestPage() {
     () => placedProducts.find((product) => product.id === selectedProductId) ?? null,
     [placedProducts, selectedProductId],
   );
+  const availableProductModels = useMemo(
+    () => mergeProductModels(uploadedProductModels, apiProductModels, productModels),
+    [apiProductModels, productModels, uploadedProductModels],
+  );
   const filteredProductModels = useMemo(() => {
     const normalizedSearch = panelSearch.trim().toLowerCase();
 
     return normalizedSearch
-      ? productModels.filter((product) => product.name.toLowerCase().includes(normalizedSearch))
-      : productModels;
-  }, [panelSearch, productModels]);
+      ? availableProductModels.filter((product) => product.name.toLowerCase().includes(normalizedSearch))
+      : availableProductModels;
+  }, [availableProductModels, panelSearch]);
 
   const openDesignPanel = useCallback((panel: Exclude<DesignPanel, null>) => {
     setDesignPanel(panel);
     setIsSidebarCollapsed(false);
     setPanelSearch('');
+  }, []);
+
+  const addUploadedProductModel = useCallback((model: ProductModel) => {
+    setUploadedProductModels((currentModels) => mergeProductModels([model], currentModels));
+  }, []);
+
+  const uploadModelFile = useCallback(async (file: File) => {
+    const productVersionId = modelUploadProductVersionId.trim();
+
+    if (!productVersionId) {
+      setModelUploadMessage('Enter a Product Version ID before uploading a MODEL_3D file.');
+      return;
+    }
+
+    setModelUploadMessage('Uploading MODEL_3D file...');
+
+    try {
+      const uploadedFile = await uploadModelMutation.mutateAsync({
+        description: '3D Lab uploaded MODEL_3D',
+        file,
+        fileType: 'MODEL_3D',
+        productVersionId,
+        skipAuthRedirect: true,
+      });
+      const uploadedModel: ProductModel = {
+        fileId: uploadedFile.fileId,
+        id: `uploaded-${uploadedFile.referenceId}-${uploadedFile.fileId}`,
+        modelUrl: uploadedFile.fileUrl,
+        name: uploadedFile.originalFileName.replace(/\.(glb|gltf)$/i, '') || 'Uploaded 3D Model',
+        productVersionId: uploadedFile.referenceId,
+        source: 'uploaded',
+        thumbnailUrl: '/models/3d-test/thumbnails/placeholder-product.svg',
+      };
+
+      addUploadedProductModel(uploadedModel);
+      setModelUploadMessage('MODEL_3D uploaded and added to Shop by Category.');
+    } catch (error) {
+      setModelUploadMessage(getProductServiceResultMessage(error));
+    }
+  }, [addUploadedProductModel, modelUploadProductVersionId, uploadModelMutation]);
+
+  const handleModelUploadChange = useCallback(async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+
+    if (file) {
+      await uploadModelFile(file);
+    }
+
+    event.target.value = '';
+  }, [uploadModelFile]);
+
+  const handleUploadSampleModel = useCallback(async () => {
+    try {
+      setModelUploadMessage('Preparing sample GLB file...');
+      const response = await fetch(SAMPLE_GLB_MODEL_URL);
+
+      if (!response.ok) {
+        throw new Error(`Sample model request failed with ${response.status}.`);
+      }
+
+      const blob = await response.blob();
+      const sampleFile = new File([blob], 'furnispace-sample-model.glb', {
+        type: blob.type || 'model/gltf-binary',
+      });
+
+      await uploadModelFile(sampleFile);
+    } catch (error) {
+      setModelUploadMessage(error instanceof Error ? error.message : 'Cannot prepare sample GLB file.');
+    }
+  }, [uploadModelFile]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadCatalogModels() {
+      try {
+        setCatalogModelMessage('Loading catalog MODEL_3D files...');
+
+        const limit = 100;
+        let page = 1;
+        let total = 0;
+        const productIds: string[] = [];
+
+        do {
+          const productList = await getProducts({ page, limit });
+          total = productList.total;
+          productIds.push(...productList.items.map((product) => product.productId));
+          page += 1;
+        } while (productIds.length < total);
+
+        const productDetails = await Promise.all(
+          productIds.map((productId) => getProductById(productId)),
+        );
+        const models = productDetails.flatMap((product) =>
+          product.versions
+            .map((version) => mapCatalogVersionToModel(product, version))
+            .filter((model): model is ProductModel => Boolean(model)),
+        );
+
+        if (isMounted) {
+          setApiProductModels(models);
+          setCatalogModelMessage(
+            models.length
+              ? `Loaded ${models.length} catalog MODEL_3D file(s).`
+              : 'No catalog MODEL_3D files found. Local test models are still available.',
+          );
+        }
+      } catch (error) {
+        if (isMounted) {
+          setApiProductModels([]);
+          setCatalogModelMessage(`${getProductServiceResultMessage(error)} Local test models are still available.`);
+        }
+      }
+    }
+
+    void loadCatalogModels();
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   useEffect(() => {
@@ -432,14 +630,17 @@ export function ThreeDTestPage() {
       sceneObjects: placedProducts.map((product) => ({
         heightOffset: product.heightOffset ?? product.position.y,
         mountedWallId: product.mountedWallId ?? null,
+        modelFileId: product.fileId ?? null,
         modelName: product.modelName,
         modelUrl: product.modelUrl,
         placementMode: product.placementMode ?? 'FLOOR',
         position: product.position,
         productId: product.productId ?? null,
+        productVersionId: product.productVersionId ?? null,
         rotation: getProductRotation(product),
         scale: getProductScale(product),
         sceneObjectId: product.id,
+        source: product.source ?? 'local',
         supportObjectId: product.supportObjectId ?? null,
       })),
       materials: {
@@ -523,9 +724,11 @@ export function ThreeDTestPage() {
 
     setPlacedProducts((currentProducts) => {
       const nextIndex = currentProducts.length;
+      const initialScale = getInitialProductScale(product);
       return [
         ...currentProducts,
         {
+          fileId: product.fileId,
           heightOffset: position?.y ?? 0,
           id: `product-${String(nextIndex + 1).padStart(3, '0')}`,
           mountedWallId: null,
@@ -534,8 +737,10 @@ export function ThreeDTestPage() {
           placementMode: 'FLOOR',
           position: position ?? getProductPositionInsideRoom(layout, nextIndex),
           productId: product.id,
+          productVersionId: product.productVersionId,
           rotation: { x: 0, y: 0, z: 0 },
-          scale: { x: 1, y: 1, z: 1 },
+          scale: initialScale,
+          source: product.source,
           supportObjectId: null,
         },
       ];
@@ -547,14 +752,14 @@ export function ThreeDTestPage() {
   }, [layout, placedProducts.length]);
 
   const handleProductDrop = useCallback((productModelId: string, position: PlacedProduct3D['position']) => {
-    const product = productModels.find((model) => model.id === productModelId);
+    const product = availableProductModels.find((model) => model.id === productModelId);
 
     if (!product) {
       return;
     }
 
     handleAddProduct(product, position);
-  }, [handleAddProduct, productModels]);
+  }, [availableProductModels, handleAddProduct]);
 
   const handleProductMove = useCallback((
     productId: string,
@@ -727,8 +932,8 @@ export function ThreeDTestPage() {
           <button type="button" onClick={() => setViewMode(viewMode === '2d' ? '3d' : '2d')}>
             {viewMode === '2d' ? 'Switch to 3D' : 'Back to 2D'}
           </button>
-          <RouterLink to={isProposalScene ? `/designer/projects/${MOCK_PROJECT.projectId}/proposals/${MOCK_PROPOSAL.proposalId}` : '/'}>
-            {isProposalScene ? 'Back to Proposal' : 'Back home'}
+          <RouterLink to={isProposalScene ? `/designer/projects/${MOCK_PROJECT.projectId}/proposals/${MOCK_PROPOSAL.proposalId}` : isAdminLab ? '/admin/dashbroad' : '/'}>
+            {isProposalScene ? 'Back to Proposal' : isAdminLab ? 'Back to Admin' : 'Back home'}
           </RouterLink>
         </div>
       </header>
@@ -865,6 +1070,41 @@ export function ThreeDTestPage() {
               <section className="design-panel-section">
                 <div className="room-product-sidebar-heading">
                   <strong>Shop by Category</strong>
+                </div>
+                <div className="model-upload-card">
+                  <div>
+                    <strong>Upload MODEL_3D</strong>
+                    <span>Attach a GLB/glTF file to a Product Version, then use it like a catalog product.</span>
+                  </div>
+                  <label>
+                    <span>Product Version ID</span>
+                    <input
+                      placeholder="Paste productVersionId"
+                      type="text"
+                      value={modelUploadProductVersionId}
+                      onChange={(event) => setModelUploadProductVersionId(event.target.value)}
+                    />
+                  </label>
+                  <div className="model-upload-actions">
+                    <label className={uploadModelMutation.isPending ? 'is-disabled' : ''}>
+                      Upload GLB/glTF
+                      <input
+                        accept=".glb,.gltf,model/gltf-binary,model/gltf+json"
+                        disabled={uploadModelMutation.isPending}
+                        type="file"
+                        onChange={(event) => void handleModelUploadChange(event)}
+                      />
+                    </label>
+                    <button
+                      disabled={uploadModelMutation.isPending}
+                      type="button"
+                      onClick={() => void handleUploadSampleModel()}
+                    >
+                      Upload sample
+                    </button>
+                  </div>
+                  {catalogModelMessage && <small>{catalogModelMessage}</small>}
+                  {modelUploadMessage && <small>{modelUploadMessage}</small>}
                 </div>
                 <div className="product-catalog-list">
                   {filteredProductModels.map((product) => {
@@ -1005,6 +1245,10 @@ export function ThreeDTestPage() {
               layout={layout}
               onMeasurementsChange={setProductMeasurements}
               onProductDrop={handleProductDrop}
+              onProductLoadError={(productId, message) => {
+                const productName = placedProducts.find((product) => product.id === productId)?.modelName ?? productId;
+                setSaveMessage(`${productName}: ${message}`);
+              }}
               onProductMove={handleProductMove}
               onProductSelect={(productId, additive) => {
                 if (additive && selectedProductId && productId && productId !== selectedProductId) {

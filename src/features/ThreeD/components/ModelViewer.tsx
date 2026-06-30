@@ -15,7 +15,7 @@ import {
   createRoomGrid,
 } from '@/features/ThreeD/utils/babylonSceneFactory';
 import { fitCameraToMeshes } from '@/features/ThreeD/utils/fitCameraToModel';
-import { isSupportedModelUrl, splitModelUrl } from '@/features/ThreeD/utils/modelUrl';
+import { getModelLoadErrorMessage, isSupportedModelUrl, splitModelUrl } from '@/features/ThreeD/utils/modelUrl';
 
 export type ModelViewerProps = {
   autoRotate?: boolean;
@@ -72,7 +72,7 @@ export function ModelViewer({
 
         setStatus('ready');
       } catch (cause) {
-        const nextError = cause instanceof Error ? cause.message : 'Unable to load 3D model.';
+        const nextError = getModelLoadErrorMessage(cause, url);
         setStatus('error');
         setError(nextError);
       }

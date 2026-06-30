@@ -2,6 +2,12 @@ import axios, { AxiosError } from 'axios';
 
 import { getStoredAccessToken } from './tokenStore';
 
+declare module 'axios' {
+  export interface AxiosRequestConfig {
+    skipAuthRedirect?: boolean;
+  }
+}
+
 const productApiClient = axios.create({
   baseURL: getProductApiBaseUrl(),
   withCredentials: true,
@@ -23,7 +29,11 @@ productApiClient.interceptors.request.use((config) => {
 productApiClient.interceptors.response.use(
   (response) => response,
   (error: AxiosError) => {
-    if (error.response?.status === 401 && window.location.pathname !== '/login') {
+    const shouldSkipAuthRedirect = Boolean(
+      (error.config as { skipAuthRedirect?: boolean } | undefined)?.skipAuthRedirect,
+    );
+
+    if (error.response?.status === 401 && !shouldSkipAuthRedirect && window.location.pathname !== '/login') {
       window.location.assign('/login');
     }
 
@@ -210,6 +220,10 @@ export type ProductListData = {
 export type ProductListParams = {
   page?: number;
   limit?: number;
+};
+
+export type RequestBehaviorOptions = {
+  skipAuthRedirect?: boolean;
 };
 
 export type CreateProductInput = {
@@ -416,6 +430,7 @@ export async function uploadProductVersionFile(
   file: File,
   fileType: ProductVersionFileType = 'PRODUCT_PREVIEW',
   description?: string | null,
+  options: RequestBehaviorOptions = {},
 ) {
   const formData = new FormData();
   formData.append('file', file);
@@ -433,6 +448,7 @@ export async function uploadProductVersionFile(
       headers: {
         'Content-Type': 'multipart/form-data',
       },
+      skipAuthRedirect: options.skipAuthRedirect,
     },
   );
 
