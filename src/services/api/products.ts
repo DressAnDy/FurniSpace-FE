@@ -13,6 +13,14 @@ productApiClient.interceptors.request.use((config) => {
   return config;
 });
 
+productApiClient.interceptors.request.use((config) => {
+  if (typeof FormData !== 'undefined' && config.data instanceof FormData) {
+    config.headers.delete('Content-Type');
+  }
+
+  return config;
+});
+
 productApiClient.interceptors.response.use(
   (response) => response,
   (error: AxiosError) => {
@@ -29,6 +37,39 @@ export type ServiceResult<T> = {
   message?: string;
   data: T;
   errors?: string[];
+  errorCode?: string;
+};
+
+export type ProductPreviewImageDto = {
+  fileId: string;
+  url: string;
+  displayOrder: number;
+  fileType: 'PRODUCT_PREVIEW';
+  description: string | null;
+  mimeType: string;
+  fileSizeBytes: number;
+  isCover: boolean;
+  createdAt: string;
+};
+
+export type ProductPreviewImagesListData = {
+  productId: string;
+  items: ProductPreviewImageDto[];
+};
+
+export type ProductPreviewImageUploadDto = {
+  fileId: string;
+  url: string;
+  displayOrder: number;
+  fileType: 'PRODUCT_PREVIEW';
+  description: string | null;
+  createdAt: string;
+};
+
+export type DeleteProductPreviewImageData = {
+  fileId: string;
+  productId: string;
+  deletedAt: string;
 };
 
 export type ProductStatus = 'ACTIVE' | 'INACTIVE' | 'ARCHIVED';
@@ -245,11 +286,24 @@ export type SetDefaultProductVersionData = {
   isDefault: boolean;
 };
 
+const PRODUCT_PREVIEW_ERROR_MESSAGES: Record<string, string> = {
+  MAX_FILES_EXCEEDED: 'A product can have at most 5 preview images.',
+  INVALID_FILE_TYPE: 'Invalid image type. Supported: JPEG, PNG, WebP, GIF, SVG.',
+  FILE_TOO_LARGE: 'Image exceeds the maximum size of 5MB.',
+  INVALID_REORDER_PAYLOAD: 'Could not reorder preview images. Please refresh and try again.',
+  PREVIEW_FILE_NOT_FOUND: 'Preview image not found.',
+  USE_PREVIEW_FILES_ENDPOINT: 'Preview images must use the dedicated preview-files endpoint.',
+};
+
 export function getProductServiceResultMessage(error: unknown) {
   const result = getProductServiceResultFromError(error);
 
   if (!result) {
     return 'Cannot connect to product API. Please check backend and VITE_API_URL.';
+  }
+
+  if (result.errorCode && PRODUCT_PREVIEW_ERROR_MESSAGES[result.errorCode]) {
+    return PRODUCT_PREVIEW_ERROR_MESSAGES[result.errorCode];
   }
 
   if (result.errors?.length) {
@@ -268,6 +322,30 @@ export function getProductServiceResultFromError(error: unknown) {
 
   if (data && typeof data === 'object' && 'status' in data) {
     return data as ServiceResult<unknown>;
+  }
+
+  if (data && typeof data === 'object') {
+    const fallback = data as { message?: string; errorCode?: string; title?: string; errors?: string[] | Record<string, string[]> };
+
+    return {
+      status: error.response?.status ?? 500,
+      message: fallback.message ?? fallback.title,
+      errorCode: fallback.errorCode,
+      errors: Array.isArray(fallback.errors)
+        ? fallback.errors
+        : fallback.errors
+          ? Object.values(fallback.errors).flat()
+          : undefined,
+      data: null as unknown,
+    };
+  }
+
+  if (error.message) {
+    return {
+      status: error.response?.status ?? 500,
+      message: error.message,
+      data: null as unknown,
+    };
   }
 
   return null;
@@ -385,17 +463,56 @@ export async function setDefaultProductVersion(productVersionId: string) {
   return response.data.data;
 }
 
-export async function uploadProductPreviewFile(productId: string, file: File, description?: string | null) {
+export async function getProductPreviewImages(productId: string) {
+  const response = await productApiClient.get<ServiceResult<ProductPreviewImagesListData>>(`/products/${productId}/preview-files`);
+
+  return response.data.data;
+}
+
+export async function uploadProductPreviewFile(
+  productId: string,
+  file: File,
+  options?: {
+    description?: string | null;
+    displayOrder?: number;
+    onUploadProgress?: (progressPercent: number) => void;
+  },
+) {
   const formData = new FormData();
   formData.append('file', file);
-  formData.append('fileType', 'PRODUCT_PREVIEW');
-  formData.append('visibility', 'CUSTOMER_VISIBLE');
 
-  if (description?.trim()) {
-    formData.append('description', description.trim());
+  if (options?.description?.trim()) {
+    formData.append('description', options.description.trim());
   }
 
-  const response = await productApiClient.post<ServiceResult<CatalogFileUploadResponseDto>>(`/products/${productId}/files`, formData);
+  if (options?.displayOrder != null) {
+    formData.append('displayOrder', String(options.displayOrder));
+  }
+
+  const response = await productApiClient.post<ServiceResult<ProductPreviewImageUploadDto>>(`/products/${productId}/preview-files`, formData, {
+    onUploadProgress: (event) => {
+      if (!options?.onUploadProgress || !event.total) {
+        return;
+      }
+
+      const progressPercent = Math.min(100, Math.round((event.loaded / event.total) * 100));
+      options.onUploadProgress(progressPercent);
+    },
+  });
+
+  return response.data.data;
+}
+
+export async function reorderProductPreviewImages(productId: string, fileIds: string[]) {
+  const response = await productApiClient.patch<ServiceResult<ProductPreviewImagesListData>>(`/products/${productId}/preview-files/reorder`, {
+    fileIds,
+  });
+
+  return response.data.data;
+}
+
+export async function deleteProductPreviewImage(productId: string, fileId: string) {
+  const response = await productApiClient.delete<ServiceResult<DeleteProductPreviewImageData>>(`/products/${productId}/preview-files/${fileId}`);
 
   return response.data.data;
 }
