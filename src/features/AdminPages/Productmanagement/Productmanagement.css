@@ -726,6 +726,15 @@
   margin-top: 4px;
 }
 
+.product-upload-model-main {
+  border-color: rgba(59, 130, 246, 0.36);
+  background: #f8fbff;
+}
+
+.product-upload-model-main svg {
+  color: #3b82f6;
+}
+
 .product-version-card .product-card-actions {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }

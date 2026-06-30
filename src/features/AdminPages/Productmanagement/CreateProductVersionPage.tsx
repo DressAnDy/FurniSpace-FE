@@ -1,5 +1,5 @@
 import { type FormEvent, useState } from 'react';
-import { IconArrowLeft, IconBox, IconUpload } from '@tabler/icons-react';
+import { IconArrowLeft, IconBox, IconCube, IconUpload } from '@tabler/icons-react';
 import { useNavigate, useParams } from 'react-router-dom';
 
 import {
@@ -252,19 +252,26 @@ export function CreateProductVersionPage() {
                     </div>
                   </label>
 
+                  <label className="product-form-field product-form-field-full">
+                    <span>3D Model File</span>
+                    <input
+                      accept=".glb,.gltf,model/gltf-binary,model/gltf+json"
+                      className="product-upload-input"
+                      type="file"
+                      onChange={(event) => setModelFile(event.target.files?.[0] ?? null)}
+                    />
+                    <div className="product-upload-main product-upload-model-main">
+                      <IconCube size={46} />
+                      <strong>{modelFile ? modelFile.name : 'Click to select GLB/glTF model'}</strong>
+                      <small>
+                        Uploaded as MODEL_3D after this Product Version is created. No Product Version ID input is needed.
+                      </small>
+                    </div>
+                  </label>
+
                   <div className="product-form-field product-form-field-full">
-                    <span>Version Model and Texture</span>
+                    <span>Texture File</span>
                     <div className="product-upload-grid">
-                      <label className="product-upload-tile">
-                        <input
-                          accept=".glb,.gltf,.obj,.fbx,.stl,.usdz,model/*,application/octet-stream"
-                          className="product-upload-input"
-                          type="file"
-                          onChange={(event) => setModelFile(event.target.files?.[0] ?? null)}
-                        />
-                        <IconUpload size={28} />
-                        <span>{modelFile ? modelFile.name : 'MODEL_3D'}</span>
-                      </label>
                       <label className="product-upload-tile">
                         <input
                           accept="image/jpeg,image/png,image/webp,image/gif,image/svg+xml"
