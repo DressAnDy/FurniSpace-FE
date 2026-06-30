@@ -24,7 +24,7 @@ const customerNavbarItems: CustomerNavbarItem[] = [
   { icon: <IconFileText size={15} stroke={1.8} />, label: 'Design Proposals', path: '/customer/proposals' },
   { icon: <IconSparkles size={15} stroke={1.8} />, label: '2D/3D Review', path: '/customer/3d-preview' },
   { icon: <IconReceipt size={15} stroke={1.8} />, label: 'Quotations', path: '/customer/proposals' },
-  { icon: <IconMessageCircle size={15} stroke={1.8} />, label: 'Project Chat', path: '/customer/projects' },
+  { icon: <IconMessageCircle size={15} stroke={1.8} />, label: 'Project Chat', path: '/customer/chat' },
   { icon: <IconBox size={15} stroke={1.8} />, label: 'Handover', path: '/customer/projects' },
 ];
 

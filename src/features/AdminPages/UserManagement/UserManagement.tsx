@@ -348,7 +348,7 @@ function AccountFormModal({ isOpen, mode, account, isSubmitting, errorMessage, o
 
           {mode === 'create' ? (
             <label className="user-modal-field">
-              <span>Password Hash *</span>
+              <span>Password *</span>
               <input maxLength={255} name="passwordHash" required type="text" />
             </label>
           ) : null}
@@ -386,11 +386,7 @@ function AccountFormModal({ isOpen, mode, account, isSubmitting, errorMessage, o
           </label>
         </div>
 
-        {mode === 'create' ? (
-          <div className="user-modal-note">
-            Backend currently expects an already-hashed password value in <strong>passwordHash</strong>.
-          </div>
-        ) : null}
+
 
         {errorMessage ? <p className="user-modal-error">{errorMessage}</p> : null}
 

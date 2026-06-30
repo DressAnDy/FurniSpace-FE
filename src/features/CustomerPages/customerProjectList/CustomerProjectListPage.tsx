@@ -32,7 +32,9 @@ export function CustomerProjectListPage() {
     page: 1,
     limit: 50,
   });
-  const projects = projectsQuery.data?.items ?? [];
+  const apiProjects = projectsQuery.data?.items ?? [];
+  const usingMockData = projectsQuery.isError || apiProjects.length === 0;
+  const projects = usingMockData ? mockCustomerProjects : apiProjects;
   const visibleProjects = useMemo(() => {
     const normalizedKeyword = keyword.trim().toLowerCase();
 
@@ -102,7 +104,9 @@ export function CustomerProjectListPage() {
 
         <section className="customer-project-list-grid" aria-label="Projects">
           {projectsQuery.isLoading ? <p className="customer-project-list-state">Loading projects...</p> : null}
-          {projectsQuery.isError ? <p className="customer-project-list-state">Could not load your projects.</p> : null}
+          {!projectsQuery.isLoading && usingMockData ? (
+            <p className="customer-project-list-state">Using demo projects for UI preview.</p>
+          ) : null}
           {!projectsQuery.isLoading && !projectsQuery.isError && visibleProjects.length === 0 ? (
             <p className="customer-project-list-state">No projects found. Create a project request to start the flow.</p>
           ) : null}
@@ -113,7 +117,7 @@ export function CustomerProjectListPage() {
 
         <footer className="customer-project-list-pagination">
           <p>
-            Showing <strong>{visibleProjects.length}</strong> of <strong>{projectsQuery.data?.total ?? 0}</strong> projects
+            Showing <strong>{visibleProjects.length}</strong> of <strong>{projects.length}</strong> projects
           </p>
           <div>
             <button disabled type="button">

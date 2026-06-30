@@ -6,8 +6,10 @@ import {
   getAccountById,
   getAccounts,
   getAdminAccountDetail,
+  getAvailableDesigners,
   updateAccount,
   type AccountListParams,
+  type AvailableDesignerListParams,
   type CreateAccountInput,
   type UpdateAccountInput,
 } from '@/services/api/accounts';
@@ -17,6 +19,7 @@ export const accountQueryKeys = {
   list: (params?: AccountListParams) => ['accounts', 'list', params] as const,
   detail: (accountId: string) => ['accounts', 'detail', accountId] as const,
   adminDetail: (accountId: string) => ['accounts', 'admin-detail', accountId] as const,
+  availableDesigners: (params?: AvailableDesignerListParams) => ['accounts', 'available-designers', params] as const,
 };
 
 export function useAccountList(params?: AccountListParams) {
@@ -39,6 +42,14 @@ export function useAdminAccountDetail(accountId?: string) {
     queryKey: accountQueryKeys.adminDetail(accountId ?? ''),
     queryFn: () => getAdminAccountDetail(accountId ?? ''),
     enabled: Boolean(accountId),
+  });
+}
+
+export function useAvailableDesigners(params?: AvailableDesignerListParams, options?: { enabled?: boolean }) {
+  return useQuery({
+    queryKey: accountQueryKeys.availableDesigners(params),
+    queryFn: () => getAvailableDesigners(params),
+    enabled: options?.enabled ?? true,
   });
 }
 

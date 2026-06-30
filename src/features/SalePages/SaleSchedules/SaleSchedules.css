@@ -67,6 +67,10 @@
 }
 
 .sale-schedules-view-card {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
   margin-bottom: 24px;
   padding: 24px;
 }
@@ -91,6 +95,55 @@
   border-color: #8b6f47;
   background: #8b6f47;
   color: #ffffff;
+}
+
+.sale-schedules-filters {
+  display: flex;
+  gap: 12px;
+}
+
+.sale-schedules-filters label {
+  display: grid;
+  gap: 6px;
+}
+
+.sale-schedules-filters label span {
+  color: #6b6b6b;
+  font-size: 12px;
+}
+
+.sale-schedules-filters select {
+  min-width: 156px;
+  height: 36px;
+  border: 1px solid rgba(139, 111, 71, 0.2);
+  border-radius: 6px;
+  background: #faf9f7;
+  padding: 0 10px;
+  color: #2d2d2d;
+  font: inherit;
+  font-size: 14px;
+}
+
+.sale-schedules-state,
+.sale-schedules-message {
+  margin: 0 0 16px;
+  border: 1px solid rgba(139, 111, 71, 0.15);
+  border-radius: 6px;
+  background: #ffffff;
+  padding: 12px 14px;
+  color: #6b6b6b;
+  font-size: 14px;
+}
+
+.sale-schedules-message {
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+  color: #166534;
+}
+
+.sale-schedules-state-error,
+.sale-schedules-modal-message {
+  color: #991b1b;
 }
 
 .sale-schedules-list {
@@ -201,6 +254,17 @@
   background: #f5f1ec;
 }
 
+.sale-schedules-actions button:disabled,
+.sale-schedules-create-button:disabled,
+.sale-schedules-modal-footer button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.sale-schedules-actions .sale-schedules-cancel-button {
+  color: #991b1b;
+}
+
 .sale-schedules-calendar-card {
   padding: 24px;
 }
@@ -216,6 +280,57 @@
   margin: 8px 0 0;
   color: #6b6b6b;
   font-size: 14px;
+}
+
+.sale-schedules-calendar-days {
+  display: grid;
+  gap: 20px;
+  margin-top: 20px;
+}
+
+.sale-schedules-calendar-day {
+  display: grid;
+  grid-template-columns: 170px minmax(0, 1fr);
+  gap: 10px 16px;
+  align-items: start;
+  border-top: 1px solid rgba(139, 111, 71, 0.15);
+  padding-top: 16px;
+}
+
+.sale-schedules-calendar-day h4 {
+  grid-row: 1 / span 20;
+  margin: 0;
+  color: #2d2d2d;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.sale-schedules-calendar-day button {
+  display: grid;
+  grid-template-columns: 90px minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  border: 1px solid rgba(139, 111, 71, 0.15);
+  border-radius: 6px;
+  background: #faf9f7;
+  padding: 12px;
+  color: #2d2d2d;
+  text-align: left;
+}
+
+.sale-schedules-calendar-day button span,
+.sale-schedules-calendar-day button em {
+  color: #6b6b6b;
+  font-size: 13px;
+  font-style: normal;
+}
+
+.sale-schedules-calendar-day button strong {
+  overflow: hidden;
+  font-size: 14px;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .sale-schedules-modal-overlay {
@@ -337,6 +452,15 @@
   padding-top: 4px;
 }
 
+.sale-schedules-modal-message {
+  margin: 0;
+  border: 1px solid #fecaca;
+  border-radius: 6px;
+  background: #fef2f2;
+  padding: 10px 12px;
+  font-size: 13px;
+}
+
 .sale-schedules-modal-footer button {
   height: 36px;
   border-radius: 6px;
@@ -375,6 +499,28 @@
 
   .sale-schedules-meta {
     grid-template-columns: 1fr;
+  }
+
+  .sale-schedules-view-card,
+  .sale-schedules-filters {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .sale-schedules-calendar-day {
+    grid-template-columns: 1fr;
+  }
+
+  .sale-schedules-calendar-day h4 {
+    grid-row: auto;
+  }
+
+  .sale-schedules-calendar-day button {
+    grid-template-columns: 72px minmax(0, 1fr);
+  }
+
+  .sale-schedules-calendar-day button em {
+    grid-column: 2;
   }
 
   .sale-schedules-actions {

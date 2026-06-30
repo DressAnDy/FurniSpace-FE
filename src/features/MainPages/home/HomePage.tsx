@@ -1,302 +1,287 @@
-import { IconPhone, IconShieldCheck } from '@tabler/icons-react';
-import { useEffect, useState, type CSSProperties } from 'react';
+import { IconArrowRight, IconPhone, IconShieldCheck } from '@tabler/icons-react';
 
-import warmScandinavianImage from '@/assets/customer-dashboard/warm-scandinavian.png';
-import productDetailHeroImage from '@/assets/product-detail/hero.png';
 import galleryOneImage from '@/assets/product-detail/gallery-1.png';
 import galleryThreeImage from '@/assets/product-detail/gallery-3.png';
 import diningRoomImage from '@/assets/product-detail-shop/dining-room.png';
 import roomDetailImage from '@/assets/product-detail-shop/room-detail.png';
 import tableRoomImage from '@/assets/product-detail-shop/table-room.png';
 import terraSalonImage from '@/assets/project-list/terra-salon.png';
-import { MainNavbar } from '@/features/MainPages/maincomponents';
+import { useLang } from '@/app/providers/LangContext';
+import { MainFooter, MainNavbar } from '@/features/MainPages/maincomponents';
 
 import './HomePage.css';
 
-const filters = ['Loai hinh', 'Phong cach', 'Ngan sach', 'Dien tich'];
-
-const featuredProjects = [
-  {
-    image: terraSalonImage,
-    meta: 'Cafe & lounge',
-    title: 'Bean & Brew flagship cafe concept',
-  },
-  {
-    image: galleryOneImage,
-    meta: 'Fashion retail',
-    title: 'Chic Style boutique showroom',
-  },
-  {
-    image: productDetailHeroImage,
-    meta: 'Office',
-    title: 'Tech studio collaborative workspace',
-  },
-  {
-    image: roomDetailImage,
-    meta: 'Showroom',
-    title: 'Material gallery and client suite',
-  },
-  {
-    image: diningRoomImage,
-    meta: 'Restaurant',
-    title: 'Warm dining room visualization',
-  },
-  {
-    image: warmScandinavianImage,
-    meta: 'Retail space',
-    title: 'Scandinavian retail consultation area',
-  },
+const projectImages = [
+  terraSalonImage,
+  galleryOneImage,
+  roomDetailImage,
+  diningRoomImage,
+  tableRoomImage,
+  galleryThreeImage,
 ];
 
-const processSteps = [
-  {
-    number: '01',
-    title: 'Discovery & brief',
-    text: 'Clarify business goals, customer flow, site constraints, budget, and operational needs.',
+const homeContent = {
+  vi: {
+    // Hero
+    kicker: 'Kiến trúc & Nội thất',
+    heroLine1: 'THIẾT KẾ',
+    heroLine2: 'KIẾN TRÚC',
+    heroSubtitle: 'và Nội thất',
+    startBtn: 'Bắt đầu thiết kế',
+    contactBtn: 'Liên hệ',
+    // Intro
+    introEyebrow: 'FurniSpace',
+    introTitle: 'Giải pháp thiết kế không gian cho doanh nghiệp',
+    introBody:
+      'FurniSpace đồng hành cùng cafe, cửa hàng thời trang, văn phòng, showroom và không gian bán lẻ từ ý tưởng, thiết kế 3D, dự toán nội thất đến thi công và bàn giao.',
+    exploreBtn: 'Xem giải pháp',
+    // Projects
+    projectsTitle: 'MẪU THIẾT KẾ NỔI BẬT',
+    projectsSubtitle:
+      'Các concept được chọn lọc cho không gian kinh doanh cần tính thẩm mỹ, hiệu quả vận hành và khả năng thi công rõ ràng.',
+    filters: ['Loại Hình', 'Phong Cách', 'Design Concept'],
+    clearFilters: 'Xóa bộ lọc',
+    viewAll: 'Xem tất cả',
+    projectTitles: [
+      'Nội Thất Kim Lim Spirits Office & Lounge 5 Tầng Hiện Đại',
+      'Không Gian Showroom Tối Giản Với Vật Liệu Gỗ Ấm',
+      'Thiết Kế Cửa Hàng Thời Trang Hiện Đại Và Sang Trọng',
+      'Concept Nhà Hàng Với Ánh Sáng Và Chất Liệu Cao Cấp',
+      'Góc Tư Vấn Khách Hàng Cho Văn Phòng Kinh Doanh',
+      'Phối Cảnh 3D Không Gian Trưng Bày Nội Thất',
+    ],
+    // Process
+    processEyebrow: 'Quy trình',
+    processTitle1: 'Từ ý tưởng',
+    processTitle2: 'đến bàn giao',
+    processIntro:
+      'Quy trình triển khai được chia thành từng bước rõ ràng để khách hàng dễ theo dõi thiết kế, ngân sách, tiến độ và chất lượng.',
+    learnMore: 'Tìm hiểu thêm',
+    steps: [
+      ['01', 'Khảo sát & Tư vấn', 'Gặp gỡ khách hàng, khảo sát hiện trạng, xác định nhu cầu vận hành và phong cách phù hợp.'],
+      ['02', 'Thiết kế sơ bộ', 'Phác thảo mặt bằng, định hướng vật liệu, ánh sáng và luồng trải nghiệm trong không gian.'],
+      ['03', 'Thiết kế 3D', 'Dựng phối cảnh 3D để khách hàng hình dung rõ trước khi chốt phương án thi công.'],
+      ['04', 'Báo giá & Thi công', 'Hoàn thiện hồ sơ, dự toán chi phí, sản xuất nội thất và triển khai tại công trình.'],
+      ['05', 'Nghiệm thu', 'Kiểm tra chất lượng, hoàn thiện chi tiết và bàn giao không gian theo tiêu chuẩn đã thống nhất.'],
+      ['06', 'Bảo trì - Bảo hành', 'Đồng hành sau bàn giao với chính sách bảo hành, bảo trì và hỗ trợ vận hành.'],
+    ],
+    // Commitments
+    commitmentsEyebrow: 'Cam kết',
+    commitmentsTitle: 'Đồng hành đáng tin cậy cho không gian kinh doanh',
+    commitmentsSubtitle:
+      'FurniSpace tập trung vào thiết kế đẹp, rõ công năng, dễ thi công và phù hợp mục tiêu vận hành của từng thương hiệu.',
+    commitments: [
+      ['Bảo hành 5 năm', 'Cam kết đồng hành dài hạn cho các hạng mục nội thất và thi công chính.'],
+      ['Đúng tiến độ', 'Quy trình rõ ràng giúp dự án bám sát thời gian khai trương và vận hành.'],
+      ['Chính sách hoàn tiền', 'Minh bạch phạm vi công việc, chi phí và điều kiện nghiệm thu.'],
+      ['Tư vấn miễn phí', 'Hỗ trợ định hướng giải pháp phù hợp ngân sách và mục tiêu kinh doanh.'],
+    ],
+    ctaTitle: 'Sẵn sàng bắt đầu dự án của bạn?',
+    ctaBody: 'Trao đổi cùng FurniSpace để biến brief thành thiết kế, dự toán và kế hoạch triển khai rõ ràng.',
+    ctaBtn: 'Tư vấn miễn phí',
   },
-  {
-    number: '02',
-    title: 'Concept direction',
-    text: 'Shape moodboards, layout options, material direction, and a clear commercial design narrative.',
+  en: {
+    // Hero
+    kicker: 'Architecture & Interior Design',
+    heroLine1: 'INTERIOR',
+    heroLine2: 'DESIGN',
+    heroSubtitle: '& Architecture',
+    startBtn: 'Start a project',
+    contactBtn: 'Contact us',
+    // Intro
+    introEyebrow: 'FurniSpace',
+    introTitle: 'Spatial design solutions for businesses',
+    introBody:
+      'FurniSpace partners with cafes, fashion stores, offices, showrooms, and retail spaces from concept to 3D visualization, furniture quotation, construction, and handover.',
+    exploreBtn: 'Explore solutions',
+    // Projects
+    projectsTitle: 'FEATURED DESIGN CONCEPTS',
+    projectsSubtitle:
+      'Curated concepts for commercial spaces that demand aesthetics, operational efficiency, and buildable clarity.',
+    filters: ['Space Type', 'Style', 'Design Concept'],
+    clearFilters: 'Clear filters',
+    viewAll: 'View all',
+    projectTitles: [
+      'Kim Lim Spirits 5-Floor Modern Office & Lounge',
+      'Minimalist Showroom With Warm Wood Materials',
+      'Modern & Luxurious Fashion Store Design',
+      'Restaurant Concept With Premium Lighting & Materials',
+      'Client Consultation Corner For Business Office',
+      '3D Rendering Of Furniture Exhibition Space',
+    ],
+    // Process
+    processEyebrow: 'Process',
+    processTitle1: 'From brief',
+    processTitle2: 'to handover',
+    processIntro:
+      'A structured workflow broken into clear steps so clients can track design decisions, budget, timeline, and quality.',
+    learnMore: 'Learn more',
+    steps: [
+      ['01', 'Discovery & Brief', 'Meet clients, assess the site, define operational needs and desired style.'],
+      ['02', 'Concept Direction', 'Sketch floor plans, define materials, lighting, and spatial flow direction.'],
+      ['03', '3D Visualization', 'Build photorealistic 3D views so stakeholders can approve the space before production.'],
+      ['04', 'Quotation & Production', 'Finalize documentation, cost estimates, furniture production, and on-site execution.'],
+      ['05', 'Handover', 'Quality inspection, final details, and handover according to agreed standards.'],
+      ['06', 'Support & Warranty', 'Post-handover support with warranty, maintenance, and operational guidance.'],
+    ],
+    // Commitments
+    commitmentsEyebrow: 'Commitments',
+    commitmentsTitle: 'Reliable delivery for business spaces',
+    commitmentsSubtitle:
+      "FurniSpace focuses on beautiful design, clear function, buildable execution, and alignment with each brand's operational goals.",
+    commitments: [
+      ['5-Year Warranty', 'Long-term commitment covering key furniture and construction items.'],
+      ['On Schedule', 'Clear workflow keeps projects aligned with opening and operational timelines.'],
+      ['Transparent Pricing', 'Scope, cost, and handover conditions are documented before each major milestone.'],
+      ['Free Consultation', 'Guidance on solutions tailored to your budget and business goals.'],
+    ],
+    ctaTitle: 'Ready to shape your next business space?',
+    ctaBody: 'Talk to FurniSpace and turn your brief into a clear design, quotation, and delivery plan.',
+    ctaBtn: 'Free consultation',
   },
-  {
-    number: '03',
-    title: '3D visualization',
-    text: 'Build realistic 3D views so stakeholders can approve the space before production starts.',
-  },
-  {
-    number: '04',
-    title: 'Quotation & proposal',
-    text: 'Prepare scopes, furniture lists, production options, and transparent pricing for approval.',
-  },
-  {
-    number: '05',
-    title: 'Production & install',
-    text: 'Coordinate furniture production, site execution, quality control, and installation milestones.',
-  },
-  {
-    number: '06',
-    title: 'Handover & support',
-    text: 'Complete inspection, handover documents, warranty guidance, and post-launch support.',
-  },
-];
-
-const commitments = [
-  {
-    title: 'Business-first design',
-    text: 'Every layout supports customer flow, brand experience, team operation, and measurable project goals.',
-  },
-  {
-    title: '3D clarity before build',
-    text: 'Realistic previews reduce uncertainty before quotation, production, and installation decisions.',
-  },
-  {
-    title: 'Transparent scope',
-    text: 'Design, furniture, material, and execution choices are documented before each major milestone.',
-  },
-  {
-    title: 'End-to-end support',
-    text: 'From concept to handover, FurniSpace keeps the project coordinated and accountable.',
-  },
-];
-
-const footerColumns = [
-  {
-    title: 'Services',
-    links: ['Interior strategy', '3D visualization', 'Furniture planning', 'Production support'],
-  },
-  {
-    title: 'Business spaces',
-    links: ['Cafes', 'Fashion stores', 'Offices', 'Showrooms'],
-  },
-  {
-    title: 'Support',
-    links: ['Consultation', 'Quotation', 'Installation', 'Handover'],
-  },
-];
-
-type RevealStyle = CSSProperties & {
-  '--reveal-delay'?: string;
-};
+} as const;
 
 export function HomePage() {
-  const [animationsReady, setAnimationsReady] = useState(false);
+  return <HomePageContent />;
+}
 
-  useEffect(() => {
-    setAnimationsReady(true);
-
-    const revealElements = Array.from(document.querySelectorAll<HTMLElement>('.home-reveal, .home-signature-motion'));
-    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-
-    if (prefersReducedMotion || !('IntersectionObserver' in window)) {
-      revealElements.forEach((element) => element.classList.add('is-visible'));
-      return;
-    }
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            entry.target.classList.add('is-visible');
-            observer.unobserve(entry.target);
-          }
-        });
-      },
-      { rootMargin: '0px 0px -12% 0px', threshold: 0.16 },
-    );
-
-    revealElements.forEach((element) => observer.observe(element));
-
-    return () => {
-      observer.disconnect();
-    };
-  }, []);
+function HomePageContent() {
+  const { lang } = useLang();
+  const t = homeContent[lang];
 
   return (
-    <main className={['home-page', animationsReady ? 'home-animations-ready' : null].filter(Boolean).join(' ')}>
+    <main className="home-page">
       <MainNavbar
         activePath="/"
         activeClassName="home-nav-link-active"
-        brandLabel="FURNISPACE"
+        brandLabel="FurniSpace"
         brandMarkLabel="FS"
         brandNameClassName="home-brand-name"
         classPrefix="home"
         linkClassName="home-nav-link"
       />
 
-      <section className="home-hero section-container home-signature-motion is-visible" aria-labelledby="home-hero-title">
+      {/* Hero */}
+      <section className="home-hero section-container" aria-labelledby="home-hero-title">
         <div className="home-hero-copy">
-          <div className="home-kicker hero-kicker home-hero-reveal home-hero-reveal-1">
+          <div className="home-kicker">
             <span />
-            <p>Interior design & 3D visualization</p>
+            <p>{t.kicker}</p>
           </div>
 
-          <div className="home-hero-title-wrap">
+          <div>
             <h1 id="home-hero-title">
-              <span className="home-title-line hero-title-line home-hero-reveal home-hero-reveal-2">Business</span>
-              <span className="home-title-line hero-title-line home-hero-reveal home-hero-reveal-3">Interior Systems</span>
+              {t.heroLine1}
+              <br />
+              {t.heroLine2}
             </h1>
-            <p className="home-hero-subtitle home-hero-reveal home-hero-reveal-1">from concept to handover</p>
+            <p className="home-hero-subtitle">{t.heroSubtitle}</p>
           </div>
 
-          <hr className="home-hero-rule hero-divider-line" />
+          <hr />
 
-          <div className="home-signature home-hero-reveal home-hero-reveal-4">
+          <div className="home-signature">
             <strong>FurniSpace</strong>
             <span>DESIGN</span>
           </div>
 
-          <div className="home-actions home-hero-reveal home-hero-reveal-5">
+          <div className="home-actions">
             <button className="button button-dark" type="button">
-              Start a project
+              {t.startBtn}
             </button>
             <button className="button button-outline" type="button">
-              Book consult
+              {t.contactBtn}
             </button>
           </div>
 
-          <div className="home-phone home-hero-reveal home-hero-reveal-6">
+          <div className="home-phone">
             <IconPhone size={16} />
             <span>+84 770 111 101</span>
           </div>
         </div>
 
-        <div className="home-hero-visual home-hero-visual-motion hero-visual-depth" aria-hidden="true">
-          <img className="home-hero-image hero-visual-panel hero-visual-panel-main" src={roomDetailImage} alt="" />
-          <img className="home-hero-inset hero-visual-panel hero-visual-panel-inset" src={tableRoomImage} alt="" />
-          <div className="home-hero-preview-card hero-preview-card">
-            <span>3D Proposal</span>
-            <strong>Retail Concept 92%</strong>
-          </div>
+        <div className="home-hero-visual" aria-hidden="true">
+          <img className="home-hero-image" src={roomDetailImage} alt="" />
+          <img className="home-hero-inset" src={tableRoomImage} alt="" />
         </div>
       </section>
 
-      <section className="home-intro home-signature-motion solution-section" aria-labelledby="home-intro-title">
+      {/* Intro */}
+      <section className="home-intro" aria-labelledby="home-intro-title">
         <div className="section-container home-intro-grid">
-          <div className="home-intro-copy solution-copy">
-            <p className="home-eyebrow">FurniSpace</p>
-            <h2 id="home-intro-title">Spatial solutions for cafes, offices, showrooms, and retail brands</h2>
-            <p>
-              FurniSpace turns business requirements into spatial strategy, 3D visual direction, quotation-ready proposals, furniture planning,
-              production coordination, installation, and handover support.
-            </p>
+          <div className="home-intro-copy">
+            <p className="home-eyebrow">{t.introEyebrow}</p>
+            <h2 id="home-intro-title">{t.introTitle}</h2>
+            <p>{t.introBody}</p>
             <button className="button button-gold" type="button">
-              Explore solution
+              {t.exploreBtn}
             </button>
           </div>
 
-          <div className="home-gallery solution-visual" aria-hidden="true">
-            <img className="home-gallery-back solution-visual-layer solution-visual-layer-back" src={diningRoomImage} alt="" />
-            <img className="home-gallery-front solution-visual-layer solution-visual-layer-front" src={galleryThreeImage} alt="" />
-            <div className="home-gallery-note solution-floating-card">
-              <span>Material board</span>
-              <strong>Warm wood / stone / linen</strong>
-            </div>
+          <div className="home-gallery" aria-hidden="true">
+            <img className="home-gallery-back" src={diningRoomImage} alt="" />
+            <img className="home-gallery-front" src={galleryThreeImage} alt="" />
           </div>
         </div>
       </section>
 
-      <section className="section-container home-projects portfolio-section home-signature-motion" aria-labelledby="home-projects-title">
+      {/* Projects */}
+      <section className="section-container home-projects" aria-labelledby="home-projects-title">
         <SectionHeading
-          className="portfolio-heading"
           id="home-projects-title"
-          title="Featured commercial design concepts"
-          subtitle="Selected interior directions for cafes, fashion stores, offices, showrooms, and customer-facing spaces."
+          title={t.projectsTitle}
+          subtitle={t.projectsSubtitle}
         />
 
-        <div className="home-filter-row portfolio-filter-row" aria-label="Project filters">
-          {filters.map((filter) => (
-            <select key={filter} className="home-filter portfolio-filter" defaultValue="">
+        <div className="home-filter-row" aria-label={lang === 'vi' ? 'Bộ lọc dự án' : 'Project filters'}>
+          {t.filters.map((filter) => (
+            <select key={filter} className="home-filter" defaultValue="">
               <option value="">{filter}</option>
             </select>
           ))}
           <button className="button button-filter-clear" type="button">
-            Clear filters
+            {t.clearFilters}
           </button>
         </div>
 
         <div className="home-project-grid">
-          {featuredProjects.map((project, index) => (
-            <article key={project.title} className="home-project-card portfolio-card" style={{ '--reveal-delay': `${index * 90}ms` } as RevealStyle}>
-              <div className="portfolio-card-image">
-                <img src={project.image} alt="" />
-              </div>
-              <p>{project.meta}</p>
-              <h3>{project.title}</h3>
+          {projectImages.map((image, index) => (
+            <article key={t.projectTitles[index]} className="home-project-card">
+              <img src={image} alt="" />
+              <h3>{t.projectTitles[index]}</h3>
             </article>
           ))}
         </div>
 
         <div className="home-center">
           <button className="button button-pill" type="button">
-            View all concepts
+            {t.viewAll}
           </button>
         </div>
       </section>
 
-      <section className="home-process process-section home-signature-motion" aria-labelledby="home-process-title">
+      {/* Process */}
+      <section className="home-process" aria-labelledby="home-process-title">
         <div className="section-container home-process-grid">
-          <div className="process-heading">
-            <p className="home-eyebrow">Process</p>
+          <div>
+            <p className="home-eyebrow">{t.processEyebrow}</p>
             <h2 id="home-process-title">
-              From brief
+              {t.processTitle1}
               <br />
-              to handover
+              {t.processTitle2}
             </h2>
           </div>
 
           <div className="home-process-content">
-            <p className="home-process-intro">
-              A structured workflow keeps design intent, quotation decisions, production scope, and installation quality aligned.
-            </p>
+            <p className="home-process-intro">{t.processIntro}</p>
 
             <div className="home-step-grid">
-              {processSteps.map((step, index) => (
-                <article key={step.number} className="home-step process-step" style={{ '--reveal-delay': `${index * 110}ms` } as RevealStyle}>
-                  <p className="home-step-number">{step.number}</p>
-                  <h3>{step.title}</h3>
-                  <p>{step.text}</p>
-                  <a href="#learn">Learn more</a>
+              {t.steps.map(([number, title, text]) => (
+                <article key={number} className="home-step">
+                  <p className="home-step-number">{number}</p>
+                  <h3>{title}</h3>
+                  <p>{text}</p>
+                  <a href="#learn">{t.learnMore}</a>
                 </article>
               ))}
             </div>
@@ -304,33 +289,34 @@ export function HomePage() {
         </div>
       </section>
 
-      <section className="section-container home-commitments trust-section home-signature-motion" aria-labelledby="home-commitments-title">
+      {/* Commitments */}
+      <section className="section-container home-commitments" aria-labelledby="home-commitments-title">
         <SectionHeading
-          className="trust-heading"
-          eyebrow="Commitments"
+          eyebrow={t.commitmentsEyebrow}
           id="home-commitments-title"
-          title="Reliable delivery for business spaces"
-          subtitle="Designed for teams that need beautiful, functional, quote-ready, and buildable interior solutions."
+          title={t.commitmentsTitle}
+          subtitle={t.commitmentsSubtitle}
         />
 
         <div className="home-commit-grid">
-          {commitments.map((commitment, index) => (
-            <article key={commitment.title} className="home-commit-card trust-card" style={{ '--reveal-delay': `${index * 100}ms` } as RevealStyle}>
+          {t.commitments.map(([title, text]) => (
+            <article key={title} className="home-commit-card">
               <IconShieldCheck size={24} />
-              <h3>{commitment.title}</h3>
-              <p>{commitment.text}</p>
+              <h3>{title}</h3>
+              <p>{text}</p>
             </article>
           ))}
         </div>
 
-        <div className="home-cta cta-glow-panel">
+        <div className="home-cta">
           <div>
-            <h2>Ready to shape your next business space?</h2>
-            <p>Book a consultation and turn your brief into a clear design, proposal, and delivery plan.</p>
+            <h2>{t.ctaTitle}</h2>
+            <p>{t.ctaBody}</p>
           </div>
           <div className="home-cta-actions">
             <button className="button button-light" type="button">
-              Free consultation
+              {t.ctaBtn}
+              <IconArrowRight size={16} />
             </button>
             <button className="button button-transparent" type="button">
               +84 770 111 101
@@ -339,24 +325,7 @@ export function HomePage() {
         </div>
       </section>
 
-      <footer className="home-footer home-footer-reveal home-signature-motion">
-        <div className="section-container home-footer-grid">
-          <div className="home-footer-brand">
-            <span>FS</span>
-            <h2>FurniSpace</h2>
-            <p>Interior design, 3D visualization, furniture planning, and delivery support for business spaces.</p>
-          </div>
-
-          {footerColumns.map((column) => (
-            <div className="home-footer-column" key={column.title}>
-              <h3>{column.title}</h3>
-              {column.links.map((link) => (
-                <p key={link}>{link}</p>
-              ))}
-            </div>
-          ))}
-        </div>
-      </footer>
+      <MainFooter />
     </main>
   );
 }

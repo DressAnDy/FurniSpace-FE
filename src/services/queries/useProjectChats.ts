@@ -23,19 +23,19 @@ export const projectChatQueryKeys = {
   messages: (params?: ProjectChatMessageParams) => ['project-chats', 'messages', params] as const,
 };
 
-export function useProjectChats(params?: ProjectChatListParams) {
+export function useProjectChats(params?: ProjectChatListParams, options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: projectChatQueryKeys.list(params),
     queryFn: () => getProjectChats(params as ProjectChatListParams),
-    enabled: Boolean(params?.projectId),
+    enabled: Boolean(params?.projectId) && (options?.enabled ?? true),
   });
 }
 
-export function useProjectChatMessages(params?: ProjectChatMessageParams) {
+export function useProjectChatMessages(params?: ProjectChatMessageParams, options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: projectChatQueryKeys.messages(params),
     queryFn: () => getProjectChatMessages(params as ProjectChatMessageParams),
-    enabled: Boolean(params?.chatId),
+    enabled: Boolean(params?.chatId) && (options?.enabled ?? true),
   });
 }
 
@@ -64,17 +64,16 @@ export function useCloseProjectChat() {
 }
 
 export function useProjectChatRealtime(input: {
-  projectId?: string;
+  projectId?: string | null;
   activeChatId?: string | null;
   enabled?: boolean;
   onMessage?: (event: ProjectChatMessageSentEvent) => void;
 }) {
   const { activeChatId, enabled = true, onMessage, projectId } = input;
   const connectionRef = useRef<signalR.HubConnection | null>(null);
+  const activeChatIdRef = useRef(activeChatId);
   const onMessageRef = useRef(onMessage);
-  const joinedChatRef = useRef<string | null>(null);
-  const joinedProjectRef = useRef<string | null>(null);
-  const token = getStoredAccessToken();
+  const projectIdRef = useRef(projectId);
   const hubUrl = useMemo(() => getProjectChatHubUrl(), []);
 
   useEffect(() => {
@@ -82,17 +81,25 @@ export function useProjectChatRealtime(input: {
   }, [onMessage]);
 
   useEffect(() => {
-    if (!enabled || !projectId || !token) {
+    activeChatIdRef.current = activeChatId;
+  }, [activeChatId]);
+
+  useEffect(() => {
+    projectIdRef.current = projectId;
+  }, [projectId]);
+
+  useEffect(() => {
+    if (!enabled || !projectId) {
       return undefined;
     }
 
     const connection = new signalR.HubConnectionBuilder()
       .withUrl(hubUrl, {
         accessTokenFactory: () => getStoredAccessToken() ?? '',
+        withCredentials: true,
       })
       .withAutomaticReconnect()
       .build();
-
     connectionRef.current = connection;
 
     const joinGroups = async () => {
@@ -100,12 +107,17 @@ export function useProjectChatRealtime(input: {
         return;
       }
 
-      await connection.invoke('JoinProject', projectId);
-      joinedProjectRef.current = projectId;
+      const currentProjectId = projectIdRef.current;
+      const currentChatId = activeChatIdRef.current;
 
-      if (activeChatId) {
-        await connection.invoke('JoinChat', activeChatId);
-        joinedChatRef.current = activeChatId;
+      if (!currentProjectId) {
+        return;
+      }
+
+      await connection.invoke('JoinProject', currentProjectId);
+
+      if (currentChatId) {
+        await connection.invoke('JoinChat', currentChatId);
       }
     };
 
@@ -117,18 +129,24 @@ export function useProjectChatRealtime(input: {
       void joinGroups();
     });
 
-    void connection.start().then(joinGroups).catch(() => {
-      connectionRef.current = null;
-    });
+    void connection.start().then(joinGroups).catch(() => undefined);
 
     return () => {
       connection.off('project_chat.message_sent');
       connectionRef.current = null;
-      joinedChatRef.current = null;
-      joinedProjectRef.current = null;
       void connection.stop();
     };
-  }, [activeChatId, enabled, hubUrl, projectId, token]);
+  }, [enabled, hubUrl, projectId]);
+
+  useEffect(() => {
+    const connection = connectionRef.current;
+
+    if (!enabled || !activeChatId || !connection || connection.state !== signalR.HubConnectionState.Connected) {
+      return;
+    }
+
+    void connection.invoke('JoinChat', activeChatId).catch(() => undefined);
+  }, [activeChatId, enabled]);
 }
 
 export function upsertProjectChatMessage(

@@ -1,4 +1,6 @@
-import { IconBell, IconPlus, IconSearch, IconUpload, IconUser } from '@tabler/icons-react';
+import { IconPlus, IconSearch, IconUpload, IconUser } from '@tabler/icons-react';
+
+import { NotificationBell } from '@/shared/components/NotificationBell';
 
 export function AdminNavbar() {
   return (
@@ -17,10 +19,7 @@ export function AdminNavbar() {
           <IconUpload size={16} />
           Upload File
         </button>
-        <button className="admin-notification" type="button" aria-label="Notifications">
-          <IconBell size={20} />
-          <span />
-        </button>
+        <NotificationBell buttonClassName="admin-notification" />
         <div className="admin-user-copy">
           <p>Admin User</p>
           <span>Admin</span>

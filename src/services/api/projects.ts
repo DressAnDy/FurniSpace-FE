@@ -5,9 +5,6 @@ import { getStoredAccessToken } from './tokenStore';
 const projectApiClient = axios.create({
   baseURL: getProjectApiBaseUrl(),
   withCredentials: true,
-  headers: {
-    'Content-Type': 'application/json',
-  },
 });
 
 projectApiClient.interceptors.request.use((config) => {
@@ -15,6 +12,10 @@ projectApiClient.interceptors.request.use((config) => {
 
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
+  }
+
+  if (config.data instanceof FormData) {
+    clearMultipartContentType(config.headers);
   }
 
   return config;
@@ -189,6 +190,37 @@ export type AssignSalesData = {
   salesAssignedAt: string;
 };
 
+export type ProjectSpaceDataStatus = 'SUFFICIENT' | 'INSUFFICIENT';
+
+export type AssignDesignerInput = {
+  projectId: string;
+  designerId: string;
+  spaceDataStatus: ProjectSpaceDataStatus;
+  note?: string | null;
+};
+
+export type AssignDesignerData = {
+  projectId: string;
+  assignedDesigner: {
+    accountId: string;
+    fullName: string;
+  };
+  status: ProjectStatus;
+  designerAssignedAt: string;
+};
+
+export type UpdateProjectStatusInput = {
+  projectId: string;
+  status: ProjectStatus;
+  note?: string | null;
+};
+
+export type UpdateProjectStatusData = {
+  projectId: string;
+  status: ProjectStatus;
+  updatedAt: string;
+};
+
 export function getProjectServiceResultMessage(error: unknown) {
   const result = getProjectServiceResultFromError(error);
 
@@ -256,6 +288,25 @@ export async function createProject(input: CreateProjectInput) {
   return response.data.data;
 }
 
+export async function assignDesignerToProject(input: AssignDesignerInput) {
+  const response = await projectApiClient.patch<ServiceResult<AssignDesignerData>>(`/projects/${input.projectId}/designer-assignment`, {
+    designerId: input.designerId,
+    spaceDataStatus: input.spaceDataStatus,
+    note: input.note?.trim() || null,
+  });
+
+  return response.data.data;
+}
+
+export async function updateProjectStatus(input: UpdateProjectStatusInput) {
+  const response = await projectApiClient.patch<ServiceResult<UpdateProjectStatusData>>(`/projects/${input.projectId}/status`, {
+    status: input.status,
+    note: input.note?.trim() || null,
+  });
+
+  return response.data.data;
+}
+
 export async function getProjectFiles(params: ProjectFileListParams) {
   const response = await projectApiClient.get<ServiceResult<ProjectFileListData>>(`/projects/${params.projectId}/files`, {
     params: {
@@ -287,11 +338,7 @@ export async function uploadProjectFile(
     formData.append('note', options.note.trim());
   }
 
-  const response = await projectApiClient.post<ServiceResult<ProjectFileUploadResponseDto>>(`/projects/${projectId}/files`, formData, {
-    headers: {
-      'Content-Type': 'multipart/form-data',
-    },
-  });
+  const response = await projectApiClient.post<ServiceResult<ProjectFileUploadResponseDto>>(`/projects/${projectId}/files`, formData);
 
   return response.data.data;
 }
@@ -344,4 +391,25 @@ function getProjectApiBaseUrl() {
   const configuredApiUrl = import.meta.env.VITE_API_BASE_URL ?? import.meta.env.VITE_API_URL;
 
   return configuredApiUrl?.replace(/\/api\/?$/, '');
+}
+
+function clearMultipartContentType(headers: unknown) {
+  const headerBag = headers as {
+    set?: (name: string, value?: string | false) => void;
+    [key: string]: unknown;
+  };
+
+  if (typeof headerBag.delete === 'function') {
+    headerBag.delete('Content-Type');
+    headerBag.delete('content-type');
+    return;
+  }
+
+  if (typeof headerBag.set === 'function') {
+    headerBag.set('Content-Type', false);
+    return;
+  }
+
+  delete headerBag['Content-Type'];
+  delete headerBag['content-type'];
 }

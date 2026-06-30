@@ -1,5 +1,10 @@
-import { useEffect, useState } from 'react';
-import { NavLink } from 'react-router-dom';
+import { IconChevronDown, IconGlobe, IconLayoutDashboard, IconLogout, IconUser } from '@tabler/icons-react';
+import { useEffect, useRef, useState } from 'react';
+import { NavLink, useNavigate } from 'react-router-dom';
+
+import logoImage from '@/assets/Logo/Logo.png';
+import { useLang } from '@/app/providers/LangContext';
+import { useCurrentUser, useLogout } from '@/services/queries';
 
 import './MainNavbar.css';
 
@@ -13,12 +18,30 @@ type MainNavbarProps = {
   linkClassName?: string;
 };
 
-const mainNavItems = [
-  { label: 'Trang chủ', path: '/' },
-  { label: 'Dự án', path: '/projects' },
-  { label: 'Sản phẩm', path: '/products' },
-  { label: 'Dịch vụ', path: '/#services' },
-];
+const navPaths = ['/', '/projects', '/products', '/services'];
+
+const navbarText = {
+  vi: {
+    nav: ['TRANG CHỦ', 'DỰ ÁN', 'SẢN PHẨM', 'DỊCH VỤ'],
+    register: 'ĐĂNG KÝ',
+    login: 'ĐĂNG NHẬP',
+    dashboard: 'Trung tâm quản lý',
+    profile: 'Thông tin người dùng',
+    logout: 'Đăng xuất',
+    loggingOut: 'Đang đăng xuất...',
+    switchLang: 'Switch to English',
+  },
+  en: {
+    nav: ['HOME', 'PROJECTS', 'PRODUCTS', 'SERVICES'],
+    register: 'SIGN UP',
+    login: 'LOG IN',
+    dashboard: 'My Dashboard',
+    profile: 'My Profile',
+    logout: 'Log out',
+    loggingOut: 'Logging out...',
+    switchLang: 'Chuyển sang Tiếng Việt',
+  },
+};
 
 function cx(...classNames: Array<string | undefined | false | null>) {
   return classNames.filter(Boolean).join(' ');
@@ -28,13 +51,21 @@ export function MainNavbar({
   activeClassName,
   activePath,
   brandLabel = 'FurniSpace',
-  brandMarkLabel = 'F',
   brandNameClassName,
   classPrefix,
   linkClassName,
 }: MainNavbarProps) {
+  const navigate = useNavigate();
+  const accountMenuRef = useRef<HTMLDivElement>(null);
   const [isScrolled, setIsScrolled] = useState(false);
+  const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false);
+  const { data: user } = useCurrentUser();
+  const logoutMutation = useLogout();
+  const { lang, setLang } = useLang();
+  const t = navbarText[lang];
   const resolvedBrandLabel = brandLabel.toLowerCase() === 'furnispace' ? 'FurniSpace' : brandLabel;
+  const displayName = user?.fullName?.trim() || user?.email || (lang === 'vi' ? 'Khách hàng' : 'Guest');
+  const initials = getInitials(displayName);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -49,23 +80,42 @@ export function MainNavbar({
     };
   }, []);
 
+  useEffect(() => {
+    function handleDocumentPointerDown(event: MouseEvent) {
+      if (!accountMenuRef.current?.contains(event.target as Node)) {
+        setIsAccountMenuOpen(false);
+      }
+    }
+
+    document.addEventListener('mousedown', handleDocumentPointerDown);
+
+    return () => {
+      document.removeEventListener('mousedown', handleDocumentPointerDown);
+    };
+  }, []);
+
+  function handleLogout() {
+    logoutMutation.mutate(undefined, {
+      onSettled: () => {
+        setIsAccountMenuOpen(false);
+        navigate('/login');
+      },
+    });
+  }
+
   return (
     <header className={cx(`${classPrefix}-header`, 'main-navbar', isScrolled && 'main-navbar-scrolled')}>
       <NavLink className={cx(`${classPrefix}-brand`, 'main-navbar-brand')} to="/">
-        <span className={cx(`${classPrefix}-brand-mark`, 'main-navbar-logo-wrap')}>
-          <span className="main-navbar-logo-glyph" aria-hidden="true">
-            {brandMarkLabel || 'FS'}
-          </span>
-          <span className="main-navbar-logo-caption" aria-hidden="true">
-            Design
-          </span>
+        <span className={cx(`${classPrefix}-brand-mark`, 'main-navbar-logo-wrap')} aria-hidden="true">
+          <img className="main-navbar-logo-image" src={logoImage} alt="" />
         </span>
         <span className={cx(brandNameClassName, 'main-navbar-brand-name')}>{resolvedBrandLabel}</span>
       </NavLink>
 
       <nav className={cx(`${classPrefix}-nav`, 'main-navbar-nav')} aria-label="Main navigation">
-        {mainNavItems.map((item) => {
-          const isActive = activePath ? item.path === activePath : undefined;
+        {navPaths.map((path, index) => {
+          const label = t.nav[index];
+          const isActive = activePath ? path === activePath : undefined;
           const resolvedActiveClassName = activeClassName ?? `${classPrefix}-nav-active`;
 
           return (
@@ -77,24 +127,80 @@ export function MainNavbar({
                   undefined
                 );
               }}
-              end={item.path === '/'}
-              key={item.label}
-              to={item.path}
+              end={path === '/'}
+              key={path}
+              to={path}
             >
-              {item.label}
+              {label}
             </NavLink>
           );
         })}
       </nav>
 
       <div className="main-navbar-actions" aria-label="Account actions">
-        <NavLink className="main-navbar-action" to="/register">
-          ĐĂNG KÝ
-        </NavLink>
-        <NavLink className="main-navbar-action main-navbar-action-login" to="/login">
-          ĐĂNG NHẬP
-        </NavLink>
+        {user ? (
+          <div className="main-navbar-account" ref={accountMenuRef}>
+            <button
+              className="main-navbar-user-button"
+              type="button"
+              aria-expanded={isAccountMenuOpen}
+              aria-haspopup="menu"
+              onClick={() => setIsAccountMenuOpen((current) => !current)}
+            >
+              <span className="main-navbar-user-name">{displayName}</span>
+              {user.avatarUrl ? <img className="main-navbar-avatar" src={user.avatarUrl} alt="" /> : <span className="main-navbar-avatar">{initials}</span>}
+              <IconChevronDown className="main-navbar-user-chevron" size={16} stroke={2} />
+            </button>
+
+            {isAccountMenuOpen ? (
+              <div className="main-navbar-account-menu" role="menu">
+                <NavLink className="main-navbar-account-menu-item" role="menuitem" to="/customer/dashboard" onClick={() => setIsAccountMenuOpen(false)}>
+                  <IconLayoutDashboard size={18} stroke={1.8} />
+                  <span>{t.dashboard}</span>
+                </NavLink>
+                <NavLink className="main-navbar-account-menu-item" role="menuitem" to="/user-profile" onClick={() => setIsAccountMenuOpen(false)}>
+                  <IconUser size={18} stroke={1.8} />
+                  <span>{t.profile}</span>
+                </NavLink>
+                <button className="main-navbar-account-menu-item" role="menuitem" type="button" onClick={handleLogout} disabled={logoutMutation.isPending}>
+                  <IconLogout size={18} stroke={1.8} />
+                  <span>{logoutMutation.isPending ? t.loggingOut : t.logout}</span>
+                </button>
+              </div>
+            ) : null}
+          </div>
+        ) : (
+          <>
+            <NavLink className="main-navbar-action" to="/register">
+              {t.register}
+            </NavLink>
+            <NavLink className="main-navbar-action main-navbar-action-login" to="/login">
+              {t.login}
+            </NavLink>
+          </>
+        )}
+
+        <button
+          className="main-navbar-language"
+          type="button"
+          aria-label={t.switchLang}
+          onClick={() => setLang(lang === 'vi' ? 'en' : 'vi')}
+        >
+          <IconGlobe size={18} stroke={1.8} />
+          <span>{lang.toUpperCase()}</span>
+        </button>
       </div>
     </header>
   );
+}
+
+function getInitials(value: string) {
+  const initials = value
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((part) => part.charAt(0).toUpperCase())
+    .join('');
+
+  return initials || 'U';
 }

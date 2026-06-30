@@ -1,6 +1,10 @@
+import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { useQueries } from '@tanstack/react-query';
 
 import { getAccountById, getAccountRoleName, type AccountDto } from '@/services/api';
+import { getAccountServiceResultMessage } from '@/services/api/accounts';
+import { getProjectServiceResultMessage, type ProjectSpaceDataStatus } from '@/services/api/projects';
+import { useAssignDesignerToProject, useAvailableDesigners } from '@/services/queries';
 
 import type { ProjectDetailProject } from '../ProjectDetail';
 
@@ -10,6 +14,8 @@ type OverviewTabProps = {
 };
 
 export function OverviewTab({ project, showAssignedTeam = false }: OverviewTabProps) {
+  const [assignmentMessage, setAssignmentMessage] = useState('');
+  const [selectedDesignerId, setSelectedDesignerId] = useState(project.assignedDesignerId ?? '');
   const teamAccountIds = [project.assignedSalesId, project.assignedDesignerId].filter((accountId): accountId is string => Boolean(accountId));
   const teamQueries = useQueries({
     queries: teamAccountIds.map((accountId) => ({
@@ -30,6 +36,19 @@ export function OverviewTab({ project, showAssignedTeam = false }: OverviewTabPr
   }, {});
   const assignedSales = project.assignedSalesId ? teamById[project.assignedSalesId] : null;
   const assignedDesigner = project.assignedDesignerId ? teamById[project.assignedDesignerId] : null;
+  const availableDesignersQuery = useAvailableDesigners(
+    { page: 1, pageSize: 100 },
+    { enabled: showAssignedTeam && !project.assignedDesignerId },
+  );
+  const assignDesignerMutation = useAssignDesignerToProject();
+  const availableDesigners = useMemo(
+    () => availableDesignersQuery.data?.items ?? [],
+    [availableDesignersQuery.data?.items],
+  );
+  const selectedDesigner = useMemo(
+    () => availableDesigners.find((designer) => designer.accountId === project.assignedDesignerId) ?? null,
+    [availableDesigners, project.assignedDesignerId],
+  );
   const projectInfo = [
     ['Business Type', project.businessType],
     ['Total Area', formatArea(project.totalAreaSqm)],
@@ -44,6 +63,42 @@ export function OverviewTab({ project, showAssignedTeam = false }: OverviewTabPr
     ['Furniture Requirements', project.furnitureRequirement],
     ['Description', project.description],
   ].filter(([, value]) => Boolean(value));
+
+  useEffect(() => {
+    setSelectedDesignerId(project.assignedDesignerId ?? '');
+  }, [project.assignedDesignerId]);
+
+  async function handleAssignDesigner(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setAssignmentMessage('');
+
+    const formData = new FormData(event.currentTarget);
+    const designerId = String(formData.get('designerId') ?? selectedDesignerId).trim();
+    const spaceDataStatus = String(formData.get('spaceDataStatus') ?? 'INSUFFICIENT') as ProjectSpaceDataStatus;
+    const note = String(formData.get('note') ?? '').trim();
+
+    if (!designerId) {
+      setAssignmentMessage('Please select an available designer.');
+      return;
+    }
+
+    if (designerId === project.assignedDesignerId) {
+      setAssignmentMessage('This designer is already assigned to the project.');
+      return;
+    }
+
+    try {
+      await assignDesignerMutation.mutateAsync({
+        projectId: project.projectId,
+        designerId,
+        spaceDataStatus,
+        note: note || 'Designer assigned from project overview.',
+      });
+      setAssignmentMessage('Designer assigned successfully.');
+    } catch (error) {
+      setAssignmentMessage(getProjectServiceResultMessage(error));
+    }
+  }
 
   return (
     <div className="project-detail-overview project-detail-tab-panel">
@@ -77,7 +132,7 @@ export function OverviewTab({ project, showAssignedTeam = false }: OverviewTabPr
         <section className="project-detail-card project-detail-team-card">
           <header>
             <h3>Assigned Team</h3>
-            <p>Sales and designer currently connected to this project.</p>
+            <p>Sales, designer, and assignment tools for this project.</p>
           </header>
 
           <div className="project-detail-team-grid">
@@ -96,6 +151,82 @@ export function OverviewTab({ project, showAssignedTeam = false }: OverviewTabPr
               avatarClassName="project-detail-team-avatar-designer"
             />
           </div>
+
+          {!project.assignedDesignerId ? <div className="project-detail-section-divider" /> : null}
+
+          {!project.assignedDesignerId ? (
+            <form className="project-detail-designer-assignment" onSubmit={handleAssignDesigner}>
+            <div className="project-detail-designer-form">
+              <h4>Assignment Details</h4>
+              <p className="project-detail-designer-selected">
+                Selected: {availableDesigners.find((designer) => designer.accountId === selectedDesignerId)?.fullName ?? assignedDesigner?.fullName ?? 'Choose a designer from the list below'}
+              </p>
+
+              <label>
+                <span>Space Data Status</span>
+                <select name="spaceDataStatus" defaultValue="INSUFFICIENT" disabled={assignDesignerMutation.isPending}>
+                  <option value="INSUFFICIENT">Insufficient - needs measurement</option>
+                  <option value="SUFFICIENT">Sufficient - ready for design review</option>
+                </select>
+              </label>
+
+              <label>
+                <span>Assignment Note</span>
+                <textarea name="note" placeholder="Add context for the designer" disabled={assignDesignerMutation.isPending} />
+              </label>
+
+              {assignmentMessage ? (
+                <p className={`project-detail-form-message ${assignmentMessage.toLowerCase().includes('success') || assignmentMessage.toLowerCase().includes('already') ? '' : 'project-detail-form-message-error'}`}>
+                  {assignmentMessage}
+                </p>
+              ) : null}
+
+              <button className="project-detail-primary-button" type="submit" disabled={availableDesignersQuery.isLoading || assignDesignerMutation.isPending}>
+                {assignDesignerMutation.isPending ? 'Assigning designer...' : 'Assign Designer'}
+              </button>
+            </div>
+
+            <div className="project-detail-designer-list">
+              <div className="project-detail-designer-list-header">
+                <div>
+                  <h4>Available Designers</h4>
+                  <p>{availableDesignersQuery.isLoading ? 'Loading available designers...' : `${availableDesigners.length} designer${availableDesigners.length === 1 ? '' : 's'} available`}</p>
+                </div>
+                {selectedDesigner ? <span>Current: {selectedDesigner.fullName}</span> : null}
+              </div>
+
+              {availableDesignersQuery.isError ? (
+                <p className="project-detail-form-message project-detail-form-message-error">
+                  {getAccountServiceResultMessage(availableDesignersQuery.error)}
+                </p>
+              ) : null}
+
+              {availableDesignersQuery.isLoading ? <p className="project-detail-muted">Loading designers...</p> : null}
+              {!availableDesignersQuery.isLoading && availableDesigners.length === 0 ? <p className="project-detail-muted">No available designers found.</p> : null}
+
+              <div className="project-detail-designer-options">
+                {availableDesigners.map((designer) => (
+                  <label className={designer.accountId === selectedDesignerId ? 'project-detail-designer-option project-detail-designer-option-active' : 'project-detail-designer-option'} key={designer.accountId}>
+                    <input
+                      type="radio"
+                      name="designerId"
+                      value={designer.accountId}
+                      checked={designer.accountId === selectedDesignerId}
+                      disabled={assignDesignerMutation.isPending}
+                      onChange={(event) => setSelectedDesignerId(event.currentTarget.value)}
+                    />
+                    <div className="project-detail-team-avatar project-detail-team-avatar-designer">{getInitial(designer.fullName)}</div>
+                    <div>
+                      <strong>{designer.fullName}</strong>
+                      <span>{designer.email}</span>
+                    </div>
+                    <em>{designer.availableSlot}/{designer.maxActiveProjects} slots</em>
+                  </label>
+                ))}
+              </div>
+            </div>
+            </form>
+          ) : null}
         </section>
       ) : null}
     </div>

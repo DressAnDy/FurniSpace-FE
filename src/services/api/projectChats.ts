@@ -6,9 +6,6 @@ import type { FileType, FileVisibility } from './projects';
 const projectChatApiClient = axios.create({
   baseURL: getProjectChatApiBaseUrl(),
   withCredentials: true,
-  headers: {
-    'Content-Type': 'application/json',
-  },
 });
 
 projectChatApiClient.interceptors.request.use((config) => {
@@ -16,6 +13,10 @@ projectChatApiClient.interceptors.request.use((config) => {
 
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
+  }
+
+  if (config.data instanceof FormData) {
+    clearMultipartContentType(config.headers);
   }
 
   return config;
@@ -103,6 +104,16 @@ export type ProjectChatMessageListResponse = {
   total: number;
 };
 
+export type ProjectChatSummary = {
+  chatId: string;
+  projectId: string;
+  chatType: ProjectChatType;
+  staffId: string | null;
+  title: string | null;
+  status: ProjectChatStatus;
+  closedAt: string | null;
+};
+
 export type ProjectChatListParams = {
   projectId: string;
   status?: ProjectChatStatus | null;
@@ -116,16 +127,6 @@ export type ProjectChatMessageParams = {
   page?: number;
   limit?: number;
   sort?: 'ASC' | 'DESC';
-};
-
-export type ProjectChatSummary = {
-  chatId: string;
-  projectId: string;
-  chatType: ProjectChatType;
-  staffId: string | null;
-  title: string | null;
-  status: ProjectChatStatus;
-  closedAt: string | null;
 };
 
 export type ProjectChatMessageSentEvent = {
@@ -211,6 +212,10 @@ export async function closeProjectChat(chatId: string) {
   return response.data.data;
 }
 
+export function getProjectChatHubUrl() {
+  return `${getProjectChatApiBaseUrl() ?? ''}/hubs/project-chat`;
+}
+
 export function getProjectChatServiceResultMessage(error: unknown) {
   const result = getProjectChatServiceResultFromError(error);
   const status = error instanceof AxiosError ? error.response?.status : undefined;
@@ -234,10 +239,6 @@ export function getProjectChatServiceResultMessage(error: unknown) {
   return result.message || 'Chat request failed. Please try again.';
 }
 
-export function getProjectChatHubUrl() {
-  return `${getProjectChatApiBaseUrl() ?? ''}/hubs/project-chat`;
-}
-
 function getProjectChatServiceResultFromError(error: unknown) {
   if (!(error instanceof AxiosError)) {
     return null;
@@ -256,4 +257,26 @@ function getProjectChatApiBaseUrl() {
   const configuredApiUrl = import.meta.env.VITE_API_BASE_URL ?? import.meta.env.VITE_API_URL;
 
   return configuredApiUrl?.replace(/\/api\/?$/, '');
+}
+
+function clearMultipartContentType(headers: unknown) {
+  const headerBag = headers as {
+    delete?: (name: string) => boolean;
+    set?: (name: string, value?: string | false) => void;
+    [key: string]: unknown;
+  };
+
+  if (typeof headerBag.delete === 'function') {
+    headerBag.delete('Content-Type');
+    headerBag.delete('content-type');
+    return;
+  }
+
+  if (typeof headerBag.set === 'function') {
+    headerBag.set('Content-Type', false);
+    return;
+  }
+
+  delete headerBag['Content-Type'];
+  delete headerBag['content-type'];
 }

@@ -56,15 +56,7 @@ async function uploadAsset(input: UploadAssetInput) {
     formData.append(key, value);
   });
 
-  const response = await apiClient.post<ApiResponse<Asset>>(
-    '/assets',
-    formData,
-    {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-    },
-  );
+  const response = await apiClient.post<ApiResponse<Asset>>('/assets', formData);
 
   return response.data.data;
 }
