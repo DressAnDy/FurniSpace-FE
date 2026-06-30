@@ -2,11 +2,13 @@ import { type FormEvent, useState } from 'react';
 import { IconArrowLeft, IconBox, IconCheck, IconCube, IconEdit, IconPlus, IconX } from '@tabler/icons-react';
 import { useNavigate, useParams } from 'react-router-dom';
 
+import { ModelViewer, type ModelViewerStatus } from '@/features/ThreeD/components';
 import {
   getProductServiceResultMessage,
   normalizeOptionalNumber,
   normalizeOptionalText,
   normalizeRequiredText,
+  type ProductVersionDto,
   type ProductVersionType,
 } from '@/services/api';
 import { useProductDetail, useSetDefaultProductVersion, useUpdateProductVersion } from '@/services/queries';
@@ -34,15 +36,29 @@ function formatPrice(value: number | null) {
   return `${new Intl.NumberFormat('vi-VN').format(value)} VND`;
 }
 
+function getVersionModelFile(version: ProductVersionDto | null | undefined) {
+  return version?.files?.find((file) => file.fileType === 'MODEL_3D') ?? null;
+}
+
+function getVersionPreviewFile(version: ProductVersionDto | null | undefined) {
+  return version?.thumbnail ?? version?.files?.find((file) => file.fileType === 'PRODUCT_PREVIEW') ?? null;
+}
+
 export function ProductVersionManagement() {
   const navigate = useNavigate();
   const { productId } = useParams();
   const [editingVersionId, setEditingVersionId] = useState<string | null>(null);
+  const [previewVersionId, setPreviewVersionId] = useState<string | null>(null);
+  const [viewerStatus, setViewerStatus] = useState<ModelViewerStatus>('idle');
+  const [viewerError, setViewerError] = useState<string | null>(null);
   const productQuery = useProductDetail(productId);
   const setDefaultMutation = useSetDefaultProductVersion(productId);
   const updateVersionMutation = useUpdateProductVersion(productId);
   const product = productQuery.data;
   const versions = product?.versions ?? [];
+  const previewVersion = versions.find((version) => version.productVersionId === previewVersionId) ?? null;
+  const previewModelFile = getVersionModelFile(previewVersion);
+  const previewImageFile = getVersionPreviewFile(previewVersion);
 
   const handleEditSubmit = async (event: FormEvent<HTMLFormElement>, productVersionId: string) => {
     event.preventDefault();
@@ -191,7 +207,11 @@ export function ProductVersionManagement() {
                       <button
                         className="product-card-button product-card-button-secondary"
                         type="button"
-                        onClick={() => navigate(`/admin/catalog/models/${productId}/${version.productVersionId}`)}
+                        onClick={() => {
+                          setPreviewVersionId(version.productVersionId);
+                          setViewerStatus('idle');
+                          setViewerError(null);
+                        }}
                       >
                         <IconCube size={16} />
                         3D Assets
@@ -338,6 +358,46 @@ export function ProductVersionManagement() {
             <div className="product-management-note">
               <strong>Note:</strong> Versions will be locked after inventory stock is created. Only Active versions can be calculated.
             </div>
+
+            {previewVersion ? (
+              <div className="product-edit-modal-overlay">
+                <section className="product-edit-modal-panel product-model-preview-modal" aria-label={`${previewVersion.versionName} 3D model preview`}>
+                  <div className="product-card-edit-heading">
+                    <div>
+                      <strong>{previewVersion.versionName}</strong>
+                      <p>
+                        {viewerStatus === 'error'
+                          ? viewerError
+                          : previewModelFile
+                            ? 'Drag to rotate, scroll to zoom.'
+                            : 'No MODEL_3D file is attached to this version.'}
+                      </p>
+                    </div>
+                    <button
+                      aria-label="Close 3D model preview"
+                      className="product-card-icon-button"
+                      type="button"
+                      onClick={() => setPreviewVersionId(null)}
+                    >
+                      <IconX size={16} />
+                    </button>
+                  </div>
+
+                  <div className="product-model-preview-canvas">
+                    <ModelViewer
+                      fallbackImageUrl={previewImageFile?.fileUrl}
+                      height="100%"
+                      modelUrl={previewModelFile?.fileUrl}
+                      showGrid={false}
+                      onStatusChange={(status, error) => {
+                        setViewerStatus(status);
+                        setViewerError(error);
+                      }}
+                    />
+                  </div>
+                </section>
+              </div>
+            ) : null}
           </div>
         </section>
       </div>

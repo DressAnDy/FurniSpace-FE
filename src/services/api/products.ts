@@ -19,14 +19,6 @@ productApiClient.interceptors.request.use((config) => {
   return config;
 });
 
-productApiClient.interceptors.request.use((config) => {
-  if (typeof FormData !== 'undefined' && config.data instanceof FormData) {
-    config.headers.delete('Content-Type');
-  }
-
-  return config;
-});
-
 productApiClient.interceptors.response.use(
   (response) => response,
   (error: AxiosError) => {

@@ -5,6 +5,7 @@ import {
   Engine,
   Scene,
   SceneLoader,
+  Vector3,
 } from 'babylonjs';
 import 'babylonjs-loaders';
 
@@ -27,6 +28,52 @@ export type ModelViewerProps = {
 };
 
 export type ModelViewerStatus = 'idle' | 'loading' | 'ready' | 'error';
+
+function getMeshBounds(meshes: AbstractMesh[]) {
+  const renderMeshes = meshes.filter((mesh) => mesh.getTotalVertices() > 0);
+
+  if (renderMeshes.length === 0) {
+    return null;
+  }
+
+  const min = new Vector3(Number.POSITIVE_INFINITY, Number.POSITIVE_INFINITY, Number.POSITIVE_INFINITY);
+  const max = new Vector3(Number.NEGATIVE_INFINITY, Number.NEGATIVE_INFINITY, Number.NEGATIVE_INFINITY);
+
+  renderMeshes.forEach((mesh) => {
+    mesh.computeWorldMatrix(true);
+    const { boundingBox } = mesh.getBoundingInfo();
+    min.x = Math.min(min.x, boundingBox.minimumWorld.x);
+    min.y = Math.min(min.y, boundingBox.minimumWorld.y);
+    min.z = Math.min(min.z, boundingBox.minimumWorld.z);
+    max.x = Math.max(max.x, boundingBox.maximumWorld.x);
+    max.y = Math.max(max.y, boundingBox.maximumWorld.y);
+    max.z = Math.max(max.z, boundingBox.maximumWorld.z);
+  });
+
+  return { min, max };
+}
+
+function placeMeshesOnGround(meshes: AbstractMesh[]) {
+  const bounds = getMeshBounds(meshes);
+
+  if (!bounds) {
+    return;
+  }
+
+  const groundOffsetY = -bounds.min.y;
+
+  if (Math.abs(groundOffsetY) < 0.0001) {
+    return;
+  }
+
+  const topLevelMeshes = meshes.filter((mesh) => !mesh.parent);
+  const moveTargets = topLevelMeshes.length > 0 ? topLevelMeshes : meshes.filter((mesh) => mesh.getTotalVertices() > 0);
+
+  moveTargets.forEach((mesh) => {
+    mesh.position.y += groundOffsetY;
+    mesh.computeWorldMatrix(true);
+  });
+}
 
 export function ModelViewer({
   autoRotate = false,
@@ -65,6 +112,7 @@ export function ModelViewer({
         const { fileName, rootUrl } = splitModelUrl(url);
         const result = await SceneLoader.ImportMeshAsync('', rootUrl, fileName, scene);
         importedMeshesRef.current = result.meshes;
+        placeMeshesOnGround(result.meshes);
 
         if (cameraRef.current) {
           fitCameraToMeshes(cameraRef.current, result.meshes);

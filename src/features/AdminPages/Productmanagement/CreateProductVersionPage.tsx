@@ -23,13 +23,14 @@ export function CreateProductVersionPage() {
   const uploadVersionFileMutation = useUploadProductVersionFile(effectiveProductId);
   const [previewFile, setPreviewFile] = useState<File | null>(null);
   const [modelFile, setModelFile] = useState<File | null>(null);
-  const [textureFile, setTextureFile] = useState<File | null>(null);
+  const [fileUploadError, setFileUploadError] = useState('');
   const [createdVersionId, setCreatedVersionId] = useState<string | null>(null);
   const product = productQuery.data;
   const isSaving = createVersionMutation.isPending || uploadVersionFileMutation.isPending;
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    setFileUploadError('');
 
     if (!effectiveProductId || !product) {
       return;
@@ -67,33 +68,33 @@ export function CreateProductVersionPage() {
       setCreatedVersionId(productVersionId);
 
       if (previewFile) {
-        await uploadVersionFileMutation.mutateAsync({
-          productVersionId,
-          file: previewFile,
-          fileType: 'PRODUCT_PREVIEW',
-          description: 'Product version preview image',
-        });
+        try {
+          await uploadVersionFileMutation.mutateAsync({
+            productVersionId,
+            file: previewFile,
+            fileType: 'PRODUCT_PREVIEW',
+            description: 'Product version preview image',
+          });
+        } catch (error) {
+          setFileUploadError(`PRODUCT_PREVIEW upload failed: ${getProductServiceResultMessage(error)}`);
+          return;
+        }
         setPreviewFile(null);
       }
 
       if (modelFile) {
-        await uploadVersionFileMutation.mutateAsync({
-          productVersionId,
-          file: modelFile,
-          fileType: 'MODEL_3D',
-          description: 'Product version 3D model',
-        });
+        try {
+          await uploadVersionFileMutation.mutateAsync({
+            productVersionId,
+            file: modelFile,
+            fileType: 'MODEL_3D',
+            description: 'Product version 3D model',
+          });
+        } catch (error) {
+          setFileUploadError(`MODEL_3D upload failed: ${getProductServiceResultMessage(error)}`);
+          return;
+        }
         setModelFile(null);
-      }
-
-      if (textureFile) {
-        await uploadVersionFileMutation.mutateAsync({
-          productVersionId,
-          file: textureFile,
-          fileType: 'TEXTURE',
-          description: 'Product version texture',
-        });
-        setTextureFile(null);
       }
 
       sessionStorage.removeItem('admin.createdProductId');
@@ -269,35 +270,15 @@ export function CreateProductVersionPage() {
                     </div>
                   </label>
 
-                  <div className="product-form-field product-form-field-full">
-                    <span>Texture File</span>
-                    <div className="product-upload-grid">
-                      <label className="product-upload-tile">
-                        <input
-                          accept="image/jpeg,image/png,image/webp,image/gif,image/svg+xml"
-                          className="product-upload-input"
-                          type="file"
-                          onChange={(event) => setTextureFile(event.target.files?.[0] ?? null)}
-                        />
-                        {textureFile ? (
-                          <SelectedImagePreview className="product-upload-tile-preview" file={textureFile} />
-                        ) : (
-                          <IconUpload size={28} />
-                        )}
-                        <span>{textureFile ? textureFile.name : 'TEXTURE'}</span>
-                      </label>
-                    </div>
-                  </div>
-
-                  <p className="product-form-helper">Product versions accept PRODUCT_PREVIEW, MODEL_3D, and TEXTURE files.</p>
+                  <p className="product-form-helper">Product versions accept one PRODUCT_PREVIEW image and one MODEL_3D GLB/glTF file.</p>
                 </div>
 
                 {createVersionMutation.isError ? (
                   <p className="product-form-error">{getProductServiceResultMessage(createVersionMutation.error)}</p>
                 ) : null}
-                {uploadVersionFileMutation.isError ? (
+                {fileUploadError ? (
                   <p className="product-form-error">
-                    Product version was created, but file upload failed: {getProductServiceResultMessage(uploadVersionFileMutation.error)}
+                    Product version was created, but file upload failed: {fileUploadError}
                   </p>
                 ) : null}
               </section>

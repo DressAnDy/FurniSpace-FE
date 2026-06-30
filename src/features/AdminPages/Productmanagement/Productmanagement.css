@@ -324,6 +324,27 @@
   width: min(860px, 100%);
 }
 
+.product-model-preview-modal {
+  display: grid;
+  gap: 16px;
+  width: min(960px, calc(100vw - 48px));
+}
+
+.product-model-preview-canvas {
+  background: #111827;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  height: min(620px, calc(100vh - 220px));
+  min-height: 420px;
+  overflow: hidden;
+}
+
+.product-model-preview-canvas .three-d-viewer,
+.product-model-preview-canvas .three-d-canvas {
+  height: 100%;
+  width: 100%;
+}
+
 .product-edit-modal-panel .admin-form-input,
 .product-edit-modal-panel .admin-form-textarea {
   border-color: rgba(212, 165, 116, 0.65);
