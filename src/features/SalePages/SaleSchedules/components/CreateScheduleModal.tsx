@@ -112,8 +112,14 @@ export function CreateScheduleModal({ editingSchedule, isOpen, projects, onClose
         </button>
 
         <header className="sale-schedules-modal-header">
-          <h3 id="create-schedule-title">{editingSchedule ? 'Reschedule Appointment' : 'Create New Schedule'}</h3>
-          <p>{editingSchedule ? 'Update the date, time, or meeting details' : 'Create an appointment for an assigned project'}</p>
+          <h3 id="create-schedule-title">{editingSchedule ? 'Update Appointment' : 'Create New Schedule'}</h3>
+          <p>
+            {editingSchedule?.status === 'CANCELLED'
+              ? 'Update the appointment details and send it back to the customer for confirmation.'
+              : editingSchedule
+                ? 'Update the date, time, or meeting details'
+                : 'Create an appointment for an assigned project'}
+          </p>
         </header>
 
         <form className="sale-schedules-modal-form" onSubmit={handleSubmit}>

@@ -186,7 +186,7 @@ function getNotificationTargetPath(notification: NotificationDto, role?: string)
       return notification.projectId ? `/sales/assigned-projects/${notification.projectId}` : '/sales/schedules';
     }
 
-    return '/customer/projects';
+    return notification.referenceId ? `/customer/schedules?scheduleId=${encodeURIComponent(notification.referenceId)}` : '/customer/schedules';
   }
 
   const projectId = notification.referenceType === 'PROJECT' ? notification.referenceId : notification.projectId;

@@ -21,6 +21,7 @@ import { CustomerProjectRequestPage } from '@/features/CustomerPages/customerPro
 import { CustomerProposalDetailPage } from '@/features/CustomerPages/customerProposalDetail';
 import { DesignerAssignedProjects } from '@/features/DesignerPages/DesignerAssignedProjects';
 import { DesignerProposalWorkspace } from '@/features/DesignerPages/DesignerProposalWorkspace';
+import { CustomerSchedulesPage } from '@/features/CustomerPages/customerSchedules';
 import { HomePage } from '@/features/MainPages/home';
 import { ProductDetailPage } from '@/features/MainPages/productDetail';
 import { ProductListPreviewPage } from '@/features/MainPages/productListPreview';
@@ -91,6 +92,7 @@ export default function App() {
               <Route path="/customer/dashboard" element={<CustomerDashboardPage />} />
               <Route path="/customer/projects" element={<CustomerProjectListPage />} />
               <Route path="/customer/project-request" element={<CustomerProjectRequestPage />} />
+              <Route path="/customer/schedules" element={<CustomerSchedulesPage />} />
               <Route path="/customer/proposals" element={<CustomerProposalDetailPage />} />
               <Route path="/customer/3d-preview" element={<Customer3dPreviewPage />} />
               <Route path="/customer/chat" element={<CustomerChatPage />} />
@@ -99,6 +101,7 @@ export default function App() {
               <Route path="/customer-3d-preview" element={<Navigate to="/customer/3d-preview" replace />} />
               <Route path="/customer-projects" element={<Navigate to="/customer/projects" replace />} />
               <Route path="/customer-project-request" element={<Navigate to="/customer/project-request" replace />} />
+              <Route path="/customer-schedules" element={<Navigate to="/customer/schedules" replace />} />
               <Route path="/customer-proposal-detail" element={<Navigate to="/customer/proposals" replace />} />
               <Route path="/customer-chat" element={<Navigate to="/customer/chat" replace />} />
             </Route>
