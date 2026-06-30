@@ -31,7 +31,6 @@ import { UserProfilePage } from '@/features/MainPages/userProfile';
 import { ProjectDetail } from '@/features/SalePages/ProjectDetail';
 import { ProjectRequestQueue } from '@/features/SalePages/ProjectRequestQueue';
 import { AssignedProjects } from '@/features/SalePages/AssignedProjects';
-import { DesignerAssignedProjects } from '@/features/DesignerPages/DesignerAssignedProjects';
 import { DesignerDashbroad } from '@/features/DesignerPages/DesignerDashbroad';
 import { DesignerProductLibrary } from '@/features/DesignerPages/DesignerProductLibrary';
 import { DesignerProjectDetail } from '@/features/DesignerPages/DesignerProjectDetail';

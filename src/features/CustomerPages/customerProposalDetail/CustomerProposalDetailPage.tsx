@@ -175,8 +175,10 @@ export function CustomerProposalDetailPage() {
             </section>
           </aside>
         </div>
+        </div>        
       </div>
     </main>
-  );
+    
+  )
 }
 

@@ -16,6 +16,7 @@ import { useNavigate } from 'react-router-dom';
 
 import './CustomerProjectListPage.css';
 import { CustomerNavbar } from '@/features/CustomerPages/customercomponents';
+import { mockCustomerProjects } from '@/features/CustomerPages/mockData';
 import { ProjectChatPanel } from '@/features/projectChat/ProjectChatPanel';
 import type { ProjectListItemDto, ProjectStatus } from '@/services/api/projects';
 import { useProjectList } from '@/services/queries/useProjects';

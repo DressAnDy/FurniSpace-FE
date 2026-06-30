@@ -1,5 +1,11 @@
 import axios, { AxiosError } from 'axios';
 
+declare module 'axios' {
+  export interface AxiosRequestConfig {
+    skipAuthRedirect?: boolean;
+  }
+}
+
 const productApiClient = axios.create({
   baseURL: getProductApiBaseUrl(),
   withCredentials: true,
@@ -427,6 +433,9 @@ export async function uploadProductVersionFile(
   const response = await productApiClient.post<ServiceResult<CatalogFileUploadResponseDto>>(
     `/api/ProductVersions/product-versions/${productVersionId}/files`,
     formData,
+    {
+      skipAuthRedirect: options.skipAuthRedirect,
+    },
   );
 
   return response.data.data;
