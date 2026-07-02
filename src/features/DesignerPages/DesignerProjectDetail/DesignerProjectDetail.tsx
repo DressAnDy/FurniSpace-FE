@@ -12,7 +12,7 @@ import {
 } from '@tabler/icons-react';
 import { useQueries } from '@tanstack/react-query';
 import { useMemo, useState, type ComponentType, type CSSProperties } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 
 import { DesignerLayout } from '@/features/DesignerPages/designercomponents';
 import { getAccountById } from '@/services/api';
@@ -48,6 +48,7 @@ const detailTabs: DesignerProjectTabConfig[] = [
 ];
 
 export function DesignerProjectDetail() {
+  const navigate = useNavigate();
   const { projectId } = useParams();
   const [activeTab, setActiveTab] = useState<DesignerProjectDetailTab>('overview');
   const projectQuery = useProjectDetail(projectId);
@@ -84,6 +85,18 @@ export function DesignerProjectDetail() {
         { icon: IconMessage, label: `Sales: ${sales?.fullName ?? project.assignedSalesId ?? '-'}` },
       ]
     : [];
+
+  function openProposalSceneEditor() {
+    const editorSceneId = projectId ?? 'new-proposal-scene';
+
+    navigate(`/proposal-scenes/${editorSceneId}/room-planner`, {
+      state: {
+        mode: 'create-proposal',
+        projectId: editorSceneId,
+        returnTo: projectId ? `/designer/assigned-projects/${projectId}` : '/designer/assigned-projects',
+      },
+    });
+  }
 
   return (
     <DesignerLayout activeLabel="Assigned Projects" searchPlaceholder="Search projects, proposals...">
@@ -122,7 +135,7 @@ export function DesignerProjectDetail() {
                 </div>
                 <p>Design Progress</p>
                 <div className="designer-project-progress-actions">
-                  <button className="designer-project-detail-button designer-project-detail-button-primary" type="button">
+                  <button className="designer-project-detail-button designer-project-detail-button-primary" type="button" onClick={openProposalSceneEditor}>
                     <IconPlus size={17} />
                     Create Proposal
                   </button>

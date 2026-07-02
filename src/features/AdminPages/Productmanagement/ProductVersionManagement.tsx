@@ -4,6 +4,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 
 import { ModelViewer, type ModelViewerStatus } from '@/features/ThreeD/components';
 import {
+  type CatalogFileDto,
   getProductServiceResultMessage,
   normalizeOptionalNumber,
   normalizeOptionalText,
@@ -41,7 +42,17 @@ function getVersionModelFile(version: ProductVersionDto | null | undefined) {
 }
 
 function getVersionPreviewFile(version: ProductVersionDto | null | undefined) {
-  return version?.thumbnail ?? version?.files?.find((file) => file.fileType === 'PRODUCT_PREVIEW') ?? null;
+  if (version?.thumbnail?.fileType === 'PRODUCT_PREVIEW') {
+    return version.thumbnail;
+  }
+
+  return version?.files?.find((file) => file.fileType === 'PRODUCT_PREVIEW') ?? null;
+}
+
+function getCatalogFileUrl(file: CatalogFileDto | null | undefined) {
+  const fileLike = file as (CatalogFileDto & { publicUrl?: string | null; url?: string | null }) | null | undefined;
+
+  return fileLike?.fileUrl ?? fileLike?.publicUrl ?? fileLike?.url ?? null;
 }
 
 export function ProductVersionManagement() {
@@ -148,7 +159,7 @@ export function ProductVersionManagement() {
 
             <section className="product-version-grid">
               {versions.map((version, index) => {
-                const thumbnailUrl = version.thumbnail?.fileUrl ?? version.files?.[0]?.fileUrl;
+                const thumbnailUrl = getCatalogFileUrl(getVersionPreviewFile(version));
 
                 return (
                   <article key={version.productVersionId} className="product-version-card">
@@ -158,7 +169,7 @@ export function ProductVersionManagement() {
                         {version.status}
                       </span>
                       {thumbnailUrl ? (
-                        <img className="product-card-image" src={thumbnailUrl} alt={version.versionName} />
+                        <ProductVersionImage alt={version.versionName} src={thumbnailUrl} />
                       ) : (
                         <div className="product-card-placeholder">
                           <IconBox size={42} />
@@ -385,9 +396,9 @@ export function ProductVersionManagement() {
 
                   <div className="product-model-preview-canvas">
                     <ModelViewer
-                      fallbackImageUrl={previewImageFile?.fileUrl}
+                      fallbackImageUrl={getCatalogFileUrl(previewImageFile) ?? undefined}
                       height="100%"
-                      modelUrl={previewModelFile?.fileUrl}
+                      modelUrl={getCatalogFileUrl(previewModelFile) ?? undefined}
                       showGrid={false}
                       onStatusChange={(status, error) => {
                         setViewerStatus(status);
@@ -403,6 +414,26 @@ export function ProductVersionManagement() {
       </div>
     </main>
   );
+}
+
+type ProductVersionImageProps = {
+  alt: string;
+  src: string;
+};
+
+function ProductVersionImage({ alt, src }: ProductVersionImageProps) {
+  const [hasError, setHasError] = useState(false);
+
+  if (hasError) {
+    return (
+      <div className="product-card-placeholder">
+        <IconBox size={42} />
+        <span>No image</span>
+      </div>
+    );
+  }
+
+  return <img className="product-card-image" src={src} alt={alt} onError={() => setHasError(true)} />;
 }
 
 export default ProductVersionManagement;

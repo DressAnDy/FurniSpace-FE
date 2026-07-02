@@ -50,6 +50,11 @@ import './ThreeDTestPage.css';
 
 type ViewMode = '2d' | '3d';
 type DesignPanel = 'products' | 'floor' | 'wall' | null;
+type RoomPlannerRouteState = {
+  mode?: 'create-proposal';
+  projectId?: string;
+  returnTo?: string;
+};
 
 type ProductModel = {
   fileId?: string;
@@ -73,7 +78,7 @@ const PLACEMENT_MODES: Array<{
   { label: 'Wall Mounted', value: 'WALL_MOUNTED' },
   { label: 'Custom Height', value: 'CUSTOM_HEIGHT' },
 ];
-const API_PRODUCT_DEFAULT_SCALE = 5;
+const API_PRODUCT_DEFAULT_SCALE = 3;
 
 function getDefaultVector3(value: Partial<Vector3State> | undefined, fallback: Vector3State): Vector3State {
   return {
@@ -322,8 +327,11 @@ function CommitNumberInput({ fallback, min, onCommit, step, value }: CommitNumbe
 export function ThreeDTestPage() {
   const { sceneId } = useParams();
   const location = useLocation();
+  const routeState = location.state as RoomPlannerRouteState | null;
   const isProposalScene = Boolean(sceneId);
+  const isCreateProposal = routeState?.mode === 'create-proposal';
   const isAdminLab = location.pathname.startsWith('/admin/3d-lab');
+  const backLinkTarget = routeState?.returnTo ?? (isProposalScene ? `/designer/projects/${MOCK_PROJECT.projectId}/proposals/${MOCK_PROPOSAL.proposalId}` : isAdminLab ? '/admin/dashbroad' : '/');
   const uploadModelMutation = useUploadProductVersionFile();
   const [activeTool, setActiveTool] = useState<BlueprintTool>('select');
   const [hideLabels, setHideLabels] = useState(false);
@@ -365,7 +373,7 @@ export function ThreeDTestPage() {
   const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
   const [showProductInfo, setShowProductInfo] = useState(false);
   const [freeRotateProductId, setFreeRotateProductId] = useState<string | null>(null);
-  const [viewMode, setViewMode] = useState<ViewMode>('2d');
+  const [viewMode, setViewMode] = useState<ViewMode>(() => (isProposalScene ? '3d' : '2d'));
   const [wallPaintSwatches, setWallPaintSwatches] = useState<MaterialSwatch[]>(FALLBACK_SWATCHES);
 
   const wallMaterials = useMemo(
@@ -826,6 +834,33 @@ export function ThreeDTestPage() {
     setSaveMessage('');
   }, []);
 
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      const isEditingText = target instanceof HTMLInputElement ||
+        target instanceof HTMLTextAreaElement ||
+        target instanceof HTMLSelectElement ||
+        Boolean(target?.isContentEditable);
+
+      if (isEditingText || viewMode !== '3d' || !selectedProductId) {
+        return;
+      }
+
+      if (event.key !== 'Delete' && event.key !== 'Backspace') {
+        return;
+      }
+
+      event.preventDefault();
+      handleDeleteProduct(selectedProductId);
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [handleDeleteProduct, selectedProductId, viewMode]);
+
   const handleRotateProduct45 = useCallback((productId: string) => {
     updateProduct(productId, (product) => {
       const rotation = getProductRotation(product);
@@ -925,15 +960,15 @@ export function ThreeDTestPage() {
     <main className="room-layout-page">
       <header className="room-layout-header">
         <div>
-          <h1>{isProposalScene ? `${MOCK_PROPOSAL.name} · ${sceneId}` : 'FurniSpace Room Layout Editor'}</h1>
-          <p>{isProposalScene ? `${MOCK_PROJECT.name} · Designer official scene editor` : 'Draw a 2D blueprint first, edit wall data, then generate the 3D room preview from the same layout.'}</p>
+          <h1>{isCreateProposal ? 'Create Proposal 3D Scene' : isProposalScene ? `${MOCK_PROPOSAL.name} · ${sceneId}` : 'FurniSpace Room Layout Editor'}</h1>
+          <p>{isCreateProposal ? 'Full-screen designer editor for building the project proposal scene.' : isProposalScene ? `${MOCK_PROJECT.name} · Designer official scene editor` : 'Draw a 2D blueprint first, edit wall data, then generate the 3D room preview from the same layout.'}</p>
         </div>
         <div className="room-layout-header-actions">
           <button type="button" onClick={() => setViewMode(viewMode === '2d' ? '3d' : '2d')}>
             {viewMode === '2d' ? 'Switch to 3D' : 'Back to 2D'}
           </button>
-          <RouterLink to={isProposalScene ? `/designer/projects/${MOCK_PROJECT.projectId}/proposals/${MOCK_PROPOSAL.proposalId}` : isAdminLab ? '/admin/dashbroad' : '/'}>
-            {isProposalScene ? 'Back to Proposal' : isAdminLab ? 'Back to Admin' : 'Back home'}
+          <RouterLink to={backLinkTarget}>
+            {isCreateProposal ? 'Back to Project' : isProposalScene ? 'Back to Proposal' : isAdminLab ? 'Back to Admin' : 'Back home'}
           </RouterLink>
         </div>
       </header>

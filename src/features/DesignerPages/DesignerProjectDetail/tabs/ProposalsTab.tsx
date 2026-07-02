@@ -1,16 +1,36 @@
+import { useNavigate } from 'react-router-dom';
+
+import type { ProjectDto } from '@/services/api/projects';
+
 const proposals = [
   { code: 'PRP-2024-0142', name: 'Industrial Concept A', version: 'v1.0', status: 'Draft', scenes: '3 scenes', items: '24 items', feedback: 'None', updated: '2024-07-22' },
   { code: 'PRP-2024-0143', name: 'Warm Modern Concept B', version: 'v1.0', status: 'Draft', scenes: '2 scenes', items: '18 items', feedback: 'None', updated: '2024-07-21' },
 ];
 
-export function ProposalsTab() {
+type ProposalsTabProps = {
+  project: ProjectDto;
+};
+
+export function ProposalsTab({ project }: ProposalsTabProps) {
+  const navigate = useNavigate();
+
+  function openProposalSceneEditor() {
+    navigate(`/proposal-scenes/${project.projectId}/room-planner`, {
+      state: {
+        mode: 'create-proposal',
+        projectId: project.projectId,
+        returnTo: `/designer/assigned-projects/${project.projectId}`,
+      },
+    });
+  }
+
   return (
     <section className="designer-card designer-project-table-card">
       <div className="designer-project-section-toolbar">
         <div>
           <h3>Proposals</h3><p>2 proposals for this project.</p>
         </div>
-        <button className="designer-project-detail-button designer-project-detail-button-primary" type="button">Create Proposal</button>
+        <button className="designer-project-detail-button designer-project-detail-button-primary" type="button" onClick={openProposalSceneEditor}>Create Proposal</button>
       </div>
       <div className="designer-project-table-scroll">
         <table className="designer-project-table">

@@ -123,6 +123,20 @@ type WallCutout = {
   start: number;
 };
 
+const sceneProductLoadLocks = new WeakMap<Scene, Set<string>>();
+const PRODUCT_DRAG_DATA_TYPE = 'application/x-furnispace-product-id';
+
+function getSceneProductLoadLocks(scene: Scene) {
+  let loadLocks = sceneProductLoadLocks.get(scene);
+
+  if (!loadLocks) {
+    loadLocks = new Set<string>();
+    sceneProductLoadLocks.set(scene, loadLocks);
+  }
+
+  return loadLocks;
+}
+
 function getProductRootGroundOffsetY(root: TransformNode) {
   const localGroundOffsetY = Number(root.metadata?.localGroundOffsetY ?? 0);
 
@@ -971,6 +985,10 @@ function getProductRoot(scene: Scene, productId: string) {
   return scene.transformNodes.find((node) => node.metadata?.source === 'product-preview' && node.metadata?.productId === productId);
 }
 
+function getProductRoots(scene: Scene, productId: string) {
+  return scene.transformNodes.filter((node) => node.metadata?.source === 'product-preview' && node.metadata?.productId === productId);
+}
+
 function disposeProductPreview(scene: Scene, productId: string) {
   scene.meshes
     .filter((mesh) => mesh.metadata?.source === 'product-preview' && mesh.metadata?.productId === productId)
@@ -998,7 +1016,12 @@ function syncProductPreviews(
     });
 
   products.forEach((product) => {
-    const root = getProductRoot(scene, product.id);
+    const roots = getProductRoots(scene, product.id);
+    const root = roots[0];
+
+    roots.slice(1).forEach((duplicateRoot) => {
+      duplicateRoot.dispose(false, true);
+    });
 
     if (root) {
       root.rotation = new Vector3(
@@ -1025,6 +1048,14 @@ function syncProductPreviews(
       return;
     }
 
+    const loadLocks = getSceneProductLoadLocks(scene);
+
+    if (loadLocks.has(product.id)) {
+      return;
+    }
+
+    loadLocks.add(product.id);
+
     void loadProductPreview(scene, product).then(() => {
       if (!layout) {
         return;
@@ -1048,6 +1079,8 @@ function syncProductPreviews(
       onProductReady?.();
     }).catch((cause) => {
       onProductLoadError?.(product.id, getModelLoadErrorMessage(cause, product.modelUrl));
+    }).finally(() => {
+      loadLocks.delete(product.id);
     });
   });
 }
@@ -1290,6 +1323,10 @@ export function RoomPreview3D({
               return;
             }
 
+            if (!Array.from(event.dataTransfer?.types ?? []).includes(PRODUCT_DRAG_DATA_TYPE)) {
+              return;
+            }
+
             event.preventDefault();
             canvas.style.cursor = 'copy';
           };
@@ -1298,10 +1335,14 @@ export function RoomPreview3D({
               return;
             }
 
+            if (!Array.from(event.dataTransfer?.types ?? []).includes(PRODUCT_DRAG_DATA_TYPE)) {
+              return;
+            }
+
             event.preventDefault();
 
             const currentLayout = layoutRef.current;
-            const productModelId = event.dataTransfer?.getData('application/x-furnispace-product-id');
+            const productModelId = event.dataTransfer?.getData(PRODUCT_DRAG_DATA_TYPE);
 
             if (!currentLayout || !productModelId) {
               return;

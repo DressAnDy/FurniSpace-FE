@@ -21,6 +21,7 @@ import {
   getDisplayableVersions,
   getProductCoverImage,
   getProductPreviewFiles,
+  getProductThumbnailImage,
   getPublicDefaultVersion,
   getVersionModelFile,
 } from '@/features/MainPages/productCatalog/productCatalogUtils';
@@ -60,6 +61,7 @@ export function ProductDetailPage() {
     ?? versions[0]
     ?? null;
   const galleryFiles = getProductPreviewFiles(product);
+  const productThumbnailUrl = getProductThumbnailImage(product);
   const primaryImageUrl = getProductCoverImage(product, selectedVersion);
   const displayImageUrl = selectedImageUrl ?? primaryImageUrl;
   const modelFile = getVersionModelFile(selectedVersion);
@@ -92,7 +94,7 @@ export function ProductDetailPage() {
           <div className="product-detail-gallery">
             <figure className="product-detail-hero-image">
               {displayImageUrl ? (
-                <ProductDetailImage src={displayImageUrl} alt={selectedVersion.versionName} />
+                <ProductDetailImage src={displayImageUrl} fallbackSrc={productThumbnailUrl} alt={selectedVersion.versionName} />
               ) : (
                 <div className="product-detail-image-placeholder">
                   <IconBox size={58} stroke={1.4} />
@@ -269,13 +271,19 @@ function ProductOption({ icon, label, value }: ProductOptionProps) {
 type ProductDetailImageProps = {
   alt: string;
   compact?: boolean;
+  fallbackSrc?: string | null;
   src: string | null;
 };
 
-function ProductDetailImage({ alt, compact = false, src }: ProductDetailImageProps) {
-  const [hasError, setHasError] = useState(false);
+function ProductDetailImage({ alt, compact = false, fallbackSrc, src }: ProductDetailImageProps) {
+  const [failedUrls, setFailedUrls] = useState<string[]>([]);
+  const displaySrc = src && !failedUrls.includes(src)
+    ? src
+    : fallbackSrc && !failedUrls.includes(fallbackSrc)
+      ? fallbackSrc
+      : null;
 
-  if (!src || hasError) {
+  if (!displaySrc) {
     return compact ? (
       <div className="product-detail-thumbnail-placeholder">
         <IconBox size={24} stroke={1.4} />
@@ -288,7 +296,13 @@ function ProductDetailImage({ alt, compact = false, src }: ProductDetailImagePro
     );
   }
 
-  return <img src={src} alt={alt} onError={() => setHasError(true)} />;
+  return (
+    <img
+      src={displaySrc}
+      alt={alt}
+      onError={() => setFailedUrls((urls) => (urls.includes(displaySrc) ? urls : [...urls, displaySrc]))}
+    />
+  );
 }
 
 function formatVersionSize(version: ProductVersionDto) {

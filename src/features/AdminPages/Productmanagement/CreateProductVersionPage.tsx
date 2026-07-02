@@ -133,7 +133,7 @@ export function CreateProductVersionPage() {
             <form className="product-form-shell" onSubmit={handleSubmit}>
               <section className="product-form-card">
                 <div className="product-form-note">
-                  <strong>Note:</strong> Version type will be submitted as STANDARD by default. Public and project-specific flags are always enabled.
+                  <strong>Note:</strong> Version type will be submitted as STANDARD by default. Public is always enabled and project-specific is always disabled.
                 </div>
 
                 <div className="product-form-section">
@@ -227,7 +227,7 @@ export function CreateProductVersionPage() {
                     </div>
                     <div className="product-setting-fixed">
                       <strong>Is Project Specific</strong>
-                      <small>Always submitted as true.</small>
+                      <small>Always submitted as false.</small>
                     </div>
                   </div>
                 </div>
