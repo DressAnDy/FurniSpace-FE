@@ -12,12 +12,6 @@ import type {
   ProductMeasurements,
   Vector3State,
 } from '@/features/ThreeD/components/RoomPreview3D';
-import {
-  MOCK_PLACED_PRODUCTS,
-  MOCK_PROPOSAL,
-  MOCK_PROJECT,
-  MOCK_ROOM_LAYOUT,
-} from '@/features/ThreeD/mocks/proposalScene.mock';
 import type {
   BlueprintTool,
   MaterialSwatch,
@@ -34,6 +28,8 @@ import {
   normalizeDoorAndOpeningDimensions,
   updateWallDefaults,
 } from '@/features/ThreeD/utils/roomGeometry';
+import { createRoomPlannerScenePayload, hydrateRoomPlannerScenePayload } from '@/features/ThreeD/utils/roomPlannerSceneMapper';
+import type { RoomPlannerObject } from '@/features/ThreeD/types/roomPlannerScene.types';
 import {
   getProductById,
   getProducts,
@@ -43,8 +39,12 @@ import {
   type ProductVersionDto,
 } from '@/services/api';
 import {
+  useRoomPlannerScene,
+  useSaveRoomPlannerScene,
+  useSyncProposalItemsFromScene,
   useUploadProductVersionFile,
 } from '@/services/queries';
+import { getProposalServiceResultMessage, type ProposalItemDto } from '@/services/api/proposals';
 
 import './ThreeDTestPage.css';
 
@@ -52,22 +52,27 @@ type ViewMode = '2d' | '3d';
 type DesignPanel = 'products' | 'floor' | 'wall' | null;
 type RoomPlannerRouteState = {
   mode?: 'create-proposal';
+  proposalId?: string;
   projectId?: string;
   returnTo?: string;
 };
 
 type ProductModel = {
+  color?: string | null;
+  depth?: number | null;
+  height?: number | null;
   fileId?: string;
   id: string;
+  material?: string | null;
   missingReferences?: string[];
   modelUrl: string;
   name: string;
+  productId?: string;
   productVersionId?: string;
   source?: 'api' | 'local' | 'uploaded';
   thumbnailUrl: string;
+  width?: number | null;
 };
-
-const SAMPLE_GLB_MODEL_URL = '/models/3d-glb/0nNpYUIydlKJF-S5CcySF.glb';
 
 const PLACEMENT_MODES: Array<{
   label: string;
@@ -159,6 +164,8 @@ const FALLBACK_PRODUCT_MODELS: ProductModel[] = [
   },
 ];
 
+const EMPTY_PRODUCT_MODELS: ProductModel[] = [];
+
 function getCatalogModelFile(files: CatalogFileDto[] | undefined) {
   return files?.find((file) => file.fileType === 'MODEL_3D') ?? null;
 }
@@ -180,11 +187,17 @@ function mapCatalogVersionToModel(product: ProductDetailDto, version: ProductVer
   return {
     fileId: modelFile.fileId,
     id: `api-${version.productVersionId}`,
+    color: version.color,
+    depth: version.depth,
+    height: version.height,
+    material: version.material,
     modelUrl: modelFile.fileUrl,
     name: `${product.productName} - ${version.versionName}`,
+    productId: product.productId,
     productVersionId: version.productVersionId,
     source: 'api',
     thumbnailUrl: getVersionThumbnail(product, version),
+    width: version.width,
   };
 }
 
@@ -197,6 +210,30 @@ function mergeProductModels(...groups: ProductModel[][]) {
   });
 
   return [...models.values()];
+}
+
+function getSyncableProposalItems(products: PlacedProduct3D[]) {
+  return products
+    .filter((product) => Boolean(product.productVersionId))
+    .map((product) => ({
+      customizationNote: null,
+      productVersionId: product.productVersionId as string,
+      quantity: 1,
+      sceneObjectId: product.id,
+    }));
+}
+
+function applyProposalItemIds(products: PlacedProduct3D[], items: ProposalItemDto[]) {
+  const proposalItemIdsByObjectId = new Map(
+    items
+      .filter((item) => item.sceneObjectId)
+      .map((item) => [item.sceneObjectId as string, item.proposalItemId]),
+  );
+
+  return products.map((product) => ({
+    ...product,
+    proposalItemId: proposalItemIdsByObjectId.get(product.id) ?? product.proposalItemId ?? null,
+  }));
 }
 
 const TOOL_ITEMS: Array<{
@@ -331,36 +368,21 @@ export function ThreeDTestPage() {
   const isProposalScene = Boolean(sceneId);
   const isCreateProposal = routeState?.mode === 'create-proposal';
   const isAdminLab = location.pathname.startsWith('/admin/3d-lab');
-  const backLinkTarget = routeState?.returnTo ?? (isProposalScene ? `/designer/projects/${MOCK_PROJECT.projectId}/proposals/${MOCK_PROPOSAL.proposalId}` : isAdminLab ? '/admin/dashbroad' : '/');
   const uploadModelMutation = useUploadProductVersionFile();
+  const roomPlannerSceneQuery = useRoomPlannerScene(sceneId, { enabled: isProposalScene });
+  const saveRoomPlannerSceneMutation = useSaveRoomPlannerScene();
+  const syncProposalItemsMutation = useSyncProposalItemsFromScene();
+  const currentProposalId = routeState?.proposalId ?? roomPlannerSceneQuery.data?.proposalId ?? null;
+  const currentProjectId = routeState?.projectId ?? roomPlannerSceneQuery.data?.projectId ?? null;
+  const backLinkTarget = routeState?.returnTo ?? (currentProjectId ? `/designer/assigned-projects/${currentProjectId}` : isAdminLab ? '/admin/dashbroad' : '/designer/assigned-projects');
   const [activeTool, setActiveTool] = useState<BlueprintTool>('select');
   const [hideLabels, setHideLabels] = useState(false);
-  const [layout, setLayout] = useState<RoomLayoutState | null>(() => (
-    isProposalScene
-      ? {
-          ...MOCK_ROOM_LAYOUT,
-          doors: MOCK_ROOM_LAYOUT.doors.map((door) => ({ ...door })),
-          openings: MOCK_ROOM_LAYOUT.openings.map((opening) => ({ ...opening })),
-          points: MOCK_ROOM_LAYOUT.points.map((point) => ({ ...point })),
-          walls: MOCK_ROOM_LAYOUT.walls.map((wall) => ({ ...wall })),
-          windows: MOCK_ROOM_LAYOUT.windows.map((windowOpening) => ({ ...windowOpening })),
-        }
-      : null
-  ));
-  const [placedProducts, setPlacedProducts] = useState<PlacedProduct3D[]>(() => (
-    isProposalScene
-      ? MOCK_PLACED_PRODUCTS.map((product) => ({
-          ...product,
-          position: { ...product.position },
-          rotation: product.rotation ? { ...product.rotation } : undefined,
-          scale: product.scale ? { ...product.scale } : undefined,
-        }))
-      : []
-  ));
+  const [layout, setLayout] = useState<RoomLayoutState | null>(null);
+  const [placedProducts, setPlacedProducts] = useState<PlacedProduct3D[]>([]);
   const [designPanel, setDesignPanel] = useState<DesignPanel>('products');
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [panelSearch, setPanelSearch] = useState('');
-  const [productModels, setProductModels] = useState<ProductModel[]>(FALLBACK_PRODUCT_MODELS);
+  const [productModels, setProductModels] = useState<ProductModel[]>(() => (isProposalScene ? EMPTY_PRODUCT_MODELS : FALLBACK_PRODUCT_MODELS));
   const [apiProductModels, setApiProductModels] = useState<ProductModel[]>([]);
   const [catalogModelMessage, setCatalogModelMessage] = useState('Loading catalog MODEL_3D files...');
   const [uploadedProductModels, setUploadedProductModels] = useState<ProductModel[]>([]);
@@ -403,13 +425,18 @@ export function ThreeDTestPage() {
     [layout],
   );
   const roomArea = useMemo(() => (layout ? getRoomArea(layout) : 0), [layout]);
+  const isSavingRoomPlanner = saveRoomPlannerSceneMutation.isPending || syncProposalItemsMutation.isPending;
   const selectedProduct = useMemo(
     () => placedProducts.find((product) => product.id === selectedProductId) ?? null,
     [placedProducts, selectedProductId],
   );
   const availableProductModels = useMemo(
-    () => mergeProductModels(uploadedProductModels, apiProductModels, productModels),
-    [apiProductModels, productModels, uploadedProductModels],
+    () => mergeProductModels(
+      uploadedProductModels,
+      apiProductModels,
+      isProposalScene ? EMPTY_PRODUCT_MODELS : productModels,
+    ),
+    [apiProductModels, isProposalScene, productModels, uploadedProductModels],
   );
   const filteredProductModels = useMemo(() => {
     const normalizedSearch = panelSearch.trim().toLowerCase();
@@ -428,6 +455,49 @@ export function ThreeDTestPage() {
   const addUploadedProductModel = useCallback((model: ProductModel) => {
     setUploadedProductModels((currentModels) => mergeProductModels([model], currentModels));
   }, []);
+
+  const resolveSceneObjectModelUrl = useCallback((object: Partial<RoomPlannerObject>) => {
+    const modelFileId = object.modelSnapshot?.modelFileId;
+    const productVersionId = object.productVersionId;
+    const catalogModel = apiProductModels.find((model) =>
+      Boolean(productVersionId && model.productVersionId === productVersionId) ||
+      Boolean(modelFileId && model.fileId === modelFileId),
+    );
+
+    return catalogModel?.modelUrl ?? null;
+  }, [apiProductModels]);
+
+  useEffect(() => {
+    if (!isProposalScene || !roomPlannerSceneQuery.data) {
+      return;
+    }
+
+    const hydratedScene = hydrateRoomPlannerScenePayload(roomPlannerSceneQuery.data, {
+      resolveModelUrl: resolveSceneObjectModelUrl,
+    });
+
+    setLayout(hydratedScene.layout);
+    setPlacedProducts(hydratedScene.placedProducts);
+    setActiveTool(hydratedScene.activeTool);
+    setHideLabels(hydratedScene.hideLabels);
+    setIsSidebarCollapsed(hydratedScene.isSidebarCollapsed);
+    setSelectedProductId(hydratedScene.selectedProductId);
+    setViewMode(hydratedScene.viewMode);
+    setComparisonProductId(null);
+    setProductMeasurements(null);
+    setSelectedItem(null);
+    setSaveMessage(
+      hydratedScene.layout
+        ? `Loaded Room Planner scene from backend with ${hydratedScene.placedProducts.length} product object(s)${roomPlannerSceneQuery.data.lastSavedAt ? `, last saved ${new Date(roomPlannerSceneQuery.data.lastSavedAt).toLocaleString()}` : ''}.`
+        : 'Backend returned an empty Room Planner scene. Add a room, place products from API catalog, then Save Project.',
+    );
+  }, [isProposalScene, resolveSceneObjectModelUrl, roomPlannerSceneQuery.data]);
+
+  useEffect(() => {
+    if (isProposalScene && roomPlannerSceneQuery.isError) {
+      setSaveMessage(getProposalServiceResultMessage(roomPlannerSceneQuery.error));
+    }
+  }, [isProposalScene, roomPlannerSceneQuery.error, roomPlannerSceneQuery.isError]);
 
   const uploadModelFile = useCallback(async (file: File) => {
     const productVersionId = modelUploadProductVersionId.trim();
@@ -474,26 +544,6 @@ export function ThreeDTestPage() {
     event.target.value = '';
   }, [uploadModelFile]);
 
-  const handleUploadSampleModel = useCallback(async () => {
-    try {
-      setModelUploadMessage('Preparing sample GLB file...');
-      const response = await fetch(SAMPLE_GLB_MODEL_URL);
-
-      if (!response.ok) {
-        throw new Error(`Sample model request failed with ${response.status}.`);
-      }
-
-      const blob = await response.blob();
-      const sampleFile = new File([blob], 'furnispace-sample-model.glb', {
-        type: blob.type || 'model/gltf-binary',
-      });
-
-      await uploadModelFile(sampleFile);
-    } catch (error) {
-      setModelUploadMessage(error instanceof Error ? error.message : 'Cannot prepare sample GLB file.');
-    }
-  }, [uploadModelFile]);
-
   useEffect(() => {
     let isMounted = true;
 
@@ -527,13 +577,19 @@ export function ThreeDTestPage() {
           setCatalogModelMessage(
             models.length
               ? `Loaded ${models.length} catalog MODEL_3D file(s).`
-              : 'No catalog MODEL_3D files found. Local test models are still available.',
+              : isProposalScene
+                ? 'No catalog MODEL_3D files found from backend.'
+                : 'No catalog MODEL_3D files found. Local test models are still available.',
           );
         }
       } catch (error) {
         if (isMounted) {
           setApiProductModels([]);
-          setCatalogModelMessage(`${getProductServiceResultMessage(error)} Local test models are still available.`);
+          setCatalogModelMessage(
+            isProposalScene
+              ? getProductServiceResultMessage(error)
+              : `${getProductServiceResultMessage(error)} Local test models are still available.`,
+          );
         }
       }
     }
@@ -543,7 +599,7 @@ export function ThreeDTestPage() {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [isProposalScene]);
 
   useEffect(() => {
     let isMounted = true;
@@ -581,6 +637,11 @@ export function ThreeDTestPage() {
     let isMounted = true;
 
     async function loadProductManifest() {
+      if (isProposalScene) {
+        setProductModels(EMPTY_PRODUCT_MODELS);
+        return;
+      }
+
       try {
         const response = await fetch('/models/3d-test/models.json', {
           cache: 'no-store',
@@ -610,7 +671,7 @@ export function ThreeDTestPage() {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [isProposalScene]);
 
   const handleAddBox = useCallback(() => {
     setLayout(createDefaultRoomLayout());
@@ -623,47 +684,91 @@ export function ThreeDTestPage() {
     setViewMode('2d');
   }, []);
 
-  const handleSave = useCallback(() => {
+  const handleSave = useCallback(async () => {
     if (!layout) {
       setSaveMessage('Add a room before saving.');
       return;
     }
 
-    const layoutJson = {
-      ...layout,
+    const buildRoomPlannerPayload = (products: PlacedProduct3D[]) => createRoomPlannerScenePayload({
+      activeTool,
       floorMaterial,
-      wallpaper: wallMaterial.id === 'wallpaper' ? wallMaterial : null,
+      hideLabels,
+      isSidebarCollapsed,
+      layout,
+      placedProducts: products,
+      selectedProductId,
+      selectedRoomItem: selectedItem,
+      viewMode,
       wallMaterial,
-      placedProducts,
-      sceneObjects: placedProducts.map((product) => ({
-        heightOffset: product.heightOffset ?? product.position.y,
-        mountedWallId: product.mountedWallId ?? null,
-        modelFileId: product.fileId ?? null,
-        modelName: product.modelName,
-        modelUrl: product.modelUrl,
-        placementMode: product.placementMode ?? 'FLOOR',
-        position: product.position,
-        productId: product.productId ?? null,
-        productVersionId: product.productVersionId ?? null,
-        rotation: getProductRotation(product),
-        scale: getProductScale(product),
-        sceneObjectId: product.id,
-        source: product.source ?? 'local',
-        supportObjectId: product.supportObjectId ?? null,
-      })),
-      materials: {
-        floor: floorMaterial.id,
-        wall: wallMaterial.id,
-      },
-    };
+    });
+    const roomPlannerPayload = buildRoomPlannerPayload(placedProducts);
 
-    console.log('FurniSpace room layout JSON', layoutJson);
-    localStorage.setItem(
-      isProposalScene ? `furnispace-proposal-scene-${sceneId}` : 'furnispace-3d-lab-room-layout',
-      JSON.stringify(layoutJson),
-    );
+    if (isProposalScene && sceneId) {
+      setSaveMessage('Saving Room Planner scene to MongoDB...');
+
+      try {
+        const saveResult = await saveRoomPlannerSceneMutation.mutateAsync({
+          sceneId,
+          payload: roomPlannerPayload,
+        });
+        const syncItems = getSyncableProposalItems(placedProducts);
+
+        if (currentProposalId && syncItems.length) {
+          setSaveMessage('Room Planner scene saved. Syncing proposal items from scene...');
+
+          const syncResult = await syncProposalItemsMutation.mutateAsync({
+            proposalId: currentProposalId,
+            sceneId,
+            items: syncItems,
+          });
+          const productsWithProposalItems = applyProposalItemIds(placedProducts, syncResult.items);
+
+          setPlacedProducts(productsWithProposalItems);
+
+          await saveRoomPlannerSceneMutation.mutateAsync({
+            sceneId,
+            payload: buildRoomPlannerPayload(productsWithProposalItems),
+          });
+
+          setSaveMessage(
+            `Room Planner scene saved to MongoDB and synced ${syncResult.items.length} proposal item(s) at ${new Date(saveResult.lastSavedAt).toLocaleString()}.`,
+          );
+          return;
+        }
+
+        setSaveMessage(
+          currentProposalId
+            ? `Room Planner scene saved to MongoDB at ${new Date(saveResult.lastSavedAt).toLocaleString()}. No catalog products to sync.`
+            : `Room Planner scene saved to MongoDB at ${new Date(saveResult.lastSavedAt).toLocaleString()}. Open from a proposal to sync proposal items.`,
+        );
+      } catch (error) {
+        setSaveMessage(getProposalServiceResultMessage(error));
+      }
+
+      return;
+    }
+
+    console.log('FurniSpace room planner payload', roomPlannerPayload);
+    localStorage.setItem('furnispace-3d-lab-room-layout', JSON.stringify(roomPlannerPayload));
     setSaveMessage('Room layout saved locally and logged to console.');
-  }, [floorMaterial, isProposalScene, layout, placedProducts, sceneId, wallMaterial]);
+  }, [
+    activeTool,
+    currentProposalId,
+    floorMaterial,
+    hideLabels,
+    isProposalScene,
+    isSidebarCollapsed,
+    layout,
+    placedProducts,
+    saveRoomPlannerSceneMutation,
+    sceneId,
+    selectedProductId,
+    selectedItem,
+    syncProposalItemsMutation,
+    viewMode,
+    wallMaterial,
+  ]);
 
   const handleToolClick = useCallback(
     (tool: BlueprintTool) => {
@@ -680,7 +785,7 @@ export function ThreeDTestPage() {
       }
 
       if (tool === 'save') {
-        handleSave();
+        void handleSave();
         setActiveTool(tool);
         return;
       }
@@ -744,12 +849,24 @@ export function ThreeDTestPage() {
           modelUrl: product.modelUrl,
           placementMode: 'FLOOR',
           position: position ?? getProductPositionInsideRoom(layout, nextIndex),
-          productId: product.id,
+          productId: product.productId ?? product.id,
           productVersionId: product.productVersionId,
+          dimensionsSnapshot: {
+            depth: product.depth ?? null,
+            height: product.height ?? null,
+            unit: 'cm',
+            width: product.width ?? null,
+          },
           rotation: { x: 0, y: 0, z: 0 },
           scale: initialScale,
           source: product.source,
           supportObjectId: null,
+          thumbnailUrl: product.thumbnailUrl,
+          visualSnapshot: {
+            color: product.color ?? null,
+            finish: null,
+            material: product.material ?? null,
+          },
         },
       ];
     });
@@ -814,6 +931,7 @@ export function ThreeDTestPage() {
         x: Number((product.position.x + 0.6).toFixed(2)),
         z: Number((product.position.z + 0.6).toFixed(2)),
       },
+      proposalItemId: null,
     };
 
     setPlacedProducts((currentProducts) => [...currentProducts, duplicate]);
@@ -960,15 +1078,15 @@ export function ThreeDTestPage() {
     <main className="room-layout-page">
       <header className="room-layout-header">
         <div>
-          <h1>{isCreateProposal ? 'Create Proposal 3D Scene' : isProposalScene ? `${MOCK_PROPOSAL.name} · ${sceneId}` : 'FurniSpace Room Layout Editor'}</h1>
-          <p>{isCreateProposal ? 'Full-screen designer editor for building the project proposal scene.' : isProposalScene ? `${MOCK_PROJECT.name} · Designer official scene editor` : 'Draw a 2D blueprint first, edit wall data, then generate the 3D room preview from the same layout.'}</p>
+          <h1>{isCreateProposal ? 'Create Proposal 3D Scene' : isProposalScene ? `Room Planner Scene ${sceneId}` : 'FurniSpace Room Layout Editor'}</h1>
+          <p>{isProposalScene ? `Backend scene${currentProposalId ? ` for proposal ${currentProposalId}` : ''}. Load and save are handled through Room Planner APIs.` : 'Draw a 2D blueprint first, edit wall data, then generate the 3D room preview from the same layout.'}</p>
         </div>
         <div className="room-layout-header-actions">
           <button type="button" onClick={() => setViewMode(viewMode === '2d' ? '3d' : '2d')}>
             {viewMode === '2d' ? 'Switch to 3D' : 'Back to 2D'}
           </button>
           <RouterLink to={backLinkTarget}>
-            {isCreateProposal ? 'Back to Project' : isProposalScene ? 'Back to Proposal' : isAdminLab ? 'Back to Admin' : 'Back home'}
+            {isProposalScene ? 'Back to Project' : isAdminLab ? 'Back to Admin' : 'Back home'}
           </RouterLink>
         </div>
       </header>
@@ -1079,7 +1197,9 @@ export function ThreeDTestPage() {
                 }}>
                   {hideLabels ? 'Show Labels' : 'Hide Labels'}
                 </button>
-                <button type="button" onClick={handleSave}>Save Project</button>
+                <button disabled={isSavingRoomPlanner} type="button" onClick={() => void handleSave()}>
+                  {isSavingRoomPlanner ? 'Saving...' : 'Save Project'}
+                </button>
                 <button type="button" disabled>Share Project</button>
                 <button type="button" disabled>Add To Cart</button>
               </div>
@@ -1106,6 +1226,33 @@ export function ThreeDTestPage() {
                 <div className="room-product-sidebar-heading">
                   <strong>Shop by Category</strong>
                 </div>
+                {isProposalScene && (
+                  <div className="scene-product-list">
+                    <div>
+                      <strong>Scene Products</strong>
+                      <span>{placedProducts.length} product object(s) loaded from this room scene.</span>
+                    </div>
+                    {placedProducts.length ? (
+                      placedProducts.map((product) => (
+                        <button
+                          className={selectedProductId === product.id ? 'is-selected' : ''}
+                          key={product.id}
+                          type="button"
+                          onClick={() => {
+                            setSelectedProductId(product.id);
+                            setViewMode('3d');
+                            setShowProductInfo(true);
+                          }}
+                        >
+                          <strong>{product.modelName}</strong>
+                          <span>{product.productVersionId ?? product.productId ?? product.id}</span>
+                        </button>
+                      ))
+                    ) : (
+                      <p>No product objects loaded from MongoDB yet.</p>
+                    )}
+                  </div>
+                )}
                 <div className="model-upload-card">
                   <div>
                     <strong>Upload MODEL_3D</strong>
@@ -1130,13 +1277,6 @@ export function ThreeDTestPage() {
                         onChange={(event) => void handleModelUploadChange(event)}
                       />
                     </label>
-                    <button
-                      disabled={uploadModelMutation.isPending}
-                      type="button"
-                      onClick={() => void handleUploadSampleModel()}
-                    >
-                      Upload sample
-                    </button>
                   </div>
                   {catalogModelMessage && <small>{catalogModelMessage}</small>}
                   {modelUploadMessage && <small>{modelUploadMessage}</small>}
@@ -1249,7 +1389,9 @@ export function ThreeDTestPage() {
             </div>
             <div className="room-workspace-actions">
               <button type="button" onClick={handleAddBox}>Add Box</button>
-              <button type="button" onClick={handleSave}>Save</button>
+              <button disabled={isSavingRoomPlanner} type="button" onClick={() => void handleSave()}>
+                {isSavingRoomPlanner ? 'Saving...' : 'Save'}
+              </button>
               {viewMode === '3d' && (
                 <button type="button" onClick={() => openDesignPanel('products')}>
                   Product List

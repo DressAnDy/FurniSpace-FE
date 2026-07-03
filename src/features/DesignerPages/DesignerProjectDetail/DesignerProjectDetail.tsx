@@ -8,6 +8,7 @@ import {
   IconMessage,
   IconPalette,
   IconPlus,
+  IconRefresh,
   IconRulerMeasure,
 } from '@tabler/icons-react';
 import { useQueries } from '@tanstack/react-query';
@@ -16,8 +17,9 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 
 import { DesignerLayout } from '@/features/DesignerPages/designercomponents';
 import { getAccountById } from '@/services/api';
+import { getProposalServiceResultMessage } from '@/services/api/proposals';
 import { getProjectServiceResultMessage, type ProjectDto } from '@/services/api/projects';
-import { useProjectDetail } from '@/services/queries';
+import { useCreateProposal, useCreateProposalScene, useProjectDetail, useUpdateProjectStatus } from '@/services/queries';
 
 import { ChatTab, CustomizationTab, OverviewTab, ProposalsTab, SchedulesTab, SpaceFilesTab } from './tabs';
 import './DesignerProjectDetail.css';
@@ -51,7 +53,11 @@ export function DesignerProjectDetail() {
   const navigate = useNavigate();
   const { projectId } = useParams();
   const [activeTab, setActiveTab] = useState<DesignerProjectDetailTab>('overview');
+  const [projectActionMessage, setProjectActionMessage] = useState<{ tone: 'error' | 'success'; text: string } | null>(null);
   const projectQuery = useProjectDetail(projectId);
+  const createProposalMutation = useCreateProposal();
+  const createProposalSceneMutation = useCreateProposalScene();
+  const updateProjectStatusMutation = useUpdateProjectStatus();
   const project = projectQuery.data;
   const accountIds = useMemo(() => [project?.customerId, project?.assignedSalesId].filter((accountId): accountId is string => Boolean(accountId)), [project?.assignedSalesId, project?.customerId]);
   const accountQueries = useQueries({
@@ -86,16 +92,61 @@ export function DesignerProjectDetail() {
       ]
     : [];
 
-  function openProposalSceneEditor() {
-    const editorSceneId = projectId ?? 'new-proposal-scene';
+  async function openProposalSceneEditor() {
+    if (!project) {
+      return;
+    }
 
-    navigate(`/proposal-scenes/${editorSceneId}/room-planner`, {
-      state: {
-        mode: 'create-proposal',
-        projectId: editorSceneId,
-        returnTo: projectId ? `/designer/assigned-projects/${projectId}` : '/designer/assigned-projects',
-      },
-    });
+    setProjectActionMessage(null);
+
+    try {
+      const proposal = await createProposalMutation.mutateAsync({
+        projectId: project.projectId,
+        proposalName: `${project.projectName} 3D Proposal`,
+        description: 'Created from designer Room Planner.',
+      });
+      const scene = await createProposalSceneMutation.mutateAsync({
+        proposalId: proposal.proposalId,
+        sceneName: `${project.projectName} 3D Scene`,
+        sceneType: 'THREE_D',
+      });
+
+      navigate(`/proposal-scenes/${scene.sceneId}/room-planner`, {
+        state: {
+          mode: 'create-proposal',
+          projectId: project.projectId,
+          proposalId: proposal.proposalId,
+          returnTo: `/designer/assigned-projects/${project.projectId}`,
+        },
+      });
+    } catch (error) {
+      setProjectActionMessage({ tone: 'error', text: getProposalServiceResultMessage(error) });
+    }
+  }
+
+  async function updateProjectToNextDesignStatus() {
+    if (!project) {
+      return;
+    }
+
+    const nextStatus = getNextDesignStatus(project.status);
+
+    if (!nextStatus) {
+      return;
+    }
+
+    setProjectActionMessage(null);
+
+    try {
+      await updateProjectStatusMutation.mutateAsync({
+        projectId: project.projectId,
+        status: nextStatus,
+        note: `Designer moved project from ${project.status} to ${nextStatus} from project detail.`,
+      });
+      setProjectActionMessage({ tone: 'success', text: `Project status updated to ${formatEnumLabel(nextStatus)}.` });
+    } catch (error) {
+      setProjectActionMessage({ tone: 'error', text: getProjectServiceResultMessage(error) });
+    }
   }
 
   return (
@@ -108,6 +159,11 @@ export function DesignerProjectDetail() {
 
         {projectQuery.isLoading ? <section className="designer-card designer-project-state">Loading project detail...</section> : null}
         {projectQuery.isError ? <section className="designer-card designer-project-state designer-project-state-error">{getProjectServiceResultMessage(projectQuery.error)}</section> : null}
+        {projectActionMessage ? (
+          <section className={`designer-card designer-project-state ${projectActionMessage.tone === 'error' ? 'designer-project-state-error' : 'designer-project-state-success'}`}>
+            {projectActionMessage.text}
+          </section>
+        ) : null}
 
         {project ? (
           <>
@@ -134,10 +190,28 @@ export function DesignerProjectDetail() {
                   <span>{getProjectProgress(project.status)}%</span>
                 </div>
                 <p>Design Progress</p>
+                <div className="designer-project-current-status">
+                  <span>Current Status</span>
+                  <strong>{formatEnumLabel(project.status)}</strong>
+                </div>
                 <div className="designer-project-progress-actions">
-                  <button className="designer-project-detail-button designer-project-detail-button-primary" type="button" onClick={openProposalSceneEditor}>
+                  <button
+                    className="designer-project-detail-button"
+                    disabled={!getNextDesignStatus(project.status) || updateProjectStatusMutation.isPending}
+                    type="button"
+                    onClick={() => void updateProjectToNextDesignStatus()}
+                  >
+                    <IconRefresh size={17} />
+                    {updateProjectStatusMutation.isPending ? 'Updating...' : getDesignStatusActionLabel(project.status)}
+                  </button>
+                  <button
+                    className="designer-project-detail-button designer-project-detail-button-primary"
+                    disabled={project.status !== 'PROPOSAL_DRAFTING' || createProposalMutation.isPending || createProposalSceneMutation.isPending}
+                    type="button"
+                    onClick={() => void openProposalSceneEditor()}
+                  >
                     <IconPlus size={17} />
-                    Create Proposal
+                    {createProposalMutation.isPending || createProposalSceneMutation.isPending ? 'Creating...' : 'Create Proposal'}
                   </button>
                   <button className="designer-project-detail-button" type="button">
                     <IconCube size={17} />
@@ -211,6 +285,23 @@ function getProjectProgress(status: string) {
   };
 
   return progressByStatus[status] ?? 10;
+}
+
+function getNextDesignStatus(status: string) {
+  if (status === 'MEASUREMENT_REQUIRED') return 'SPACE_VERIFIED' as const;
+  if (status === 'SPACE_VERIFIED') return 'PROPOSAL_DRAFTING' as const;
+
+  return null;
+}
+
+function getDesignStatusActionLabel(status: string) {
+  const nextStatus = getNextDesignStatus(status);
+
+  if (!nextStatus) {
+    return status === 'PROPOSAL_DRAFTING' ? 'Ready for Proposal' : 'No Status Step';
+  }
+
+  return `Update to ${formatEnumLabel(nextStatus)}`;
 }
 
 function getStatusTone(status: string) {

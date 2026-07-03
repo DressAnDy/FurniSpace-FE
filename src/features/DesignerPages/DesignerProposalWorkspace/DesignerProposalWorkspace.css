@@ -10,6 +10,8 @@
 .designer-proposal-tabs button { align-items: center; background: transparent; border: 0; border-bottom: 3px solid transparent; color: #63747d; cursor: pointer; display: flex; font: inherit; gap: 7px; padding: 11px 14px; }
 .designer-proposal-tabs button.is-active { border-bottom-color: #2d8195; color: #244f5d; font-weight: 700; }
 .designer-proposal-message { background: #e7f2f5; border-left: 3px solid #2d8195; color: #35535e; margin-top: 16px; padding: 10px 12px; }
+.designer-proposal-message.is-error { background: #fff0f0; border-left-color: #c94d4d; color: #8d2d2d; }
+.designer-proposal-empty { color: #687983; font-size: 13px; padding: 24px 20px; }
 .designer-scenes-section, .designer-items-section, .designer-review-section { background: #fff; border: 1px solid #d8e0e4; margin-top: 18px; }
 .designer-chat-section { margin-top: 18px; }
 .designer-scenes-section > header, .designer-items-section > header { align-items: center; border-bottom: 1px solid #d8e0e4; display: flex; justify-content: space-between; padding: 18px 20px; }
@@ -43,6 +45,9 @@
 .designer-review-viewer { height: 560px; min-height: 0; position: relative; }
 .designer-review-viewer .room-preview-3d, .designer-review-viewer .three-d-canvas { height: 100%; min-height: 0; width: 100%; }
 .designer-review-overlay { background: rgba(23, 42, 51, 0.82); bottom: 14px; color: #fff; font-size: 11px; left: 14px; padding: 8px 10px; position: absolute; }
+.designer-review-empty { align-items: center; color: #687983; display: grid; gap: 10px; justify-items: center; min-height: 280px; padding: 32px; text-align: center; }
+.designer-review-empty strong { color: #263d46; font-size: 18px; }
+.designer-review-empty button { align-items: center; background: #263d46; border: 0; color: #fff; cursor: pointer; display: flex; font: inherit; gap: 6px; min-height: 38px; padding: 8px 12px; }
 .designer-review-section > footer { align-items: center; border-top: 1px solid #d8e0e4; display: flex; justify-content: space-between; padding: 12px 16px; }
 .designer-review-section > footer span { color: #687983; font-size: 12px; }
 .designer-review-section > footer button { background: #263d46; border: 0; color: #fff; cursor: pointer; font: inherit; padding: 9px 12px; }

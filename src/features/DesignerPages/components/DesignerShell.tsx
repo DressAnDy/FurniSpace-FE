@@ -21,8 +21,8 @@ type DesignerShellProps = {
 const navItems = [
   { icon: IconHome, label: 'Dashboard', path: '/designer/assigned-projects' },
   { icon: IconBriefcase, label: 'Assigned Projects', path: '/designer/assigned-projects' },
-  { icon: IconFileText, label: 'Proposals', path: '/designer/projects/mock-project-cafe/proposals/mock-proposal-industrial' },
-  { icon: IconCube, label: 'Room Planner', path: '/proposal-scenes/mock-scene-main/room-planner' },
+  { icon: IconFileText, label: 'Proposals' },
+  { icon: IconCube, label: 'Room Planner' },
   { icon: IconRulerMeasure, label: 'Measurements' },
 ];
 

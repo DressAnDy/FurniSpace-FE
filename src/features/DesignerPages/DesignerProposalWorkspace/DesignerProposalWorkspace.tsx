@@ -1,7 +1,6 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   IconArrowLeft,
-  IconCheck,
   IconChevronRight,
   IconCube,
   IconEdit,
@@ -15,18 +14,15 @@ import { useNavigate, useParams } from 'react-router-dom';
 import scenePreview from '@/assets/product-detail-shop/table-room.png';
 import { DesignerShell } from '@/features/DesignerPages/components/DesignerShell';
 import { ProjectChatPanel } from '@/features/projectChat/ProjectChatPanel';
-import { RoomPreview3D } from '@/features/ThreeD/components/RoomPreview3D';
+import { getProjectServiceResultMessage } from '@/services/api/projects';
+import { getProposalServiceResultMessage, type ProposalItemDto, type ProposalSceneDto } from '@/services/api/proposals';
 import {
-  MOCK_FLOOR_MATERIAL,
-  MOCK_PLACED_PRODUCTS,
-  MOCK_PROJECT,
-  MOCK_PROPOSAL,
-  MOCK_PROPOSAL_ITEMS,
-  MOCK_PROPOSAL_SCENES,
-  MOCK_ROOM_LAYOUT,
-  MOCK_WALL_MATERIAL,
-} from '@/features/ThreeD/mocks/proposalScene.mock';
-import '@/features/ThreeD/pages/ThreeDTestPage.css';
+  useCreateProposalScene,
+  useProjectDetail,
+  useProposalDetail,
+  useProposalItems,
+  useProposalScenes,
+} from '@/services/queries';
 
 import './DesignerProposalWorkspace.css';
 
@@ -34,18 +30,83 @@ type WorkspaceTab = 'scenes' | 'items' | 'review' | 'chat';
 
 export function DesignerProposalWorkspace() {
   const navigate = useNavigate();
-  const { projectId } = useParams();
+  const { projectId, proposalId } = useParams();
   const [activeTab, setActiveTab] = useState<WorkspaceTab>('scenes');
   const [message, setMessage] = useState('');
-  const [previewObjectId, setPreviewObjectId] = useState<string | null>(null);
-  const total = MOCK_PROPOSAL_ITEMS.reduce((sum, item) => sum + item.estimatedPrice * item.quantity, 0);
+  const projectQuery = useProjectDetail(projectId);
+  const proposalQuery = useProposalDetail(proposalId);
+  const scenesQuery = useProposalScenes({
+    proposalId: proposalId ?? '',
+    isActive: true,
+    page: 1,
+    limit: 100,
+  });
+  const itemsQuery = useProposalItems({
+    proposalId: proposalId ?? '',
+    page: 1,
+    limit: 100,
+  });
+  const createSceneMutation = useCreateProposalScene();
+  const project = projectQuery.data;
+  const proposal = proposalQuery.data;
+  const scenes = scenesQuery.data?.items ?? proposal?.scenes ?? [];
+  const items = itemsQuery.data?.items ?? proposal?.items ?? [];
+  const total = useMemo(
+    () => items.reduce((sum, item) => sum + (item.subtotalAmount ?? 0), 0),
+    [items],
+  );
+  const primaryScene = scenes.find((scene) => scene.sceneType === 'THREE_D') ?? scenes[0] ?? null;
+
+  async function createScene() {
+    if (!proposalId || !project) {
+      return;
+    }
+
+    setMessage('');
+
+    try {
+      const scene = await createSceneMutation.mutateAsync({
+        proposalId,
+        sceneName: `${project.projectName} 3D Scene`,
+        sceneType: 'THREE_D',
+      });
+
+      openRoomPlanner(scene);
+    } catch (error) {
+      setMessage(getProposalServiceResultMessage(error));
+    }
+  }
+
+  function openRoomPlanner(scene: ProposalSceneDto) {
+    navigate(`/proposal-scenes/${scene.sceneId}/room-planner`, {
+      state: {
+        mode: 'create-proposal',
+        projectId,
+        proposalId,
+        returnTo: `/designer/projects/${projectId}/proposals/${proposalId}`,
+      },
+    });
+  }
 
   return (
     <DesignerShell activeLabel="Proposals">
-      <button className="designer-proposal-back" type="button" onClick={() => navigate('/designer/assigned-projects')}><IconArrowLeft size={16} /> Assigned Projects</button>
+      <button className="designer-proposal-back" type="button" onClick={() => navigate(projectId ? `/designer/assigned-projects/${projectId}` : '/designer/assigned-projects')}>
+        <IconArrowLeft size={16} /> Project Detail
+      </button>
+
       <header className="designer-proposal-heading">
-        <div><span>{MOCK_PROJECT.projectCode}</span><h1>{MOCK_PROPOSAL.name}</h1><p>{MOCK_PROJECT.name} · Version {MOCK_PROPOSAL.version}</p></div>
-        <div><span className="designer-proposal-status">{MOCK_PROPOSAL.status}</span><button type="button" onClick={() => setMessage('Publish validation opened in demo mode.')}><IconCheck size={17} /> Publish Proposal</button></div>
+        <div>
+          <span>{projectQuery.isLoading ? 'LOADING PROJECT' : project?.projectCode ?? 'PROJECT NOT FOUND'}</span>
+          <h1>{proposalQuery.isLoading ? 'Loading proposal...' : proposal?.proposalName ?? 'Proposal not found'}</h1>
+          <p>
+            {project?.projectName ?? 'No project data from backend'}
+            {proposal ? ` · Version ${proposal.versionNo}` : ''}
+          </p>
+        </div>
+        <div>
+          <span className="designer-proposal-status">{proposal?.status ?? 'UNKNOWN'}</span>
+          <button disabled type="button"><IconFileText size={17} /> Publish Proposal</button>
+        </div>
       </header>
 
       <nav className="designer-proposal-tabs" aria-label="Proposal workspace tabs">
@@ -56,20 +117,22 @@ export function DesignerProposalWorkspace() {
       </nav>
 
       {message && <div className="designer-proposal-message">{message}</div>}
+      {projectQuery.isError && <div className="designer-proposal-message is-error">{getProjectServiceResultMessage(projectQuery.error)}</div>}
+      {proposalQuery.isError && <div className="designer-proposal-message is-error">{getProposalServiceResultMessage(proposalQuery.error)}</div>}
 
       {activeTab === 'scenes' && (
         <section className="designer-scenes-section">
-          <header><div><h2>Proposal Scenes</h2><p>Official and draft Room Planner scenes for this proposal.</p></div><button type="button" onClick={() => setMessage('Create Scene modal will use POST /proposals/{proposalId}/scenes.')}><IconPlus size={17} /> Create Scene</button></header>
+          <header>
+            <div><h2>Proposal Scenes</h2><p>Loaded from proposal scene APIs only.</p></div>
+            <button disabled={!proposalId || proposal?.status !== 'DRAFT' || createSceneMutation.isPending} type="button" onClick={() => void createScene()}>
+              <IconPlus size={17} /> {createSceneMutation.isPending ? 'Creating...' : 'Create Scene'}
+            </button>
+          </header>
           <div className="designer-scenes-list">
-            {MOCK_PROPOSAL_SCENES.map((scene) => (
-              <article className="designer-scene-row" key={scene.sceneId}>
-                <img alt="Room scene preview" src={scenePreview} />
-                <div><span>{scene.status}</span><h3>{scene.name}</h3><p>{scene.description}</p><small>Version {scene.version} · Updated {new Date(scene.updatedAt).toLocaleDateString()}</small></div>
-                <div className="designer-scene-actions">
-                  <button title="Edit scene metadata" type="button"><IconEdit size={17} /></button>
-                  <button type="button" onClick={() => navigate(`/proposal-scenes/${scene.sceneId}/room-planner`)}>Open Room Planner <IconChevronRight size={17} /></button>
-                </div>
-              </article>
+            {scenesQuery.isLoading ? <EmptyState message="Loading proposal scenes from backend..." /> : null}
+            {!scenesQuery.isLoading && scenes.length === 0 ? <EmptyState message="No scenes returned by backend for this proposal." /> : null}
+            {scenes.map((scene) => (
+              <SceneRow key={scene.sceneId} scene={scene} onOpen={() => openRoomPlanner(scene)} />
             ))}
           </div>
         </section>
@@ -77,47 +140,120 @@ export function DesignerProposalWorkspace() {
 
       {activeTab === 'items' && (
         <section className="designer-items-section">
-          <header><div><h2>Proposal Items</h2><p>SQL business items synchronized from Product Versions in the scene.</p></div><button type="button" onClick={() => setMessage('Scene objects queued for proposal item synchronization.')}><IconCube size={17} /> Sync From Scene</button></header>
-          <div className="designer-items-table-wrap"><table><thead><tr><th>Product Version</th><th>Type</th><th>Material</th><th>Quantity</th><th>Unit Price</th><th>Subtotal</th></tr></thead><tbody>{MOCK_PROPOSAL_ITEMS.map((item) => <tr key={item.productVersionId}><td><strong>{item.name}</strong><small>{item.productVersionId}</small></td><td>{item.type}</td><td>{item.material}</td><td>{item.quantity}</td><td>{new Intl.NumberFormat('vi-VN').format(item.estimatedPrice)} VND</td><td>{new Intl.NumberFormat('vi-VN').format(item.estimatedPrice * item.quantity)} VND</td></tr>)}</tbody><tfoot><tr><td colSpan={5}>Estimated total</td><td>{new Intl.NumberFormat('vi-VN').format(total)} VND</td></tr></tfoot></table></div>
+          <header>
+            <div><h2>Proposal Items</h2><p>SQL business items synchronized from Room Planner scene objects.</p></div>
+            <button disabled type="button"><IconCube size={17} /> Sync From Scene</button>
+          </header>
+          {itemsQuery.isLoading ? (
+            <EmptyState message="Loading proposal items from backend..." />
+          ) : items.length ? (
+            <ItemsTable items={items} total={total} />
+          ) : (
+            <EmptyState message="No proposal items returned by backend. Open a scene, add catalog products, then Save Project to sync." />
+          )}
         </section>
       )}
 
       {activeTab === 'review' && (
         <section className="designer-review-section">
           <header>
-            <div><IconFileText size={24} /><div><h2>Customer Review Preview</h2><p>Read-only preview of the scene currently published to the Customer.</p></div></div>
-            <span>Published</span>
+            <div><IconFileText size={24} /><div><h2>Customer Review Preview</h2><p>Backend scene entry selected for customer-facing review.</p></div></div>
+            <span>{proposal?.status ?? 'UNKNOWN'}</span>
           </header>
-          <div className="designer-review-viewer">
-            <RoomPreview3D
-              floorMaterial={MOCK_FLOOR_MATERIAL}
-              layout={MOCK_ROOM_LAYOUT}
-              placedProducts={MOCK_PLACED_PRODUCTS}
-              readOnly
-              selectedProductId={previewObjectId}
-              wallMaterial={MOCK_WALL_MATERIAL}
-              onProductSelect={(productId) => setPreviewObjectId(productId)}
-            />
-            <div className="designer-review-overlay">Customer view simulation · editing disabled</div>
+          <div className="designer-review-empty">
+            {primaryScene ? (
+              <>
+                <strong>{primaryScene.sceneName}</strong>
+                <span>Open the Room Planner to preview the saved 3D scene from MongoDB.</span>
+                <button type="button" onClick={() => openRoomPlanner(primaryScene)}>Open Room Planner <IconChevronRight size={17} /></button>
+              </>
+            ) : (
+              <span>No backend scene is available for review.</span>
+            )}
           </div>
-          <footer>
-            <span>{previewObjectId ? `Selected object: ${previewObjectId}` : 'Select an object to inspect the Customer-facing scene.'}</span>
-            <button type="button" onClick={() => setMessage('Customer review activity refreshed in demo mode.')}>Refresh Review Status</button>
-          </footer>
         </section>
       )}
 
       {activeTab === 'chat' && (
         <section className="designer-chat-section">
-          <ProjectChatPanel
-            canClose
-            preferredChatType="DESIGNER"
-            projectCode={MOCK_PROJECT.projectCode}
-            projectId={projectId ?? MOCK_PROJECT.projectId}
-            title="Designer Chat with Customer"
-          />
+          {project ? (
+            <ProjectChatPanel
+              canClose
+              preferredChatType="DESIGNER"
+              projectCode={project.projectCode}
+              projectId={project.projectId}
+              title="Designer Chat with Customer"
+            />
+          ) : (
+            <EmptyState message="Project chat is unavailable until project data is loaded from backend." />
+          )}
         </section>
       )}
     </DesignerShell>
   );
+}
+
+function SceneRow({ scene, onOpen }: { scene: ProposalSceneDto; onOpen: () => void }) {
+  return (
+    <article className="designer-scene-row">
+      <img alt="Room scene preview" src={scene.previewFileUrl ?? scenePreview} />
+      <div>
+        <span>{scene.sceneType}</span>
+        <h3>{scene.sceneName}</h3>
+        <p>{scene.mongoSceneId ? `Mongo scene ${scene.mongoSceneId}` : 'No Mongo scene saved yet'}</p>
+        <small>Version {scene.versionNo} · Updated {formatDateTime(scene.updatedAt)}</small>
+      </div>
+      <div className="designer-scene-actions">
+        <button disabled title="Edit scene metadata" type="button"><IconEdit size={17} /></button>
+        <button type="button" onClick={onOpen}>Open Room Planner <IconChevronRight size={17} /></button>
+      </div>
+    </article>
+  );
+}
+
+function ItemsTable({ items, total }: { items: ProposalItemDto[]; total: number }) {
+  return (
+    <div className="designer-items-table-wrap">
+      <table>
+        <thead>
+          <tr><th>Product Version</th><th>Material</th><th>Color</th><th>Quantity</th><th>Unit Price</th><th>Subtotal</th></tr>
+        </thead>
+        <tbody>
+          {items.map((item) => (
+            <tr key={item.proposalItemId}>
+              <td><strong>{item.productNameSnapshot}</strong><small>{item.productVersionId}</small></td>
+              <td>{item.materialSnapshot ?? '-'}</td>
+              <td>{item.colorSnapshot ?? '-'}</td>
+              <td>{item.quantity}</td>
+              <td>{formatCurrency(item.unitPriceSnapshot)}</td>
+              <td>{formatCurrency(item.subtotalAmount)}</td>
+            </tr>
+          ))}
+        </tbody>
+        <tfoot><tr><td colSpan={5}>Estimated total</td><td>{formatCurrency(total)}</td></tr></tfoot>
+      </table>
+    </div>
+  );
+}
+
+function EmptyState({ message }: { message: string }) {
+  return <div className="designer-proposal-empty">{message}</div>;
+}
+
+function formatCurrency(value: number | null | undefined) {
+  if (typeof value !== 'number') {
+    return '-';
+  }
+
+  return `${new Intl.NumberFormat('vi-VN').format(value)} VND`;
+}
+
+function formatDateTime(value: string) {
+  return new Intl.DateTimeFormat('en', {
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  }).format(new Date(value));
 }

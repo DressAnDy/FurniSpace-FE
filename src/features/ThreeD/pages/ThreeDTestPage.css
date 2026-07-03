@@ -1156,6 +1156,50 @@
   padding: 12px;
 }
 
+.scene-product-list {
+  background: #ffffff;
+  border: 1px solid #d7dde0;
+  display: grid;
+  gap: 8px;
+  margin-bottom: 16px;
+  padding: 12px;
+}
+
+.scene-product-list > div {
+  display: grid;
+  gap: 3px;
+}
+
+.scene-product-list strong {
+  color: #203036;
+  font-size: 13px;
+}
+
+.scene-product-list span,
+.scene-product-list p {
+  color: #647178;
+  font-size: 12px;
+  line-height: 1.35;
+  margin: 0;
+}
+
+.scene-product-list button {
+  background: #eef4f5;
+  border: 1px solid #d7dde0;
+  color: #203036;
+  cursor: pointer;
+  display: grid;
+  gap: 3px;
+  min-height: 48px;
+  padding: 9px 10px;
+  text-align: left;
+}
+
+.scene-product-list button.is-selected {
+  border-color: #255f73;
+  box-shadow: inset 3px 0 0 #255f73;
+}
+
 .model-upload-card > div:first-child {
   display: grid;
   gap: 3px;

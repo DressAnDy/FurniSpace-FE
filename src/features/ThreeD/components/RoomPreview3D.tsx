@@ -77,6 +77,12 @@ export type Vector3State = {
 };
 
 export type PlacedProduct3D = {
+  dimensionsSnapshot?: {
+    depth: number | null;
+    height: number | null;
+    unit: string;
+    width: number | null;
+  };
   fileId?: string;
   heightOffset?: number;
   id: string;
@@ -87,10 +93,17 @@ export type PlacedProduct3D = {
   position: Vector3State;
   productId?: string;
   productVersionId?: string;
+  proposalItemId?: string | null;
   rotation?: Vector3State;
   scale?: Vector3State;
   source?: 'api' | 'local' | 'uploaded';
   supportObjectId?: string | null;
+  thumbnailUrl?: string | null;
+  visualSnapshot?: {
+    color: string | null;
+    finish: string | null;
+    material: string | null;
+  };
 };
 
 export type ProductPlacementUpdate = {
