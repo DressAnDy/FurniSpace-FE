@@ -14,7 +14,7 @@ describe('roomGeometry', () => {
   it('calculates area only for a closed room boundary', () => {
     const layout = createDefaultRoomLayout();
 
-    expect(getRoomArea(layout)).toBe(144);
+    expect(getRoomArea(layout)).toBe(16);
     expect(getRoomArea(deleteWall(layout, 'w1'))).toBe(0);
   });
 
@@ -42,21 +42,21 @@ describe('roomGeometry', () => {
   });
 
   it('clamps opening dimensions to the linked wall', () => {
-    const layout = addDoorToWall(createDefaultRoomLayout(), 'w1', 6);
+    const layout = addDoorToWall(createDefaultRoomLayout(), 'w1', 2);
     const door = layout.doors[0];
     const nextLayout = updateOpeningItem(layout, 'door', door.id, { height: 20, width: 20 });
 
-    expect(nextLayout.doors[0].width).toBe(12);
-    expect(nextLayout.doors[0].height).toBe(8.75);
+    expect(nextLayout.doors[0].width).toBe(4);
+    expect(nextLayout.doors[0].height).toBe(2.7);
   });
 
   it('keeps a window floor offset inside the linked wall', () => {
-    const layout = addWindowToWall(createDefaultRoomLayout(), 'w1', 6);
+    const layout = addWindowToWall(createDefaultRoomLayout(), 'w1', 2);
     const windowOpening = layout.windows[0];
     const nextLayout = updateWindowSillHeight(layout, windowOpening.id, 20);
 
     expect(nextLayout.windows[0].sillHeight).toBe(
-      9 - windowOpening.height - 0.25,
+      Number((2.8 - windowOpening.height - 0.1).toFixed(2)),
     );
   });
 });

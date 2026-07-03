@@ -1,4 +1,4 @@
-export type RoomUnit = 'ft';
+export type RoomUnit = 'm';
 
 export type BlueprintPoint = {
   id: string;

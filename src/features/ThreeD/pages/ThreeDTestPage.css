@@ -1,6 +1,6 @@
 .room-layout-page {
-  background: #d9dddf;
-  color: #203036;
+  background: #e7ece8;
+  color: #263331;
   height: 100vh;
   overflow: hidden;
   padding: 8px;
@@ -8,8 +8,8 @@
 
 .room-layout-header {
   align-items: center;
-  background: #ffffff;
-  border: 1px solid #d7dde0;
+  background: #fbfbf8;
+  border: 1px solid #cfd8d1;
   display: flex;
   gap: 16px;
   justify-content: space-between;
@@ -62,7 +62,7 @@
 
 .room-workspace-actions button:first-child,
 .room-layout-header-actions button {
-  background: #255f73;
+  background: #2f6f67;
   color: #ffffff;
 }
 
@@ -76,7 +76,7 @@
 }
 
 .room-layout-shell.is-3d {
-  grid-template-columns: minmax(520px, 48vw) minmax(0, 1fr);
+  grid-template-columns: minmax(560px, 42vw) minmax(0, 1fr);
 }
 
 .room-layout-shell.is-3d.is-design-panel-closed {
@@ -152,8 +152,8 @@
 }
 
 .room-design-sidebar {
-  background: #f8f8f8;
-  border-right: 1px solid #d7dde0;
+  background: #f5f4ef;
+  border-right: 1px solid #cfd8d1;
   display: grid;
   grid-template-columns: 176px minmax(0, 1fr);
   overflow: hidden;
@@ -161,8 +161,8 @@
 }
 
 .design-sidebar-menu {
-  background: #ffffff;
-  border-right: 1px solid #d7dde0;
+  background: #fbfbf8;
+  border-right: 1px solid #cfd8d1;
   display: flex;
   flex-direction: column;
   min-height: 0;
@@ -181,9 +181,9 @@
 
 .design-sidebar-menu button {
   align-items: center;
-  background: #ffffff;
-  border-bottom: 1px solid #d7dde0;
-  color: #5f676b;
+  background: #fbfbf8;
+  border-bottom: 1px solid #dfe5df;
+  color: #52615d;
   display: flex;
   font-size: 14px;
   line-height: 1.2;
@@ -198,17 +198,17 @@
 }
 
 .design-sidebar-menu button.is-active {
-  background: #4fc0d7;
+  background: #2f6f67;
   color: #ffffff;
 }
 
 .design-sidebar-menu button.is-active-secondary {
-  border-left: 4px solid #4fc0d7;
-  color: #255f73;
+  border-left: 4px solid #b78355;
+  color: #2f6f67;
 }
 
 .design-sidebar-footer button:nth-child(2) {
-  background: #5a5a5a;
+  background: #1f3431;
   color: #ffffff;
 }
 
@@ -225,7 +225,7 @@
 .design-panel-section {
   min-width: 0;
   overflow: auto;
-  padding: 16px 20px;
+  padding: 16px;
 }
 
 .design-panel-content {
@@ -237,7 +237,8 @@
 
 .design-panel-toolbar {
   align-items: center;
-  border-bottom: 1px solid #d7dde0;
+  background: #fbfbf8;
+  border-bottom: 1px solid #cfd8d1;
   display: grid;
   gap: 8px;
   grid-template-columns: auto minmax(0, 1fr) 38px;
@@ -246,7 +247,7 @@
 
 .design-panel-toolbar input {
   background: #ffffff;
-  border: 1px solid #d7dde0;
+  border: 1px solid #c8d3cc;
   color: #304850;
   font: inherit;
   height: 40px;
@@ -285,7 +286,7 @@
 
 .product-live-thumbnail .three-d-overlay {
   align-items: center;
-  background: rgba(255, 255, 255, 0.82);
+  background: rgba(242, 244, 240, 0.88);
   color: #65737a;
   display: flex;
   font-size: 10px;
@@ -334,10 +335,10 @@
 
 .room-product-sidebar-heading {
   align-items: center;
-  border-bottom: 1px solid #d5dde1;
+  border-bottom: 1px solid #d8dfd8;
   display: flex;
   gap: 10px;
-  justify-content: center;
+  justify-content: space-between;
   margin-bottom: 14px;
   padding-bottom: 14px;
 }
@@ -346,6 +347,11 @@
   color: #203036;
   font-size: 14px;
   text-transform: uppercase;
+}
+
+.room-product-sidebar-heading span {
+  color: #6f7d76;
+  font-size: 12px;
 }
 
 .room-product-sidebar-heading button {
@@ -358,7 +364,7 @@
 }
 
 .room-workspace {
-  background: #d7d7d7;
+  background: #d8ddd8;
   display: flex;
   flex-direction: column;
   min-width: 0;
@@ -388,15 +394,15 @@
 }
 
 .room-workspace-toolbar > div:first-child {
-  background: rgba(255, 255, 255, 0.94);
-  border: 1px solid #dbe2e5;
+  background: rgba(251, 251, 248, 0.94);
+  border: 1px solid #cfd8d1;
   padding: 10px 14px;
   pointer-events: auto;
 }
 
 .room-workspace-actions {
-  background: #ffffff;
-  border: 1px solid #dbe2e5;
+  background: #fbfbf8;
+  border: 1px solid #cfd8d1;
   pointer-events: auto;
 }
 
@@ -746,7 +752,7 @@
 }
 
 .room-preview-3d {
-  background: #d2d2d2;
+  background: #d8ddd8;
 }
 
 .three-d-canvas {
@@ -1046,7 +1052,7 @@
 }
 
 .wall-tabs button.is-active {
-  background: #255f73;
+  background: #2f6f67;
   color: #ffffff;
 }
 
@@ -1090,14 +1096,15 @@
 }
 
 .wall-placeholder-actions button:not(:disabled) {
-  background: #255f73;
+  background: #2f6f67;
   color: #ffffff;
   cursor: pointer;
 }
 
 .material-group {
   display: grid;
-  gap: 8px;
+  gap: 10px;
+  grid-template-columns: repeat(auto-fill, minmax(116px, 1fr));
   margin-top: 12px;
 }
 
@@ -1109,24 +1116,31 @@
 .material-option {
   align-items: center;
   background: #ffffff;
-  border: 1px solid #d4dee3;
+  border: 1px solid #d4ddd5;
   color: #263d45;
   display: grid;
   gap: 8px;
-  grid-template-columns: 24px minmax(0, 1fr);
+  grid-template-rows: 54px auto;
+  min-height: 92px;
   padding: 8px;
-  text-align: left;
+  text-align: center;
+}
+
+.product-live-thumbnail .three-d-overlay img {
+  height: 100%;
+  object-fit: contain;
+  width: 100%;
 }
 
 .material-option.is-selected {
-  border-color: #255f73;
-  box-shadow: inset 0 0 0 1px #255f73;
+  border-color: #2f6f67;
+  box-shadow: inset 0 0 0 2px #2f6f67;
 }
 
 .material-option span {
   border: 1px solid rgba(32, 48, 54, 0.2);
-  height: 24px;
-  width: 24px;
+  height: 54px;
+  width: 100%;
 }
 
 .product-list-toggle {
@@ -1142,9 +1156,18 @@
 .product-catalog-list {
   display: grid;
   align-content: start;
-  gap: 1px;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
   overflow: auto;
+}
+
+.catalog-status {
+  background: #edf2ee;
+  border: 1px solid #d7e0d8;
+  color: #607068;
+  font-size: 12px;
+  margin-bottom: 14px;
+  padding: 9px 10px;
 }
 
 .model-upload-card {
@@ -1268,19 +1291,18 @@
 }
 
 .product-catalog-card {
-  aspect-ratio: 1 / 1.08;
   background: #ffffff;
-  border: 0;
+  border: 1px solid #d8dfd8;
   cursor: grab;
   display: grid;
-  grid-template-rows: minmax(0, 1fr) auto;
+  grid-template-rows: 164px auto;
   overflow: hidden;
-  padding: 12px;
+  padding: 0;
   transition: border-color 120ms ease, box-shadow 120ms ease, transform 120ms ease;
 }
 
 .product-catalog-card:hover {
-  border-color: #255f73;
+  border-color: #2f6f67;
   box-shadow: 0 8px 18px rgba(32, 48, 54, 0.12);
   transform: translateY(-1px);
 }
@@ -1294,6 +1316,13 @@
   opacity: 0.48;
 }
 
+.product-catalog-media {
+  background: #f2f4f0;
+  min-height: 0;
+  overflow: hidden;
+  padding: 6px;
+}
+
 .product-catalog-card img {
   display: block;
   height: 100%;
@@ -1302,18 +1331,45 @@
   width: 100%;
 }
 
-.product-catalog-card span {
+.product-catalog-info {
+  display: grid;
+  gap: 6px;
+  padding: 10px;
+}
+
+.product-catalog-info strong {
+  color: #263331;
+  font-size: 13px;
+  line-height: 1.25;
+}
+
+.product-catalog-info span {
   color: #5e686d;
   font-size: 12px;
   overflow: hidden;
-  text-align: center;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
+.product-catalog-info button {
+  background: #2f6f67;
+  border: 0;
+  color: #ffffff;
+  cursor: pointer;
+  font: inherit;
+  min-height: 32px;
+  padding: 6px 8px;
+}
+
+.product-catalog-info button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
 .room-save-message {
+  background: #fbfbf8;
   border-top: 1px solid #d5dde1;
-  color: #255f73;
+  color: #2f6f67;
   font-size: 13px;
   padding: 10px 14px;
 }

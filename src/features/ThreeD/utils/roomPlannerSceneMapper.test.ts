@@ -7,7 +7,7 @@ describe('roomPlannerSceneMapper', () => {
     const hydrated = hydrateRoomPlannerScenePayload({
       schemaVersion: 2,
       editorVersion: 'ROOM_PLANNER_BABYLON_V1',
-      unit: 'ft',
+      unit: 'm',
       layout: {
         type: 'BLUEPRINT_WALL_GRAPH',
         isClosed: true,
@@ -139,7 +139,7 @@ describe('roomPlannerSceneMapper', () => {
     const hydrated = hydrateRoomPlannerScenePayload({
       schemaVersion: 2,
       editorVersion: 'ROOM_PLANNER_BABYLON_V1',
-      unit: 'ft',
+      unit: 'm',
       layout: {
         type: 'BLUEPRINT_WALL_GRAPH',
         isClosed: false,

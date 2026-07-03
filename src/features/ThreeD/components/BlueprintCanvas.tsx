@@ -14,7 +14,7 @@ import {
   addWindowToWall,
   deleteOpeningItem,
   deleteWall,
-  formatFeetInches,
+  formatMeters,
   getClosedRoomBoundary,
   getPointById,
   getPointAtWallOffset,
@@ -510,7 +510,7 @@ export function BlueprintCanvas({
 
         {!layout && (
           <text className="blueprint-empty-text" textAnchor="middle" x={VIEWBOX_WIDTH / 2} y={VIEWBOX_HEIGHT / 2}>
-            Use Add Box to create a 12 ft x 12 ft room.
+            Use Add Box to create a 4 m x 4 m room.
           </text>
         )}
 
@@ -541,7 +541,7 @@ export function BlueprintCanvas({
                   />
                   {!hideLabels && (
                     <text className="blueprint-wall-label" textAnchor="middle" x={midX} y={midY - 12}>
-                      {formatFeetInches(getWallLength(wall, layout.points))}
+                      {formatMeters(getWallLength(wall, layout.points))}
                     </text>
                   )}
                 </g>
@@ -648,7 +648,7 @@ export function BlueprintCanvas({
                   )}
                   {!hideLabels && (
                     <text className="blueprint-opening-label" textAnchor="middle" x={symbolCenter.x} y={symbolCenter.y - 12}>
-                      {openingItem.width.toFixed(1)} ft
+                      {formatMeters(openingItem.width)}
                     </text>
                   )}
                 </g>
@@ -710,7 +710,7 @@ export function BlueprintCanvas({
               >
                 &lsaquo;
               </button>
-              <span>{formatFeetInches(contextWall.height)}</span>
+              <span>{formatMeters(contextWall.height)}</span>
               <button
                 aria-label="Increase wall height"
                 type="button"
@@ -734,7 +734,7 @@ export function BlueprintCanvas({
               >
                 &lsaquo;
               </button>
-              <span>{formatFeetInches(contextWall.thickness)}</span>
+              <span>{formatMeters(contextWall.thickness)}</span>
               <button
                 aria-label="Increase wall thickness"
                 type="button"
@@ -782,7 +782,7 @@ export function BlueprintCanvas({
                 >
                   &lsaquo;
                 </button>
-                <span>{formatFeetInches(contextOpening[dimension])}</span>
+                <span>{formatMeters(contextOpening[dimension])}</span>
                 <button
                   aria-label={`Increase ${dimension}`}
                   type="button"
@@ -808,7 +808,7 @@ export function BlueprintCanvas({
                 >
                   &lsaquo;
                 </button>
-                <span>{formatFeetInches(contextOpening.sillHeight)}</span>
+                <span>{formatMeters(contextOpening.sillHeight)}</span>
                 <button
                   aria-label="Increase floor offset"
                   type="button"

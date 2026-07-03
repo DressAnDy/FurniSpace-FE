@@ -129,13 +129,33 @@ const FLOOR_MATERIALS: RoomMaterialSelection[] = [
     textureUrl: '/materials/flooring/woodfloor.jpg',
     type: 'floor',
   },
+  {
+    fallbackColor: '#C8B79A',
+    id: 'oak-floor',
+    label: 'Natural Oak',
+    textureUrl: '/materials/flooring/woodfloor.jpg',
+    type: 'floor',
+  },
+  {
+    fallbackColor: '#6E4A32',
+    id: 'walnut-floor',
+    label: 'Walnut',
+    textureUrl: '/materials/flooring/woodfloor.jpg',
+    type: 'floor',
+  },
+  {
+    fallbackColor: '#A8ADA8',
+    id: 'gray-tile',
+    label: 'Soft Gray Tile',
+    type: 'floor',
+  },
 ];
 
 const WALL_TEXTURE_MATERIALS: RoomMaterialSelection[] = [
   {
-    fallbackColor: '#D8D2C5',
+    fallbackColor: '#F3EFE7',
     id: 'wall-base',
-    label: 'Wall Base Paint',
+    label: 'Gallery White Paint',
     textureUrl: '/materials/wall-paint/wallbase.jpg',
     type: 'wall',
   },
@@ -152,6 +172,11 @@ const FALLBACK_SWATCHES: MaterialSwatch[] = [
   { color: '#BFAE8A', id: 'balanced-tan', name: 'Balanced Tan' },
   { color: '#EFE9DD', id: 'warm-white', name: 'Warm White' },
   { color: '#B8B8B0', id: 'soft-gray', name: 'Soft Gray' },
+  { color: '#C8D6D4', id: 'mist-blue', name: 'Mist Blue' },
+  { color: '#DCC8B2', id: 'soft-clay', name: 'Soft Clay' },
+  { color: '#596A5C', id: 'garden-green', name: 'Garden Green' },
+  { color: '#EEE2CF', id: 'linen', name: 'Linen' },
+  { color: '#8E8F88', id: 'stone-gray', name: 'Stone Gray' },
 ];
 
 const FALLBACK_PRODUCT_MODELS: ProductModel[] = [
@@ -271,6 +296,18 @@ function parseNumberInput(value: string, fallback: number) {
   const parsed = Number(value.replace(',', '.'));
 
   return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function getCatalogSourceLabel(product: ProductModel) {
+  if (product.source === 'uploaded') {
+    return 'Uploaded';
+  }
+
+  if (product.source === 'local') {
+    return 'Test asset';
+  }
+
+  return 'Catalog';
 }
 
 function getPolygonCenter(layout: RoomLayoutState) {
@@ -488,8 +525,8 @@ export function ThreeDTestPage() {
     setSelectedItem(null);
     setSaveMessage(
       hydratedScene.layout
-        ? `Loaded Room Planner scene from backend with ${hydratedScene.placedProducts.length} product object(s)${roomPlannerSceneQuery.data.lastSavedAt ? `, last saved ${new Date(roomPlannerSceneQuery.data.lastSavedAt).toLocaleString()}` : ''}.`
-        : 'Backend returned an empty Room Planner scene. Add a room, place products from API catalog, then Save Project.',
+        ? `Scene ready${roomPlannerSceneQuery.data.lastSavedAt ? `, last saved ${new Date(roomPlannerSceneQuery.data.lastSavedAt).toLocaleString()}` : ''}.`
+        : 'No room layout is saved yet. Create a room in 2D, place catalog products, then save the scene.',
     );
   }, [isProposalScene, resolveSceneObjectModelUrl, roomPlannerSceneQuery.data]);
 
@@ -731,16 +768,14 @@ export function ThreeDTestPage() {
             payload: buildRoomPlannerPayload(productsWithProposalItems),
           });
 
-          setSaveMessage(
-            `Room Planner scene saved to MongoDB and synced ${syncResult.items.length} proposal item(s) at ${new Date(saveResult.lastSavedAt).toLocaleString()}.`,
-          );
+          setSaveMessage(`Saved and synced ${syncResult.items.length} proposal item(s) at ${new Date(saveResult.lastSavedAt).toLocaleString()}.`);
           return;
         }
 
         setSaveMessage(
           currentProposalId
-            ? `Room Planner scene saved to MongoDB at ${new Date(saveResult.lastSavedAt).toLocaleString()}. No catalog products to sync.`
-            : `Room Planner scene saved to MongoDB at ${new Date(saveResult.lastSavedAt).toLocaleString()}. Open from a proposal to sync proposal items.`,
+            ? `Saved at ${new Date(saveResult.lastSavedAt).toLocaleString()}. No catalog products to sync.`
+            : `Saved at ${new Date(saveResult.lastSavedAt).toLocaleString()}. Open from a proposal to sync proposal items.`,
         );
       } catch (error) {
         setSaveMessage(getProposalServiceResultMessage(error));
@@ -1125,21 +1160,21 @@ export function ThreeDTestPage() {
                 <label>
                   <span>Wall Height</span>
                   <CommitNumberInput
-                    fallback={layout?.wallHeight ?? 9}
+                    fallback={layout?.wallHeight ?? 2.8}
                     min={0}
                     onCommit={(value) => handleGlobalWallUpdate({ wallHeight: value })}
-                    step={0.25}
-                    value={layout?.wallHeight ?? 9}
+                    step={0.1}
+                    value={layout?.wallHeight ?? 2.8}
                   />
                 </label>
                 <label>
                   <span>Wall Thickness</span>
                   <CommitNumberInput
-                    fallback={layout?.wallThickness ?? 0.3}
-                    min={0.1}
+                    fallback={layout?.wallThickness ?? 0.12}
+                    min={0.05}
                     onCommit={(value) => handleGlobalWallUpdate({ wallThickness: value })}
-                    step={0.05}
-                    value={layout?.wallThickness ?? 0.3}
+                    step={0.01}
+                    value={layout?.wallThickness ?? 0.12}
                   />
                 </label>
               </div>
@@ -1157,8 +1192,6 @@ export function ThreeDTestPage() {
               <>
             <div className="design-sidebar-menu">
               <div className="design-sidebar-primary">
-                <button type="button" disabled>Menu</button>
-                <button type="button" disabled>Design From Photo</button>
                 <button
                   className={designPanel === 'products' ? 'is-active' : ''}
                   type="button"
@@ -1187,8 +1220,6 @@ export function ThreeDTestPage() {
                 >
                   Flooring
                 </button>
-                <button type="button" disabled>Lighting</button>
-                <button type="button" disabled>Design and Styling Content</button>
               </div>
               <div className="design-sidebar-footer">
                 <button type="button" onClick={() => {
@@ -1200,8 +1231,6 @@ export function ThreeDTestPage() {
                 <button disabled={isSavingRoomPlanner} type="button" onClick={() => void handleSave()}>
                   {isSavingRoomPlanner ? 'Saving...' : 'Save Project'}
                 </button>
-                <button type="button" disabled>Share Project</button>
-                <button type="button" disabled>Add To Cart</button>
               </div>
             </div>
 
@@ -1224,63 +1253,39 @@ export function ThreeDTestPage() {
             {designPanel === 'products' && (
               <section className="design-panel-section">
                 <div className="room-product-sidebar-heading">
-                  <strong>Shop by Category</strong>
+                  <strong>Catalog</strong>
+                  <span>{filteredProductModels.length} ready model(s)</span>
                 </div>
-                {isProposalScene && (
-                  <div className="scene-product-list">
+                <div className="catalog-status">{catalogModelMessage}</div>
+                {isAdminLab && (
+                  <div className="model-upload-card">
                     <div>
-                      <strong>Scene Products</strong>
-                      <span>{placedProducts.length} product object(s) loaded from this room scene.</span>
+                      <strong>Upload MODEL_3D</strong>
+                      <span>Attach a GLB/glTF file to a Product Version, then use it like a catalog product.</span>
                     </div>
-                    {placedProducts.length ? (
-                      placedProducts.map((product) => (
-                        <button
-                          className={selectedProductId === product.id ? 'is-selected' : ''}
-                          key={product.id}
-                          type="button"
-                          onClick={() => {
-                            setSelectedProductId(product.id);
-                            setViewMode('3d');
-                            setShowProductInfo(true);
-                          }}
-                        >
-                          <strong>{product.modelName}</strong>
-                          <span>{product.productVersionId ?? product.productId ?? product.id}</span>
-                        </button>
-                      ))
-                    ) : (
-                      <p>No product objects loaded from MongoDB yet.</p>
-                    )}
-                  </div>
-                )}
-                <div className="model-upload-card">
-                  <div>
-                    <strong>Upload MODEL_3D</strong>
-                    <span>Attach a GLB/glTF file to a Product Version, then use it like a catalog product.</span>
-                  </div>
-                  <label>
-                    <span>Product Version ID</span>
-                    <input
-                      placeholder="Paste productVersionId"
-                      type="text"
-                      value={modelUploadProductVersionId}
-                      onChange={(event) => setModelUploadProductVersionId(event.target.value)}
-                    />
-                  </label>
-                  <div className="model-upload-actions">
-                    <label className={uploadModelMutation.isPending ? 'is-disabled' : ''}>
-                      Upload GLB/glTF
+                    <label>
+                      <span>Product Version ID</span>
                       <input
-                        accept=".glb,.gltf,model/gltf-binary,model/gltf+json"
-                        disabled={uploadModelMutation.isPending}
-                        type="file"
-                        onChange={(event) => void handleModelUploadChange(event)}
+                        placeholder="Paste productVersionId"
+                        type="text"
+                        value={modelUploadProductVersionId}
+                        onChange={(event) => setModelUploadProductVersionId(event.target.value)}
                       />
                     </label>
+                    <div className="model-upload-actions">
+                      <label className={uploadModelMutation.isPending ? 'is-disabled' : ''}>
+                        Upload GLB/glTF
+                        <input
+                          accept=".glb,.gltf,model/gltf-binary,model/gltf+json"
+                          disabled={uploadModelMutation.isPending}
+                          type="file"
+                          onChange={(event) => void handleModelUploadChange(event)}
+                        />
+                      </label>
+                    </div>
+                    {modelUploadMessage && <small>{modelUploadMessage}</small>}
                   </div>
-                  {catalogModelMessage && <small>{catalogModelMessage}</small>}
-                  {modelUploadMessage && <small>{modelUploadMessage}</small>}
-                </div>
+                )}
                 <div className="product-catalog-list">
                   {filteredProductModels.map((product) => {
                     const disabled = Boolean(product.missingReferences?.length) || !layout;
@@ -1302,13 +1307,24 @@ export function ThreeDTestPage() {
                           event.dataTransfer.setData('application/x-furnispace-product-id', product.id);
                         }}
                       >
-                        {product.thumbnailUrl.includes('placeholder-product') ? (
-                          <div className="product-live-thumbnail" aria-hidden="true">
-                            <ModelViewer height="100%" modelUrl={product.modelUrl} showGrid={false} />
+                        <div className="product-catalog-media">
+                          <div className="product-live-thumbnail">
+                            <ModelViewer
+                              autoRotate
+                              fallbackImageUrl={product.thumbnailUrl}
+                              height="100%"
+                              modelUrl={product.modelUrl}
+                              showGrid={false}
+                            />
                           </div>
-                        ) : (
-                          <img alt={product.name} draggable={false} src={product.thumbnailUrl} />
-                        )}
+                        </div>
+                        <div className="product-catalog-info">
+                          <strong>{product.name}</strong>
+                          <span>{getCatalogSourceLabel(product)}{product.material ? ` / ${product.material}` : ''}{product.color ? ` / ${product.color}` : ''}</span>
+                          <button disabled={disabled} type="button" onClick={() => handleAddProduct(product)}>
+                            Add to scene
+                          </button>
+                        </div>
                       </article>
                     );
                   })}
@@ -1383,20 +1399,11 @@ export function ThreeDTestPage() {
               <strong>{viewMode === '2d' ? '2D Blueprint Floor Plan' : '3D Room Preview'}</strong>
               <span>
                 {layout && roomSize
-                  ? `${roomSize.width.toFixed(1)} ft x ${roomSize.depth.toFixed(1)} ft | ${roomArea.toFixed(1)} sq ft | wall ${layout.wallHeight.toFixed(1)} ft`
+                  ? `${roomSize.width.toFixed(1)} m x ${roomSize.depth.toFixed(1)} m | ${roomArea.toFixed(1)} m² | wall ${layout.wallHeight.toFixed(1)} m`
                   : 'No room yet'}
               </span>
             </div>
             <div className="room-workspace-actions">
-              <button type="button" onClick={handleAddBox}>Add Box</button>
-              <button disabled={isSavingRoomPlanner} type="button" onClick={() => void handleSave()}>
-                {isSavingRoomPlanner ? 'Saving...' : 'Save'}
-              </button>
-              {viewMode === '3d' && (
-                <button type="button" onClick={() => openDesignPanel('products')}>
-                  Product List
-                </button>
-              )}
               <button type="button" onClick={() => setViewMode(viewMode === '2d' ? '3d' : '2d')}>
                 Toggle 2D/3D
               </button>
@@ -1521,12 +1528,12 @@ export function ThreeDTestPage() {
                 <strong>Measurements</strong>
                 <span>
                   Nearest wall: {productMeasurements?.nearestWall
-                    ? `${productMeasurements.nearestWall.distance.toFixed(2)} ft (${productMeasurements.nearestWall.wallId})`
+                    ? `${productMeasurements.nearestWall.distance.toFixed(2)} m (${productMeasurements.nearestWall.wallId})`
                     : 'Unavailable'}
                 </span>
                 <span>
                   Object distance: {productMeasurements?.comparedObject
-                    ? `${productMeasurements.comparedObject.distance.toFixed(2)} ft (${productMeasurements.comparedObject.productId})`
+                    ? `${productMeasurements.comparedObject.distance.toFixed(2)} m (${productMeasurements.comparedObject.productId})`
                     : 'Shift + click another object'}
                 </span>
               </div>

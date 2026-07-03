@@ -3,7 +3,7 @@ import type { BlueprintTool, DoorSwingDirection, RoomLayoutState, RoomMaterialSe
 import type { RoomPlannerObject, RoomPlannerScenePayload } from '@/features/ThreeD/types/roomPlannerScene.types';
 import { getRoomArea, isRoomBoundaryClosed } from '@/features/ThreeD/utils/roomGeometry';
 
-const SQFT_TO_SQM = 0.092903;
+const SQM_TO_SQFT = 10.7639;
 
 type HydratablePoint = {
   id: string;
@@ -55,7 +55,7 @@ export type HydrateRoomPlannerSceneOptions = {
 };
 
 export function createRoomPlannerScenePayload(input: CreateRoomPlannerPayloadInput): RoomPlannerScenePayload {
-  const areaSqFt = getRoomArea(input.layout);
+  const areaSqm = getRoomArea(input.layout);
 
   return {
     schemaVersion: 2,
@@ -64,8 +64,8 @@ export function createRoomPlannerScenePayload(input: CreateRoomPlannerPayloadInp
     layout: {
       type: 'BLUEPRINT_WALL_GRAPH',
       isClosed: isRoomBoundaryClosed(input.layout),
-      areaSqFt,
-      areaSqm: Number((areaSqFt * SQFT_TO_SQM).toFixed(2)),
+      areaSqFt: Number((areaSqm * SQM_TO_SQFT).toFixed(2)),
+      areaSqm,
       wallHeight: input.layout.wallHeight,
       wallThickness: input.layout.wallThickness,
       floorMaterialId: input.floorMaterial.id,
@@ -288,7 +288,7 @@ function hydrateBlueprintWallGraphLayout(layout: RawRoomPlannerLayout): RoomLayo
       .map((opening, index) => hydrateGenericOpening(opening, index))
       .filter((opening) => wallIds.has(opening.wallId)),
     points,
-    unit: 'ft',
+    unit: 'm',
     wallHeight,
     wallMaterialId: getStringValue(layout.wallMaterialId) || 'wall-base',
     wallThickness,
@@ -353,7 +353,7 @@ function hydrateWallBoundaryLayout(layout: RawRoomPlannerLayout): RoomLayoutStat
       .map((opening, index) => hydrateGenericOpening(opening, index))
       .filter((opening) => wallIds.has(opening.wallId)),
     points,
-    unit: 'ft',
+    unit: 'm',
     wallHeight,
     wallMaterialId: getStringValue(layout.wallMaterialId) || 'wall-base',
     wallThickness,
@@ -570,7 +570,7 @@ function hydratePlacedProducts(
         dimensionsSnapshot: {
           depth: object.dimensionsSnapshot?.depth ?? null,
           height: object.dimensionsSnapshot?.height ?? null,
-          unit: object.dimensionsSnapshot?.unit ?? 'ft',
+          unit: object.dimensionsSnapshot?.unit ?? 'm',
           width: object.dimensionsSnapshot?.width ?? null,
         },
         heightOffset: object.placement?.heightOffset ?? position.y,

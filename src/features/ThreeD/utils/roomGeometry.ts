@@ -12,9 +12,9 @@ import type {
 export function createDefaultRoomLayout(): RoomLayoutState {
   const points: BlueprintPoint[] = [
     { id: 'p1', x: 0, y: 0 },
-    { id: 'p2', x: 12, y: 0 },
-    { id: 'p3', x: 12, y: 12 },
-    { id: 'p4', x: 0, y: 12 },
+    { id: 'p2', x: 4, y: 0 },
+    { id: 'p3', x: 4, y: 4 },
+    { id: 'p4', x: 0, y: 4 },
   ];
 
   return {
@@ -22,12 +22,12 @@ export function createDefaultRoomLayout(): RoomLayoutState {
     floorMaterialId: 'wood-floor',
     openings: [],
     points,
-    unit: 'ft',
-    wallHeight: 9,
-    wallThickness: 0.3,
+    unit: 'm',
+    wallHeight: 2.8,
+    wallThickness: 0.12,
     wallMaterialId: 'wall-base',
     windows: [],
-    walls: createWalls(points, 9, 0.3),
+    walls: createWalls(points, 2.8, 0.12),
   };
 }
 
@@ -59,23 +59,23 @@ function clamp(value: number, min: number, max: number) {
 }
 
 function getDefaultWallOpeningHeight(wallHeight: number) {
-  return Number(Math.max(wallHeight / 2, 0).toFixed(2));
+  return Number(clamp(2.1, 0, Math.max(wallHeight - MIN_WALL_ABOVE_OPENING, 0)).toFixed(2));
 }
 
 function getDefaultWallOpeningWidth(wallLength: number, openingHeight: number) {
   const preferredWidth = openingHeight * 0.45;
-  const maxByWall = Math.max(wallLength * 0.45, 0.5);
+  const maxByWall = Math.max(wallLength * 0.45, 0.2);
 
-  return Number(clamp(preferredWidth, 1, Math.min(4, maxByWall)).toFixed(2));
+  return Number(clamp(preferredWidth, 0.75, Math.min(1.6, maxByWall)).toFixed(2));
 }
 
 function getOpeningOffset(wallLength: number, width: number, offset: number) {
   return Number(clamp(offset, width / 2, Math.max(wallLength - width / 2, width / 2)).toFixed(2));
 }
 
-const MIN_OPENING_SIZE = 0.5;
+const MIN_OPENING_SIZE = 0.2;
 const MIN_OPENING_GAP = 0.05;
-const MIN_WALL_ABOVE_OPENING = 0.25;
+const MIN_WALL_ABOVE_OPENING = 0.1;
 
 type OpeningItemType = 'door' | 'window' | 'opening';
 
@@ -350,7 +350,7 @@ export function addWindowToWall(layout: RoomLayoutState, wallId: string, offset:
   }
 
   const wallLength = getWallLength(wall, layout.points);
-  const width = Math.min(4, Math.max(wallLength * 0.5, 1));
+  const width = Math.min(1.6, Math.max(wallLength * 0.5, 0.8));
   const validOffset = findValidOpeningOffset(layout, wallId, width, offset);
 
   if (validOffset === null) {
@@ -358,10 +358,10 @@ export function addWindowToWall(layout: RoomLayoutState, wallId: string, offset:
   }
 
   const windowOpening: WindowOpening = {
-    height: 4,
+    height: Math.min(1.2, Math.max(wall.height - 1, MIN_OPENING_SIZE)),
     id: getNextNumericId(layout.windows, 'window-'),
     offset: validOffset,
-    sillHeight: 3,
+    sillHeight: 0.9,
     type: 'WINDOW',
     wallId,
     width,
@@ -411,6 +411,10 @@ export function formatFeetInches(value: number) {
   const normalizedInches = inches === 12 ? 0 : inches;
 
   return `${normalizedFeet}' ${String(normalizedInches).padStart(2, '0')}"`;
+}
+
+export function formatMeters(value: number) {
+  return `${value.toFixed(value >= 10 ? 1 : 2)} m`;
 }
 
 export function getRoomBounds(points: BlueprintPoint[]) {

@@ -8,6 +8,7 @@ import type {
 import {
   deleteOpeningItem,
   deleteWall,
+  formatMeters,
   getWallLength,
   updateDoorSwingDirection,
   updateOpeningItem,
@@ -130,11 +131,11 @@ export function WallEditPanel({
           </label>
           <label>
             <span>Wall Length</span>
-            <input readOnly value={linkedWall ? `${getWallLength(linkedWall, layout.points).toFixed(2)} ft` : 'Missing wall'} />
+            <input readOnly value={linkedWall ? formatMeters(getWallLength(linkedWall, layout.points)) : 'Missing wall'} />
           </label>
           <label>
             <span>Offset</span>
-            <input readOnly value={`${selectedOpening.offset.toFixed(2)} ft`} />
+            <input readOnly value={formatMeters(selectedOpening.offset)} />
           </label>
           <label>
             <span>Width</span>
@@ -187,7 +188,7 @@ export function WallEditPanel({
           {selectedOpening.type === 'WINDOW' && (
             <label>
               <span>Sill Height</span>
-              <input readOnly value={`${selectedOpening.sillHeight.toFixed(2)} ft`} />
+              <input readOnly value={formatMeters(selectedOpening.sillHeight)} />
             </label>
           )}
         </div>
@@ -224,7 +225,7 @@ export function WallEditPanel({
         </label>
         <label>
           <span>Length</span>
-          <input readOnly value={`${getWallLength(selectedWall, layout.points).toFixed(2)} ft`} />
+          <input readOnly value={formatMeters(getWallLength(selectedWall, layout.points))} />
         </label>
         <label>
           <span>Wall Height</span>
