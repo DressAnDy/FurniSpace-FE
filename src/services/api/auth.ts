@@ -2,6 +2,7 @@ import { AxiosError } from 'axios';
 import axios from 'axios';
 
 import type { AuthTokenData, CurrentUserData, RegisterData, ServiceResult } from './types';
+import { removeStoredAccessToken, storeAccessToken } from './tokenStore';
 
 export const AUTH_PENDING_EMAIL_KEY = 'auth.pendingEmail';
 
@@ -71,6 +72,10 @@ export async function verifyEmail(input: VerifyEmailInput) {
     otpCode: input.otpCode.trim(),
   });
 
+  if (response.data.data?.access_token) {
+    storeAccessToken(response.data.data.access_token);
+  }
+
   return response.data;
 }
 
@@ -79,6 +84,10 @@ export async function login(input: LoginInput) {
     email: normalizeEmail(input.email),
     password: input.password,
   });
+
+  if (response.data.data?.access_token) {
+    storeAccessToken(response.data.data.access_token);
+  }
 
   return response.data;
 }
@@ -91,6 +100,8 @@ export async function getCurrentUser() {
 
 export async function logout() {
   const response = await authApiClient.post<ServiceResult<null>>('/auth/logout', {});
+
+  removeStoredAccessToken();
 
   return response.data;
 }

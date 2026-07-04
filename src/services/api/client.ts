@@ -7,9 +7,14 @@ import { notifyError } from '@/shared/lib/toast';
 export const apiClient = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL ?? import.meta.env.VITE_API_URL,
   withCredentials: true,
-  headers: {
-    'Content-Type': 'application/json',
-  },
+});
+
+apiClient.interceptors.request.use((config) => {
+  if (config.data instanceof FormData) {
+    clearMultipartContentType(config.headers);
+  }
+
+  return config;
 });
 
 apiClient.interceptors.response.use(
@@ -36,3 +41,25 @@ axiosRetry(apiClient, {
     axiosRetry.isNetworkOrIdempotentRequestError(error) ||
     error.response?.status === 429,
 });
+
+function clearMultipartContentType(headers: unknown) {
+  const headerBag = headers as {
+    delete?: (name: string) => boolean;
+    set?: (name: string, value?: string | false) => void;
+    [key: string]: unknown;
+  };
+
+  if (typeof headerBag.delete === 'function') {
+    headerBag.delete('Content-Type');
+    headerBag.delete('content-type');
+    return;
+  }
+
+  if (typeof headerBag.set === 'function') {
+    headerBag.set('Content-Type', false);
+    return;
+  }
+
+  delete headerBag['Content-Type'];
+  delete headerBag['content-type'];
+}

@@ -15,7 +15,6 @@ export function CustomerInfoTab({ project }: CustomerInfoTabProps) {
     <section className="project-detail-card project-detail-tab-panel project-detail-customer-card">
       <header>
         <h3>Customer Information</h3>
-        <p>Customer account details loaded from the account API.</p>
       </header>
 
       {customerQuery.isLoading ? <p className="project-detail-muted">Loading customer information...</p> : null}

@@ -1,75 +1,126 @@
-import { IconCalendarEvent, IconClock, IconMapPin, IconPlus, IconUser } from '@tabler/icons-react';
-import { useState } from 'react';
+import {
+  IconCalendarEvent,
+  IconClock,
+  IconMapPin,
+  IconPlus,
+  IconUser,
+} from '@tabler/icons-react';
+import { useQueries } from '@tanstack/react-query';
+import { useMemo, useState } from 'react';
 
 import { SaleNavbar, SaleSidebar } from '@/features/SalePages/salecomponents';
+import {
+  getProjectSchedules,
+  getProjectScheduleServiceResultMessage,
+  type ProjectScheduleDto,
+  type ProjectScheduleStatus,
+  type ProjectScheduleType,
+} from '@/services/api';
+import type { ProjectListItemDto } from '@/services/api/projects';
+import { useCurrentUser, useProjectList, useUpdateProjectScheduleStatus } from '@/services/queries';
+import { projectScheduleQueryKeys } from '@/services/queries/useSchedules';
 
 import { CreateScheduleModal } from './components';
 import './SaleSchedules.css';
 
 type ScheduleView = 'list' | 'calendar';
 
-type SaleSchedule = {
-  id: string;
-  title: string;
-  type: string;
-  status: string;
-  description: string;
-  projectCode: string;
-  dateTime: string;
-  location: string;
-  participants: string;
+type ManagedSchedule = {
+  project: ProjectListItemDto;
+  schedule: ProjectScheduleDto;
 };
 
-const schedules: SaleSchedule[] = [
-  {
-    id: 'schedule-1',
-    title: 'Site Measurement - Luxury Cafe',
-    type: 'MEASUREMENT',
-    status: 'CONFIRMED',
-    description: 'LiDAR scanning and detailed measurements',
-    projectCode: 'PRJ-2024-156',
-    dateTime: '2024-06-07 10:00 AM',
-    location: '123 Main Street, Downtown',
-    participants: 'Sarah Johnson',
-  },
-  {
-    id: 'schedule-2',
-    title: 'Design Review Meeting',
-    type: 'DESIGN_REVIEW',
-    status: 'PENDING CONFIRMATION',
-    description: 'Review initial design concepts with client',
-    projectCode: 'PRJ-2024-150',
-    dateTime: '2024-06-08 2:00 PM',
-    location: 'Virtual Meeting',
-    participants: 'Sarah Johnson, Emily Davis',
-  },
-  {
-    id: 'schedule-3',
-    title: 'Client Consultation',
-    type: 'CONSULTATION',
-    status: 'CONFIRMED',
-    description: 'Initial consultation to understand requirements',
-    projectCode: 'PRJ-2024-149',
-    dateTime: '2024-06-09 11:00 AM',
-    location: '555 Food Street',
-    participants: 'Sarah Johnson',
-  },
-  {
-    id: 'schedule-4',
-    title: 'Final Handover',
-    type: 'HANDOVER',
-    status: 'CONFIRMED',
-    description: 'Final project handover and walkthrough',
-    projectCode: 'PRJ-2024-145',
-    dateTime: '2024-06-10 9:00 AM',
-    location: '456 Fashion Ave',
-    participants: 'Sarah Johnson, Delivery Team',
-  },
+const scheduleTypeOptions: Array<ProjectScheduleType | ''> = [
+  '',
+  'MEASUREMENT',
+  'CONSULTATION',
+  'DESIGN_REVIEW',
+  'DELIVERY',
+  'HANDOVER',
+  'OTHER',
+];
+
+const scheduleStatusOptions: Array<ProjectScheduleStatus | ''> = [
+  '',
+  'PENDING_CONFIRMATION',
+  'CONFIRMED',
+  'COMPLETED',
+  'CANCELLED',
 ];
 
 export function SaleSchedules() {
   const [activeView, setActiveView] = useState<ScheduleView>('list');
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [editingSchedule, setEditingSchedule] = useState<ProjectScheduleDto | null>(null);
+  const [scheduleType, setScheduleType] = useState<ProjectScheduleType | ''>('');
+  const [status, setStatus] = useState<ProjectScheduleStatus | ''>('');
+  const [actionMessage, setActionMessage] = useState('');
+  const currentUserQuery = useCurrentUser();
+  const currentUser = currentUserQuery.data;
+  const projectsQuery = useProjectList(
+    {
+      assignedSalesId: currentUser?.accountId,
+      page: 1,
+      limit: 100,
+    },
+    { enabled: Boolean(currentUser?.accountId) },
+  );
+  const projects = useMemo(() => projectsQuery.data?.items ?? [], [projectsQuery.data?.items]);
+  const scheduleQueries = useQueries({
+    queries: projects.map((project) => {
+      const params = {
+        projectId: project.projectId,
+        scheduleType: scheduleType || null,
+        status: status || null,
+        page: 1,
+        limit: 100,
+      };
+
+      return {
+        queryKey: projectScheduleQueryKeys.list(params),
+        queryFn: () => getProjectSchedules(params),
+      };
+    }),
+  });
+  const updateStatusMutation = useUpdateProjectScheduleStatus();
+  const managedSchedules = useMemo<ManagedSchedule[]>(
+    () =>
+      scheduleQueries
+        .flatMap((query, index) =>
+          (query.data?.items ?? []).map((schedule) => ({
+            project: projects[index],
+            schedule,
+          })),
+        )
+        .filter((item): item is ManagedSchedule => Boolean(item.project))
+        .sort(
+          (left, right) =>
+            new Date(left.schedule.scheduledStart).getTime() -
+            new Date(right.schedule.scheduledStart).getTime(),
+        ),
+    [projects, scheduleQueries],
+  );
+  const isLoading = currentUserQuery.isLoading || projectsQuery.isLoading || scheduleQueries.some((query) => query.isLoading);
+  const scheduleError = scheduleQueries.find((query) => query.isError)?.error;
+  const calendarGroups = useMemo(() => groupSchedulesByDate(managedSchedules), [managedSchedules]);
+
+  async function updateScheduleStatus(
+    schedule: ProjectScheduleDto,
+    nextStatus: 'COMPLETED' | 'CANCELLED',
+  ) {
+    setActionMessage('');
+
+    try {
+      await updateStatusMutation.mutateAsync({
+        scheduleId: schedule.scheduleId,
+        status: nextStatus,
+        note: `${formatEnumLabel(nextStatus)} by sales from schedule management.`,
+      });
+      setActionMessage(`Schedule ${formatEnumLabel(nextStatus).toLowerCase()} successfully.`);
+    } catch (error) {
+      setActionMessage(getProjectScheduleServiceResultMessage(error));
+    }
+  }
 
   return (
     <div className="sale-schedules-shell">
@@ -80,9 +131,14 @@ export function SaleSchedules() {
           <section className="sale-schedules-heading">
             <div>
               <h2>Schedules & Appointments</h2>
-              <p>Manage your project schedules and customer meetings</p>
+              <p>Manage schedules across projects assigned to your sales workspace</p>
             </div>
-            <button className="sale-schedules-create-button" type="button" onClick={() => setIsCreateModalOpen(true)}>
+            <button
+              className="sale-schedules-create-button"
+              disabled={projects.length === 0}
+              type="button"
+              onClick={() => setIsCreateModalOpen(true)}
+            >
               <IconPlus size={16} />
               Create Schedule
             </button>
@@ -97,54 +153,160 @@ export function SaleSchedules() {
                 Calendar View
               </button>
             </div>
+            <div className="sale-schedules-filters">
+              <label>
+                <span>Type</span>
+                <select value={scheduleType} onChange={(event) => setScheduleType(event.target.value as ProjectScheduleType | '')}>
+                  {scheduleTypeOptions.map((option) => (
+                    <option key={option || 'ALL'} value={option}>{option ? formatEnumLabel(option) : 'All types'}</option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                <span>Status</span>
+                <select value={status} onChange={(event) => setStatus(event.target.value as ProjectScheduleStatus | '')}>
+                  {scheduleStatusOptions.map((option) => (
+                    <option key={option || 'ALL'} value={option}>{option ? formatEnumLabel(option) : 'All statuses'}</option>
+                  ))}
+                </select>
+              </label>
+            </div>
           </section>
+
+          {actionMessage ? <p className="sale-schedules-message">{actionMessage}</p> : null}
+          {isLoading ? <p className="sale-schedules-state">Loading schedules...</p> : null}
+          {projectsQuery.isError ? <p className="sale-schedules-state sale-schedules-state-error">Could not load projects assigned to this sales account.</p> : null}
+          {scheduleError ? <p className="sale-schedules-state sale-schedules-state-error">{getProjectScheduleServiceResultMessage(scheduleError)}</p> : null}
+          {!isLoading && !projectsQuery.isError && !scheduleError && managedSchedules.length === 0 ? (
+            <p className="sale-schedules-state">No schedules match the current filters.</p>
+          ) : null}
 
           {activeView === 'list' ? (
             <section className="sale-schedules-list">
-              {schedules.map((schedule) => (
-                <article key={schedule.id} className="sale-schedules-card">
-                  <div className="sale-schedules-card-body">
-                    <div className="sale-schedules-title-row">
-                      <h3>{schedule.title}</h3>
-                      <span className="sale-schedules-type-badge">{schedule.type}</span>
-                      <span className="sale-schedules-status-badge">{schedule.status}</span>
-                    </div>
-                    <p>{schedule.description}</p>
-                    <div className="sale-schedules-meta">
-                      <span>
-                        <IconCalendarEvent size={16} />
-                        {schedule.projectCode}
-                      </span>
-                      <span>
-                        <IconClock size={16} />
-                        {schedule.dateTime}
-                      </span>
-                      <span>
-                        <IconMapPin size={16} />
-                        {schedule.location}
-                      </span>
-                      <span>
-                        <IconUser size={16} />
-                        {schedule.participants}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="sale-schedules-actions">
-                    <button type="button">Reschedule</button>
-                    <button type="button">Mark Complete</button>
-                  </div>
-                </article>
+              {managedSchedules.map(({ project, schedule }) => (
+                <ScheduleCard
+                  key={schedule.scheduleId}
+                  project={project}
+                  schedule={schedule}
+                  isUpdating={updateStatusMutation.isPending}
+                  onCancel={() => void updateScheduleStatus(schedule, 'CANCELLED')}
+                  onComplete={() => void updateScheduleStatus(schedule, 'COMPLETED')}
+                  onReschedule={() => setEditingSchedule(schedule)}
+                />
               ))}
             </section>
           ) : (
             <section className="sale-schedules-calendar-card">
               <h3>Calendar View</h3>
-              <p>Calendar layout will show the same appointments by date.</p>
+              <div className="sale-schedules-calendar-days">
+                {calendarGroups.map(([date, items]) => (
+                  <section key={date} className="sale-schedules-calendar-day">
+                    <h4>{date}</h4>
+                    {items.map(({ project, schedule }) => (
+                      <button key={schedule.scheduleId} type="button" onClick={() => setEditingSchedule(schedule)}>
+                        <span>{formatTime(schedule.scheduledStart)}</span>
+                        <strong>{schedule.title ?? formatEnumLabel(schedule.scheduleType)}</strong>
+                        <em>{project.projectCode}</em>
+                      </button>
+                    ))}
+                  </section>
+                ))}
+              </div>
             </section>
           )}
         </main>
       </div>
-      <CreateScheduleModal isOpen={isCreateModalOpen} onClose={() => setIsCreateModalOpen(false)} />
+      <CreateScheduleModal
+        editingSchedule={editingSchedule}
+        isOpen={isCreateModalOpen || Boolean(editingSchedule)}
+        projects={projects}
+        onClose={() => {
+          setIsCreateModalOpen(false);
+          setEditingSchedule(null);
+        }}
+      />
     </div>
   );
+}
+
+type ScheduleCardProps = {
+  project: ProjectListItemDto;
+  schedule: ProjectScheduleDto;
+  isUpdating: boolean;
+  onCancel: () => void;
+  onComplete: () => void;
+  onReschedule: () => void;
+};
+
+function ScheduleCard({ project, schedule, isUpdating, onCancel, onComplete, onReschedule }: ScheduleCardProps) {
+  const canReschedule = schedule.status === 'PENDING_CONFIRMATION' || schedule.status === 'CONFIRMED' || schedule.status === 'CANCELLED';
+  const canCancel = schedule.status === 'PENDING_CONFIRMATION' || schedule.status === 'CONFIRMED';
+  const canComplete = schedule.status === 'CONFIRMED';
+
+  return (
+    <article className="sale-schedules-card">
+      <div className="sale-schedules-card-body">
+        <div className="sale-schedules-title-row">
+          <h3>{schedule.title ?? formatEnumLabel(schedule.scheduleType)}</h3>
+          <span className="sale-schedules-type-badge">{formatEnumLabel(schedule.scheduleType)}</span>
+          <span className="sale-schedules-status-badge">{formatEnumLabel(schedule.status)}</span>
+        </div>
+        <p>{schedule.description ?? 'No description provided.'}</p>
+        <div className="sale-schedules-meta">
+          <span><IconCalendarEvent size={16} />{project.projectCode} - {project.projectName}</span>
+          <span><IconClock size={16} />{formatDateTime(schedule.scheduledStart)}</span>
+          <span><IconMapPin size={16} />{schedule.location ?? 'No location'}</span>
+          <span><IconUser size={16} />{schedule.assignedStaffId ? 'Assigned project designer' : 'No staff assigned'}</span>
+        </div>
+      </div>
+      {canReschedule || canComplete || canCancel ? (
+        <div className="sale-schedules-actions">
+          {canReschedule ? <button disabled={isUpdating} type="button" onClick={onReschedule}>{schedule.status === 'CANCELLED' ? 'Update Schedule' : 'Reschedule'}</button> : null}
+          {canComplete ? <button disabled={isUpdating} type="button" onClick={onComplete}>Mark Complete</button> : null}
+          {canCancel ? <button className="sale-schedules-cancel-button" disabled={isUpdating} type="button" onClick={onCancel}>Cancel</button> : null}
+        </div>
+      ) : null}
+    </article>
+  );
+}
+
+function groupSchedulesByDate(items: ManagedSchedule[]) {
+  const groups = new Map<string, ManagedSchedule[]>();
+
+  items.forEach((item) => {
+    const date = new Intl.DateTimeFormat('en', {
+      weekday: 'short',
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+    }).format(new Date(item.schedule.scheduledStart));
+    groups.set(date, [...(groups.get(date) ?? []), item]);
+  });
+
+  return Array.from(groups.entries());
+}
+
+function formatEnumLabel(value: string) {
+  return value
+    .toLowerCase()
+    .split('_')
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
+}
+
+function formatDateTime(value: string) {
+  return new Intl.DateTimeFormat('en', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(new Date(value));
+}
+
+function formatTime(value: string) {
+  return new Intl.DateTimeFormat('en', {
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(new Date(value));
 }

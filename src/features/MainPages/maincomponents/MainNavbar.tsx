@@ -18,7 +18,7 @@ type MainNavbarProps = {
   linkClassName?: string;
 };
 
-const navPaths = ['/', '/projects', '/products', '/#services'];
+const navPaths = ['/', '/projects', '/products', '/services'];
 
 const navbarText = {
   vi: {

@@ -41,15 +41,15 @@ export function SpaceFilesTab({ project }: SpaceFilesTabProps) {
   }, [files.length, filesQuery.data?.total]);
 
   return (
-    <section className="designer-card p-6">
-      <div className="mb-6 flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+    <section className="designer-card designer-project-section-card">
+      <div className="designer-project-section-toolbar">
         <div>
-          <h3 className="text-lg font-semibold text-zinc-950">Space Files</h3>
-          <p className="mt-1 text-sm text-zinc-500">
+          <h3>Space Files</h3>
+          <p>
             {filesQuery.isLoading ? 'Loading project files...' : `${files.length} file${files.length === 1 ? '' : 's'} available for ${project.projectCode}`}
           </p>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="designer-project-filter-list">
           {filters.map((filter) => (
             <button
               className={`designer-project-filter ${fileType === filter.type ? 'designer-project-filter-active' : ''}`}
@@ -63,35 +63,35 @@ export function SpaceFilesTab({ project }: SpaceFilesTabProps) {
         </div>
       </div>
 
-      {filesQuery.isLoading ? <p className="m-0 text-sm font-medium text-zinc-500">Loading project files...</p> : null}
+      {filesQuery.isLoading ? <p className="designer-project-empty-text">Loading project files...</p> : null}
       {filesQuery.isError ? (
-        <p className="m-0 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-800">
+        <p className="designer-project-file-message designer-project-file-error">
           Could not load project files. Please check project file access permissions.
         </p>
       ) : null}
       {!filesQuery.isLoading && !filesQuery.isError && files.length === 0 ? (
-        <p className="m-0 rounded-xl border border-zinc-100 bg-zinc-50 px-4 py-3 text-sm font-medium text-zinc-500">
+        <p className="designer-project-file-message">
           Chưa có file nào cho project này.
         </p>
       ) : null}
 
       {files.length > 0 ? (
-        <div className="grid gap-4 lg:grid-cols-2 2xl:grid-cols-3">
+        <div className="designer-project-file-grid">
           {files.map((file) => (
             <article className="designer-project-file-card" key={file.fileLinkId}>
               <div className="designer-project-file-icon">
                 <IconFileText size={22} stroke={1.8} />
               </div>
-              <div className="min-w-0">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <h4 className="truncate text-sm font-semibold text-zinc-950">{file.originalFileName}</h4>
-                    <p className="mt-1 text-xs font-medium text-[#9a713b]">{formatEnumLabel(file.fileType)}</p>
+              <div className="designer-project-file-content">
+                <div className="designer-project-file-heading">
+                  <div className="designer-project-file-name">
+                    <h4>{file.originalFileName}</h4>
+                    <p>{formatEnumLabel(file.fileType)}</p>
                   </div>
                   <span className="designer-project-status designer-project-status-new">{formatEnumLabel(file.visibility)}</span>
                 </div>
-                <p className="mt-4 text-xs leading-5 text-zinc-500">{formatFileSize(file.fileSize)} - {formatDate(file.uploadedAt)}</p>
-                <div className="mt-4 flex gap-2">
+                <p className="designer-project-file-meta">{formatFileSize(file.fileSize)} - {formatDate(file.uploadedAt)}</p>
+                <div className="designer-project-file-actions">
                   <button className="designer-project-icon-button" type="button" aria-label={`Preview ${file.originalFileName}`} onClick={() => window.open(file.publicUrl, '_blank', 'noopener,noreferrer')}>
                     <IconEye size={17} />
                   </button>

@@ -1,13 +1,9 @@
 import { FormEvent, useMemo, useState } from 'react';
 
 import {
-  useAvailableDesigners,
-  useAssignDesignerToProject,
   useCreateProjectSchedule,
   useProjectScheduleList,
 } from '@/services/queries';
-import { getAccountServiceResultMessage } from '@/services/api/accounts';
-import { getProjectServiceResultMessage, type ProjectSpaceDataStatus } from '@/services/api/projects';
 import { getProjectScheduleServiceResultMessage } from '@/services/api/schedules';
 import type { ProjectScheduleStatus, ProjectScheduleType } from '@/services/api/schedules';
 
@@ -23,16 +19,13 @@ const scheduleStatusOptions: ProjectScheduleStatus[] = ['PENDING_CONFIRMATION', 
 export function SchedulesTab({ project }: SchedulesTabProps) {
   const [message, setMessage] = useState('');
   const [statusFilter, setStatusFilter] = useState<ProjectScheduleStatus | ''>('');
-  const availableDesignersQuery = useAvailableDesigners({ page: 1, pageSize: 100 });
   const schedulesQuery = useProjectScheduleList({
     projectId: project.projectId,
     status: statusFilter || null,
     page: 1,
     limit: 20,
   });
-  const assignDesignerMutation = useAssignDesignerToProject();
   const createScheduleMutation = useCreateProjectSchedule();
-  const designers = availableDesignersQuery.data?.items ?? [];
   const defaultTitle = useMemo(() => getDefaultScheduleTitle(project), [project]);
 
   function handleCreateSchedule(event: FormEvent<HTMLFormElement>) {
@@ -41,12 +34,12 @@ export function SchedulesTab({ project }: SchedulesTabProps) {
 
     const form = event.currentTarget;
     const formData = new FormData(form);
-    const assignedStaffId = String(formData.get('assignedStaffId') ?? '').trim();
+    const assignedStaffId = project.assignedDesignerId;
     const scheduledStart = String(formData.get('scheduledStart') ?? '').trim();
     const scheduledEnd = String(formData.get('scheduledEnd') ?? '').trim();
 
     if (!assignedStaffId) {
-      setMessage('Please select an available designer before creating a schedule.');
+      setMessage('Please assign a designer to this project before creating a schedule.');
       return;
     }
 
@@ -56,14 +49,9 @@ export function SchedulesTab({ project }: SchedulesTabProps) {
     }
 
     const scheduleType = String(formData.get('scheduleType') ?? 'MEASUREMENT') as ProjectScheduleType;
-    const assignNote = String(formData.get('assignNote') ?? '').trim() || `Schedule requested for ${formatEnumLabel(scheduleType)}.`;
-    const spaceDataStatus = String(formData.get('spaceDataStatus') ?? 'INSUFFICIENT') as ProjectSpaceDataStatus;
-
-    void createScheduleAfterDesignerAssignment({
+    void createSchedule({
       form,
       assignedStaffId,
-      assignNote,
-      spaceDataStatus,
       scheduleType,
       scheduledStart,
       scheduledEnd,
@@ -75,11 +63,9 @@ export function SchedulesTab({ project }: SchedulesTabProps) {
     });
   }
 
-  async function createScheduleAfterDesignerAssignment(input: {
+  async function createSchedule(input: {
     form: HTMLFormElement;
     assignedStaffId: string;
-    assignNote: string;
-    spaceDataStatus: ProjectSpaceDataStatus;
     scheduleType: ProjectScheduleType;
     scheduledStart: string;
     scheduledEnd: string;
@@ -90,20 +76,6 @@ export function SchedulesTab({ project }: SchedulesTabProps) {
     internalNote: string | null;
   }) {
     try {
-      if (project.assignedDesignerId !== input.assignedStaffId) {
-        try {
-          await assignDesignerMutation.mutateAsync({
-            projectId: project.projectId,
-            designerId: input.assignedStaffId,
-            spaceDataStatus: input.spaceDataStatus,
-            note: input.assignNote,
-          });
-        } catch (error) {
-          setMessage(getProjectServiceResultMessage(error));
-          return;
-        }
-      }
-
       try {
         await createScheduleMutation.mutateAsync({
           projectId: project.projectId,
@@ -122,7 +94,7 @@ export function SchedulesTab({ project }: SchedulesTabProps) {
         return;
       }
 
-      setMessage('Designer assigned and schedule created successfully.');
+      setMessage('Schedule created successfully.');
       input.form.reset();
       void schedulesQuery.refetch();
     } catch (error) {
@@ -135,7 +107,7 @@ export function SchedulesTab({ project }: SchedulesTabProps) {
       <header className="project-detail-card-toolbar">
         <div>
           <h3>Project Schedules</h3>
-          <p>{project.projectCode} - assign an available designer and create a project schedule.</p>
+          <p>{project.projectCode} - create schedules for the assigned project designer.</p>
         </div>
         <select className="project-detail-schedule-filter" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as ProjectScheduleStatus | '')}>
           <option value="">All statuses</option>
@@ -149,35 +121,16 @@ export function SchedulesTab({ project }: SchedulesTabProps) {
         <form className="project-detail-schedule-form" onSubmit={handleCreateSchedule}>
           <h4>Create Schedule</h4>
 
-          <label>
-            <span>Available Designer</span>
-            <select name="assignedStaffId" defaultValue={project.assignedDesignerId ?? ''} disabled={availableDesignersQuery.isLoading || createScheduleMutation.isPending || assignDesignerMutation.isPending}>
-              <option value="">{availableDesignersQuery.isLoading ? 'Loading designers...' : 'Select designer'}</option>
-              {designers.map((designer) => (
-                <option key={designer.accountId} value={designer.accountId}>
-                  {designer.fullName} - {designer.availableSlot}/{designer.maxActiveProjects} slots
-                </option>
-              ))}
-            </select>
-          </label>
-
-          {availableDesignersQuery.isError ? (
-            <p className="project-detail-form-message project-detail-form-message-error">
-              {getAccountServiceResultMessage(availableDesignersQuery.error)}
-            </p>
-          ) : null}
+          <p className={project.assignedDesignerId ? 'project-detail-muted' : 'project-detail-form-message project-detail-form-message-error'}>
+            {project.assignedDesignerId
+              ? 'This schedule will be assigned to the project designer.'
+              : 'No designer is assigned to this project yet.'}
+          </p>
 
           <div className="project-detail-schedule-form-grid">
             <label>
-              <span>Space Data Status</span>
-              <select name="spaceDataStatus" defaultValue="INSUFFICIENT" disabled={createScheduleMutation.isPending || assignDesignerMutation.isPending}>
-                <option value="INSUFFICIENT">Insufficient - needs measurement</option>
-                <option value="SUFFICIENT">Sufficient - ready for design review</option>
-              </select>
-            </label>
-            <label>
               <span>Schedule Type</span>
-              <select name="scheduleType" defaultValue="MEASUREMENT" disabled={createScheduleMutation.isPending || assignDesignerMutation.isPending}>
+              <select name="scheduleType" defaultValue="MEASUREMENT" disabled={createScheduleMutation.isPending}>
                 {scheduleTypeOptions.map((type) => (
                   <option key={type} value={type}>{formatEnumLabel(type)}</option>
                 ))}
@@ -185,51 +138,46 @@ export function SchedulesTab({ project }: SchedulesTabProps) {
             </label>
             <label>
               <span>Title</span>
-              <input name="title" placeholder={defaultTitle} type="text" disabled={createScheduleMutation.isPending || assignDesignerMutation.isPending} />
+              <input name="title" placeholder={defaultTitle} type="text" disabled={createScheduleMutation.isPending} />
             </label>
           </div>
-
-          <label>
-            <span>Assignment Note</span>
-            <input name="assignNote" placeholder="Need measurement before proposal." type="text" disabled={createScheduleMutation.isPending || assignDesignerMutation.isPending} />
-          </label>
 
           <div className="project-detail-schedule-form-grid">
             <label>
               <span>Start</span>
-              <input name="scheduledStart" type="datetime-local" disabled={createScheduleMutation.isPending || assignDesignerMutation.isPending} />
+              <input name="scheduledStart" type="datetime-local" disabled={createScheduleMutation.isPending} />
             </label>
             <label>
               <span>End</span>
-              <input name="scheduledEnd" type="datetime-local" disabled={createScheduleMutation.isPending || assignDesignerMutation.isPending} />
+              <input name="scheduledEnd" type="datetime-local" disabled={createScheduleMutation.isPending} />
             </label>
           </div>
 
           <label>
             <span>Location</span>
-            <input name="location" placeholder={project.projectAddress ?? 'Meeting location'} type="text" disabled={createScheduleMutation.isPending || assignDesignerMutation.isPending} />
+            <input name="location" placeholder={project.projectAddress ?? 'Meeting location'} type="text" disabled={createScheduleMutation.isPending} />
           </label>
 
           <label>
             <span>Description</span>
-            <textarea name="description" placeholder="Schedule purpose and preparation notes" disabled={createScheduleMutation.isPending || assignDesignerMutation.isPending} />
+            <textarea name="description" placeholder="Schedule purpose and preparation notes" disabled={createScheduleMutation.isPending} />
           </label>
 
           <div className="project-detail-schedule-form-grid">
             <label>
               <span>Customer Note</span>
-              <textarea name="customerNote" placeholder="Visible to customer" disabled={createScheduleMutation.isPending || assignDesignerMutation.isPending} />
+              <textarea name="customerNote" placeholder="Visible to customer" disabled={createScheduleMutation.isPending} />
             </label>
             <label>
               <span>Internal Note</span>
-              <textarea name="internalNote" placeholder="Internal team note" disabled={createScheduleMutation.isPending || assignDesignerMutation.isPending} />
+              <textarea name="internalNote" placeholder="Internal team note" disabled={createScheduleMutation.isPending} />
             </label>
           </div>
 
           {message ? <p className={`project-detail-form-message ${message.toLowerCase().includes('success') || message.toLowerCase().includes('created') ? '' : 'project-detail-form-message-error'}`}>{message}</p> : null}
 
-          <button className="project-detail-primary-button" type="submit" disabled={createScheduleMutation.isPending || assignDesignerMutation.isPending}>
-            {assignDesignerMutation.isPending ? 'Assigning designer...' : createScheduleMutation.isPending ? 'Creating...' : 'Assign Designer & Create Schedule'}
+          <button className="project-detail-primary-button" type="submit" disabled={!project.assignedDesignerId || createScheduleMutation.isPending}>
+            {createScheduleMutation.isPending ? 'Creating...' : 'Create Schedule'}
           </button>
         </form>
 
@@ -260,7 +208,11 @@ export function SchedulesTab({ project }: SchedulesTabProps) {
                     {schedule.scheduledEnd ? <span>{formatDateTime(schedule.scheduledEnd)}</span> : null}
                     {schedule.location ? <span>{schedule.location}</span> : null}
                   </div>
-                  {schedule.assignedStaffId ? <p className="project-detail-schedule-staff">Designer: {getDesignerName(schedule.assignedStaffId, designers)}</p> : null}
+                  {schedule.assignedStaffId ? (
+                    <p className="project-detail-schedule-staff">
+                      {schedule.assignedStaffId === project.assignedDesignerId ? 'Assigned to project designer' : 'Assigned staff'}
+                    </p>
+                  ) : null}
                 </div>
                 <strong>{formatEnumLabel(schedule.status)}</strong>
               </article>
@@ -274,10 +226,6 @@ export function SchedulesTab({ project }: SchedulesTabProps) {
 
 function getDefaultScheduleTitle(project: ProjectDetailProject) {
   return `${project.projectName} - designer schedule`;
-}
-
-function getDesignerName(accountId: string, designers: Array<{ accountId: string; fullName: string }>) {
-  return designers.find((designer) => designer.accountId === accountId)?.fullName ?? accountId;
 }
 
 function toIsoString(value: string) {

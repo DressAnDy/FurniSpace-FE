@@ -1,42 +1,306 @@
-import { IconSend } from '@tabler/icons-react';
+import { IconFile, IconPaperclip, IconSend } from '@tabler/icons-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 
-const messages = [
-  { initials: 'RK', name: 'Rina Kusuma', role: 'Sales', time: '09:15', message: 'David, client sent updated brand guidelines. Please check Space Files.' },
-  { initials: 'DS', name: 'You', role: 'Designer', time: '09:22', message: 'Got it. Color palette updated to forest green. Proposal update today.', mine: true },
-  { initials: 'PK', name: 'PT Kopi Nusantara', role: 'Customer', time: '10:05', message: 'Can we add a living plant wall behind the counter? Like a vertical garden?' },
-  { initials: 'DS', name: 'You', role: 'Designer', time: '10:12', message: "Great idea. I'll add a modular plant wall in Scene 02. Update by tomorrow EOD.", mine: true },
-  { initials: 'RK', name: 'Rina Kusuma', role: 'Sales', time: '10:45', message: 'Also check bar counter dimensions. Client wants 220-240 cm for 3 barista stations.' },
-];
+import { formatChatTime, formatFileSize, getChatParticipant, getInitials, getMessageContent } from '@/features/projectChat/chatUi';
+import {
+  getProjectChatServiceResultMessage,
+  type ProjectChatListItem,
+  type ProjectChatMessage,
+  type ProjectChatMessageListResponse,
+} from '@/services/api/projectChats';
+import type { ProjectDto } from '@/services/api/projects';
+import { useAccountDetail, useCurrentUser } from '@/services/queries';
+import {
+  projectChatQueryKeys,
+  upsertProjectChatMessage,
+  useProjectChatMessages,
+  useProjectChatRealtime,
+  useProjectChats,
+  useSendProjectChatFileMessage,
+  useSendProjectChatTextMessage,
+} from '@/services/queries/useProjectChats';
 
-export function ChatTab() {
+type ChatTabProps = {
+  project: ProjectDto;
+};
+
+export function ChatTab({ project }: ChatTabProps) {
+  const queryClient = useQueryClient();
+  const currentUserQuery = useCurrentUser();
+  const customerQuery = useAccountDetail(project.customerId);
+  const [activeChatId, setActiveChatId] = useState<string | null>(null);
+  const [draft, setDraft] = useState('');
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [statusMessage, setStatusMessage] = useState('');
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const messagesListRef = useRef<HTMLDivElement | null>(null);
+  const chatListQuery = useProjectChats({
+    projectId: project.projectId,
+    chatType: 'DESIGNER',
+    page: 1,
+    limit: 20,
+  });
+  const { refetch: refetchChats } = chatListQuery;
+  const chats = useMemo(() => chatListQuery.data?.items ?? [], [chatListQuery.data?.items]);
+  const activeChat = chats.find((chat) => chat.chatId === activeChatId) ?? chats[0] ?? null;
+  const messagesQueryParams = activeChat
+    ? {
+        chatId: activeChat.chatId,
+        page: 1,
+        limit: 50,
+        sort: 'ASC' as const,
+      }
+    : undefined;
+  const messagesQuery = useProjectChatMessages(messagesQueryParams);
+  const sendTextMutation = useSendProjectChatTextMessage();
+  const sendFileMutation = useSendProjectChatFileMessage();
+  const activeParticipant = getChatParticipant(activeChat, {
+    viewerRole: 'DESIGNER',
+    customerName: customerQuery.data?.fullName,
+    customerFallback: project.customerId,
+  });
+
+  useEffect(() => {
+    if (chats.length === 0) {
+      if (activeChatId) {
+        setActiveChatId(null);
+      }
+
+      return;
+    }
+
+    if (!activeChatId || !chats.some((chat) => chat.chatId === activeChatId)) {
+      setActiveChatId(chats[0].chatId);
+    }
+  }, [activeChatId, chats]);
+
+  useEffect(() => {
+    void refetchChats();
+  }, [project.assignedDesignerId, project.status, refetchChats]);
+
+  useEffect(() => {
+    const messageList = messagesListRef.current;
+
+    if (!messageList) {
+      return;
+    }
+
+    requestAnimationFrame(() => {
+      messageList.scrollTo({
+        top: messageList.scrollHeight,
+        behavior: 'smooth',
+      });
+    });
+  }, [messagesQuery.data?.items.length, activeChat?.chatId, statusMessage]);
+
+  useProjectChatRealtime({
+    projectId: project.projectId,
+    activeChatId: activeChat?.chatId ?? null,
+    enabled: Boolean(activeChat),
+    onMessage: (event) => {
+      void queryClient.invalidateQueries({ queryKey: projectChatQueryKeys.list({ projectId: project.projectId, chatType: 'DESIGNER', page: 1, limit: 20 }) });
+      queryClient.setQueryData(
+        projectChatQueryKeys.messages({
+          chatId: event.chatId,
+          page: 1,
+          limit: 50,
+          sort: 'ASC',
+        }),
+        (current: ProjectChatMessageListResponse | undefined) => upsertProjectChatMessage(current, event.message),
+      );
+    },
+  });
+
+  async function handleSendText() {
+    const content = draft.trim();
+
+    if (!activeChat || (!content && !selectedFile) || sendTextMutation.isPending || sendFileMutation.isPending) {
+      return;
+    }
+
+    setDraft('');
+    setStatusMessage('');
+
+    try {
+      const savedMessage = selectedFile
+        ? await sendFileMutation.mutateAsync({
+            chatId: activeChat.chatId,
+            file: selectedFile,
+            content,
+          })
+        : await sendTextMutation.mutateAsync({
+            chatId: activeChat.chatId,
+            content,
+          });
+
+      setSelectedFile(null);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+
+      if (messagesQueryParams) {
+        queryClient.setQueryData(projectChatQueryKeys.messages(messagesQueryParams), (current: ProjectChatMessageListResponse | undefined) =>
+          upsertProjectChatMessage(current, savedMessage),
+        );
+      }
+
+      void chatListQuery.refetch();
+    } catch (error) {
+      setStatusMessage(getProjectChatServiceResultMessage(error));
+      void messagesQuery.refetch();
+      void chatListQuery.refetch();
+    }
+  }
+
+  function handleFileChange(file?: File) {
+    if (file) {
+      setSelectedFile(file);
+    }
+  }
+
   return (
     <section className="designer-card designer-project-chat-card">
-      <div className="border-b border-zinc-100 p-6">
-        <h3 className="text-lg font-semibold text-zinc-950">Project Chat</h3>
-        <p className="mt-1 text-sm text-zinc-500">Shared conversation with sales and customer.</p>
+      <div className="designer-project-chat-header">
+        <div>
+          <h3>{activeParticipant.name}</h3>
+          <p>{activeParticipant.role}</p>
+        </div>
+        <span className="designer-project-chat-status">{activeChat?.status ?? 'No Chat'}</span>
       </div>
-      <div className="designer-project-message-list">
-        {messages.map((message) => (
-          <div className={`designer-project-message ${message.mine ? 'designer-project-message-mine' : ''}`} key={`${message.name}-${message.time}`}>
-            <div className="designer-project-message-avatar">{message.initials}</div>
-            <div className="designer-project-message-bubble">
-              <div className="designer-project-message-meta">
-                <strong>{message.name}</strong>
-                <span>{message.role}</span>
-                <span>{message.time}</span>
-              </div>
-              <p>{message.message}</p>
-            </div>
+
+      {statusMessage ? <p className="designer-project-file-message designer-project-file-error">{statusMessage}</p> : null}
+      <div className="designer-project-chat-layout">
+        <aside className="designer-project-chat-selector">
+          {chatListQuery.isLoading ? <p>Loading chat...</p> : null}
+          {chatListQuery.isError ? <p>{getProjectChatServiceResultMessage(chatListQuery.error)}</p> : null}
+          {!chatListQuery.isLoading && !chatListQuery.isError && chats.length === 0 ? <p>No chat is available for this project.</p> : null}
+          {chats.map((chat) => (
+            <ChatSelectorItem
+              chat={chat}
+              customerFallback={project.customerId}
+              customerName={customerQuery.data?.fullName}
+              isActive={chat.chatId === activeChat?.chatId}
+              key={chat.chatId}
+              onSelect={() => setActiveChatId(chat.chatId)}
+            />
+          ))}
+        </aside>
+
+        <div className="designer-project-chat-thread">
+          <div className="designer-project-message-list" ref={messagesListRef}>
+            {messagesQuery.isLoading ? <p className="designer-project-empty-text">Loading messages...</p> : null}
+            {messagesQuery.isError ? <p className="designer-project-empty-text">{getProjectChatServiceResultMessage(messagesQuery.error)}</p> : null}
+            {!messagesQuery.isLoading && !messagesQuery.isError && activeChat && (messagesQuery.data?.items.length ?? 0) === 0 ? (
+              <p className="designer-project-empty-text">No messages yet.</p>
+            ) : null}
+            {messagesQuery.data?.items.map((message) => (
+              <DesignerMessage currentUserId={currentUserQuery.data?.accountId} key={message.messageId} message={message} />
+            ))}
           </div>
-        ))}
-      </div>
-      <div className="designer-project-chat-input">
-        <input placeholder="Type a message..." type="text" />
-        <button type="button">
-          <span>Send</span>
-          <IconSend size={17} />
-        </button>
+          <div className="designer-project-chat-input">
+            <input ref={fileInputRef} hidden type="file" onChange={(event) => handleFileChange(event.target.files?.[0])} />
+            <button className="designer-project-chat-attach" disabled={!activeChat || sendFileMutation.isPending} type="button" onClick={() => fileInputRef.current?.click()}>
+              <IconPaperclip size={17} />
+            </button>
+            <div className="designer-project-chat-composer-main">
+              {selectedFile ? (
+                <div className="designer-project-chat-selected-file">
+                  <IconFile size={15} />
+                  <span>{selectedFile.name}</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedFile(null);
+                      if (fileInputRef.current) {
+                        fileInputRef.current.value = '';
+                      }
+                    }}
+                  >
+                    Remove
+                  </button>
+                </div>
+              ) : null}
+              <input
+                disabled={!activeChat || sendTextMutation.isPending || sendFileMutation.isPending}
+                placeholder={selectedFile ? 'Add a message for this file...' : 'Type a message...'}
+                type="text"
+                value={draft}
+                onChange={(event) => setDraft(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') {
+                    event.preventDefault();
+                    void handleSendText();
+                  }
+                }}
+              />
+            </div>
+            <button disabled={!activeChat || (!draft.trim() && !selectedFile) || sendTextMutation.isPending || sendFileMutation.isPending} type="button" onClick={() => void handleSendText()}>
+              <span>{sendTextMutation.isPending || sendFileMutation.isPending ? 'Sending...' : 'Send'}</span>
+              <IconSend size={17} />
+            </button>
+          </div>
+        </div>
       </div>
     </section>
+  );
+}
+
+function ChatSelectorItem({
+  chat,
+  customerFallback,
+  customerName,
+  isActive,
+  onSelect,
+}: {
+  chat: ProjectChatListItem;
+  customerFallback: string;
+  customerName?: string | null;
+  isActive: boolean;
+  onSelect: () => void;
+}) {
+  const participant = getChatParticipant(chat, {
+    viewerRole: 'DESIGNER',
+    customerName,
+    customerFallback,
+  });
+
+  return (
+    <button className={isActive ? 'is-active' : ''} type="button" onClick={onSelect}>
+      <strong>{participant.name}</strong>
+      <small>
+        {participant.role}
+        {chat.lastMessage?.contentPreview ? ` - ${chat.lastMessage.contentPreview}` : ''}
+      </small>
+    </button>
+  );
+}
+
+function DesignerMessage({ currentUserId, message }: { currentUserId?: string; message: ProjectChatMessage }) {
+  const isMine = Boolean(currentUserId && message.senderId === currentUserId);
+
+  if (message.messageType === 'SYSTEM') {
+    return <p className="designer-project-empty-text">{getMessageContent(message)}</p>;
+  }
+
+  return (
+    <div className={`designer-project-message ${isMine ? 'designer-project-message-mine' : ''}`}>
+      <div className="designer-project-message-avatar">{getInitials(message.senderName, message.senderRole)}</div>
+      <div className="designer-project-message-bubble">
+        <div className="designer-project-message-meta">
+          <strong>{message.senderName ?? message.senderRole ?? 'Unknown'}</strong>
+          <span>{message.senderRole}</span>
+          <span>{formatChatTime(message.createdAt)}</span>
+        </div>
+        <p>{message.content ?? (message.attachment ? 'Attachment' : 'Message deleted')}</p>
+        {message.attachment ? (
+          <a className="designer-project-message-attachment" href={message.attachment.fileUrl} rel="noreferrer" target="_blank">
+            <IconFile size={15} />
+            <span>{message.attachment.originalFileName}</span>
+            <small>{formatFileSize(message.attachment.fileSizeBytes)}</small>
+          </a>
+        ) : null}
+      </div>
+    </div>
   );
 }

@@ -1,6 +1,7 @@
 import axios, { AxiosError } from 'axios';
 
 import { shouldRedirectUnauthorized } from '@/shared/config/authPreview';
+import { getStoredAccessToken } from './tokenStore';
 
 const scheduleApiClient = axios.create({
   baseURL: getScheduleApiBaseUrl(),
@@ -8,6 +9,16 @@ const scheduleApiClient = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
+});
+
+scheduleApiClient.interceptors.request.use((config) => {
+  const token = getStoredAccessToken();
+
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+
+  return config;
 });
 
 scheduleApiClient.interceptors.response.use(

@@ -13,11 +13,11 @@ type DesignerLayoutProps = {
 
 export function DesignerLayout({ activeLabel, children, searchPlaceholder }: DesignerLayoutProps) {
   return (
-    <div className="designer-layout flex min-h-screen bg-[#f7f7f5] text-zinc-950">
+    <div className="designer-layout">
       <DesignerSidebar activeLabel={activeLabel} />
-      <div className="flex min-w-0 flex-1 flex-col">
+      <div className="designer-layout-content">
         <DesignerNavbar activeLabel={activeLabel} searchPlaceholder={searchPlaceholder} />
-        <main className="designer-layout-main min-w-0 flex-1 overflow-y-auto px-8 py-7">{children}</main>
+        <main className="designer-layout-main">{children}</main>
       </div>
     </div>
   );
