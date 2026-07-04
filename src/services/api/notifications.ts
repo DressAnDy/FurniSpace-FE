@@ -1,5 +1,7 @@
 import axios, { AxiosError } from 'axios';
 
+import { shouldRedirectUnauthorized } from '@/shared/config/authPreview';
+
 export type NotificationReferenceType = 'PROJECT' | 'PROJECT_SCHEDULE' | string;
 
 export type NotificationType =
@@ -83,7 +85,7 @@ const notificationApiClient = axios.create({
 notificationApiClient.interceptors.response.use(
   (response) => response,
   (error: AxiosError) => {
-    if (error.response?.status === 401 && window.location.pathname !== '/login') {
+    if (error.response?.status === 401 && shouldRedirectUnauthorized()) {
       window.location.assign('/login');
     }
 

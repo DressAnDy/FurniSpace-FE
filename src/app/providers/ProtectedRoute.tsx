@@ -1,6 +1,5 @@
 import { Navigate, Outlet } from 'react-router-dom';
 
-import { isAuthPreviewBypassEnabled } from '@/shared/config/authPreview';
 import { useCurrentUser } from '@/services/queries';
 
 type ProtectedRouteProps = {
@@ -20,12 +19,7 @@ type ProtectedRouteProps = {
  * 5. Sai role   → redirect /
  */
 export function ProtectedRoute({ allowedRoles }: ProtectedRouteProps) {
-  const authPreviewBypassEnabled = isAuthPreviewBypassEnabled();
-  const { data: user, isLoading, isError } = useCurrentUser({ enabled: !authPreviewBypassEnabled });
-
-  if (authPreviewBypassEnabled) {
-    return <Outlet />;
-  }
+  const { data: user, isLoading, isError } = useCurrentUser();
 
   if (isLoading) {
     return (

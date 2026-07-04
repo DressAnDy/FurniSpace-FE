@@ -9,7 +9,7 @@ import {
   IconTruckDelivery,
 } from '@tabler/icons-react';
 
-import { AdminNavbar, AdminSidebar } from '../admincomponents';
+import { AdminSidebar } from '../admincomponents';
 import './AdminDashbroad.css';
 
 const stats = [
@@ -91,8 +91,6 @@ export function AdminDashbroad() {
         <AdminSidebar activeLabel="Admin Dashboard" />
 
         <section className="admin-main">
-          <AdminNavbar />
-
           <div className="admin-content">
             <div className="admin-page-heading">
               <h2>Admin Dashboard</h2>

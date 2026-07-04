@@ -1,5 +1,7 @@
 import axios, { AxiosError } from 'axios';
 
+import { shouldRedirectUnauthorized } from '@/shared/config/authPreview';
+
 import { getStoredAccessToken } from './tokenStore';
 import type { FileType, FileVisibility } from './projects';
 
@@ -25,7 +27,7 @@ projectChatApiClient.interceptors.request.use((config) => {
 projectChatApiClient.interceptors.response.use(
   (response) => response,
   (error: AxiosError) => {
-    if (error.response?.status === 401 && window.location.pathname !== '/login') {
+    if (error.response?.status === 401 && shouldRedirectUnauthorized()) {
       window.location.assign('/login');
     }
 

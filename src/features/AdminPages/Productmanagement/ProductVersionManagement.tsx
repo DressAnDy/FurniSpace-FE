@@ -11,7 +11,7 @@ import {
 } from '@/services/api';
 import { useProductDetail, useSetDefaultProductVersion, useUpdateProductVersion } from '@/services/queries';
 
-import { AdminNavbar, AdminSidebar } from '../admincomponents';
+import { AdminSidebar } from '../admincomponents';
 import './Productmanagement.css';
 
 const statusClassName: Record<string, string> = {
@@ -80,8 +80,6 @@ export function ProductVersionManagement() {
         <AdminSidebar activeLabel="Product Versions" />
 
         <section className="admin-main">
-          <AdminNavbar />
-
           <div className="admin-content product-management-content">
             <div className="product-version-heading">
               <div>

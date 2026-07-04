@@ -139,17 +139,6 @@
   flex: 1;
 }
 
-.admin-topbar {
-  display: flex;
-  height: 64px;
-  align-items: center;
-  justify-content: space-between;
-  gap: 24px;
-  border-bottom: 1px solid #e5e7eb;
-  background: #ffffff;
-  padding: 0 32px;
-}
-
 .admin-search {
   position: relative;
   width: min(520px, 100%);
@@ -177,13 +166,6 @@
 
 .admin-search input::placeholder {
   color: #9ca3af;
-}
-
-.admin-topbar-actions {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  white-space: nowrap;
 }
 
 .admin-button {
@@ -658,17 +640,6 @@
 }
 
 @media (max-width: 760px) {
-  .admin-topbar {
-    height: auto;
-    align-items: stretch;
-    flex-direction: column;
-    padding: 16px;
-  }
-
-  .admin-topbar-actions {
-    flex-wrap: wrap;
-  }
-
   .admin-content {
     padding: 20px;
   }
