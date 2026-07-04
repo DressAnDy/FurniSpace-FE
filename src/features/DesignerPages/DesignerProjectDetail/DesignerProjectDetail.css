@@ -35,9 +35,12 @@
 .designer-project-file-actions { display: flex; gap: 8px; margin-top: 16px; }
 .designer-project-table-card { overflow: hidden; }
 .designer-project-table-scroll { overflow-x: auto; }
-.designer-project-table-actions { display: flex; gap: 12px; }
-.designer-project-table-actions button { border: 0; background: transparent; color: #71717a; font-size: 12px; font-weight: 600; }
+.designer-project-table-actions { display: flex; flex-wrap: wrap; gap: 12px; }
+.designer-project-table-actions button { border: 0; background: transparent; color: #71717a; cursor: pointer; font-size: 12px; font-weight: 600; }
+.designer-project-table-actions button:disabled { cursor: not-allowed; opacity: 0.58; }
 .designer-project-table-actions .designer-project-table-open { color: #9a713b; }
+.designer-project-table-actions .designer-project-table-publish { color: #15803d; }
+.designer-project-proposal-visibility { display: block; margin-top: 6px; color: #71717a; font-size: 12px; font-weight: 700; }
 .designer-project-custom-main { min-width: 0; }
 .designer-project-custom-title { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
 .designer-project-custom-title h4 { margin: 0; color: #18181b; font-size: 20px; font-weight: 600; }
@@ -82,6 +85,7 @@
 }
 
 .designer-project-chat-selector button {
+  position: relative;
   display: grid;
   gap: 5px;
   border: 1px solid rgba(24, 24, 27, 0.08);
@@ -90,7 +94,7 @@
   color: #18181b;
   cursor: pointer;
   font: inherit;
-  padding: 12px;
+  padding: 12px 42px 12px 12px;
   text-align: left;
 }
 
@@ -109,6 +113,23 @@
 .designer-project-chat-selector small {
   color: #71717a;
   font-size: 12px;
+}
+
+.designer-project-chat-unread-badge {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  display: inline-grid;
+  min-width: 18px;
+  height: 18px;
+  place-items: center;
+  border-radius: 999px;
+  background: #dc2626;
+  color: #ffffff;
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1;
+  padding: 0 5px;
 }
 
 .designer-project-chat-thread {
@@ -298,15 +319,7 @@
 }
 
 .designer-project-tabs em {
-  display: inline-grid;
-  min-width: 20px;
-  height: 20px;
-  place-items: center;
-  border-radius: 999px;
-  background: rgba(199, 161, 95, 0.18);
-  color: #8b6834;
-  font-size: 11px;
-  font-style: normal;
+  display: none !important;
 }
 
 .designer-project-detail-panel {

@@ -80,9 +80,9 @@ export function AssignedProjects() {
       const matchesKeyword = !normalizedKeyword || keywordFields.some((value) => value.toLowerCase().includes(normalizedKeyword));
       const matchesStatus = status === 'All Status' || project.status === status;
       const matchesBusinessType = businessType === 'All Business Types' || project.businessType === businessType;
-      const hasMovedOutOfQueue = project.status !== 'SUBMITTED' && project.status !== 'NEED_BASIC_INFORMATION';
+      const hasMovedIntoSalesWorkspace = project.status !== 'SUBMITTED';
 
-      return matchesKeyword && matchesStatus && matchesBusinessType && hasMovedOutOfQueue;
+      return matchesKeyword && matchesStatus && matchesBusinessType && hasMovedIntoSalesWorkspace;
     });
   }, [accountById, assignedProjects, businessType, keyword, status]);
 
@@ -113,6 +113,7 @@ export function AssignedProjects() {
               <select value={status} onChange={(event) => setStatus(event.target.value)}>
                 <option>All Status</option>
                 <option>IN_CONSULTATION</option>
+                <option>NEED_BASIC_INFORMATION</option>
                 <option>WAITING_FOR_DESIGNER_ASSIGNMENT</option>
                 <option>MEASUREMENT_REQUIRED</option>
                 <option>SPACE_VERIFIED</option>
@@ -183,7 +184,7 @@ export function AssignedProjects() {
                   })}
                   {!currentUserQuery.isLoading && !assignedProjectsQuery.isLoading && !currentUserQuery.isError && !assignedProjectsQuery.isError && filteredProjects.length === 0 ? (
                     <tr>
-                      <td colSpan={7}>No projects have moved into consultation yet.</td>
+                      <td colSpan={7}>No projects have moved into the sales workspace yet.</td>
                     </tr>
                   ) : null}
                 </tbody>

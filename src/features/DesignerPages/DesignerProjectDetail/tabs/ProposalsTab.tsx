@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 
 import { getProposalServiceResultMessage, type ProposalDto, type ProposalSceneDto } from '@/services/api/proposals';
 import type { ProjectDto } from '@/services/api/projects';
-import { useCreateProposal, useCreateProposalScene, useProjectProposals, useProposalScenes } from '@/services/queries';
+import { useCreateProposal, useCreateProposalScene, useProjectProposals, useProposalScenes, usePublishProposal } from '@/services/queries';
 
 type ProposalsTabProps = {
   project: ProjectDto;
@@ -12,8 +12,11 @@ type ProposalsTabProps = {
 export function ProposalsTab({ project }: ProposalsTabProps) {
   const navigate = useNavigate();
   const [message, setMessage] = useState('');
+  const [messageTone, setMessageTone] = useState<'error' | 'success'>('error');
+  const [publishingProposalId, setPublishingProposalId] = useState<string | null>(null);
   const createProposalMutation = useCreateProposal();
   const createProposalSceneMutation = useCreateProposalScene();
+  const publishProposalMutation = usePublishProposal();
   const proposalsQuery = useProjectProposals({
     projectId: project.projectId,
     page: 1,
@@ -23,6 +26,7 @@ export function ProposalsTab({ project }: ProposalsTabProps) {
 
   async function createProposalAndScene() {
     setMessage('');
+    setMessageTone('error');
 
     try {
       const proposal = await createProposalMutation.mutateAsync({
@@ -38,6 +42,7 @@ export function ProposalsTab({ project }: ProposalsTabProps) {
 
       openScene(scene, proposal.proposalId);
     } catch (error) {
+      setMessageTone('error');
       setMessage(getProposalServiceResultMessage(error));
     }
   }
@@ -51,6 +56,26 @@ export function ProposalsTab({ project }: ProposalsTabProps) {
         returnTo: `/designer/assigned-projects/${project.projectId}`,
       },
     });
+  }
+
+  async function publishProposal(proposal: ProposalDto) {
+    setMessage('');
+    setMessageTone('error');
+    setPublishingProposalId(proposal.proposalId);
+
+    try {
+      await publishProposalMutation.mutateAsync({
+        proposalId: proposal.proposalId,
+        note: 'Published by designer from assigned project proposal list.',
+      });
+      setMessageTone('success');
+      setMessage(`${proposal.proposalName} is now visible to the customer.`);
+    } catch (error) {
+      setMessageTone('error');
+      setMessage(getProposalServiceResultMessage(error));
+    } finally {
+      setPublishingProposalId(null);
+    }
   }
 
   return (
@@ -70,7 +95,11 @@ export function ProposalsTab({ project }: ProposalsTabProps) {
         </button>
       </div>
 
-      {message ? <p className="designer-project-file-message designer-project-file-error">{message}</p> : null}
+      {message ? (
+        <p className={`designer-project-file-message ${messageTone === 'success' ? 'designer-project-message-success' : 'designer-project-file-error'}`}>
+          {message}
+        </p>
+      ) : null}
       {project.status !== 'PROPOSAL_DRAFTING' ? (
         <p className="designer-project-file-message">Move this project to Proposal Drafting before creating a new proposal.</p>
       ) : null}
@@ -104,6 +133,7 @@ export function ProposalsTab({ project }: ProposalsTabProps) {
                 proposal={proposal}
                 onCreateScene={async () => {
                   setMessage('');
+                  setMessageTone('error');
 
                   try {
                     const scene = await createProposalSceneMutation.mutateAsync({
@@ -114,10 +144,13 @@ export function ProposalsTab({ project }: ProposalsTabProps) {
 
                     openScene(scene, proposal.proposalId);
                   } catch (error) {
+                    setMessageTone('error');
                     setMessage(getProposalServiceResultMessage(error));
                   }
                 }}
                 onOpenScene={(scene) => openScene(scene, proposal.proposalId)}
+                onPublish={() => publishProposal(proposal)}
+                publishDisabled={publishingProposalId === proposal.proposalId || publishProposalMutation.isPending}
               />
             ))}
           </tbody>
@@ -131,9 +164,11 @@ type ProposalRowProps = {
   proposal: ProposalDto;
   onCreateScene: () => Promise<void>;
   onOpenScene: (scene: ProposalSceneDto) => void;
+  onPublish: () => void | Promise<void>;
+  publishDisabled: boolean;
 };
 
-function ProposalRow({ proposal, onCreateScene, onOpenScene }: ProposalRowProps) {
+function ProposalRow({ proposal, onCreateScene, onOpenScene, onPublish, publishDisabled }: ProposalRowProps) {
   const scenesQuery = useProposalScenes({
     proposalId: proposal.proposalId,
     sceneType: 'THREE_D',
@@ -143,6 +178,8 @@ function ProposalRow({ proposal, onCreateScene, onOpenScene }: ProposalRowProps)
   });
   const scenes = scenesQuery.data?.items ?? [];
   const primaryScene = scenes[0] ?? null;
+  const canPublish = proposal.status === 'DRAFT' && Boolean(primaryScene);
+  const visibilityLabel = isCustomerVisibleProposal(proposal.status) ? 'Customer visible' : 'Hidden draft';
 
   return (
     <tr>
@@ -151,7 +188,10 @@ function ProposalRow({ proposal, onCreateScene, onOpenScene }: ProposalRowProps)
         <span>{proposal.proposalId}</span>
       </td>
       <td>v{proposal.versionNo}</td>
-      <td><span className={`designer-project-status designer-project-status-${getProposalStatusTone(proposal.status)}`}>{formatEnumLabel(proposal.status)}</span></td>
+      <td>
+        <span className={`designer-project-status designer-project-status-${getProposalStatusTone(proposal.status)}`}>{formatEnumLabel(proposal.status)}</span>
+        <small className="designer-project-proposal-visibility">{visibilityLabel}</small>
+      </td>
       <td>
         {scenesQuery.isLoading ? 'Loading scenes...' : `${scenesQuery.data?.total ?? scenes.length} scene${(scenesQuery.data?.total ?? scenes.length) === 1 ? '' : 's'}`}
       </td>
@@ -168,11 +208,29 @@ function ProposalRow({ proposal, onCreateScene, onOpenScene }: ProposalRowProps)
               Create Scene
             </button>
           )}
-          <button type="button" disabled>{proposal.status === 'DRAFT' ? 'Draft' : 'Locked'}</button>
+          {proposal.status === 'DRAFT' ? (
+            <button
+              className="designer-project-table-publish"
+              disabled={!canPublish || publishDisabled || scenesQuery.isLoading}
+              title={canPublish ? 'Publish this proposal so the customer can review it.' : 'Create at least one active scene before publishing.'}
+              type="button"
+              onClick={() => void onPublish()}
+            >
+              {publishDisabled ? 'Publishing...' : 'Publish to Customer'}
+            </button>
+          ) : (
+            <button type="button" disabled title="Published proposals are customer-visible and locked for editing.">
+              Customer Visible
+            </button>
+          )}
         </div>
       </td>
     </tr>
   );
+}
+
+function isCustomerVisibleProposal(status: string) {
+  return ['PUBLISHED', 'VIEWED', 'SELECTED', 'REVISION_REQUESTED'].includes(status);
 }
 
 function getProposalStatusTone(status: string) {

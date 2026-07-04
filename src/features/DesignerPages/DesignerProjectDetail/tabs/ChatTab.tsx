@@ -2,7 +2,7 @@ import { IconFile, IconPaperclip, IconSend } from '@tabler/icons-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 
-import { formatChatTime, formatFileSize, getChatParticipant, getInitials, getMessageContent } from '@/features/projectChat/chatUi';
+import { formatChatTime, formatFileSize, formatUnreadBadge, getChatParticipant, getInitials, getMessageContent } from '@/features/projectChat/chatUi';
 import {
   getProjectChatServiceResultMessage,
   type ProjectChatListItem,
@@ -16,6 +16,7 @@ import {
   upsertProjectChatMessage,
   useProjectChatMessages,
   useProjectChatRealtime,
+  useProjectChatUnreadCounts,
   useProjectChats,
   useSendProjectChatFileMessage,
   useSendProjectChatTextMessage,
@@ -44,6 +45,7 @@ export function ChatTab({ project }: ChatTabProps) {
   const { refetch: refetchChats } = chatListQuery;
   const chats = useMemo(() => chatListQuery.data?.items ?? [], [chatListQuery.data?.items]);
   const activeChat = chats.find((chat) => chat.chatId === activeChatId) ?? chats[0] ?? null;
+  const unreadCounts = useProjectChatUnreadCounts(chats, currentUserQuery.data?.accountId, activeChat?.chatId);
   const messagesQueryParams = activeChat
     ? {
         chatId: activeChat.chatId,
@@ -183,6 +185,7 @@ export function ChatTab({ project }: ChatTabProps) {
               isActive={chat.chatId === activeChat?.chatId}
               key={chat.chatId}
               onSelect={() => setActiveChatId(chat.chatId)}
+              unreadCount={unreadCounts[chat.chatId] ?? 0}
             />
           ))}
         </aside>
@@ -252,18 +255,21 @@ function ChatSelectorItem({
   customerName,
   isActive,
   onSelect,
+  unreadCount,
 }: {
   chat: ProjectChatListItem;
   customerFallback: string;
   customerName?: string | null;
   isActive: boolean;
   onSelect: () => void;
+  unreadCount: number;
 }) {
   const participant = getChatParticipant(chat, {
     viewerRole: 'DESIGNER',
     customerName,
     customerFallback,
   });
+  const unreadBadge = formatUnreadBadge(unreadCount);
 
   return (
     <button className={isActive ? 'is-active' : ''} type="button" onClick={onSelect}>
@@ -272,6 +278,7 @@ function ChatSelectorItem({
         {participant.role}
         {chat.lastMessage?.contentPreview ? ` - ${chat.lastMessage.contentPreview}` : ''}
       </small>
+      {unreadBadge ? <span className="designer-project-chat-unread-badge">{unreadBadge}</span> : null}
     </button>
   );
 }

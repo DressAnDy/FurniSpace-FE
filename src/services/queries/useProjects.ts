@@ -103,8 +103,10 @@ export function useAssignSalesToProject() {
 
   return useMutation({
     mutationFn: (input: { projectId: string; note?: string | null }) => assignSalesToProject(input.projectId, input.note),
-    onSuccess: () => {
+    onSuccess: (data) => {
       void queryClient.invalidateQueries({ queryKey: projectQueryKeys.all });
+      void queryClient.invalidateQueries({ queryKey: projectQueryKeys.detail(data.projectId) });
+      void queryClient.invalidateQueries({ queryKey: projectChatQueryKeys.all });
     },
   });
 }

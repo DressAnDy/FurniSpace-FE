@@ -8,6 +8,7 @@ import {
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 
+import { formatUnreadBadge } from '@/features/projectChat/chatUi';
 import {
   getProjectChatServiceResultMessage,
   type ProjectChatListItem,
@@ -23,6 +24,7 @@ import {
   useProjectChatMessages,
   useProjectChats,
   useProjectChatRealtime,
+  useProjectChatUnreadCounts,
   useSendProjectChatFileMessage,
   useSendProjectChatTextMessage,
 } from '@/services/queries/useProjectChats';
@@ -87,6 +89,7 @@ export function ProjectChatPanel({
   const closeChatMutation = useCloseProjectChat();
   const isReadonly = !activeChat || activeChat.status !== 'OPEN';
   const currentUserId = currentUserQuery.data?.accountId;
+  const unreadCounts = useProjectChatUnreadCounts(chats, currentUserId, activeChat?.chatId);
 
   useEffect(() => {
     if (!activeChatId && chats.length > 0) {
@@ -249,6 +252,7 @@ export function ProjectChatPanel({
                 setActiveChatId(chat.chatId);
                 setErrorMessage(null);
               }}
+              unreadCount={unreadCounts[chat.chatId] ?? 0}
             />
           ))}
         </aside>
@@ -330,7 +334,9 @@ export function ProjectChatPanel({
   );
 }
 
-function ChatListButton({ chat, isActive, onClick }: { chat: ProjectChatListItem; isActive: boolean; onClick: () => void }) {
+function ChatListButton({ chat, isActive, onClick, unreadCount }: { chat: ProjectChatListItem; isActive: boolean; onClick: () => void; unreadCount: number }) {
+  const unreadBadge = formatUnreadBadge(unreadCount);
+
   return (
     <button className={isActive ? 'is-active' : ''} type="button" onClick={onClick}>
       <span>
@@ -338,6 +344,7 @@ function ChatListButton({ chat, isActive, onClick }: { chat: ProjectChatListItem
         <strong>{getChatTitle(chat)}</strong>
       </span>
       <small>{chat.lastMessage?.contentPreview ?? `${getChatTypeLabel(chat.chatType)} conversation`}</small>
+      {unreadBadge ? <span className="project-chat-panel-unread-badge">{unreadBadge}</span> : null}
     </button>
   );
 }

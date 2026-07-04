@@ -1,5 +1,7 @@
 import axios, { AxiosError } from 'axios';
 
+import { getStoredAccessToken } from './tokenStore';
+
 declare module 'axios' {
   export interface AxiosRequestConfig {
     skipAuthRedirect?: boolean;
@@ -12,6 +14,12 @@ const productApiClient = axios.create({
 });
 
 productApiClient.interceptors.request.use((config) => {
+  const token = getStoredAccessToken();
+
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+
   if (config.data instanceof FormData) {
     clearMultipartContentType(config.headers);
   }

@@ -18,13 +18,13 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { DesignerLayout } from '@/features/DesignerPages/designercomponents';
 import { getAccountById } from '@/services/api';
 import { getProposalServiceResultMessage } from '@/services/api/proposals';
-import { getProjectServiceResultMessage, type ProjectDto } from '@/services/api/projects';
+import { getProjectServiceResultMessage, type ProjectDto, type ProjectStatus } from '@/services/api/projects';
 import { useCreateProposal, useCreateProposalScene, useProjectDetail, useUpdateProjectStatus } from '@/services/queries';
 
 import { ChatTab, CustomizationTab, OverviewTab, ProposalsTab, SchedulesTab, SpaceFilesTab } from './tabs';
 import './DesignerProjectDetail.css';
 
-type DesignerProjectDetailTab = 'overview' | 'space-files' | 'proposals' | 'scenes' | 'feedback' | 'customization' | 'schedules' | 'chat' | 'handover';
+type DesignerProjectDetailTab = 'overview' | 'space-files' | 'proposals' | 'feedback' | 'customization' | 'schedules' | 'chat';
 
 type DesignerProjectTabProps = {
   project: ProjectDto;
@@ -33,20 +33,17 @@ type DesignerProjectTabProps = {
 type DesignerProjectTabConfig = {
   id: DesignerProjectDetailTab;
   label: string;
-  badge?: string;
   component?: ComponentType<DesignerProjectTabProps>;
 };
 
 const detailTabs: DesignerProjectTabConfig[] = [
   { id: 'overview', label: 'Overview', component: OverviewTab },
   { id: 'space-files', label: 'Space Files', component: SpaceFilesTab },
-  { id: 'proposals', label: 'Proposals', badge: '2', component: ProposalsTab },
-  { id: 'scenes', label: '2D/3D Scenes', badge: '3' },
+  { id: 'proposals', label: 'Proposals', component: ProposalsTab },
   { id: 'feedback', label: 'Feedback' },
   { id: 'customization', label: 'Customization', component: CustomizationTab },
   { id: 'schedules', label: 'Schedules', component: SchedulesTab },
   { id: 'chat', label: 'Chat', component: ChatTab },
-  { id: 'handover', label: 'Handover' },
 ];
 
 export function DesignerProjectDetail() {
@@ -240,7 +237,6 @@ export function DesignerProjectDetail() {
                       type="button"
                     >
                       <span>{tab.label}</span>
-                      {tab.badge ? <em>{tab.badge}</em> : null}
                     </button>
                   );
                 })}
@@ -287,18 +283,31 @@ function getProjectProgress(status: string) {
   return progressByStatus[status] ?? 10;
 }
 
-function getNextDesignStatus(status: string) {
-  if (status === 'MEASUREMENT_REQUIRED') return 'SPACE_VERIFIED' as const;
-  if (status === 'SPACE_VERIFIED') return 'PROPOSAL_DRAFTING' as const;
+function getNextDesignStatus(status: ProjectStatus): ProjectStatus | null {
+  if (status === 'MEASUREMENT_REQUIRED') return 'SPACE_VERIFIED';
+  if (status === 'SPACE_VERIFIED') return 'PROPOSAL_DRAFTING';
+  if (status === 'REVISION_REQUESTED') return 'PROPOSAL_DRAFTING';
 
   return null;
 }
 
-function getDesignStatusActionLabel(status: string) {
+function getDesignStatusActionLabel(status: ProjectStatus) {
   const nextStatus = getNextDesignStatus(status);
 
+  if (status === 'MEASUREMENT_REQUIRED') {
+    return 'Mark Space Verified';
+  }
+
+  if (status === 'SPACE_VERIFIED') {
+    return 'Start Proposal Draft';
+  }
+
+  if (status === 'REVISION_REQUESTED') {
+    return 'Start Revision Draft';
+  }
+
   if (!nextStatus) {
-    return status === 'PROPOSAL_DRAFTING' ? 'Ready for Proposal' : 'No Status Step';
+    return status === 'PROPOSAL_DRAFTING' ? 'Ready for Proposal' : 'No Designer Step';
   }
 
   return `Update to ${formatEnumLabel(nextStatus)}`;

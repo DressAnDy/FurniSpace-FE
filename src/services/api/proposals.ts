@@ -127,6 +127,14 @@ export type ProposalItemListData = {
   total: number;
 };
 
+export type PublishProposalData = {
+  proposalId: string;
+  projectId: string;
+  proposalStatus: ProposalStatus;
+  projectStatus: string;
+  publishedAt: string;
+};
+
 export type CreateProposalInput = {
   projectId: string;
   proposalName: string;
@@ -250,6 +258,14 @@ export async function getProjectProposals(params: ProposalListParams) {
 
 export async function getProposalById(proposalId: string) {
   const response = await proposalApiClient.get<ServiceResult<ProposalDetailDto>>(`/proposals/${proposalId}`);
+
+  return response.data.data;
+}
+
+export async function publishProposal(proposalId: string, note?: string | null) {
+  const response = await proposalApiClient.patch<ServiceResult<PublishProposalData>>(`/proposals/${proposalId}/publish`, {
+    note: note?.trim() || null,
+  });
 
   return response.data.data;
 }

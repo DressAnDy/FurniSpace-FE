@@ -67,6 +67,8 @@ export function CreateProductVersionPage() {
 
       setCreatedVersionId(productVersionId);
 
+      const uploadErrors: string[] = [];
+
       if (previewFile) {
         try {
           await uploadVersionFileMutation.mutateAsync({
@@ -75,11 +77,10 @@ export function CreateProductVersionPage() {
             fileType: 'PRODUCT_PREVIEW',
             description: 'Product version preview image',
           });
+          setPreviewFile(null);
         } catch (error) {
-          setFileUploadError(`PRODUCT_PREVIEW upload failed: ${getProductServiceResultMessage(error)}`);
-          return;
+          uploadErrors.push(`PRODUCT_PREVIEW upload failed: ${getProductServiceResultMessage(error)}`);
         }
-        setPreviewFile(null);
       }
 
       if (modelFile) {
@@ -90,11 +91,15 @@ export function CreateProductVersionPage() {
             fileType: 'MODEL_3D',
             description: 'Product version 3D model',
           });
+          setModelFile(null);
         } catch (error) {
-          setFileUploadError(`MODEL_3D upload failed: ${getProductServiceResultMessage(error)}`);
-          return;
+          uploadErrors.push(`MODEL_3D upload failed: ${getProductServiceResultMessage(error)}`);
         }
-        setModelFile(null);
+      }
+
+      if (uploadErrors.length > 0) {
+        setFileUploadError(uploadErrors.join('\n'));
+        return;
       }
 
       sessionStorage.removeItem('admin.createdProductId');

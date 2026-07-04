@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef } from 'react';
 import * as signalR from '@microsoft/signalr';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import {
   closeProjectChat,
@@ -9,6 +9,7 @@ import {
   getProjectChats,
   sendProjectChatFileMessage,
   sendProjectChatTextMessage,
+  type ProjectChatListItem,
   type ProjectChatListParams,
   type ProjectChatMessage,
   type ProjectChatMessageListResponse,
@@ -37,6 +38,52 @@ export function useProjectChatMessages(params?: ProjectChatMessageParams, option
     queryFn: () => getProjectChatMessages(params as ProjectChatMessageParams),
     enabled: Boolean(params?.chatId) && (options?.enabled ?? true),
   });
+}
+
+export function useProjectChatUnreadCounts(
+  chats: ProjectChatListItem[],
+  currentUserId?: string | null,
+  activeChatId?: string | null,
+) {
+  const messageQueries = useQueries({
+    queries: chats.map((chat) => {
+      const params = {
+        chatId: chat.chatId,
+        page: 1,
+        limit: 50,
+        sort: 'ASC' as const,
+      };
+
+      return {
+        queryKey: projectChatQueryKeys.messages(params),
+        queryFn: () => getProjectChatMessages(params),
+        enabled: Boolean(chat.chatId && currentUserId),
+        staleTime: 15 * 1000,
+      };
+    }),
+  });
+
+  return useMemo(
+    () =>
+      chats.reduce<Record<string, number>>((lookup, chat, index) => {
+        if (chat.chatId === activeChatId) {
+          lookup[chat.chatId] = 0;
+          return lookup;
+        }
+
+        const messages = messageQueries[index]?.data?.items ?? [];
+        lookup[chat.chatId] = messages.filter(
+          (message) =>
+            message.messageType !== 'SYSTEM' &&
+            !message.deletedAt &&
+            !message.readAt &&
+            Boolean(message.senderId && message.senderId !== currentUserId),
+        ).length;
+
+        return lookup;
+      }, {}),
+    [activeChatId, chats, currentUserId, messageQueries],
+  );
 }
 
 export function useSendProjectChatTextMessage() {

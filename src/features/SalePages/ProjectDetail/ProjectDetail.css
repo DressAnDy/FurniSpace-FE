@@ -591,8 +591,8 @@
 .project-detail-designer-assignment {
   display: grid;
   align-items: start;
-  gap: 18px;
-  grid-template-columns: minmax(0, 1fr);
+  gap: 20px;
+  grid-template-columns: minmax(320px, 0.9fr) minmax(420px, 1.1fr);
   padding-bottom: 8px;
 }
 
@@ -982,6 +982,7 @@
 }
 
 .project-detail-chat-selector button {
+  position: relative;
   display: grid;
   width: 100%;
   min-width: 0;
@@ -992,7 +993,7 @@
   color: #2d2d2d;
   cursor: pointer;
   font: inherit;
-  padding: 10px 12px;
+  padding: 10px 42px 10px 12px;
   text-align: left;
 }
 
@@ -1011,6 +1012,23 @@
 .project-detail-chat-selector .project-detail-chat-channel-active {
   border-color: #8b6f47;
   background: #f5f1ec;
+}
+
+.project-detail-chat-unread-badge {
+  position: absolute;
+  top: 9px;
+  right: 10px;
+  display: inline-grid;
+  min-width: 18px;
+  height: 18px;
+  place-items: center;
+  border-radius: 999px;
+  background: #dc2626;
+  color: #ffffff;
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1;
+  padding: 0 5px;
 }
 
 .project-detail-chat-thread {
@@ -1422,7 +1440,7 @@
   }
 
   .project-detail-designer-assignment {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(280px, 0.95fr) minmax(360px, 1.05fr);
   }
 
   .project-detail-file-grid {

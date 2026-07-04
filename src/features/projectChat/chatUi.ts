@@ -106,3 +106,11 @@ export function formatFileSize(size: number) {
 
   return `${(size / 1024 / 1024).toFixed(1)} MB`;
 }
+
+export function formatUnreadBadge(count?: number | null) {
+  if (!count || count <= 0) {
+    return null;
+  }
+
+  return count > 5 ? '5+' : String(count);
+}

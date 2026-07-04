@@ -86,6 +86,7 @@
 }
 
 .project-chat-panel-list button {
+  position: relative;
   display: grid;
   gap: 7px;
   border: 1px solid transparent;
@@ -95,7 +96,7 @@
   cursor: pointer;
   font: inherit;
   min-width: 0;
-  padding: 11px 12px;
+  padding: 11px 42px 11px 12px;
   text-align: left;
 }
 
@@ -125,6 +126,23 @@
 .project-chat-panel-list small {
   color: #6b6b6b;
   font-size: 12px;
+}
+
+.project-chat-panel-unread-badge {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  display: inline-grid;
+  min-width: 18px;
+  height: 18px;
+  place-items: center;
+  border-radius: 999px;
+  background: #dc2626;
+  color: #ffffff;
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1;
+  padding: 0 5px;
 }
 
 .project-chat-panel-thread {
