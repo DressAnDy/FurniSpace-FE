@@ -49,8 +49,14 @@ export function DesignerProposalWorkspace() {
   const createSceneMutation = useCreateProposalScene();
   const project = projectQuery.data;
   const proposal = proposalQuery.data;
-  const scenes = scenesQuery.data?.items ?? proposal?.scenes ?? [];
-  const items = itemsQuery.data?.items ?? proposal?.items ?? [];
+  const scenes = useMemo(
+    () => scenesQuery.data?.items ?? proposal?.scenes ?? [],
+    [proposal?.scenes, scenesQuery.data?.items],
+  );
+  const items = useMemo(
+    () => itemsQuery.data?.items ?? proposal?.items ?? [],
+    [itemsQuery.data?.items, proposal?.items],
+  );
   const total = useMemo(
     () => items.reduce((sum, item) => sum + (item.subtotalAmount ?? 0), 0),
     [items],

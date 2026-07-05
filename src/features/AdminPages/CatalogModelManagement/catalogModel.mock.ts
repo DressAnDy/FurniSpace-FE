@@ -203,7 +203,17 @@ export const MOCK_CATALOG_PRODUCTS: ProductDetailDto[] = [
   },
 ];
 
-export const MOCK_CATALOG_LIST_ITEMS: ProductListItemDto[] = MOCK_CATALOG_PRODUCTS.map(({ files: _files, versions: _versions, ...product }) => product);
+export const MOCK_CATALOG_LIST_ITEMS: ProductListItemDto[] = MOCK_CATALOG_PRODUCTS.map((product) => ({
+  categoryId: product.categoryId,
+  categoryName: product.categoryName,
+  defaultVersion: product.defaultVersion,
+  description: product.description,
+  productCode: product.productCode,
+  productId: product.productId,
+  productName: product.productName,
+  status: product.status,
+  thumbnail: product.thumbnail,
+}));
 
 export function getMockCatalogProduct(productId?: string) {
   return MOCK_CATALOG_PRODUCTS.find((product) => product.productId === productId);

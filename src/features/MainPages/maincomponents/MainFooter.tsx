@@ -2,7 +2,7 @@ import { IconClock, IconMail, IconMapPin, IconPhone } from '@tabler/icons-react'
 import type { ReactNode } from 'react';
 
 import logoImage from '@/assets/Logo/Logo.png';
-import { useLang } from '@/app/providers/LangContext';
+import { useLang } from '@/app/providers/useLang';
 
 import './MainFooter.css';
 

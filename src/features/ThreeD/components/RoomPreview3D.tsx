@@ -130,12 +130,6 @@ type ProductFootprint = {
   halfZ: number;
 };
 
-type WallCutout = {
-  end: number;
-  opening: RoomOpeningItem;
-  start: number;
-};
-
 const sceneProductLoadLocks = new WeakMap<Scene, Set<string>>();
 const PRODUCT_DRAG_DATA_TYPE = 'application/x-furnispace-product-id';
 

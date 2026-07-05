@@ -68,7 +68,7 @@ export function Customer3dPreviewPage() {
       : undefined,
     { enabled: Boolean(selectedProposal) },
   );
-  const scenes = scenesQuery.data?.items ?? [];
+  const scenes = useMemo(() => scenesQuery.data?.items ?? [], [scenesQuery.data?.items]);
   const selectedScene = scenes.find((scene) => scene.sceneId === selectedSceneId) ?? scenes[0] ?? null;
   const roomPlannerSceneQuery = useRoomPlannerScene(selectedScene?.sceneId, { enabled: Boolean(selectedScene?.sceneId) });
   const proposalItemsQuery = useProposalItems(
@@ -94,7 +94,7 @@ export function Customer3dPreviewPage() {
     () => getSceneWallMaterial(roomPlannerSceneQuery.data),
     [roomPlannerSceneQuery.data],
   );
-  const proposalItems = proposalItemsQuery.data?.items ?? [];
+  const proposalItems = useMemo(() => proposalItemsQuery.data?.items ?? [], [proposalItemsQuery.data?.items]);
   const sceneProducts = hydratedScene.placedProducts;
   const selectedObject = useMemo(
     () => sceneProducts.find((object) => object.id === selectedObjectId) ?? null,

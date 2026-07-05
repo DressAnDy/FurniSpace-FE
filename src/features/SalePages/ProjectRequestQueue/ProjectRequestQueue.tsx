@@ -20,7 +20,10 @@ export function ProjectRequestQueue() {
     page: 1,
     limit: 50,
   });
-  const projectRequests = projectQueueQuery.data?.items ?? [];
+  const projectRequests = useMemo(
+    () => projectQueueQuery.data?.items ?? [],
+    [projectQueueQuery.data?.items],
+  );
   const customerIds = useMemo(
     () => Array.from(new Set(projectRequests.map((request) => request.customerId).filter(Boolean))),
     [projectRequests],

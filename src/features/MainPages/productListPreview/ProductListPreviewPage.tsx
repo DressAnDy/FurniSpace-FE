@@ -12,7 +12,7 @@ import categoryChairsUrl from '@/assets/product-list/category-chairs.png';
 import categoryNewArrivalsUrl from '@/assets/product-list/category-new-arrivals.png';
 import categorySofasUrl from '@/assets/product-list/category-sofas.png';
 import categoryTablesUrl from '@/assets/product-list/category-tables.png';
-import { useLang } from '@/app/providers/LangContext';
+import { useLang } from '@/app/providers/useLang';
 import { MainNavbar } from '@/features/MainPages/maincomponents';
 import {
   formatCatalogPrice,

@@ -66,7 +66,7 @@ export function ProjectChatPanel({
     page: 1,
     limit: 20,
   });
-  const chats = chatListQuery.data?.items ?? [];
+  const chats = useMemo(() => chatListQuery.data?.items ?? [], [chatListQuery.data?.items]);
   const activeChat = useMemo(() => {
     if (activeChatId) {
       return chats.find((chat) => chat.chatId === activeChatId) ?? null;

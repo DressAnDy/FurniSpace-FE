@@ -28,7 +28,10 @@ export function AssignedProjects() {
       enabled: Boolean(currentUser?.accountId),
     },
   );
-  const assignedProjects = assignedProjectsQuery.data?.items ?? [];
+  const assignedProjects = useMemo(
+    () => assignedProjectsQuery.data?.items ?? [],
+    [assignedProjectsQuery.data?.items],
+  );
   const accountIds = useMemo(
     () =>
       Array.from(

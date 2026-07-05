@@ -24,7 +24,10 @@ export function CatalogModelManagementPage() {
   const [query, setQuery] = useState('');
   const [readinessFilter, setReadinessFilter] = useState<ReadinessFilter>('ALL');
   const productsQuery = useProductList({ limit: 100, page: 1 }, !CATALOG_MOCK_ENABLED);
-  const products = CATALOG_MOCK_ENABLED ? MOCK_CATALOG_LIST_ITEMS : productsQuery.data?.items ?? [];
+  const products = useMemo(
+    () => (CATALOG_MOCK_ENABLED ? MOCK_CATALOG_LIST_ITEMS : productsQuery.data?.items ?? []),
+    [productsQuery.data?.items],
+  );
   const filteredProducts = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
 

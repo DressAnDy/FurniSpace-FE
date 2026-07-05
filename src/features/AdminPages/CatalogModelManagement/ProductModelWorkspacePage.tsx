@@ -60,7 +60,10 @@ export function ProductModelWorkspacePage() {
   const [archivedDemoFileIds, setArchivedDemoFileIds] = useState<string[]>([]);
   const product = CATALOG_MOCK_ENABLED ? getMockCatalogProduct(productId) : productQuery.data;
   const version = product?.versions.find((candidate) => candidate.productVersionId === productVersionId) ?? null;
-  const apiFiles = CATALOG_MOCK_ENABLED ? getMockVersionFiles(productVersionId) : filesQuery.data?.items ?? [];
+  const apiFiles = useMemo(
+    () => (CATALOG_MOCK_ENABLED ? getMockVersionFiles(productVersionId) : filesQuery.data?.items ?? []),
+    [filesQuery.data?.items, productVersionId],
+  );
   const displayedFiles = useMemo(
     () => [...demoFiles, ...apiFiles].filter((file) => !archivedDemoFileIds.includes(file.fileId)),
     [apiFiles, archivedDemoFileIds, demoFiles],
