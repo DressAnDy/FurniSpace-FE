@@ -1,6 +1,12 @@
 import axios, { AxiosError } from 'axios';
 
-import { shouldRedirectUnauthorized } from '@/shared/config/authPreview';
+import { getStoredAccessToken } from './tokenStore';
+
+declare module 'axios' {
+  export interface AxiosRequestConfig {
+    skipAuthRedirect?: boolean;
+  }
+}
 
 const productApiClient = axios.create({
   baseURL: getProductApiBaseUrl(),
@@ -8,16 +14,14 @@ const productApiClient = axios.create({
 });
 
 productApiClient.interceptors.request.use((config) => {
-  if (config.data instanceof FormData) {
-    clearMultipartContentType(config.headers);
+  const token = getStoredAccessToken();
+
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
   }
 
-  return config;
-});
-
-productApiClient.interceptors.request.use((config) => {
-  if (typeof FormData !== 'undefined' && config.data instanceof FormData) {
-    config.headers.delete('Content-Type');
+  if (config.data instanceof FormData) {
+    clearMultipartContentType(config.headers);
   }
 
   return config;
@@ -26,7 +30,11 @@ productApiClient.interceptors.request.use((config) => {
 productApiClient.interceptors.response.use(
   (response) => response,
   (error: AxiosError) => {
-    if (error.response?.status === 401 && shouldRedirectUnauthorized()) {
+    const shouldSkipAuthRedirect = Boolean(
+      (error.config as { skipAuthRedirect?: boolean } | undefined)?.skipAuthRedirect,
+    );
+
+    if (error.response?.status === 401 && !shouldSkipAuthRedirect && window.location.pathname !== '/login') {
       window.location.assign('/login');
     }
 
@@ -246,6 +254,10 @@ export type ProductListData = {
 export type ProductListParams = {
   page?: number;
   limit?: number;
+};
+
+export type RequestBehaviorOptions = {
+  skipAuthRedirect?: boolean;
 };
 
 export type CreateProductInput = {
@@ -524,6 +536,7 @@ export async function uploadProductVersionFile(
   file: File,
   fileType: ProductVersionFileType = 'PRODUCT_PREVIEW',
   description?: string | null,
+  options: RequestBehaviorOptions = {},
 ) {
   const formData = new FormData();
   formData.append('file', file);
@@ -537,6 +550,9 @@ export async function uploadProductVersionFile(
   const response = await productApiClient.post<ServiceResult<CatalogFileUploadResponseDto>>(
     `/api/ProductVersions/product-versions/${productVersionId}/files`,
     formData,
+    {
+      skipAuthRedirect: options.skipAuthRedirect,
+    },
   );
 
   return response.data.data;

@@ -1,24 +1,18 @@
 import {
   IconArrowLeft,
-  IconBox,
   IconDotsVertical,
   IconFile,
-  IconFileText,
-  IconHome,
-  IconMessageCircle,
   IconPaperclip,
   IconPhone,
-  IconPlus,
-  IconReceipt,
   IconSearch,
   IconSend,
-  IconSparkles,
   IconVideo,
 } from '@tabler/icons-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 
-import { formatChatTime, formatFileSize, getChatParticipant, getInitials, getMessageContent } from '@/features/projectChat/chatUi';
+import { CustomerNavbar } from '@/features/CustomerPages/customercomponents';
+import { formatChatTime, formatFileSize, formatUnreadBadge, getChatParticipant, getInitials, getMessageContent } from '@/features/projectChat/chatUi';
 import {
   getProjectChatServiceResultMessage,
   type ProjectChatListItem,
@@ -31,22 +25,13 @@ import {
   upsertProjectChatMessage,
   useProjectChatMessages,
   useProjectChatRealtime,
+  useProjectChatUnreadCounts,
   useProjectChats,
   useSendProjectChatFileMessage,
   useSendProjectChatTextMessage,
 } from '@/services/queries/useProjectChats';
-import { CustomerUserSummary } from '@/shared/components/CustomerUserSummary';
 
 import './CustomerChatPage.css';
-
-const navigation = [
-  { icon: <IconHome size={15} stroke={1.8} />, label: 'My Projects', href: '/customer/projects' },
-  { icon: <IconFileText size={15} stroke={1.8} />, label: 'Design Proposals', href: '/customer/proposals' },
-  { icon: <IconSparkles size={15} stroke={1.8} />, label: '2D/3D Review', href: '/customer/3d-preview' },
-  { icon: <IconReceipt size={15} stroke={1.8} />, label: 'Quotations', href: '#' },
-  { active: true, icon: <IconMessageCircle size={15} stroke={1.8} />, label: 'Project Chat', href: '/customer/chat' },
-  { icon: <IconBox size={15} stroke={1.8} />, label: 'Handover', href: '#' },
-];
 
 export function CustomerChatPage() {
   const queryClient = useQueryClient();
@@ -96,6 +81,7 @@ export function CustomerChatPage() {
     });
   }, [chats, searchKeyword]);
   const activeConversation = filteredConversations.find((chat) => chat.chatId === activeChatId) ?? filteredConversations[0] ?? null;
+  const unreadCounts = useProjectChatUnreadCounts(chats, currentUserQuery.data?.accountId, activeConversation?.chatId);
   const messagesQueryParams = activeConversation
     ? {
         chatId: activeConversation.chatId,
@@ -212,7 +198,7 @@ export function CustomerChatPage() {
 
   return (
     <main className="customer-chat-page">
-      <TopNavigation />
+      <CustomerNavbar activeLabel="Project Chat" classPrefix="customer-chat" />
 
       <div className="customer-chat-body">
         <header className="customer-chat-page-header">
@@ -261,6 +247,7 @@ export function CustomerChatPage() {
                   isActive={conversation.chatId === activeConversation?.chatId}
                   key={conversation.chatId}
                   onSelect={() => setActiveChatId(conversation.chatId)}
+                  unreadCount={unreadCounts[conversation.chatId] ?? 0}
                 />
               ))}
             </ul>
@@ -386,8 +373,19 @@ export function CustomerChatPage() {
   );
 }
 
-function ConversationItem({ conversation, isActive, onSelect }: { conversation: ProjectChatListItem; isActive: boolean; onSelect: () => void }) {
+function ConversationItem({
+  conversation,
+  isActive,
+  onSelect,
+  unreadCount,
+}: {
+  conversation: ProjectChatListItem;
+  isActive: boolean;
+  onSelect: () => void;
+  unreadCount: number;
+}) {
   const participant = getChatParticipant(conversation, { viewerRole: 'CUSTOMER' });
+  const unreadBadge = formatUnreadBadge(unreadCount);
 
   return (
     <li className={`customer-chat-list-item${isActive ? ' customer-chat-list-item-active' : ''}`}>
@@ -397,6 +395,7 @@ function ConversationItem({ conversation, isActive, onSelect }: { conversation: 
         <div className="customer-chat-list-info">
           <div className="customer-chat-list-name-row">
             <span className="customer-chat-list-name">{participant.name}</span>
+            {unreadBadge ? <span className="customer-chat-badge">{unreadBadge}</span> : null}
           </div>
 
           <div className="customer-chat-list-role-row">
@@ -430,40 +429,6 @@ function CustomerMessage({ currentUserId, message }: { currentUserId?: string; m
       ) : null}
       <time>{formatChatTime(message.createdAt)}</time>
     </article>
-  );
-}
-
-function TopNavigation() {
-  return (
-    <header className="customer-chat-topnav">
-      <a className="customer-chat-logo" href="/">
-        <span>
-          <IconBox size={19} stroke={1.8} />
-        </span>
-        <strong>FurniSpace</strong>
-      </a>
-
-      <nav aria-label="Customer navigation">
-        {navigation.map((item) => (
-          <a
-            className={item.active ? 'customer-chat-nav-active' : undefined}
-            href={item.href}
-            key={item.label}
-          >
-            {item.icon}
-            <span>{item.label}</span>
-          </a>
-        ))}
-      </nav>
-
-      <div className="customer-chat-userbar">
-        <button className="customer-chat-create" type="button">
-          <IconPlus size={15} stroke={2} />
-          Create Project Request
-        </button>
-        <CustomerUserSummary classPrefix="customer-chat" />
-      </div>
-    </header>
   );
 }
 

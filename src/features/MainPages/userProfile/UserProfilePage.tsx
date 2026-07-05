@@ -1,6 +1,4 @@
 import {
-  IconBell,
-  IconBriefcase,
   IconChevronRight,
   IconCreditCard,
   IconEdit,
@@ -20,9 +18,7 @@ import './UserProfilePage.css';
 
 const sidebarItems = [
   { icon: IconUser, label: 'H\u1ed3 s\u01a1 c\u00e1 nh\u00e2n', active: true },
-  { icon: IconBriefcase, label: 'D\u1ef1 \u00e1n c\u1ee7a t\u00f4i' },
   { icon: IconCreditCard, label: 'Thanh to\u00e1n & h\u00f3a \u0111\u01a1n' },
-  { icon: IconBell, label: 'Th\u00f4ng b\u00e1o' },
   { icon: IconKey, label: 'B\u1ea3o m\u1eadt' },
 ];
 

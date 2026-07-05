@@ -5,9 +5,23 @@
 @tailwind utilities;
 
 :root {
+  --fs-bg: #fafaf8;
+  --fs-surface: #ffffff;
+  --fs-surface-warm: #f5f1eb;
+  --fs-ink: #0f0d0b;
+  --fs-ink-soft: #2a241f;
+  --fs-muted: rgba(15, 13, 11, 0.58);
+  --fs-border: rgba(139, 111, 71, 0.16);
+  --fs-wood: #8b6f47;
+  --fs-wood-dark: #6f5636;
+  --fs-gold: #c4a07a;
+  --fs-gold-strong: #c0954b;
+  --fs-sidebar: #17110a;
+  --fs-sidebar-soft: #2a241f;
+  --fs-danger: #991b1b;
   font-family: "Be Vietnam Pro", "DM Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
-  color: #1e2421;
-  background: #fafaf8;
+  color: var(--fs-ink);
+  background: var(--fs-bg);
   font-synthesis: none;
   text-rendering: optimizeSpeed;
   -webkit-font-smoothing: antialiased;

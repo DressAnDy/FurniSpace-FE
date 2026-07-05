@@ -8,6 +8,7 @@
 
 .designer-project-state { padding: 24px; color: #71717a; font-size: 14px; font-weight: 500; }
 .designer-project-state-error { color: #b91c1c; }
+.designer-project-state-success { color: #15803d; }
 .designer-project-hero-main { min-width: 0; }
 .designer-project-hero-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-bottom: 16px; }
 .designer-project-code { color: #a1a1aa; font-size: 12px; font-weight: 600; letter-spacing: .18em; text-transform: uppercase; }
@@ -34,9 +35,12 @@
 .designer-project-file-actions { display: flex; gap: 8px; margin-top: 16px; }
 .designer-project-table-card { overflow: hidden; }
 .designer-project-table-scroll { overflow-x: auto; }
-.designer-project-table-actions { display: flex; gap: 12px; }
-.designer-project-table-actions button { border: 0; background: transparent; color: #71717a; font-size: 12px; font-weight: 600; }
+.designer-project-table-actions { display: flex; flex-wrap: wrap; gap: 12px; }
+.designer-project-table-actions button { border: 0; background: transparent; color: #71717a; cursor: pointer; font-size: 12px; font-weight: 600; }
+.designer-project-table-actions button:disabled { cursor: not-allowed; opacity: 0.58; }
 .designer-project-table-actions .designer-project-table-open { color: #9a713b; }
+.designer-project-table-actions .designer-project-table-publish { color: #15803d; }
+.designer-project-proposal-visibility { display: block; margin-top: 6px; color: #71717a; font-size: 12px; font-weight: 700; }
 .designer-project-custom-main { min-width: 0; }
 .designer-project-custom-title { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
 .designer-project-custom-title h4 { margin: 0; color: #18181b; font-size: 20px; font-weight: 600; }
@@ -81,6 +85,7 @@
 }
 
 .designer-project-chat-selector button {
+  position: relative;
   display: grid;
   gap: 5px;
   border: 1px solid rgba(24, 24, 27, 0.08);
@@ -89,7 +94,7 @@
   color: #18181b;
   cursor: pointer;
   font: inherit;
-  padding: 12px;
+  padding: 12px 42px 12px 12px;
   text-align: left;
 }
 
@@ -108,6 +113,23 @@
 .designer-project-chat-selector small {
   color: #71717a;
   font-size: 12px;
+}
+
+.designer-project-chat-unread-badge {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  display: inline-grid;
+  min-width: 18px;
+  height: 18px;
+  place-items: center;
+  border-radius: 999px;
+  background: #dc2626;
+  color: #ffffff;
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1;
+  padding: 0 5px;
 }
 
 .designer-project-chat-thread {
@@ -199,6 +221,31 @@
   font-weight: 700;
 }
 
+.designer-project-current-status {
+  display: grid;
+  gap: 4px;
+  margin-top: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.08);
+  padding: 10px 12px;
+  text-align: center;
+}
+
+.designer-project-current-status span {
+  color: rgba(255, 255, 255, 0.58);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.designer-project-current-status strong {
+  color: #ffffff;
+  font-size: 12px;
+  line-height: 18px;
+}
+
 .designer-project-progress-ring {
   display: grid;
   width: 118px;
@@ -272,15 +319,7 @@
 }
 
 .designer-project-tabs em {
-  display: inline-grid;
-  min-width: 20px;
-  height: 20px;
-  place-items: center;
-  border-radius: 999px;
-  background: rgba(199, 161, 95, 0.18);
-  color: #8b6834;
-  font-size: 11px;
-  font-style: normal;
+  display: none !important;
 }
 
 .designer-project-detail-panel {
@@ -330,6 +369,16 @@
 .designer-project-detail-button:hover {
   box-shadow: 0 10px 22px rgba(154, 113, 59, 0.12);
   transform: translateY(-1px);
+}
+
+.designer-project-detail-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
+  transform: none;
+}
+
+.designer-project-detail-button:disabled:hover {
+  box-shadow: none;
 }
 
 .designer-project-detail-button-primary {

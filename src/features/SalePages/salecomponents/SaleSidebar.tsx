@@ -1,19 +1,15 @@
 import {
-  IconBell,
-  IconBox,
   IconBriefcase,
   IconCalendarEvent,
   IconClipboardList,
   IconFileDollar,
   IconHome,
   IconLogout,
-  IconMessage,
-  IconShoppingBag,
-  IconUsers,
   type Icon,
 } from '@tabler/icons-react';
 import { NavLink, useNavigate } from 'react-router-dom';
 
+import logoImage from '@/assets/Logo/Logo.png';
 import { useLogout } from '@/services/queries';
 
 type SaleSidebarItem = {
@@ -26,14 +22,9 @@ const saleSidebarItems: SaleSidebarItem[] = [
   { label: 'Dashboard', icon: IconHome, path: '/sales/dashbroad' },
   { label: 'Project Request Queue', icon: IconHome, path: '/sales/project-requests' },
   { label: 'Assigned Projects', icon: IconBriefcase, path: '/sales/assigned-projects' },
-  { label: 'Active Projects', icon: IconBox },
-  { label: 'Consultation & Chat', icon: IconMessage },
   { label: 'Schedules', icon: IconCalendarEvent, path: '/sales/schedules' },
-  { label: 'Designer Assignment', icon: IconUsers },
-  { label: 'Quotations', icon: IconShoppingBag, path: '/sales/quotations' },
   { label: 'Orders', icon: IconFileDollar },
   { label: 'Production Tracking', icon: IconClipboardList },
-  { label: 'Notifications', icon: IconBell },
 ];
 
 type SaleSidebarProps = {
@@ -55,9 +46,7 @@ export function SaleSidebar({ activeLabel }: SaleSidebarProps) {
   return (
     <aside className="sale-sidebar flex min-h-screen w-[256px] shrink-0 flex-col bg-[#2d2d2d] text-white">
       <div className="sale-sidebar-brand mb-8 flex items-center gap-3 px-2">
-        <div className="sale-sidebar-brand-mark flex h-11 w-11 items-center justify-center rounded-xl bg-[#c9a24d] text-[#171717]">
-          <IconShoppingBag size={24} />
-        </div>
+        <img className="sale-sidebar-brand-logo" src={logoImage} alt="FurniSpace" />
         <div>
           <h1 className="text-lg font-semibold leading-6">FurniSpace</h1>
           <p className="text-sm text-zinc-400">Interior Solutions</p>

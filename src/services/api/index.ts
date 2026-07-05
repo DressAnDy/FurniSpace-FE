@@ -5,6 +5,7 @@ export * from './categories';
 export * from './products';
 export * from './projectChats';
 export * from './notifications';
+export * from './proposals';
 export * from './schedules';
 export type {
   ApiResponse,

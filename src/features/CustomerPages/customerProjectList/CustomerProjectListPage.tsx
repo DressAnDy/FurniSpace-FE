@@ -6,8 +6,10 @@ import {
   IconFilter,
   IconHome,
   IconMapPin,
+  IconMessageCircle,
   IconSearch,
   IconUsers,
+  IconX,
 } from '@tabler/icons-react';
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -15,6 +17,7 @@ import { useNavigate } from 'react-router-dom';
 import './CustomerProjectListPage.css';
 import { CustomerNavbar } from '@/features/CustomerPages/customercomponents';
 import { mockCustomerProjects } from '@/features/CustomerPages/mockData';
+import { ProjectChatPanel } from '@/features/projectChat/ProjectChatPanel';
 import type { ProjectListItemDto, ProjectStatus } from '@/services/api/projects';
 import { useProjectList } from '@/services/queries/useProjects';
 
@@ -23,6 +26,7 @@ export function CustomerProjectListPage() {
   const [keyword, setKeyword] = useState('');
   const [status, setStatus] = useState<ProjectStatus | ''>('');
   const [businessType, setBusinessType] = useState('');
+  const [chatProject, setChatProject] = useState<ProjectListItemDto | null>(null);
   const projectsQuery = useProjectList({
     search: keyword,
     status: status || null,
@@ -108,7 +112,7 @@ export function CustomerProjectListPage() {
             <p className="customer-project-list-state">No projects found. Create a project request to start the flow.</p>
           ) : null}
           {visibleProjects.map((project) => (
-            <ProjectCard key={project.projectId} project={project} />
+            <ProjectCard key={project.projectId} project={project} onOpenChat={() => setChatProject(project)} />
           ))}
         </section>
 
@@ -127,15 +131,32 @@ export function CustomerProjectListPage() {
           </div>
         </footer>
       </div>
+
+      {chatProject ? (
+        <div className="customer-project-chat-modal" role="dialog" aria-modal="true" aria-label={`${chatProject.projectName} chat`}>
+          <div className="customer-project-chat-backdrop" onClick={() => setChatProject(null)} />
+          <div className="customer-project-chat-dialog">
+            <button className="customer-project-chat-close" type="button" aria-label="Close chat" onClick={() => setChatProject(null)}>
+              <IconX size={18} />
+            </button>
+            <ProjectChatPanel
+              projectCode={chatProject.projectCode}
+              projectId={chatProject.projectId}
+              title={`${chatProject.projectName} Chat`}
+            />
+          </div>
+        </div>
+      ) : null}
     </main>
   );
 }
 
 type ProjectCardProps = {
+  onOpenChat: () => void;
   project: ProjectListItemDto;
 };
 
-function ProjectCard({ project }: ProjectCardProps) {
+function ProjectCard({ onOpenChat, project }: ProjectCardProps) {
   const navigate = useNavigate();
   const stage = getProjectStage(project.status);
 
@@ -188,10 +209,16 @@ function ProjectCard({ project }: ProjectCardProps) {
           <strong>{stage.label}</strong>
         </div>
 
-        <button type="button" onClick={() => navigate('/customer/proposals')}>
-          Open Project
-          <IconArrowRight size={16} stroke={1.8} />
-        </button>
+        <div className="customer-project-list-actions">
+          <button type="button" onClick={() => navigate('/customer/proposals')}>
+            Open Project
+            <IconArrowRight size={16} stroke={1.8} />
+          </button>
+          <button type="button" onClick={onOpenChat}>
+            <IconMessageCircle size={16} stroke={1.8} />
+            Chat
+          </button>
+        </div>
       </div>
     </article>
   );

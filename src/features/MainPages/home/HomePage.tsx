@@ -6,7 +6,7 @@ import diningRoomImage from '@/assets/product-detail-shop/dining-room.png';
 import roomDetailImage from '@/assets/product-detail-shop/room-detail.png';
 import tableRoomImage from '@/assets/product-detail-shop/table-room.png';
 import terraSalonImage from '@/assets/project-list/terra-salon.png';
-import { useLang } from '@/app/providers/LangContext';
+import { useLang } from '@/app/providers/useLang';
 import { MainFooter, MainNavbar } from '@/features/MainPages/maincomponents';
 
 import './HomePage.css';

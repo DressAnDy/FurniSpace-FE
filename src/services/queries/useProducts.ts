@@ -33,18 +33,19 @@ export const productQueryKeys = {
   filesByReference: (params: FileReferenceListParams) => ['products', 'files-by-reference', params] as const,
 };
 
-export function useProductList(params?: ProductListParams) {
+export function useProductList(params?: ProductListParams, enabled = true) {
   return useQuery({
     queryKey: productQueryKeys.list(params),
     queryFn: () => getProducts(params),
+    enabled,
   });
 }
 
-export function useProductDetail(productId?: string) {
+export function useProductDetail(productId?: string, enabled = true) {
   return useQuery({
     queryKey: productQueryKeys.detail(productId ?? ''),
     queryFn: () => getProductById(productId ?? ''),
-    enabled: Boolean(productId),
+    enabled: Boolean(productId) && enabled,
   });
 }
 
@@ -110,7 +111,7 @@ export function useSetDefaultProductVersion(productId?: string) {
   });
 }
 
-export function useFilesByReference(params?: FileReferenceListParams) {
+export function useFilesByReference(params?: FileReferenceListParams, enabled = true) {
   return useQuery({
     queryKey: productQueryKeys.filesByReference(
       params ?? {
@@ -119,7 +120,7 @@ export function useFilesByReference(params?: FileReferenceListParams) {
       },
     ),
     queryFn: () => getFilesByReference(params as FileReferenceListParams),
-    enabled: Boolean(params?.referenceId),
+    enabled: Boolean(params?.referenceId) && enabled,
   });
 }
 
@@ -185,8 +186,20 @@ export function useUploadProductVersionFile(productId?: string) {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (input: { productVersionId: string; file: File; fileType?: ProductVersionFileType; description?: string | null }) =>
-      uploadProductVersionFile(input.productVersionId, input.file, input.fileType, input.description),
+    mutationFn: (input: {
+      description?: string | null;
+      file: File;
+      fileType?: ProductVersionFileType;
+      productVersionId: string;
+      skipAuthRedirect?: boolean;
+    }) =>
+      uploadProductVersionFile(
+        input.productVersionId,
+        input.file,
+        input.fileType,
+        input.description,
+        { skipAuthRedirect: input.skipAuthRedirect },
+      ),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: productQueryKeys.all });
 
