@@ -1,5 +1,5 @@
 import { type FormEvent, useState } from 'react';
-import { IconArrowLeft, IconBox, IconUpload } from '@tabler/icons-react';
+import { IconArrowLeft, IconBox, IconCube, IconUpload } from '@tabler/icons-react';
 import { useNavigate, useParams } from 'react-router-dom';
 
 import {
@@ -12,6 +12,7 @@ import { useCreateProductVersion, useProductDetail, useUploadProductVersionFile 
 
 import { AdminNavbar, AdminSidebar } from '../admincomponents';
 import './Productmanagement.css';
+import { SelectedImagePreview } from './SelectedImagePreview';
 
 export function CreateProductVersionPage() {
   const navigate = useNavigate();
@@ -22,13 +23,14 @@ export function CreateProductVersionPage() {
   const uploadVersionFileMutation = useUploadProductVersionFile(effectiveProductId);
   const [previewFile, setPreviewFile] = useState<File | null>(null);
   const [modelFile, setModelFile] = useState<File | null>(null);
-  const [textureFile, setTextureFile] = useState<File | null>(null);
+  const [fileUploadError, setFileUploadError] = useState('');
   const [createdVersionId, setCreatedVersionId] = useState<string | null>(null);
   const product = productQuery.data;
   const isSaving = createVersionMutation.isPending || uploadVersionFileMutation.isPending;
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    setFileUploadError('');
 
     if (!effectiveProductId || !product) {
       return;
@@ -59,40 +61,45 @@ export function CreateProductVersionPage() {
             estimatedPrice: normalizeOptionalNumber(formData.get('estimated_price')),
             isDefault: formData.get('is_default') === 'on',
             isPublic: true,
-            isProjectSpecific: true,
+            isProjectSpecific: false,
           })
         ).productVersionId;
 
       setCreatedVersionId(productVersionId);
 
+      const uploadErrors: string[] = [];
+
       if (previewFile) {
-        await uploadVersionFileMutation.mutateAsync({
-          productVersionId,
-          file: previewFile,
-          fileType: 'PRODUCT_PREVIEW',
-          description: 'Product version preview image',
-        });
-        setPreviewFile(null);
+        try {
+          await uploadVersionFileMutation.mutateAsync({
+            productVersionId,
+            file: previewFile,
+            fileType: 'PRODUCT_PREVIEW',
+            description: 'Product version preview image',
+          });
+          setPreviewFile(null);
+        } catch (error) {
+          uploadErrors.push(`PRODUCT_PREVIEW upload failed: ${getProductServiceResultMessage(error)}`);
+        }
       }
 
       if (modelFile) {
-        await uploadVersionFileMutation.mutateAsync({
-          productVersionId,
-          file: modelFile,
-          fileType: 'MODEL_3D',
-          description: 'Product version 3D model',
-        });
-        setModelFile(null);
+        try {
+          await uploadVersionFileMutation.mutateAsync({
+            productVersionId,
+            file: modelFile,
+            fileType: 'MODEL_3D',
+            description: 'Product version 3D model',
+          });
+          setModelFile(null);
+        } catch (error) {
+          uploadErrors.push(`MODEL_3D upload failed: ${getProductServiceResultMessage(error)}`);
+        }
       }
 
-      if (textureFile) {
-        await uploadVersionFileMutation.mutateAsync({
-          productVersionId,
-          file: textureFile,
-          fileType: 'TEXTURE',
-          description: 'Product version texture',
-        });
-        setTextureFile(null);
+      if (uploadErrors.length > 0) {
+        setFileUploadError(uploadErrors.join('\n'));
+        return;
       }
 
       sessionStorage.removeItem('admin.createdProductId');
@@ -131,7 +138,7 @@ export function CreateProductVersionPage() {
             <form className="product-form-shell" onSubmit={handleSubmit}>
               <section className="product-form-card">
                 <div className="product-form-note">
-                  <strong>Note:</strong> Version type will be submitted as STANDARD by default. Public and project-specific flags are always enabled.
+                  <strong>Note:</strong> Version type will be submitted as STANDARD by default. Public is always enabled and project-specific is always disabled.
                 </div>
 
                 <div className="product-form-section">
@@ -225,7 +232,7 @@ export function CreateProductVersionPage() {
                     </div>
                     <div className="product-setting-fixed">
                       <strong>Is Project Specific</strong>
-                      <small>Always submitted as true.</small>
+                      <small>Always submitted as false.</small>
                     </div>
                   </div>
                 </div>
@@ -241,47 +248,42 @@ export function CreateProductVersionPage() {
                       onChange={(event) => setPreviewFile(event.target.files?.[0] ?? null)}
                     />
                     <div className="product-upload-main">
-                      <IconUpload size={46} />
+                      {previewFile ? (
+                        <SelectedImagePreview className="product-upload-main-preview" file={previewFile} />
+                      ) : (
+                        <IconUpload size={46} />
+                      )}
                       <strong>{previewFile ? previewFile.name : 'Click to select version preview'}</strong>
                       <small>Uploaded as PRODUCT_PREVIEW and visible to customers</small>
                     </div>
                   </label>
 
-                  <div className="product-form-field product-form-field-full">
-                    <span>Version Model and Texture</span>
-                    <div className="product-upload-grid">
-                      <label className="product-upload-tile">
-                        <input
-                          accept=".glb,.gltf,.obj,.fbx,.stl,.usdz,model/*,application/octet-stream"
-                          className="product-upload-input"
-                          type="file"
-                          onChange={(event) => setModelFile(event.target.files?.[0] ?? null)}
-                        />
-                        <IconUpload size={28} />
-                        <span>{modelFile ? modelFile.name : 'MODEL_3D'}</span>
-                      </label>
-                      <label className="product-upload-tile">
-                        <input
-                          accept="image/jpeg,image/png,image/webp,image/gif,image/svg+xml"
-                          className="product-upload-input"
-                          type="file"
-                          onChange={(event) => setTextureFile(event.target.files?.[0] ?? null)}
-                        />
-                          <IconUpload size={28} />
-                        <span>{textureFile ? textureFile.name : 'TEXTURE'}</span>
-                      </label>
+                  <label className="product-form-field product-form-field-full">
+                    <span>3D Model File</span>
+                    <input
+                      accept=".glb,.gltf,model/gltf-binary,model/gltf+json"
+                      className="product-upload-input"
+                      type="file"
+                      onChange={(event) => setModelFile(event.target.files?.[0] ?? null)}
+                    />
+                    <div className="product-upload-main product-upload-model-main">
+                      <IconCube size={46} />
+                      <strong>{modelFile ? modelFile.name : 'Click to select GLB/glTF model'}</strong>
+                      <small>
+                        Uploaded as MODEL_3D after this Product Version is created. No Product Version ID input is needed.
+                      </small>
                     </div>
-                  </div>
+                  </label>
 
-                  <p className="product-form-helper">Product versions accept PRODUCT_PREVIEW, MODEL_3D, and TEXTURE files.</p>
+                  <p className="product-form-helper">Product versions accept one PRODUCT_PREVIEW image and one MODEL_3D GLB/glTF file.</p>
                 </div>
 
                 {createVersionMutation.isError ? (
                   <p className="product-form-error">{getProductServiceResultMessage(createVersionMutation.error)}</p>
                 ) : null}
-                {uploadVersionFileMutation.isError ? (
+                {fileUploadError ? (
                   <p className="product-form-error">
-                    Product version was created, but file upload failed: {getProductServiceResultMessage(uploadVersionFileMutation.error)}
+                    Product version was created, but file upload failed: {fileUploadError}
                   </p>
                 ) : null}
               </section>

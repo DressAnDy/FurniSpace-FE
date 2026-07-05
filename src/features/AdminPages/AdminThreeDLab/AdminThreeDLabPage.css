@@ -1,0 +1,28 @@
+.admin-three-d-lab-main {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.admin-three-d-lab-content {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.admin-three-d-lab-content .room-layout-page {
+  height: calc(100vh - 64px);
+  padding: 0;
+}
+
+.admin-three-d-lab-content .room-layout-header {
+  border-left: 0;
+  border-right: 0;
+  border-top: 0;
+  margin: 0;
+}
+
+.admin-three-d-lab-content .room-layout-shell {
+  height: calc(100vh - 128px);
+}

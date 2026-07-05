@@ -2,8 +2,8 @@
   display: flex;
   min-height: 100vh;
   width: 100%;
-  background: #faf9f7;
-  color: #2d2d2d;
+  background: var(--fs-bg);
+  color: var(--fs-ink-soft);
   font-family: Inter, "DM Sans", Arial, sans-serif;
 }
 
@@ -13,7 +13,7 @@
   min-height: 100vh;
   flex-shrink: 0;
   flex-direction: column;
-  background: #2d2d2d;
+  background: var(--fs-sidebar);
   color: #f5f1ec;
 }
 
@@ -30,9 +30,19 @@
   display: none;
 }
 
+.sale-sidebar-brand-logo {
+  display: block;
+  width: 44px;
+  height: 44px;
+  flex: 0 0 44px;
+  border-radius: 10px;
+  background: #ffffff;
+  object-fit: contain;
+}
+
 .sale-sidebar-brand h1 {
   margin: 0;
-  color: #d4af37;
+  color: var(--fs-gold);
   font-size: 20px;
   font-weight: 500;
   line-height: 28px;
@@ -73,7 +83,7 @@
 }
 
 .sale-sidebar-item:hover:not(:disabled) {
-  background: rgba(139, 111, 71, 0.35);
+  background: rgba(196, 160, 122, 0.16);
   color: #ffffff;
 }
 
@@ -82,11 +92,12 @@
 }
 
 .sale-sidebar-item-active {
-  background: #8b6f47;
-  color: #ffffff;
+  background: var(--fs-gold);
+  color: var(--fs-ink);
 }
 
 .sale-sidebar-footer {
+  margin-top: auto;
   border-top: 1px solid #3d3d3d;
   padding: 16px 24px 24px;
 }
@@ -132,8 +143,8 @@
   align-items: center;
   justify-content: space-between;
   gap: 24px;
-  border-bottom: 1px solid rgba(139, 111, 71, 0.15);
-  background: #ffffff;
+  border-bottom: 1px solid var(--fs-border);
+  background: var(--fs-surface);
   padding: 14px 24px;
 }
 
@@ -146,7 +157,7 @@
   gap: 10px;
   border: 0;
   border-radius: 6px;
-  background: #f5f1ec;
+  background: var(--fs-surface-warm);
   padding: 0 12px;
   color: #6b6b6b;
 }
@@ -155,7 +166,7 @@
   width: 100%;
   border: 0;
   background: transparent;
-  color: #2d2d2d;
+  color: var(--fs-ink-soft);
   font-size: 14px;
   outline: 0;
 }
@@ -187,9 +198,9 @@
 }
 
 .sale-button-primary {
-  border: 1px solid rgba(139, 111, 71, 0.15);
-  background: #faf9f7;
-  color: #2d2d2d;
+  border: 1px solid var(--fs-border);
+  background: var(--fs-bg);
+  color: var(--fs-ink-soft);
 }
 
 .sale-icon-button {
@@ -236,7 +247,7 @@
   align-items: center;
   justify-content: center;
   border-radius: 999px;
-  background: #8b6f47;
+  background: var(--fs-wood);
   color: #ffffff;
   font-size: 14px;
   font-weight: 500;

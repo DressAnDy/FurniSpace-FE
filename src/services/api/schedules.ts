@@ -134,7 +134,23 @@ export function getProjectScheduleServiceResultFromError(error: unknown) {
   const data = error.response?.data;
 
   if (data && typeof data === 'object' && 'status' in data) {
-    return data as ServiceResult<unknown>;
+    const fallback = data as {
+      detail?: string;
+      errors?: string[] | Record<string, string[]>;
+      message?: string;
+      title?: string;
+    };
+
+    return {
+      status: error.response?.status ?? 500,
+      message: fallback.message ?? fallback.detail ?? fallback.title,
+      errors: Array.isArray(fallback.errors)
+        ? fallback.errors
+        : fallback.errors
+          ? Object.values(fallback.errors).flat()
+          : undefined,
+      data: null as unknown,
+    };
   }
 
   return null;
@@ -158,7 +174,7 @@ export async function createProjectSchedule(input: CreateProjectScheduleInput) {
 
 export async function getProjectSchedules(params: ProjectScheduleListParams) {
   const response = await scheduleApiClient.get<ServiceResult<ProjectScheduleListData>>('/project-schedules', {
-    params: getScheduleListQueryParams(params),
+    params: getProjectScheduleListQueryParams(params),
   });
 
   return response.data.data;
@@ -166,7 +182,7 @@ export async function getProjectSchedules(params: ProjectScheduleListParams) {
 
 export async function getMyAssignedProjectSchedules(params: MyAssignedScheduleListParams = {}) {
   const response = await scheduleApiClient.get<ServiceResult<ProjectScheduleListData>>('/project-schedules/my-assigned', {
-    params: getScheduleListQueryParams(params),
+    params: getAssignedScheduleListQueryParams(params),
   });
 
   return response.data.data;
@@ -202,16 +218,34 @@ export async function updateProjectScheduleStatus(input: UpdateProjectScheduleSt
   return response.data.data;
 }
 
-function getScheduleListQueryParams(params: Partial<ProjectScheduleListParams>) {
+function getProjectScheduleListQueryParams(params: ProjectScheduleListParams) {
   return {
-    projectId: params.projectId,
+    projectId: params.projectId.trim(),
+    ...getScheduleFilterQueryParams(params),
+  };
+}
+
+function getAssignedScheduleListQueryParams(params: MyAssignedScheduleListParams) {
+  return getScheduleFilterQueryParams(params);
+}
+
+function getScheduleFilterQueryParams(params: MyAssignedScheduleListParams) {
+  return {
     scheduleType: params.scheduleType ?? undefined,
     status: params.status ?? undefined,
     from: params.from ?? undefined,
     to: params.to ?? undefined,
     page: params.page ?? 1,
-    limit: params.limit ?? 20,
+    limit: normalizeScheduleListLimit(params.limit),
   };
+}
+
+function normalizeScheduleListLimit(limit: number | null | undefined) {
+  if (!Number.isFinite(limit ?? NaN)) {
+    return 20;
+  }
+
+  return Math.min(Math.max(Math.trunc(limit as number), 1), 20);
 }
 
 function normalizeScheduleOptionalText(value: string | null | undefined) {

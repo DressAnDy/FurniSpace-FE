@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 
 import logoImage from '@/assets/Logo/Logo.png';
-import { useLang } from '@/app/providers/LangContext';
+import { useLang } from '@/app/providers/useLang';
 import { useCurrentUser, useLogout } from '@/services/queries';
 
 import './MainNavbar.css';
@@ -18,7 +18,7 @@ type MainNavbarProps = {
   linkClassName?: string;
 };
 
-const navPaths = ['/', '/projects', '/products', '/services'];
+const navPaths = ['/', '/projects', '/products'];
 
 const navbarText = {
   vi: {
@@ -32,7 +32,7 @@ const navbarText = {
     switchLang: 'Switch to English',
   },
   en: {
-    nav: ['HOME', 'PROJECTS', 'PRODUCTS', 'SERVICES'],
+    nav: ['HOME', 'PROJECTS', 'PRODUCTS'],
     register: 'SIGN UP',
     login: 'LOG IN',
     dashboard: 'My Dashboard',

@@ -1,12 +1,15 @@
 import { type FormEvent, useState } from 'react';
-import { IconArrowLeft, IconBox, IconCheck, IconEdit, IconPlus, IconX } from '@tabler/icons-react';
+import { IconArrowLeft, IconBox, IconCheck, IconCube, IconEdit, IconPlus, IconX } from '@tabler/icons-react';
 import { useNavigate, useParams } from 'react-router-dom';
 
+import { ModelViewer, type ModelViewerStatus } from '@/features/ThreeD/components';
 import {
+  type CatalogFileDto,
   getProductServiceResultMessage,
   normalizeOptionalNumber,
   normalizeOptionalText,
   normalizeRequiredText,
+  type ProductVersionDto,
   type ProductVersionType,
 } from '@/services/api';
 import { useProductDetail, useSetDefaultProductVersion, useUpdateProductVersion } from '@/services/queries';
@@ -34,15 +37,39 @@ function formatPrice(value: number | null) {
   return `${new Intl.NumberFormat('vi-VN').format(value)} VND`;
 }
 
+function getVersionModelFile(version: ProductVersionDto | null | undefined) {
+  return version?.files?.find((file) => file.fileType === 'MODEL_3D') ?? null;
+}
+
+function getVersionPreviewFile(version: ProductVersionDto | null | undefined) {
+  if (version?.thumbnail?.fileType === 'PRODUCT_PREVIEW') {
+    return version.thumbnail;
+  }
+
+  return version?.files?.find((file) => file.fileType === 'PRODUCT_PREVIEW') ?? null;
+}
+
+function getCatalogFileUrl(file: CatalogFileDto | null | undefined) {
+  const fileLike = file as (CatalogFileDto & { publicUrl?: string | null; url?: string | null }) | null | undefined;
+
+  return fileLike?.fileUrl ?? fileLike?.publicUrl ?? fileLike?.url ?? null;
+}
+
 export function ProductVersionManagement() {
   const navigate = useNavigate();
   const { productId } = useParams();
   const [editingVersionId, setEditingVersionId] = useState<string | null>(null);
+  const [previewVersionId, setPreviewVersionId] = useState<string | null>(null);
+  const [viewerStatus, setViewerStatus] = useState<ModelViewerStatus>('idle');
+  const [viewerError, setViewerError] = useState<string | null>(null);
   const productQuery = useProductDetail(productId);
   const setDefaultMutation = useSetDefaultProductVersion(productId);
   const updateVersionMutation = useUpdateProductVersion(productId);
   const product = productQuery.data;
   const versions = product?.versions ?? [];
+  const previewVersion = versions.find((version) => version.productVersionId === previewVersionId) ?? null;
+  const previewModelFile = getVersionModelFile(previewVersion);
+  const previewImageFile = getVersionPreviewFile(previewVersion);
 
   const handleEditSubmit = async (event: FormEvent<HTMLFormElement>, productVersionId: string) => {
     event.preventDefault();
@@ -132,7 +159,7 @@ export function ProductVersionManagement() {
 
             <section className="product-version-grid">
               {versions.map((version, index) => {
-                const thumbnailUrl = version.thumbnail?.fileUrl ?? version.files?.[0]?.fileUrl;
+                const thumbnailUrl = getCatalogFileUrl(getVersionPreviewFile(version));
 
                 return (
                   <article key={version.productVersionId} className="product-version-card">
@@ -142,7 +169,7 @@ export function ProductVersionManagement() {
                         {version.status}
                       </span>
                       {thumbnailUrl ? (
-                        <img className="product-card-image" src={thumbnailUrl} alt={version.versionName} />
+                        <ProductVersionImage alt={version.versionName} src={thumbnailUrl} />
                       ) : (
                         <div className="product-card-placeholder">
                           <IconBox size={42} />
@@ -188,6 +215,18 @@ export function ProductVersionManagement() {
                     </div>
 
                     <div className="product-card-actions">
+                      <button
+                        className="product-card-button product-card-button-secondary"
+                        type="button"
+                        onClick={() => {
+                          setPreviewVersionId(version.productVersionId);
+                          setViewerStatus('idle');
+                          setViewerError(null);
+                        }}
+                      >
+                        <IconCube size={16} />
+                        3D Assets
+                      </button>
                       <button
                         className="product-card-button product-card-button-secondary"
                         type="button"
@@ -330,11 +369,71 @@ export function ProductVersionManagement() {
             <div className="product-management-note">
               <strong>Note:</strong> Versions will be locked after inventory stock is created. Only Active versions can be calculated.
             </div>
+
+            {previewVersion ? (
+              <div className="product-edit-modal-overlay">
+                <section className="product-edit-modal-panel product-model-preview-modal" aria-label={`${previewVersion.versionName} 3D model preview`}>
+                  <div className="product-card-edit-heading">
+                    <div>
+                      <strong>{previewVersion.versionName}</strong>
+                      <p>
+                        {viewerStatus === 'error'
+                          ? viewerError
+                          : previewModelFile
+                            ? 'Drag to rotate, scroll to zoom.'
+                            : 'No MODEL_3D file is attached to this version.'}
+                      </p>
+                    </div>
+                    <button
+                      aria-label="Close 3D model preview"
+                      className="product-card-icon-button"
+                      type="button"
+                      onClick={() => setPreviewVersionId(null)}
+                    >
+                      <IconX size={16} />
+                    </button>
+                  </div>
+
+                  <div className="product-model-preview-canvas">
+                    <ModelViewer
+                      fallbackImageUrl={getCatalogFileUrl(previewImageFile) ?? undefined}
+                      height="100%"
+                      modelUrl={getCatalogFileUrl(previewModelFile) ?? undefined}
+                      showGrid={false}
+                      onStatusChange={(status, error) => {
+                        setViewerStatus(status);
+                        setViewerError(error);
+                      }}
+                    />
+                  </div>
+                </section>
+              </div>
+            ) : null}
           </div>
         </section>
       </div>
     </main>
   );
+}
+
+type ProductVersionImageProps = {
+  alt: string;
+  src: string;
+};
+
+function ProductVersionImage({ alt, src }: ProductVersionImageProps) {
+  const [hasError, setHasError] = useState(false);
+
+  if (hasError) {
+    return (
+      <div className="product-card-placeholder">
+        <IconBox size={42} />
+        <span>No image</span>
+      </div>
+    );
+  }
+
+  return <img className="product-card-image" src={src} alt={alt} onError={() => setHasError(true)} />;
 }
 
 export default ProductVersionManagement;

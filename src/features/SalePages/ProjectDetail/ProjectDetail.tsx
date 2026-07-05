@@ -14,6 +14,11 @@ type ProjectDetailTab = 'overview' | 'customer' | 'files' | 'chat' | 'schedules'
 
 export type ProjectDetailProject = ProjectDto;
 
+const reviewTabs: Array<{ id: ProjectDetailTab; label: string }> = [
+  { id: 'overview', label: 'Overview' },
+  { id: 'customer', label: 'Customer Info' },
+];
+
 const baseTabs: Array<{ id: ProjectDetailTab; label: string }> = [
   { id: 'overview', label: 'Overview' },
   { id: 'customer', label: 'Customer Info' },
@@ -24,32 +29,15 @@ const baseTabs: Array<{ id: ProjectDetailTab; label: string }> = [
 const assignedProjectTabs: Array<{ id: ProjectDetailTab; label: string }> = [...baseTabs, { id: 'schedules', label: 'Schedules' }];
 
 const projectStatusOptions: ProjectStatus[] = [
-  'SUBMITTED',
-  'IN_CONSULTATION',
   'NEED_BASIC_INFORMATION',
   'WAITING_FOR_DESIGNER_ASSIGNMENT',
-  'MEASUREMENT_REQUIRED',
-  'SPACE_VERIFIED',
-  'PROPOSAL_DRAFTING',
-  'WAITING_FOR_CUSTOMER_REVIEW',
-  'REVISION_REQUESTED',
-  'PROPOSAL_SELECTED',
-  'QUOTATION_SENT',
-  'QUOTATION_REVISION_REQUESTED',
-  'ORDER_CONFIRMED',
-  'IN_PRODUCTION',
-  'PRODUCTION_BLOCKED',
-  'READY_FOR_DELIVERY',
-  'DELIVERING',
-  'DELIVERED',
-  'COMPLETED',
   'REJECTED',
 ];
 
 const timelineSteps = [
   'Submitted',
-  'Need Basic Information',
   'In Consultation',
+  'Need Basic Information',
   'Waiting For Designer Assignment',
   'Measurement Required',
   'Space Verified',
@@ -58,6 +46,8 @@ const timelineSteps = [
   'Order Confirmed',
   'Completed',
 ];
+
+const rejectedTimelineSteps = ['Submitted', 'In Consultation', 'Rejected'];
 
 const statusStepMap: Record<string, string> = {
   SUBMITTED: 'Submitted',
@@ -69,31 +59,9 @@ const statusStepMap: Record<string, string> = {
   PROPOSAL_DRAFTING: 'Proposal Drafting',
   QUOTATION_SENT: 'Quotation Sent',
   ORDER_CONFIRMED: 'Order Confirmed',
+  REJECTED: 'Rejected',
   COMPLETED: 'Completed',
 };
-
-const projectStatusWorkflowOrder: ProjectStatus[] = [
-  'SUBMITTED',
-  'NEED_BASIC_INFORMATION',
-  'IN_CONSULTATION',
-  'WAITING_FOR_DESIGNER_ASSIGNMENT',
-  'MEASUREMENT_REQUIRED',
-  'SPACE_VERIFIED',
-  'PROPOSAL_DRAFTING',
-  'WAITING_FOR_CUSTOMER_REVIEW',
-  'REVISION_REQUESTED',
-  'PROPOSAL_SELECTED',
-  'QUOTATION_SENT',
-  'QUOTATION_REVISION_REQUESTED',
-  'ORDER_CONFIRMED',
-  'IN_PRODUCTION',
-  'PRODUCTION_BLOCKED',
-  'READY_FOR_DELIVERY',
-  'DELIVERING',
-  'DELIVERED',
-  'COMPLETED',
-  'REJECTED',
-];
 
 export function ProjectDetail() {
   const { projectId } = useParams();
@@ -108,24 +76,20 @@ export function ProjectDetail() {
   const project = projectQuery.data;
   const isAssignedProjectRoute = location.pathname.startsWith('/sales/assigned-projects');
   const activeSidebarLabel = isAssignedProjectRoute ? 'Assigned Projects' : 'Project Request Queue';
-  const visibleTabs = isAssignedProjectRoute ? assignedProjectTabs : baseTabs;
+  const hasConsultationAccess = Boolean(project && project.status !== 'SUBMITTED');
+  const visibleTabs = hasConsultationAccess ? (isAssignedProjectRoute ? assignedProjectTabs : baseTabs) : reviewTabs;
   const backPath = isAssignedProjectRoute ? '/sales/assigned-projects' : '/sales/project-requests';
   const backLabel = isAssignedProjectRoute ? 'Back to Assigned Projects' : 'Back to Project Request Queue';
 
   useEffect(() => {
-    if (!isAssignedProjectRoute && activeTab === 'schedules') {
+    if (!visibleTabs.some((tab) => tab.id === activeTab)) {
       setActiveTab('overview');
     }
-  }, [activeTab, isAssignedProjectRoute]);
+  }, [activeTab, visibleTabs]);
 
   useEffect(() => {
-    if (project?.status === 'IN_CONSULTATION') {
-      setSelectedStatus('WAITING_FOR_DESIGNER_ASSIGNMENT');
-      return;
-    }
-
     if (project) {
-      setSelectedStatus(project.status);
+      setSelectedStatus(getDefaultNextSalesStatus(project.status));
     }
   }, [project]);
 
@@ -144,7 +108,7 @@ export function ProjectDetail() {
       await updateProjectStatusMutation.mutateAsync({
         projectId: project.projectId,
         status: selectedStatus,
-        note: 'Project status updated by sales from project detail.',
+        note: getStatusUpdateNote(selectedStatus),
       });
       setStatusMessage('Project status updated successfully.');
     } catch (error) {
@@ -189,10 +153,10 @@ export function ProjectDetail() {
             </div>
             {project ? (
               <div className="project-detail-header-actions">
-                {isAssignedProjectRoute && hasPassedNeedBasicInformation(project.status) ? (
+                {isAssignedProjectRoute && canSalesDecideConsultation(project.status) ? (
                   <form className="project-detail-status-update" onSubmit={handleUpdateStatus}>
                     <label>
-                      <span>Update Status</span>
+                      <span>Consultation Decision</span>
                       <select
                         value={selectedStatus}
                         disabled={updateProjectStatusMutation.isPending}
@@ -209,15 +173,11 @@ export function ProjectDetail() {
                       </select>
                     </label>
                     <button type="submit" disabled={updateProjectStatusMutation.isPending || !canUpdateProjectStatus(project.status, selectedStatus)}>
-                      {updateProjectStatusMutation.isPending ? 'Updating...' : 'Update Status'}
+                      {updateProjectStatusMutation.isPending ? 'Updating...' : getStatusActionLabel(selectedStatus)}
                     </button>
                     {statusMessage ? <p className={statusMessage.toLowerCase().includes('success') ? 'project-detail-status-message' : 'project-detail-status-message project-detail-status-message-error'}>{statusMessage}</p> : null}
                   </form>
-                ) : (
-                  <button type="button" disabled>
-                    Request More Info
-                  </button>
-                )}
+                ) : null}
                 {project.status === 'SUBMITTED' || project.status === 'NEED_BASIC_INFORMATION' ? (
                   <button
                     type="button"
@@ -225,11 +185,11 @@ export function ProjectDetail() {
                     onClick={() =>
                       assignSalesMutation.mutate({
                         projectId: project.projectId,
-                        note: 'Accepted from project detail.',
+                        note: getAcceptForConsultationNote(project.status),
                       })
                     }
                   >
-                    {assignSalesMutation.isPending ? 'Accepting...' : 'Accept Request'}
+                    {assignSalesMutation.isPending ? 'Accepting...' : 'Accept for Consultation'}
                   </button>
                 ) : null}
               </div>
@@ -248,7 +208,7 @@ export function ProjectDetail() {
 
           {project ? (
             <>
-              <ProjectTimeline currentStep={statusStepMap[project.status] ?? 'Submitted'} steps={timelineSteps} dates={getTimelineDates(project)} />
+              <ProjectTimeline currentStep={statusStepMap[project.status] ?? 'Submitted'} steps={getTimelineSteps(project.status)} dates={getTimelineDates(project)} />
 
               <section className="project-detail-tabs-section">
                 <div className="project-detail-tabs">
@@ -278,6 +238,10 @@ function getTimelineDates(project: ProjectDto) {
   return dates;
 }
 
+function getTimelineSteps(status: ProjectStatus) {
+  return status === 'REJECTED' ? rejectedTimelineSteps : timelineSteps;
+}
+
 function formatDate(value: string) {
   return new Intl.DateTimeFormat('en', {
     day: '2-digit',
@@ -286,12 +250,51 @@ function formatDate(value: string) {
   }).format(new Date(value));
 }
 
-function hasPassedNeedBasicInformation(status: ProjectStatus) {
-  return projectStatusWorkflowOrder.indexOf(status) > projectStatusWorkflowOrder.indexOf('NEED_BASIC_INFORMATION');
+function canSalesDecideConsultation(status: ProjectStatus) {
+  return status === 'IN_CONSULTATION';
+}
+
+function getDefaultNextSalesStatus(status: ProjectStatus): ProjectStatus {
+  if (status === 'IN_CONSULTATION') {
+    return 'WAITING_FOR_DESIGNER_ASSIGNMENT';
+  }
+
+  if (status === 'SUBMITTED' || status === 'NEED_BASIC_INFORMATION') {
+    return 'IN_CONSULTATION';
+  }
+
+  return status;
 }
 
 function canUpdateProjectStatus(currentStatus: ProjectStatus, nextStatus: ProjectStatus) {
-  return currentStatus === 'IN_CONSULTATION' && nextStatus === 'WAITING_FOR_DESIGNER_ASSIGNMENT';
+  return (
+    currentStatus === 'IN_CONSULTATION' &&
+    (nextStatus === 'NEED_BASIC_INFORMATION' || nextStatus === 'WAITING_FOR_DESIGNER_ASSIGNMENT' || nextStatus === 'REJECTED')
+  );
+}
+
+function getStatusActionLabel(status: ProjectStatus) {
+  if (status === 'NEED_BASIC_INFORMATION') return 'Request More Info';
+  if (status === 'WAITING_FOR_DESIGNER_ASSIGNMENT') return 'Ready for Designer';
+  if (status === 'REJECTED') return 'Reject Project';
+
+  return 'Update Status';
+}
+
+function getStatusUpdateNote(status: ProjectStatus) {
+  if (status === 'NEED_BASIC_INFORMATION') return 'Sales requested more basic information from the customer.';
+  if (status === 'WAITING_FOR_DESIGNER_ASSIGNMENT') return 'Sales confirmed consultation details and moved the project to designer assignment.';
+  if (status === 'REJECTED') return 'Sales rejected the project during consultation.';
+
+  return 'Project status updated by sales from project detail.';
+}
+
+function getAcceptForConsultationNote(status: ProjectStatus) {
+  if (status === 'NEED_BASIC_INFORMATION') {
+    return 'Customer provided additional basic information. Sales accepted the project for consultation.';
+  }
+
+  return 'Sales accepted the submitted project for consultation.';
 }
 
 function formatStatusLabel(status: ProjectStatus) {

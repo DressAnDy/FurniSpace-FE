@@ -42,7 +42,7 @@ export function CustomerSchedulesPage() {
   const [message, setMessage] = useState('');
   const [activeActionId, setActiveActionId] = useState<string | null>(null);
   const projectsQuery = useProjectList({ page: 1, limit: 100 });
-  const projects = useMemo(() => projectsQuery.data?.items ?? [], [projectsQuery.data?.items]);
+  const projects = useMemo(() => (projectsQuery.data?.items ?? []).filter((project) => Boolean(project.projectId)), [projectsQuery.data?.items]);
   const scheduleQueries = useQueries({
     queries: projects.map((project) => {
       const params = {

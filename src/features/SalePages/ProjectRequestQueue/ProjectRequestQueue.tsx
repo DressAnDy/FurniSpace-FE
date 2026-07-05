@@ -20,7 +20,10 @@ export function ProjectRequestQueue() {
     page: 1,
     limit: 50,
   });
-  const projectRequests = projectQueueQuery.data?.items ?? [];
+  const projectRequests = useMemo(
+    () => projectQueueQuery.data?.items ?? [],
+    [projectQueueQuery.data?.items],
+  );
   const customerIds = useMemo(
     () => Array.from(new Set(projectRequests.map((request) => request.customerId).filter(Boolean))),
     [projectRequests],
@@ -76,7 +79,7 @@ export function ProjectRequestQueue() {
         <main className="project-request-queue-main">
           <section className="project-request-queue-heading">
             <h2>Project Request Queue</h2>
-            <p>Review and manage incoming project requests from customers</p>
+            <p>Review submitted requests and accept them for consultation</p>
           </section>
 
           <section className="project-request-queue-filters">
@@ -153,11 +156,14 @@ export function ProjectRequestQueue() {
                               onClick={() =>
                                 assignSalesMutation.mutate({
                                   projectId: request.projectId,
-                                  note: 'Accepted from project request queue.',
+                                  note:
+                                    request.status === 'NEED_BASIC_INFORMATION'
+                                      ? 'Customer provided additional basic information. Sales accepted the project for consultation.'
+                                      : 'Sales accepted the submitted project for consultation.',
                                 })
                               }
                             >
-                              Accept
+                              Accept for Consultation
                             </button>
                           </div>
                         </td>

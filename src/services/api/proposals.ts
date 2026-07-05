@@ -1,0 +1,346 @@
+import axios, { AxiosError } from 'axios';
+
+import type { RoomPlannerScenePayload } from '@/features/ThreeD/types/roomPlannerScene.types';
+
+import { getStoredAccessToken } from './tokenStore';
+
+const proposalApiClient = axios.create({
+  baseURL: getProposalApiBaseUrl(),
+  withCredentials: true,
+});
+
+proposalApiClient.interceptors.request.use((config) => {
+  const token = getStoredAccessToken();
+
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+
+  return config;
+});
+
+proposalApiClient.interceptors.response.use(
+  (response) => response,
+  (error: AxiosError) => {
+    if (error.response?.status === 401 && window.location.pathname !== '/login') {
+      window.location.assign('/login');
+    }
+
+    return Promise.reject(error);
+  },
+);
+
+export type ProposalStatus =
+  | 'DRAFT'
+  | 'PUBLISHED'
+  | 'VIEWED'
+  | 'SELECTED'
+  | 'REVISION_REQUESTED'
+  | 'REJECTED'
+  | 'ARCHIVED';
+
+export type ProposalSceneType = 'TWO_D' | 'THREE_D';
+
+export type ServiceResult<T> = {
+  status: number;
+  message?: string;
+  data: T;
+  errors?: string[];
+  errorCode?: string;
+};
+
+export type ProposalDto = {
+  proposalId: string;
+  projectId: string;
+  parentProposalId: string | null;
+  proposalName: string;
+  description: string | null;
+  versionNo: number;
+  status: ProposalStatus;
+  publishedAt: string | null;
+  selectedAt: string | null;
+  rejectedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ProposalListData = {
+  items: ProposalDto[];
+  page: number;
+  limit: number;
+  total: number;
+};
+
+export type ProposalDetailDto = ProposalDto & {
+  scenes?: ProposalSceneDto[];
+  items?: ProposalItemDto[];
+};
+
+export type ProposalListParams = {
+  projectId: string;
+  status?: ProposalStatus | null;
+  page?: number;
+  limit?: number;
+};
+
+export type ProposalSceneDto = {
+  sceneId: string;
+  proposalId: string;
+  projectAreaId: string | null;
+  sceneName: string;
+  sceneType: ProposalSceneType;
+  mongoSceneId: string | null;
+  previewFileId: string | null;
+  previewFileUrl: string | null;
+  versionNo: number;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ProposalSceneListData = {
+  items: ProposalSceneDto[];
+  page: number;
+  limit: number;
+  total: number;
+};
+
+export type ProposalSceneListParams = {
+  proposalId: string;
+  sceneType?: ProposalSceneType | null;
+  isActive?: boolean | null;
+  page?: number;
+  limit?: number;
+};
+
+export type ProposalItemListParams = {
+  proposalId: string;
+  sceneId?: string | null;
+  page?: number;
+  limit?: number;
+};
+
+export type ProposalItemListData = {
+  items: ProposalItemDto[];
+  page: number;
+  limit: number;
+  total: number;
+};
+
+export type PublishProposalData = {
+  proposalId: string;
+  projectId: string;
+  proposalStatus: ProposalStatus;
+  projectStatus: string;
+  publishedAt: string;
+};
+
+export type CreateProposalInput = {
+  projectId: string;
+  proposalName: string;
+  description?: string | null;
+};
+
+export type CreateProposalSceneInput = {
+  proposalId: string;
+  sceneName: string;
+  sceneType: ProposalSceneType;
+  projectAreaId?: string | null;
+  mongoSceneId?: string | null;
+  previewFileId?: string | null;
+};
+
+export type SaveRoomPlannerSceneInput = {
+  sceneId: string;
+  payload: RoomPlannerScenePayload;
+};
+
+export type SyncProposalItemsFromSceneInput = {
+  proposalId: string;
+  sceneId: string;
+  items: Array<{
+    customizationNote?: string | null;
+    productVersionId: string;
+    quantity: number;
+    sceneObjectId: string;
+  }>;
+};
+
+export type RoomPlannerSceneData = RoomPlannerScenePayload & {
+  sceneId: string;
+  proposalId?: string | null;
+  projectId?: string | null;
+  projectAreaId?: string | null;
+  mongoSceneId: string | null;
+  lastSavedAt?: string | null;
+};
+
+export type SaveRoomPlannerSceneData = {
+  sceneId: string;
+  mongoSceneId: string;
+  lastSavedAt: string;
+};
+
+export type ProposalItemDto = {
+  proposalItemId: string;
+  proposalId: string;
+  sceneId: string;
+  sceneObjectId: string | null;
+  productVersionId: string;
+  productNameSnapshot: string;
+  versionNameSnapshot: string;
+  materialSnapshot: string | null;
+  colorSnapshot: string | null;
+  widthSnapshot: number | null;
+  heightSnapshot: number | null;
+  depthSnapshot: number | null;
+  dimensionUnit: string | null;
+  quantity: number;
+  unitPriceSnapshot: number | null;
+  subtotalAmount: number | null;
+  customizationNote: string | null;
+};
+
+export type SyncProposalItemsFromSceneData = {
+  proposalId: string;
+  sceneId: string;
+  items: ProposalItemDto[];
+};
+
+export function getProposalServiceResultMessage(error: unknown) {
+  const result = getProposalServiceResultFromError(error);
+
+  if (!result) {
+    return 'Cannot connect to proposal API. Please check backend and VITE_API_URL.';
+  }
+
+  if (result.errors?.length) {
+    return result.errors.join('\n');
+  }
+
+  return result.message || 'Request failed. Please try again.';
+}
+
+export function getProposalServiceResultFromError(error: unknown) {
+  if (!(error instanceof AxiosError)) {
+    return null;
+  }
+
+  const data = error.response?.data;
+
+  if (data && typeof data === 'object' && 'status' in data) {
+    return data as ServiceResult<unknown>;
+  }
+
+  return null;
+}
+
+export async function createProposal(input: CreateProposalInput) {
+  const response = await proposalApiClient.post<ServiceResult<ProposalDto>>(`/projects/${input.projectId}/proposals`, {
+    proposalName: input.proposalName.trim(),
+    description: input.description?.trim() || null,
+  });
+
+  return response.data.data;
+}
+
+export async function getProjectProposals(params: ProposalListParams) {
+  const response = await proposalApiClient.get<ServiceResult<ProposalListData>>(`/projects/${params.projectId}/proposals`, {
+    params: {
+      status: params.status ?? undefined,
+      page: params.page ?? 1,
+      limit: params.limit ?? 20,
+    },
+  });
+
+  return response.data.data;
+}
+
+export async function getProposalById(proposalId: string) {
+  const response = await proposalApiClient.get<ServiceResult<ProposalDetailDto>>(`/proposals/${proposalId}`);
+
+  return response.data.data;
+}
+
+export async function publishProposal(proposalId: string, note?: string | null) {
+  const response = await proposalApiClient.patch<ServiceResult<PublishProposalData>>(`/proposals/${proposalId}/publish`, {
+    note: note?.trim() || null,
+  });
+
+  return response.data.data;
+}
+
+export async function createProposalScene(input: CreateProposalSceneInput) {
+  const response = await proposalApiClient.post<ServiceResult<ProposalSceneDto>>(`/proposals/${input.proposalId}/scenes`, {
+    sceneName: input.sceneName.trim(),
+    sceneType: input.sceneType,
+    projectAreaId: input.projectAreaId ?? null,
+    mongoSceneId: input.mongoSceneId ?? null,
+    previewFileId: input.previewFileId ?? null,
+  });
+
+  return response.data.data;
+}
+
+export async function getProposalScenes(params: ProposalSceneListParams) {
+  const response = await proposalApiClient.get<ServiceResult<ProposalSceneListData>>(`/proposals/${params.proposalId}/scenes`, {
+    params: {
+      sceneType: params.sceneType ?? undefined,
+      isActive: params.isActive ?? undefined,
+      page: params.page ?? 1,
+      limit: params.limit ?? 20,
+    },
+  });
+
+  return response.data.data;
+}
+
+export async function getRoomPlannerScene(sceneId: string) {
+  const response = await proposalApiClient.get<ServiceResult<RoomPlannerSceneData>>(`/proposal-scenes/${sceneId}/room-planner`);
+
+  return response.data.data;
+}
+
+export async function saveRoomPlannerScene(input: SaveRoomPlannerSceneInput) {
+  const response = await proposalApiClient.put<ServiceResult<SaveRoomPlannerSceneData>>(
+    `/proposal-scenes/${input.sceneId}/room-planner`,
+    input.payload,
+  );
+
+  return response.data.data;
+}
+
+export async function getProposalItems(params: ProposalItemListParams) {
+  const response = await proposalApiClient.get<ServiceResult<ProposalItemListData>>(`/proposals/${params.proposalId}/items`, {
+    params: {
+      sceneId: params.sceneId ?? undefined,
+      page: params.page ?? 1,
+      limit: params.limit ?? 20,
+    },
+  });
+
+  return response.data.data;
+}
+
+export async function syncProposalItemsFromScene(input: SyncProposalItemsFromSceneInput) {
+  const response = await proposalApiClient.post<ServiceResult<SyncProposalItemsFromSceneData>>(
+    `/proposals/${input.proposalId}/items/sync-from-scene`,
+    {
+      sceneId: input.sceneId,
+      items: input.items.map((item) => ({
+        sceneObjectId: item.sceneObjectId,
+        productVersionId: item.productVersionId,
+        quantity: item.quantity,
+        customizationNote: item.customizationNote?.trim() || null,
+      })),
+    },
+  );
+
+  return response.data.data;
+}
+
+function getProposalApiBaseUrl() {
+  const configuredApiUrl = import.meta.env.VITE_API_BASE_URL ?? import.meta.env.VITE_API_URL;
+
+  return configuredApiUrl?.replace(/\/api\/?$/, '');
+}

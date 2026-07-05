@@ -8,21 +8,23 @@ import {
   IconMessage,
   IconPalette,
   IconPlus,
+  IconRefresh,
   IconRulerMeasure,
 } from '@tabler/icons-react';
 import { useQueries } from '@tanstack/react-query';
 import { useMemo, useState, type ComponentType, type CSSProperties } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 
 import { DesignerLayout } from '@/features/DesignerPages/designercomponents';
 import { getAccountById } from '@/services/api';
-import { getProjectServiceResultMessage, type ProjectDto } from '@/services/api/projects';
-import { useProjectDetail } from '@/services/queries';
+import { getProposalServiceResultMessage } from '@/services/api/proposals';
+import { getProjectServiceResultMessage, type ProjectDto, type ProjectStatus } from '@/services/api/projects';
+import { useCreateProposal, useCreateProposalScene, useProjectDetail, useUpdateProjectStatus } from '@/services/queries';
 
 import { ChatTab, CustomizationTab, OverviewTab, ProposalsTab, SchedulesTab, SpaceFilesTab } from './tabs';
 import './DesignerProjectDetail.css';
 
-type DesignerProjectDetailTab = 'overview' | 'space-files' | 'proposals' | 'scenes' | 'feedback' | 'customization' | 'schedules' | 'chat' | 'handover';
+type DesignerProjectDetailTab = 'overview' | 'space-files' | 'proposals' | 'feedback' | 'customization' | 'schedules' | 'chat';
 
 type DesignerProjectTabProps = {
   project: ProjectDto;
@@ -31,26 +33,28 @@ type DesignerProjectTabProps = {
 type DesignerProjectTabConfig = {
   id: DesignerProjectDetailTab;
   label: string;
-  badge?: string;
   component?: ComponentType<DesignerProjectTabProps>;
 };
 
 const detailTabs: DesignerProjectTabConfig[] = [
   { id: 'overview', label: 'Overview', component: OverviewTab },
   { id: 'space-files', label: 'Space Files', component: SpaceFilesTab },
-  { id: 'proposals', label: 'Proposals', badge: '2', component: ProposalsTab },
-  { id: 'scenes', label: '2D/3D Scenes', badge: '3' },
+  { id: 'proposals', label: 'Proposals', component: ProposalsTab },
   { id: 'feedback', label: 'Feedback' },
   { id: 'customization', label: 'Customization', component: CustomizationTab },
   { id: 'schedules', label: 'Schedules', component: SchedulesTab },
   { id: 'chat', label: 'Chat', component: ChatTab },
-  { id: 'handover', label: 'Handover' },
 ];
 
 export function DesignerProjectDetail() {
+  const navigate = useNavigate();
   const { projectId } = useParams();
   const [activeTab, setActiveTab] = useState<DesignerProjectDetailTab>('overview');
+  const [projectActionMessage, setProjectActionMessage] = useState<{ tone: 'error' | 'success'; text: string } | null>(null);
   const projectQuery = useProjectDetail(projectId);
+  const createProposalMutation = useCreateProposal();
+  const createProposalSceneMutation = useCreateProposalScene();
+  const updateProjectStatusMutation = useUpdateProjectStatus();
   const project = projectQuery.data;
   const accountIds = useMemo(() => [project?.customerId, project?.assignedSalesId].filter((accountId): accountId is string => Boolean(accountId)), [project?.assignedSalesId, project?.customerId]);
   const accountQueries = useQueries({
@@ -85,6 +89,63 @@ export function DesignerProjectDetail() {
       ]
     : [];
 
+  async function openProposalSceneEditor() {
+    if (!project) {
+      return;
+    }
+
+    setProjectActionMessage(null);
+
+    try {
+      const proposal = await createProposalMutation.mutateAsync({
+        projectId: project.projectId,
+        proposalName: `${project.projectName} 3D Proposal`,
+        description: 'Created from designer Room Planner.',
+      });
+      const scene = await createProposalSceneMutation.mutateAsync({
+        proposalId: proposal.proposalId,
+        sceneName: `${project.projectName} 3D Scene`,
+        sceneType: 'THREE_D',
+      });
+
+      navigate(`/proposal-scenes/${scene.sceneId}/room-planner`, {
+        state: {
+          mode: 'create-proposal',
+          projectId: project.projectId,
+          proposalId: proposal.proposalId,
+          returnTo: `/designer/assigned-projects/${project.projectId}`,
+        },
+      });
+    } catch (error) {
+      setProjectActionMessage({ tone: 'error', text: getProposalServiceResultMessage(error) });
+    }
+  }
+
+  async function updateProjectToNextDesignStatus() {
+    if (!project) {
+      return;
+    }
+
+    const nextStatus = getNextDesignStatus(project.status);
+
+    if (!nextStatus) {
+      return;
+    }
+
+    setProjectActionMessage(null);
+
+    try {
+      await updateProjectStatusMutation.mutateAsync({
+        projectId: project.projectId,
+        status: nextStatus,
+        note: `Designer moved project from ${project.status} to ${nextStatus} from project detail.`,
+      });
+      setProjectActionMessage({ tone: 'success', text: `Project status updated to ${formatEnumLabel(nextStatus)}.` });
+    } catch (error) {
+      setProjectActionMessage({ tone: 'error', text: getProjectServiceResultMessage(error) });
+    }
+  }
+
   return (
     <DesignerLayout activeLabel="Assigned Projects" searchPlaceholder="Search projects, proposals...">
       <section className="designer-project-detail-page">
@@ -95,6 +156,11 @@ export function DesignerProjectDetail() {
 
         {projectQuery.isLoading ? <section className="designer-card designer-project-state">Loading project detail...</section> : null}
         {projectQuery.isError ? <section className="designer-card designer-project-state designer-project-state-error">{getProjectServiceResultMessage(projectQuery.error)}</section> : null}
+        {projectActionMessage ? (
+          <section className={`designer-card designer-project-state ${projectActionMessage.tone === 'error' ? 'designer-project-state-error' : 'designer-project-state-success'}`}>
+            {projectActionMessage.text}
+          </section>
+        ) : null}
 
         {project ? (
           <>
@@ -121,10 +187,28 @@ export function DesignerProjectDetail() {
                   <span>{getProjectProgress(project.status)}%</span>
                 </div>
                 <p>Design Progress</p>
+                <div className="designer-project-current-status">
+                  <span>Current Status</span>
+                  <strong>{formatEnumLabel(project.status)}</strong>
+                </div>
                 <div className="designer-project-progress-actions">
-                  <button className="designer-project-detail-button designer-project-detail-button-primary" type="button">
+                  <button
+                    className="designer-project-detail-button"
+                    disabled={!getNextDesignStatus(project.status) || updateProjectStatusMutation.isPending}
+                    type="button"
+                    onClick={() => void updateProjectToNextDesignStatus()}
+                  >
+                    <IconRefresh size={17} />
+                    {updateProjectStatusMutation.isPending ? 'Updating...' : getDesignStatusActionLabel(project.status)}
+                  </button>
+                  <button
+                    className="designer-project-detail-button designer-project-detail-button-primary"
+                    disabled={project.status !== 'PROPOSAL_DRAFTING' || createProposalMutation.isPending || createProposalSceneMutation.isPending}
+                    type="button"
+                    onClick={() => void openProposalSceneEditor()}
+                  >
                     <IconPlus size={17} />
-                    Create Proposal
+                    {createProposalMutation.isPending || createProposalSceneMutation.isPending ? 'Creating...' : 'Create Proposal'}
                   </button>
                   <button className="designer-project-detail-button" type="button">
                     <IconCube size={17} />
@@ -153,7 +237,6 @@ export function DesignerProjectDetail() {
                       type="button"
                     >
                       <span>{tab.label}</span>
-                      {tab.badge ? <em>{tab.badge}</em> : null}
                     </button>
                   );
                 })}
@@ -198,6 +281,36 @@ function getProjectProgress(status: string) {
   };
 
   return progressByStatus[status] ?? 10;
+}
+
+function getNextDesignStatus(status: ProjectStatus): ProjectStatus | null {
+  if (status === 'MEASUREMENT_REQUIRED') return 'SPACE_VERIFIED';
+  if (status === 'SPACE_VERIFIED') return 'PROPOSAL_DRAFTING';
+  if (status === 'REVISION_REQUESTED') return 'PROPOSAL_DRAFTING';
+
+  return null;
+}
+
+function getDesignStatusActionLabel(status: ProjectStatus) {
+  const nextStatus = getNextDesignStatus(status);
+
+  if (status === 'MEASUREMENT_REQUIRED') {
+    return 'Mark Space Verified';
+  }
+
+  if (status === 'SPACE_VERIFIED') {
+    return 'Start Proposal Draft';
+  }
+
+  if (status === 'REVISION_REQUESTED') {
+    return 'Start Revision Draft';
+  }
+
+  if (!nextStatus) {
+    return status === 'PROPOSAL_DRAFTING' ? 'Ready for Proposal' : 'No Designer Step';
+  }
+
+  return `Update to ${formatEnumLabel(nextStatus)}`;
 }
 
 function getStatusTone(status: string) {

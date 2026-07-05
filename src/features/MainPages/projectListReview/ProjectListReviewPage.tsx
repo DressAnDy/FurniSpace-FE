@@ -3,7 +3,7 @@ import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 
 import terraSalonUrl from '@/assets/project-list/terra-salon.png';
-import { useLang } from '@/app/providers/LangContext';
+import { useLang } from '@/app/providers/useLang';
 import { MainNavbar } from '@/features/MainPages/maincomponents';
 import { SiteFooter } from '@/shared/components';
 

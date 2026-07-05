@@ -1,27 +1,17 @@
 import {
-  IconBell,
-  IconBox,
-  IconBriefcase,
   IconChartBar,
-  IconClipboardCheck,
-  IconCreditCard,
   IconCube,
-  IconFileDollar,
   IconFolder,
   IconHome,
   IconLogout,
-  IconMessage,
   IconPackage,
-  IconSettings,
-  IconShield,
-  IconShoppingCart,
-  IconStar,
   IconTags,
   IconUsers,
   type Icon,
 } from '@tabler/icons-react';
 import { NavLink, useNavigate } from 'react-router-dom';
 
+import logoImage from '@/assets/Logo/Logo.png';
 import { useLogout } from '@/services/queries';
 
 type SidebarItem = {
@@ -35,20 +25,10 @@ const sidebarItems: SidebarItem[] = [
   { label: 'User & Role Management', icon: IconUsers, path: '/admin/users' },
   { label: 'Product Categories', icon: IconTags, path: '/admin/categories' },
   { label: 'Products', icon: IconPackage, path: '/admin/products' },
-  { label: 'Product Versions', icon: IconBox, path: '/admin/products' },
-  { label: '3D Model & File Library', icon: IconCube },
+  { label: '3D Model & File Library', icon: IconCube, path: '/admin/catalog/models' },
+  { label: '3D Lab', icon: IconCube, path: '/admin/3d-lab' },
   { label: 'Projects', icon: IconFolder },
-  { label: 'Project Chats', icon: IconMessage },
-  { label: 'Proposals & Scenes', icon: IconClipboardCheck },
-  { label: 'Customization Requests', icon: IconSettings },
-  { label: 'Quotations', icon: IconFileDollar },
-  { label: 'Orders & Payments', icon: IconShoppingCart },
-  { label: 'Payments', icon: IconCreditCard },
-  { label: 'Production', icon: IconBriefcase },
-  { label: 'Reviews', icon: IconStar },
-  { label: 'Notifications', icon: IconBell },
   { label: 'Reports', icon: IconChartBar },
-  { label: 'System Settings', icon: IconShield },
 ];
 
 type AdminSidebarProps = {
@@ -70,9 +50,7 @@ export function AdminSidebar({ activeLabel }: AdminSidebarProps) {
   return (
     <aside className="admin-sidebar">
       <div className="admin-brand">
-        <div className="admin-brand-mark">
-          <IconCube size={24} />
-        </div>
+        <img className="admin-brand-logo" src={logoImage} alt="FurniSpace" />
         <div>
           <h1>FurniSpace</h1>
           <p>Admin Workspace</p>

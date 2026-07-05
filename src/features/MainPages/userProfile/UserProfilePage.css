@@ -3,6 +3,7 @@
   background:
     linear-gradient(180deg, #fafaf8 0%, #f5f1eb 54%, #fafaf8 100%);
   color: #141210;
+  font-family: "Be Vietnam Pro", Inter, "DM Sans", Arial, sans-serif;
 }
 
 .user-profile-shell {
@@ -157,16 +158,18 @@
   color: #c4a07a;
   font-size: 10px;
   font-weight: 800;
-  letter-spacing: 4px;
+  letter-spacing: 0;
   text-transform: uppercase;
 }
 
 .user-profile-hero h1 {
   max-width: 720px;
   margin: 0;
-  font-family: "Libre Baskerville", Georgia, serif;
-  font-size: 42px;
-  line-height: 1.12;
+  font-family: "Be Vietnam Pro", Inter, "DM Sans", Arial, sans-serif;
+  font-size: 36px;
+  font-weight: 850;
+  letter-spacing: 0;
+  line-height: 1.18;
 }
 
 .user-profile-hero p:not(.user-profile-eyebrow) {
@@ -374,7 +377,9 @@
 
 .user-profile-gold-panel h2 {
   margin: 0;
-  font-family: "Libre Baskerville", Georgia, serif;
+  font-family: "Be Vietnam Pro", Inter, "DM Sans", Arial, sans-serif;
+  font-weight: 850;
+  letter-spacing: 0;
   line-height: 1.2;
 }
 

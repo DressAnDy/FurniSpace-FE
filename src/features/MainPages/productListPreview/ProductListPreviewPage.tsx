@@ -2,18 +2,25 @@ import {
   IconAdjustmentsHorizontal,
   IconChevronDown,
   IconHeart,
+  IconPackage,
   IconSearch,
 } from '@tabler/icons-react';
+import { useState } from 'react';
+import { Link } from 'react-router-dom';
 
 import categoryChairsUrl from '@/assets/product-list/category-chairs.png';
 import categoryNewArrivalsUrl from '@/assets/product-list/category-new-arrivals.png';
 import categorySofasUrl from '@/assets/product-list/category-sofas.png';
 import categoryTablesUrl from '@/assets/product-list/category-tables.png';
-import diningTableUrl from '@/assets/product-list/dining-table.png';
-import sofaUrl from '@/assets/product-list/sofa.png';
-import tableUrl from '@/assets/product-list/table.png';
-import { useLang } from '@/app/providers/LangContext';
+import { useLang } from '@/app/providers/useLang';
 import { MainNavbar } from '@/features/MainPages/maincomponents';
+import {
+  formatCatalogPrice,
+  getProductThumbnailImage,
+  getPublicDefaultVersion,
+} from '@/features/MainPages/productCatalog/productCatalogUtils';
+import { getProductServiceResultMessage, type ProductListItemDto } from '@/services/api';
+import { useProductList } from '@/services/queries';
 import { SiteFooter } from '@/shared/components';
 
 import './ProductListPreviewPage.css';
@@ -27,25 +34,15 @@ const pageContent = {
     searchLabel: 'Tìm kiếm sản phẩm',
     allFilters: 'Tất cả bộ lọc',
     filters: ['Màu sắc', 'Chất liệu', 'Bộ sưu tập', 'Giá'],
-    itemCount: '518 sản phẩm',
+    itemCount: (count: number) => `${count} sản phẩm`,
     sortLabel: 'Phù hợp nhất',
-    newBadge: 'Mới',
-    fromPrefix: 'Từ ',
+    noProducts: 'Chưa có sản phẩm public phù hợp để hiển thị.',
+    loading: 'Đang tải danh sách sản phẩm...',
     categories: [
       { imageUrl: categoryNewArrivalsUrl, title: 'Mới nhất' },
       { imageUrl: categorySofasUrl, title: 'Ghế sofa' },
       { imageUrl: categoryChairsUrl, title: 'Ghế' },
       { imageUrl: categoryTablesUrl, title: 'Bàn' },
-    ],
-    products: [
-      { badge: 'Mới', imageUrl: tableUrl, material: 'Gỗ sồi, mây, thép', price: '36.990.000 ₫', title: 'Bàn Phụ', swatches: ['oak', 'linen', 'black'] },
-      { badge: 'Mới', imageUrl: diningTableUrl, material: 'Gỗ sồi nguyên khối, da', price: '93.790.000 ₫', title: 'Bàn Ăn', swatches: ['natural', 'cream', 'charcoal'] },
-      { imageUrl: sofaUrl, material: 'Vải boucle, gỗ sồi, mút', price: 'Từ 71.290.000 ₫', title: 'Ghế Sofa', swatches: ['boucle', 'tan', 'graphite'] },
-      { imageUrl: tableUrl, material: 'Gỗ óc chó, gốm sứ', price: '42.500.000 ₫', title: 'Bàn Trà', swatches: ['walnut', 'stone', 'black'] },
-      { imageUrl: diningTableUrl, material: 'Gỗ sồi, kim loại', price: '64.990.000 ₫', title: 'Bàn Ăn Tròn', swatches: ['natural', 'cream', 'graphite'] },
-      { badge: 'Mới', imageUrl: sofaUrl, material: 'Vải lanh, gỗ tần bì', price: '78.900.000 ₫', title: 'Sofa Modular', swatches: ['boucle', 'tan', 'charcoal'] },
-      { imageUrl: tableUrl, material: 'Gỗ sồi hun khói, đồng thau', price: '29.490.000 ₫', title: 'Bàn Phòng Khách', swatches: ['walnut', 'brass', 'linen'] },
-      { imageUrl: diningTableUrl, material: 'Đá cẩm thạch, gỗ sồi', price: '88.200.000 ₫', title: 'Bàn Mở Rộng', swatches: ['stone', 'oak', 'black'] },
     ],
   },
   en: {
@@ -56,25 +53,15 @@ const pageContent = {
     searchLabel: 'Search products',
     allFilters: 'All filters',
     filters: ['Colour', 'Material', 'Collection', 'Price'],
-    itemCount: '518 items',
+    itemCount: (count: number) => `${count} items`,
     sortLabel: 'Relevance',
-    newBadge: 'New',
-    fromPrefix: 'From ',
+    noProducts: 'No public standard products are available yet.',
+    loading: 'Loading products...',
     categories: [
       { imageUrl: categoryNewArrivalsUrl, title: 'New arrivals' },
       { imageUrl: categorySofasUrl, title: 'Sofas' },
       { imageUrl: categoryChairsUrl, title: 'Chairs' },
       { imageUrl: categoryTablesUrl, title: 'Tables' },
-    ],
-    products: [
-      { badge: 'New', imageUrl: tableUrl, material: 'Oak, rattan, steel', price: '36,990,000 ₫', title: 'Side Table', swatches: ['oak', 'linen', 'black'] },
-      { badge: 'New', imageUrl: diningTableUrl, material: 'Solid oak, leather', price: '93,790,000 ₫', title: 'Dining Table', swatches: ['natural', 'cream', 'charcoal'] },
-      { imageUrl: sofaUrl, material: 'Boucle, oak, foam', price: 'From 71,290,000 ₫', title: 'Sofa', swatches: ['boucle', 'tan', 'graphite'] },
-      { imageUrl: tableUrl, material: 'Walnut, ceramic', price: '42,500,000 ₫', title: 'Coffee Table', swatches: ['walnut', 'stone', 'black'] },
-      { imageUrl: diningTableUrl, material: 'Oak veneer, metal', price: '64,990,000 ₫', title: 'Round Dining Table', swatches: ['natural', 'cream', 'graphite'] },
-      { badge: 'New', imageUrl: sofaUrl, material: 'Linen, ash wood', price: '78,900,000 ₫', title: 'Modular Sofa', swatches: ['boucle', 'tan', 'charcoal'] },
-      { imageUrl: tableUrl, material: 'Smoked oak, brass', price: '29,490,000 ₫', title: 'Lounge Table', swatches: ['walnut', 'brass', 'linen'] },
-      { imageUrl: diningTableUrl, material: 'Marble, oak', price: '88,200,000 ₫', title: 'Extension Table', swatches: ['stone', 'oak', 'black'] },
     ],
   },
 } as const;
@@ -82,6 +69,8 @@ const pageContent = {
 export function ProductListPreviewPage() {
   const { lang } = useLang();
   const t = pageContent[lang];
+  const productListQuery = useProductList({ page: 1, limit: 100 });
+  const products = (productListQuery.data?.items ?? []).filter((product) => getPublicDefaultVersion(product));
 
   return (
     <main className="product-list-preview-page">
@@ -124,16 +113,22 @@ export function ProductListPreviewPage() {
 
       <section className="product-list-preview-results">
         <div className="product-list-preview-results-head">
-          <p>{t.itemCount}</p>
+          <p>{t.itemCount(products.length)}</p>
           <button type="button">
             <span>{t.sortLabel}</span>
             <IconChevronDown size={18} stroke={1.8} />
           </button>
         </div>
 
+        {productListQuery.isLoading ? <div className="product-list-preview-state">{t.loading}</div> : null}
+        {productListQuery.isError ? <div className="product-list-preview-state is-error">{getProductServiceResultMessage(productListQuery.error)}</div> : null}
+        {!productListQuery.isLoading && !productListQuery.isError && products.length === 0 ? (
+          <div className="product-list-preview-state">{t.noProducts}</div>
+        ) : null}
+
         <div className="product-list-preview-grid">
-          {t.products.map((product) => (
-            <ProductCard key={`${product.title}-${product.price}`} newBadgeLabel={t.newBadge} {...product} />
+          {products.map((product) => (
+            <ProductCard key={product.productId} product={product} />
           ))}
         </div>
       </section>
@@ -144,41 +139,60 @@ export function ProductListPreviewPage() {
 }
 
 type ProductCardProps = {
-  badge?: string;
-  imageUrl: string;
-  material: string;
-  newBadgeLabel: string;
-  price: string;
-  swatches: readonly string[];
-  title: string;
+  product: ProductListItemDto;
 };
 
-function ProductCard({ badge, imageUrl, material, newBadgeLabel, price, swatches, title }: ProductCardProps) {
+function ProductCard({ product }: ProductCardProps) {
+  const defaultVersion = getPublicDefaultVersion(product);
+  const imageUrl = getProductThumbnailImage(product);
+
   return (
     <article className="product-list-preview-card">
-      <div className="product-list-preview-card-media">
-        {badge ? <span className="product-list-preview-badge">{newBadgeLabel}</span> : null}
-        <img src={imageUrl} alt={title} />
-        <div className="product-list-preview-card-actions">
-          <button aria-label={`Save ${title}`} type="button">
-            <IconHeart size={19} stroke={1.8} />
-          </button>
+      <Link className="product-list-preview-card-link" to={`/products/detail?productId=${product.productId}`}>
+        <div className="product-list-preview-card-media">
+          {imageUrl ? (
+            <ProductCardImage alt={product.productName} src={imageUrl} />
+          ) : (
+            <div className="product-list-preview-card-placeholder">
+              <IconPackage size={52} stroke={1.4} />
+              <span>No image</span>
+            </div>
+          )}
+          <div className="product-list-preview-card-actions">
+            <button aria-label={`Save ${product.productName}`} type="button" onClick={(event) => event.preventDefault()}>
+              <IconHeart size={19} stroke={1.8} />
+            </button>
+          </div>
         </div>
-      </div>
 
-      <div className="product-list-preview-card-body">
-        <div>
-          <h2>{title}</h2>
-          <p>{material}</p>
+        <div className="product-list-preview-card-body">
+          <div>
+            <h2>{product.productName}</h2>
+            <p>{product.description ?? product.categoryName}</p>
+          </div>
+          <strong>{formatCatalogPrice(defaultVersion?.estimatedPrice)}</strong>
         </div>
-        <div className="product-list-preview-card-swatches" aria-label={`${title} colors`}>
-          {swatches.map((swatch) => (
-            <span className={`product-list-preview-swatch-${swatch}`} key={swatch} />
-          ))}
-        </div>
-        <strong>{price}</strong>
-      </div>
+      </Link>
     </article>
   );
 }
 
+type ProductCardImageProps = {
+  alt: string;
+  src: string;
+};
+
+function ProductCardImage({ alt, src }: ProductCardImageProps) {
+  const [hasError, setHasError] = useState(false);
+
+  if (hasError) {
+    return (
+      <div className="product-list-preview-card-placeholder">
+        <IconPackage size={52} stroke={1.4} />
+        <span>No image</span>
+      </div>
+    );
+  }
+
+  return <img src={src} alt={alt} onError={() => setHasError(true)} />;
+}

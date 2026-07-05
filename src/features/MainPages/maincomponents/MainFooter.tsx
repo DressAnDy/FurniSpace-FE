@@ -2,7 +2,7 @@ import { IconClock, IconMail, IconMapPin, IconPhone } from '@tabler/icons-react'
 import type { ReactNode } from 'react';
 
 import logoImage from '@/assets/Logo/Logo.png';
-import { useLang } from '@/app/providers/LangContext';
+import { useLang } from '@/app/providers/useLang';
 
 import './MainFooter.css';
 
@@ -55,14 +55,6 @@ export function MainFooter() {
             <FooterLine icon={<IconPhone size={16} />}>+84 770 111 101</FooterLine>
             <FooterLine icon={<IconMail size={16} />}>hello@furnispace.vn</FooterLine>
             <FooterLine icon={<IconClock size={16} />}>{t.hours}</FooterLine>
-          </FooterColumn>
-
-          <FooterColumn title={t.servicesTitle}>
-            {t.services.map((item) => (
-              <p key={item} className="main-footer-text">
-                {item}
-              </p>
-            ))}
           </FooterColumn>
 
           <FooterColumn title={t.consultTitle}>

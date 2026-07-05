@@ -5,13 +5,13 @@ import {
   IconHome,
   IconMessageCircle,
   IconPlus,
-  IconReceipt,
-  IconSparkles,
 } from '@tabler/icons-react';
 import type { ReactNode } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 
 import { CustomerUserSummary } from '@/shared/components/CustomerUserSummary';
+
+import './CustomerNavbar.css';
 
 type CustomerNavbarItem = {
   label: string;
@@ -23,9 +23,6 @@ const customerNavbarItems: CustomerNavbarItem[] = [
   { icon: <IconHome size={15} stroke={1.8} />, label: 'Home', path: '/customer/dashboard' },
   { icon: <IconFileText size={15} stroke={1.8} />, label: 'My Projects', path: '/customer/projects' },
   { icon: <IconCalendarEvent size={15} stroke={1.8} />, label: 'Schedules', path: '/customer/schedules' },
-  { icon: <IconFileText size={15} stroke={1.8} />, label: 'Design Proposals', path: '/customer/proposals' },
-  { icon: <IconSparkles size={15} stroke={1.8} />, label: '2D/3D Review', path: '/customer/3d-preview' },
-  { icon: <IconReceipt size={15} stroke={1.8} />, label: 'Quotations', path: '/customer/proposals' },
   { icon: <IconMessageCircle size={15} stroke={1.8} />, label: 'Project Chat', path: '/customer/chat' },
   { icon: <IconBox size={15} stroke={1.8} />, label: 'Handover', path: '/customer/projects' },
 ];
@@ -39,34 +36,36 @@ export function CustomerNavbar({ activeLabel, classPrefix }: CustomerNavbarProps
   const navigate = useNavigate();
 
   return (
-    <header className={`${classPrefix}-topnav`}>
-      <NavLink className={`${classPrefix}-logo`} to="/customer/dashboard">
-        <span>
-          <IconBox size={19} stroke={1.8} />
-        </span>
-        <strong>FurniSpace</strong>
-      </NavLink>
+    <>
+      <aside className={`${classPrefix}-sidenav customer-shell-sidebar`}>
+        <NavLink className={`${classPrefix}-logo customer-shell-logo`} to="/customer/dashboard">
+          <span>
+            <IconBox size={19} stroke={1.8} />
+          </span>
+          <strong>FurniSpace</strong>
+        </NavLink>
 
-      <nav aria-label="Customer navigation">
-        {customerNavbarItems.map((item) => (
-          <NavLink
-            className={item.label === activeLabel ? `${classPrefix}-nav-active` : undefined}
-            key={item.label}
-            to={item.path}
-          >
-            {item.icon}
-            <span>{item.label}</span>
-          </NavLink>
-        ))}
-      </nav>
+        <nav className="customer-shell-nav" aria-label="Customer navigation">
+          {customerNavbarItems.map((item) => (
+            <NavLink
+              className={item.label === activeLabel ? `${classPrefix}-nav-active customer-shell-nav-active` : undefined}
+              key={item.label}
+              to={item.path}
+            >
+              {item.icon}
+              <span>{item.label}</span>
+            </NavLink>
+          ))}
+        </nav>
+      </aside>
 
-      <div className={`${classPrefix}-userbar`}>
-        <button className={`${classPrefix}-create`} type="button" onClick={() => navigate('/customer/project-request')}>
+      <header className={`${classPrefix}-userbar customer-shell-actionbar`}>
+        <button className={`${classPrefix}-create customer-shell-create`} type="button" onClick={() => navigate('/customer/project-request')}>
           <IconPlus size={15} stroke={2} />
           Create Project Request
         </button>
         <CustomerUserSummary classPrefix={classPrefix} />
-      </div>
-    </header>
+      </header>
+    </>
   );
 }

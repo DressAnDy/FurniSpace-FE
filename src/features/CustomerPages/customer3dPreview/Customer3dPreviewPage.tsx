@@ -1,155 +1,330 @@
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  IconArrowsMove,
   IconChevronLeft,
-  IconChevronRight,
   IconCircleCheck,
   IconCube,
-  IconEye,
-  IconGridDots,
   IconLayoutDashboard,
   IconMaximize,
   IconMessageDots,
-  IconRotateClockwise,
-  IconZoomIn,
-  IconZoomOut,
 } from '@tabler/icons-react';
-import { useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 
-import './Customer3dPreviewPage.css';
 import { CustomerNavbar } from '@/features/CustomerPages/customercomponents';
-import { mockProposalItems, mockProposalScenes } from '@/features/CustomerPages/mockData';
+import { BlueprintCanvas } from '@/features/ThreeD/components/BlueprintCanvas';
+import { RoomPreview3D, type PlacedProduct3D } from '@/features/ThreeD/components/RoomPreview3D';
+import type { RoomMaterialSelection } from '@/features/ThreeD/types/roomLayout.types';
+import { hydrateRoomPlannerScenePayload } from '@/features/ThreeD/utils/roomPlannerSceneMapper';
+import '@/features/ThreeD/pages/ThreeDTestPage.css';
+import './Customer3dPreviewPage.css';
+import {
+  getProposalServiceResultMessage,
+  type ProposalDto,
+  type ProposalItemDto,
+  type RoomPlannerSceneData,
+} from '@/services/api/proposals';
+import {
+  useProjectList,
+  useProjectProposals,
+  useProposalItems,
+  useProposalScenes,
+  useRoomPlannerScene,
+} from '@/services/queries';
 
-const viewerTools = [
-  { icon: <IconArrowsMove size={20} stroke={1.8} />, label: 'Pan scene' },
-  { icon: <IconRotateClockwise size={20} stroke={1.8} />, label: 'Rotate scene' },
-  { icon: <IconZoomIn size={20} stroke={1.8} />, label: 'Zoom in' },
-  { icon: <IconZoomOut size={20} stroke={1.8} />, label: 'Zoom out' },
-  { divider: true, icon: <IconGridDots size={20} stroke={1.8} />, label: 'Toggle grid' },
-  { icon: <IconEye size={20} stroke={1.8} />, label: 'Preview visibility' },
-];
+type ViewMode = '2d' | '3d';
 
 export function Customer3dPreviewPage() {
-  const [activeSceneIndex, setActiveSceneIndex] = useState(0);
-  const activeScene = mockProposalScenes[activeSceneIndex];
+  const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const stageRef = useRef<HTMLDivElement>(null);
+  const [viewMode, setViewMode] = useState<ViewMode>('3d');
+  const [selectedObjectId, setSelectedObjectId] = useState<string | null>(null);
+  const [decisionMessage, setDecisionMessage] = useState('');
+  const [selectedProjectId, setSelectedProjectId] = useState(() => searchParams.get('projectId') ?? '');
+  const [selectedProposalId, setSelectedProposalId] = useState<string | null>(null);
+  const [selectedSceneId, setSelectedSceneId] = useState<string | null>(null);
+
+  const projectsQuery = useProjectList({ page: 1, limit: 50 });
+  const projects = useMemo(() => projectsQuery.data?.items ?? [], [projectsQuery.data?.items]);
+  const proposalsQuery = useProjectProposals(
+    {
+      projectId: selectedProjectId,
+      page: 1,
+      limit: 100,
+    },
+    { enabled: Boolean(selectedProjectId) },
+  );
+  const proposals = useMemo(() => proposalsQuery.data?.items ?? [], [proposalsQuery.data?.items]);
+  const selectedProject = projects.find((project) => project.projectId === selectedProjectId) ?? null;
+  const selectedProposal = proposals.find((proposal) => proposal.proposalId === selectedProposalId) ?? proposals[0] ?? null;
+  const scenesQuery = useProposalScenes(
+    selectedProposal
+      ? {
+          proposalId: selectedProposal.proposalId,
+          sceneType: 'THREE_D',
+          isActive: true,
+          page: 1,
+          limit: 50,
+        }
+      : undefined,
+    { enabled: Boolean(selectedProposal) },
+  );
+  const scenes = useMemo(() => scenesQuery.data?.items ?? [], [scenesQuery.data?.items]);
+  const selectedScene = scenes.find((scene) => scene.sceneId === selectedSceneId) ?? scenes[0] ?? null;
+  const roomPlannerSceneQuery = useRoomPlannerScene(selectedScene?.sceneId, { enabled: Boolean(selectedScene?.sceneId) });
+  const proposalItemsQuery = useProposalItems(
+    selectedProposal
+      ? {
+          proposalId: selectedProposal.proposalId,
+          sceneId: selectedScene?.sceneId ?? null,
+          page: 1,
+          limit: 100,
+        }
+      : undefined,
+    { enabled: Boolean(selectedProposal) },
+  );
+  const hydratedScene = useMemo(
+    () => hydrateRoomPlannerScenePayload(roomPlannerSceneQuery.data),
+    [roomPlannerSceneQuery.data],
+  );
+  const floorMaterial = useMemo(
+    () => getSceneFloorMaterial(roomPlannerSceneQuery.data),
+    [roomPlannerSceneQuery.data],
+  );
+  const wallMaterial = useMemo(
+    () => getSceneWallMaterial(roomPlannerSceneQuery.data),
+    [roomPlannerSceneQuery.data],
+  );
+  const proposalItems = useMemo(() => proposalItemsQuery.data?.items ?? [], [proposalItemsQuery.data?.items]);
+  const sceneProducts = hydratedScene.placedProducts;
+  const selectedObject = useMemo(
+    () => sceneProducts.find((object) => object.id === selectedObjectId) ?? null,
+    [sceneProducts, selectedObjectId],
+  );
+
+  useEffect(() => {
+    if (selectedProjectId || projects.length === 0) {
+      return;
+    }
+
+    const firstProjectId = projects[0].projectId;
+    setSelectedProjectId(firstProjectId);
+    setSearchParams((currentParams) => {
+      const nextParams = new URLSearchParams(currentParams);
+      nextParams.set('projectId', firstProjectId);
+      return nextParams;
+    }, { replace: true });
+  }, [projects, selectedProjectId, setSearchParams]);
+
+  useEffect(() => {
+    if (!selectedProjectId || searchParams.get('projectId') === selectedProjectId) {
+      return;
+    }
+
+    setSearchParams((currentParams) => {
+      const nextParams = new URLSearchParams(currentParams);
+      nextParams.set('projectId', selectedProjectId);
+      return nextParams;
+    }, { replace: true });
+  }, [searchParams, selectedProjectId, setSearchParams]);
+
+  useEffect(() => {
+    setSelectedProposalId(proposals[0]?.proposalId ?? null);
+  }, [selectedProjectId, proposals]);
+
+  useEffect(() => {
+    setSelectedSceneId(scenes[0]?.sceneId ?? null);
+  }, [selectedProposal?.proposalId, scenes]);
+
+  useEffect(() => {
+    setSelectedObjectId(null);
+  }, [selectedScene?.sceneId]);
 
   return (
     <main className="customer-3d-preview-page">
       <CustomerNavbar activeLabel="2D/3D Review" classPrefix="customer-3d-preview" />
 
-      <section className="customer-3d-preview-viewer" aria-label="Customer 3D preview">
+      <section className="customer-3d-preview-viewer" aria-label="Customer proposal scene review">
         <div className="customer-3d-preview-toolbar">
           <div className="customer-3d-preview-titlebar">
-            <a href="/customer/proposals" aria-label="Back to proposal detail">
+            <button type="button" aria-label="Back to proposal detail" onClick={() => navigate('/customer/proposals')}>
               <IconChevronLeft size={20} stroke={1.8} />
-            </a>
+            </button>
             <span />
-            <strong>Industrial Modern Concept</strong>
+            <div>
+              <strong>{selectedProposal?.proposalName ?? 'No proposal selected'}</strong>
+              <small>{selectedProject?.projectName ?? 'Customer review'} - read-only</small>
+            </div>
           </div>
 
           <div className="customer-3d-preview-actions">
             <div className="customer-3d-preview-view-switch" role="tablist" aria-label="Preview mode">
-              <button type="button" role="tab">
-                <IconLayoutDashboard size={16} stroke={1.8} />
-                2D Floor Plan
+              <button
+                className={viewMode === '2d' ? 'customer-3d-preview-view-active' : ''}
+                type="button"
+                role="tab"
+                aria-selected={viewMode === '2d'}
+                onClick={() => setViewMode('2d')}
+              >
+                <IconLayoutDashboard size={16} stroke={1.8} /> 2D Floor Plan
               </button>
-              <button className="customer-3d-preview-view-active" type="button" role="tab" aria-selected="true">
-                <IconCube size={16} stroke={1.8} />
-                3D View
+              <button
+                className={viewMode === '3d' ? 'customer-3d-preview-view-active' : ''}
+                type="button"
+                role="tab"
+                aria-selected={viewMode === '3d'}
+                onClick={() => setViewMode('3d')}
+              >
+                <IconCube size={16} stroke={1.8} /> 3D View
               </button>
             </div>
-            <span className="customer-3d-preview-status">Published</span>
-            <button className="customer-3d-preview-icon-button" type="button" aria-label="Fullscreen preview">
+            <span className="customer-3d-preview-status">{selectedProposal?.status ?? 'No proposal'}</span>
+            <button
+              className="customer-3d-preview-icon-button"
+              type="button"
+              aria-label="Fullscreen preview"
+              onClick={() => void stageRef.current?.requestFullscreen?.()}
+            >
               <IconMaximize size={20} stroke={1.8} />
             </button>
           </div>
         </div>
 
         <div className="customer-3d-preview-workspace">
-          <aside className="customer-3d-preview-left-panel" aria-label="Scenes">
-            <PanelHeader title="Scenes" />
-            <div className="customer-3d-preview-scene-list">
-              {mockProposalScenes.map((scene, index) => (
-                <button
-                  type="button"
-                  key={scene.id}
-                  className={index === activeSceneIndex ? 'customer-3d-preview-scene-active' : undefined}
-                  onClick={() => setActiveSceneIndex(index)}
+          <aside className="customer-3d-preview-left-panel" aria-label="Project proposals">
+            <PanelHeader title="Proposals" />
+            <div className="customer-proposal-project-picker">
+              <label>
+                <span>Project</span>
+                <select
+                  disabled={projectsQuery.isLoading || projects.length === 0}
+                  value={selectedProjectId}
+                  onChange={(event) => {
+                    setSelectedProjectId(event.target.value);
+                    setSelectedProposalId(null);
+                    setSelectedSceneId(null);
+                  }}
                 >
-                  <strong>{scene.name}</strong>
-                  <span>{scene.id}</span>
-                  <p>{scene.note}</p>
+                  {!selectedProjectId && <option value="">Select project</option>}
+                  {projects.map((project) => (
+                    <option key={project.projectId} value={project.projectId}>
+                      {project.projectName}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+            <div className="customer-proposal-list">
+              {projectsQuery.isLoading && <p>Loading projects...</p>}
+              {!projectsQuery.isLoading && projects.length === 0 && <p>No customer projects returned yet.</p>}
+              {proposalsQuery.isLoading && <p>Loading proposals...</p>}
+              {proposalsQuery.isError && <p>{getProposalServiceResultMessage(proposalsQuery.error)}</p>}
+              {!proposalsQuery.isLoading && !proposalsQuery.isError && selectedProjectId && proposals.length === 0 && (
+                <p>No proposals returned for this project yet.</p>
+              )}
+              {proposals.map((proposal) => (
+                <ProposalButton
+                  isActive={proposal.proposalId === selectedProposal?.proposalId}
+                  key={proposal.proposalId}
+                  proposal={proposal}
+                  onSelect={() => {
+                    setSelectedProposalId(proposal.proposalId);
+                    setSelectedSceneId(null);
+                  }}
+                />
+              ))}
+            </div>
+
+            <PanelHeader title="Scenes" />
+            <div className="customer-scene-list is-compact">
+              {scenesQuery.isLoading && <p className="customer-scene-state">Loading scenes...</p>}
+              {scenesQuery.isError && <p className="customer-scene-state">{getProposalServiceResultMessage(scenesQuery.error)}</p>}
+              {!scenesQuery.isLoading && !scenesQuery.isError && selectedProposal && scenes.length === 0 && (
+                <p className="customer-scene-state">No saved 3D scenes returned for this proposal yet.</p>
+              )}
+              {scenes.map((scene, index) => (
+                <button
+                  className={scene.sceneId === selectedScene?.sceneId ? 'is-active' : ''}
+                  key={scene.sceneId}
+                  type="button"
+                  onClick={() => setSelectedSceneId(scene.sceneId)}
+                >
+                  <span>{String(index + 1).padStart(2, '0')}</span>
+                  <div><strong>{scene.sceneName}</strong><small>Version {scene.versionNo}</small></div>
                 </button>
               ))}
             </div>
           </aside>
 
-          <div className="customer-3d-preview-stage">
-            <div className="customer-3d-preview-tool-stack" aria-label="Scene tools">
-              {viewerTools.map((tool) => (
-                <button
-                  className={tool.divider ? 'customer-3d-preview-tool-divider' : undefined}
-                  type="button"
-                  aria-label={tool.label}
-                  key={tool.label}
-                >
-                  {tool.icon}
-                </button>
-              ))}
+          <div className="customer-3d-preview-stage" ref={stageRef}>
+            <div className="customer-scene-renderer">
+              {roomPlannerSceneQuery.isLoading ? (
+                <SceneState message="Loading saved Room Planner scene..." />
+              ) : roomPlannerSceneQuery.isError ? (
+                <SceneState message={getProposalServiceResultMessage(roomPlannerSceneQuery.error)} />
+              ) : !selectedScene ? (
+                <SceneState message="Select a proposal with a saved 3D scene." />
+              ) : !hydratedScene.layout ? (
+                <SceneState message="This scene has no saved room layout in MongoDB yet." />
+              ) : viewMode === '3d' ? (
+                <RoomPreview3D
+                  floorMaterial={floorMaterial}
+                  layout={hydratedScene.layout}
+                  placedProducts={sceneProducts}
+                  readOnly
+                  selectedProductId={selectedObjectId}
+                  wallMaterial={wallMaterial}
+                  onProductSelect={(productId) => setSelectedObjectId(productId)}
+                />
+              ) : (
+                <BlueprintCanvas
+                  activeTool="select"
+                  floorFillColor={floorMaterial.fallbackColor}
+                  hideLabels={false}
+                  layout={hydratedScene.layout}
+                  readOnly
+                  selectedItem={null}
+                  wallFillColor={wallMaterial.fallbackColor}
+                  onLayoutChange={() => undefined}
+                  onSelectItem={() => undefined}
+                />
+              )}
             </div>
 
             <div className="customer-3d-preview-scene-card">
-              <strong>3D Scene View</strong>
+              <strong>{selectedScene?.sceneName ?? selectedProposal?.proposalName ?? 'Room Planner Scene'}</strong>
               <span />
-              <p>Scene ID: {activeScene.id}</p>
+              <p>{selectedScene ? `Scene version ${selectedScene.versionNo}` : selectedProposal ? `Proposal version ${selectedProposal.versionNo}` : 'No scene selected'}</p>
             </div>
 
-            <div className="customer-3d-preview-canvas-mark">
-              <IconCube size={96} stroke={1.2} />
-            </div>
-
-            <div className="customer-3d-preview-pager" aria-label="Scene pagination">
-              <button type="button" aria-label="Previous scene" disabled={activeSceneIndex === 0} onClick={() => setActiveSceneIndex((current) => current - 1)}>
-                <IconChevronLeft size={18} stroke={1.8} />
-              </button>
-              <span>
-                {activeSceneIndex + 1} of {mockProposalScenes.length}
-              </span>
-              <button
-                type="button"
-                aria-label="Next scene"
-                disabled={activeSceneIndex === mockProposalScenes.length - 1}
-                onClick={() => setActiveSceneIndex((current) => current + 1)}
-              >
-                <IconChevronRight size={18} stroke={1.8} />
-              </button>
-            </div>
+            <div className="customer-readonly-notice">Saved scene - editing disabled</div>
           </div>
 
           <aside className="customer-3d-preview-right-panel" aria-label="Scene items">
             <PanelHeader title="Scene Items" />
+            {selectedObject && (
+              <div className="customer-selected-object">
+                <span>Selected object</span>
+                <strong>{selectedObject.modelName}</strong>
+                <small>{selectedObject.productVersionId ?? selectedObject.productId ?? selectedObject.id}</small>
+              </div>
+            )}
             <div className="customer-3d-preview-item-list">
-              {mockProposalItems.map((item) => (
-                <article className="customer-3d-preview-item-card" key={item.id}>
-                  <div>
-                    <strong>{item.name}</strong>
-                    <span>{item.type.toUpperCase()}</span>
-                  </div>
-                  <div>
-                    <span>{item.quantity}x</span>
-                    <strong>${item.unitPrice.toLocaleString('en-US')}</strong>
-                  </div>
-                </article>
-              ))}
+              {proposalItemsQuery.isLoading && <p className="customer-scene-state">Loading proposal items...</p>}
+              {proposalItems.length > 0
+                ? proposalItems.map((item) => <ProposalItemCard item={item} key={item.proposalItemId} />)
+                : sceneProducts.map((product) => <SceneProductCard product={product} key={product.id} />)}
+              {!proposalItemsQuery.isLoading && proposalItems.length === 0 && sceneProducts.length === 0 && (
+                <p className="customer-scene-state">No furniture objects are saved in this scene yet.</p>
+              )}
             </div>
 
+            {decisionMessage && <div className="customer-decision-message">{decisionMessage}</div>}
             <div className="customer-3d-preview-decision">
-              <button type="button">
-                <IconMessageDots size={18} stroke={1.8} />
-                Submit Feedback
+              <button type="button" onClick={() => setDecisionMessage('Feedback draft opened for this proposal scene.')}>
+                <IconMessageDots size={18} stroke={1.8} /> Request Revision
               </button>
-              <button type="button">
-                <IconCircleCheck size={18} stroke={1.8} />
-                Approve Scene
+              <button type="button" onClick={() => setDecisionMessage('Proposal selection recorded in demo mode.')}>
+                <IconCircleCheck size={18} stroke={1.8} /> Select Proposal
               </button>
             </div>
           </aside>
@@ -159,14 +334,121 @@ export function Customer3dPreviewPage() {
   );
 }
 
-function PanelHeader({ title }: { title: string }) {
+function ProposalButton({
+  isActive,
+  onSelect,
+  proposal,
+}: {
+  isActive: boolean;
+  onSelect: () => void;
+  proposal: ProposalDto;
+}) {
   return (
-    <header className="customer-3d-preview-panel-header">
-      <h2>{title}</h2>
-      <button type="button" aria-label={`Collapse ${title}`}>
-        <IconChevronLeft size={20} stroke={1.8} />
-      </button>
-    </header>
+    <button
+      className={isActive ? 'customer-proposal-button is-active' : 'customer-proposal-button'}
+      type="button"
+      onClick={onSelect}
+    >
+      <div>
+        <strong>{proposal.proposalName}</strong>
+        <span>{proposal.status}</span>
+      </div>
+      <small>Version {proposal.versionNo} - Updated {formatDateTime(proposal.updatedAt)}</small>
+    </button>
   );
 }
 
+function ProposalItemCard({ item }: { item: ProposalItemDto }) {
+  return (
+    <article className="customer-3d-preview-item-card">
+      <div>
+        <strong>{item.productNameSnapshot || item.versionNameSnapshot || item.productVersionId}</strong>
+        <span>{[item.materialSnapshot, item.colorSnapshot].filter(Boolean).join(' - ') || item.productVersionId}</span>
+      </div>
+      <div>
+        <span>{item.quantity}x</span>
+        <strong>{formatCurrency(item.subtotalAmount ?? item.unitPriceSnapshot)}</strong>
+      </div>
+    </article>
+  );
+}
+
+function SceneProductCard({ product }: { product: PlacedProduct3D }) {
+  return (
+    <article className="customer-3d-preview-item-card">
+      <div>
+        <strong>{product.modelName}</strong>
+        <span>{[product.visualSnapshot?.material, product.visualSnapshot?.color].filter(Boolean).join(' - ') || product.productVersionId || product.id}</span>
+      </div>
+      <div>
+        <span>1x</span>
+        <strong>{product.productVersionId ? 'From scene' : 'Local object'}</strong>
+      </div>
+    </article>
+  );
+}
+
+function SceneState({ message }: { message: string }) {
+  return <div className="customer-scene-state-overlay">{message}</div>;
+}
+
+function PanelHeader({ title }: { title: string }) {
+  return <header className="customer-3d-preview-panel-header"><h2>{title}</h2></header>;
+}
+
+function formatDateTime(value: string) {
+  return new Intl.DateTimeFormat('en', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  }).format(new Date(value));
+}
+
+function formatCurrency(value: number | null | undefined) {
+  if (typeof value !== 'number') {
+    return '-';
+  }
+
+  return `${new Intl.NumberFormat('vi-VN').format(value)} VND`;
+}
+
+function getSceneFloorMaterial(scene: RoomPlannerSceneData | null | undefined): RoomMaterialSelection {
+  const layout = scene?.layout as {
+    floor?: {
+      color?: string | null;
+      materialId?: string | null;
+      textureUrlSnapshot?: string | null;
+    };
+    floorMaterialId?: string | null;
+  } | undefined;
+
+  return {
+    fallbackColor: layout?.floor?.color ?? '#8B5A2B',
+    id: layout?.floor?.materialId ?? layout?.floorMaterialId ?? 'scene-floor',
+    label: layout?.floor?.materialId ?? layout?.floorMaterialId ?? 'Scene Floor',
+    textureUrl: layout?.floor?.textureUrlSnapshot ?? undefined,
+    type: 'floor',
+  };
+}
+
+function getSceneWallMaterial(scene: RoomPlannerSceneData | null | undefined): RoomMaterialSelection {
+  const layout = scene?.layout as {
+    wallMaterialId?: string | null;
+    walls?: Array<{
+      style?: {
+        color?: string | null;
+        materialId?: string | null;
+        textureUrlSnapshot?: string | null;
+      };
+    }>;
+  } | undefined;
+  const wallStyle = layout?.walls?.find((wall) => wall.style)?.style;
+
+  return {
+    fallbackColor: wallStyle?.color ?? '#D8D2C5',
+    id: wallStyle?.materialId ?? layout?.wallMaterialId ?? 'scene-wall',
+    label: wallStyle?.materialId ?? layout?.wallMaterialId ?? 'Scene Wall',
+    textureUrl: wallStyle?.textureUrlSnapshot ?? undefined,
+    type: 'wall',
+  };
+}

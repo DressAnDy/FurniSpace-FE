@@ -25,7 +25,7 @@ export function useProjectScheduleList(params?: ProjectScheduleListParams) {
   return useQuery({
     queryKey: projectScheduleQueryKeys.list(params),
     queryFn: () => getProjectSchedules(params as ProjectScheduleListParams),
-    enabled: Boolean(params?.projectId),
+    enabled: Boolean(params?.projectId?.trim()),
   });
 }
 

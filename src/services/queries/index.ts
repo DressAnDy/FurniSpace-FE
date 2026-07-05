@@ -39,6 +39,7 @@ export {
   useCloseProjectChat,
   useProjectChatMessages,
   useProjectChatRealtime,
+  useProjectChatUnreadCounts,
   useProjectChats,
   useSendProjectChatFileMessage,
   useSendProjectChatTextMessage,
@@ -78,4 +79,17 @@ export {
   useUploadProductPreviewFile,
   useUploadProductVersionFile,
 } from './useProducts';
+export {
+  proposalQueryKeys,
+  useCreateProposal,
+  useCreateProposalScene,
+  useProjectProposals,
+  useProposalDetail,
+  useProposalItems,
+  useProposalScenes,
+  usePublishProposal,
+  useRoomPlannerScene,
+  useSaveRoomPlannerScene,
+  useSyncProposalItemsFromScene,
+} from './useProposals';
 export { useCurrentUser, useLogin, useLogout, useRegister, useVerifyEmail } from './useAuth';
