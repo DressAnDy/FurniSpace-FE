@@ -264,12 +264,233 @@
   color: #991b1b;
 }
 
+.customer-schedules-calendar {
+  overflow: hidden;
+  border: 1px solid rgba(139, 111, 71, 0.15);
+  border-radius: 12px;
+  background: #ffffff;
+}
+
+.customer-schedules-calendar-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  border-bottom: 1px solid rgba(139, 111, 71, 0.12);
+  padding: 14px 16px;
+}
+
+.customer-schedules-calendar-head span {
+  color: #8b6f47;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.customer-schedules-calendar-head h2 {
+  margin: 4px 0 0;
+  color: #2d2d2d;
+  font-size: 20px;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.customer-schedules-calendar-controls {
+  display: inline-flex;
+  gap: 8px;
+}
+
+.customer-schedules-calendar-controls button {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border: 1px solid rgba(139, 111, 71, 0.18);
+  border-radius: 8px;
+  background: #faf9f7;
+  color: #2d2d2d;
+  cursor: pointer;
+}
+
+.customer-schedules-calendar-controls button:hover {
+  border-color: #8b6f47;
+  color: #8b6f47;
+}
+
+.customer-schedules-calendar-weekdays,
+.customer-schedules-calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+}
+
+.customer-schedules-calendar-weekdays {
+  border-bottom: 1px solid rgba(139, 111, 71, 0.12);
+  background: #faf9f7;
+}
+
+.customer-schedules-calendar-weekdays span {
+  min-width: 0;
+  color: #6b6b6b;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1;
+  padding: 10px 6px;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.customer-schedules-calendar-grid {
+  background:
+    linear-gradient(rgba(139, 111, 71, 0.1), rgba(139, 111, 71, 0.1)) 0 0 / 100% 1px no-repeat,
+    #ffffff;
+}
+
+.customer-schedules-calendar-day {
+  display: flex;
+  min-width: 0;
+  min-height: 96px;
+  flex-direction: column;
+  gap: 6px;
+  border: 0;
+  border-right: 1px solid rgba(139, 111, 71, 0.1);
+  border-bottom: 1px solid rgba(139, 111, 71, 0.1);
+  background: #ffffff;
+  color: #2d2d2d;
+  cursor: pointer;
+  font: inherit;
+  padding: 9px;
+  text-align: left;
+}
+
+.customer-schedules-calendar-day:hover {
+  background: #fffaf4;
+}
+
+.customer-schedules-calendar-day-selected {
+  background: #f5f1ec;
+  box-shadow: inset 0 0 0 2px #8b6f47;
+}
+
+.customer-schedules-calendar-day-today .customer-schedules-calendar-day-number {
+  background: #8b6f47;
+  color: #ffffff;
+}
+
+.customer-schedules-calendar-day-has-events {
+  background: #fffdf9;
+}
+
+.customer-schedules-calendar-day-number {
+  display: inline-grid;
+  width: 26px;
+  height: 26px;
+  place-items: center;
+  border-radius: 999px;
+  color: #2d2d2d;
+  font-size: 15px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.customer-schedules-calendar-day-meta {
+  overflow: hidden;
+  color: #8b8277;
+  font-size: 11px;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.customer-schedules-calendar-events {
+  display: grid;
+  gap: 5px;
+  margin-top: auto;
+}
+
+.customer-schedules-calendar-event {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 6px;
+  border-left: 3px solid #8b6f47;
+  border-radius: 6px;
+  background: #f5f1ec;
+  color: #2d2d2d;
+  padding: 6px 7px;
+}
+
+.customer-schedules-calendar-event:focus {
+  outline: 2px solid #8b6f47;
+  outline-offset: 2px;
+}
+
+.customer-schedules-calendar-event-active {
+  background: #2d2d2d;
+  color: #ffffff;
+}
+
+.customer-schedules-calendar-event-confirmed {
+  border-left-color: #16a34a;
+  background: #f0fdf4;
+}
+
+.customer-schedules-calendar-event-completed {
+  border-left-color: #2563eb;
+  background: #eff6ff;
+}
+
+.customer-schedules-calendar-event-cancelled {
+  border-left-color: #dc2626;
+  background: #fef2f2;
+}
+
+.customer-schedules-calendar-event-active.customer-schedules-calendar-event-confirmed,
+.customer-schedules-calendar-event-active.customer-schedules-calendar-event-completed,
+.customer-schedules-calendar-event-active.customer-schedules-calendar-event-cancelled {
+  background: #2d2d2d;
+}
+
+.customer-schedules-calendar-event strong {
+  color: inherit;
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.customer-schedules-calendar-event em {
+  overflow: hidden;
+  color: inherit;
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 700;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.customer-schedules-calendar-more {
+  color: #8b6f47;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1;
+  padding: 2px 8px;
+}
+
 .customer-schedules-layout {
   display: grid;
-  grid-template-columns: minmax(320px, 0.95fr) minmax(0, 1.55fr);
-  gap: 24px;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 20px;
   align-items: start;
   margin-top: 24px;
+}
+
+.customer-schedules-overview {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
 }
 
 .customer-schedules-list,
@@ -282,6 +503,8 @@
 .customer-schedules-list {
   display: grid;
   gap: 10px;
+  max-height: 260px;
+  overflow-y: auto;
   padding: 16px;
 }
 
@@ -343,7 +566,9 @@
 }
 
 .customer-schedules-detail {
-  min-height: 420px;
+  position: sticky;
+  top: 88px;
+  min-height: 560px;
   padding: 24px;
 }
 
@@ -500,6 +725,15 @@
   .customer-schedules-filters {
     grid-template-columns: 1fr;
   }
+
+  .customer-schedules-calendar-day {
+    min-height: 104px;
+  }
+
+  .customer-schedules-detail {
+    position: static;
+    min-height: 420px;
+  }
 }
 
 @media (max-width: 760px) {
@@ -515,6 +749,24 @@
 
   .customer-schedules-create {
     max-width: none;
+  }
+
+  .customer-schedules-calendar-head {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .customer-schedules-calendar-weekdays {
+    display: none;
+  }
+
+  .customer-schedules-calendar-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .customer-schedules-calendar-day {
+    grid-column-start: auto !important;
+    min-height: 104px;
   }
 
   .customer-schedules-detail-head,

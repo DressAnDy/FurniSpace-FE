@@ -2,7 +2,7 @@ import { AxiosError } from 'axios';
 import axios from 'axios';
 
 import type { AuthTokenData, CurrentUserData, RegisterData, ServiceResult } from './types';
-import { removeStoredAccessToken, storeAccessToken } from './tokenStore';
+import { getStoredAccessToken, removeStoredAccessToken, storeAccessToken } from './tokenStore';
 
 export const AUTH_PENDING_EMAIL_KEY = 'auth.pendingEmail';
 
@@ -29,6 +29,16 @@ const authApiClient = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
+});
+
+authApiClient.interceptors.request.use((config) => {
+  const token = getStoredAccessToken();
+
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+
+  return config;
 });
 
 export function normalizeEmail(email: string) {
@@ -72,9 +82,7 @@ export async function verifyEmail(input: VerifyEmailInput) {
     otpCode: input.otpCode.trim(),
   });
 
-  if (response.data.data?.access_token) {
-    storeAccessToken(response.data.data.access_token);
-  }
+  storeAccessTokenFromAuthResponse(response.data, response.headers.authorization);
 
   return response.data;
 }
@@ -85,9 +93,7 @@ export async function login(input: LoginInput) {
     password: input.password,
   });
 
-  if (response.data.data?.access_token) {
-    storeAccessToken(response.data.data.access_token);
-  }
+  storeAccessTokenFromAuthResponse(response.data, response.headers.authorization);
 
   return response.data;
 }
@@ -112,6 +118,45 @@ function getServiceResultFromError(error: unknown) {
   }
 
   return error.response?.data as ServiceResult<unknown> | undefined;
+}
+
+function storeAccessTokenFromAuthResponse(responseData: unknown, authorizationHeader?: string) {
+  const token = getTokenFromUnknown(responseData) ?? getTokenFromAuthorizationHeader(authorizationHeader);
+
+  if (token) {
+    storeAccessToken(token);
+  }
+}
+
+function getTokenFromUnknown(value: unknown): string | null {
+  if (!value || typeof value !== 'object') {
+    return null;
+  }
+
+  const record = value as Record<string, unknown>;
+  const token =
+    getStringValue(record.access_token) ??
+    getStringValue(record.accessToken) ??
+    getStringValue(record.token) ??
+    getStringValue(record.jwt);
+
+  if (token) {
+    return token;
+  }
+
+  return getTokenFromUnknown(record.data);
+}
+
+function getStringValue(value: unknown) {
+  return typeof value === 'string' && value.trim().length > 0 ? value.trim() : null;
+}
+
+function getTokenFromAuthorizationHeader(value?: string) {
+  if (!value) {
+    return null;
+  }
+
+  return value.replace(/^Bearer\s+/i, '').trim() || null;
 }
 
 function getAuthApiBaseUrl() {

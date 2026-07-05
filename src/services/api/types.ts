@@ -12,7 +12,10 @@ export type ServiceResult<T> = {
 };
 
 export type AuthTokenData = {
-  access_token: string;
+  access_token?: string;
+  accessToken?: string;
+  token?: string;
+  jwt?: string;
   access_token_expires_at: string;
   token_type: 'Bearer';
   expires_in: number;

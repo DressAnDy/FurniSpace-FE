@@ -1,5 +1,6 @@
 import axios, { AxiosError } from 'axios';
 
+import { shouldRedirectUnauthorized } from '@/shared/config/authPreview';
 import { getStoredAccessToken } from './tokenStore';
 
 const projectApiClient = axios.create({
@@ -24,7 +25,7 @@ projectApiClient.interceptors.request.use((config) => {
 projectApiClient.interceptors.response.use(
   (response) => response,
   (error: AxiosError) => {
-    if (error.response?.status === 401 && window.location.pathname !== '/login') {
+    if (error.response?.status === 401 && shouldRedirectUnauthorized()) {
       window.location.assign('/login');
     }
 

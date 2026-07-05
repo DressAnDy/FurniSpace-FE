@@ -11,7 +11,7 @@ import {
   useUploadProductPreviewFile,
 } from '@/services/queries';
 
-import { AdminNavbar, AdminSidebar } from '../admincomponents';
+import { AdminSidebar } from '../admincomponents';
 import './Productmanagement.css';
 
 const MAX_PREVIEW_IMAGES = 5;
@@ -286,8 +286,6 @@ export function CreateProductPage() {
         <AdminSidebar activeLabel="Products" />
 
         <section className="admin-main">
-          <AdminNavbar />
-
           <div className="admin-content product-management-content">
             <div className="product-form-heading">
               <button className="product-version-back" type="button" onClick={() => navigate('/admin/products')}>

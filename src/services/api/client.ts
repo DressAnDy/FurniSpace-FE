@@ -1,6 +1,7 @@
 import axios, { AxiosError } from 'axios';
 import axiosRetry from 'axios-retry';
 
+import { shouldRedirectUnauthorized } from '@/shared/config/authPreview';
 import { notifyError } from '@/shared/lib/toast';
 
 export const apiClient = axios.create({
@@ -21,7 +22,7 @@ apiClient.interceptors.response.use(
   (error: AxiosError) => {
     const status = error.response?.status;
 
-    if (status === 401 && window.location.pathname !== '/login') {
+    if (status === 401 && shouldRedirectUnauthorized()) {
       window.location.assign('/login');
     }
 
