@@ -431,13 +431,6 @@ function formatEnumLabel(value: string) {
     .join(' ');
 }
 
-function formatDate(value: string) {
-  return new Intl.DateTimeFormat('en', {
-    day: '2-digit',
-    month: 'short',
-  }).format(new Date(value));
-}
-
 function formatDateTime(value: string) {
   return new Intl.DateTimeFormat('en', {
     day: '2-digit',

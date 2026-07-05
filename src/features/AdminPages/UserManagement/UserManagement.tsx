@@ -24,6 +24,8 @@ import './UserManagement.css';
 
 type AccountFormMode = 'create' | 'edit';
 
+const EMPTY_ACCOUNTS: AccountDto[] = [];
+
 export function UserManagement() {
   const [searchValue, setSearchValue] = useState('');
   const [statusFilter, setStatusFilter] = useState<AccountStatus | ''>('');
@@ -43,7 +45,7 @@ export function UserManagement() {
   const updateAccountMutation = useUpdateAccount();
   const deleteAccountMutation = useDeleteAccount();
 
-  const accounts = accountListQuery.data?.items ?? [];
+  const accounts = accountListQuery.data?.items ?? EMPTY_ACCOUNTS;
   const totalAccounts = accountListQuery.data?.totalItems ?? accounts.length;
   const roleStats = useMemo(() => {
     const countRole = (roleName: string) =>
