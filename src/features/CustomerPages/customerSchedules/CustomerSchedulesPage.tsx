@@ -1,6 +1,7 @@
 import {
   IconCalendarEvent,
   IconCheck,
+  IconChevronLeft,
   IconChevronRight,
   IconClock,
   IconHome,
@@ -32,6 +33,7 @@ type CustomerScheduleItem = {
 
 const scheduleTypeOptions: Array<ProjectScheduleType | ''> = ['', 'MEASUREMENT', 'CONSULTATION', 'DESIGN_REVIEW', 'DELIVERY', 'HANDOVER', 'OTHER'];
 const scheduleStatusOptions: Array<ProjectScheduleStatus | ''> = ['', 'PENDING_CONFIRMATION', 'CONFIRMED', 'COMPLETED', 'CANCELLED'];
+const weekDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 export function CustomerSchedulesPage() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -39,6 +41,12 @@ export function CustomerSchedulesPage() {
   const [scheduleType, setScheduleType] = useState<ProjectScheduleType | ''>('');
   const [status, setStatus] = useState<ProjectScheduleStatus | ''>('');
   const [selectedScheduleId, setSelectedScheduleId] = useState(searchParams.get('scheduleId') ?? '');
+  const [selectedDateKey, setSelectedDateKey] = useState('');
+  const [calendarMonth, setCalendarMonth] = useState(() => {
+    const now = new Date();
+
+    return new Date(now.getFullYear(), now.getMonth(), 1);
+  });
   const [message, setMessage] = useState('');
   const [activeActionId, setActiveActionId] = useState<string | null>(null);
   const projectsQuery = useProjectList({ page: 1, limit: 100 });
@@ -113,6 +121,18 @@ export function CustomerSchedulesPage() {
     setMessage('');
   }
 
+  function handleSelectCalendarDay(dateKey: string, daySchedules: CustomerScheduleItem[]) {
+    setSelectedDateKey(dateKey);
+
+    if (daySchedules[0]) {
+      handleSelectSchedule(daySchedules[0].schedule.scheduleId);
+    }
+  }
+
+  function handleMoveCalendarMonth(offset: number) {
+    setCalendarMonth((currentMonth) => new Date(currentMonth.getFullYear(), currentMonth.getMonth() + offset, 1));
+  }
+
   async function handleConfirmSchedule(schedule: ProjectScheduleDto) {
     setMessage('');
     setActiveActionId(schedule.scheduleId);
@@ -174,24 +194,17 @@ export function CustomerSchedulesPage() {
         {isLoading ? <p className="customer-schedules-state">Loading schedules...</p> : null}
 
         <div className="customer-schedules-layout">
-          <section className="customer-schedules-list" aria-label="Schedule list">
-            {!isLoading && !projectsQuery.isError && !scheduleError && visibleSchedules.length === 0 ? (
-              <p className="customer-schedules-state">No schedules match the current filters.</p>
-            ) : null}
-            {visibleSchedules.map(({ project, schedule }) => (
-              <button
-                className={selectedItem?.schedule.scheduleId === schedule.scheduleId ? 'customer-schedules-list-item customer-schedules-list-item-active' : 'customer-schedules-list-item'}
-                key={schedule.scheduleId}
-                type="button"
-                onClick={() => handleSelectSchedule(schedule.scheduleId)}
-              >
-                <span>{formatDate(schedule.scheduledStart)}</span>
-                <strong>{schedule.title ?? formatEnumLabel(schedule.scheduleType)}</strong>
-                <em>{project.projectCode} - {project.projectName}</em>
-                <small>{formatEnumLabel(schedule.status)}</small>
-              </button>
-            ))}
-          </section>
+          <div className="customer-schedules-overview">
+            <MonthlyScheduleCalendar
+              month={calendarMonth}
+              schedules={visibleSchedules}
+              selectedDateKey={selectedDateKey}
+              selectedScheduleId={selectedItem?.schedule.scheduleId ?? ''}
+              onMoveMonth={handleMoveCalendarMonth}
+              onSelectDay={handleSelectCalendarDay}
+              onSelectSchedule={handleSelectSchedule}
+            />
+          </div>
 
           <section className="customer-schedules-detail" aria-label="Schedule detail">
             {selectedItem ? (
@@ -212,6 +225,133 @@ export function CustomerSchedulesPage() {
         </div>
       </div>
     </main>
+  );
+}
+
+type MonthlyScheduleCalendarProps = {
+  month: Date;
+  schedules: CustomerScheduleItem[];
+  selectedDateKey: string;
+  selectedScheduleId: string;
+  onMoveMonth: (offset: number) => void;
+  onSelectDay: (dateKey: string, daySchedules: CustomerScheduleItem[]) => void;
+  onSelectSchedule: (scheduleId: string) => void;
+};
+
+function MonthlyScheduleCalendar({
+  month,
+  schedules,
+  selectedDateKey,
+  selectedScheduleId,
+  onMoveMonth,
+  onSelectDay,
+  onSelectSchedule,
+}: MonthlyScheduleCalendarProps) {
+  const year = month.getFullYear();
+  const monthIndex = month.getMonth();
+  const daysInMonth = new Date(year, monthIndex + 1, 0).getDate();
+  const firstWeekday = new Date(year, monthIndex, 1).getDay();
+  const todayKey = getDateKey(new Date());
+  const scheduleMap = useMemo(() => {
+    const nextMap = new Map<string, CustomerScheduleItem[]>();
+
+    schedules.forEach((item) => {
+      const dateKey = getDateKey(new Date(item.schedule.scheduledStart));
+      const daySchedules = nextMap.get(dateKey) ?? [];
+
+      nextMap.set(dateKey, [...daySchedules, item]);
+    });
+
+    return nextMap;
+  }, [schedules]);
+
+  return (
+    <section className="customer-schedules-calendar" aria-label="Monthly schedule calendar">
+      <div className="customer-schedules-calendar-head">
+        <div>
+          <span>Monthly overview</span>
+          <h2>{formatMonthYear(month)}</h2>
+        </div>
+        <div className="customer-schedules-calendar-controls">
+          <button type="button" aria-label="Previous month" onClick={() => onMoveMonth(-1)}>
+            <IconChevronLeft size={18} stroke={1.8} />
+          </button>
+          <button type="button" aria-label="Next month" onClick={() => onMoveMonth(1)}>
+            <IconChevronRight size={18} stroke={1.8} />
+          </button>
+        </div>
+      </div>
+
+      <div className="customer-schedules-calendar-weekdays" aria-hidden="true">
+        {weekDays.map((day) => (
+          <span key={day}>{day}</span>
+        ))}
+      </div>
+
+      <div className="customer-schedules-calendar-grid">
+        {Array.from({ length: daysInMonth }, (_, index) => {
+          const day = index + 1;
+          const date = new Date(year, monthIndex, day);
+          const dateKey = getDateKey(date);
+          const daySchedules = scheduleMap.get(dateKey) ?? [];
+          const isSelectedDate = selectedDateKey === dateKey;
+          const className = [
+            'customer-schedules-calendar-day',
+            dateKey === todayKey ? 'customer-schedules-calendar-day-today' : '',
+            isSelectedDate ? 'customer-schedules-calendar-day-selected' : '',
+            daySchedules.length > 0 ? 'customer-schedules-calendar-day-has-events' : '',
+          ]
+            .filter(Boolean)
+            .join(' ');
+
+          return (
+            <button
+              key={dateKey}
+              className={className}
+              style={day === 1 ? { gridColumnStart: firstWeekday + 1 } : undefined}
+              type="button"
+              onClick={() => onSelectDay(dateKey, daySchedules)}
+            >
+              <span className="customer-schedules-calendar-day-number">{day}</span>
+              <span className="customer-schedules-calendar-day-meta">
+                {daySchedules.length > 0 ? `${daySchedules.length} schedule${daySchedules.length > 1 ? 's' : ''}` : 'No schedule'}
+              </span>
+
+              {daySchedules.length > 0 ? (
+                <span className="customer-schedules-calendar-events">
+                  {daySchedules.slice(0, 2).map(({ project, schedule }) => (
+                    <span
+                      className={`customer-schedules-calendar-event customer-schedules-calendar-event-${schedule.status.toLowerCase().replace(/_/g, '-')}${
+                        selectedScheduleId === schedule.scheduleId ? ' customer-schedules-calendar-event-active' : ''
+                      }`}
+                      key={schedule.scheduleId}
+                      role="button"
+                      tabIndex={0}
+                      title={`${schedule.title ?? formatEnumLabel(schedule.scheduleType)} - ${project.projectName}`}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        onSelectSchedule(schedule.scheduleId);
+                      }}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter' || event.key === ' ') {
+                          event.preventDefault();
+                          event.stopPropagation();
+                          onSelectSchedule(schedule.scheduleId);
+                        }
+                      }}
+                    >
+                      <strong>{formatTime(schedule.scheduledStart)}</strong>
+                      <em>{schedule.title ?? formatEnumLabel(schedule.scheduleType)}</em>
+                    </span>
+                  ))}
+                  {daySchedules.length > 2 ? <span className="customer-schedules-calendar-more">+{daySchedules.length - 2} more</span> : null}
+                </span>
+              ) : null}
+            </button>
+          );
+        })}
+      </div>
+    </section>
   );
 }
 
@@ -306,4 +446,26 @@ function formatDateTime(value: string) {
     hour: '2-digit',
     minute: '2-digit',
   }).format(new Date(value));
+}
+
+function formatMonthYear(value: Date) {
+  return new Intl.DateTimeFormat('en', {
+    month: 'long',
+    year: 'numeric',
+  }).format(value);
+}
+
+function formatTime(value: string) {
+  return new Intl.DateTimeFormat('en', {
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(new Date(value));
+}
+
+function getDateKey(value: Date) {
+  const year = value.getFullYear();
+  const month = String(value.getMonth() + 1).padStart(2, '0');
+  const day = String(value.getDate()).padStart(2, '0');
+
+  return `${year}-${month}-${day}`;
 }
