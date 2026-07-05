@@ -34,7 +34,7 @@ export function useCreateProposal() {
 
   return useMutation({
     mutationFn: (input: CreateProposalInput) => createProposal(input),
-    onSuccess: (proposal) => {
+    onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: proposalQueryKeys.all });
       void queryClient.invalidateQueries({ queryKey: ['proposals', 'project'] });
     },
