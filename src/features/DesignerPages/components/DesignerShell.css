@@ -1,6 +1,6 @@
 .designer-shell {
-  background: #eef1f2;
-  color: #24323a;
+  background: var(--fs-bg);
+  color: var(--fs-ink);
   display: grid;
   font-family: Inter, "DM Sans", Arial, sans-serif;
   grid-template-columns: 220px minmax(0, 1fr);
@@ -8,7 +8,7 @@
 }
 
 .designer-shell .designer-sidebar {
-  background: #172a33;
+  background: var(--fs-sidebar);
   color: #ffffff;
   display: flex;
   flex-direction: column;
@@ -34,8 +34,16 @@
 .designer-shell .designer-brand span,
 .designer-shell .designer-topbar span,
 .designer-shell .designer-user small {
-  color: #8fa2ab;
+  color: var(--fs-muted);
   font-size: 11px;
+}
+
+.designer-shell .designer-brand img {
+  width: 38px;
+  height: 38px;
+  border-radius: 9px;
+  background: #ffffff;
+  object-fit: contain;
 }
 
 .designer-shell .designer-sidebar nav {
@@ -50,7 +58,7 @@
   align-items: center;
   background: transparent;
   border: 0;
-  color: #b9c6cc;
+  color: rgba(245, 241, 235, 0.78);
   display: flex;
   font: inherit;
   gap: 10px;
@@ -61,8 +69,8 @@
 }
 
 .designer-shell .designer-sidebar nav a.is-active {
-  background: #2d8195;
-  color: #ffffff;
+  background: var(--fs-gold);
+  color: var(--fs-ink);
 }
 
 .designer-shell .designer-sidebar nav button:disabled {
@@ -81,7 +89,7 @@
 .designer-shell .designer-topbar {
   align-items: center;
   background: #ffffff;
-  border-bottom: 1px solid #d9e0e3;
+  border-bottom: 1px solid var(--fs-border);
   display: flex;
   height: 64px;
   justify-content: space-between;
@@ -97,9 +105,9 @@
 .designer-shell .designer-user > button,
 .designer-shell .designer-user > span {
   align-items: center;
-  background: #edf3f5;
+  background: var(--fs-surface-warm);
   border: 0;
-  color: #35535e;
+  color: var(--fs-wood);
   display: flex;
   height: 34px;
   justify-content: center;

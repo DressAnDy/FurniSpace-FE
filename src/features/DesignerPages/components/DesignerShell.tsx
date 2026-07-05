@@ -11,6 +11,8 @@ import {
 } from '@tabler/icons-react';
 import { NavLink } from 'react-router-dom';
 
+import logoImage from '@/assets/Logo/Logo.png';
+
 import './DesignerShell.css';
 
 type DesignerShellProps = {
@@ -30,7 +32,7 @@ export function DesignerShell({ activeLabel, children }: DesignerShellProps) {
   return (
     <main className="designer-shell">
       <aside className="designer-sidebar">
-        <div className="designer-brand"><IconCube size={22} /><div><strong>FurniSpace</strong><span>Designer Workspace</span></div></div>
+        <div className="designer-brand"><img src={logoImage} alt="" /><div><strong>FurniSpace</strong><span>Designer Workspace</span></div></div>
         <nav>
           {navItems.map(({ icon: ItemIcon, label, path }) => path ? (
             <NavLink className={label === activeLabel ? 'is-active' : ''} key={label} to={path}>

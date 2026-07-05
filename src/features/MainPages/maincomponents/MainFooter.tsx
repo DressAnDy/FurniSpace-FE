@@ -57,14 +57,6 @@ export function MainFooter() {
             <FooterLine icon={<IconClock size={16} />}>{t.hours}</FooterLine>
           </FooterColumn>
 
-          <FooterColumn title={t.servicesTitle}>
-            {t.services.map((item) => (
-              <p key={item} className="main-footer-text">
-                {item}
-              </p>
-            ))}
-          </FooterColumn>
-
           <FooterColumn title={t.consultTitle}>
             <p className="main-footer-text">{t.consultText}</p>
           </FooterColumn>

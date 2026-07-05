@@ -18,7 +18,7 @@ type MainNavbarProps = {
   linkClassName?: string;
 };
 
-const navPaths = ['/', '/projects', '/products', '/services'];
+const navPaths = ['/', '/projects', '/products'];
 
 const navbarText = {
   vi: {
@@ -32,7 +32,7 @@ const navbarText = {
     switchLang: 'Switch to English',
   },
   en: {
-    nav: ['HOME', 'PROJECTS', 'PRODUCTS', 'SERVICES'],
+    nav: ['HOME', 'PROJECTS', 'PRODUCTS'],
     register: 'SIGN UP',
     login: 'LOG IN',
     dashboard: 'My Dashboard',

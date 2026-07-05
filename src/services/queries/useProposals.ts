@@ -8,6 +8,7 @@ import {
   getProjectProposals,
   getProposalScenes,
   getRoomPlannerScene,
+  publishProposal,
   saveRoomPlannerScene,
   syncProposalItemsFromScene,
   type CreateProposalInput,
@@ -53,6 +54,19 @@ export function useProposalDetail(proposalId?: string, options?: { enabled?: boo
     queryKey: proposalQueryKeys.detail(proposalId ?? ''),
     queryFn: () => getProposalById(proposalId ?? ''),
     enabled: Boolean(proposalId) && (options?.enabled ?? true),
+  });
+}
+
+export function usePublishProposal() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (input: { note?: string | null; proposalId: string }) => publishProposal(input.proposalId, input.note),
+    onSuccess: (result) => {
+      void queryClient.invalidateQueries({ queryKey: proposalQueryKeys.all });
+      void queryClient.invalidateQueries({ queryKey: proposalQueryKeys.detail(result.proposalId) });
+      void queryClient.invalidateQueries({ queryKey: ['projects'] });
+    },
   });
 }
 

@@ -1,23 +1,17 @@
 import {
   IconArrowLeft,
-  IconBox,
   IconDotsVertical,
   IconFile,
-  IconFileText,
-  IconHome,
-  IconMessageCircle,
   IconPaperclip,
   IconPhone,
-  IconPlus,
-  IconReceipt,
   IconSearch,
   IconSend,
-  IconSparkles,
   IconVideo,
 } from '@tabler/icons-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 
+import { CustomerNavbar } from '@/features/CustomerPages/customercomponents';
 import { formatChatTime, formatFileSize, formatUnreadBadge, getChatParticipant, getInitials, getMessageContent } from '@/features/projectChat/chatUi';
 import {
   getProjectChatServiceResultMessage,
@@ -36,18 +30,8 @@ import {
   useSendProjectChatFileMessage,
   useSendProjectChatTextMessage,
 } from '@/services/queries/useProjectChats';
-import { CustomerUserSummary } from '@/shared/components/CustomerUserSummary';
 
 import './CustomerChatPage.css';
-
-const navigation = [
-  { icon: <IconHome size={15} stroke={1.8} />, label: 'My Projects', href: '/customer/projects' },
-  { icon: <IconFileText size={15} stroke={1.8} />, label: 'Design Proposals', href: '/customer/proposals' },
-  { icon: <IconSparkles size={15} stroke={1.8} />, label: '2D/3D Review', href: '/customer/3d-preview' },
-  { icon: <IconReceipt size={15} stroke={1.8} />, label: 'Quotations', href: '#' },
-  { active: true, icon: <IconMessageCircle size={15} stroke={1.8} />, label: 'Project Chat', href: '/customer/chat' },
-  { icon: <IconBox size={15} stroke={1.8} />, label: 'Handover', href: '#' },
-];
 
 export function CustomerChatPage() {
   const queryClient = useQueryClient();
@@ -214,7 +198,7 @@ export function CustomerChatPage() {
 
   return (
     <main className="customer-chat-page">
-      <TopNavigation />
+      <CustomerNavbar activeLabel="Project Chat" classPrefix="customer-chat" />
 
       <div className="customer-chat-body">
         <header className="customer-chat-page-header">
@@ -445,40 +429,6 @@ function CustomerMessage({ currentUserId, message }: { currentUserId?: string; m
       ) : null}
       <time>{formatChatTime(message.createdAt)}</time>
     </article>
-  );
-}
-
-function TopNavigation() {
-  return (
-    <header className="customer-chat-topnav">
-      <a className="customer-chat-logo" href="/">
-        <span>
-          <IconBox size={19} stroke={1.8} />
-        </span>
-        <strong>FurniSpace</strong>
-      </a>
-
-      <nav aria-label="Customer navigation">
-        {navigation.map((item) => (
-          <a
-            className={item.active ? 'customer-chat-nav-active' : undefined}
-            href={item.href}
-            key={item.label}
-          >
-            {item.icon}
-            <span>{item.label}</span>
-          </a>
-        ))}
-      </nav>
-
-      <div className="customer-chat-userbar">
-        <button className="customer-chat-create" type="button">
-          <IconPlus size={15} stroke={2} />
-          Create Project Request
-        </button>
-        <CustomerUserSummary classPrefix="customer-chat" />
-      </div>
-    </header>
   );
 }
 
