@@ -157,7 +157,7 @@ export default function App() {
             <Route path="/admin/products/:productId/versions" element={<ProductVersionManagement />} />
             <Route path="/admin/products/:productId/versions/create" element={<CreateProductVersionPage />} />
             <Route path="/admin/catalog/models" element={<CatalogModelManagementPage />} />
-            <Route path="/admin/catalog/models/:productId/:productVersionId" element={<ProductModelWorkspacePage />} />
+            <Route path="/admin/catalog/models/workspace/:productId/:productVersionId" element={<ProductModelWorkspacePage />} />
             <Route path="/admin/3d-lab" element={<AdminThreeDLabPage />} />
             <Route path="/admin-dashbroad" element={<Navigate to="/admin/dashbroad" replace />} />
             <Route path="/admin-user-management" element={<Navigate to="/admin/users" replace />} />

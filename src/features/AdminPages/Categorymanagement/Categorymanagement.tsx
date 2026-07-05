@@ -1,5 +1,5 @@
 import { type FormEvent, useMemo, useState } from 'react';
-import { IconArchive, IconCategory, IconEdit, IconEye, IconPlus, IconSearch } from '@tabler/icons-react';
+import { IconArchive, IconCategory, IconCheck, IconEdit, IconEye, IconPlus, IconSearch, IconTags } from '@tabler/icons-react';
 
 import {
   getCategoryServiceResultMessage,
@@ -19,8 +19,15 @@ const statusClassName: Record<string, string> = {
   ARCHIVED: 'category-management-status-archived',
 };
 
+const categoryStatusOptions = ['', 'ACTIVE', 'INACTIVE', 'ARCHIVED'] as const;
+type CategoryStatusFilter = (typeof categoryStatusOptions)[number];
+const categorySortOptions = ['NEWEST', 'NAME_ASC', 'NAME_DESC'] as const;
+type CategorySortFilter = (typeof categorySortOptions)[number];
+
 export function Categorymanagement() {
   const [searchValue, setSearchValue] = useState('');
+  const [statusFilter, setStatusFilter] = useState<CategoryStatusFilter>('');
+  const [sortFilter, setSortFilter] = useState<CategorySortFilter>('NEWEST');
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [editingCategory, setEditingCategory] = useState<CategoryDto | null>(null);
 
@@ -32,18 +39,38 @@ export function Categorymanagement() {
     const categories = categoryListQuery.data?.items ?? [];
     const keyword = searchValue.trim().toLowerCase();
 
-    if (!keyword) {
-      return categories;
-    }
-
-    return categories.filter((category) => {
-      return (
+    const nextCategories = categories.filter((category) => {
+      const matchesKeyword = !keyword ||
         category.categoryName.toLowerCase().includes(keyword) ||
         (category.description ?? '').toLowerCase().includes(keyword) ||
-        category.status.toLowerCase().includes(keyword)
-      );
+        category.status.toLowerCase().includes(keyword);
+      const matchesStatus = !statusFilter || category.status === statusFilter;
+
+      return matchesKeyword && matchesStatus;
     });
-  }, [categoryListQuery.data?.items, searchValue]);
+
+    return [...nextCategories].sort((left, right) => {
+      if (sortFilter === 'NAME_ASC') {
+        return left.categoryName.localeCompare(right.categoryName);
+      }
+
+      if (sortFilter === 'NAME_DESC') {
+        return right.categoryName.localeCompare(left.categoryName);
+      }
+
+      return 0;
+    });
+  }, [categoryListQuery.data?.items, searchValue, statusFilter, sortFilter]);
+  const categoryStats = useMemo(() => {
+    const categories = categoryListQuery.data?.items ?? [];
+    const countStatus = (targetStatus: string) => categories.filter((category) => category.status === targetStatus).length;
+
+    return [
+      { label: 'Active', value: countStatus('ACTIVE'), helper: 'Visible catalog groups', icon: IconCheck, tone: 'green' },
+      { label: 'Inactive', value: countStatus('INACTIVE'), helper: 'Hidden from catalog', icon: IconCategory, tone: 'gold' },
+      { label: 'Archived', value: countStatus('ARCHIVED'), helper: 'Stored historical groups', icon: IconArchive, tone: 'dark' },
+    ];
+  }, [categoryListQuery.data?.items]);
 
   const isModalOpen = isCreateModalOpen || Boolean(editingCategory);
   const modalMode = editingCategory ? 'edit' : 'create';
@@ -112,7 +139,7 @@ export function Categorymanagement() {
 
         <section className="admin-main">
           <div className="admin-content category-management-content">
-            <div className="category-management-heading">
+            <div className="admin-page-heading category-management-heading">
               <div>
                 <h2>Product Categories</h2>
                 <p>Manage product categories and catalog groupings from backend API.</p>
@@ -123,9 +150,24 @@ export function Categorymanagement() {
               </button>
             </div>
 
-            <section className="category-management-card">
-              <div className="category-management-toolbar">
-                <label className="category-management-search">
+            <section className="category-stat-grid" aria-label="Category status overview">
+              {categoryStats.map(({ label, value, helper, icon: Icon, tone }) => (
+                <article className="category-stat-card" key={label}>
+                  <div className="category-stat-copy">
+                    <span>{label}</span>
+                    <strong>{value}</strong>
+                    <p>{helper}</p>
+                  </div>
+                  <div className={`category-stat-icon category-stat-icon-${tone}`}>
+                    <Icon size={22} />
+                  </div>
+                </article>
+              ))}
+            </section>
+
+            <section className="admin-card category-management-card">
+              <div className="category-management-tools">
+                <label className="admin-search category-management-search">
                   <IconSearch size={18} />
                   <input
                     value={searchValue}
@@ -134,7 +176,30 @@ export function Categorymanagement() {
                     type="search"
                   />
                 </label>
-                <div className="category-management-count">
+
+                <label className="category-management-filter">
+                  <span>Status</span>
+                  <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as CategoryStatusFilter)}>
+                    {categoryStatusOptions.map((option) => (
+                      <option key={option || 'ALL'} value={option}>
+                        {option || 'All statuses'}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="category-management-filter">
+                  <span>Sort by</span>
+                  <select value={sortFilter} onChange={(event) => setSortFilter(event.target.value as CategorySortFilter)}>
+                    {categorySortOptions.map((option) => (
+                      <option key={option} value={option}>
+                        {formatSortLabel(option)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <div className="category-management-total">
                   <span>Total</span>
                   <strong>{categoryListQuery.data?.total ?? filteredCategories.length}</strong>
                 </div>
@@ -157,6 +222,7 @@ export function Categorymanagement() {
                   <table className="category-management-table">
                     <thead>
                       <tr>
+                        <th>Category ID</th>
                         <th>Category Name</th>
                         <th>Description</th>
                         <th>Status</th>
@@ -166,14 +232,16 @@ export function Categorymanagement() {
                     <tbody>
                       {filteredCategories.map((category) => (
                         <tr key={category.categoryId}>
+                          <td className="category-management-id" title={category.categoryId}>
+                            {shortenId(category.categoryId)}
+                          </td>
                           <td>
                             <div className="category-management-name">
                               <span>
-                                <IconCategory size={20} />
+                                <IconTags size={18} />
                               </span>
                               <div>
                                 <strong>{category.categoryName}</strong>
-                                <small>{category.categoryId}</small>
                               </div>
                             </div>
                           </td>
@@ -225,6 +293,22 @@ export function Categorymanagement() {
       />
     </main>
   );
+}
+
+function shortenId(value: string) {
+  return value.length > 12 ? `${value.slice(0, 8)}...` : value;
+}
+
+function formatSortLabel(value: CategorySortFilter) {
+  if (value === 'NAME_ASC') {
+    return 'Name A-Z';
+  }
+
+  if (value === 'NAME_DESC') {
+    return 'Name Z-A';
+  }
+
+  return 'Newest';
 }
 
 export default Categorymanagement;
