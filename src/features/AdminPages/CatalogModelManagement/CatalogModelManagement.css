@@ -37,6 +37,12 @@
   text-transform: uppercase;
 }
 
+.product-version-back-topbar {
+  color: #4b5563;
+  margin: 0;
+  text-transform: none;
+}
+
 .catalog-model-version span,
 .catalog-model-file span {
   color: #71808a;
@@ -221,7 +227,7 @@
 .model-workspace-layout {
   display: grid;
   gap: 16px;
-  grid-template-columns: minmax(250px, 280px) minmax(0, 1fr);
+  grid-template-columns: minmax(300px, 340px) minmax(0, 1fr);
   height: calc(100vh - 310px);
   min-height: 620px;
 }
@@ -313,6 +319,7 @@
 
 .model-workspace-details.model-version-panel {
   align-self: start;
+  min-height: 460px;
   overflow: hidden;
 }
 
@@ -322,7 +329,7 @@
 
 .model-version-summary {
   gap: 0;
-  margin-bottom: 18px;
+  margin-bottom: 22px;
 }
 
 .model-version-summary div {
@@ -334,16 +341,26 @@
   display: flex;
   gap: 12px;
   justify-content: space-between;
-  padding: 7px 0;
+  padding: 11px 0;
+}
+
+.model-version-summary + .model-workspace-section-heading {
+  margin-top: 4px;
+}
+
+.model-version-panel .planner-readiness {
+  font-size: 13px;
+  padding-top: 4px;
 }
 
 .model-version-summary dt {
   color: #71808a;
-  flex: 0 0 100px;
+  flex: 0 0 128px;
   font-size: 11px;
   font-weight: 700;
   line-height: 1.35;
   text-transform: uppercase;
+  white-space: nowrap;
 }
 
 .model-version-summary dd {
@@ -487,7 +504,7 @@
   }
 
   .model-workspace-layout {
-    grid-template-columns: 220px minmax(360px, 1fr);
+    grid-template-columns: 280px minmax(360px, 1fr);
     height: auto;
   }
 
