@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 
 import { getProposalServiceResultMessage, type ProposalDto, type ProposalSceneDto } from '@/services/api/proposals';
 import type { ProjectDto } from '@/services/api/projects';
-import { useCreateProposal, useCreateProposalScene, useProjectProposals, useProposalScenes, usePublishProposal } from '@/services/queries';
+import { useCreateProposal, useProjectProposals, useProposalScenes, usePublishProposal } from '@/services/queries';
 
 type ProposalsTabProps = {
   project: ProjectDto;
@@ -15,7 +15,6 @@ export function ProposalsTab({ project }: ProposalsTabProps) {
   const [messageTone, setMessageTone] = useState<'error' | 'success'>('error');
   const [publishingProposalId, setPublishingProposalId] = useState<string | null>(null);
   const createProposalMutation = useCreateProposal();
-  const createProposalSceneMutation = useCreateProposalScene();
   const publishProposalMutation = usePublishProposal();
   const proposalsQuery = useProjectProposals({
     projectId: project.projectId,
@@ -24,7 +23,7 @@ export function ProposalsTab({ project }: ProposalsTabProps) {
   });
   const proposals = proposalsQuery.data?.items ?? [];
 
-  async function createProposalAndScene() {
+  async function createProposal() {
     setMessage('');
     setMessageTone('error');
 
@@ -32,15 +31,10 @@ export function ProposalsTab({ project }: ProposalsTabProps) {
       const proposal = await createProposalMutation.mutateAsync({
         projectId: project.projectId,
         proposalName: `${project.projectName} 3D Proposal`,
-        description: 'Created from designer Room Planner.',
-      });
-      const scene = await createProposalSceneMutation.mutateAsync({
-        proposalId: proposal.proposalId,
-        sceneName: `${project.projectName} 3D Scene`,
-        sceneType: 'THREE_D',
+        description: 'Created from designer proposal workspace.',
       });
 
-      openScene(scene, proposal.proposalId);
+      navigate(`/designer/projects/${project.projectId}/proposals/${proposal.proposalId}`);
     } catch (error) {
       setMessageTone('error');
       setMessage(getProposalServiceResultMessage(error));
@@ -87,11 +81,11 @@ export function ProposalsTab({ project }: ProposalsTabProps) {
         </div>
         <button
           className="designer-project-detail-button designer-project-detail-button-primary"
-          disabled={project.status !== 'PROPOSAL_DRAFTING' || createProposalMutation.isPending || createProposalSceneMutation.isPending}
+          disabled={project.status !== 'PROPOSAL_DRAFTING' || createProposalMutation.isPending}
           type="button"
-          onClick={() => void createProposalAndScene()}
+          onClick={() => void createProposal()}
         >
-          {createProposalMutation.isPending || createProposalSceneMutation.isPending ? 'Creating...' : 'Create Proposal'}
+          {createProposalMutation.isPending ? 'Creating...' : 'Create Proposal'}
         </button>
       </div>
 
@@ -131,23 +125,7 @@ export function ProposalsTab({ project }: ProposalsTabProps) {
               <ProposalRow
                 key={proposal.proposalId}
                 proposal={proposal}
-                onCreateScene={async () => {
-                  setMessage('');
-                  setMessageTone('error');
-
-                  try {
-                    const scene = await createProposalSceneMutation.mutateAsync({
-                      proposalId: proposal.proposalId,
-                      sceneName: `${proposal.proposalName} 3D Scene`,
-                      sceneType: 'THREE_D',
-                    });
-
-                    openScene(scene, proposal.proposalId);
-                  } catch (error) {
-                    setMessageTone('error');
-                    setMessage(getProposalServiceResultMessage(error));
-                  }
-                }}
+                onCreateScene={async () => navigate(`/designer/projects/${project.projectId}/proposals/${proposal.proposalId}`)}
                 onOpenScene={(scene) => openScene(scene, proposal.proposalId)}
                 onPublish={() => publishProposal(proposal)}
                 publishDisabled={publishingProposalId === proposal.proposalId || publishProposalMutation.isPending}
@@ -205,7 +183,7 @@ function ProposalRow({ proposal, onCreateScene, onOpenScene, onPublish, publishD
             </button>
           ) : (
             <button className="designer-project-table-open" disabled={proposal.status !== 'DRAFT'} type="button" onClick={() => void onCreateScene()}>
-              Create Scene
+              Open Workspace
             </button>
           )}
           {proposal.status === 'DRAFT' ? (

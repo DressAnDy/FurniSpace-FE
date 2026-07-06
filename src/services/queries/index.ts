@@ -34,6 +34,11 @@ export {
   useUploadProjectFile,
 } from './useProjects';
 export {
+  projectAreaQueryKeys,
+  useCreateProjectArea,
+  useProjectAreas,
+} from './useProjectAreas';
+export {
   projectChatQueryKeys,
   upsertProjectChatMessage,
   useCloseProjectChat,

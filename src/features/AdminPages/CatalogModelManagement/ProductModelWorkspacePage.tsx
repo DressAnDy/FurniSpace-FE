@@ -10,7 +10,7 @@ import {
 } from '@tabler/icons-react';
 import { useNavigate, useParams } from 'react-router-dom';
 
-import { AdminSidebar } from '@/features/AdminPages/admincomponents';
+import { AdminNavbar, AdminSidebar } from '@/features/AdminPages/admincomponents';
 import { ModelViewer, type ModelViewerStatus } from '@/features/ThreeD/components';
 import {
   getProductServiceResultMessage,
@@ -149,6 +149,7 @@ export function ProductModelWorkspacePage() {
       <div className="admin-dashboard-shell">
         <AdminSidebar activeLabel="3D Model & File Library" />
         <section className="admin-main">
+          <AdminNavbar activeLabel="3D Model & File Library" />
           <div className="admin-content model-workspace-content">
             <header className="product-management-heading model-workspace-heading">
               <div>
@@ -179,12 +180,12 @@ export function ProductModelWorkspacePage() {
 
             {version && product && (
               <div className="model-workspace-layout">
-                <aside className="model-workspace-details">
+                <aside className="model-workspace-details model-version-panel">
                   <div className="model-workspace-section-heading">
                     <span>Version information</span>
                     <strong className={`catalog-inline-status is-${version.status.toLowerCase()}`}>{version.status}</strong>
                   </div>
-                  <dl className="model-metadata-list">
+                  <dl className="model-metadata-list model-version-summary">
                     <div><dt>Product</dt><dd>{product.productName}</dd></div>
                     <div><dt>Version</dt><dd>{version.versionName}</dd></div>
                     <div><dt>Type</dt><dd>{version.versionType}</dd></div>

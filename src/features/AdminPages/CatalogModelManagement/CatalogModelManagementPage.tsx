@@ -11,7 +11,7 @@ import { useNavigate } from 'react-router-dom';
 
 import { getProductServiceResultMessage } from '@/services/api';
 import { useProductList } from '@/services/queries';
-import { AdminSidebar } from '@/features/AdminPages/admincomponents';
+import { AdminNavbar, AdminSidebar } from '@/features/AdminPages/admincomponents';
 
 import { getPlannerReadiness, getVersionFile } from './catalogModel.utils';
 import { CATALOG_MOCK_ENABLED, MOCK_CATALOG_LIST_ITEMS } from './catalogModel.mock';
@@ -76,6 +76,7 @@ export function CatalogModelManagementPage() {
       <div className="admin-dashboard-shell">
         <AdminSidebar activeLabel="3D Model & File Library" />
         <section className="admin-main">
+          <AdminNavbar activeLabel="3D Model & File Library" />
           <div className="admin-content catalog-model-content">
             <header className="product-management-heading catalog-model-heading">
               <div>

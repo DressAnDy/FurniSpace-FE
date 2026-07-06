@@ -5,11 +5,14 @@ import {
   IconFileDollar,
   IconHome,
   IconLogout,
+  IconMenu2,
+  IconChevronLeft,
   type Icon,
 } from '@tabler/icons-react';
 import { NavLink, useNavigate } from 'react-router-dom';
 
 import logoImage from '@/assets/Logo/Logo.png';
+import { useActorSidebarCollapse } from '@/shared/hooks/useActorSidebarCollapse';
 import { useLogout } from '@/services/queries';
 
 type SaleSidebarItem = {
@@ -23,6 +26,7 @@ const saleSidebarItems: SaleSidebarItem[] = [
   { label: 'Project Request Queue', icon: IconHome, path: '/sales/project-requests' },
   { label: 'Assigned Projects', icon: IconBriefcase, path: '/sales/assigned-projects' },
   { label: 'Schedules', icon: IconCalendarEvent, path: '/sales/schedules' },
+  { label: 'Quotations', icon: IconFileDollar, path: '/sales/quotations' },
   { label: 'Orders', icon: IconFileDollar },
   { label: 'Production Tracking', icon: IconClipboardList },
 ];
@@ -34,6 +38,7 @@ type SaleSidebarProps = {
 export function SaleSidebar({ activeLabel }: SaleSidebarProps) {
   const navigate = useNavigate();
   const logoutMutation = useLogout();
+  const { collapse, expand, isCollapsed } = useActorSidebarCollapse('sale');
 
   function handleLogout() {
     logoutMutation.mutate(undefined, {
@@ -44,21 +49,31 @@ export function SaleSidebar({ activeLabel }: SaleSidebarProps) {
   }
 
   return (
-    <aside className="sale-sidebar flex min-h-screen w-[256px] shrink-0 flex-col bg-[#2d2d2d] text-white">
-      <div className="sale-sidebar-brand mb-8 flex items-center gap-3 px-2">
+    <>
+    <button
+      aria-label="Open sale sidebar"
+      className="actor-sidebar-open-button sale-sidebar-open-button"
+      type="button"
+      onClick={expand}
+    >
+      <IconMenu2 size={22} />
+    </button>
+
+    <aside className="sale-sidebar" aria-hidden={isCollapsed}>
+      <div className="sale-sidebar-brand">
         <img className="sale-sidebar-brand-logo" src={logoImage} alt="FurniSpace" />
         <div>
-          <h1 className="text-lg font-semibold leading-6">FurniSpace</h1>
-          <p className="text-sm text-zinc-400">Interior Solutions</p>
+          <h1>FurniSpace</h1>
+          <p>Interior Solutions</p>
         </div>
+        <button aria-label="Collapse sale sidebar" className="actor-sidebar-collapse-button" type="button" onClick={collapse}>
+          <IconChevronLeft size={18} />
+        </button>
       </div>
 
-      <nav className="sale-sidebar-nav flex flex-1 flex-col gap-1">
+      <nav className="sale-sidebar-nav">
         {saleSidebarItems.map(({ label, icon: ItemIcon, path }) => {
-          const staticItemClass =
-            label === activeLabel
-              ? 'sale-sidebar-item-active bg-[#c9a24d] text-[#171717] shadow-sm'
-              : 'text-zinc-300 hover:bg-white/10 hover:text-white';
+          const staticItemClass = label === activeLabel ? 'sale-sidebar-item-active' : '';
 
           const content = (
             <>
@@ -72,7 +87,7 @@ export function SaleSidebar({ activeLabel }: SaleSidebarProps) {
               <button
                 key={label}
                 type="button"
-                className={`sale-sidebar-item flex w-full items-center gap-3 rounded-lg px-3 py-3 text-left text-sm font-medium transition ${staticItemClass}`}
+                className={`sale-sidebar-item ${staticItemClass}`}
                 disabled
               >
                 {content}
@@ -87,10 +102,10 @@ export function SaleSidebar({ activeLabel }: SaleSidebarProps) {
               className={({ isActive }) => {
                 const itemClass =
                   isActive || label === activeLabel
-                    ? 'sale-sidebar-item-active bg-[#c9a24d] text-[#171717] shadow-sm'
-                    : 'text-zinc-300 hover:bg-white/10 hover:text-white';
+                    ? 'sale-sidebar-item-active'
+                    : '';
 
-                return `sale-sidebar-item flex items-center gap-3 rounded-lg px-3 py-3 text-sm font-medium no-underline transition ${itemClass}`;
+                return `sale-sidebar-item ${itemClass}`;
               }}
             >
               {content}
@@ -106,5 +121,6 @@ export function SaleSidebar({ activeLabel }: SaleSidebarProps) {
         </button>
       </div>
     </aside>
+    </>
   );
 }

@@ -9,7 +9,7 @@ import {
 } from '@/services/api';
 import { useCategoryList, useCreateCategory, useUpdateCategory } from '@/services/queries';
 
-import { AdminSidebar } from '../admincomponents';
+import { AdminNavbar, AdminSidebar } from '../admincomponents';
 import { CreateCategoryModal } from './components';
 import './Categorymanagement.css';
 
@@ -138,6 +138,7 @@ export function Categorymanagement() {
         <AdminSidebar activeLabel="Product Categories" />
 
         <section className="admin-main">
+          <AdminNavbar activeLabel="Product Categories" />
           <div className="admin-content category-management-content">
             <div className="admin-page-heading category-management-heading">
               <div>

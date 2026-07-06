@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { getProductServiceResultMessage, normalizeOptionalText, normalizeRequiredText } from '@/services/api';
 import { useCategoryList, useProductList, useUpdateProduct } from '@/services/queries';
 
-import { AdminSidebar } from '../admincomponents';
+import { AdminNavbar, AdminSidebar } from '../admincomponents';
 import './Productmanagement.css';
 
 const statusClassName: Record<string, string> = {
@@ -115,6 +115,7 @@ export function Productmanagement() {
         <AdminSidebar activeLabel="Products" />
 
         <section className="admin-main">
+          <AdminNavbar activeLabel="Products" />
           <div className="admin-content product-management-content">
             <div className="product-management-heading">
               <div>

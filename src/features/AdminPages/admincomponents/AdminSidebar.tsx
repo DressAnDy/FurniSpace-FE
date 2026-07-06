@@ -1,9 +1,11 @@
 import {
   IconChartBar,
+  IconChevronLeft,
   IconCube,
   IconFolder,
   IconHome,
   IconLogout,
+  IconMenu2,
   IconPackage,
   IconTags,
   IconUsers,
@@ -12,6 +14,7 @@ import {
 import { NavLink, useNavigate } from 'react-router-dom';
 
 import logoImage from '@/assets/Logo/Logo.png';
+import { useActorSidebarCollapse } from '@/shared/hooks/useActorSidebarCollapse';
 import { useLogout } from '@/services/queries';
 
 type SidebarItem = {
@@ -38,6 +41,7 @@ type AdminSidebarProps = {
 export function AdminSidebar({ activeLabel }: AdminSidebarProps) {
   const navigate = useNavigate();
   const logoutMutation = useLogout();
+  const { collapse, expand, isCollapsed } = useActorSidebarCollapse('admin');
 
   function handleLogout() {
     logoutMutation.mutate(undefined, {
@@ -48,46 +52,60 @@ export function AdminSidebar({ activeLabel }: AdminSidebarProps) {
   }
 
   return (
-    <aside className="admin-sidebar">
-      <div className="admin-brand">
-        <img className="admin-brand-logo" src={logoImage} alt="FurniSpace" />
-        <div>
-          <h1>FurniSpace</h1>
-          <p>Admin Workspace</p>
+    <>
+      <button
+        aria-label="Open admin sidebar"
+        className="actor-sidebar-open-button admin-sidebar-open-button"
+        type="button"
+        onClick={expand}
+      >
+        <IconMenu2 size={22} />
+      </button>
+
+      <aside className="admin-sidebar" aria-hidden={isCollapsed}>
+        <div className="admin-brand">
+          <img className="admin-brand-logo" src={logoImage} alt="FurniSpace" />
+          <div>
+            <h1>FurniSpace</h1>
+            <p>Admin Workspace</p>
+          </div>
+          <button aria-label="Collapse admin sidebar" className="actor-sidebar-collapse-button" type="button" onClick={collapse}>
+            <IconChevronLeft size={18} />
+          </button>
         </div>
-      </div>
 
-      <nav className="admin-nav">
-        {sidebarItems.map(({ label, icon: ItemIcon, path }) => {
-          const content = (
-            <>
-              <ItemIcon size={16} />
-              <span>{label}</span>
-            </>
-          );
-
-          if (!path) {
-            return (
-              <button key={label} type="button" className={`admin-nav-item${label === activeLabel ? ' admin-nav-item-active' : ''}`} disabled>
-                {content}
-              </button>
+        <nav className="admin-nav">
+          {sidebarItems.map(({ label, icon: ItemIcon, path }) => {
+            const content = (
+              <>
+                <ItemIcon size={16} />
+                <span>{label}</span>
+              </>
             );
-          }
 
-          return (
-            <NavLink key={label} to={path} className={`admin-nav-item${label === activeLabel ? ' admin-nav-item-active' : ''}`}>
-              {content}
-            </NavLink>
-          );
-        })}
-      </nav>
+            if (!path) {
+              return (
+                <button key={label} type="button" className={`admin-nav-item${label === activeLabel ? ' admin-nav-item-active' : ''}`} disabled>
+                  {content}
+                </button>
+              );
+            }
 
-      <div className="admin-sidebar-footer">
-        <button className="admin-logout-button" type="button" onClick={handleLogout} disabled={logoutMutation.isPending}>
-          <IconLogout size={16} />
-          <span>{logoutMutation.isPending ? 'Logging out...' : 'Logout'}</span>
-        </button>
-      </div>
-    </aside>
+            return (
+              <NavLink key={label} to={path} className={`admin-nav-item${label === activeLabel ? ' admin-nav-item-active' : ''}`}>
+                {content}
+              </NavLink>
+            );
+          })}
+        </nav>
+
+        <div className="admin-sidebar-footer">
+          <button className="admin-logout-button" type="button" onClick={handleLogout} disabled={logoutMutation.isPending}>
+            <IconLogout size={16} />
+            <span>{logoutMutation.isPending ? 'Logging out...' : 'Logout'}</span>
+          </button>
+        </div>
+      </aside>
+    </>
   );
 }
