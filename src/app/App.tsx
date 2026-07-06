@@ -8,6 +8,8 @@ import { ProtectedRoute } from '@/app/providers/ProtectedRoute';
 import { LangProvider } from '@/app/providers/LangContext';
 import { CodeVerifyPage, LoginPage, RegisterPage } from '@/features/auth';
 import { AdminDashbroad } from '@/features/AdminPages/AdminDashbroad';
+import { AdminProjects } from '@/features/AdminPages/AdminProjects';
+import { AdminReports } from '@/features/AdminPages/AdminReports';
 import { AdminThreeDLabPage } from '@/features/AdminPages/AdminThreeDLab';
 import { Categorymanagement } from '@/features/AdminPages/Categorymanagement';
 import { CreateProductPage, CreateProductVersionPage, Productmanagement, ProductVersionManagement } from '@/features/AdminPages/Productmanagement';
@@ -77,6 +79,8 @@ export default function App() {
               <Route path="/admin/products/create" element={<CreateProductPage />} />
               <Route path="/admin/products/:productId/versions" element={<ProductVersionManagement />} />
               <Route path="/admin/products/:productId/versions/create" element={<CreateProductVersionPage />} />
+              <Route path="/admin/projects" element={<AdminProjects />} />
+              <Route path="/admin/reports" element={<AdminReports />} />
               {/* Admin legacy redirects */}
               <Route path="/admin-dashbroad" element={<Navigate to="/admin/dashbroad" replace />} />
               <Route path="/admin-user-management" element={<Navigate to="/admin/users" replace />} />
@@ -156,9 +160,11 @@ export default function App() {
             <Route path="/admin/products/create" element={<CreateProductPage />} />
             <Route path="/admin/products/:productId/versions" element={<ProductVersionManagement />} />
             <Route path="/admin/products/:productId/versions/create" element={<CreateProductVersionPage />} />
+            <Route path="/admin/projects" element={<AdminProjects />} />
             <Route path="/admin/catalog/models" element={<CatalogModelManagementPage />} />
             <Route path="/admin/catalog/models/workspace/:productId/:productVersionId" element={<ProductModelWorkspacePage />} />
             <Route path="/admin/3d-lab" element={<AdminThreeDLabPage />} />
+            <Route path="/admin/reports" element={<AdminReports />} />
             <Route path="/admin-dashbroad" element={<Navigate to="/admin/dashbroad" replace />} />
             <Route path="/admin-user-management" element={<Navigate to="/admin/users" replace />} />
             <Route path="/admin-category-management" element={<Navigate to="/admin/categories" replace />} />

@@ -30,8 +30,8 @@ const sidebarItems: SidebarItem[] = [
   { label: 'Products', icon: IconPackage, path: '/admin/products' },
   { label: '3D Model & File Library', icon: IconCube, path: '/admin/catalog/models' },
   { label: '3D Lab', icon: IconCube, path: '/admin/3d-lab' },
-  { label: 'Projects', icon: IconFolder },
-  { label: 'Reports', icon: IconChartBar },
+  { label: 'Projects', icon: IconFolder, path: '/admin/projects' },
+  { label: 'Reports', icon: IconChartBar, path: '/admin/reports' },
 ];
 
 type AdminSidebarProps = {
