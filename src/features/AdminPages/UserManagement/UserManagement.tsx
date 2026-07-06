@@ -19,7 +19,7 @@ import {
   useUpdateAccount,
 } from '@/services/queries';
 
-import { AdminSidebar } from '../admincomponents';
+import { AdminNavbar, AdminSidebar } from '../admincomponents';
 import './UserManagement.css';
 
 type AccountFormMode = 'create' | 'edit';
@@ -157,6 +157,7 @@ export function UserManagement() {
         <AdminSidebar activeLabel="User & Role Management" />
 
         <section className="admin-main">
+          <AdminNavbar activeLabel="User & Role Management" />
           <div className="admin-content user-management-content">
             <div className="admin-page-heading user-management-heading">
               <div>

@@ -19,7 +19,7 @@ import { DesignerLayout } from '@/features/DesignerPages/designercomponents';
 import { getAccountById } from '@/services/api';
 import { getProposalServiceResultMessage } from '@/services/api/proposals';
 import { getProjectServiceResultMessage, type ProjectDto, type ProjectStatus } from '@/services/api/projects';
-import { useCreateProposal, useCreateProposalScene, useProjectDetail, useUpdateProjectStatus } from '@/services/queries';
+import { useCreateProposal, useProjectDetail, useUpdateProjectStatus } from '@/services/queries';
 
 import { ChatTab, CustomizationTab, OverviewTab, ProposalsTab, SchedulesTab, SpaceFilesTab } from './tabs';
 import './DesignerProjectDetail.css';
@@ -53,7 +53,6 @@ export function DesignerProjectDetail() {
   const [projectActionMessage, setProjectActionMessage] = useState<{ tone: 'error' | 'success'; text: string } | null>(null);
   const projectQuery = useProjectDetail(projectId);
   const createProposalMutation = useCreateProposal();
-  const createProposalSceneMutation = useCreateProposalScene();
   const updateProjectStatusMutation = useUpdateProjectStatus();
   const project = projectQuery.data;
   const accountIds = useMemo(() => [project?.customerId, project?.assignedSalesId].filter((accountId): accountId is string => Boolean(accountId)), [project?.assignedSalesId, project?.customerId]);
@@ -89,7 +88,7 @@ export function DesignerProjectDetail() {
       ]
     : [];
 
-  async function openProposalSceneEditor() {
+  async function openProposalWorkspace() {
     if (!project) {
       return;
     }
@@ -100,22 +99,10 @@ export function DesignerProjectDetail() {
       const proposal = await createProposalMutation.mutateAsync({
         projectId: project.projectId,
         proposalName: `${project.projectName} 3D Proposal`,
-        description: 'Created from designer Room Planner.',
-      });
-      const scene = await createProposalSceneMutation.mutateAsync({
-        proposalId: proposal.proposalId,
-        sceneName: `${project.projectName} 3D Scene`,
-        sceneType: 'THREE_D',
+        description: 'Created from designer proposal workspace.',
       });
 
-      navigate(`/proposal-scenes/${scene.sceneId}/room-planner`, {
-        state: {
-          mode: 'create-proposal',
-          projectId: project.projectId,
-          proposalId: proposal.proposalId,
-          returnTo: `/designer/assigned-projects/${project.projectId}`,
-        },
-      });
+      navigate(`/designer/projects/${project.projectId}/proposals/${proposal.proposalId}`);
     } catch (error) {
       setProjectActionMessage({ tone: 'error', text: getProposalServiceResultMessage(error) });
     }
@@ -147,7 +134,7 @@ export function DesignerProjectDetail() {
   }
 
   return (
-    <DesignerLayout activeLabel="Assigned Projects" searchPlaceholder="Search projects, proposals...">
+    <DesignerLayout activeLabel="Assigned Projects" searchPlaceholder="Search designer features...">
       <section className="designer-project-detail-page">
         <Link className="designer-project-back-link" to="/designer/assigned-projects">
           <IconArrowLeft size={18} stroke={1.8} />
@@ -203,12 +190,12 @@ export function DesignerProjectDetail() {
                   </button>
                   <button
                     className="designer-project-detail-button designer-project-detail-button-primary"
-                    disabled={project.status !== 'PROPOSAL_DRAFTING' || createProposalMutation.isPending || createProposalSceneMutation.isPending}
+                    disabled={project.status !== 'PROPOSAL_DRAFTING' || createProposalMutation.isPending}
                     type="button"
-                    onClick={() => void openProposalSceneEditor()}
+                    onClick={() => void openProposalWorkspace()}
                   >
                     <IconPlus size={17} />
-                    {createProposalMutation.isPending || createProposalSceneMutation.isPending ? 'Creating...' : 'Create Proposal'}
+                    {createProposalMutation.isPending ? 'Creating...' : 'Create Proposal'}
                   </button>
                   <button className="designer-project-detail-button" type="button">
                     <IconCube size={17} />

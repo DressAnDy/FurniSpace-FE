@@ -64,3 +64,121 @@ body {
 @keyframes auth-spin {
   to { transform: rotate(360deg); }
 }
+
+.actor-command-search {
+  position: relative;
+  z-index: 30;
+}
+
+.actor-command-search input::-webkit-search-cancel-button {
+  display: none;
+}
+
+.actor-command-results {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  right: 0;
+  z-index: 90;
+  overflow: hidden;
+  border: 1px solid rgba(139, 111, 71, 0.16);
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 18px 42px rgba(15, 13, 11, 0.14);
+  color: #0f0d0b;
+}
+
+.actor-command-results button {
+  display: grid;
+  width: 100%;
+  gap: 4px;
+  border: 0;
+  border-bottom: 1px solid #f0ece6;
+  background: transparent;
+  padding: 10px 12px;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+}
+
+.actor-command-results button:last-child {
+  border-bottom: 0;
+}
+
+.actor-command-results button:hover {
+  background: #f5f1eb;
+}
+
+.actor-command-results span {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+}
+
+.actor-command-results strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+}
+
+.actor-command-results small {
+  color: rgba(15, 13, 11, 0.56);
+  flex: 0 0 auto;
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.actor-command-results p {
+  margin: 0;
+  color: rgba(15, 13, 11, 0.62);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.actor-command-empty {
+  padding: 12px;
+}
+
+.actor-sidebar-open-button,
+.actor-sidebar-collapse-button {
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  cursor: pointer;
+  font: inherit;
+}
+
+.actor-sidebar-open-button {
+  position: fixed;
+  top: 16px;
+  left: 16px;
+  z-index: 120;
+  display: none;
+  width: 42px;
+  height: 42px;
+  border-radius: 8px;
+  background: var(--fs-sidebar);
+  color: #ffffff;
+  box-shadow: 0 14px 30px rgba(15, 13, 11, 0.18);
+}
+
+.actor-sidebar-collapse-button {
+  display: flex;
+  width: 34px;
+  height: 34px;
+  flex: 0 0 34px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(245, 241, 235, 0.9);
+}
+
+.actor-sidebar-collapse-button:hover,
+.actor-sidebar-open-button:hover {
+  background: var(--fs-gold);
+  color: var(--fs-ink);
+}

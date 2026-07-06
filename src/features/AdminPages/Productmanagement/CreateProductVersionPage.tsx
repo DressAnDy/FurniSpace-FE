@@ -10,7 +10,7 @@ import {
 } from '@/services/api';
 import { useCreateProductVersion, useProductDetail, useUploadProductVersionFile } from '@/services/queries';
 
-import { AdminSidebar } from '../admincomponents';
+import { AdminNavbar, AdminSidebar } from '../admincomponents';
 import './Productmanagement.css';
 import { SelectedImagePreview } from './SelectedImagePreview';
 
@@ -115,6 +115,7 @@ export function CreateProductVersionPage() {
         <AdminSidebar activeLabel="Product Versions" />
 
         <section className="admin-main">
+          <AdminNavbar activeLabel="Product Versions" />
           <div className="admin-content product-management-content">
             <div className="product-form-heading">
               <button className="product-version-back" type="button" onClick={() => navigate(`/admin/products/${effectiveProductId}/versions`)}>

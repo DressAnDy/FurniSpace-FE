@@ -1,5 +1,6 @@
-import { IconChevronDown, IconSearch } from '@tabler/icons-react';
+import { IconChevronDown } from '@tabler/icons-react';
 
+import { ActorCommandSearch } from '@/shared/components/ActorCommandSearch';
 import { NotificationBell } from '@/shared/components/NotificationBell';
 
 type DesignerNavbarProps = {
@@ -7,18 +8,12 @@ type DesignerNavbarProps = {
   searchPlaceholder?: string;
 };
 
-export function DesignerNavbar({ activeLabel, searchPlaceholder = 'Search projects, proposals...' }: DesignerNavbarProps) {
+export function DesignerNavbar({ searchPlaceholder = 'Search designer features...' }: DesignerNavbarProps) {
   return (
     <header className="designer-topbar">
-      <div className="designer-topbar-breadcrumb">
-        <p>FurniSpace</p>
-        <span>{activeLabel}</span>
-      </div>
 
-      <label className="designer-topbar-search">
-        <IconSearch size={17} stroke={1.8} />
-        <input placeholder={searchPlaceholder} type="search" />
-      </label>
+
+      <ActorCommandSearch actor="designer" className="designer-topbar-search" placeholder={searchPlaceholder} />
 
       <div className="designer-topbar-account">
         <NotificationBell buttonClassName="designer-topbar-notification" />

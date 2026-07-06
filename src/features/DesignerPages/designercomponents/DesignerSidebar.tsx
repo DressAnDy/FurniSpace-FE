@@ -3,6 +3,7 @@ import {
   IconChevronLeft,
   IconHome,
   IconLogout,
+  IconMenu2,
   IconPackage,
   IconSettings,
   IconTable,
@@ -11,6 +12,7 @@ import {
 import { NavLink, useNavigate } from 'react-router-dom';
 
 import logoImage from '@/assets/Logo/Logo.png';
+import { useActorSidebarCollapse } from '@/shared/hooks/useActorSidebarCollapse';
 import { useLogout } from '@/services/queries';
 
 type DesignerSidebarItem = {
@@ -34,6 +36,7 @@ type DesignerSidebarProps = {
 export function DesignerSidebar({ activeLabel }: DesignerSidebarProps) {
   const navigate = useNavigate();
   const logoutMutation = useLogout();
+  const { collapse, expand, isCollapsed } = useActorSidebarCollapse('designer');
 
   function handleLogout() {
     logoutMutation.mutate(undefined, {
@@ -44,13 +47,26 @@ export function DesignerSidebar({ activeLabel }: DesignerSidebarProps) {
   }
 
   return (
-    <aside className="designer-sidebar">
+    <>
+    <button
+      aria-label="Open designer sidebar"
+      className="actor-sidebar-open-button designer-sidebar-open-button"
+      type="button"
+      onClick={expand}
+    >
+      <IconMenu2 size={22} />
+    </button>
+
+    <aside className="designer-sidebar" aria-hidden={isCollapsed}>
       <div className="designer-sidebar-brand">
         <img src={logoImage} alt="" />
         <div>
           <h1>FurniSpace</h1>
           <p>Designer</p>
         </div>
+        <button aria-label="Collapse designer sidebar" className="actor-sidebar-collapse-button" type="button" onClick={collapse}>
+          <IconChevronLeft size={18} />
+        </button>
       </div>
 
       <nav className="designer-sidebar-nav">
@@ -91,10 +107,6 @@ export function DesignerSidebar({ activeLabel }: DesignerSidebarProps) {
       </nav>
 
       <div className="designer-sidebar-actions">
-        <button className="designer-sidebar-item" type="button">
-          <IconChevronLeft size={18} stroke={1.9} />
-          <span>Collapse</span>
-        </button>
         <button
           className="designer-sidebar-item designer-sidebar-logout"
           disabled={logoutMutation.isPending}
@@ -106,5 +118,6 @@ export function DesignerSidebar({ activeLabel }: DesignerSidebarProps) {
         </button>
       </div>
     </aside>
+    </>
   );
 }
