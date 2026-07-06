@@ -170,6 +170,7 @@ body.admin-sidebar-collapsed .admin-main {
 
 body.admin-sidebar-collapsed .admin-sidebar-open-button {
   display: flex;
+  top: 11px;
 }
 
 .admin-topbar {
@@ -184,6 +185,10 @@ body.admin-sidebar-collapsed .admin-sidebar-open-button {
   border-bottom: 1px solid var(--fs-border);
   background: var(--fs-surface);
   padding: 0 32px;
+}
+
+body.admin-sidebar-collapsed .admin-topbar {
+  padding-left: 88px;
 }
 
 .admin-topbar-command-search {
@@ -761,6 +766,10 @@ body.admin-sidebar-collapsed .admin-sidebar-open-button {
     height: auto;
     min-height: 64px;
     padding: 12px 20px;
+  }
+
+  body.admin-sidebar-collapsed .admin-topbar {
+    padding-left: 88px;
   }
 
   .admin-topbar-command-search {

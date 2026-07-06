@@ -1,17 +1,18 @@
+import type { ReactNode } from 'react';
 import { IconChevronDown } from '@tabler/icons-react';
 
 import { ActorCommandSearch } from '@/shared/components/ActorCommandSearch';
 import { NotificationBell } from '@/shared/components/NotificationBell';
 
 type AdminNavbarProps = {
-  activeLabel: string;
+  activeLabel: ReactNode;
 };
 
 export function AdminNavbar({ activeLabel }: AdminNavbarProps) {
   return (
     <header className="admin-topbar">
       <div className="admin-topbar-context">
-        <span>{activeLabel}</span>
+        {typeof activeLabel === 'string' ? <span>{activeLabel}</span> : activeLabel}
       </div>
       <ActorCommandSearch
         actor="admin"
