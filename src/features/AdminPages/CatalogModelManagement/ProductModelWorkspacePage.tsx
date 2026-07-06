@@ -149,15 +149,17 @@ export function ProductModelWorkspacePage() {
       <div className="admin-dashboard-shell">
         <AdminSidebar activeLabel="3D Model & File Library" />
         <section className="admin-main">
-          <AdminNavbar activeLabel="3D Model & File Library" />
+          <AdminNavbar
+            activeLabel={(
+              <button className="product-version-back product-version-back-topbar" type="button" onClick={() => navigate('/admin/catalog/models')}>
+                <IconArrowLeft size={16} /> Back to 3D Models
+              </button>
+            )}
+          />
           <div className="admin-content model-workspace-content">
             <header className="product-management-heading model-workspace-heading">
               <div>
-                <button className="product-version-back" type="button" onClick={() => navigate('/admin/catalog/models')}>
-                  <IconArrowLeft size={16} /> Back to 3D Models
-                </button>
                 <h2>{version?.versionName ?? 'Product Version Model Workspace'}</h2>
-                <p>{product?.productName ?? 'Loading product'} - {version?.versionCode ?? productVersionId}</p>
               </div>
               <div className="model-workspace-upload-actions">
                 <label className="admin-button admin-button-secondary">

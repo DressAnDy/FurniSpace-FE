@@ -1,16 +1,38 @@
-import { IconArrowRight, IconBriefcase, IconCalendarEvent, IconMessageCircle, IconPencilCog, IconStack2, IconTrendingUp } from '@tabler/icons-react';
+import { IconArrowRight, IconBriefcase, IconCalendarEvent, IconClipboardCheck, IconMessageCircle, IconPencilCog, IconStack2, IconTrendingUp } from '@tabler/icons-react';
 
 import { DesignerLayout } from '@/features/DesignerPages/designercomponents';
 
 import './DesignerDashbroad.css';
 
-const metrics = [
-  { label: 'Assigned Projects', value: '7', note: '+2 this week', icon: IconBriefcase },
-  { label: 'Waiting for Design', value: '2', note: '1 urgent', icon: IconPencilCog },
-  { label: 'Proposals In Progress', value: '5', note: '3 need review', icon: IconStack2 },
-  { label: 'Feedback Pending', value: '3', note: '2 open', icon: IconMessageCircle },
-  { label: 'Upcoming Schedules', value: '4', note: '1 today', icon: IconCalendarEvent },
-  { label: 'Completed Designs', value: '28', note: '+5 this month', icon: IconTrendingUp },
+const metricGroups = [
+  {
+    title: 'Project',
+    subtitle: 'Assigned project workload',
+    icon: IconBriefcase,
+    items: [
+      { label: 'Assigned Projects', value: '7', note: '+2 this week', icon: IconBriefcase },
+      { label: 'Waiting for Design', value: '2', note: '1 urgent', icon: IconPencilCog },
+    ],
+  },
+  {
+    title: 'Design',
+    subtitle: 'Proposal and feedback progress',
+    icon: IconStack2,
+    items: [
+      { label: 'Proposals In Progress', value: '5', note: '3 need review', icon: IconStack2 },
+      { label: 'Feedback Pending', value: '3', note: '2 open', icon: IconMessageCircle },
+      { label: 'Completed Designs', value: '28', note: '+5 this month', icon: IconTrendingUp },
+    ],
+  },
+  {
+    title: 'Schedule',
+    subtitle: 'Upcoming design appointments',
+    icon: IconCalendarEvent,
+    items: [
+      { label: 'Upcoming Schedules', value: '4', note: '1 today', icon: IconCalendarEvent },
+      { label: 'Confirmed Sessions', value: '3', note: '+1 confirmed', icon: IconClipboardCheck },
+    ],
+  },
 ];
 
 const activeProjects = [
@@ -41,13 +63,27 @@ export function DesignerDashbroad() {
         </section>
 
         <section className="designer-dashboard-metrics">
-          {metrics.map(({ icon: MetricIcon, label, note, value }) => (
-            <article className="designer-card designer-dashboard-metric" key={label}>
-              <div className="designer-dashboard-metric-top">
-                <span className="designer-dashboard-metric-icon"><MetricIcon size={20} /></span>
-                <strong>{value}</strong>
+          {metricGroups.map(({ icon: GroupIcon, items, subtitle, title }) => (
+            <article className="designer-card designer-dashboard-metric-group" key={title}>
+              <header className="designer-dashboard-metric-group-head">
+                <div>
+                  <h3>{title}</h3>
+                  <p>{subtitle}</p>
+                </div>
+                <span className="designer-dashboard-metric-group-icon"><GroupIcon size={22} /></span>
+              </header>
+              <div className="designer-dashboard-metric-list">
+                {items.map(({ icon: MetricIcon, label, note, value }) => (
+                  <div className="designer-dashboard-metric-item" key={label}>
+                    <span className="designer-dashboard-metric-icon"><MetricIcon size={20} /></span>
+                    <div>
+                      <p>{label}</p>
+                      <strong>{value}</strong>
+                    </div>
+                    <em>{note}</em>
+                  </div>
+                ))}
               </div>
-              <p>{label}</p><span>{note}</span>
             </article>
           ))}
         </section>

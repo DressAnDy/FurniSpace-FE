@@ -180,6 +180,11 @@ body.designer-sidebar-collapsed .designer-layout .designer-sidebar {
 
 body.designer-sidebar-collapsed .designer-sidebar-open-button {
   display: flex;
+  top: 11px;
+}
+
+body.designer-sidebar-collapsed .designer-layout .designer-topbar {
+  padding-left: 88px;
 }
 
 @media (max-width: 980px) {
