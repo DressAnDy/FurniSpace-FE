@@ -69,24 +69,31 @@
 .designer-layout .designer-topbar-breadcrumb span { color: var(--fs-ink); font-size: 13px; font-weight: 600; }
 
 .designer-layout .designer-topbar-search {
-  width: min(100%, 512px);
-  min-width: 320px;
-  height: 40px;
+  width: 576px;
+  height: 36px;
   flex: 1;
-  gap: 12px;
-  border-radius: 999px;
+  max-width: 576px;
+  min-width: 320px;
+  gap: 10px;
+  margin: 0 auto;
+  border: 0;
+  border-radius: 6px;
   background: var(--fs-surface-warm);
-  padding: 0 16px;
-  color: #71717a;
+  padding: 0 12px;
+  color: #6b6b6b;
 }
 
 .designer-layout .designer-topbar-search input {
   width: 100%;
   border: 0;
   background: transparent;
-  color: var(--fs-ink);
-  font-size: 13px;
+  color: var(--fs-ink-soft);
+  font-size: 14px;
   outline: 0;
+}
+
+.designer-layout .designer-topbar-search input::placeholder {
+  color: #6b6b6b;
 }
 
 .designer-layout .designer-topbar-account { gap: 16px; }

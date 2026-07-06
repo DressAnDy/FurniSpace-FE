@@ -8,13 +8,10 @@ type DesignerNavbarProps = {
   searchPlaceholder?: string;
 };
 
-export function DesignerNavbar({ activeLabel, searchPlaceholder = 'Search designer features...' }: DesignerNavbarProps) {
+export function DesignerNavbar({ searchPlaceholder = 'Search designer features...' }: DesignerNavbarProps) {
   return (
     <header className="designer-topbar">
-      <div className="designer-topbar-breadcrumb">
-        <p>FurniSpace</p>
-        <span>{activeLabel}</span>
-      </div>
+
 
       <ActorCommandSearch actor="designer" className="designer-topbar-search" placeholder={searchPlaceholder} />
 
