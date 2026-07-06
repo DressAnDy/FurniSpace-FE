@@ -5,6 +5,14 @@
   color: #1f2933;
 }
 
+.model-workspace-content {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 64px);
+  overflow: hidden;
+}
+
 .catalog-model-heading,
 .model-workspace-heading {
   align-items: flex-start;
@@ -226,10 +234,10 @@
 
 .model-workspace-layout {
   display: grid;
+  flex: 1 1 auto;
   gap: 16px;
   grid-template-columns: minmax(300px, 340px) minmax(0, 1fr);
-  height: calc(100vh - 310px);
-  min-height: 620px;
+  min-height: 0;
 }
 
 .model-workspace-details {
@@ -495,6 +503,11 @@
 }
 
 @media (max-width: 1280px) {
+  .model-workspace-content {
+    height: auto;
+    overflow: visible;
+  }
+
   .catalog-model-row {
     grid-template-columns: 58px minmax(150px, 1fr) minmax(130px, 1fr) 120px auto;
   }
