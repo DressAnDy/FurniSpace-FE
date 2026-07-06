@@ -27,6 +27,7 @@ import {
   useProposalDetail,
   useProposalItems,
   useProposalScenes,
+  usePublishProposal,
 } from '@/services/queries';
 
 import './DesignerProposalWorkspace.css';
@@ -63,6 +64,7 @@ export function DesignerProposalWorkspace() {
   const [message, setMessage] = useState('');
   const [selectedAreaId, setSelectedAreaId] = useState('');
   const [areaDraft, setAreaDraft] = useState<AreaDraft>(DEFAULT_AREA_DRAFT);
+  const [showAreaForm, setShowAreaForm] = useState(false);
   const projectQuery = useProjectDetail(projectId);
   const proposalQuery = useProposalDetail(proposalId);
   const areasQuery = useProjectAreas({
@@ -82,6 +84,7 @@ export function DesignerProposalWorkspace() {
   });
   const createAreaMutation = useCreateProjectArea();
   const createSceneMutation = useCreateProposalScene();
+  const publishProposalMutation = usePublishProposal();
   const project = projectQuery.data;
   const proposal = proposalQuery.data;
   const areas = useMemo(() => areasQuery.data ?? [], [areasQuery.data]);
@@ -99,6 +102,45 @@ export function DesignerProposalWorkspace() {
   );
   const primaryScene = scenes.find((scene) => scene.sceneType === 'THREE_D') ?? scenes[0] ?? null;
   const selectedArea = areas.find((area) => area.projectAreaId === selectedAreaId) ?? null;
+  const selectedAreaScenes = useMemo(
+    () => (selectedAreaId ? scenes.filter((scene) => scene.projectAreaId === selectedAreaId) : []),
+    [scenes, selectedAreaId],
+  );
+  const canPublishProposal = Boolean(proposalId && proposal?.status === 'DRAFT' && scenes.length > 0);
+  const publishChecklist = useMemo(
+    () => [
+      { label: 'Proposal is Draft', ready: proposal?.status === 'DRAFT' },
+      { label: 'At least one active scene exists', ready: scenes.length > 0 },
+      { label: 'Room Planner scene is saved', ready: scenes.some((scene) => Boolean(scene.mongoSceneId)) },
+      { label: 'Proposal items are synced if required', ready: items.length > 0 },
+    ],
+    [items.length, proposal?.status, scenes],
+  );
+
+  async function publishCurrentProposal() {
+    if (!proposalId) {
+      return;
+    }
+
+    setMessage('');
+
+    if (!canPublishProposal) {
+      setMessage('Proposal must be Draft and have at least one active scene before publishing.');
+      setActiveTab('review');
+      return;
+    }
+
+    try {
+      await publishProposalMutation.mutateAsync({
+        proposalId,
+        note: 'Published by designer from proposal workspace.',
+      });
+      setActiveTab('review');
+      setMessage('Proposal published successfully. It is now ready for customer review.');
+    } catch (error) {
+      setMessage(getProposalServiceResultMessage(error));
+    }
+  }
 
   async function createScene() {
     if (!proposalId || !project) {
@@ -156,6 +198,7 @@ export function DesignerProposalWorkspace() {
 
       setSelectedAreaId(area.projectAreaId);
       setAreaDraft(DEFAULT_AREA_DRAFT);
+      setShowAreaForm(false);
       setMessage(`${area.areaName} is ready. You can create the 3D scene for this area now.`);
     } catch (error) {
       setMessage(getProjectAreaServiceResultMessage(error));
@@ -191,14 +234,21 @@ export function DesignerProposalWorkspace() {
         </div>
         <div>
           <span className="designer-proposal-status">{proposal?.status ?? 'UNKNOWN'}</span>
-          <button disabled type="button"><IconFileText size={17} /> Publish Proposal</button>
+          <button
+            disabled={!canPublishProposal || publishProposalMutation.isPending}
+            title={canPublishProposal ? 'Publish this proposal for customer review.' : 'Proposal must be Draft and have at least one active scene.'}
+            type="button"
+            onClick={() => void publishCurrentProposal()}
+          >
+            <IconFileText size={17} /> {publishProposalMutation.isPending ? 'Publishing...' : 'Publish Proposal'}
+          </button>
         </div>
       </header>
 
       <nav className="designer-proposal-tabs" aria-label="Proposal workspace tabs">
         <button className={activeTab === 'scenes' ? 'is-active' : ''} type="button" onClick={() => setActiveTab('scenes')}><IconCube size={16} /> Scenes</button>
         <button className={activeTab === 'items' ? 'is-active' : ''} type="button" onClick={() => setActiveTab('items')}><IconPackage size={16} /> Proposal Items</button>
-        <button className={activeTab === 'review' ? 'is-active' : ''} type="button" onClick={() => setActiveTab('review')}><IconFileText size={16} /> Customer Review</button>
+        <button className={activeTab === 'review' ? 'is-active' : ''} type="button" onClick={() => setActiveTab('review')}><IconFileText size={16} /> Review & Publish</button>
         <button className={activeTab === 'chat' ? 'is-active' : ''} type="button" onClick={() => setActiveTab('chat')}><IconMessageCircle size={16} /> Chat</button>
       </nav>
 
@@ -208,31 +258,41 @@ export function DesignerProposalWorkspace() {
       {areasQuery.isError && <div className="designer-proposal-message is-error">{getProjectAreaServiceResultMessage(areasQuery.error)}</div>}
 
       {activeTab === 'scenes' && (
-        <section className="designer-scenes-section">
-          <header>
-            <div><h2>Proposal Scenes</h2><p>Create proposal metadata and select a project area before Room Planner 3D.</p></div>
-            <button disabled={!proposalId || proposal?.status !== 'DRAFT' || !selectedAreaId || createSceneMutation.isPending} type="button" onClick={() => void createScene()}>
-              <IconPlus size={17} /> {createSceneMutation.isPending ? 'Creating...' : 'Create Scene'}
-            </button>
-          </header>
-          <DesignScopePanel
+        <div className="designer-scenes-workflow">
+          <ProjectAreasSection
             areaDraft={areaDraft}
             areas={areas}
             isCreating={createAreaMutation.isPending}
             isLoading={areasQuery.isLoading}
             selectedAreaId={selectedAreaId}
+            showAreaForm={showAreaForm}
             onCreateArea={() => void createArea()}
             onDraftChange={setAreaDraft}
             onSelectArea={setSelectedAreaId}
+            onToggleAreaForm={() => setShowAreaForm((isOpen) => !isOpen)}
           />
-          <div className="designer-scenes-list">
-            {scenesQuery.isLoading ? <EmptyState message="Loading proposal scenes from backend..." /> : null}
-            {!scenesQuery.isLoading && scenes.length === 0 ? <EmptyState message="" /> : null}
-            {scenes.map((scene) => (
-              <SceneRow key={scene.sceneId} area={areas.find((area) => area.projectAreaId === scene.projectAreaId) ?? null} scene={scene} onOpen={() => openRoomPlanner(scene)} />
-            ))}
-          </div>
-        </section>
+
+          <section className="designer-scenes-section">
+            <header>
+              <div><h2>Proposal Scenes</h2><p>Scenes belong to this proposal and are linked to the selected project area.</p></div>
+              <button disabled={!proposalId || proposal?.status !== 'DRAFT' || !selectedAreaId || createSceneMutation.isPending} type="button" onClick={() => void createScene()}>
+                <IconPlus size={17} /> {createSceneMutation.isPending ? 'Creating...' : selectedArea ? `Create Scene for ${selectedArea.areaName}` : 'Create Scene'}
+              </button>
+            </header>
+            <div className="designer-scene-context">
+              <span>{selectedArea ? `Selected area: ${selectedArea.areaName}` : 'Select a project area first.'}</span>
+              <small>Project Area is the real space of the project. Proposal Scene is the design version of one Project Area inside one Proposal. Room Planner stores the detailed 3D data of that Proposal Scene.</small>
+            </div>
+            <div className="designer-scenes-list">
+              {scenesQuery.isLoading ? <EmptyState message="Loading proposal scenes from backend..." /> : null}
+              {!selectedAreaId ? <EmptyState message="Select a project area first." /> : null}
+              {selectedAreaId && !scenesQuery.isLoading && selectedAreaScenes.length === 0 ? <EmptyState message="No scene has been created for the selected project area in this proposal." /> : null}
+              {selectedAreaScenes.map((scene) => (
+                <SceneRow key={scene.sceneId} area={selectedArea} scene={scene} onOpen={() => openRoomPlanner(scene)} />
+              ))}
+            </div>
+          </section>
+        </div>
       )}
 
       {activeTab === 'items' && (
@@ -254,9 +314,29 @@ export function DesignerProposalWorkspace() {
       {activeTab === 'review' && (
         <section className="designer-review-section">
           <header>
-            <div><IconFileText size={24} /><div><h2>Customer Review Preview</h2><p>Backend scene entry selected for customer-facing review.</p></div></div>
+            <div><IconFileText size={24} /><div><h2>Review & Publish</h2><p>Check proposal readiness before publishing it for customer review.</p></div></div>
             <span>{proposal?.status ?? 'UNKNOWN'}</span>
           </header>
+          <div className="designer-publish-checklist">
+            {publishChecklist.map((item) => (
+              <span className={item.ready ? 'is-ready' : ''} key={item.label}>
+                <IconCheck size={15} /> {item.label}
+              </span>
+            ))}
+          </div>
+          <div className="designer-publish-actions">
+            <div>
+              <strong>{canPublishProposal ? 'Ready for backend publish' : 'Publish is not available yet'}</strong>
+              <span>{canPublishProposal ? 'Backend will update proposal/project status after publish.' : 'Create at least one active scene while this proposal is still Draft.'}</span>
+            </div>
+            <button
+              disabled={!canPublishProposal || publishProposalMutation.isPending}
+              type="button"
+              onClick={() => void publishCurrentProposal()}
+            >
+              <IconFileText size={17} /> {publishProposalMutation.isPending ? 'Publishing...' : 'Publish Proposal'}
+            </button>
+          </div>
           <div className="designer-review-empty">
             {primaryScene ? (
               <>
@@ -290,24 +370,28 @@ export function DesignerProposalWorkspace() {
   );
 }
 
-function DesignScopePanel({
+function ProjectAreasSection({
   areaDraft,
   areas,
   isCreating,
   isLoading,
   selectedAreaId,
+  showAreaForm,
   onCreateArea,
   onDraftChange,
   onSelectArea,
+  onToggleAreaForm,
 }: {
   areaDraft: AreaDraft;
   areas: ProjectAreaDto[];
   isCreating: boolean;
   isLoading: boolean;
   selectedAreaId: string;
+  showAreaForm: boolean;
   onCreateArea: () => void;
   onDraftChange: (draft: AreaDraft) => void;
   onSelectArea: (areaId: string) => void;
+  onToggleAreaForm: () => void;
 }) {
   const selectedArea = areas.find((area) => area.projectAreaId === selectedAreaId) ?? null;
 
@@ -321,16 +405,16 @@ function DesignScopePanel({
         <div>
           <IconRulerMeasure size={22} />
           <div>
-            <h3>Design Scope</h3>
-            <p>Project area is required before creating the 3D Room Planner scene.</p>
+            <h3>Project Areas</h3>
+            <p>Project areas belong to the project and can be reused across proposals.</p>
           </div>
         </div>
-        {selectedArea ? <span><IconCheck size={15} /> {selectedArea.areaName}</span> : <span>Select an area</span>}
+        {selectedArea ? <span><IconCheck size={15} /> Selected: {selectedArea.areaName}</span> : <span>Select a project area</span>}
       </div>
 
       <div className="designer-area-picker">
         {isLoading ? <p>Loading project areas...</p> : null}
-        {!isLoading && areas.length === 0 ? <p>No project areas yet. Create the first room or zone below.</p> : null}
+        {!isLoading && areas.length === 0 ? <p>No project areas exist for this project yet. Add one project area, then create the proposal scene from it.</p> : null}
         {areas.map((area) => (
           <button
             className={selectedAreaId === area.projectAreaId ? 'is-selected' : ''}
@@ -344,44 +428,52 @@ function DesignScopePanel({
         ))}
       </div>
 
-      <div className="designer-area-form">
-        <label>
-          <span>Area Name</span>
-          <input value={areaDraft.areaName} onChange={(event) => updateDraft('areaName', event.target.value)} />
-        </label>
-        <label>
-          <span>Type</span>
-          <select value={areaDraft.areaType} onChange={(event) => updateDraft('areaType', event.target.value as ProjectAreaType)}>
-            {AREA_TYPES.map((type) => <option key={type} value={type}>{formatEnumLabel(type)}</option>)}
-          </select>
-        </label>
-        <label>
-          <span>Floor</span>
-          <input inputMode="numeric" value={areaDraft.floorNumber} onChange={(event) => updateDraft('floorNumber', event.target.value)} />
-        </label>
-        <label>
-          <span>Area m2</span>
-          <input inputMode="decimal" value={areaDraft.areaSqm} onChange={(event) => updateDraft('areaSqm', event.target.value)} />
-        </label>
-        <label>
-          <span>Width</span>
-          <input inputMode="decimal" value={areaDraft.width} onChange={(event) => updateDraft('width', event.target.value)} />
-        </label>
-        <label>
-          <span>Length</span>
-          <input inputMode="decimal" value={areaDraft.length} onChange={(event) => updateDraft('length', event.target.value)} />
-        </label>
-        <label>
-          <span>Height</span>
-          <input inputMode="decimal" value={areaDraft.height} onChange={(event) => updateDraft('height', event.target.value)} />
-        </label>
-        <label className="designer-area-form-note">
-          <span>Requirement Note</span>
-          <textarea value={areaDraft.requirementNote} onChange={(event) => updateDraft('requirementNote', event.target.value)} />
-        </label>
-        <button disabled={isCreating} type="button" onClick={onCreateArea}>
-          <IconPlus size={16} /> {isCreating ? 'Creating area...' : 'Create Area'}
+      <div className="designer-area-form-shell">
+        <button className="designer-area-form-toggle" type="button" onClick={onToggleAreaForm}>
+          <IconPlus size={16} /> {showAreaForm ? 'Hide Project Area Form' : 'Add Project Area to This Project'}
         </button>
+
+        {(showAreaForm || areas.length === 0) && (
+          <div className="designer-area-form">
+            <label>
+              <span>Area Name</span>
+              <input value={areaDraft.areaName} onChange={(event) => updateDraft('areaName', event.target.value)} />
+            </label>
+            <label>
+              <span>Type</span>
+              <select value={areaDraft.areaType} onChange={(event) => updateDraft('areaType', event.target.value as ProjectAreaType)}>
+                {AREA_TYPES.map((type) => <option key={type} value={type}>{formatEnumLabel(type)}</option>)}
+              </select>
+            </label>
+            <label>
+              <span>Floor</span>
+              <input inputMode="numeric" value={areaDraft.floorNumber} onChange={(event) => updateDraft('floorNumber', event.target.value)} />
+            </label>
+            <label>
+              <span>Area m2</span>
+              <input inputMode="decimal" value={areaDraft.areaSqm} onChange={(event) => updateDraft('areaSqm', event.target.value)} />
+            </label>
+            <label>
+              <span>Width</span>
+              <input inputMode="decimal" value={areaDraft.width} onChange={(event) => updateDraft('width', event.target.value)} />
+            </label>
+            <label>
+              <span>Length</span>
+              <input inputMode="decimal" value={areaDraft.length} onChange={(event) => updateDraft('length', event.target.value)} />
+            </label>
+            <label>
+              <span>Height</span>
+              <input inputMode="decimal" value={areaDraft.height} onChange={(event) => updateDraft('height', event.target.value)} />
+            </label>
+            <label className="designer-area-form-note">
+              <span>Requirement Note</span>
+              <textarea value={areaDraft.requirementNote} onChange={(event) => updateDraft('requirementNote', event.target.value)} />
+            </label>
+            <button disabled={isCreating || !areaDraft.areaName.trim()} type="button" onClick={onCreateArea}>
+              <IconPlus size={16} /> {isCreating ? 'Creating area...' : 'Create Project Area'}
+            </button>
+          </div>
+        )}
       </div>
     </section>
   );
