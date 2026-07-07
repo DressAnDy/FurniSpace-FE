@@ -19,7 +19,6 @@ import {
   type ProjectFileListParams,
   type FileType,
   type FileVisibility,
-  type ProjectStatus,
   type UpdateProjectBasicInformationInput,
   type UpdateProjectStatusInput,
 } from '@/services/api/projects';

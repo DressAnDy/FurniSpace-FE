@@ -19,6 +19,7 @@ import './DesignerProductLibrary.css';
 type VersionFilter = 'All Types' | 'Default' | 'Public' | 'Project Specific' | 'Planner Ready';
 
 const versionFilters: VersionFilter[] = ['All Types', 'Default', 'Public', 'Project Specific', 'Planner Ready'];
+const EMPTY_PRODUCTS: ProductListItemDto[] = [];
 
 export function DesignerProductLibrary() {
   const [search, setSearch] = useState('');
@@ -26,7 +27,7 @@ export function DesignerProductLibrary() {
   const [page, setPage] = useState(1);
   const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
   const productListQuery = useProductList({ page: 1, limit: 100 });
-  const products = productListQuery.data?.items ?? [];
+  const products = productListQuery.data?.items ?? EMPTY_PRODUCTS;
   const productDetailQueries = useQueries({
     queries: products.map((product) => ({
       queryKey: productQueryKeys.detail(product.productId),

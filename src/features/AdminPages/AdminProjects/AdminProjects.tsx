@@ -90,6 +90,8 @@ const PROJECT_STAGES: ProjectStage[] = [
 ];
 
 const ACTIVE_PROJECT_STATUSES: ProjectStatus[] = PROJECT_STATUSES.filter((status) => status !== 'COMPLETED' && status !== 'REJECTED');
+const EMPTY_ACCOUNTS: AccountDto[] = [];
+const EMPTY_PROJECTS: ProjectListItemDto[] = [];
 
 export function AdminProjects() {
   const [search, setSearch] = useState('');
@@ -108,11 +110,11 @@ export function AdminProjects() {
     limit: 20,
   });
   const accountsQuery = useAccountList({ page: 1, pageSize: 100, includeDeleted: false });
-  const accounts = accountsQuery.data?.items ?? [];
+  const accounts = accountsQuery.data?.items ?? EMPTY_ACCOUNTS;
   const accountById = useMemo(() => createAccountLookup(accounts), [accounts]);
   const salesAccounts = useMemo(() => accounts.filter((account) => getAccountRoleName(account.roleId) === 'SALES'), [accounts]);
   const designerAccounts = useMemo(() => accounts.filter((account) => getAccountRoleName(account.roleId) === 'DESIGNER'), [accounts]);
-  const projects = projectsQuery.data?.items ?? [];
+  const projects = projectsQuery.data?.items ?? EMPTY_PROJECTS;
   const stats = useMemo(() => getProjectStats(projects), [projects]);
   const totalPages = Math.max(Math.ceil((projectsQuery.data?.total ?? 0) / (projectsQuery.data?.limit ?? 20)), 1);
 
