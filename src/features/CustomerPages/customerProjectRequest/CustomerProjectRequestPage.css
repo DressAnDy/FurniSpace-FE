@@ -295,6 +295,12 @@
   text-align: center;
 }
 
+.customer-project-request-upload-active {
+  border-color: #8b6f47;
+  background: #faf7f1;
+  color: #8b6f47;
+}
+
 .customer-project-request-upload strong {
   margin-top: 16px;
   color: #2d2d2d;

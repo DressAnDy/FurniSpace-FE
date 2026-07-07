@@ -1,4 +1,4 @@
-import { IconArrowLeft } from '@tabler/icons-react';
+import { IconArrowLeft, IconX } from '@tabler/icons-react';
 import { FormEvent, useEffect, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 
@@ -70,6 +70,8 @@ export function ProjectDetail() {
   const [activeTab, setActiveTab] = useState<ProjectDetailTab>('overview');
   const [selectedStatus, setSelectedStatus] = useState<ProjectStatus>('WAITING_FOR_DESIGNER_ASSIGNMENT');
   const [statusMessage, setStatusMessage] = useState('');
+  const [isRequestInfoModalOpen, setIsRequestInfoModalOpen] = useState(false);
+  const [requestInfoMessage, setRequestInfoMessage] = useState('');
   const projectQuery = useProjectDetail(projectId);
   const assignSalesMutation = useAssignSalesToProject();
   const requestInformationMutation = useRequestProjectInformation();
@@ -105,19 +107,44 @@ export function ProjectDetail() {
       return;
     }
 
+    if (selectedStatus === 'NEED_BASIC_INFORMATION') {
+      setRequestInfoMessage('');
+      setIsRequestInfoModalOpen(true);
+      return;
+    }
+
     try {
-      if (selectedStatus === 'NEED_BASIC_INFORMATION') {
-        await requestInformationMutation.mutateAsync({
-          projectId: project.projectId,
-          note: getStatusUpdateNote(selectedStatus),
-        });
-      } else {
-        await updateProjectStatusMutation.mutateAsync({
-          projectId: project.projectId,
-          status: selectedStatus,
-          note: getStatusUpdateNote(selectedStatus),
-        });
-      }
+      await updateProjectStatusMutation.mutateAsync({
+        projectId: project.projectId,
+        status: selectedStatus,
+        note: getStatusUpdateNote(selectedStatus),
+      });
+      setStatusMessage('Project status updated successfully.');
+    } catch (error) {
+      setStatusMessage(getProjectServiceResultMessage(error));
+    }
+  }
+
+  async function handleRequestInformationSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setStatusMessage('');
+
+    if (!project) return;
+
+    const trimmedMessage = requestInfoMessage.trim();
+
+    if (!trimmedMessage) {
+      setStatusMessage('Request message is required.');
+      return;
+    }
+
+    try {
+      await requestInformationMutation.mutateAsync({
+        projectId: project.projectId,
+        message: trimmedMessage,
+      });
+      setIsRequestInfoModalOpen(false);
+      setRequestInfoMessage('');
       setStatusMessage('Project status updated successfully.');
     } catch (error) {
       setStatusMessage(getProjectServiceResultMessage(error));
@@ -171,6 +198,7 @@ export function ProjectDetail() {
                         onChange={(event) => {
                           setSelectedStatus(event.target.value as ProjectStatus);
                           setStatusMessage('');
+                          setIsRequestInfoModalOpen(false);
                         }}
                       >
                         {projectStatusOptions.map((status) => (
@@ -229,6 +257,60 @@ export function ProjectDetail() {
                 {renderActiveTab()}
               </section>
             </>
+          ) : null}
+
+          {isRequestInfoModalOpen && project ? (
+            <div className="project-detail-request-modal-overlay">
+              <form className="project-detail-request-modal" onSubmit={handleRequestInformationSubmit}>
+                <div className="project-detail-request-modal-header">
+                  <div>
+                    <strong>Request Basic Information</strong>
+                    <p>Write the message customers will see before they update their project details.</p>
+                  </div>
+                  <button
+                    aria-label="Close request information modal"
+                    type="button"
+                    onClick={() => {
+                      setIsRequestInfoModalOpen(false);
+                      setRequestInfoMessage('');
+                      setStatusMessage('');
+                    }}
+                  >
+                    <IconX size={16} />
+                  </button>
+                </div>
+                <label className="project-detail-request-modal-field">
+                  <span>Request message *</span>
+                  <textarea
+                    autoFocus
+                    required
+                    rows={5}
+                    value={requestInfoMessage}
+                    placeholder="Explain which basic project information the customer needs to add or update."
+                    onChange={(event) => setRequestInfoMessage(event.target.value)}
+                  />
+                </label>
+                {statusMessage && !statusMessage.toLowerCase().includes('success') ? (
+                  <p className="project-detail-request-modal-error">{statusMessage}</p>
+                ) : null}
+                <div className="project-detail-request-modal-actions">
+                  <button
+                    type="button"
+                    disabled={requestInformationMutation.isPending}
+                    onClick={() => {
+                      setIsRequestInfoModalOpen(false);
+                      setRequestInfoMessage('');
+                      setStatusMessage('');
+                    }}
+                  >
+                    Cancel
+                  </button>
+                  <button type="submit" disabled={requestInformationMutation.isPending || !requestInfoMessage.trim()}>
+                    {requestInformationMutation.isPending ? 'Sending...' : 'Send Request'}
+                  </button>
+                </div>
+              </form>
+            </div>
           ) : null}
         </main>
       </div>

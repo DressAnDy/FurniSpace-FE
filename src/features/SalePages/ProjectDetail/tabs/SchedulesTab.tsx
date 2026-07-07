@@ -138,7 +138,7 @@ export function SchedulesTab({ project }: SchedulesTabProps) {
             </label>
             <label>
               <span>Title</span>
-              <input name="title" placeholder={defaultTitle} type="text" disabled={createScheduleMutation.isPending} />
+              <input name="title" defaultValue={defaultTitle} placeholder={defaultTitle} type="text" disabled={createScheduleMutation.isPending} />
             </label>
           </div>
 
@@ -155,7 +155,7 @@ export function SchedulesTab({ project }: SchedulesTabProps) {
 
           <label>
             <span>Location</span>
-            <input name="location" placeholder={project.projectAddress ?? 'Meeting location'} type="text" disabled={createScheduleMutation.isPending} />
+            <input name="location" defaultValue={project.projectAddress ?? ''} placeholder={project.projectAddress ?? 'Meeting location'} type="text" disabled={createScheduleMutation.isPending} />
           </label>
 
           <label>
