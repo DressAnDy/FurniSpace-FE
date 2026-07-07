@@ -471,10 +471,13 @@ body.sale-sidebar-collapsed .sale-sidebar-open-button {
 }
 
 .sale-metric-item-delta {
-  color: #2d2d2d;
-  font-size: 22px;
+  border-radius: 999px;
+  background: #f2ede6;
+  padding: 3px 8px;
+  color: #6d502f;
+  font-size: 13px;
   font-weight: 600;
-  line-height: 28px;
+  line-height: 18px;
 }
 
 .sale-dashboard-lower {
