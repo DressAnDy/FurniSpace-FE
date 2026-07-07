@@ -1,11 +1,11 @@
 import {
   IconArrowRight,
-  IconBox,
-  IconClock,
+  IconChartLine,
+  IconChecks,
+  IconCube,
   IconFileText,
-  IconPackage,
-  IconTrendingUp,
-  IconUsers,
+  IconShoppingCart,
+  IconTruckDelivery,
 } from '@tabler/icons-react';
 
 import { SaleNavbar, SaleSidebar } from '@/features/SalePages/salecomponents';
@@ -13,10 +13,16 @@ import { SaleNavbar, SaleSidebar } from '@/features/SalePages/salecomponents';
 import './SaleDashbroad.css';
 
 type MetricCard = {
-  label: string;
-  value: string;
+  title: string;
+  subtitle: string;
   icon: typeof IconFileText;
-  tone: 'document' | 'clock' | 'users' | 'box' | 'trend';
+  items: {
+    label: string;
+    value: string;
+    delta: string;
+    icon: typeof IconFileText;
+    tone: 'neutral' | 'accent';
+  }[];
 };
 
 type ActivityItem = {
@@ -36,14 +42,33 @@ type ScheduleItem = {
 };
 
 const metrics: MetricCard[] = [
-  { label: 'Total Submitted Requests', value: '24', icon: IconFileText, tone: 'document' },
-  { label: 'Needs Information', value: '5', icon: IconClock, tone: 'clock' },
-  { label: 'In Consultation', value: '12', icon: IconUsers, tone: 'users' },
-  { label: 'Awaiting Designer', value: '7', icon: IconUsers, tone: 'users' },
-  { label: 'Quotations Sent', value: '18', icon: IconFileText, tone: 'document' },
-  { label: 'Orders Confirmed', value: '9', icon: IconBox, tone: 'box' },
-  { label: 'In Production', value: '6', icon: IconTrendingUp, tone: 'trend' },
-  { label: 'Delivery Pending', value: '3', icon: IconPackage, tone: 'box' },
+  {
+    title: 'Project',
+    subtitle: 'Pipeline and catalog coverage',
+    icon: IconCube,
+    items: [
+      { label: 'Active Projects', value: '75', delta: '+8%', icon: IconFileText, tone: 'neutral' },
+      { label: 'Total Products', value: '342', delta: '+18', icon: IconCube, tone: 'neutral' },
+    ],
+  },
+  {
+    title: 'Revenue',
+    subtitle: 'Monthly commercial performance',
+    icon: IconChartLine,
+    items: [
+      { label: 'Revenue This Month', value: '$245K', delta: '+23%', icon: IconChartLine, tone: 'neutral' },
+    ],
+  },
+  {
+    title: 'Order',
+    subtitle: 'Confirmed and fulfillment status',
+    icon: IconShoppingCart,
+    items: [
+      { label: 'Orders Confirmed', value: '52', delta: '+11%', icon: IconChecks, tone: 'neutral' },
+      { label: 'In Production', value: '15', delta: '+4', icon: IconCube, tone: 'neutral' },
+      { label: 'Ready For Delivery', value: '8', delta: '+2', icon: IconTruckDelivery, tone: 'accent' },
+    ],
+  },
 ];
 
 const activities: ActivityItem[] = [
@@ -67,6 +92,13 @@ function getStatusClass(status: string) {
   return 'sale-status-badge';
 }
 
+function getScheduleTypeLabel(type: string) {
+  return type
+    .split('_')
+    .map((word) => word.charAt(0) + word.slice(1).toLowerCase())
+    .join(' ');
+}
+
 export function SaleDashbroad() {
   return (
     <div className="sale-dashboard-shell">
@@ -82,15 +114,32 @@ export function SaleDashbroad() {
           </section>
 
           <section className="sale-metrics-grid">
-            {metrics.map(({ label, value, icon: MetricIcon, tone }) => (
-              <article key={label} className="sale-metric-card">
-                <div>
-                  <p>{label}</p>
-                  <strong>{value}</strong>
+            {metrics.map(({ title, subtitle, icon: MetricIcon, items }) => (
+              <article key={title} className="sale-metric-card">
+                <header className="sale-metric-card-header">
+                  <div>
+                    <h3>{title}</h3>
+                    <p>{subtitle}</p>
+                  </div>
+                  <span className="sale-metric-card-icon">
+                    <MetricIcon size={18} />
+                  </span>
+                </header>
+
+                <div className="sale-metric-list">
+                  {items.map(({ label, value, delta, icon: ItemIcon, tone }) => (
+                    <div key={label} className="sale-metric-item">
+                      <span className={`sale-metric-item-icon sale-metric-item-icon-${tone}`}>
+                        <ItemIcon size={16} />
+                      </span>
+                      <div className="sale-metric-item-copy">
+                        <p>{label}</p>
+                        <strong>{value}</strong>
+                      </div>
+                      <span className="sale-metric-item-delta">{delta}</span>
+                    </div>
+                  ))}
                 </div>
-                <span className={`sale-metric-icon sale-metric-icon-${tone}`}>
-                  <MetricIcon size={22} />
-                </span>
               </article>
             ))}
           </section>
@@ -135,14 +184,19 @@ export function SaleDashbroad() {
               <div className="sale-schedule-list">
                 {schedules.map((schedule) => (
                   <div key={`${schedule.code}-${schedule.type}`} className="sale-schedule-item">
-                    <div className="sale-schedule-title-row">
+                    <div className="sale-schedule-main">
+                      <div className="sale-schedule-meta">
+                        <span>{schedule.code}</span>
+                        <span className="sale-status-badge sale-status-muted">{getScheduleTypeLabel(schedule.type)}</span>
+                      </div>
                       <h4>{schedule.title}</h4>
-                      <span>{schedule.type}</span>
                     </div>
-                    <p>{schedule.code}</p>
                     <div className="sale-schedule-time">
                       <span>{schedule.date}</span>
-                      <span>{schedule.time}</span>
+                      <div>
+                        <span>{schedule.time}</span>
+                        <IconArrowRight size={16} />
+                      </div>
                     </div>
                   </div>
                 ))}
