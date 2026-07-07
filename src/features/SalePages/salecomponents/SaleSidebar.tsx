@@ -4,16 +4,14 @@ import {
   IconClipboardList,
   IconFileDollar,
   IconHome,
-  IconLogout,
   IconMenu2,
   IconChevronLeft,
   type Icon,
 } from '@tabler/icons-react';
-import { NavLink, useNavigate } from 'react-router-dom';
+import { NavLink } from 'react-router-dom';
 
 import logoImage from '@/assets/Logo/Logo.png';
 import { useActorSidebarCollapse } from '@/shared/hooks/useActorSidebarCollapse';
-import { useLogout } from '@/services/queries';
 
 type SaleSidebarItem = {
   label: string;
@@ -36,17 +34,7 @@ type SaleSidebarProps = {
 };
 
 export function SaleSidebar({ activeLabel }: SaleSidebarProps) {
-  const navigate = useNavigate();
-  const logoutMutation = useLogout();
   const { collapse, expand, isCollapsed } = useActorSidebarCollapse('sale');
-
-  function handleLogout() {
-    logoutMutation.mutate(undefined, {
-      onSettled: () => {
-        navigate('/login', { replace: true });
-      },
-    });
-  }
 
   return (
     <>
@@ -114,12 +102,6 @@ export function SaleSidebar({ activeLabel }: SaleSidebarProps) {
         })}
       </nav>
 
-      <div className="sale-sidebar-footer">
-        <button className="sale-sidebar-logout" type="button" onClick={handleLogout} disabled={logoutMutation.isPending}>
-          <IconLogout size={18} />
-          <span>{logoutMutation.isPending ? 'Logging out...' : 'Logout'}</span>
-        </button>
-      </div>
     </aside>
     </>
   );

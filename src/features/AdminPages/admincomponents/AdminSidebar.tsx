@@ -4,18 +4,16 @@ import {
   IconCube,
   IconFolder,
   IconHome,
-  IconLogout,
   IconMenu2,
   IconPackage,
   IconTags,
   IconUsers,
   type Icon,
 } from '@tabler/icons-react';
-import { NavLink, useNavigate } from 'react-router-dom';
+import { NavLink } from 'react-router-dom';
 
 import logoImage from '@/assets/Logo/Logo.png';
 import { useActorSidebarCollapse } from '@/shared/hooks/useActorSidebarCollapse';
-import { useLogout } from '@/services/queries';
 
 type SidebarItem = {
   label: string;
@@ -30,8 +28,8 @@ const sidebarItems: SidebarItem[] = [
   { label: 'Products', icon: IconPackage, path: '/admin/products' },
   { label: '3D Model & File Library', icon: IconCube, path: '/admin/catalog/models' },
   { label: '3D Lab', icon: IconCube, path: '/admin/3d-lab' },
-  { label: 'Projects', icon: IconFolder },
-  { label: 'Reports', icon: IconChartBar },
+  { label: 'Projects', icon: IconFolder, path: '/admin/projects' },
+  { label: 'Reports', icon: IconChartBar, path: '/admin/reports' },
 ];
 
 type AdminSidebarProps = {
@@ -39,17 +37,7 @@ type AdminSidebarProps = {
 };
 
 export function AdminSidebar({ activeLabel }: AdminSidebarProps) {
-  const navigate = useNavigate();
-  const logoutMutation = useLogout();
   const { collapse, expand, isCollapsed } = useActorSidebarCollapse('admin');
-
-  function handleLogout() {
-    logoutMutation.mutate(undefined, {
-      onSettled: () => {
-        navigate('/login', { replace: true });
-      },
-    });
-  }
 
   return (
     <>
@@ -99,12 +87,6 @@ export function AdminSidebar({ activeLabel }: AdminSidebarProps) {
           })}
         </nav>
 
-        <div className="admin-sidebar-footer">
-          <button className="admin-logout-button" type="button" onClick={handleLogout} disabled={logoutMutation.isPending}>
-            <IconLogout size={16} />
-            <span>{logoutMutation.isPending ? 'Logging out...' : 'Logout'}</span>
-          </button>
-        </div>
       </aside>
     </>
   );

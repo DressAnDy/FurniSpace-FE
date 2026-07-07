@@ -9,15 +9,20 @@ import {
   getProposalScenes,
   getRoomPlannerScene,
   publishProposal,
+  requestProposalRevision,
   saveRoomPlannerScene,
+  selectFinalProposal,
   syncProposalItemsFromScene,
+  updateProposal,
   type CreateProposalInput,
   type CreateProposalSceneInput,
+  type ProposalDecisionInput,
   type ProposalListParams,
   type ProposalItemListParams,
   type ProposalSceneListParams,
   type SaveRoomPlannerSceneInput,
   type SyncProposalItemsFromSceneInput,
+  type UpdateProposalInput,
 } from '@/services/api/proposals';
 
 export const proposalQueryKeys = {
@@ -57,6 +62,19 @@ export function useProposalDetail(proposalId?: string, options?: { enabled?: boo
   });
 }
 
+export function useUpdateProposal() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (input: UpdateProposalInput) => updateProposal(input),
+    onSuccess: (proposal) => {
+      void queryClient.invalidateQueries({ queryKey: proposalQueryKeys.all });
+      void queryClient.invalidateQueries({ queryKey: proposalQueryKeys.detail(proposal.proposalId) });
+      void queryClient.invalidateQueries({ queryKey: proposalQueryKeys.byProject({ projectId: proposal.projectId }) });
+    },
+  });
+}
+
 export function usePublishProposal() {
   const queryClient = useQueryClient();
 
@@ -66,6 +84,36 @@ export function usePublishProposal() {
       void queryClient.invalidateQueries({ queryKey: proposalQueryKeys.all });
       void queryClient.invalidateQueries({ queryKey: proposalQueryKeys.detail(result.proposalId) });
       void queryClient.invalidateQueries({ queryKey: ['projects'] });
+    },
+  });
+}
+
+export function useSelectFinalProposal() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (input: ProposalDecisionInput) => selectFinalProposal(input),
+    onSuccess: (proposal) => {
+      void queryClient.invalidateQueries({ queryKey: proposalQueryKeys.all });
+      void queryClient.invalidateQueries({ queryKey: proposalQueryKeys.detail(proposal.proposalId) });
+      void queryClient.invalidateQueries({ queryKey: proposalQueryKeys.byProject({ projectId: proposal.projectId }) });
+      void queryClient.invalidateQueries({ queryKey: ['projects'] });
+      void queryClient.invalidateQueries({ queryKey: ['notifications'] });
+    },
+  });
+}
+
+export function useRequestProposalRevision() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (input: ProposalDecisionInput) => requestProposalRevision(input),
+    onSuccess: (proposal) => {
+      void queryClient.invalidateQueries({ queryKey: proposalQueryKeys.all });
+      void queryClient.invalidateQueries({ queryKey: proposalQueryKeys.detail(proposal.proposalId) });
+      void queryClient.invalidateQueries({ queryKey: proposalQueryKeys.byProject({ projectId: proposal.projectId }) });
+      void queryClient.invalidateQueries({ queryKey: ['projects'] });
+      void queryClient.invalidateQueries({ queryKey: ['notifications'] });
     },
   });
 }
