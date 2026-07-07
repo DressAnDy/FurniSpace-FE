@@ -5,7 +5,7 @@ import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { ProjectStatusBadge, ProjectTimeline, SaleNavbar, SaleSidebar } from '@/features/SalePages/salecomponents';
 import type { ProjectDto, ProjectStatus } from '@/services/api/projects';
 import { getProjectServiceResultMessage } from '@/services/api/projects';
-import { useAssignSalesToProject, useProjectDetail, useUpdateProjectStatus } from '@/services/queries/useProjects';
+import { useAssignSalesToProject, useProjectDetail, useRequestProjectInformation, useUpdateProjectStatus } from '@/services/queries/useProjects';
 
 import { ChatTab, CustomerInfoTab, FilesAttachmentsTab, OverviewTab, SchedulesTab } from './tabs';
 import './ProjectDetail.css';
@@ -72,6 +72,7 @@ export function ProjectDetail() {
   const [statusMessage, setStatusMessage] = useState('');
   const projectQuery = useProjectDetail(projectId);
   const assignSalesMutation = useAssignSalesToProject();
+  const requestInformationMutation = useRequestProjectInformation();
   const updateProjectStatusMutation = useUpdateProjectStatus();
   const project = projectQuery.data;
   const isAssignedProjectRoute = location.pathname.startsWith('/sales/assigned-projects');
@@ -105,11 +106,18 @@ export function ProjectDetail() {
     }
 
     try {
-      await updateProjectStatusMutation.mutateAsync({
-        projectId: project.projectId,
-        status: selectedStatus,
-        note: getStatusUpdateNote(selectedStatus),
-      });
+      if (selectedStatus === 'NEED_BASIC_INFORMATION') {
+        await requestInformationMutation.mutateAsync({
+          projectId: project.projectId,
+          note: getStatusUpdateNote(selectedStatus),
+        });
+      } else {
+        await updateProjectStatusMutation.mutateAsync({
+          projectId: project.projectId,
+          status: selectedStatus,
+          note: getStatusUpdateNote(selectedStatus),
+        });
+      }
       setStatusMessage('Project status updated successfully.');
     } catch (error) {
       setStatusMessage(getProjectServiceResultMessage(error));
@@ -159,7 +167,7 @@ export function ProjectDetail() {
                       <span>Consultation Decision</span>
                       <select
                         value={selectedStatus}
-                        disabled={updateProjectStatusMutation.isPending}
+                        disabled={updateProjectStatusMutation.isPending || requestInformationMutation.isPending}
                         onChange={(event) => {
                           setSelectedStatus(event.target.value as ProjectStatus);
                           setStatusMessage('');
@@ -172,8 +180,8 @@ export function ProjectDetail() {
                         ))}
                       </select>
                     </label>
-                    <button type="submit" disabled={updateProjectStatusMutation.isPending || !canUpdateProjectStatus(project.status, selectedStatus)}>
-                      {updateProjectStatusMutation.isPending ? 'Updating...' : getStatusActionLabel(selectedStatus)}
+                    <button type="submit" disabled={updateProjectStatusMutation.isPending || requestInformationMutation.isPending || !canUpdateProjectStatus(project.status, selectedStatus)}>
+                      {updateProjectStatusMutation.isPending || requestInformationMutation.isPending ? 'Updating...' : getStatusActionLabel(selectedStatus)}
                     </button>
                     {statusMessage ? <p className={statusMessage.toLowerCase().includes('success') ? 'project-detail-status-message' : 'project-detail-status-message project-detail-status-message-error'}>{statusMessage}</p> : null}
                   </form>

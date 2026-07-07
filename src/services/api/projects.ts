@@ -116,6 +116,15 @@ export type CreateProjectInput = {
   targetCompletionDate?: string | null;
 };
 
+export type UpdateProjectBasicInformationInput = Partial<CreateProjectInput> & {
+  projectId: string;
+};
+
+export type ProjectInformationRequestInput = {
+  projectId: string;
+  note: string;
+};
+
 export type FileType =
   | 'SPACE_IMAGE'
   | 'FLOOR_PLAN'
@@ -285,6 +294,38 @@ export async function createProject(input: CreateProjectInput) {
     budgetMax: input.budgetMax ?? null,
     targetCompletionDate: input.targetCompletionDate || null,
   });
+
+  return response.data.data;
+}
+
+export async function updateProjectBasicInformation(input: UpdateProjectBasicInformationInput) {
+  const response = await projectApiClient.patch<ServiceResult<ProjectDto>>(
+    `/projects/${input.projectId}/basic-information`,
+    {
+      projectName: input.projectName?.trim(),
+      businessType: input.businessType?.trim(),
+      projectAddress: input.projectAddress?.trim() || null,
+      businessPurpose: input.businessPurpose?.trim() || null,
+      furnitureRequirement: input.furnitureRequirement?.trim(),
+      description: input.description?.trim() || null,
+      totalAreaSqm: input.totalAreaSqm ?? null,
+      numberOfFloors: input.numberOfFloors ?? null,
+      budgetMin: input.budgetMin ?? null,
+      budgetMax: input.budgetMax ?? null,
+      targetCompletionDate: input.targetCompletionDate || null,
+    },
+  );
+
+  return response.data.data;
+}
+
+export async function requestProjectInformation(input: ProjectInformationRequestInput) {
+  const response = await projectApiClient.post<ServiceResult<ProjectDto>>(
+    `/projects/${input.projectId}/information-requests`,
+    {
+      note: input.note.trim(),
+    },
+  );
 
   return response.data.data;
 }

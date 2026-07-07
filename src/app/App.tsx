@@ -8,6 +8,8 @@ import { ProtectedRoute } from '@/app/providers/ProtectedRoute';
 import { LangProvider } from '@/app/providers/LangContext';
 import { CodeVerifyPage, LoginPage, RegisterPage } from '@/features/auth';
 import { AdminDashbroad } from '@/features/AdminPages/AdminDashbroad';
+import { AdminProjects } from '@/features/AdminPages/AdminProjects';
+import { AdminReports } from '@/features/AdminPages/AdminReports';
 import { AdminThreeDLabPage } from '@/features/AdminPages/AdminThreeDLab';
 import { Categorymanagement } from '@/features/AdminPages/Categorymanagement';
 import { CreateProductPage, CreateProductVersionPage, Productmanagement, ProductVersionManagement } from '@/features/AdminPages/Productmanagement';
@@ -17,6 +19,7 @@ import { Customer3dPreviewPage } from '@/features/CustomerPages/customer3dPrevie
 import { CustomerChatPage } from '@/features/CustomerPages/customerChat';
 import { CustomerDashboardPage } from '@/features/CustomerPages/customerDashboard';
 import { CustomerProjectListPage } from '@/features/CustomerPages/customerProjectList';
+import { CustomerProjectInformationPage } from '@/features/CustomerPages/customerProjectInformation/CustomerProjectInformationPage';
 import { CustomerProjectRequestPage } from '@/features/CustomerPages/customerProjectRequest';
 import { CustomerProposalDetailPage } from '@/features/CustomerPages/customerProposalDetail';
 import { DesignerAssignedProjects } from '@/features/DesignerPages/DesignerAssignedProjects';
@@ -77,6 +80,8 @@ export default function App() {
               <Route path="/admin/products/create" element={<CreateProductPage />} />
               <Route path="/admin/products/:productId/versions" element={<ProductVersionManagement />} />
               <Route path="/admin/products/:productId/versions/create" element={<CreateProductVersionPage />} />
+              <Route path="/admin/projects" element={<AdminProjects />} />
+              <Route path="/admin/reports" element={<AdminReports />} />
               {/* Admin legacy redirects */}
               <Route path="/admin-dashbroad" element={<Navigate to="/admin/dashbroad" replace />} />
               <Route path="/admin-user-management" element={<Navigate to="/admin/users" replace />} />
@@ -89,9 +94,11 @@ export default function App() {
               <Route path="/customer" element={<Navigate to="/customer/dashboard" replace />} />
               <Route path="/customer/dashboard" element={<CustomerDashboardPage />} />
               <Route path="/customer/projects" element={<CustomerProjectListPage />} />
+              <Route path="/customer/projects/:projectId/edit" element={<CustomerProjectInformationPage />} />
               <Route path="/customer/project-request" element={<CustomerProjectRequestPage />} />
               <Route path="/customer/schedules" element={<CustomerSchedulesPage />} />
               <Route path="/customer/proposals" element={<CustomerProposalDetailPage />} />
+              <Route path="/customer/proposals/:proposalId" element={<CustomerProposalDetailPage />} />
               <Route path="/customer/3d-preview" element={<Customer3dPreviewPage />} />
               <Route path="/customer/chat" element={<CustomerChatPage />} />
               {/* Customer legacy redirects */}
@@ -139,8 +146,10 @@ export default function App() {
             <Route path="/customer" element={<Navigate to="/customer/dashboard" replace />} />
             <Route path="/customer/dashboard" element={<CustomerDashboardPage />} />
             <Route path="/customer/projects" element={<CustomerProjectListPage />} />
+            <Route path="/customer/projects/:projectId/edit" element={<CustomerProjectInformationPage />} />
             <Route path="/customer/project-request" element={<CustomerProjectRequestPage />} />
             <Route path="/customer/proposals" element={<CustomerProposalDetailPage />} />
+            <Route path="/customer/proposals/:proposalId" element={<CustomerProposalDetailPage />} />
             <Route path="/customer/3d-preview" element={<Customer3dPreviewPage />} />
             <Route path="/customer-dashboard" element={<Navigate to="/customer/dashboard" replace />} />
             <Route path="/customer-3d-preview" element={<Navigate to="/customer/3d-preview" replace />} />
@@ -156,9 +165,11 @@ export default function App() {
             <Route path="/admin/products/create" element={<CreateProductPage />} />
             <Route path="/admin/products/:productId/versions" element={<ProductVersionManagement />} />
             <Route path="/admin/products/:productId/versions/create" element={<CreateProductVersionPage />} />
+            <Route path="/admin/projects" element={<AdminProjects />} />
             <Route path="/admin/catalog/models" element={<CatalogModelManagementPage />} />
             <Route path="/admin/catalog/models/workspace/:productId/:productVersionId" element={<ProductModelWorkspacePage />} />
             <Route path="/admin/3d-lab" element={<AdminThreeDLabPage />} />
+            <Route path="/admin/reports" element={<AdminReports />} />
             <Route path="/admin-dashbroad" element={<Navigate to="/admin/dashbroad" replace />} />
             <Route path="/admin-user-management" element={<Navigate to="/admin/users" replace />} />
             <Route path="/admin-category-management" element={<Navigate to="/admin/categories" replace />} />

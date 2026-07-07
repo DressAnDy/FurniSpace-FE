@@ -159,6 +159,7 @@ type ProjectCardProps = {
 function ProjectCard({ onOpenChat, project }: ProjectCardProps) {
   const navigate = useNavigate();
   const stage = getProjectStage(project.status);
+  const needsInformationUpdate = project.status === 'NEED_BASIC_INFORMATION';
 
   return (
     <article className="customer-project-list-card">
@@ -210,8 +211,11 @@ function ProjectCard({ onOpenChat, project }: ProjectCardProps) {
         </div>
 
         <div className="customer-project-list-actions">
-          <button type="button" onClick={() => navigate('/customer/proposals')}>
-            Open Project
+          <button
+            type="button"
+            onClick={() => navigate(needsInformationUpdate ? `/customer/projects/${project.projectId}/edit` : '/customer/proposals')}
+          >
+            {needsInformationUpdate ? 'Update Information' : 'Open Project'}
             <IconArrowRight size={16} stroke={1.8} />
           </button>
           <button type="button" onClick={onOpenChat}>
