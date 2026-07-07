@@ -75,7 +75,9 @@ export function CustomerUserSummary({ classPrefix }: CustomerUserSummaryProps) {
             <strong>{displayName}</strong>
             <span>{role}</span>
           </div>
-          <span>{initials}</span>
+          <span className="customer-user-summary-avatar">
+            {user?.avatarUrl ? <img src={user.avatarUrl} alt="" /> : initials}
+          </span>
           <IconChevronDown className="customer-user-summary-chevron" size={15} stroke={1.9} />
         </button>
 

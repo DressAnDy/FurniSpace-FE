@@ -72,6 +72,7 @@
 .admin-projects-filters {
   display: grid;
   grid-template-columns: minmax(320px, 1.5fr) repeat(3, minmax(180px, 1fr));
+  align-items: end;
   gap: 16px;
   margin-bottom: 20px;
   padding: 18px;

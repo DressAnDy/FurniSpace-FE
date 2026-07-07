@@ -19,6 +19,7 @@ import { Customer3dPreviewPage } from '@/features/CustomerPages/customer3dPrevie
 import { CustomerChatPage } from '@/features/CustomerPages/customerChat';
 import { CustomerDashboardPage } from '@/features/CustomerPages/customerDashboard';
 import { CustomerProjectListPage } from '@/features/CustomerPages/customerProjectList';
+import { CustomerProjectInformationPage } from '@/features/CustomerPages/customerProjectInformation/CustomerProjectInformationPage';
 import { CustomerProjectRequestPage } from '@/features/CustomerPages/customerProjectRequest';
 import { CustomerProposalDetailPage } from '@/features/CustomerPages/customerProposalDetail';
 import { DesignerAssignedProjects } from '@/features/DesignerPages/DesignerAssignedProjects';
@@ -93,9 +94,11 @@ export default function App() {
               <Route path="/customer" element={<Navigate to="/customer/dashboard" replace />} />
               <Route path="/customer/dashboard" element={<CustomerDashboardPage />} />
               <Route path="/customer/projects" element={<CustomerProjectListPage />} />
+              <Route path="/customer/projects/:projectId/edit" element={<CustomerProjectInformationPage />} />
               <Route path="/customer/project-request" element={<CustomerProjectRequestPage />} />
               <Route path="/customer/schedules" element={<CustomerSchedulesPage />} />
               <Route path="/customer/proposals" element={<CustomerProposalDetailPage />} />
+              <Route path="/customer/proposals/:proposalId" element={<CustomerProposalDetailPage />} />
               <Route path="/customer/3d-preview" element={<Customer3dPreviewPage />} />
               <Route path="/customer/chat" element={<CustomerChatPage />} />
               {/* Customer legacy redirects */}
@@ -143,8 +146,10 @@ export default function App() {
             <Route path="/customer" element={<Navigate to="/customer/dashboard" replace />} />
             <Route path="/customer/dashboard" element={<CustomerDashboardPage />} />
             <Route path="/customer/projects" element={<CustomerProjectListPage />} />
+            <Route path="/customer/projects/:projectId/edit" element={<CustomerProjectInformationPage />} />
             <Route path="/customer/project-request" element={<CustomerProjectRequestPage />} />
             <Route path="/customer/proposals" element={<CustomerProposalDetailPage />} />
+            <Route path="/customer/proposals/:proposalId" element={<CustomerProposalDetailPage />} />
             <Route path="/customer/3d-preview" element={<Customer3dPreviewPage />} />
             <Route path="/customer-dashboard" element={<Navigate to="/customer/dashboard" replace />} />
             <Route path="/customer-3d-preview" element={<Navigate to="/customer/3d-preview" replace />} />

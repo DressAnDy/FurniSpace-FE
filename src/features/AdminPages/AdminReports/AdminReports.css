@@ -227,6 +227,10 @@
   min-height: 320px;
 }
 
+.admin-report-chart-card-line {
+  min-height: 260px;
+}
+
 .admin-report-chart-grid .admin-report-chart-card:nth-child(3) {
   grid-column: 1 / -1;
   min-height: 260px;
@@ -361,8 +365,9 @@
 
 .admin-report-line-chart {
   display: grid;
-  gap: 12px;
-  height: 230px;
+  grid-template-rows: auto minmax(138px, 1fr);
+  gap: 10px;
+  min-height: 190px;
 }
 
 .admin-report-line-legend {
@@ -391,11 +396,24 @@
   background: #c0954b;
 }
 
+.admin-report-line-plot {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr);
+  grid-template-rows: 124px auto;
+  column-gap: 10px;
+  row-gap: 6px;
+}
+
 .admin-report-line-chart svg {
+  display: block;
+  grid-column: 2;
+  grid-row: 1;
   width: 100%;
-  min-height: 150px;
-  overflow: visible;
+  height: 100%;
+  min-height: 124px;
+  overflow: hidden;
   border-bottom: 1px solid #e5e7eb;
+  border-left: 1px solid #e5e7eb;
   background-image: linear-gradient(to bottom, transparent 24%, #f4f2ee 25%, transparent 26%, transparent 49%, #f4f2ee 50%, transparent 51%, transparent 74%, #f4f2ee 75%, transparent 76%);
 }
 
@@ -412,12 +430,28 @@
   stroke: #c0954b;
 }
 
+.admin-report-line-y-axis {
+  display: flex;
+  grid-column: 1;
+  grid-row: 1;
+  flex-direction: column;
+  justify-content: space-between;
+  color: #6b7280;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 14px;
+  text-align: right;
+}
+
 .admin-report-line-axis {
   display: grid;
+  grid-column: 2;
+  grid-row: 2;
   grid-template-columns: repeat(6, minmax(0, 1fr));
   color: #6b7280;
-  font-size: 12px;
-  line-height: 16px;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 14px;
   text-align: center;
 }
 

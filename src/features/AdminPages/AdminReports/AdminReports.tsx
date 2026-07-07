@@ -440,7 +440,7 @@ export function AdminReports() {
 
             <section className="admin-report-chart-grid" aria-label={`${activeReport.title} charts`}>
               {activeReport.charts.map((chart) => (
-                <article key={chart.title} className="admin-card admin-report-chart-card">
+                <article key={chart.title} className={`admin-card admin-report-chart-card admin-report-chart-card-${chart.type}`}>
                   <div className="admin-report-card-title">
                     <h3>{chart.title}</h3>
                     <IconChartBar size={18} />
@@ -566,10 +566,18 @@ function DonutChart({ data }: { data: ChartDatum[] }) {
 }
 
 function LineChart({ chart }: { chart: ReportChart }) {
-  const allValues = chart.data.flatMap((item) => [item.value, item.secondaryValue ?? 0]);
-  const maxValue = Math.max(...allValues, 1);
-  const primaryPoints = chart.data.map((item, index) => `${(index / (chart.data.length - 1)) * 100},${100 - (item.value / maxValue) * 82}`);
-  const secondaryPoints = chart.data.map((item, index) => `${(index / (chart.data.length - 1)) * 100},${100 - ((item.secondaryValue ?? 0) / maxValue) * 82}`);
+  const allValues = chart.data.flatMap((item) => (item.secondaryValue == null ? [item.value] : [item.value, item.secondaryValue]));
+  const minValue = Math.min(...allValues);
+  const maxValue = Math.max(...allValues);
+  const valueRange = Math.max(maxValue - minValue, 1);
+  const chartTop = 10;
+  const chartBottom = 90;
+  const chartHeight = chartBottom - chartTop;
+  const getX = (index: number) => (chart.data.length <= 1 ? 50 : (index / (chart.data.length - 1)) * 100);
+  const getY = (value: number) => chartTop + (1 - (value - minValue) / valueRange) * chartHeight;
+  const primaryPoints = chart.data.map((item, index) => `${getX(index)},${getY(item.value)}`);
+  const secondaryPoints = chart.data.map((item, index) => `${getX(index)},${getY(item.secondaryValue ?? item.value)}`);
+  const yAxisTicks = [maxValue, minValue + valueRange * 0.66, minValue + valueRange * 0.33, minValue];
 
   return (
     <div className="admin-report-line-chart">
@@ -577,17 +585,28 @@ function LineChart({ chart }: { chart: ReportChart }) {
         <span><i />{chart.valueLabel ?? 'Primary'}</span>
         <span><i />{chart.secondaryValueLabel ?? 'Secondary'}</span>
       </div>
-      <svg viewBox="0 0 100 112" preserveAspectRatio="none" role="img" aria-label={chart.title}>
-        <polyline points={primaryPoints.join(' ')} />
-        <polyline points={secondaryPoints.join(' ')} />
-      </svg>
-      <div className="admin-report-line-axis">
-        {chart.data.map((item) => (
-          <span key={item.label}>{item.label}</span>
-        ))}
+      <div className="admin-report-line-plot">
+        <div className="admin-report-line-y-axis" aria-hidden="true">
+          {yAxisTicks.map((tick) => (
+            <span key={tick}>{formatAxisValue(tick)}</span>
+          ))}
+        </div>
+        <svg viewBox="0 0 100 100" preserveAspectRatio="none" role="img" aria-label={chart.title}>
+          <polyline points={primaryPoints.join(' ')} />
+          <polyline points={secondaryPoints.join(' ')} />
+        </svg>
+        <div className="admin-report-line-axis">
+          {chart.data.map((item) => (
+            <span key={item.label}>{item.label}</span>
+          ))}
+        </div>
       </div>
     </div>
   );
+}
+
+function formatAxisValue(value: number) {
+  return Number.isInteger(value) ? String(value) : value.toFixed(0);
 }
 
 function formatCell(value: string | number | undefined) {

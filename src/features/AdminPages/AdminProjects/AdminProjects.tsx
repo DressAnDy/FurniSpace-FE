@@ -182,25 +182,7 @@ export function AdminProjects() {
               </FilterSelect>
             </section>
 
-            <section className="admin-card admin-projects-pipeline" aria-label="Project pipeline">
-              <div className="admin-projects-section-title">
-                <h3>Project Flow</h3>
-                <span>{projects.length} visible records</span>
-              </div>
-              <div className="admin-projects-stage-grid">
-                {PROJECT_STAGES.map((stage) => {
-                  const count = projects.filter((project) => stage.statuses.includes(project.status)).length;
-
-                  return (
-                    <article key={stage.label} className="admin-projects-stage">
-                      <span>{stage.label}</span>
-                      <strong>{count}</strong>
-                      <p>{stage.statuses.map(formatEnumLabel).join(', ')}</p>
-                    </article>
-                  );
-                })}
-              </div>
-            </section>
+            
 
             <section className="admin-card admin-projects-table-card">
               <div className="admin-projects-section-title">

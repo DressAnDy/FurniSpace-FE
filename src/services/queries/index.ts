@@ -29,7 +29,9 @@ export {
   useProjectDetail,
   useProjectFiles,
   useProjectList,
+  useRequestProjectInformation,
   useStaffProjectQueue,
+  useUpdateProjectBasicInformation,
   useUpdateProjectStatus,
   useUploadProjectFile,
 } from './useProjects';
@@ -93,8 +95,11 @@ export {
   useProposalItems,
   useProposalScenes,
   usePublishProposal,
+  useRequestProposalRevision,
   useRoomPlannerScene,
   useSaveRoomPlannerScene,
+  useSelectFinalProposal,
   useSyncProposalItemsFromScene,
+  useUpdateProposal,
 } from './useProposals';
 export { useCurrentUser, useLogin, useLogout, useRegister, useVerifyEmail } from './useAuth';

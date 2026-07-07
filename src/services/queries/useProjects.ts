@@ -7,16 +7,20 @@ import {
   getProjectById,
   getProjectFiles,
   getProjects,
+  requestProjectInformation,
   updateProjectStatus,
+  updateProjectBasicInformation,
   uploadProjectFile,
   type CreateProjectInput,
   type AssignDesignerInput,
+  type ProjectInformationRequestInput,
   type ProjectListParams,
   type ProjectListItemDto,
   type ProjectFileListParams,
   type FileType,
   type FileVisibility,
   type ProjectStatus,
+  type UpdateProjectBasicInformationInput,
   type UpdateProjectStatusInput,
 } from '@/services/api/projects';
 import { projectChatQueryKeys } from './useProjectChats';
@@ -98,6 +102,34 @@ export function useUploadProjectFile() {
   });
 }
 
+export function useUpdateProjectBasicInformation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (input: UpdateProjectBasicInformationInput) => updateProjectBasicInformation(input),
+    onSuccess: (data) => {
+      void queryClient.invalidateQueries({ queryKey: projectQueryKeys.all });
+      void queryClient.invalidateQueries({ queryKey: projectQueryKeys.detail(data.projectId) });
+      void queryClient.invalidateQueries({ queryKey: ['notifications'] });
+    },
+  });
+}
+
+export function useRequestProjectInformation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (input: ProjectInformationRequestInput) => requestProjectInformation(input),
+    onSuccess: (data, input) => {
+      const projectId = data?.projectId ?? input.projectId;
+
+      void queryClient.invalidateQueries({ queryKey: projectQueryKeys.all });
+      void queryClient.invalidateQueries({ queryKey: projectQueryKeys.detail(projectId) });
+      void queryClient.invalidateQueries({ queryKey: ['notifications'] });
+    },
+  });
+}
+
 export function useAssignSalesToProject() {
   const queryClient = useQueryClient();
 
@@ -141,24 +173,18 @@ export function useStaffProjectQueue(params?: Pick<ProjectListParams, 'search' |
   return useQuery({
     queryKey: projectQueryKeys.staffQueue(params),
     queryFn: async () => {
-      const statuses: ProjectStatus[] = ['SUBMITTED', 'NEED_BASIC_INFORMATION'];
-      const results = await Promise.all(
-        statuses.map((status) =>
-          getProjects({
-            status,
-            search: params?.search,
-            page: params?.page ?? 1,
-            limit: params?.limit ?? 20,
-          }),
-        ),
-      );
-      const items = results.flatMap((result) => result.items);
-
-      return {
-        items: sortProjectsBySubmittedDate(items),
+      const result = await getProjects({
+        status: 'SUBMITTED',
+        search: params?.search,
         page: params?.page ?? 1,
         limit: params?.limit ?? 20,
-        total: results.reduce((sum, result) => sum + result.total, 0),
+      });
+
+      return {
+        items: sortProjectsBySubmittedDate(result.items),
+        page: params?.page ?? 1,
+        limit: params?.limit ?? 20,
+        total: result.total,
       };
     },
   });

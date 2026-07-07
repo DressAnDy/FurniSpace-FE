@@ -7,11 +7,14 @@ import {
   IconMessageDots,
   IconRefresh,
 } from '@tabler/icons-react';
-import { useNavigate } from 'react-router-dom';
+import { useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
 
 import './CustomerProposalDetailPage.css';
 import { CustomerNavbar } from '@/features/CustomerPages/customercomponents';
 import scenePreview from '@/assets/product-detail-shop/table-room.png';
+import { getProposalServiceResultMessage } from '@/services/api/proposals';
+import { useProposalDetail, useRequestProposalRevision, useSelectFinalProposal } from '@/services/queries';
 import {
   MOCK_PROPOSAL,
   MOCK_PROPOSAL_ITEMS,
@@ -33,10 +36,60 @@ const decisionChecklist = [
 
 export function CustomerProposalDetailPage() {
   const navigate = useNavigate();
+  const { proposalId } = useParams();
+  const [decisionMessage, setDecisionMessage] = useState('');
+  const proposalQuery = useProposalDetail(proposalId, { enabled: Boolean(proposalId) });
+  const selectFinalMutation = useSelectFinalProposal();
+  const requestRevisionMutation = useRequestProposalRevision();
+  const backendProposal = proposalQuery.data;
+  const proposalName = backendProposal?.proposalName ?? MOCK_PROPOSAL.name;
+  const proposalDescription =
+    backendProposal?.description ??
+    'An edgy cafe design with exposed brick, metal fixtures, and reclaimed wood elements';
+  const proposalVersion = backendProposal?.versionNo ?? MOCK_PROPOSAL.version;
+  const proposalStatus = backendProposal?.status ?? 'PUBLISHED';
   const estimatedTotal = MOCK_PROPOSAL_ITEMS.reduce(
     (total, item) => total + item.estimatedPrice * item.quantity,
     0,
   );
+
+  async function selectFinalProposal() {
+    if (!proposalId) {
+      setDecisionMessage('Open a backend proposal before selecting the final design.');
+      return;
+    }
+
+    setDecisionMessage('');
+
+    try {
+      await selectFinalMutation.mutateAsync({
+        proposalId,
+        note: 'Customer selected this proposal as the final design for quotation preparation.',
+      });
+      setDecisionMessage('Final proposal selected. The project can move toward quotation.');
+    } catch (error) {
+      setDecisionMessage(getProposalServiceResultMessage(error));
+    }
+  }
+
+  async function requestRevision() {
+    if (!proposalId) {
+      setDecisionMessage('Open a backend proposal before requesting a revision.');
+      return;
+    }
+
+    setDecisionMessage('');
+
+    try {
+      await requestRevisionMutation.mutateAsync({
+        proposalId,
+        note: 'Customer requested another review/revision for this design proposal.',
+      });
+      setDecisionMessage('Revision request sent to the design team.');
+    } catch (error) {
+      setDecisionMessage(getProposalServiceResultMessage(error));
+    }
+  }
 
   return (
     <main className="customer-proposal-detail-page">
@@ -50,7 +103,7 @@ export function CustomerProposalDetailPage() {
           <IconChevronRight size={16} stroke={1.8} />
           <a href="/customer/proposals">Design Proposals</a>
           <IconChevronRight size={16} stroke={1.8} />
-          <span>Industrial Modern Concept</span>
+          <span>{proposalName}</span>
         </nav>
 
         <div className="customer-proposal-detail-layout">
@@ -59,8 +112,8 @@ export function CustomerProposalDetailPage() {
               <img className="customer-proposal-detail-hero-media" alt="Published interior proposal" src={scenePreview} />
           <div className="customer-proposal-detail-hero-copy">
                 <div>
-                  <h1>{MOCK_PROPOSAL.name}</h1>
-                  <span>Version {MOCK_PROPOSAL.version}</span>
+                  <h1>{proposalName}</h1>
+                  <span>Version {proposalVersion}</span>
                 </div>
                 <p>An edgy café design with exposed brick, metal fixtures, and reclaimed wood elements</p>
                 <ul>
@@ -71,7 +124,7 @@ export function CustomerProposalDetailPage() {
               </div>
               <div className="customer-proposal-detail-hero-footer">
                 <div>
-                  <span className="customer-proposal-detail-status">Published</span>
+                  <span className="customer-proposal-detail-status">{proposalStatus}</span>
                   <p>{MOCK_PROPOSAL_SCENES.filter((scene) => scene.status === 'PUBLISHED').length} Published Scene • {MOCK_PROPOSAL_ITEMS.reduce((sum, item) => sum + item.quantity, 0)} Items</p>
                 </div>
                 <button type="button" onClick={() => navigate('/customer/3d-preview')}>
@@ -83,11 +136,7 @@ export function CustomerProposalDetailPage() {
 
             <section className="customer-proposal-detail-card">
               <h2>Design Concept</h2>
-              <p>
-                This proposal embraces an urban industrial aesthetic with exposed structural elements, Edison bulb
-                lighting, and a mix of raw and refined materials. The design creates visual interest through contrasting
-                textures while maintaining a cohesive and inviting environment.
-              </p>
+              <p>{proposalDescription}</p>
             </section>
 
         <section className="customer-proposal-detail-card customer-proposal-detail-row-card">
@@ -133,18 +182,21 @@ export function CustomerProposalDetailPage() {
             <section className="customer-proposal-detail-decision">
               <h2>Make Your Decision</h2>
               <p>Review the design proposal carefully and let us know your decision</p>
+              {proposalQuery.isLoading ? <p>Loading backend proposal...</p> : null}
+              {proposalQuery.isError ? <p>{getProposalServiceResultMessage(proposalQuery.error)}</p> : null}
+              {decisionMessage ? <p>{decisionMessage}</p> : null}
               <div>
                 <button type="button">
                   <IconMessageDots size={20} stroke={1.8} />
                   Submit Feedback
                 </button>
-                <button type="button">
+                <button disabled={requestRevisionMutation.isPending} type="button" onClick={() => void requestRevision()}>
                   <IconRefresh size={20} stroke={1.8} />
-                  Request Revision
+                  {requestRevisionMutation.isPending ? 'Requesting...' : 'Request Revision'}
                 </button>
-                <button type="button">
+                <button disabled={selectFinalMutation.isPending} type="button" onClick={() => void selectFinalProposal()}>
                   <IconCircleCheck size={20} stroke={1.8} />
-                  Select This Proposal
+                  {selectFinalMutation.isPending ? 'Selecting...' : 'Select This Proposal'}
                 </button>
                 <button type="button">
                   <IconCircleX size={20} stroke={1.8} />

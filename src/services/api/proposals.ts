@@ -141,6 +141,17 @@ export type CreateProposalInput = {
   description?: string | null;
 };
 
+export type UpdateProposalInput = {
+  proposalId: string;
+  proposalName: string;
+  description?: string | null;
+};
+
+export type ProposalDecisionInput = {
+  note?: string | null;
+  proposalId: string;
+};
+
 export type CreateProposalSceneInput = {
   proposalId: string;
   sceneName: string;
@@ -262,9 +273,34 @@ export async function getProposalById(proposalId: string) {
   return response.data.data;
 }
 
+export async function updateProposal(input: UpdateProposalInput) {
+  const response = await proposalApiClient.patch<ServiceResult<ProposalDto>>(`/proposals/${input.proposalId}`, {
+    proposalName: input.proposalName.trim(),
+    description: input.description?.trim() || null,
+  });
+
+  return response.data.data;
+}
+
 export async function publishProposal(proposalId: string, note?: string | null) {
   const response = await proposalApiClient.patch<ServiceResult<PublishProposalData>>(`/proposals/${proposalId}/publish`, {
     note: note?.trim() || null,
+  });
+
+  return response.data.data;
+}
+
+export async function selectFinalProposal(input: ProposalDecisionInput) {
+  const response = await proposalApiClient.patch<ServiceResult<ProposalDto>>(`/proposals/${input.proposalId}/select-final`, {
+    note: input.note?.trim() || null,
+  });
+
+  return response.data.data;
+}
+
+export async function requestProposalRevision(input: ProposalDecisionInput) {
+  const response = await proposalApiClient.patch<ServiceResult<ProposalDto>>(`/proposals/${input.proposalId}/request-revision`, {
+    note: input.note?.trim() || null,
   });
 
   return response.data.data;
