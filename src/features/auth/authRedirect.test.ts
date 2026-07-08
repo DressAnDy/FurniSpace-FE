@@ -8,13 +8,15 @@ describe('getPostLoginPath', () => {
     ['ROLE_SALE', '/sale/dashbroad'],
     ['designer', '/designer/assigned-projects'],
     ['ROLE-DESIGNER', '/designer/assigned-projects'],
+    ['PRODUCTION', '/production/customization-requests'],
+    ['ROLE_PRODUCTION', '/production/customization-requests'],
     ['CUSTOMER', '/customer/dashboard'],
   ])('routes %s to the correct workspace', (role, expectedPath) => {
     expect(getPostLoginPath(role)).toBe(expectedPath);
   });
 
   it('does not route an unknown role into the customer workspace', () => {
-    expect(getPostLoginPath('PRODUCTION')).toBe('/');
+    expect(getPostLoginPath('WAREHOUSE')).toBe('/');
     expect(getPostLoginPath()).toBe('/');
   });
 });

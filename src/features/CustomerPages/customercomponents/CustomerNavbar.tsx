@@ -1,6 +1,7 @@
 import {
   IconBox,
   IconCalendarEvent,
+  IconFileDollar,
   IconFileText,
   IconHome,
   IconMessageCircle,
@@ -22,6 +23,7 @@ type CustomerNavbarItem = {
 const customerNavbarItems: CustomerNavbarItem[] = [
   { icon: <IconHome size={15} stroke={1.8} />, label: 'Home', path: '/customer/dashboard' },
   { icon: <IconFileText size={15} stroke={1.8} />, label: 'My Projects', path: '/customer/projects' },
+  { icon: <IconFileDollar size={15} stroke={1.8} />, label: 'Quotations', path: '/customer/quotations' },
   { icon: <IconCalendarEvent size={15} stroke={1.8} />, label: 'Schedules', path: '/customer/schedules' },
   { icon: <IconMessageCircle size={15} stroke={1.8} />, label: 'Project Chat', path: '/customer/chat' },
   { icon: <IconBox size={15} stroke={1.8} />, label: 'Handover', path: '/customer/projects' },

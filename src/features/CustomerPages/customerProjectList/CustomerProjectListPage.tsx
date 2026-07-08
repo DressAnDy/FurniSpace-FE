@@ -16,7 +16,6 @@ import { useNavigate } from 'react-router-dom';
 
 import './CustomerProjectListPage.css';
 import { CustomerNavbar } from '@/features/CustomerPages/customercomponents';
-import { mockCustomerProjects } from '@/features/CustomerPages/mockData';
 import { ProjectChatPanel } from '@/features/projectChat/ProjectChatPanel';
 import type { ProjectListItemDto, ProjectStatus } from '@/services/api/projects';
 import { useProjectList } from '@/services/queries/useProjects';
@@ -33,9 +32,7 @@ export function CustomerProjectListPage() {
     page: 1,
     limit: 50,
   });
-  const apiProjects = projectsQuery.data?.items ?? [];
-  const usingMockData = projectsQuery.isError || apiProjects.length === 0;
-  const projects = usingMockData ? mockCustomerProjects : apiProjects;
+  const projects = projectsQuery.data?.items ?? [];
   const visibleProjects = useMemo(() => {
     const normalizedKeyword = keyword.trim().toLowerCase();
 
@@ -105,12 +102,6 @@ export function CustomerProjectListPage() {
 
         <section className="customer-project-list-grid" aria-label="Projects">
           {projectsQuery.isLoading ? <p className="customer-project-list-state">Loading projects...</p> : null}
-          {!projectsQuery.isLoading && usingMockData ? (
-            <p className="customer-project-list-state">Using demo projects for UI preview.</p>
-          ) : null}
-          {!projectsQuery.isLoading && !projectsQuery.isError && visibleProjects.length === 0 ? (
-            <p className="customer-project-list-state">No projects found. Create a project request to start the flow.</p>
-          ) : null}
           {visibleProjects.map((project) => (
             <ProjectCard key={project.projectId} project={project} onOpenChat={() => setChatProject(project)} />
           ))}
@@ -213,7 +204,7 @@ function ProjectCard({ onOpenChat, project }: ProjectCardProps) {
         <div className="customer-project-list-actions">
           <button
             type="button"
-            onClick={() => navigate(needsInformationUpdate ? `/customer/projects/${project.projectId}/edit` : '/customer/proposals')}
+            onClick={() => navigate(needsInformationUpdate ? `/customer/projects/${project.projectId}/edit` : `/customer/proposals?projectId=${project.projectId}`)}
           >
             {needsInformationUpdate ? 'Update Information' : 'Open Project'}
             <IconArrowRight size={16} stroke={1.8} />

@@ -27,7 +27,9 @@ import {
   useProjectProposals,
   useProposalItems,
   useProposalScenes,
+  useRequestProposalRevision,
   useRoomPlannerScene,
+  useSelectFinalProposal,
 } from '@/services/queries';
 
 type ViewMode = '2d' | '3d';
@@ -35,13 +37,18 @@ type ViewMode = '2d' | '3d';
 export function Customer3dPreviewPage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
+  const projectIdFromUrl = searchParams.get('projectId') ?? '';
+  const proposalIdFromUrl = searchParams.get('proposalId') ?? '';
+  const sceneIdFromUrl = searchParams.get('sceneId') ?? '';
   const stageRef = useRef<HTMLDivElement>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('3d');
   const [selectedObjectId, setSelectedObjectId] = useState<string | null>(null);
   const [decisionMessage, setDecisionMessage] = useState('');
-  const [selectedProjectId, setSelectedProjectId] = useState(() => searchParams.get('projectId') ?? '');
-  const [selectedProposalId, setSelectedProposalId] = useState<string | null>(null);
-  const [selectedSceneId, setSelectedSceneId] = useState<string | null>(null);
+  const [selectedProjectId, setSelectedProjectId] = useState(() => projectIdFromUrl);
+  const [selectedProposalId, setSelectedProposalId] = useState<string | null>(() => proposalIdFromUrl || null);
+  const [selectedSceneId, setSelectedSceneId] = useState<string | null>(() => sceneIdFromUrl || null);
+  const selectFinalProposalMutation = useSelectFinalProposal();
+  const requestProposalRevisionMutation = useRequestProposalRevision();
 
   const projectsQuery = useProjectList({ page: 1, limit: 50 });
   const projects = useMemo(() => projectsQuery.data?.items ?? [], [projectsQuery.data?.items]);
@@ -116,7 +123,25 @@ export function Customer3dPreviewPage() {
   }, [projects, selectedProjectId, setSearchParams]);
 
   useEffect(() => {
-    if (!selectedProjectId || searchParams.get('projectId') === selectedProjectId) {
+    if (projectIdFromUrl && projectIdFromUrl !== selectedProjectId) {
+      setSelectedProjectId(projectIdFromUrl);
+    }
+  }, [projectIdFromUrl, selectedProjectId]);
+
+  useEffect(() => {
+    if (proposalIdFromUrl && proposalIdFromUrl !== selectedProposalId) {
+      setSelectedProposalId(proposalIdFromUrl);
+    }
+  }, [proposalIdFromUrl, selectedProposalId]);
+
+  useEffect(() => {
+    if (sceneIdFromUrl && sceneIdFromUrl !== selectedSceneId) {
+      setSelectedSceneId(sceneIdFromUrl);
+    }
+  }, [sceneIdFromUrl, selectedSceneId]);
+
+  useEffect(() => {
+    if (!selectedProjectId || projectIdFromUrl === selectedProjectId) {
       return;
     }
 
@@ -125,19 +150,69 @@ export function Customer3dPreviewPage() {
       nextParams.set('projectId', selectedProjectId);
       return nextParams;
     }, { replace: true });
-  }, [searchParams, selectedProjectId, setSearchParams]);
+  }, [projectIdFromUrl, selectedProjectId, setSearchParams]);
 
   useEffect(() => {
-    setSelectedProposalId(proposals[0]?.proposalId ?? null);
-  }, [selectedProjectId, proposals]);
+    setSelectedProposalId((currentProposalId) => {
+      if (currentProposalId && proposals.some((proposal) => proposal.proposalId === currentProposalId)) {
+        return currentProposalId;
+      }
+
+      if (proposalIdFromUrl && proposals.some((proposal) => proposal.proposalId === proposalIdFromUrl)) {
+        return proposalIdFromUrl;
+      }
+
+      return proposals[0]?.proposalId ?? null;
+    });
+  }, [proposalIdFromUrl, proposals, selectedProjectId]);
 
   useEffect(() => {
-    setSelectedSceneId(scenes[0]?.sceneId ?? null);
-  }, [selectedProposal?.proposalId, scenes]);
+    setSelectedSceneId((currentSceneId) => {
+      if (currentSceneId && scenes.some((scene) => scene.sceneId === currentSceneId)) {
+        return currentSceneId;
+      }
+
+      if (sceneIdFromUrl && scenes.some((scene) => scene.sceneId === sceneIdFromUrl)) {
+        return sceneIdFromUrl;
+      }
+
+      return scenes[0]?.sceneId ?? null;
+    });
+  }, [sceneIdFromUrl, selectedProposal?.proposalId, scenes]);
 
   useEffect(() => {
     setSelectedObjectId(null);
   }, [selectedScene?.sceneId]);
+
+  async function selectProposal() {
+    if (!selectedProposal) {
+      return;
+    }
+
+    setDecisionMessage('');
+
+    try {
+      await selectFinalProposalMutation.mutateAsync({ proposalId: selectedProposal.proposalId });
+      setDecisionMessage('Proposal selected successfully.');
+    } catch (error) {
+      setDecisionMessage(getProposalServiceResultMessage(error));
+    }
+  }
+
+  async function requestRevision() {
+    if (!selectedProposal) {
+      return;
+    }
+
+    setDecisionMessage('');
+
+    try {
+      await requestProposalRevisionMutation.mutateAsync({ proposalId: selectedProposal.proposalId });
+      setDecisionMessage('Revision requested successfully.');
+    } catch (error) {
+      setDecisionMessage(getProposalServiceResultMessage(error));
+    }
+  }
 
   return (
     <main className="customer-3d-preview-page">
@@ -199,9 +274,11 @@ export function Customer3dPreviewPage() {
                   disabled={projectsQuery.isLoading || projects.length === 0}
                   value={selectedProjectId}
                   onChange={(event) => {
-                    setSelectedProjectId(event.target.value);
+                    const nextProjectId = event.target.value;
+                    setSelectedProjectId(nextProjectId);
                     setSelectedProposalId(null);
                     setSelectedSceneId(null);
+                    setSearchParams(nextProjectId ? { projectId: nextProjectId } : {}, { replace: true });
                   }}
                 >
                   {!selectedProjectId && <option value="">Select project</option>}
@@ -229,6 +306,13 @@ export function Customer3dPreviewPage() {
                   onSelect={() => {
                     setSelectedProposalId(proposal.proposalId);
                     setSelectedSceneId(null);
+                    setSearchParams((currentParams) => {
+                      const nextParams = new URLSearchParams(currentParams);
+                      nextParams.set('projectId', proposal.projectId);
+                      nextParams.set('proposalId', proposal.proposalId);
+                      nextParams.delete('sceneId');
+                      return nextParams;
+                    }, { replace: true });
                   }}
                 />
               ))}
@@ -246,7 +330,16 @@ export function Customer3dPreviewPage() {
                   className={scene.sceneId === selectedScene?.sceneId ? 'is-active' : ''}
                   key={scene.sceneId}
                   type="button"
-                  onClick={() => setSelectedSceneId(scene.sceneId)}
+                  onClick={() => {
+                    setSelectedSceneId(scene.sceneId);
+                    setSearchParams((currentParams) => {
+                      const nextParams = new URLSearchParams(currentParams);
+                      nextParams.set('projectId', selectedProjectId);
+                      nextParams.set('proposalId', scene.proposalId);
+                      nextParams.set('sceneId', scene.sceneId);
+                      return nextParams;
+                    }, { replace: true });
+                  }}
                 >
                   <span>{String(index + 1).padStart(2, '0')}</span>
                   <div><strong>{scene.sceneName}</strong><small>Version {scene.versionNo}</small></div>
@@ -320,10 +413,18 @@ export function Customer3dPreviewPage() {
 
             {decisionMessage && <div className="customer-decision-message">{decisionMessage}</div>}
             <div className="customer-3d-preview-decision">
-              <button type="button" onClick={() => setDecisionMessage('Feedback draft opened for this proposal scene.')}>
+              <button
+                disabled={!selectedProposal || requestProposalRevisionMutation.isPending}
+                type="button"
+                onClick={() => void requestRevision()}
+              >
                 <IconMessageDots size={18} stroke={1.8} /> Request Revision
               </button>
-              <button type="button" onClick={() => setDecisionMessage('Proposal selection recorded in demo mode.')}>
+              <button
+                disabled={!selectedProposal || selectFinalProposalMutation.isPending}
+                type="button"
+                onClick={() => void selectProposal()}
+              >
                 <IconCircleCheck size={18} stroke={1.8} /> Select Proposal
               </button>
             </div>

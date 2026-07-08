@@ -200,8 +200,14 @@ export function useUploadProductVersionFile(productId?: string) {
         input.description,
         { skipAuthRedirect: input.skipAuthRedirect },
       ),
-    onSuccess: () => {
+    onSuccess: (_data, input) => {
       void queryClient.invalidateQueries({ queryKey: productQueryKeys.all });
+      void queryClient.invalidateQueries({
+        queryKey: productQueryKeys.filesByReference({
+          referenceId: input.productVersionId,
+          referenceType: 'PRODUCT_VERSION',
+        }),
+      });
 
       if (productId) {
         void queryClient.invalidateQueries({ queryKey: productQueryKeys.detail(productId) });

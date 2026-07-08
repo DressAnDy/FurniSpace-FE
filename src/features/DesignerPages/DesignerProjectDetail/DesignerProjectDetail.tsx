@@ -21,7 +21,7 @@ import { getProposalServiceResultMessage } from '@/services/api/proposals';
 import { getProjectServiceResultMessage, type ProjectDto, type ProjectStatus } from '@/services/api/projects';
 import { useCreateProposal, useProjectDetail, useUpdateProjectStatus } from '@/services/queries';
 
-import { ChatTab, CustomizationTab, OverviewTab, ProposalsTab, SchedulesTab, SpaceFilesTab } from './tabs';
+import { ChatTab, CustomizationTab, FeedbackTab, OverviewTab, ProposalsTab, SchedulesTab, SpaceFilesTab } from './tabs';
 import './DesignerProjectDetail.css';
 
 type DesignerProjectDetailTab = 'overview' | 'space-files' | 'proposals' | 'feedback' | 'customization' | 'schedules' | 'chat';
@@ -40,7 +40,7 @@ const detailTabs: DesignerProjectTabConfig[] = [
   { id: 'overview', label: 'Overview', component: OverviewTab },
   { id: 'space-files', label: 'Space Files', component: SpaceFilesTab },
   { id: 'proposals', label: 'Proposals', component: ProposalsTab },
-  { id: 'feedback', label: 'Feedback' },
+  { id: 'feedback', label: 'Feedback', component: FeedbackTab },
   { id: 'customization', label: 'Customization', component: CustomizationTab },
   { id: 'schedules', label: 'Schedules', component: SchedulesTab },
   { id: 'chat', label: 'Chat', component: ChatTab },

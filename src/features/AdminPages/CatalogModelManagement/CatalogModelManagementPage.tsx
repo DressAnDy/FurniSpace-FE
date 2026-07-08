@@ -9,12 +9,10 @@ import {
 } from '@tabler/icons-react';
 import { useNavigate } from 'react-router-dom';
 
-import { getProductServiceResultMessage } from '@/services/api';
 import { useProductList } from '@/services/queries';
 import { AdminNavbar, AdminSidebar } from '@/features/AdminPages/admincomponents';
 
 import { getPlannerReadiness, getVersionFile } from './catalogModel.utils';
-import { CATALOG_MOCK_ENABLED, MOCK_CATALOG_LIST_ITEMS } from './catalogModel.mock';
 import './CatalogModelManagement.css';
 
 type ReadinessFilter = 'ALL' | 'READY' | 'INCOMPLETE';
@@ -26,9 +24,9 @@ export function CatalogModelManagementPage() {
   const [query, setQuery] = useState('');
   const [readinessFilter, setReadinessFilter] = useState<ReadinessFilter>('ALL');
   const [sortFilter, setSortFilter] = useState<CatalogSortFilter>('NEWEST');
-  const productsQuery = useProductList({ limit: 100, page: 1 }, !CATALOG_MOCK_ENABLED);
+  const productsQuery = useProductList({ limit: 100, page: 1 });
   const products = useMemo(
-    () => (CATALOG_MOCK_ENABLED ? MOCK_CATALOG_LIST_ITEMS : productsQuery.data?.items ?? []),
+    () => productsQuery.data?.items ?? [],
     [productsQuery.data?.items],
   );
 
@@ -144,13 +142,7 @@ export function CatalogModelManagementPage() {
                 </div>
               </div>
 
-              {!CATALOG_MOCK_ENABLED && productsQuery.isLoading && <div className="product-management-state">Loading catalog from API...</div>}
-              {!CATALOG_MOCK_ENABLED && productsQuery.isError && (
-                <div className="product-management-state product-management-state-error">{getProductServiceResultMessage(productsQuery.error)}</div>
-              )}
-              {(!productsQuery.isLoading || CATALOG_MOCK_ENABLED) && (!productsQuery.isError || CATALOG_MOCK_ENABLED) && filteredProducts.length === 0 && (
-                <div className="product-management-state">No products match the current filter.</div>
-              )}
+              {productsQuery.isLoading && <div className="product-management-state">Loading catalog from API...</div>}
 
               <section className="catalog-model-table" aria-label="Product Version model readiness">
                 {filteredProducts.map((product) => {

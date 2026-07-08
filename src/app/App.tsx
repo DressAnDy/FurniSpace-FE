@@ -22,6 +22,7 @@ import { CustomerProjectListPage } from '@/features/CustomerPages/customerProjec
 import { CustomerProjectInformationPage } from '@/features/CustomerPages/customerProjectInformation/CustomerProjectInformationPage';
 import { CustomerProjectRequestPage } from '@/features/CustomerPages/customerProjectRequest';
 import { CustomerProposalDetailPage } from '@/features/CustomerPages/customerProposalDetail';
+import { CustomerQuotationsPage } from '@/features/CustomerPages/customerQuotations';
 import { DesignerAssignedProjects } from '@/features/DesignerPages/DesignerAssignedProjects';
 import { DesignerProposalWorkspace } from '@/features/DesignerPages/DesignerProposalWorkspace';
 import { CustomerSchedulesPage } from '@/features/CustomerPages/customerSchedules';
@@ -38,6 +39,8 @@ import { DesignerDashbroad } from '@/features/DesignerPages/DesignerDashbroad';
 import { DesignerProductLibrary } from '@/features/DesignerPages/DesignerProductLibrary';
 import { DesignerProjectDetail } from '@/features/DesignerPages/DesignerProjectDetail';
 import { DesignerSchedules } from '@/features/DesignerPages/DesignerSchedules';
+import { ProductionCustomizationRequests } from '@/features/ProductionPages/ProductionCustomizationRequests';
+import { ProductionDashbroad } from '@/features/ProductionPages/ProductionDashbroad';
 import { SaleQuotations } from '@/features/SalePages/SaleQuotations';
 import { SaleSchedules } from '@/features/SalePages/SaleSchedules';
 import { SaleDashbroad } from '@/features/SalePages/SaleDashbroad';
@@ -99,6 +102,7 @@ export default function App() {
               <Route path="/customer/schedules" element={<CustomerSchedulesPage />} />
               <Route path="/customer/proposals" element={<CustomerProposalDetailPage />} />
               <Route path="/customer/proposals/:proposalId" element={<CustomerProposalDetailPage />} />
+              <Route path="/customer/quotations" element={<CustomerQuotationsPage />} />
               <Route path="/customer/3d-preview" element={<Customer3dPreviewPage />} />
               <Route path="/customer/chat" element={<CustomerChatPage />} />
               {/* Customer legacy redirects */}
@@ -135,6 +139,13 @@ export default function App() {
               <Route path="/designer/schedules" element={<DesignerSchedules />} />
             </Route>
 
+            {/* Production routes (role: PRODUCTION) */}
+            <Route element={<ProtectedRoute allowedRoles={['PRODUCTION']} />}>
+              <Route path="/production" element={<Navigate to="/production/customization-requests" replace />} />
+              <Route path="/production/dashbroad" element={<ProductionDashbroad />} />
+              <Route path="/production/customization-requests" element={<ProductionCustomizationRequests />} />
+            </Route>
+
             <Route path="/viewer3d" element={<ViewerDemoPage />} />
             <Route path="/3d-lab" element={<ThreeDTestPage />} />
             <Route path="/proposal-scenes/:sceneId/room-planner" element={<ThreeDTestPage />} />
@@ -150,6 +161,7 @@ export default function App() {
             <Route path="/customer/project-request" element={<CustomerProjectRequestPage />} />
             <Route path="/customer/proposals" element={<CustomerProposalDetailPage />} />
             <Route path="/customer/proposals/:proposalId" element={<CustomerProposalDetailPage />} />
+            <Route path="/customer/quotations" element={<CustomerQuotationsPage />} />
             <Route path="/customer/3d-preview" element={<Customer3dPreviewPage />} />
             <Route path="/customer-dashboard" element={<Navigate to="/customer/dashboard" replace />} />
             <Route path="/customer-3d-preview" element={<Navigate to="/customer/3d-preview" replace />} />
