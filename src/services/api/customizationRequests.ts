@@ -237,17 +237,17 @@ export async function getProjectCustomizationRequests(params: CustomizationReque
 
 export async function getProductionCustomizationRequests(params: ProductionCustomizationRequestListParams = {}) {
   const response = await customizationRequestApiClient.get<ServiceResult<ProductionCustomizationRequestListData>>(
-    '/production/customization-requests',
+    '/api/production/customization-requests',
     {
     params: {
-      status: params.status ?? undefined,
-      projectId: params.projectId ?? undefined,
-      proposalId: params.proposalId ?? undefined,
-      materialAvailable: params.materialAvailable ?? undefined,
-      fromDate: params.fromDate ?? undefined,
-      toDate: params.toDate ?? undefined,
-      page: params.page ?? 1,
-      pageSize: params.pageSize ?? 20,
+      Status: params.status ?? undefined,
+      ProjectId: params.projectId ?? undefined,
+      ProposalId: params.proposalId ?? undefined,
+      MaterialAvailable: params.materialAvailable ?? undefined,
+      FromDate: params.fromDate ?? undefined,
+      ToDate: params.toDate ?? undefined,
+      Page: params.page ?? 1,
+      PageSize: params.pageSize ?? 20,
     },
     },
   );

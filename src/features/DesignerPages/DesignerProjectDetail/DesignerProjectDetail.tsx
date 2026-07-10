@@ -190,7 +190,7 @@ export function DesignerProjectDetail() {
                   </button>
                   <button
                     className="designer-project-detail-button designer-project-detail-button-primary"
-                    disabled={project.status !== 'PROPOSAL_DRAFTING' || createProposalMutation.isPending}
+                    disabled={!isProposalDraftingStatus(project.status) || createProposalMutation.isPending}
                     type="button"
                     onClick={() => void openProposalWorkspace()}
                   >
@@ -298,6 +298,14 @@ function getDesignStatusActionLabel(status: ProjectStatus) {
   }
 
   return `Update to ${formatEnumLabel(nextStatus)}`;
+}
+
+function isProposalDraftingStatus(status: string) {
+  return normalizeStatus(status) === 'PROPOSAL_DRAFTING';
+}
+
+function normalizeStatus(status: string) {
+  return status.trim().toUpperCase().replace(/[^A-Z0-9]+/g, '_');
 }
 
 function getStatusTone(status: string) {

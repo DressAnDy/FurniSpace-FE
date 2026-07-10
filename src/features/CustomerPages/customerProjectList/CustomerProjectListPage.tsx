@@ -16,8 +16,11 @@ import { useNavigate } from 'react-router-dom';
 
 import './CustomerProjectListPage.css';
 import { CustomerNavbar } from '@/features/CustomerPages/customercomponents';
+import { PaymentCollectionModal } from '@/features/payments';
 import { ProjectChatPanel } from '@/features/projectChat/ProjectChatPanel';
+import type { PaymentDetailDto } from '@/services/api/payments';
 import type { ProjectListItemDto, ProjectStatus } from '@/services/api/projects';
+import { usePayments } from '@/services/queries';
 import { useProjectList } from '@/services/queries/useProjects';
 
 export function CustomerProjectListPage() {
@@ -103,7 +106,12 @@ export function CustomerProjectListPage() {
         <section className="customer-project-list-grid" aria-label="Projects">
           {projectsQuery.isLoading ? <p className="customer-project-list-state">Loading projects...</p> : null}
           {visibleProjects.map((project) => (
-            <ProjectCard key={project.projectId} project={project} onOpenChat={() => setChatProject(project)} />
+            <ProjectCard
+              key={project.projectId}
+              project={project}
+              onOpenChat={() => setChatProject(project)}
+              onPaymentCompleted={() => void projectsQuery.refetch()}
+            />
           ))}
         </section>
 
@@ -144,13 +152,30 @@ export function CustomerProjectListPage() {
 
 type ProjectCardProps = {
   onOpenChat: () => void;
+  onPaymentCompleted: () => void;
   project: ProjectListItemDto;
 };
 
-function ProjectCard({ onOpenChat, project }: ProjectCardProps) {
+function ProjectCard({ onOpenChat, onPaymentCompleted, project }: ProjectCardProps) {
   const navigate = useNavigate();
+  const [startFeePayment, setStartFeePayment] = useState<PaymentDetailDto | null>(null);
   const stage = getProjectStage(project.status);
   const needsInformationUpdate = project.status === 'NEED_BASIC_INFORMATION';
+  const startFeePaymentsQuery = usePayments(
+    {
+      projectId: project.projectId,
+      paymentType: 'PROJECT_START_FEE',
+    },
+    {
+      enabled: !project.assignedDesignerId && project.status !== 'SUBMITTED' && project.status !== 'REJECTED',
+    },
+  );
+  const projectStartFeePayment = useMemo(() => {
+    const payments = startFeePaymentsQuery.data?.items ?? [];
+
+    return payments.find((payment) => isCollectablePaymentStatus(payment.status)) ?? payments[0] ?? null;
+  }, [startFeePaymentsQuery.data?.items]);
+  const canPayStartFee = Boolean(projectStartFeePayment && isCollectablePaymentStatus(projectStartFeePayment.status));
 
   return (
     <article className="customer-project-list-card">
@@ -201,12 +226,26 @@ function ProjectCard({ onOpenChat, project }: ProjectCardProps) {
           <strong>{stage.label}</strong>
         </div>
 
+        {projectStartFeePayment ? (
+          <div className={`customer-project-start-fee ${canPayStartFee ? 'customer-project-start-fee-due' : ''}`}>
+            <span>Project Start Fee</span>
+            <strong>{formatPaymentStatus(projectStartFeePayment.status)}</strong>
+          </div>
+        ) : null}
+
         <div className="customer-project-list-actions">
           <button
             type="button"
-            onClick={() => navigate(needsInformationUpdate ? `/customer/projects/${project.projectId}/edit` : `/customer/proposals?projectId=${project.projectId}`)}
+            onClick={() => {
+              if (canPayStartFee && projectStartFeePayment) {
+                setStartFeePayment(projectStartFeePayment);
+                return;
+              }
+
+              navigate(needsInformationUpdate ? `/customer/projects/${project.projectId}/edit` : `/customer/proposals?projectId=${project.projectId}`);
+            }}
           >
-            {needsInformationUpdate ? 'Update Information' : 'Open Project'}
+            {canPayStartFee ? 'Pay Start Fee' : needsInformationUpdate ? 'Update Information' : 'Open Project'}
             <IconArrowRight size={16} stroke={1.8} />
           </button>
           <button type="button" onClick={onOpenChat}>
@@ -215,6 +254,23 @@ function ProjectCard({ onOpenChat, project }: ProjectCardProps) {
           </button>
         </div>
       </div>
+
+      <PaymentCollectionModal
+        payment={startFeePayment}
+        title="Project Start Fee"
+        completionTitle="Start fee paid"
+        completionDescription="Your project can now continue to designer assignment."
+        continueLabel="Back to Projects"
+        onClose={() => setStartFeePayment(null)}
+        onContinue={() => {
+          setStartFeePayment(null);
+          onPaymentCompleted();
+        }}
+        onPaid={() => {
+          void startFeePaymentsQuery.refetch();
+          onPaymentCompleted();
+        }}
+      />
     </article>
   );
 }
@@ -252,4 +308,18 @@ function formatDate(value: string) {
     month: 'short',
     year: 'numeric',
   }).format(new Date(value));
+}
+
+function isCollectablePaymentStatus(status?: string | null) {
+  return status === 'PENDING' || status === 'PROCESSING' || status === 'PARTIALLY_PAID';
+}
+
+function formatPaymentStatus(status?: string | null) {
+  if (!status) return 'Not created';
+
+  return status
+    .toLowerCase()
+    .split('_')
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
 }

@@ -29,11 +29,6 @@ import {
 import './CustomerProposalDetailPage.css';
 
 const tableHeaders = ['Item Name', 'Version', 'Dimensions', 'Material', 'Qty', 'Unit Price', 'Total', 'Actions'];
-const decisionChecklist = [
-  'Review all rendered scenes in the 2D/3D viewer',
-  'Validate furniture quantities and dimensions',
-  'Send item-level customization requests before selecting final proposal',
-];
 
 export function CustomerProposalDetailPage() {
   const navigate = useNavigate();
@@ -127,19 +122,6 @@ export function CustomerProposalDetailPage() {
       navigate(`/customer/proposals/${proposals[0].proposalId}?projectId=${proposals[0].projectId}`, { replace: true });
     }
   }, [navigate, proposals, selectedProposalId]);
-
-  function changeProject(projectIdValue: string) {
-    setSelectedProjectId(projectIdValue);
-    setSelectedProposalId('');
-    setDecisionMessage('');
-    setCustomizationMessage('');
-    setCustomizingItemId(null);
-
-    if (projectIdValue) {
-      setSearchParams({ projectId: projectIdValue });
-      navigate(`/customer/proposals?projectId=${projectIdValue}`, { replace: true });
-    }
-  }
 
   function openProposal(proposal: ProposalDto) {
     setSelectedProposalId(proposal.proposalId);
@@ -283,24 +265,6 @@ export function CustomerProposalDetailPage() {
           <span>{backendProposal?.proposalName ?? 'Design Proposals'}</span>
         </nav>
 
-        <section className="customer-proposal-detail-picker">
-          <label>
-            <span>Project</span>
-            <select value={selectedProjectId} onChange={(event) => changeProject(event.target.value)}>
-              <option value="">Select project</option>
-              {(projectsQuery.data?.items ?? []).map((project) => (
-                <option key={project.projectId} value={project.projectId}>
-                  {project.projectCode} - {project.projectName}
-                </option>
-              ))}
-            </select>
-          </label>
-          <div>
-            <span>Project Status</span>
-            <strong>{selectedProject ? formatEnumLabel(selectedProject.status) : '-'}</strong>
-          </div>
-        </section>
-
         {projectsQuery.isLoading ? <section className="customer-proposal-detail-state">Loading your projects...</section> : null}
         {projectsQuery.isError ? <section className="customer-proposal-detail-state is-error">Cannot load customer projects.</section> : null}
 
@@ -335,6 +299,21 @@ export function CustomerProposalDetailPage() {
         {proposalQuery.isError ? <section className="customer-proposal-detail-state is-error">{getProposalServiceResultMessage(proposalQuery.error)}</section> : null}
 
         {backendProposal ? (
+          <>
+          <section className="customer-proposal-detail-snapshot-strip" aria-label="Proposal snapshot">
+            <div>
+              <h2>Proposal Snapshot</h2>
+              <p>{selectedProject?.projectName ?? selectedProject?.projectCode ?? backendProposal.projectId}</p>
+            </div>
+            <div className="customer-proposal-detail-summary-grid">
+              <SnapshotItem label="Status" value={formatEnumLabel(backendProposal.status)} />
+              <SnapshotItem label="Published" value={backendProposal.publishedAt ? formatDate(backendProposal.publishedAt) : '-'} />
+              <SnapshotItem label="Revision" value={`Version ${backendProposal.versionNo}`} />
+              <SnapshotItem label="Scenes" value={`${scenes.length} active`} />
+              <SnapshotItem label="Estimated Cost" value={formatMoney(estimatedTotal)} />
+            </div>
+          </section>
+
           <div className="customer-proposal-detail-layout">
             <div className="customer-proposal-detail-primary">
               <section className="customer-proposal-detail-hero">
@@ -363,11 +342,6 @@ export function CustomerProposalDetailPage() {
                     Open 2D/3D Review
                   </button>
                 </div>
-              </section>
-
-              <section className="customer-proposal-detail-card">
-                <h2>Design Concept</h2>
-                <p>{backendProposal.description ?? 'No proposal description provided.'}</p>
               </section>
 
               <section className="customer-proposal-detail-card customer-proposal-detail-scenes">
@@ -477,25 +451,6 @@ export function CustomerProposalDetailPage() {
                 </div>
               </section>
 
-              <section className="customer-proposal-detail-card customer-proposal-detail-summary">
-                <h2>Proposal Snapshot</h2>
-                <div className="customer-proposal-detail-summary-grid">
-                  <SnapshotItem label="Status" value={formatEnumLabel(backendProposal.status)} />
-                  <SnapshotItem label="Published" value={backendProposal.publishedAt ? formatDate(backendProposal.publishedAt) : '-'} />
-                  <SnapshotItem label="Revision" value={`Version ${backendProposal.versionNo}`} />
-                  <SnapshotItem label="Estimated Cost" value={formatMoney(estimatedTotal)} />
-                </div>
-              </section>
-
-              <section className="customer-proposal-detail-card customer-proposal-detail-checklist">
-                <h2>Before You Decide</h2>
-                <ul>
-                  {decisionChecklist.map((item) => (
-                    <li key={item}>{item}</li>
-                  ))}
-                </ul>
-              </section>
-
               {customerApprovalRequests.length > 0 ? (
                 <section className="customer-proposal-detail-card customer-proposal-detail-customization-approval">
                   <h2>Customization Approval</h2>
@@ -529,6 +484,7 @@ export function CustomerProposalDetailPage() {
               ) : null}
             </aside>
           </div>
+          </>
         ) : null}
       </div>
     </main>

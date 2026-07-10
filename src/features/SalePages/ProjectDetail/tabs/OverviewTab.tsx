@@ -1,10 +1,18 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { useQueries } from '@tanstack/react-query';
 
+import { PaymentCollectionModal } from '@/features/payments';
 import { getAccountById, getAccountRoleName, type AccountDto } from '@/services/api';
 import { getAccountServiceResultMessage } from '@/services/api/accounts';
+import { getPaymentServiceResultMessage, type PaymentDetailDto } from '@/services/api/payments';
 import { getProjectServiceResultMessage, type ProjectSpaceDataStatus } from '@/services/api/projects';
-import { useAssignDesignerToProject, useAvailableDesigners } from '@/services/queries';
+import {
+  useAssignDesignerToProject,
+  useAvailableDesigners,
+  useCreateProjectStartFeePayment,
+  usePaymentDetail,
+  useProjectStartFeeStatus,
+} from '@/services/queries';
 
 import type { ProjectDetailProject } from '../ProjectDetail';
 
@@ -16,6 +24,8 @@ type OverviewTabProps = {
 export function OverviewTab({ project, showAssignedTeam = false }: OverviewTabProps) {
   const [assignmentMessage, setAssignmentMessage] = useState('');
   const [selectedDesignerId, setSelectedDesignerId] = useState(project.assignedDesignerId ?? '');
+  const [startFeeMessage, setStartFeeMessage] = useState('');
+  const [startFeePayment, setStartFeePayment] = useState<PaymentDetailDto | null>(null);
   const teamAccountIds = [project.assignedSalesId, project.assignedDesignerId].filter((accountId): accountId is string => Boolean(accountId));
   const teamQueries = useQueries({
     queries: teamAccountIds.map((accountId) => ({
@@ -41,6 +51,17 @@ export function OverviewTab({ project, showAssignedTeam = false }: OverviewTabPr
     { enabled: showAssignedTeam && !project.assignedDesignerId },
   );
   const assignDesignerMutation = useAssignDesignerToProject();
+  const startFeeStatusQuery = useProjectStartFeeStatus(project.projectId, {
+    enabled: showAssignedTeam && !project.assignedDesignerId,
+  });
+  const startFeeStatus = startFeeStatusQuery.data;
+  const existingStartFeePaymentQuery = usePaymentDetail(startFeeStatus?.paymentId ?? undefined, {
+    enabled: Boolean(startFeeStatus?.paymentId),
+  });
+  const createStartFeePaymentMutation = useCreateProjectStartFeePayment();
+  const isStartFeeChecking = showAssignedTeam && !project.assignedDesignerId && startFeeStatusQuery.isLoading;
+  const isStartFeeBlocking = Boolean(startFeeStatus?.requiresProjectStartFee && !startFeeStatus.isEligibleForDesignerAssignment);
+  const canShowDesignerAssignment = !project.assignedDesignerId && !isStartFeeChecking && !isStartFeeBlocking;
   const availableDesigners = useMemo(
     () => availableDesignersQuery.data?.items ?? [],
     [availableDesignersQuery.data?.items],
@@ -100,6 +121,32 @@ export function OverviewTab({ project, showAssignedTeam = false }: OverviewTabPr
     }
   }
 
+  async function handleCreateStartFeePayment() {
+    setStartFeeMessage('');
+
+    try {
+      const payment = await createStartFeePaymentMutation.mutateAsync({
+        projectId: project.projectId,
+        note: 'Project start fee created before designer assignment.',
+      });
+      setStartFeePayment(payment);
+    } catch (error) {
+      setStartFeeMessage(getPaymentServiceResultMessage(error));
+    }
+  }
+
+  function handleOpenExistingStartFeePayment() {
+    const payment = existingStartFeePaymentQuery.data;
+
+    if (payment) {
+      setStartFeePayment(payment);
+      setStartFeeMessage('');
+      return;
+    }
+
+    setStartFeeMessage('Payment detail is still loading. Please try again in a moment.');
+  }
+
   return (
     <div className="project-detail-overview project-detail-tab-panel">
       <section className="project-detail-card project-detail-information-card">
@@ -155,6 +202,42 @@ export function OverviewTab({ project, showAssignedTeam = false }: OverviewTabPr
           {!project.assignedDesignerId ? <div className="project-detail-section-divider" /> : null}
 
           {!project.assignedDesignerId ? (
+            <section className={isStartFeeBlocking ? 'project-detail-start-fee-card project-detail-start-fee-card-blocking' : 'project-detail-start-fee-card'}>
+              <div>
+                <h4>Project Start Fee</h4>
+                <p>{getStartFeeCopy(startFeeStatusQuery.isLoading, startFeeStatusQuery.isError, startFeeStatus)}</p>
+              </div>
+              <span>{formatStatusLabel(startFeeStatus?.projectStartFeeStatus ?? (startFeeStatus?.isEligibleForDesignerAssignment ? 'PAID' : null))}</span>
+              {isStartFeeBlocking ? (
+                <div className="project-detail-start-fee-actions">
+                  {startFeeStatus?.paymentId ? (
+                    <button
+                      type="button"
+                      disabled={existingStartFeePaymentQuery.isLoading}
+                      onClick={handleOpenExistingStartFeePayment}
+                    >
+                      {existingStartFeePaymentQuery.isLoading ? 'Loading payment...' : 'Open SePay QR'}
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      disabled={createStartFeePaymentMutation.isPending}
+                      onClick={() => void handleCreateStartFeePayment()}
+                    >
+                      {createStartFeePaymentMutation.isPending ? 'Creating...' : 'Create Start Fee'}
+                    </button>
+                  )}
+                </div>
+              ) : null}
+              {startFeeMessage ? (
+                <p className="project-detail-form-message project-detail-form-message-error">{startFeeMessage}</p>
+              ) : null}
+            </section>
+          ) : null}
+
+          {isStartFeeChecking ? <p className="project-detail-muted">Checking project start fee status...</p> : null}
+
+          {canShowDesignerAssignment ? (
             <form className="project-detail-designer-assignment" onSubmit={handleAssignDesigner}>
             <div className="project-detail-designer-form">
               <h4>Assignment Details</h4>
@@ -229,8 +312,38 @@ export function OverviewTab({ project, showAssignedTeam = false }: OverviewTabPr
           ) : null}
         </section>
       ) : null}
+
+      <PaymentCollectionModal
+        payment={startFeePayment}
+        title="Project Start Fee"
+        completionTitle="Start fee paid"
+        completionDescription="The project is now eligible for designer assignment."
+        continueLabel="Assign Designer"
+        onClose={() => setStartFeePayment(null)}
+        onContinue={() => {
+          setStartFeePayment(null);
+          void startFeeStatusQuery.refetch();
+        }}
+        onPaid={() => {
+          void startFeeStatusQuery.refetch();
+        }}
+      />
     </div>
   );
+}
+
+function getStartFeeCopy(
+  isLoading: boolean,
+  isError: boolean,
+  status: ReturnType<typeof useProjectStartFeeStatus>['data'],
+) {
+  if (isLoading) return 'Checking whether this project needs a start fee before designer assignment.';
+  if (isError) return 'Cannot load start fee status. You can retry by refreshing this project detail.';
+  if (!status?.requiresProjectStartFee) return 'No start fee is required for this project.';
+  if (status.isEligibleForDesignerAssignment) return 'Start fee is paid. Designer assignment can continue.';
+  if (status.paymentId) return 'Start fee payment is waiting for customer transfer confirmation.';
+
+  return 'Create the start fee payment before assigning a designer.';
 }
 
 type TeamMemberCardProps = {
@@ -302,4 +415,14 @@ function formatBudgetRange(min: number | null, max: number | null) {
 
   if (minText && maxText) return `${minText} - ${maxText}`;
   return minText ?? maxText;
+}
+
+function formatStatusLabel(value?: string | null) {
+  if (!value) return 'Not created';
+
+  return value
+    .toLowerCase()
+    .split('_')
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
 }

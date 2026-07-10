@@ -22,6 +22,7 @@ export function ProposalsTab({ project }: ProposalsTabProps) {
     limit: 20,
   });
   const proposals = proposalsQuery.data?.items ?? [];
+  const canCreateProposal = isProposalDraftingStatus(project.status);
 
   async function createProposal() {
     setMessage('');
@@ -81,7 +82,7 @@ export function ProposalsTab({ project }: ProposalsTabProps) {
         </div>
         <button
           className="designer-project-detail-button designer-project-detail-button-primary"
-          disabled={project.status !== 'PROPOSAL_DRAFTING' || createProposalMutation.isPending}
+          disabled={!canCreateProposal || createProposalMutation.isPending}
           type="button"
           onClick={() => void createProposal()}
         >
@@ -94,7 +95,7 @@ export function ProposalsTab({ project }: ProposalsTabProps) {
           {message}
         </p>
       ) : null}
-      {project.status !== 'PROPOSAL_DRAFTING' ? (
+      {!canCreateProposal ? (
         <p className="designer-project-file-message">Move this project to Proposal Drafting before creating a new proposal.</p>
       ) : null}
       {proposalsQuery.isError ? <p className="designer-project-file-message designer-project-file-error">{getProposalServiceResultMessage(proposalsQuery.error)}</p> : null}
@@ -209,6 +210,14 @@ function ProposalRow({ proposal, onCreateScene, onOpenScene, onPublish, publishD
 
 function isCustomerVisibleProposal(status: string) {
   return ['PUBLISHED', 'VIEWED', 'SELECTED', 'REVISION_REQUESTED'].includes(status);
+}
+
+function isProposalDraftingStatus(status: string) {
+  return normalizeStatus(status) === 'PROPOSAL_DRAFTING';
+}
+
+function normalizeStatus(status: string) {
+  return status.trim().toUpperCase().replace(/[^A-Z0-9]+/g, '_');
 }
 
 function getProposalStatusTone(status: string) {

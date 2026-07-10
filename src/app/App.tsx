@@ -22,6 +22,7 @@ import { CustomerProjectListPage } from '@/features/CustomerPages/customerProjec
 import { CustomerProjectInformationPage } from '@/features/CustomerPages/customerProjectInformation/CustomerProjectInformationPage';
 import { CustomerProjectRequestPage } from '@/features/CustomerPages/customerProjectRequest';
 import { CustomerProposalDetailPage } from '@/features/CustomerPages/customerProposalDetail';
+import { CustomerOrdersPage } from '@/features/CustomerPages/customerOrders';
 import { CustomerQuotationsPage } from '@/features/CustomerPages/customerQuotations';
 import { DesignerAssignedProjects } from '@/features/DesignerPages/DesignerAssignedProjects';
 import { DesignerProposalWorkspace } from '@/features/DesignerPages/DesignerProposalWorkspace';
@@ -42,6 +43,7 @@ import { DesignerSchedules } from '@/features/DesignerPages/DesignerSchedules';
 import { ProductionCustomizationRequests } from '@/features/ProductionPages/ProductionCustomizationRequests';
 import { ProductionDashbroad } from '@/features/ProductionPages/ProductionDashbroad';
 import { SaleQuotations } from '@/features/SalePages/SaleQuotations';
+import { SaleOrders } from '@/features/SalePages/SaleOrders';
 import { SaleSchedules } from '@/features/SalePages/SaleSchedules';
 import { SaleDashbroad } from '@/features/SalePages/SaleDashbroad';
 import { ThreeDTestPage } from '@/features/ThreeD/pages/ThreeDTestPage';
@@ -103,6 +105,7 @@ export default function App() {
               <Route path="/customer/proposals" element={<CustomerProposalDetailPage />} />
               <Route path="/customer/proposals/:proposalId" element={<CustomerProposalDetailPage />} />
               <Route path="/customer/quotations" element={<CustomerQuotationsPage />} />
+              <Route path="/customer/orders" element={<CustomerOrdersPage />} />
               <Route path="/customer/3d-preview" element={<Customer3dPreviewPage />} />
               <Route path="/customer/chat" element={<CustomerChatPage />} />
               {/* Customer legacy redirects */}
@@ -126,6 +129,7 @@ export default function App() {
               <Route path="/sales/assigned-projects/:projectId" element={<ProjectDetail />} />
               <Route path="/sales/schedules" element={<SaleSchedules />} />
               <Route path="/sales/quotations" element={<SaleQuotations />} />
+              <Route path="/sales/orders" element={<SaleOrders />} />
               <Route path="/sales/project-requests/:projectId" element={<ProjectDetail />} />
             </Route>
 
@@ -162,6 +166,7 @@ export default function App() {
             <Route path="/customer/proposals" element={<CustomerProposalDetailPage />} />
             <Route path="/customer/proposals/:proposalId" element={<CustomerProposalDetailPage />} />
             <Route path="/customer/quotations" element={<CustomerQuotationsPage />} />
+            <Route path="/customer/orders" element={<CustomerOrdersPage />} />
             <Route path="/customer/3d-preview" element={<Customer3dPreviewPage />} />
             <Route path="/customer-dashboard" element={<Navigate to="/customer/dashboard" replace />} />
             <Route path="/customer-3d-preview" element={<Navigate to="/customer/3d-preview" replace />} />
@@ -196,6 +201,7 @@ export default function App() {
             <Route path="/sales/assigned-projects/:projectId" element={<ProjectDetail />} />
             <Route path="/sales/schedules" element={<SaleSchedules />} />
             <Route path="/sales/quotations" element={<SaleQuotations />} />
+            <Route path="/sales/orders" element={<SaleOrders />} />
             <Route path="/sales/project-requests/:projectId" element={<ProjectDetail />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
