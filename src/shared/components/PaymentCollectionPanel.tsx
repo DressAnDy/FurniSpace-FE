@@ -2,11 +2,9 @@ import { useEffect, useState } from 'react';
 
 import { getPaymentServiceResultMessage, type PaymentDetailDto, type SePayVietQrResponseDto } from '@/services/api/payments';
 import {
-  useCreatePayOsPaymentLink,
   useGenerateSePayVietQr,
   usePaymentDetail,
   usePaymentRealtime,
-  usePaymentTransactions,
 } from '@/services/queries';
 
 import './PaymentCollectionPanel.css';
@@ -21,20 +19,17 @@ export function PaymentCollectionPanel({ onPaid, payment, returnPath }: PaymentC
   const [qr, setQr] = useState<SePayVietQrResponseDto | null>(null);
   const [message, setMessage] = useState<{ tone: 'error' | 'success'; text: string } | null>(null);
   const paymentDetailQuery = usePaymentDetail(payment?.paymentId, { enabled: Boolean(payment?.paymentId) });
-  const transactionsQuery = usePaymentTransactions(payment?.paymentId, { enabled: Boolean(payment?.paymentId) });
   const generateQrMutation = useGenerateSePayVietQr();
-  const payOsMutation = useCreatePayOsPaymentLink();
   const activePayment = paymentDetailQuery.data ?? payment;
-  const isCollectable =
-    activePayment?.status === 'PENDING' ||
-    activePayment?.status === 'PROCESSING' ||
-    activePayment?.status === 'PARTIALLY_PAID';
+  const activeStatus = normalizePaymentStatus(activePayment?.status);
+  const activeType = normalizePaymentType(activePayment?.paymentType);
+  const isCollectable = isCollectablePaymentStatus(activeStatus);
 
   usePaymentRealtime({
     paymentId: activePayment?.paymentId,
     enabled: Boolean(activePayment?.paymentId),
     onPaymentUpdated: (payload) => {
-      if (payload.status === 'PAID') {
+      if (normalizePaymentStatus(payload.status) === 'PAID') {
         setMessage({ tone: 'success', text: 'Payment confirmed.' });
         onPaid?.();
       }
@@ -63,25 +58,6 @@ export function PaymentCollectionPanel({ onPaid, payment, returnPath }: PaymentC
     }
   }
 
-  async function openPayOs() {
-    if (!activePayment) return;
-
-    setMessage(null);
-
-    try {
-      const origin = window.location.origin;
-      const targetPath = returnPath ?? `${window.location.pathname}${window.location.search}`;
-      const result = await payOsMutation.mutateAsync({
-        paymentId: activePayment.paymentId,
-        returnUrl: `${origin}${targetPath}${targetPath.includes('?') ? '&' : '?'}paymentCode=${activePayment.paymentCode}`,
-        cancelUrl: `${origin}${targetPath}${targetPath.includes('?') ? '&' : '?'}paymentCode=${activePayment.paymentCode}&cancelled=1`,
-      });
-      window.open(result.checkoutUrl, '_blank', 'noopener,noreferrer');
-    } catch (error) {
-      setMessage({ tone: 'error', text: getPaymentServiceResultMessage(error) });
-    }
-  }
-
   return (
     <section className="payment-collection-panel">
       <header>
@@ -89,8 +65,8 @@ export function PaymentCollectionPanel({ onPaid, payment, returnPath }: PaymentC
           <span>Payment</span>
           <h3>{activePayment.paymentCode}</h3>
         </div>
-        <strong className={`payment-collection-status payment-collection-status-${statusClass(activePayment.status)}`}>
-          {formatEnumLabel(activePayment.status ?? 'UNKNOWN')}
+        <strong className={`payment-collection-status payment-collection-status-${statusClass(activeStatus)}`}>
+          {formatEnumLabel(activeStatus)}
         </strong>
       </header>
 
@@ -100,16 +76,13 @@ export function PaymentCollectionPanel({ onPaid, payment, returnPath }: PaymentC
         <PaymentValue label="Amount" value={formatMoney(activePayment.amount)} />
         <PaymentValue label="Paid" value={formatMoney(activePayment.paidAmount)} />
         <PaymentValue label="Remaining" value={formatMoney(activePayment.remainingAmount)} />
-        <PaymentValue label="Type" value={formatEnumLabel(activePayment.paymentType ?? 'UNKNOWN')} />
+        <PaymentValue label="Type" value={formatEnumLabel(activeType)} />
       </div>
 
       {isCollectable ? (
         <div className="payment-collection-actions">
           <button disabled={generateQrMutation.isPending} type="button" onClick={() => void generateQr()}>
             {generateQrMutation.isPending ? 'Generating...' : 'Show SePay QR'}
-          </button>
-          <button disabled={payOsMutation.isPending} type="button" onClick={() => void openPayOs()}>
-            {payOsMutation.isPending ? 'Creating...' : 'Open PayOS'}
           </button>
         </div>
       ) : (
@@ -127,19 +100,6 @@ export function PaymentCollectionPanel({ onPaid, payment, returnPath }: PaymentC
           </div>
         </section>
       ) : null}
-
-      {transactionsQuery.data?.items.length ? (
-        <section className="payment-collection-transactions">
-          <h4>Transactions</h4>
-          {transactionsQuery.data.items.slice(0, 4).map((transaction) => (
-            <article key={transaction.paymentTransactionId}>
-              <span>{transaction.transactionCode}</span>
-              <strong>{formatMoney(transaction.amount)}</strong>
-              <em>{formatEnumLabel(transaction.status ?? 'UNKNOWN')}</em>
-            </article>
-          ))}
-        </section>
-      ) : null}
     </section>
   );
 }
@@ -153,16 +113,75 @@ function PaymentValue({ label, value }: { label: string; value: string }) {
   );
 }
 
+const paymentStatusByNumber: Record<number, string> = {
+  0: 'PENDING',
+  1: 'PROCESSING',
+  2: 'PARTIALLY_PAID',
+  3: 'PAID',
+  4: 'FAILED',
+  5: 'CANCELLED',
+  6: 'EXPIRED',
+  7: 'REFUNDED',
+};
+
+const paymentTypeByNumber: Record<number, string> = {
+  0: 'PROJECT_START_FEE',
+  1: 'DEPOSIT',
+  2: 'REMAINING_PAYMENT',
+  3: 'FULL_PAYMENT',
+  4: 'REFUND',
+  5: 'OTHER',
+};
+
 function statusClass(value?: string | null) {
-  return (value ?? 'unknown').toLowerCase().replace(/_/g, '-');
+  return (value ?? 'UNKNOWN').toLowerCase().replace(/_/g, '-');
 }
 
-function formatEnumLabel(value: string) {
+function formatEnumLabel(value?: string | null) {
+  if (!value) return '-';
+
   return value
     .toLowerCase()
     .split('_')
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(' ');
+}
+
+function isCollectablePaymentStatus(status?: string | null) {
+  return status === 'PENDING' || status === 'PROCESSING' || status === 'PARTIALLY_PAID';
+}
+
+function normalizePaymentStatus(value: unknown) {
+  return normalizeEnumValue(value, paymentStatusByNumber, 'PENDING');
+}
+
+function normalizePaymentType(value: unknown) {
+  return normalizeEnumValue(value, paymentTypeByNumber, 'OTHER');
+}
+
+function normalizeEnumValue(value: unknown, numberMap: Record<number, string>, fallback: string) {
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    const numeric = Number(trimmed);
+
+    if (trimmed && Number.isInteger(numeric) && numeric in numberMap) {
+      return numberMap[numeric];
+    }
+
+    return trimmed ? trimmed.toUpperCase() : fallback;
+  }
+
+  if (typeof value === 'number' && Number.isInteger(value) && value in numberMap) {
+    return numberMap[value];
+  }
+
+  if (value && typeof value === 'object') {
+    const candidate = value as { name?: unknown; value?: unknown; status?: unknown };
+
+    return normalizeEnumValue(candidate.name ?? candidate.value ?? candidate.status, numberMap, fallback);
+  }
+
+  return fallback;
 }
 
 function formatMoney(value?: number | null) {
