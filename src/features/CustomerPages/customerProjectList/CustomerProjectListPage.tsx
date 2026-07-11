@@ -173,9 +173,10 @@ function ProjectCard({ onOpenChat, onPaymentCompleted, project }: ProjectCardPro
   const projectStartFeePayment = useMemo(() => {
     const payments = startFeePaymentsQuery.data?.items ?? [];
 
-    return payments.find((payment) => isCollectablePaymentStatus(payment.status)) ?? payments[0] ?? null;
+    return payments.find((payment) => isCollectablePaymentStatus(normalizePaymentStatus(payment.status))) ?? payments[0] ?? null;
   }, [startFeePaymentsQuery.data?.items]);
-  const canPayStartFee = Boolean(projectStartFeePayment && isCollectablePaymentStatus(projectStartFeePayment.status));
+  const startFeePaymentStatus = normalizePaymentStatus(projectStartFeePayment?.status);
+  const canPayStartFee = Boolean(projectStartFeePayment && isCollectablePaymentStatus(startFeePaymentStatus));
 
   return (
     <article className="customer-project-list-card">
@@ -229,7 +230,7 @@ function ProjectCard({ onOpenChat, onPaymentCompleted, project }: ProjectCardPro
         {projectStartFeePayment ? (
           <div className={`customer-project-start-fee ${canPayStartFee ? 'customer-project-start-fee-due' : ''}`}>
             <span>Project Start Fee</span>
-            <strong>{formatPaymentStatus(projectStartFeePayment.status)}</strong>
+            <strong>{formatPaymentStatus(startFeePaymentStatus)}</strong>
           </div>
         ) : null}
 
@@ -283,9 +284,7 @@ function getProjectStage(status: ProjectListItemDto['status']) {
     WAITING_FOR_DESIGNER_ASSIGNMENT: { label: 'Waiting Designer', tone: 'stone' },
     MEASUREMENT_REQUIRED: { label: 'Measurement Required', tone: 'stone' },
     SPACE_VERIFIED: { label: 'Space Verified', tone: 'green' },
-    PROPOSAL_DRAFTING: { label: 'Proposal Drafting', tone: 'stone' },
-    WAITING_FOR_CUSTOMER_REVIEW: { label: 'Awaiting Your Review', tone: 'gold' },
-    REVISION_REQUESTED: { label: 'Revision Requested', tone: 'gold' },
+    PROPOSAL_CONSULTING: { label: 'Proposal Consulting', tone: 'gold' },
     PROPOSAL_SELECTED: { label: 'Proposal Selected', tone: 'green' },
     QUOTATION_SENT: { label: 'Quotation Sent', tone: 'gold' },
     QUOTATION_REVISION_REQUESTED: { label: 'Quotation Revision', tone: 'gold' },
@@ -310,8 +309,44 @@ function formatDate(value: string) {
   }).format(new Date(value));
 }
 
+const paymentStatusByNumber: Record<number, string> = {
+  0: 'PENDING',
+  1: 'PROCESSING',
+  2: 'PARTIALLY_PAID',
+  3: 'PAID',
+  4: 'FAILED',
+  5: 'CANCELLED',
+  6: 'EXPIRED',
+  7: 'REFUNDED',
+};
+
 function isCollectablePaymentStatus(status?: string | null) {
   return status === 'PENDING' || status === 'PROCESSING' || status === 'PARTIALLY_PAID';
+}
+
+function normalizePaymentStatus(value: unknown) {
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    const numeric = Number(trimmed);
+
+    if (trimmed && Number.isInteger(numeric) && numeric in paymentStatusByNumber) {
+      return paymentStatusByNumber[numeric];
+    }
+
+    return trimmed ? trimmed.toUpperCase() : null;
+  }
+
+  if (typeof value === 'number' && Number.isInteger(value) && value in paymentStatusByNumber) {
+    return paymentStatusByNumber[value];
+  }
+
+  if (value && typeof value === 'object') {
+    const candidate = value as { name?: unknown; value?: unknown; status?: unknown };
+
+    return normalizePaymentStatus(candidate.name ?? candidate.value ?? candidate.status);
+  }
+
+  return null;
 }
 
 function formatPaymentStatus(status?: string | null) {

@@ -1,5 +1,5 @@
 import { IconCircleCheck, IconQrcode, IconRefresh, IconX } from '@tabler/icons-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import {
   getPaymentServiceResultMessage,
@@ -10,7 +10,6 @@ import {
   useGenerateSePayVietQr,
   usePaymentDetail,
   usePaymentRealtime,
-  usePaymentTransactions,
 } from '@/services/queries';
 
 import './PaymentCollectionModal.css';
@@ -40,19 +39,21 @@ export function PaymentCollectionModal({
   const [sePayQr, setSePayQr] = useState<SePayVietQrResponseDto | null>(null);
   const [message, setMessage] = useState('');
   const paymentQuery = usePaymentDetail(paymentId, { enabled: Boolean(paymentId) });
-  const transactionsQuery = usePaymentTransactions(paymentId, { enabled: Boolean(paymentId) });
   const generateQrMutation = useGenerateSePayVietQr();
   const currentPayment = paymentQuery.data ?? payment;
-  const isCollectable = Boolean(currentPayment && isCollectablePaymentStatus(currentPayment.status));
-  const isPaid = currentPayment?.status === 'PAID';
+  const currentStatus = normalizePaymentStatus(currentPayment?.status);
+  const isCollectable = isCollectablePaymentStatus(currentStatus);
+  const isPaid = currentStatus === 'PAID';
 
   usePaymentRealtime({
     paymentId,
     enabled: Boolean(paymentId),
     onPaymentUpdated: (payload) => {
-      setMessage(`Payment ${formatStatusLabel(payload.status)}. Latest paid amount: ${formatMoney(payload.paidAmount, currentPayment?.currency)}.`);
+      const nextStatus = normalizePaymentStatus(payload.status);
 
-      if (payload.status === 'PAID') {
+      setMessage(`Payment ${formatStatusLabel(nextStatus)}. Latest paid amount: ${formatMoney(payload.paidAmount, currentPayment?.currency)}.`);
+
+      if (nextStatus === 'PAID') {
         void paymentQuery.refetch().then((result) => {
           if (result.data) {
             onPaid?.(result.data);
@@ -66,8 +67,6 @@ export function PaymentCollectionModal({
     setSePayQr(null);
     setMessage('');
   }, [paymentId]);
-
-  const transactions = useMemo(() => transactionsQuery.data?.items ?? [], [transactionsQuery.data?.items]);
 
   if (!currentPayment) {
     return null;
@@ -101,8 +100,8 @@ export function PaymentCollectionModal({
         </header>
 
         <div className="payment-modal-status-row">
-          <span className={`payment-status-badge payment-status-${(currentPayment.status ?? 'PENDING').toLowerCase()}`}>
-            {formatStatusLabel(currentPayment.status)}
+          <span className={`payment-status-badge payment-status-${currentStatus.toLowerCase()}`}>
+            {formatStatusLabel(currentStatus)}
           </span>
           <button type="button" onClick={() => void paymentQuery.refetch()} disabled={paymentQuery.isFetching}>
             <IconRefresh size={16} />
@@ -114,7 +113,7 @@ export function PaymentCollectionModal({
           <SummaryItem label="Amount" value={formatMoney(currentPayment.amount, currentPayment.currency)} />
           <SummaryItem label="Paid" value={formatMoney(currentPayment.paidAmount, currentPayment.currency)} />
           <SummaryItem label="Remaining" value={formatMoney(currentPayment.remainingAmount, currentPayment.currency)} />
-          <SummaryItem label="Type" value={formatStatusLabel(currentPayment.paymentType)} />
+          <SummaryItem label="Type" value={formatStatusLabel(normalizePaymentType(currentPayment.paymentType))} />
         </div>
 
         {isPaid ? (
@@ -169,24 +168,6 @@ export function PaymentCollectionModal({
         ) : null}
 
         {message ? <p className={message.toLowerCase().includes('ready') || message.toLowerCase().includes('paid') ? 'payment-modal-message' : 'payment-modal-message payment-modal-message-error'}>{message}</p> : null}
-
-        <section className="payment-transactions">
-          <h4>Transactions</h4>
-          {transactionsQuery.isLoading ? <p>Loading transactions...</p> : null}
-          {!transactionsQuery.isLoading && transactions.length === 0 ? <p>No transaction yet.</p> : null}
-          {transactions.map((transaction) => (
-            <article key={transaction.paymentTransactionId}>
-              <div>
-                <strong>{transaction.transactionCode}</strong>
-                <span>{formatStatusLabel(transaction.paymentProvider)} - {formatStatusLabel(transaction.paymentMethod)}</span>
-              </div>
-              <div>
-                <strong>{formatMoney(transaction.amount, transaction.currency)}</strong>
-                <span>{formatStatusLabel(transaction.status)}</span>
-              </div>
-            </article>
-          ))}
-        </section>
       </section>
     </div>
   );
@@ -201,8 +182,61 @@ function SummaryItem({ label, value }: { label: string; value: string }) {
   );
 }
 
+const paymentStatusByNumber: Record<number, string> = {
+  0: 'PENDING',
+  1: 'PROCESSING',
+  2: 'PARTIALLY_PAID',
+  3: 'PAID',
+  4: 'FAILED',
+  5: 'CANCELLED',
+  6: 'EXPIRED',
+  7: 'REFUNDED',
+};
+
+const paymentTypeByNumber: Record<number, string> = {
+  0: 'PROJECT_START_FEE',
+  1: 'DEPOSIT',
+  2: 'REMAINING_PAYMENT',
+  3: 'FULL_PAYMENT',
+  4: 'REFUND',
+  5: 'OTHER',
+};
+
 function isCollectablePaymentStatus(status?: string | null) {
   return status === 'PENDING' || status === 'PROCESSING' || status === 'PARTIALLY_PAID';
+}
+
+function normalizePaymentStatus(value: unknown) {
+  return normalizeEnumValue(value, paymentStatusByNumber, 'PENDING');
+}
+
+function normalizePaymentType(value: unknown) {
+  return normalizeEnumValue(value, paymentTypeByNumber, 'OTHER');
+}
+
+function normalizeEnumValue(value: unknown, numberMap: Record<number, string>, fallback: string) {
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    const numeric = Number(trimmed);
+
+    if (trimmed && Number.isInteger(numeric) && numeric in numberMap) {
+      return numberMap[numeric];
+    }
+
+    return trimmed ? trimmed.toUpperCase() : fallback;
+  }
+
+  if (typeof value === 'number' && Number.isInteger(value) && value in numberMap) {
+    return numberMap[value];
+  }
+
+  if (value && typeof value === 'object') {
+    const candidate = value as { name?: unknown; value?: unknown; status?: unknown };
+
+    return normalizeEnumValue(candidate.name ?? candidate.value ?? candidate.status, numberMap, fallback);
+  }
+
+  return fallback;
 }
 
 function formatMoney(value?: number | null, currency = 'VND') {

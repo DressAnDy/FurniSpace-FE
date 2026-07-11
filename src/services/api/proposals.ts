@@ -33,7 +33,6 @@ proposalApiClient.interceptors.response.use(
 export type ProposalStatus =
   | 'DRAFT'
   | 'PUBLISHED'
-  | 'VIEWED'
   | 'SELECTED'
   | 'REVISION_REQUESTED'
   | 'REJECTED'

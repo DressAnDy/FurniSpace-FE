@@ -21,8 +21,7 @@ type JourneyStatus =
   | 'SUBMITTED'
   | 'IN_CONSULTATION'
   | 'SPACE_VERIFIED'
-  | 'PROPOSAL_DRAFTING'
-  | 'WAITING_FOR_CUSTOMER_REVIEW'
+  | 'PROPOSAL_CONSULTING'
   | 'QUOTATION_SENT'
   | 'ORDER_CONFIRMED';
 
@@ -30,8 +29,7 @@ const journeyStatusOrder: JourneyStatus[] = [
   'SUBMITTED',
   'IN_CONSULTATION',
   'SPACE_VERIFIED',
-  'PROPOSAL_DRAFTING',
-  'WAITING_FOR_CUSTOMER_REVIEW',
+  'PROPOSAL_CONSULTING',
   'QUOTATION_SENT',
   'ORDER_CONFIRMED',
 ];
@@ -40,8 +38,7 @@ const journeyLabels: Record<JourneyStatus, string> = {
   SUBMITTED: 'Request Submitted',
   IN_CONSULTATION: 'Consultation',
   SPACE_VERIFIED: 'Space Verified',
-  PROPOSAL_DRAFTING: 'Design Proposal',
-  WAITING_FOR_CUSTOMER_REVIEW: 'Customer Review',
+  PROPOSAL_CONSULTING: 'Proposal Consulting',
   QUOTATION_SENT: 'Quotation',
   ORDER_CONFIRMED: 'Order Confirmed',
 };
@@ -53,9 +50,7 @@ const activeProjectStatuses: ProjectStatus[] = [
   'WAITING_FOR_DESIGNER_ASSIGNMENT',
   'MEASUREMENT_REQUIRED',
   'SPACE_VERIFIED',
-  'PROPOSAL_DRAFTING',
-  'WAITING_FOR_CUSTOMER_REVIEW',
-  'REVISION_REQUESTED',
+  'PROPOSAL_CONSULTING',
   'PROPOSAL_SELECTED',
   'QUOTATION_SENT',
   'QUOTATION_REVISION_REQUESTED',
@@ -325,7 +320,7 @@ function getJourneyIndex(status: ProjectStatus) {
     return 2;
   }
 
-  if (status === 'REVISION_REQUESTED' || status === 'PROPOSAL_SELECTED') {
+  if (status === 'PROPOSAL_SELECTED') {
     return 4;
   }
 
@@ -347,7 +342,7 @@ function getActionTitle(status: ProjectStatus) {
     return 'Action Required: Add Project Information';
   }
 
-  if (status === 'WAITING_FOR_CUSTOMER_REVIEW') {
+  if (status === 'PROPOSAL_CONSULTING') {
     return 'Action Required: Review Design Proposals';
   }
 
@@ -363,7 +358,7 @@ function getActionDescription(status: ProjectStatus) {
     return 'Your sales team needs more details before the project can continue.';
   }
 
-  if (status === 'WAITING_FOR_CUSTOMER_REVIEW') {
+  if (status === 'PROPOSAL_CONSULTING') {
     return 'Your designer has published design proposals. Please review and provide feedback.';
   }
 
@@ -379,7 +374,7 @@ function getActionLabel(status: ProjectStatus) {
     return 'Update Info';
   }
 
-  if (status === 'WAITING_FOR_CUSTOMER_REVIEW') {
+  if (status === 'PROPOSAL_CONSULTING') {
     return 'Review Now';
   }
 
@@ -391,7 +386,7 @@ function getActionLabel(status: ProjectStatus) {
 }
 
 function getActionPath(status: ProjectStatus) {
-  if (status === 'WAITING_FOR_CUSTOMER_REVIEW' || status === 'QUOTATION_SENT' || status === 'QUOTATION_REVISION_REQUESTED') {
+  if (status === 'PROPOSAL_CONSULTING' || status === 'QUOTATION_SENT' || status === 'QUOTATION_REVISION_REQUESTED') {
     return '/customer/proposals';
   }
 

@@ -96,7 +96,7 @@ export function ProposalsTab({ project }: ProposalsTabProps) {
         </p>
       ) : null}
       {!canCreateProposal ? (
-        <p className="designer-project-file-message">Move this project to Proposal Drafting before creating a new proposal.</p>
+        <p className="designer-project-file-message">Move this project to Proposal Consulting before creating a new proposal.</p>
       ) : null}
       {proposalsQuery.isError ? <p className="designer-project-file-message designer-project-file-error">{getProposalServiceResultMessage(proposalsQuery.error)}</p> : null}
 
@@ -209,11 +209,11 @@ function ProposalRow({ proposal, onCreateScene, onOpenScene, onPublish, publishD
 }
 
 function isCustomerVisibleProposal(status: string) {
-  return ['PUBLISHED', 'VIEWED', 'SELECTED', 'REVISION_REQUESTED'].includes(status);
+  return ['PUBLISHED', 'SELECTED', 'REVISION_REQUESTED', 'REJECTED'].includes(status);
 }
 
 function isProposalDraftingStatus(status: string) {
-  return normalizeStatus(status) === 'PROPOSAL_DRAFTING';
+  return normalizeStatus(status) === 'PROPOSAL_CONSULTING';
 }
 
 function normalizeStatus(status: string) {
@@ -222,7 +222,7 @@ function normalizeStatus(status: string) {
 
 function getProposalStatusTone(status: string) {
   if (status === 'DRAFT') return 'draft';
-  if (status === 'PUBLISHED' || status === 'VIEWED') return 'design';
+  if (status === 'PUBLISHED') return 'design';
   if (status === 'SELECTED') return 'reviewed';
   if (status === 'REVISION_REQUESTED') return 'pending';
 

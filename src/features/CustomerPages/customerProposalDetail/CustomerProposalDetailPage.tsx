@@ -82,7 +82,10 @@ export function CustomerProposalDetailPage() {
   const customizationDecisionMutation = useCustomerDecisionCustomizationRequest();
   const backendProposal = proposalQuery.data;
   const selectedProject = projectsQuery.data?.items.find((project) => project.projectId === selectedProjectId) ?? null;
-  const proposals = useMemo(() => projectProposalsQuery.data?.items ?? [], [projectProposalsQuery.data?.items]);
+  const proposals = useMemo(
+    () => (projectProposalsQuery.data?.items ?? []).filter((proposal) => isCustomerVisibleProposal(proposal.status)),
+    [projectProposalsQuery.data?.items],
+  );
   const scenes = useMemo(() => scenesQuery.data?.items ?? backendProposal?.scenes ?? [], [backendProposal?.scenes, scenesQuery.data?.items]);
   const proposalItems = useMemo(() => itemsQuery.data?.items ?? backendProposal?.items ?? [], [backendProposal?.items, itemsQuery.data?.items]);
   const estimatedTotal = proposalItems.reduce((total, item) => total + (item.subtotalAmount ?? 0), 0);
@@ -95,6 +98,7 @@ export function CustomerProposalDetailPage() {
   );
   const customizationRequests = customizationRequestsQuery.data?.items ?? [];
   const customerApprovalRequests = customizationRequests.filter((request) => request.status === 'WAITING_FOR_CUSTOMER_FINAL_APPROVAL');
+  const canDecideProposal = backendProposal?.status === 'PUBLISHED';
 
   useEffect(() => {
     if (proposalId && proposalId !== selectedProposalId) {
@@ -436,11 +440,11 @@ export function CustomerProposalDetailPage() {
                     <IconMessageDots size={20} stroke={1.8} />
                     Submit Feedback
                   </button>
-                  <button disabled={requestRevisionMutation.isPending} type="button" onClick={() => void requestRevision()}>
+                  <button disabled={!canDecideProposal || requestRevisionMutation.isPending} type="button" onClick={() => void requestRevision()}>
                     <IconRefresh size={20} stroke={1.8} />
                     {requestRevisionMutation.isPending ? 'Requesting...' : 'Request Revision'}
                   </button>
-                  <button disabled={selectFinalMutation.isPending || customerApprovalRequests.length > 0} type="button" onClick={() => void selectFinalProposal()}>
+                  <button disabled={!canDecideProposal || selectFinalMutation.isPending || customerApprovalRequests.length > 0} type="button" onClick={() => void selectFinalProposal()}>
                     <IconCircleCheck size={20} stroke={1.8} />
                     {selectFinalMutation.isPending ? 'Selecting...' : 'Select This Proposal'}
                   </button>
@@ -508,6 +512,10 @@ function ProposalItemRow({ item, onCustomize, proposalStatus }: { item: Proposal
       </td>
     </tr>
   );
+}
+
+function isCustomerVisibleProposal(status: ProposalDto['status']) {
+  return ['PUBLISHED', 'REVISION_REQUESTED', 'SELECTED', 'REJECTED'].includes(status);
 }
 
 function SnapshotItem({ label, value }: { label: string; value: string }) {

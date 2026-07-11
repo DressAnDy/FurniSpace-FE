@@ -37,7 +37,7 @@ export function FeedbackTab({ project }: FeedbackTabProps) {
       ) : null}
 
       <div className="designer-project-feedback-summary">
-        <FeedbackMetric label="Published" value={countByStatus(proposals, 'PUBLISHED') + countByStatus(proposals, 'VIEWED')} />
+        <FeedbackMetric label="Published" value={countByStatus(proposals, 'PUBLISHED')} />
         <FeedbackMetric label="Revision Requests" value={revisionProposals.length} />
         <FeedbackMetric label="Production Review" value={productionReviewRequests.length} />
         <FeedbackMetric label="Customer Decisions" value={customerDecisionRequests.length} />
@@ -112,7 +112,7 @@ function countByStatus(proposals: ProposalDto[], status: ProposalDto['status']) 
 
 function getProposalStatusTone(status: ProposalDto['status']) {
   if (status === 'SELECTED') return 'feasible';
-  if (status === 'PUBLISHED' || status === 'VIEWED') return 'reviewed';
+  if (status === 'PUBLISHED') return 'reviewed';
   if (status === 'REVISION_REQUESTED') return 'pending';
   if (status === 'REJECTED' || status === 'ARCHIVED') return 'missing';
 

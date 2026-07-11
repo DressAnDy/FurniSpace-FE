@@ -22,8 +22,7 @@
 
 .payment-modal-header,
 .payment-modal-status-row,
-.payment-method-panel,
-.payment-transactions article {
+.payment-method-panel {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
@@ -31,16 +30,14 @@
 }
 
 .payment-modal-header h3,
-.payment-method-panel h4,
-.payment-transactions h4 {
+.payment-method-panel h4 {
   margin: 0;
   font-size: 18px;
   line-height: 24px;
 }
 
 .payment-modal-header p,
-.payment-method-panel p,
-.payment-transactions p {
+.payment-method-panel p {
   margin: 5px 0 0;
   color: #6b6b6b;
   font-size: 13px;
@@ -127,8 +124,7 @@
 }
 
 .payment-summary-item,
-.payment-method-panel,
-.payment-transactions article {
+.payment-method-panel {
   border: 1px solid rgba(139, 111, 71, 0.15);
   border-radius: 8px;
   background: #faf9f7;
@@ -136,8 +132,7 @@
 }
 
 .payment-summary-item span,
-.payment-qr-box dt,
-.payment-transactions article span {
+.payment-qr-box dt {
   display: block;
   color: #6b6b6b;
   font-size: 12px;
@@ -145,8 +140,7 @@
 }
 
 .payment-summary-item strong,
-.payment-qr-box dd,
-.payment-transactions article strong {
+.payment-qr-box dd {
   display: block;
   margin: 5px 0 0;
   overflow-wrap: anywhere;
@@ -208,19 +202,6 @@
   border-color: rgba(239, 68, 68, 0.22);
   background: rgba(239, 68, 68, 0.08);
   color: #991b1b;
-}
-
-.payment-transactions {
-  margin-top: 20px;
-}
-
-.payment-transactions article {
-  align-items: center;
-  margin-top: 10px;
-}
-
-.payment-transactions article > div:last-child {
-  text-align: right;
 }
 
 .payment-complete-panel {

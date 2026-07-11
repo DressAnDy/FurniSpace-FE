@@ -259,9 +259,7 @@ function getProjectProgress(status: string) {
   const progressByStatus: Record<string, number> = {
     MEASUREMENT_REQUIRED: 15,
     SPACE_VERIFIED: 25,
-    PROPOSAL_DRAFTING: 45,
-    WAITING_FOR_CUSTOMER_REVIEW: 65,
-    REVISION_REQUESTED: 70,
+    PROPOSAL_CONSULTING: 65,
     PROPOSAL_SELECTED: 82,
     QUOTATION_SENT: 90,
     COMPLETED: 100,
@@ -272,8 +270,7 @@ function getProjectProgress(status: string) {
 
 function getNextDesignStatus(status: ProjectStatus): ProjectStatus | null {
   if (status === 'MEASUREMENT_REQUIRED') return 'SPACE_VERIFIED';
-  if (status === 'SPACE_VERIFIED') return 'PROPOSAL_DRAFTING';
-  if (status === 'REVISION_REQUESTED') return 'PROPOSAL_DRAFTING';
+  if (status === 'SPACE_VERIFIED') return 'PROPOSAL_CONSULTING';
 
   return null;
 }
@@ -286,22 +283,18 @@ function getDesignStatusActionLabel(status: ProjectStatus) {
   }
 
   if (status === 'SPACE_VERIFIED') {
-    return 'Start Proposal Draft';
-  }
-
-  if (status === 'REVISION_REQUESTED') {
-    return 'Start Revision Draft';
+    return 'Start Proposal Consulting';
   }
 
   if (!nextStatus) {
-    return status === 'PROPOSAL_DRAFTING' ? 'Ready for Proposal' : 'No Designer Step';
+    return status === 'PROPOSAL_CONSULTING' ? 'Ready for Proposals' : 'No Designer Step';
   }
 
   return `Update to ${formatEnumLabel(nextStatus)}`;
 }
 
 function isProposalDraftingStatus(status: string) {
-  return normalizeStatus(status) === 'PROPOSAL_DRAFTING';
+  return normalizeStatus(status) === 'PROPOSAL_CONSULTING';
 }
 
 function normalizeStatus(status: string) {
@@ -310,8 +303,7 @@ function normalizeStatus(status: string) {
 
 function getStatusTone(status: string) {
   if (status === 'MEASUREMENT_REQUIRED' || status === 'SPACE_VERIFIED') return 'new';
-  if (status === 'PROPOSAL_DRAFTING' || status === 'WAITING_FOR_CUSTOMER_REVIEW') return 'design';
-  if (status === 'REVISION_REQUESTED') return 'pending';
+  if (status === 'PROPOSAL_CONSULTING') return 'design';
   if (status === 'PROPOSAL_SELECTED' || status === 'QUOTATION_SENT') return 'reviewed';
   return 'missing';
 }
