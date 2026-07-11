@@ -12,7 +12,7 @@ import {
   IconRulerMeasure,
 } from '@tabler/icons-react';
 import { useQueries } from '@tanstack/react-query';
-import { useMemo, useState, type ComponentType, type CSSProperties } from 'react';
+import { useMemo, useState, type ComponentType } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 
 import { DesignerLayout } from '@/features/DesignerPages/designercomponents';
@@ -169,11 +169,7 @@ export function DesignerProjectDetail() {
                 </div>
               </div>
 
-              <div className="designer-project-progress-card">
-                <div className="designer-project-progress-ring" style={{ '--progress': `${getProjectProgress(project.status)}%` } as CSSProperties}>
-                  <span>{getProjectProgress(project.status)}%</span>
-                </div>
-                <p>Design Progress</p>
+              <div className="designer-project-process-card">
                 <div className="designer-project-current-status">
                   <span>Current Status</span>
                   <strong>{formatEnumLabel(project.status)}</strong>
@@ -253,19 +249,6 @@ export function DesignerProjectDetail() {
       </section>
     </DesignerLayout>
   );
-}
-
-function getProjectProgress(status: string) {
-  const progressByStatus: Record<string, number> = {
-    MEASUREMENT_REQUIRED: 15,
-    SPACE_VERIFIED: 25,
-    PROPOSAL_CONSULTING: 65,
-    PROPOSAL_SELECTED: 82,
-    QUOTATION_SENT: 90,
-    COMPLETED: 100,
-  };
-
-  return progressByStatus[status] ?? 10;
 }
 
 function getNextDesignStatus(status: ProjectStatus): ProjectStatus | null {

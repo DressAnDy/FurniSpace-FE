@@ -19,6 +19,7 @@
   --fs-sidebar: #17110a;
   --fs-sidebar-soft: #2a241f;
   --fs-danger: #991b1b;
+  --fs-customer-font: "Be Vietnam Pro", "DM Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
   font-family: "Be Vietnam Pro", "DM Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
   color: var(--fs-ink);
   background: var(--fs-bg);

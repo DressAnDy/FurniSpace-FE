@@ -1,44 +1,20 @@
 import { IconDownload, IconEye, IconFileText } from '@tabler/icons-react';
-import { useMemo, useState } from 'react';
 
-import type { FileType, ProjectDto } from '@/services/api/projects';
+import type { ProjectDto } from '@/services/api/projects';
 import { useProjectFiles } from '@/services/queries/useProjects';
 
 type SpaceFilesTabProps = {
   project: ProjectDto;
 };
 
-const fileTypeFilters: Array<FileType | 'ALL'> = [
-  'ALL',
-  'FLOOR_PLAN',
-  'SPACE_IMAGE',
-  'REFERENCE_IMAGE',
-  'BRAND_ASSET',
-  'CAD_FILE',
-  'PDF_DRAWING',
-  'MEASUREMENT_REPORT',
-  'LIDAR_SCAN',
-  'MODEL_3D',
-  'OTHER',
-];
-
 export function SpaceFilesTab({ project }: SpaceFilesTabProps) {
-  const [fileType, setFileType] = useState<FileType | 'ALL'>('ALL');
   const filesQuery = useProjectFiles({
     projectId: project.projectId,
-    fileType: fileType === 'ALL' ? null : fileType,
+    fileType: null,
     page: 1,
     limit: 50,
   });
   const files = filesQuery.data?.items ?? [];
-  const filters = useMemo(() => {
-    const total = filesQuery.data?.total ?? files.length;
-
-    return fileTypeFilters.map((type) => ({
-      type,
-      label: type === 'ALL' ? `All (${total})` : formatEnumLabel(type),
-    }));
-  }, [files.length, filesQuery.data?.total]);
 
   return (
     <section className="designer-card designer-project-section-card">
@@ -48,18 +24,6 @@ export function SpaceFilesTab({ project }: SpaceFilesTabProps) {
           <p>
             {filesQuery.isLoading ? 'Loading project files...' : `${files.length} file${files.length === 1 ? '' : 's'} available for ${project.projectCode}`}
           </p>
-        </div>
-        <div className="designer-project-filter-list">
-          {filters.map((filter) => (
-            <button
-              className={`designer-project-filter ${fileType === filter.type ? 'designer-project-filter-active' : ''}`}
-              key={filter.type}
-              type="button"
-              onClick={() => setFileType(filter.type)}
-            >
-              {filter.label}
-            </button>
-          ))}
         </div>
       </div>
 

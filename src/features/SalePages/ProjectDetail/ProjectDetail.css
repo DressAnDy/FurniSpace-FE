@@ -116,39 +116,38 @@
 
 .project-detail-status-update {
   display: grid;
-  align-items: end;
+  align-items: start;
   gap: 8px;
-  grid-template-columns: minmax(240px, 1fr) auto;
+  min-width: 280px;
 }
 
-.project-detail-status-update label {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.project-detail-status-update label span {
+.project-detail-status-update > span {
   color: #6b6b6b;
   font-size: 12px;
   font-weight: 600;
   line-height: 16px;
 }
 
-.project-detail-status-update select {
-  height: 36px;
-  min-width: 240px;
-  border: 1px solid rgba(139, 111, 71, 0.15);
-  border-radius: 6px;
+.project-detail-status-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.project-detail-status-buttons button:first-child {
+  border-color: rgba(139, 111, 71, 0.18);
   background: #faf9f7;
   color: #2d2d2d;
-  font: inherit;
-  font-size: 14px;
-  outline: 0;
-  padding: 0 12px;
+}
+
+.project-detail-status-buttons button:last-child {
+  border-color: rgba(185, 28, 28, 0.28);
+  background: #ffffff;
+  color: #b91c1c;
 }
 
 .project-detail-status-message {
-  grid-column: 1 / -1;
   margin: 0;
   color: #166534;
   font-size: 12px;

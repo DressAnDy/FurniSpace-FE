@@ -41,8 +41,8 @@ export function CustomerNavbar({ activeLabel, classPrefix }: CustomerNavbarProps
 
   return (
     <>
-      <aside className={`${classPrefix}-sidenav customer-shell-sidebar`}>
-        <NavLink className={`${classPrefix}-logo customer-shell-logo`} to="/customer/dashboard">
+      <aside className="customer-shell-sidebar">
+        <NavLink className="customer-shell-logo" to="/customer/dashboard">
           <span>
             <IconBox size={19} stroke={1.8} />
           </span>
@@ -52,7 +52,7 @@ export function CustomerNavbar({ activeLabel, classPrefix }: CustomerNavbarProps
         <nav className="customer-shell-nav" aria-label="Customer navigation">
           {customerNavbarItems.map((item) => (
             <NavLink
-              className={item.label === activeLabel ? `${classPrefix}-nav-active customer-shell-nav-active` : undefined}
+              className={item.label === activeLabel ? 'customer-shell-nav-active' : undefined}
               key={item.label}
               to={item.path}
             >
@@ -63,8 +63,8 @@ export function CustomerNavbar({ activeLabel, classPrefix }: CustomerNavbarProps
         </nav>
       </aside>
 
-      <header className={`${classPrefix}-userbar customer-shell-actionbar`}>
-        <button className={`${classPrefix}-create customer-shell-create`} type="button" onClick={() => navigate('/customer/project-request')}>
+      <header className="customer-shell-actionbar">
+        <button className="customer-shell-create" type="button" onClick={() => navigate('/customer/project-request')}>
           <IconPlus size={15} stroke={2} />
           Create Project Request
         </button>

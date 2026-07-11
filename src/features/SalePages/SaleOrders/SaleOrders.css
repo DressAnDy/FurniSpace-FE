@@ -50,10 +50,10 @@
 
 .sale-orders-toolbar {
   display: grid;
-  grid-template-columns: minmax(280px, 1fr) minmax(220px, 0.7fr);
+  grid-template-columns: minmax(220px, 1fr);
   gap: 16px;
-  margin-bottom: 24px;
-  padding: 18px;
+  margin-bottom: 14px;
+  padding: 14px;
 }
 
 .sale-orders-toolbar label,
@@ -103,30 +103,107 @@
 .sale-orders-money-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 16px;
-  margin-bottom: 24px;
+  gap: 10px;
+  margin-bottom: 14px;
 }
 
 .sale-orders-metrics article {
   display: flex;
-  min-height: 104px;
+  min-height: 74px;
   align-items: center;
   justify-content: space-between;
-  padding: 22px;
+  gap: 10px;
+  padding: 14px;
 }
 
 .sale-orders-metrics strong,
 .sale-orders-money-grid strong {
   display: block;
-  margin-top: 8px;
+  margin-top: 4px;
   color: #2d2d2d;
-  font-size: 24px;
-  font-weight: 600;
-  line-height: 32px;
+  font-size: 18px;
+  font-weight: 800;
+  line-height: 24px;
 }
 
 .sale-orders-metrics svg {
   color: #8b6f47;
+}
+
+.sale-orders-layout {
+  display: grid;
+  grid-template-columns: minmax(280px, 320px) minmax(0, 1fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.sale-orders-project-panel {
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+  border: 1px solid rgba(139, 111, 71, 0.15);
+  border-radius: 12px;
+  background: #ffffff;
+  padding: 18px;
+}
+
+.sale-orders-project-panel header {
+  border-bottom: 1px solid rgba(139, 111, 71, 0.12);
+  padding-bottom: 12px;
+}
+
+.sale-orders-project-panel h3,
+.sale-orders-order-group > div strong {
+  margin: 0;
+  color: #2d2d2d;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.sale-orders-project-panel header p {
+  margin: 5px 0 0;
+  color: #6b6b6b;
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.sale-orders-project-list {
+  display: grid;
+  gap: 9px;
+}
+
+.sale-orders-project-list button {
+  display: grid;
+  gap: 5px;
+  border: 1px solid rgba(139, 111, 71, 0.15);
+  border-radius: 10px;
+  background: #faf9f7;
+  color: #2d2d2d;
+  cursor: pointer;
+  font: inherit;
+  padding: 12px;
+  text-align: left;
+}
+
+.sale-orders-project-list button.is-active {
+  border-color: #8b6f47;
+  background: #f5f1ec;
+}
+
+.sale-orders-project-list strong {
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.sale-orders-project-list span,
+.sale-orders-project-list em {
+  color: #6b6b6b;
+  font-size: 12px;
+  font-style: normal;
+}
+
+.sale-orders-workspace {
+  min-width: 0;
 }
 
 .sale-orders-grid {
@@ -161,10 +238,34 @@
   font-size: 13px;
 }
 
-.sale-orders-list,
+.sale-orders-order-group,
 .sale-orders-detail {
   display: grid;
   gap: 12px;
+}
+
+.sale-orders-order-group > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.sale-orders-order-group > div span {
+  display: inline-grid;
+  min-width: 24px;
+  height: 24px;
+  place-items: center;
+  border-radius: 999px;
+  background: #f5f1ec;
+  color: #8b6f47;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.sale-orders-list {
+  display: grid;
+  gap: 10px;
 }
 
 .sale-orders-list button {
@@ -292,6 +393,7 @@
   .sale-orders-toolbar,
   .sale-orders-metrics,
   .sale-orders-money-grid,
+  .sale-orders-layout,
   .sale-orders-grid {
     grid-template-columns: 1fr;
   }

@@ -2,16 +2,13 @@ import {
   IconArrowRight,
   IconCalendar,
   IconChevronRight,
-  IconCurrencyDollar,
-  IconFilter,
   IconHome,
-  IconMapPin,
   IconMessageCircle,
   IconSearch,
   IconUsers,
   IconX,
 } from '@tabler/icons-react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 import './CustomerProjectListPage.css';
@@ -23,30 +20,29 @@ import type { ProjectListItemDto, ProjectStatus } from '@/services/api/projects'
 import { usePayments } from '@/services/queries';
 import { useProjectList } from '@/services/queries/useProjects';
 
+const PROJECT_PAGE_SIZE = 6;
+
 export function CustomerProjectListPage() {
   const navigate = useNavigate();
   const [keyword, setKeyword] = useState('');
   const [status, setStatus] = useState<ProjectStatus | ''>('');
-  const [businessType, setBusinessType] = useState('');
+  const [page, setPage] = useState(1);
   const [chatProject, setChatProject] = useState<ProjectListItemDto | null>(null);
   const projectsQuery = useProjectList({
     search: keyword,
     status: status || null,
-    page: 1,
-    limit: 50,
+    page,
+    limit: PROJECT_PAGE_SIZE,
   });
   const projects = projectsQuery.data?.items ?? [];
-  const visibleProjects = useMemo(() => {
-    const normalizedKeyword = keyword.trim().toLowerCase();
+  const totalProjects = projectsQuery.data?.total ?? 0;
+  const totalPages = Math.max(1, Math.ceil(totalProjects / PROJECT_PAGE_SIZE));
+  const showingFrom = totalProjects === 0 ? 0 : (page - 1) * PROJECT_PAGE_SIZE + 1;
+  const showingTo = Math.min(page * PROJECT_PAGE_SIZE, totalProjects);
 
-    return projects.filter((project) => {
-      const searchableFields = [project.projectCode, project.projectName, project.businessType, project.status];
-      const matchesKeyword = !normalizedKeyword || searchableFields.some((value) => value.toLowerCase().includes(normalizedKeyword));
-      const matchesType = !businessType || project.businessType === businessType;
-
-      return matchesKeyword && matchesType;
-    });
-  }, [businessType, keyword, projects]);
+  useEffect(() => {
+    setPage(1);
+  }, [keyword, status]);
 
   return (
     <main className="customer-project-list-page">
@@ -89,23 +85,15 @@ export function CustomerProjectListPage() {
             <option value="SPACE_VERIFIED">Space Verified</option>
             <option value="REJECTED">Rejected</option>
           </select>
-          <select value={businessType} onChange={(event) => setBusinessType(event.target.value)}>
-            <option value="">Project type</option>
-            <option value="Cafe">Cafe</option>
-            <option value="Retail">Retail</option>
-            <option value="Office">Office</option>
-            <option value="Restaurant">Restaurant</option>
-            <option value="Showroom">Showroom</option>
-          </select>
-          <button type="button">
-            <IconFilter size={17} stroke={1.8} />
-            More Filters
-          </button>
         </section>
 
         <section className="customer-project-list-grid" aria-label="Projects">
           {projectsQuery.isLoading ? <p className="customer-project-list-state">Loading projects...</p> : null}
-          {visibleProjects.map((project) => (
+          {projectsQuery.isError ? <p className="customer-project-list-state customer-project-list-state-error">Cannot load projects. Please try again.</p> : null}
+          {!projectsQuery.isLoading && !projectsQuery.isError && projects.length === 0 ? (
+            <p className="customer-project-list-state">No projects match your current filters.</p>
+          ) : null}
+          {projects.map((project) => (
             <ProjectCard
               key={project.projectId}
               project={project}
@@ -117,16 +105,18 @@ export function CustomerProjectListPage() {
 
         <footer className="customer-project-list-pagination">
           <p>
-            Showing <strong>{visibleProjects.length}</strong> of <strong>{projects.length}</strong> projects
+            Showing <strong>{showingFrom}-{showingTo}</strong> of <strong>{totalProjects}</strong> projects
           </p>
           <div>
-            <button disabled type="button">
+            <button disabled={page <= 1 || projectsQuery.isFetching} type="button" onClick={() => setPage((current) => Math.max(1, current - 1))}>
               Previous
             </button>
-            <button className="customer-project-list-page-active" type="button">
-              1
+            <button className="customer-project-list-page-active" type="button" aria-current="page">
+              {page}
             </button>
-            <button disabled type="button">Next</button>
+            <button disabled={page >= totalPages || projectsQuery.isFetching} type="button" onClick={() => setPage((current) => Math.min(totalPages, current + 1))}>
+              Next
+            </button>
           </div>
         </footer>
       </div>
@@ -183,7 +173,7 @@ function ProjectCard({ onOpenChat, onPaymentCompleted, project }: ProjectCardPro
       <div className="customer-project-list-card-cover">
         <div>
           <strong>{project.businessType}</strong>
-          <span>{formatDate(project.submittedAt)}</span>
+          <span>{project.projectCode}</span>
         </div>
         <span className={`customer-project-list-status customer-project-list-status-${stage.tone}`}>
           {stage.label}
@@ -196,16 +186,16 @@ function ProjectCard({ onOpenChat, onPaymentCompleted, project }: ProjectCardPro
 
         <div className="customer-project-list-detail-stack">
           <p>
-            <IconMapPin size={16} stroke={1.8} />
-            Project address available in detail
-          </p>
-          <p>
-            <IconCurrencyDollar size={16} stroke={1.8} />
-            Budget available in detail
-          </p>
-          <p>
             <IconCalendar size={16} stroke={1.8} />
             Submitted: {formatDate(project.submittedAt)}
+          </p>
+          <p>
+            <IconUsers size={16} stroke={1.8} />
+            {project.assignedSalesId ? 'Sales assigned' : 'Waiting for sales assignment'}
+          </p>
+          <p>
+            <IconUsers size={16} stroke={1.8} />
+            {project.assignedDesignerId ? 'Designer assigned' : 'Waiting for designer assignment'}
           </p>
         </div>
 

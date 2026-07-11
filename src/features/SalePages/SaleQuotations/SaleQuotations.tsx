@@ -3,6 +3,7 @@ import { FormEvent, useEffect, useMemo, useState } from 'react';
 
 import { SaleNavbar, SaleSidebar } from '@/features/SalePages/salecomponents';
 import { getQuotationServiceResultMessage, type QuotationDto, type QuotationStatus } from '@/services/api/quotations';
+import type { ProjectListItemDto, ProjectStatus } from '@/services/api/projects';
 import {
   useCancelQuotation,
   useCreateDraftQuotation,
@@ -26,6 +27,22 @@ const statusOptions: Array<{ label: string; value: QuotationStatus | null }> = [
   { label: 'Accepted', value: 'ACCEPTED' },
 ];
 
+const pendingQuotationProjectStatuses = new Set<ProjectStatus>(['PROPOSAL_SELECTED']);
+
+const finalizedQuotationProjectStatuses = new Set<ProjectStatus>([
+  'QUOTATION_SENT',
+  'QUOTATION_REVISION_REQUESTED',
+  'ORDER_CONFIRMED',
+  'IN_PRODUCTION',
+  'PRODUCTION_BLOCKED',
+  'READY_FOR_DELIVERY',
+  'DELIVERING',
+  'DELIVERED',
+  'COMPLETED',
+]);
+
+type QuotationProjectView = 'pending' | 'finalized';
+
 export function SaleQuotations() {
   const [selectedProjectId, setSelectedProjectId] = useState('');
   const [selectedStatus, setSelectedStatus] = useState<QuotationStatus | null>(null);
@@ -35,12 +52,12 @@ export function SaleQuotations() {
   const [taxAmount, setTaxAmount] = useState('0');
   const [salesNote, setSalesNote] = useState('');
   const [message, setMessage] = useState<{ tone: 'error' | 'success'; text: string } | null>(null);
+  const [projectView, setProjectView] = useState<QuotationProjectView>('pending');
   const currentUserQuery = useCurrentUser();
   const currentUser = currentUserQuery.data;
   const projectsQuery = useProjectList(
     {
       assignedSalesId: currentUser?.accountId,
-      status: 'PROPOSAL_SELECTED',
       page: 1,
       limit: 50,
     },
@@ -60,15 +77,47 @@ export function SaleQuotations() {
   const cancelQuotationMutation = useCancelQuotation();
   const quotationDetailQuery = useQuotationDetail(selectedQuotationId, { enabled: Boolean(selectedQuotationId) });
   const projects = projectsQuery.data?.items ?? [];
+  const pendingQuotationProjects = useMemo(
+    () => projects.filter((project) => pendingQuotationProjectStatuses.has(project.status)),
+    [projects],
+  );
+  const finalizedQuotationProjects = useMemo(
+    () => projects.filter((project) => finalizedQuotationProjectStatuses.has(project.status)),
+    [projects],
+  );
+  const quotationProjects = useMemo(
+    () => [...pendingQuotationProjects, ...finalizedQuotationProjects],
+    [finalizedQuotationProjects, pendingQuotationProjects],
+  );
+  const visibleProjectGroup = projectView === 'pending' ? pendingQuotationProjects : finalizedQuotationProjects;
+  const visibleProjectGroupTitle = projectView === 'pending' ? 'Waiting for quotation' : 'Quotation finalized';
+  const visibleProjectGroupEmptyText =
+    projectView === 'pending' ? 'No project is waiting for quotation.' : 'No project has a finalized quotation yet.';
   const quotations = useMemo(() => quotationsQuery.data?.items ?? [], [quotationsQuery.data?.items]);
-  const selectedProject = projects.find((project) => project.projectId === selectedProjectId);
+  const selectedProject = quotationProjects.find((project) => project.projectId === selectedProjectId);
+  const canCreateDraftForSelectedProject = selectedProject?.status === 'PROPOSAL_SELECTED';
   const selectedQuotation = quotationDetailQuery.data;
 
   useEffect(() => {
-    if (!selectedProjectId && projects.length > 0) {
-      setSelectedProjectId(projects[0].projectId);
+    if (!selectedProjectId && quotationProjects.length > 0) {
+      setSelectedProjectId(quotationProjects[0].projectId);
     }
-  }, [projects, selectedProjectId]);
+  }, [quotationProjects, selectedProjectId]);
+
+  useEffect(() => {
+    if (projectView === 'pending' && pendingQuotationProjects.length === 0 && finalizedQuotationProjects.length > 0) {
+      setProjectView('finalized');
+      setSelectedProjectId(finalizedQuotationProjects[0].projectId);
+      setSelectedQuotationId('');
+      return;
+    }
+
+    if (projectView === 'finalized' && finalizedQuotationProjects.length === 0 && pendingQuotationProjects.length > 0) {
+      setProjectView('pending');
+      setSelectedProjectId(pendingQuotationProjects[0].projectId);
+      setSelectedQuotationId('');
+    }
+  }, [finalizedQuotationProjects, pendingQuotationProjects, projectView]);
 
   useEffect(() => {
     if (!selectedQuotationId && quotations.length > 0) {
@@ -92,6 +141,11 @@ export function SaleQuotations() {
   async function createDraft() {
     if (!selectedProjectId) {
       setMessage({ tone: 'error', text: 'Choose a project before creating a quotation.' });
+      return;
+    }
+
+    if (!canCreateDraftForSelectedProject) {
+      setMessage({ tone: 'error', text: 'Draft quotations can only be created for projects waiting for quotation.' });
       return;
     }
 
@@ -163,45 +217,10 @@ export function SaleQuotations() {
               <h2>Quotations</h2>
               <p>Create quotations for assigned projects after the customer selects a final proposal</p>
             </div>
-            <button disabled={!selectedProjectId || createDraftMutation.isPending} type="button" onClick={() => void createDraft()}>
+            <button disabled={!canCreateDraftForSelectedProject || createDraftMutation.isPending} type="button" onClick={() => void createDraft()}>
               <IconPlus size={16} />
               {createDraftMutation.isPending ? 'Creating...' : 'Create Draft'}
             </button>
-          </section>
-
-          <section className="sale-quotations-toolbar">
-            <label>
-              <span>Project</span>
-              <select
-                value={selectedProjectId}
-                onChange={(event) => {
-                  setSelectedProjectId(event.target.value);
-                  setSelectedQuotationId('');
-                  setMessage(null);
-                }}
-              >
-                <option value="">Select project</option>
-                {projects.map((project) => (
-                  <option key={project.projectId} value={project.projectId}>
-                    {project.projectCode} - {project.projectName} - {formatEnumLabel(project.status)}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label>
-              <span>Status</span>
-              <select value={selectedStatus ?? ''} onChange={(event) => setSelectedStatus((event.target.value || null) as QuotationStatus | null)}>
-                {statusOptions.map((status) => (
-                  <option key={status.label} value={status.value ?? ''}>
-                    {status.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <div>
-              <span>Selected Project</span>
-              <strong>{selectedProject ? `${selectedProject.projectCode} - ${formatEnumLabel(selectedProject.status)}` : 'No project selected'}</strong>
-            </div>
           </section>
 
           {message ? <section className={`sale-quotations-message sale-quotations-message-${message.tone}`}>{message.text}</section> : null}
@@ -211,93 +230,138 @@ export function SaleQuotations() {
             <section className="sale-quotations-message sale-quotations-message-error">{getQuotationServiceResultMessage(quotationsQuery.error)}</section>
           ) : null}
 
-          <section className="sale-quotations-metrics">
-            <article>
-              <div>
-                <span>Total Quotations</span>
-                <strong>{metrics.total}</strong>
+          <section className="sale-quotations-layout">
+            <aside className="sale-quotations-project-panel">
+              <header>
+                <h3>Projects</h3>
+                <p>Select a project to manage quotations.</p>
+              </header>
+              <div className="sale-quotations-project-tabs" role="tablist" aria-label="Quotation project lists">
+                <button
+                  className={projectView === 'pending' ? 'is-active' : ''}
+                  type="button"
+                  role="tab"
+                  aria-selected={projectView === 'pending'}
+                  onClick={() => {
+                    setProjectView('pending');
+                    setSelectedProjectId(pendingQuotationProjects[0]?.projectId ?? '');
+                    setSelectedQuotationId('');
+                    setMessage(null);
+                  }}
+                >
+                  Waiting
+                  <span>{pendingQuotationProjects.length}</span>
+                </button>
+                <button
+                  className={projectView === 'finalized' ? 'is-active' : ''}
+                  type="button"
+                  role="tab"
+                  aria-selected={projectView === 'finalized'}
+                  onClick={() => {
+                    setProjectView('finalized');
+                    setSelectedProjectId(finalizedQuotationProjects[0]?.projectId ?? '');
+                    setSelectedQuotationId('');
+                    setMessage(null);
+                  }}
+                >
+                  Finalized
+                  <span>{finalizedQuotationProjects.length}</span>
+                </button>
               </div>
-              <IconFileText size={26} />
-            </article>
-            <article>
-              <div>
-                <span>Sent</span>
-                <strong>{metrics.sent}</strong>
-              </div>
-              <IconFileText size={26} />
-            </article>
-            <article>
-              <div>
-                <span>Accepted</span>
-                <strong>{metrics.accepted}</strong>
-              </div>
-              <IconCheck size={26} />
-            </article>
-            <article>
-              <div>
-                <span>Total Value</span>
-                <strong>{formatMoney(metrics.value)}</strong>
-              </div>
-              <IconCurrencyDollar size={30} />
-            </article>
-          </section>
+              <ProjectGroup
+                emptyText={visibleProjectGroupEmptyText}
+                projects={visibleProjectGroup}
+                selectedProjectId={selectedProjectId}
+                title={visibleProjectGroupTitle}
+                onSelect={(projectId) => {
+                  setSelectedProjectId(projectId);
+                  setSelectedQuotationId('');
+                  setMessage(null);
+                }}
+              />
+            </aside>
 
-          <section className="sale-quotations-card">
-            <header>
-              <h3>Project Quotations</h3>
-              <p>Quotation items are copied from selected proposal items; service fees must be manual items.</p>
-            </header>
-            <div className="sale-quotations-table-scroll">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Quotation Code</th>
-                    <th>Project</th>
-                    <th>Proposal</th>
-                    <th>Version</th>
-                    <th>Total Amount</th>
-                    <th>Status</th>
-                    <th>Valid Until</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {quotationsQuery.isLoading ? (
-                    <tr><td colSpan={8}>Loading quotations...</td></tr>
-                  ) : null}
-                  {!quotationsQuery.isLoading && quotations.length === 0 ? (
-                    <tr><td colSpan={8}>{selectedProjectId ? 'No quotation found for this project.' : 'Select a project with Proposal Selected status to load quotations.'}</td></tr>
-                  ) : null}
-                  {quotations.map((quotation) => (
-                    <tr key={quotation.quotationId}>
-                      <td className="sale-quotations-code">{quotation.quotationCode}</td>
-                      <td>
-                        <strong>{selectedProject?.projectCode ?? quotation.projectId}</strong>
-                        <span>{selectedProject?.projectName ?? '-'}</span>
-                      </td>
-                      <td>{quotation.proposalId}</td>
-                      <td>
-                        <span className="sale-quotations-version">v{quotation.versionNo ?? 1}</span>
-                      </td>
-                      <td>{formatMoney(quotation.totalAmount)}</td>
-                      <td>
-                        <span className={`sale-quotations-status sale-quotations-status-${statusClass(quotation.status)}`}>{formatEnumLabel(quotation.status ?? 'UNKNOWN')}</span>
-                      </td>
-                      <td>{quotation.validUntil ?? '-'}</td>
-                      <td>
-                        <button className="sale-quotations-link-button" type="button" onClick={() => setSelectedQuotationId(quotation.quotationId)}>
-                          View Details
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </section>
+            <section className="sale-quotations-workspace">
+              <section className="sale-quotations-toolbar">
+                <label>
+                  <span>Status</span>
+                  <select value={selectedStatus ?? ''} onChange={(event) => setSelectedStatus((event.target.value || null) as QuotationStatus | null)}>
+                    {statusOptions.map((status) => (
+                      <option key={status.label} value={status.value ?? ''}>
+                        {status.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <div>
+                  <span>Selected Project</span>
+                  <strong>{selectedProject ? `${selectedProject.projectCode} - ${formatEnumLabel(selectedProject.status)}` : 'No project selected'}</strong>
+                </div>
+              </section>
 
-          {selectedQuotation ? (
-            <section className="sale-quotations-card sale-quotations-detail">
+              <section className="sale-quotations-metrics">
+                <MetricCard icon={IconFileText} label="Total" value={String(metrics.total)} />
+                <MetricCard icon={IconFileText} label="Sent" value={String(metrics.sent)} />
+                <MetricCard icon={IconCheck} label="Accepted" value={String(metrics.accepted)} />
+                <MetricCard icon={IconCurrencyDollar} label="Value" value={formatMoney(metrics.value)} />
+              </section>
+
+              <section className="sale-quotations-card">
+                <header>
+                  <h3>Project Quotations</h3>
+                  <p>Quotation items are copied from selected proposal items; service fees must be manual items.</p>
+                </header>
+                <div className="sale-quotations-table-scroll">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Quotation Code</th>
+                        <th>Project</th>
+                        <th>Proposal</th>
+                        <th>Version</th>
+                        <th>Total Amount</th>
+                        <th>Status</th>
+                        <th>Valid Until</th>
+                        <th>Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {quotationsQuery.isLoading ? (
+                        <tr><td colSpan={8}>Loading quotations...</td></tr>
+                      ) : null}
+                      {!quotationsQuery.isLoading && quotations.length === 0 ? (
+                        <tr><td colSpan={8}>{selectedProjectId ? 'No quotation found for this project.' : 'Select a project to load quotations.'}</td></tr>
+                      ) : null}
+                      {quotations.map((quotation) => (
+                        <tr key={quotation.quotationId}>
+                          <td className="sale-quotations-code">{quotation.quotationCode}</td>
+                          <td>
+                            <strong>{selectedProject?.projectCode ?? quotation.projectId}</strong>
+                            <span>{selectedProject?.projectName ?? '-'}</span>
+                          </td>
+                          <td>{quotation.proposalId}</td>
+                          <td>
+                            <span className="sale-quotations-version">v{quotation.versionNo ?? 1}</span>
+                          </td>
+                          <td>{formatMoney(quotation.totalAmount)}</td>
+                          <td>
+                            <span className={`sale-quotations-status sale-quotations-status-${statusClass(quotation.status)}`}>{formatEnumLabel(quotation.status ?? 'UNKNOWN')}</span>
+                          </td>
+                          <td>{quotation.validUntil ?? '-'}</td>
+                          <td>
+                            <button className="sale-quotations-link-button" type="button" onClick={() => setSelectedQuotationId(quotation.quotationId)}>
+                              View Details
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </section>
+
+              {selectedQuotation ? (
+              <section className="sale-quotations-card sale-quotations-detail">
               <header className="sale-quotations-detail-header">
                 <div>
                   <h3>Quotation Detail - {selectedQuotation.quotationCode}</h3>
@@ -414,10 +478,60 @@ export function SaleQuotations() {
                 </button>
               </div>
             </section>
-          ) : null}
+              ) : null}
+            </section>
+          </section>
         </main>
       </div>
     </div>
+  );
+}
+
+function ProjectGroup({
+  emptyText,
+  onSelect,
+  projects,
+  selectedProjectId,
+  title,
+}: {
+  emptyText: string;
+  onSelect: (projectId: string) => void;
+  projects: ProjectListItemDto[];
+  selectedProjectId: string;
+  title: string;
+}) {
+  return (
+    <section className="sale-quotations-project-group">
+      <div>
+        <strong>{title}</strong>
+        <span>{projects.length}</span>
+      </div>
+      {projects.length === 0 ? <p>{emptyText}</p> : null}
+      {projects.map((project) => (
+        <button
+          className={project.projectId === selectedProjectId ? 'is-active' : ''}
+          key={project.projectId}
+          type="button"
+          onClick={() => onSelect(project.projectId)}
+        >
+          <strong>{project.projectName}</strong>
+          <span>{project.projectCode}</span>
+          <em>{formatEnumLabel(project.status)}</em>
+        </button>
+      ))}
+    </section>
+  );
+}
+
+function MetricCard({ icon: Icon, label, value }: { icon: typeof IconFileText; label: string; value: string }) {
+  return (
+    <article>
+      <div>
+        <span>{label}</span>
+        <strong>{value}</strong>
+      </div>
+      <Icon size={20} />
+    </article>
   );
 }
 

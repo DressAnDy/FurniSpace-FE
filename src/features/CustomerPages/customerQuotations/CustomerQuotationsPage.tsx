@@ -166,7 +166,6 @@ export function CustomerQuotationsPage() {
           <aside className="customer-quotations-project-panel">
             <header>
               <h2>Projects With Quotations</h2>
-              <p>Only projects that reached quotation/order stages are shown here.</p>
             </header>
             {projectsQuery.isLoading ? <p className="customer-quotations-muted">Loading projects...</p> : null}
             {!projectsQuery.isLoading && quotationProjects.length === 0 ? (

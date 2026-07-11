@@ -2,7 +2,7 @@
   min-height: 100vh;
   background: #faf9f7;
   color: #2d2d2d;
-  font-family: Inter, "DM Sans", Arial, sans-serif;
+  font-family: var(--fs-customer-font, "Be Vietnam Pro", "DM Sans", system-ui, -apple-system, "Segoe UI", sans-serif);
 }
 
 .customer-proposal-detail-topnav {
@@ -160,14 +160,14 @@
 }
 
 .customer-proposal-detail-main {
-  max-width: 1360px;
+  max-width: 1480px;
   margin: 0 auto;
   padding: 28px 24px 36px;
 }
 
 .customer-proposal-detail-layout {
   display: grid;
-  grid-template-columns: minmax(0, 7fr) minmax(300px, 3fr);
+  grid-template-columns: minmax(0, 4fr) minmax(280px, 1fr);
   gap: 20px;
   align-items: start;
   margin-top: 18px;
@@ -626,15 +626,15 @@
 }
 
 .customer-proposal-detail-table-wrap {
-  overflow-x: auto;
+  overflow-x: visible;
   margin-top: 24px;
 }
 
 .customer-proposal-detail-items table {
-  min-width: 1120px;
+  min-width: 0;
   width: 100%;
   border-collapse: collapse;
-  table-layout: auto;
+  table-layout: fixed;
 }
 
 .customer-proposal-detail-items th {
@@ -654,8 +654,8 @@
   border-bottom: 1px solid #f0ece5;
   color: #2d2d2d;
   font-size: 13px;
-  overflow-wrap: normal;
-  padding: 12px 8px;
+  overflow-wrap: anywhere;
+  padding: 12px 6px;
   vertical-align: top;
   word-break: normal;
 }
@@ -676,13 +676,12 @@
 
 .customer-proposal-detail-items th:nth-child(3),
 .customer-proposal-detail-items td:nth-child(3) {
-  width: 16%;
-  white-space: nowrap;
+  width: 15%;
 }
 
 .customer-proposal-detail-items th:nth-child(4),
 .customer-proposal-detail-items td:nth-child(4) {
-  width: 12%;
+  width: 11%;
 }
 
 .customer-proposal-detail-items th:nth-child(5),
@@ -695,8 +694,7 @@
 .customer-proposal-detail-items td:nth-child(6),
 .customer-proposal-detail-items th:nth-child(7),
 .customer-proposal-detail-items td:nth-child(7) {
-  width: 11%;
-  white-space: nowrap;
+  width: 12%;
 }
 
 .customer-proposal-detail-items th:nth-child(8),

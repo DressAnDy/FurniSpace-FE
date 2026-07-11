@@ -116,7 +116,6 @@ export function CustomerOrdersPage() {
           <aside className="customer-orders-panel">
             <header>
               <h2>Projects</h2>
-              <p>Orders appear after a quotation is accepted.</p>
             </header>
             {projectsQuery.isLoading ? <p className="customer-orders-muted">Loading projects...</p> : null}
             {!projectsQuery.isLoading && orderProjects.length === 0 ? <p className="customer-orders-muted">No order is available yet.</p> : null}

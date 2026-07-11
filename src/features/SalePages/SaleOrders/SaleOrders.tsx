@@ -52,6 +52,8 @@ export function SaleOrders() {
   const depositMutation = useCreateOrderDepositPayment();
   const remainingMutation = useCreateOrderRemainingPayment();
   const metrics = getOrderMetrics(orders);
+  const unpaidDepositOrders = useMemo(() => orders.filter((item) => isDepositUnpaidStatus(item.status)), [orders]);
+  const paidDepositOrders = useMemo(() => orders.filter((item) => isDepositPaidStatus(item.status)), [orders]);
 
   useEffect(() => {
     if (!selectedProjectId && orderProjects.length > 0) {
@@ -101,86 +103,140 @@ export function SaleOrders() {
             </div>
           </section>
 
-          <section className="sale-orders-toolbar">
-            <label>
-              <span>Project</span>
-              <select
-                value={selectedProjectId}
-                onChange={(event) => {
-                  setSelectedProjectId(event.target.value);
-                  setSelectedOrderId('');
-                  setActivePayment(null);
-                  setMessage(null);
-                }}
-              >
-                <option value="">Select project</option>
-                {orderProjects.map((project) => (
-                  <option key={project.projectId} value={project.projectId}>
-                    {project.projectCode} - {project.projectName}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <div>
-              <span>Selected Project</span>
-              <strong>{selectedProject ? `${selectedProject.projectCode} - ${formatEnumLabel(selectedProject.status)}` : 'No project selected'}</strong>
-            </div>
-          </section>
-
           {message ? <section className={`sale-orders-message sale-orders-message-${message.tone}`}>{message.text}</section> : null}
           {currentUserQuery.isError ? <section className="sale-orders-message sale-orders-message-error">Cannot load current sales account.</section> : null}
           {projectsQuery.isError ? <section className="sale-orders-message sale-orders-message-error">Cannot load assigned projects.</section> : null}
           {ordersQuery.isError ? <section className="sale-orders-message sale-orders-message-error">{getOrderServiceResultMessage(ordersQuery.error)}</section> : null}
 
-          <section className="sale-orders-metrics">
-            <MetricCard icon={IconReceipt} label="Orders" value={String(metrics.total)} />
-            <MetricCard icon={IconCreditCard} label="Deposit Due" value={formatMoney(metrics.depositDue)} />
-            <MetricCard icon={IconCurrencyDollar} label="Remaining" value={formatMoney(metrics.remaining)} />
-            <MetricCard icon={IconPackage} label="Active" value={String(metrics.active)} />
-          </section>
-
-          <section className="sale-orders-grid">
-            <section className="sale-orders-card">
+          <section className="sale-orders-layout">
+            <aside className="sale-orders-project-panel">
               <header>
-                <h3>Project Orders</h3>
-                <p>Orders are created automatically after the customer accepts a quotation.</p>
+                <h3>Projects</h3>
+                <p>Select a confirmed project to manage its orders.</p>
               </header>
-              {ordersQuery.isLoading ? <p className="sale-orders-muted">Loading orders...</p> : null}
-              {!ordersQuery.isLoading && selectedProjectId && orders.length === 0 ? <p className="sale-orders-muted">No order found for this project.</p> : null}
-              <div className="sale-orders-list">
-                {orders.map((item) => (
+              {projectsQuery.isLoading ? <p className="sale-orders-muted">Loading projects...</p> : null}
+              {!projectsQuery.isLoading && orderProjects.length === 0 ? <p className="sale-orders-muted">No order project is available.</p> : null}
+              <div className="sale-orders-project-list">
+                {orderProjects.map((project) => (
                   <button
-                    className={item.orderId === selectedOrderId ? 'is-active' : ''}
-                    key={item.orderId}
+                    className={project.projectId === selectedProjectId ? 'is-active' : ''}
+                    key={project.projectId}
                     type="button"
                     onClick={() => {
-                      setSelectedOrderId(item.orderId);
+                      setSelectedProjectId(project.projectId);
+                      setSelectedOrderId('');
                       setActivePayment(null);
+                      setMessage(null);
                     }}
                   >
-                    <span>{item.orderCode}</span>
-                    <strong>{formatMoney(item.originalTotalAmount)}</strong>
-                    <em className={`sale-orders-status sale-orders-status-${statusClass(item.status)}`}>{formatEnumLabel(item.status ?? 'UNKNOWN')}</em>
+                    <strong>{project.projectName}</strong>
+                    <span>{project.projectCode}</span>
+                    <em>{formatEnumLabel(project.status)}</em>
                   </button>
                 ))}
               </div>
-            </section>
+            </aside>
 
-            {order ? (
-              <OrderDetailPanel
-                depositPending={depositMutation.isPending}
-                order={order}
-                remainingPending={remainingMutation.isPending}
-                onCreateDeposit={() => void createPayment('deposit')}
-                onCreateRemaining={() => void createPayment('remaining')}
-              />
-            ) : null}
+            <section className="sale-orders-workspace">
+              <section className="sale-orders-toolbar">
+                <div>
+                  <span>Selected Project</span>
+                  <strong>{selectedProject ? `${selectedProject.projectCode} - ${formatEnumLabel(selectedProject.status)}` : 'No project selected'}</strong>
+                </div>
+              </section>
+
+              <section className="sale-orders-metrics">
+                <MetricCard icon={IconReceipt} label="Orders" value={String(metrics.total)} />
+                <MetricCard icon={IconCreditCard} label="Deposit Due" value={formatMoney(metrics.depositDue)} />
+                <MetricCard icon={IconCurrencyDollar} label="Remaining" value={formatMoney(metrics.remaining)} />
+                <MetricCard icon={IconPackage} label="Active" value={String(metrics.active)} />
+              </section>
+
+              <section className="sale-orders-grid">
+                <section className="sale-orders-card">
+                  <header>
+                    <h3>Project Orders</h3>
+                    <p>Orders are grouped by deposit payment status.</p>
+                  </header>
+                  {ordersQuery.isLoading ? <p className="sale-orders-muted">Loading orders...</p> : null}
+                  {!ordersQuery.isLoading && selectedProjectId && orders.length === 0 ? <p className="sale-orders-muted">No order found for this project.</p> : null}
+                  <OrderGroup
+                    emptyText="No order is waiting for deposit."
+                    orders={unpaidDepositOrders}
+                    selectedOrderId={selectedOrderId}
+                    title="Deposit unpaid"
+                    onSelect={(orderId) => {
+                      setSelectedOrderId(orderId);
+                      setActivePayment(null);
+                    }}
+                  />
+                  <OrderGroup
+                    emptyText="No order has paid deposit yet."
+                    orders={paidDepositOrders}
+                    selectedOrderId={selectedOrderId}
+                    title="Deposit paid"
+                    onSelect={(orderId) => {
+                      setSelectedOrderId(orderId);
+                      setActivePayment(null);
+                    }}
+                  />
+                </section>
+
+                {order ? (
+                  <OrderDetailPanel
+                    depositPending={depositMutation.isPending}
+                    order={order}
+                    remainingPending={remainingMutation.isPending}
+                    onCreateDeposit={() => void createPayment('deposit')}
+                    onCreateRemaining={() => void createPayment('remaining')}
+                  />
+                ) : null}
+              </section>
+            </section>
           </section>
 
           <PaymentCollectionPanel payment={activePayment} returnPath="/sales/orders" onPaid={() => void orderDetailQuery.refetch()} />
         </main>
       </div>
     </div>
+  );
+}
+
+function OrderGroup({
+  emptyText,
+  onSelect,
+  orders,
+  selectedOrderId,
+  title,
+}: {
+  emptyText: string;
+  onSelect: (orderId: string) => void;
+  orders: OrderListItemDto[];
+  selectedOrderId: string;
+  title: string;
+}) {
+  return (
+    <section className="sale-orders-order-group">
+      <div>
+        <strong>{title}</strong>
+        <span>{orders.length}</span>
+      </div>
+      {orders.length === 0 ? <p className="sale-orders-muted">{emptyText}</p> : null}
+      <div className="sale-orders-list">
+        {orders.map((item) => (
+          <button
+            className={item.orderId === selectedOrderId ? 'is-active' : ''}
+            key={item.orderId}
+            type="button"
+            onClick={() => onSelect(item.orderId)}
+          >
+            <span>{item.orderCode}</span>
+            <strong>{formatMoney(item.originalTotalAmount)}</strong>
+            <em className={`sale-orders-status sale-orders-status-${statusClass(item.status)}`}>{formatEnumLabel(item.status ?? 'UNKNOWN')}</em>
+          </button>
+        ))}
+      </div>
+    </section>
   );
 }
 
@@ -284,6 +340,14 @@ function getOrderMetrics(orders: OrderListItemDto[]) {
     remaining: orders.reduce((sum, order) => sum + (order.remainingAmount ?? 0), 0),
     total: orders.length,
   };
+}
+
+function isDepositUnpaidStatus(status?: OrderStatus | null) {
+  return status === 'CREATED' || status === 'DEPOSIT_PENDING';
+}
+
+function isDepositPaidStatus(status?: OrderStatus | null) {
+  return Boolean(status) && !isDepositUnpaidStatus(status) && status !== 'CANCELLED';
 }
 
 function statusClass(value?: OrderStatus | null) {

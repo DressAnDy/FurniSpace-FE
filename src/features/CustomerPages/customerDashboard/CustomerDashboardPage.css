@@ -2,7 +2,7 @@
   min-height: 100vh;
   background: #faf9f7;
   color: #2d2d2d;
-  font-family: Inter, "DM Sans", Arial, sans-serif;
+  font-family: var(--fs-customer-font, "Be Vietnam Pro", "DM Sans", system-ui, -apple-system, "Segoe UI", sans-serif);
 }
 
 .customer-dashboard-topnav {
@@ -317,8 +317,7 @@
   font-size: 24px;
 }
 
-.customer-dashboard-status,
-.customer-dashboard-review-list article span {
+.customer-dashboard-status {
   display: inline-flex;
   align-items: center;
   border: 1px solid #8b6f47;
@@ -642,8 +641,20 @@
   margin: 4px 0 8px;
 }
 
-.customer-dashboard-review-list article span {
-  background: #f5f1ec;
+.customer-dashboard-review-list article button {
+  display: inline-flex;
+  min-height: 28px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #8b6f47;
+  border-radius: 8px;
+  background: #8b6f47;
+  color: #ffffff;
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 0 10px;
 }
 
 .customer-dashboard-help {

@@ -4,7 +4,9 @@
 .customer-schedules-page,
 .customer-chat-page,
 .customer-proposal-detail-page,
-.customer-3d-preview-page {
+.customer-3d-preview-page,
+.customer-orders-page,
+.customer-quotations-page {
   padding-left: 256px;
   padding-top: 72px;
 }
@@ -76,7 +78,7 @@
   border-radius: 8px;
   color: rgba(255, 255, 255, 0.76);
   font-size: 14px;
-  font-weight: 600;
+  font-weight: 500;
   line-height: 20px;
   padding: 10px 12px;
   text-decoration: none;
@@ -94,7 +96,13 @@
 .customer-shell-sidebar .customer-shell-nav a.customer-shell-nav-active {
   background: var(--fs-gold);
   color: var(--fs-ink);
+  font-weight: 500;
   box-shadow: inset 3px 0 0 #ffffff;
+}
+
+.customer-shell-sidebar .customer-shell-nav a:active,
+.customer-shell-sidebar .customer-shell-nav a:focus-visible {
+  font-weight: 500;
 }
 
 .customer-shell-sidebar .customer-shell-nav a svg {
@@ -189,16 +197,18 @@
 }
 
 .customer-shell-actionbar .customer-user-summary-button {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(116px, 1fr) 40px 16px;
   width: auto;
-  min-height: 46px;
+  min-height: 54px;
   box-sizing: border-box;
+  appearance: none;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   border-radius: 8px;
   background: var(--fs-surface-warm);
   color: var(--fs-ink-soft);
-  padding: 6px 8px 6px 12px;
+  padding: 8px 12px 8px 18px;
   text-align: left;
 }
 
@@ -208,11 +218,13 @@
 
 .customer-shell-actionbar .customer-user-summary-button > div {
   min-width: 0;
-  flex: 1;
+  display: grid;
+  align-content: center;
+  justify-items: start;
 }
 
 .customer-shell-actionbar .customer-user-summary-button strong,
-.customer-shell-actionbar .customer-user-summary-button span {
+.customer-shell-actionbar .customer-user-summary-button > div > span {
   display: block;
 }
 
@@ -220,9 +232,9 @@
   overflow: hidden;
   max-width: 140px;
   color: var(--fs-ink-soft);
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 700;
-  line-height: 1.2;
+  line-height: 1.15;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -230,20 +242,19 @@
 .customer-shell-actionbar .customer-user-summary-button div span {
   margin-top: 2px;
   color: rgba(45, 45, 45, 0.62);
-  font-size: 11px;
-  line-height: 1.2;
+  font-size: 13px;
+  line-height: 1.15;
 }
 
 .customer-shell-actionbar .customer-user-summary-avatar {
   display: grid;
-  width: 30px;
-  height: 30px;
-  flex: 0 0 30px;
+  width: 40px;
+  height: 40px;
   place-items: center;
   border-radius: 50%;
   background: var(--fs-wood);
   color: #ffffff;
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 800;
   line-height: 1;
   text-align: center;
@@ -257,6 +268,7 @@
 }
 
 .customer-shell-actionbar .customer-user-summary-chevron {
+  justify-self: center;
   color: var(--fs-gold);
 }
 
@@ -267,7 +279,9 @@
   .customer-schedules-page,
   .customer-chat-page,
   .customer-proposal-detail-page,
-  .customer-3d-preview-page {
+  .customer-3d-preview-page,
+  .customer-orders-page,
+  .customer-quotations-page {
     padding-left: 0;
     padding-top: 128px;
   }
@@ -332,6 +346,7 @@
   }
 
   .customer-shell-actionbar .customer-user-summary-button {
+    grid-template-columns: 42px;
     width: 42px;
     min-height: 42px;
     justify-content: center;

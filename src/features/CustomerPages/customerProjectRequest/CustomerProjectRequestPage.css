@@ -2,7 +2,7 @@
   min-height: 100vh;
   background: #faf9f7;
   color: #2d2d2d;
-  font-family: Inter, "DM Sans", Arial, sans-serif;
+  font-family: var(--fs-customer-font, "Be Vietnam Pro", "DM Sans", system-ui, -apple-system, "Segoe UI", sans-serif);
 }
 
 .customer-project-request-shell {

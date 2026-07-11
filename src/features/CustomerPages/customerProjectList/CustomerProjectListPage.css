@@ -2,7 +2,7 @@
   min-height: 100vh;
   background: #faf9f7;
   color: #2d2d2d;
-  font-family: Inter, "DM Sans", Arial, sans-serif;
+  font-family: var(--fs-customer-font, "Be Vietnam Pro", "DM Sans", system-ui, -apple-system, "Segoe UI", sans-serif);
 }
 
 .customer-project-list-topnav {
@@ -228,7 +228,7 @@
 
 .customer-project-list-filters {
   display: grid;
-  grid-template-columns: minmax(220px, 1fr) minmax(180px, 1fr) minmax(180px, 1fr) 280px;
+  grid-template-columns: minmax(260px, 1fr) minmax(180px, 260px);
   gap: 16px;
   margin-top: 24px;
   border: 1px solid rgba(139, 111, 71, 0.15);
@@ -238,8 +238,7 @@
 }
 
 .customer-project-list-filters label,
-.customer-project-list-filters select,
-.customer-project-list-filters button {
+.customer-project-list-filters select {
   min-height: 42px;
   border: 1px solid transparent;
   border-radius: 8px;
@@ -270,17 +269,6 @@
   padding: 0 12px;
 }
 
-.customer-project-list-filters button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  border-color: rgba(139, 111, 71, 0.15);
-  background: #ffffff;
-  color: #2d2d2d;
-  cursor: pointer;
-}
-
 .customer-project-list-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -298,6 +286,12 @@
   padding: 24px;
 }
 
+.customer-project-list-state-error {
+  border-color: #fecaca;
+  background: #fef2f2;
+  color: #991b1b;
+}
+
 .customer-project-list-card {
   overflow: hidden;
   border: 1px solid rgba(139, 111, 71, 0.15);
@@ -308,9 +302,9 @@
 .customer-project-list-card-cover {
   position: relative;
   display: grid;
-  min-height: 220px;
+  min-height: 150px;
   place-items: center;
-  background: linear-gradient(135deg, #f3eadb 0%, #e4d7c9 100%);
+  background: linear-gradient(135deg, #f6efe4 0%, #e9ded0 55%, #d7c4ad 100%);
 }
 
 .customer-project-list-card-cover div {
@@ -320,10 +314,15 @@
 }
 
 .customer-project-list-card-cover strong {
-  color: #6b6b6b;
-  font-size: 36px;
+  max-width: 220px;
+  overflow: hidden;
+  color: #4f3f2d;
+  font-size: 24px;
   font-weight: 700;
   line-height: 1.1;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .customer-project-list-card-cover div span {
@@ -391,6 +390,11 @@
   font-size: 14px;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.customer-project-list-detail-stack svg {
+  flex: 0 0 auto;
+  color: #8b6f47;
 }
 
 .customer-project-list-people {
