@@ -12,10 +12,9 @@ import './PaymentCollectionPanel.css';
 type PaymentCollectionPanelProps = {
   payment: PaymentDetailDto | null;
   onPaid?: () => void;
-  returnPath?: string;
 };
 
-export function PaymentCollectionPanel({ onPaid, payment, returnPath }: PaymentCollectionPanelProps) {
+export function PaymentCollectionPanel({ onPaid, payment }: PaymentCollectionPanelProps) {
   const [qr, setQr] = useState<SePayVietQrResponseDto | null>(null);
   const [message, setMessage] = useState<{ tone: 'error' | 'success'; text: string } | null>(null);
   const paymentDetailQuery = usePaymentDetail(payment?.paymentId, { enabled: Boolean(payment?.paymentId) });

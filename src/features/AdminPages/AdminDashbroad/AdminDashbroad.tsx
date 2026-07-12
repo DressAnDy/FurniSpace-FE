@@ -37,8 +37,8 @@ const statusTones = ['amber', 'blue', 'violet', 'gold', 'green', 'dark-green'] a
 export function AdminDashbroad() {
   const projectsQuery = useProjectList({ page: 1, limit: 100 });
   const productsQuery = useProductList({ page: 1, limit: 100 });
-  const projects = projectsQuery.data?.items ?? [];
-  const products = productsQuery.data?.items ?? [];
+  const projects = useMemo(() => projectsQuery.data?.items ?? [], [projectsQuery.data?.items]);
+  const products = useMemo(() => productsQuery.data?.items ?? [], [productsQuery.data?.items]);
   const stats = useMemo(() => getStats(projects, products), [products, projects]);
   const projectStatuses = useMemo(() => getProjectStatuses(projects), [projects]);
   const monthlyRequests = useMemo(() => getMonthlyRequests(projects), [projects]);

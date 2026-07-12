@@ -38,11 +38,11 @@ export function SaleOrders() {
     },
     { enabled: Boolean(currentUser?.accountId) },
   );
-  const projects = projectsQuery.data?.items ?? [];
+  const projects = useMemo(() => projectsQuery.data?.items ?? [], [projectsQuery.data?.items]);
   const orderProjects = useMemo(() => getOrderProjects(projects), [projects]);
   const selectedProject = orderProjects.find((project) => project.projectId === selectedProjectId) ?? null;
   const ordersQuery = useProjectOrders(selectedProjectId, { enabled: Boolean(selectedProjectId) });
-  const orders = ordersQuery.data?.items ?? [];
+  const orders = useMemo(() => ordersQuery.data?.items ?? [], [ordersQuery.data?.items]);
   const orderDetailQuery = useOrderDetail(selectedOrderId, { enabled: Boolean(selectedOrderId) });
   const order = orderDetailQuery.data ?? null;
   const financialAdjustmentMutation = useUpdateOrderFinancialAdjustment();

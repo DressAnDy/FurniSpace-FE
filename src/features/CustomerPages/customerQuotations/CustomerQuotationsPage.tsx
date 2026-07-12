@@ -43,11 +43,11 @@ export function CustomerQuotationsPage() {
   const [rejectReason, setRejectReason] = useState('');
   const [message, setMessage] = useState<{ tone: 'error' | 'success'; text: string } | null>(null);
   const projectsQuery = useProjectList({ page: 1, limit: 50 });
-  const projects = projectsQuery.data?.items ?? [];
+  const projects = useMemo(() => projectsQuery.data?.items ?? [], [projectsQuery.data?.items]);
   const quotationProjects = useMemo(() => getQuotationProjects(projects), [projects]);
   const selectedProject = quotationProjects.find((project) => project.projectId === selectedProjectId) ?? null;
   const quotationsQuery = useProjectQuotations({ projectId: selectedProjectId }, { enabled: Boolean(selectedProjectId) });
-  const quotations = quotationsQuery.data?.items ?? [];
+  const quotations = useMemo(() => quotationsQuery.data?.items ?? [], [quotationsQuery.data?.items]);
   const selectedQuotation = useQuotationDetail(selectedQuotationId, { enabled: Boolean(selectedQuotationId) }).data;
   const acceptMutation = useAcceptQuotation();
   const revisionMutation = useRequestQuotationRevision();

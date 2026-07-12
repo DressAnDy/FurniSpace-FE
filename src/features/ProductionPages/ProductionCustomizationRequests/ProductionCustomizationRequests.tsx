@@ -475,22 +475,6 @@ function formatDimensions(width?: number | null, height?: number | null, depth?:
   return values.length > 0 ? `${values.join(' x ')} cm` : '-';
 }
 
-function formatMoney(value?: number | null) {
-  if (typeof value !== 'number') return '-';
-
-  return `${new Intl.NumberFormat('vi-VN').format(value)} VND`;
-}
-
-function formatNullableNumber(value?: number | null) {
-  return typeof value === 'number' ? String(value) : '-';
-}
-
-function formatMaterial(value?: boolean | null) {
-  if (typeof value !== 'boolean') return '-';
-
-  return value ? 'Available' : 'Unavailable';
-}
-
 function normalizeStatus(value: string | null): CustomizationStatus | null {
   const statuses: CustomizationStatus[] = [
     'PRODUCTION_REVIEWING',
