@@ -111,6 +111,13 @@ export type CreateOrderPaymentInput = {
   note?: string | null;
 };
 
+export type UpdateOrderFinancialAdjustmentInput = {
+  orderId: string;
+  additionalDiscountAmount: number;
+  depositAmount: number;
+  adjustmentNote?: string | null;
+};
+
 export function getOrderServiceResultMessage(error: unknown) {
   const result = getOrderServiceResultFromError(error);
 
@@ -147,6 +154,16 @@ export async function getProjectOrders(projectId: string) {
 
 export async function getOrderById(orderId: string) {
   const response = await orderApiClient.get<ServiceResult<OrderDetailDto>>(`/orders/${orderId}`);
+
+  return response.data.data;
+}
+
+export async function updateOrderFinancialAdjustment(input: UpdateOrderFinancialAdjustmentInput) {
+  const response = await orderApiClient.patch<ServiceResult<OrderDetailDto>>(`/orders/${input.orderId}/financial-adjustment`, {
+    additionalDiscountAmount: input.additionalDiscountAmount,
+    depositAmount: input.depositAmount,
+    adjustmentNote: input.adjustmentNote?.trim() || null,
+  });
 
   return response.data.data;
 }

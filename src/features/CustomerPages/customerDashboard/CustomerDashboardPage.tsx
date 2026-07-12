@@ -222,7 +222,6 @@ export function CustomerDashboardPage() {
                   ) : null}
                   {pendingReviewProposals.map((proposal) => (
                     <article key={proposal.proposalId}>
-                      <div className="customer-dashboard-empty-thumb" />
                       <div>
                         <h3>{proposal.proposalName}</h3>
                         <p>Version {proposal.versionNo} - {proposal.publishedAt ? formatDate(proposal.publishedAt) : 'Published'}</p>
@@ -257,7 +256,7 @@ export function CustomerDashboardPage() {
                   <article key={item.scheduleId}>
                     <strong>{formatDateTimeRange(item.scheduledStart, item.scheduledEnd)}</strong>
                     <h3>{item.title ?? formatEnumLabel(item.scheduleType)}</h3>
-                    <p>{item.customerNote || item.description || 'Schedule shared with the project roles and customer.'}</p>
+                    <p>{item.description || 'Schedule shared with the project roles and customer.'}</p>
                     <span>{formatEnumLabel(item.status)}</span>
                     {item.status === 'PENDING_CONFIRMATION' ? (
                       <div className="customer-dashboard-schedule-actions">

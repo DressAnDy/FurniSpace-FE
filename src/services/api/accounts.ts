@@ -126,14 +126,14 @@ export type AvailableDesignerListParams = {
 export type CreateAccountInput = {
   roleId: string;
   email: string;
-  passwordHash: string;
+  password: string;
   fullName: string;
   phone?: string | null;
   avatarUrl?: string | null;
   status?: AccountStatus | null;
 };
 
-export type UpdateAccountInput = Omit<CreateAccountInput, 'passwordHash'> & {
+export type UpdateAccountInput = Omit<CreateAccountInput, 'password'> & {
   accountId: string;
 };
 
@@ -229,7 +229,7 @@ export async function createAccount(input: CreateAccountInput) {
   const response = await accountApiClient.post<ServiceResult<AccountDto>>('/api/Accounts', {
     roleId: input.roleId,
     email: normalizeAccountEmail(input.email),
-    passwordHash: input.passwordHash.trim(),
+    password: input.password.trim(),
     fullName: input.fullName.trim(),
     phone: input.phone?.trim() || null,
     avatarUrl: input.avatarUrl?.trim() || null,

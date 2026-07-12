@@ -20,7 +20,7 @@ import {
   useProjectList,
   useProjectOrders,
 } from '@/services/queries';
-import { PaymentCollectionPanel } from '@/shared/components/PaymentCollectionPanel';
+import { PaymentCollectionModal } from '@/features/payments/PaymentCollectionModal';
 
 import './CustomerOrdersPage.css';
 
@@ -186,7 +186,15 @@ export function CustomerOrdersPage() {
               />
             ) : null}
 
-            <PaymentCollectionPanel payment={activePayment} returnPath="/customer/orders" onPaid={() => void orderDetailQuery.refetch()} />
+            <PaymentCollectionModal
+              completionDescription="Your payment has been confirmed. The order status will be refreshed automatically."
+              completionTitle="Payment Successful"
+              continueLabel="Back to Orders"
+              payment={activePayment}
+              title="Order Payment"
+              onClose={() => setActivePayment(null)}
+              onPaid={() => void orderDetailQuery.refetch()}
+            />
           </section>
         </section>
       </div>

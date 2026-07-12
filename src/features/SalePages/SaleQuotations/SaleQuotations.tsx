@@ -467,7 +467,12 @@ export function SaleQuotations() {
               </div>
 
               <div className="sale-quotations-actions">
-                <button disabled={!canSend(selectedQuotation) || sendQuotationMutation.isPending} type="button" onClick={() => void runQuotationAction('send')}>
+                <button
+                  disabled={!canSend(selectedQuotation) || sendQuotationMutation.isPending}
+                  title={getSendBlockedReason(selectedQuotation) ?? 'Send this quotation to the customer.'}
+                  type="button"
+                  onClick={() => void runQuotationAction('send')}
+                >
                   {sendQuotationMutation.isPending ? 'Sending...' : 'Send to Customer'}
                 </button>
                 <button disabled={selectedQuotation.status !== 'REVISION_REQUESTED' || reviseQuotationMutation.isPending} type="button" onClick={() => void runQuotationAction('revise')}>
@@ -477,6 +482,9 @@ export function SaleQuotations() {
                   {cancelQuotationMutation.isPending ? 'Cancelling...' : 'Cancel'}
                 </button>
               </div>
+              {getSendBlockedReason(selectedQuotation) ? (
+                <p className="sale-quotations-action-hint">{getSendBlockedReason(selectedQuotation)}</p>
+              ) : null}
             </section>
               ) : null}
             </section>
@@ -553,12 +561,31 @@ function canCancel(status?: QuotationStatus | null) {
 }
 
 function canSend(quotation: QuotationDto & { items?: unknown[] }) {
-  return (
-    (quotation.status === 'DRAFT' || quotation.status === 'REVISED') &&
-    Boolean(quotation.validUntil) &&
-    (quotation.totalAmount ?? 0) > 0 &&
-    (quotation.items?.length ?? 0) > 0
-  );
+  return !getSendBlockedReason(quotation);
+}
+
+function getSendBlockedReason(quotation: QuotationDto & { items?: unknown[] }) {
+  if (quotation.status === 'REVISION_REQUESTED') {
+    return 'Click Revise first, then update the quotation before sending it back to the customer.';
+  }
+
+  if (quotation.status !== 'DRAFT' && quotation.status !== 'REVISED') {
+    return `Only Draft or Revised quotations can be sent. Current status: ${formatEnumLabel(quotation.status ?? 'UNKNOWN')}.`;
+  }
+
+  if (!quotation.validUntil) {
+    return 'Set and save a valid-until date before sending this quotation.';
+  }
+
+  if ((quotation.items?.length ?? 0) === 0) {
+    return 'Add at least one quotation item before sending this quotation.';
+  }
+
+  if ((quotation.totalAmount ?? 0) <= 0) {
+    return 'Quotation total must be greater than 0 before sending.';
+  }
+
+  return null;
 }
 
 function normalizeNumber(value: string) {

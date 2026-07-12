@@ -622,8 +622,8 @@
 
 .customer-dashboard-review-list article {
   display: grid;
-  grid-template-columns: 64px minmax(0, 1fr);
-  gap: 12px;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 8px;
   align-items: start;
   padding: 13px;
 }

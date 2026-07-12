@@ -634,7 +634,7 @@
   min-width: 0;
   width: 100%;
   border-collapse: collapse;
-  table-layout: fixed;
+  table-layout: auto;
 }
 
 .customer-proposal-detail-items th {
@@ -642,7 +642,7 @@
   color: #6b6b6b;
   font-size: 12px;
   font-weight: 500;
-  padding: 12px 8px;
+  padding: 12px 10px;
   text-align: left;
 }
 
@@ -655,7 +655,7 @@
   color: #2d2d2d;
   font-size: 13px;
   overflow-wrap: anywhere;
-  padding: 12px 6px;
+  padding: 12px 10px;
   vertical-align: top;
   word-break: normal;
 }

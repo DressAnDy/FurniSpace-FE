@@ -6,10 +6,12 @@ import {
   IconLayoutDashboard,
   IconMaximize,
   IconMessageDots,
+  IconPackage,
 } from '@tabler/icons-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 
 import { CustomerNavbar } from '@/features/CustomerPages/customercomponents';
+import { ProjectChatPanel } from '@/features/projectChat/ProjectChatPanel';
 import { BlueprintCanvas } from '@/features/ThreeD/components/BlueprintCanvas';
 import { RoomPreview3D, type PlacedProduct3D } from '@/features/ThreeD/components/RoomPreview3D';
 import type { RoomMaterialSelection } from '@/features/ThreeD/types/roomLayout.types';
@@ -33,6 +35,7 @@ import {
 } from '@/services/queries';
 
 type ViewMode = '2d' | '3d';
+type SidePanelMode = 'items' | 'chat';
 
 export function Customer3dPreviewPage() {
   const navigate = useNavigate();
@@ -42,6 +45,7 @@ export function Customer3dPreviewPage() {
   const sceneIdFromUrl = searchParams.get('sceneId') ?? '';
   const stageRef = useRef<HTMLDivElement>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('3d');
+  const [sidePanelMode, setSidePanelMode] = useState<SidePanelMode>('items');
   const [selectedObjectId, setSelectedObjectId] = useState<string | null>(null);
   const [decisionMessage, setDecisionMessage] = useState('');
   const [selectedProjectId, setSelectedProjectId] = useState(() => projectIdFromUrl);
@@ -252,6 +256,26 @@ export function Customer3dPreviewPage() {
                 <IconCube size={16} stroke={1.8} /> 3D View
               </button>
             </div>
+            <div className="customer-3d-preview-panel-switch" role="tablist" aria-label="Preview side panel">
+              <button
+                className={sidePanelMode === 'chat' ? 'customer-3d-preview-view-active' : ''}
+                type="button"
+                role="tab"
+                aria-selected={sidePanelMode === 'chat'}
+                onClick={() => setSidePanelMode('chat')}
+              >
+                <IconMessageDots size={16} stroke={1.8} /> Chat
+              </button>
+              <button
+                className={sidePanelMode === 'items' ? 'customer-3d-preview-view-active' : ''}
+                type="button"
+                role="tab"
+                aria-selected={sidePanelMode === 'items'}
+                onClick={() => setSidePanelMode('items')}
+              >
+                <IconPackage size={16} stroke={1.8} /> Scene Items
+              </button>
+            </div>
             <span className="customer-3d-preview-status">{selectedProposal?.status ?? 'No proposal'}</span>
             <button
               className="customer-3d-preview-icon-button"
@@ -267,29 +291,6 @@ export function Customer3dPreviewPage() {
         <div className="customer-3d-preview-workspace">
           <aside className="customer-3d-preview-left-panel" aria-label="Project proposals">
             <PanelHeader title="Proposals" />
-            <div className="customer-proposal-project-picker">
-              <label>
-                <span>Project</span>
-                <select
-                  disabled={projectsQuery.isLoading || projects.length === 0}
-                  value={selectedProjectId}
-                  onChange={(event) => {
-                    const nextProjectId = event.target.value;
-                    setSelectedProjectId(nextProjectId);
-                    setSelectedProposalId(null);
-                    setSelectedSceneId(null);
-                    setSearchParams(nextProjectId ? { projectId: nextProjectId } : {}, { replace: true });
-                  }}
-                >
-                  {!selectedProjectId && <option value="">Select project</option>}
-                  {projects.map((project) => (
-                    <option key={project.projectId} value={project.projectId}>
-                      {project.projectName}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </div>
             <div className="customer-proposal-list">
               {projectsQuery.isLoading && <p>Loading projects...</p>}
               {!projectsQuery.isLoading && projects.length === 0 && <p>No customer projects returned yet.</p>}
@@ -392,42 +393,62 @@ export function Customer3dPreviewPage() {
             <div className="customer-readonly-notice">Saved scene - editing disabled</div>
           </div>
 
-          <aside className="customer-3d-preview-right-panel" aria-label="Scene items">
-            <PanelHeader title="Scene Items" />
-            {selectedObject && (
-              <div className="customer-selected-object">
-                <span>Selected object</span>
-                <strong>{selectedObject.modelName}</strong>
-                <small>{selectedObject.productVersionId ?? selectedObject.productId ?? selectedObject.id}</small>
-              </div>
-            )}
-            <div className="customer-3d-preview-item-list">
-              {proposalItemsQuery.isLoading && <p className="customer-scene-state">Loading proposal items...</p>}
-              {proposalItems.length > 0
-                ? proposalItems.map((item) => <ProposalItemCard item={item} key={item.proposalItemId} />)
-                : sceneProducts.map((product) => <SceneProductCard product={product} key={product.id} />)}
-              {!proposalItemsQuery.isLoading && proposalItems.length === 0 && sceneProducts.length === 0 && (
-                <p className="customer-scene-state">No furniture objects are saved in this scene yet.</p>
-              )}
-            </div>
+          <aside className="customer-3d-preview-right-panel" aria-label={sidePanelMode === 'chat' ? 'Designer chat' : 'Scene items'}>
+            <PanelHeader title={sidePanelMode === 'chat' ? 'Designer Chat' : 'Scene Items'} />
+            {sidePanelMode === 'chat' ? (
+              selectedProject ? (
+                <div className="customer-3d-preview-side-content customer-3d-preview-side-chat">
+                  <ProjectChatPanel
+                    compact
+                    preferredChatType="DESIGNER"
+                    projectCode={selectedProject.projectCode}
+                    projectId={selectedProject.projectId}
+                    title="Designer Chat"
+                  />
+                </div>
+              ) : (
+                <p className="customer-scene-state">Select a project to chat with the assigned designer.</p>
+              )
+            ) : (
+              <>
+                <div className="customer-3d-preview-side-content">
+                  {selectedObject && (
+                    <div className="customer-selected-object">
+                      <span>Selected object</span>
+                      <strong>{selectedObject.modelName}</strong>
+                      <small>{selectedObject.productVersionId ?? selectedObject.productId ?? selectedObject.id}</small>
+                    </div>
+                  )}
+                  <div className="customer-3d-preview-item-list">
+                    {proposalItemsQuery.isLoading && <p className="customer-scene-state">Loading proposal items...</p>}
+                    {proposalItems.length > 0
+                      ? proposalItems.map((item) => <ProposalItemCard item={item} key={item.proposalItemId} />)
+                      : sceneProducts.map((product) => <SceneProductCard product={product} key={product.id} />)}
+                    {!proposalItemsQuery.isLoading && proposalItems.length === 0 && sceneProducts.length === 0 && (
+                      <p className="customer-scene-state">No furniture objects are saved in this scene yet.</p>
+                    )}
+                  </div>
+                </div>
 
-            {decisionMessage && <div className="customer-decision-message">{decisionMessage}</div>}
-            <div className="customer-3d-preview-decision">
-              <button
-                disabled={!selectedProposal || requestProposalRevisionMutation.isPending}
-                type="button"
-                onClick={() => void requestRevision()}
-              >
-                <IconMessageDots size={18} stroke={1.8} /> Request Revision
-              </button>
-              <button
-                disabled={!selectedProposal || selectFinalProposalMutation.isPending}
-                type="button"
-                onClick={() => void selectProposal()}
-              >
-                <IconCircleCheck size={18} stroke={1.8} /> Select Proposal
-              </button>
-            </div>
+                {decisionMessage && <div className="customer-decision-message">{decisionMessage}</div>}
+                <div className="customer-3d-preview-decision">
+                  <button
+                    disabled={!selectedProposal || requestProposalRevisionMutation.isPending}
+                    type="button"
+                    onClick={() => void requestRevision()}
+                  >
+                    <IconMessageDots size={18} stroke={1.8} /> Request Revision
+                  </button>
+                  <button
+                    disabled={!selectedProposal || selectFinalProposalMutation.isPending}
+                    type="button"
+                    onClick={() => void selectProposal()}
+                  >
+                    <IconCircleCheck size={18} stroke={1.8} /> Select Proposal
+                  </button>
+                </div>
+              </>
+            )}
           </aside>
         </div>
       </section>

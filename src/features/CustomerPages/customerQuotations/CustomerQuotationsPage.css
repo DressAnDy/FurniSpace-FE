@@ -354,6 +354,16 @@
 .customer-quotations-decision form {
   display: grid;
   gap: 8px;
+  border: 1px solid rgba(139, 111, 71, 0.14);
+  border-radius: 12px;
+  background: #ffffff;
+  padding: 12px;
+}
+
+.customer-quotations-decision form > strong {
+  color: #2f2a24;
+  font-size: 13px;
+  font-weight: 900;
 }
 
 .customer-quotations-decision textarea {

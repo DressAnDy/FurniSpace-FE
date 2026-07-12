@@ -225,6 +225,47 @@ function mergeProductModels(...groups: ProductModel[][]) {
   return [...models.values()];
 }
 
+function createSceneObjectId(existingIds: Set<string>) {
+  let candidate = `scene-object-${globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`}`;
+
+  while (existingIds.has(candidate)) {
+    candidate = `scene-object-${globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`}`;
+  }
+
+  return candidate;
+}
+
+function getNextSceneObjectId(products: PlacedProduct3D[]) {
+  return createSceneObjectId(new Set(products.map((product) => product.id)));
+}
+
+function ensureUniquePlacedProductIds(products: PlacedProduct3D[]) {
+  const seenIds = new Set<string>();
+  let changed = false;
+
+  const nextProducts = products.map((product) => {
+    if (product.id && !seenIds.has(product.id)) {
+      seenIds.add(product.id);
+      return product;
+    }
+
+    changed = true;
+    const nextId = createSceneObjectId(seenIds);
+    seenIds.add(nextId);
+
+    return {
+      ...product,
+      id: nextId,
+      proposalItemId: null,
+    };
+  });
+
+  return {
+    changed,
+    products: nextProducts,
+  };
+}
+
 function getSyncableProposalItems(products: PlacedProduct3D[]) {
   return products
     .filter((product) => Boolean(product.productVersionId))
@@ -493,13 +534,19 @@ export function ThreeDTestPage() {
     const hydratedScene = hydrateRoomPlannerScenePayload(roomPlannerSceneQuery.data, {
       resolveModelUrl: resolveSceneObjectModelUrl,
     });
+    const normalizedHydratedProducts = ensureUniquePlacedProductIds(hydratedScene.placedProducts).products;
 
     setLayout(hydratedScene.layout);
-    setPlacedProducts(hydratedScene.placedProducts);
+    setPlacedProducts(normalizedHydratedProducts);
     setActiveTool(hydratedScene.activeTool);
     setHideLabels(hydratedScene.hideLabels);
     setIsSidebarCollapsed(hydratedScene.isSidebarCollapsed);
-    setSelectedProductId(hydratedScene.selectedProductId);
+    setSelectedProductId(
+      hydratedScene.selectedProductId &&
+        normalizedHydratedProducts.some((product) => product.id === hydratedScene.selectedProductId)
+        ? hydratedScene.selectedProductId
+        : null,
+    );
     setViewMode(hydratedScene.viewMode);
     setComparisonProductId(null);
     setProductMeasurements(null);
@@ -666,7 +713,18 @@ export function ThreeDTestPage() {
       viewMode,
       wallMaterial,
     });
-    const roomPlannerPayload = buildRoomPlannerPayload(placedProducts);
+    const normalizedPlacedProducts = ensureUniquePlacedProductIds(placedProducts);
+    const productsToSave = normalizedPlacedProducts.products;
+    const roomPlannerPayload = buildRoomPlannerPayload(productsToSave);
+
+    if (normalizedPlacedProducts.changed) {
+      setPlacedProducts(productsToSave);
+      setSelectedProductId((currentSelectedProductId) => (
+        currentSelectedProductId && productsToSave.some((product) => product.id === currentSelectedProductId)
+          ? currentSelectedProductId
+          : null
+      ));
+    }
 
     if (isProposalScene && sceneId) {
       setSaveMessage('Saving Room Planner scene to MongoDB...');
@@ -676,7 +734,7 @@ export function ThreeDTestPage() {
           sceneId,
           payload: roomPlannerPayload,
         });
-        const syncItems = getSyncableProposalItems(placedProducts);
+        const syncItems = getSyncableProposalItems(productsToSave);
 
         if (currentProposalId && syncItems.length) {
           setSaveMessage('Room Planner scene saved. Syncing proposal items from scene...');
@@ -686,7 +744,7 @@ export function ThreeDTestPage() {
             sceneId,
             items: syncItems,
           });
-          const productsWithProposalItems = applyProposalItemIds(placedProducts, syncResult.items);
+          const productsWithProposalItems = applyProposalItemIds(productsToSave, syncResult.items);
 
           setPlacedProducts(productsWithProposalItems);
 
@@ -799,13 +857,16 @@ export function ThreeDTestPage() {
 
     setPlacedProducts((currentProducts) => {
       const nextIndex = currentProducts.length;
+      const nextProductId = getNextSceneObjectId(currentProducts);
       const initialScale = getInitialProductScale(product);
+      setSelectedProductId(nextProductId);
+
       return [
         ...currentProducts,
         {
           fileId: product.fileId,
           heightOffset: position?.y ?? 0,
-          id: `product-${String(nextIndex + 1).padStart(3, '0')}`,
+          id: nextProductId,
           mountedWallId: null,
           modelName: product.name,
           modelUrl: product.modelUrl,
@@ -834,9 +895,8 @@ export function ThreeDTestPage() {
     });
     setViewMode('3d');
     setComparisonProductId(null);
-    setSelectedProductId(`product-${String(placedProducts.length + 1).padStart(3, '0')}`);
     setSaveMessage('');
-  }, [layout, placedProducts.length]);
+  }, [layout]);
 
   const handleProductDrop = useCallback((productModelId: string, position: PlacedProduct3D['position']) => {
     const product = availableProductModels.find((model) => model.id === productModelId);
@@ -884,7 +944,7 @@ export function ThreeDTestPage() {
   }, []);
 
   const handleDuplicateProduct = useCallback((product: PlacedProduct3D) => {
-    const duplicateId = `product-${String(placedProducts.length + 1).padStart(3, '0')}`;
+    const duplicateId = getNextSceneObjectId(placedProducts);
     const duplicate: PlacedProduct3D = {
       ...product,
       id: duplicateId,
@@ -902,7 +962,7 @@ export function ThreeDTestPage() {
     setShowProductInfo(false);
     setFreeRotateProductId(null);
     setSaveMessage('');
-  }, [placedProducts.length]);
+  }, [placedProducts]);
 
   const handleDeleteProduct = useCallback((productId: string) => {
     setPlacedProducts((currentProducts) => currentProducts.filter((product) => product.id !== productId));

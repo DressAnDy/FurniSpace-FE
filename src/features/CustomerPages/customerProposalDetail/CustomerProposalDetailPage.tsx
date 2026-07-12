@@ -360,7 +360,6 @@ export function CustomerProposalDetailPage() {
                 <div className="customer-proposal-detail-scene-grid">
                   {scenes.map((scene) => (
                     <article key={scene.sceneId}>
-                      {scene.previewFileUrl ? <img src={scene.previewFileUrl} alt={scene.sceneName} /> : <div className="customer-proposal-detail-scene-placeholder"><IconBox size={28} /></div>}
                       <div>
                         <strong>{scene.sceneName}</strong>
                         <span>{scene.sceneType} - v{scene.versionNo}</span>

@@ -1,15 +1,8 @@
 import { useMemo, useState } from 'react';
-import { IconCreditCard, IconEye } from '@tabler/icons-react';
+import { IconEye } from '@tabler/icons-react';
 
-import { PaymentCollectionModal } from '@/features/payments';
-import { getOrderServiceResultMessage, type OrderListItemDto, type OrderStatus } from '@/services/api/orders';
-import type { PaymentDetailDto } from '@/services/api/payments';
-import {
-  useCreateOrderDepositPayment,
-  useCreateOrderRemainingPayment,
-  useOrderDetail,
-  useProjectOrders,
-} from '@/services/queries';
+import { getOrderServiceResultMessage, type OrderStatus } from '@/services/api/orders';
+import { useOrderDetail, useProjectOrders } from '@/services/queries';
 
 type OrdersTabProps = {
   projectId: string;
@@ -17,36 +10,10 @@ type OrdersTabProps = {
 
 export function OrdersTab({ projectId }: OrdersTabProps) {
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
-  const [payment, setPayment] = useState<PaymentDetailDto | null>(null);
-  const [message, setMessage] = useState('');
   const ordersQuery = useProjectOrders(projectId);
   const selectedOrderQuery = useOrderDetail(selectedOrderId ?? undefined, { enabled: Boolean(selectedOrderId) });
-  const createDepositPaymentMutation = useCreateOrderDepositPayment();
-  const createRemainingPaymentMutation = useCreateOrderRemainingPayment();
   const orders = useMemo(() => ordersQuery.data?.items ?? [], [ordersQuery.data?.items]);
   const selectedOrder = selectedOrderQuery.data;
-
-  async function handleCreatePayment(order: OrderListItemDto) {
-    setSelectedOrderId(order.orderId);
-    setMessage('');
-
-    try {
-      const result =
-        order.status === 'DEPOSIT_PENDING'
-          ? await createDepositPaymentMutation.mutateAsync({
-              orderId: order.orderId,
-              note: 'Deposit payment created from sales order tab.',
-            })
-          : await createRemainingPaymentMutation.mutateAsync({
-              orderId: order.orderId,
-              note: 'Remaining payment created from sales order tab.',
-            });
-
-      setPayment(result);
-    } catch (error) {
-      setMessage(getOrderServiceResultMessage(error));
-    }
-  }
 
   return (
     <section className="project-detail-card project-detail-tab-panel project-detail-orders-card">
@@ -94,16 +61,6 @@ export function OrdersTab({ projectId }: OrdersTabProps) {
                     <IconEye size={16} />
                     <span>View</span>
                   </button>
-                  {canCreatePayment(order.status) ? (
-                    <button
-                      type="button"
-                      disabled={createDepositPaymentMutation.isPending || createRemainingPaymentMutation.isPending}
-                      onClick={() => void handleCreatePayment(order)}
-                    >
-                      <IconCreditCard size={16} />
-                      <span>{getPaymentActionLabel(order.status)}</span>
-                    </button>
-                  ) : null}
                 </div>
               </article>
             ))}
@@ -151,18 +108,6 @@ export function OrdersTab({ projectId }: OrdersTabProps) {
           </aside>
         </div>
       ) : null}
-
-      {message ? <p className="project-detail-form-message project-detail-form-message-error">{message}</p> : null}
-
-      <PaymentCollectionModal
-        payment={payment}
-        title={payment?.paymentType === 'DEPOSIT' ? 'Collect Deposit' : 'Collect Remaining Payment'}
-        onClose={() => setPayment(null)}
-        onPaid={() => {
-          void ordersQuery.refetch();
-          void selectedOrderQuery.refetch();
-        }}
-      />
     </section>
   );
 }
@@ -178,17 +123,6 @@ function OrderMoney({ label, value }: { label: string; value?: number | null }) 
 
 function OrderStatusBadge({ status }: { status?: OrderStatus | null }) {
   return <span className={`project-detail-order-status project-detail-order-status-${(status ?? 'CREATED').toLowerCase()}`}>{formatStatusLabel(status)}</span>;
-}
-
-function canCreatePayment(status?: OrderStatus | null) {
-  return status === 'DEPOSIT_PENDING' || status === 'FINAL_PAYMENT_PENDING';
-}
-
-function getPaymentActionLabel(status?: OrderStatus | null) {
-  if (status === 'DEPOSIT_PENDING') return 'Pay Deposit';
-  if (status === 'FINAL_PAYMENT_PENDING') return 'Pay Remaining';
-
-  return 'Collect Payment';
 }
 
 function formatMoney(value?: number | null) {

@@ -114,16 +114,16 @@ export function UserManagement() {
           status,
         });
       } else {
-        const passwordHash = normalizeAccountRequiredText(formData.get('passwordHash'));
+        const password = normalizeAccountRequiredText(formData.get('password'));
 
-        if (!passwordHash) {
+        if (!password) {
           return;
         }
 
         await createAccountMutation.mutateAsync({
           roleId,
           email,
-          passwordHash,
+          password,
           fullName,
           phone: normalizeAccountOptionalText(formData.get('phone')),
           avatarUrl: normalizeAccountOptionalText(formData.get('avatarUrl')),
@@ -375,7 +375,7 @@ function AccountFormModal({ isOpen, mode, account, isSubmitting, errorMessage, o
           {mode === 'create' ? (
             <label className="user-modal-field">
               <span>Password *</span>
-              <input maxLength={255} name="passwordHash" required type="text" />
+              <input maxLength={255} name="password" required type="password" />
             </label>
           ) : null}
 

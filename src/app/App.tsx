@@ -156,6 +156,7 @@ export default function App() {
 
             <Route path="/designer" element={<Navigate to="/designer/assigned-projects" replace />} />
             <Route path="/designer/assigned-projects" element={<DesignerAssignedProjects />} />
+            <Route path="/designer/projects/:projectId/proposals/new" element={<DesignerProposalWorkspace />} />
             <Route path="/designer/projects/:projectId/proposals/:proposalId" element={<DesignerProposalWorkspace />} />
 
             <Route path="/customer" element={<Navigate to="/customer/dashboard" replace />} />

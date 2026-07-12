@@ -1,19 +1,16 @@
-import { IconCreditCard, IconCurrencyDollar, IconPackage, IconReceipt } from '@tabler/icons-react';
-import { useEffect, useMemo, useState } from 'react';
+import { IconCurrencyDollar, IconPackage, IconReceipt, IconSettings } from '@tabler/icons-react';
+import { type FormEvent, useEffect, useMemo, useState } from 'react';
 
 import { SaleNavbar, SaleSidebar } from '@/features/SalePages/salecomponents';
 import { getOrderServiceResultMessage, type OrderDetailDto, type OrderListItemDto, type OrderStatus } from '@/services/api/orders';
-import type { PaymentDetailDto } from '@/services/api/payments';
 import type { ProjectListItemDto } from '@/services/api/projects';
 import {
-  useCreateOrderDepositPayment,
-  useCreateOrderRemainingPayment,
   useCurrentUser,
   useOrderDetail,
   useProjectList,
   useProjectOrders,
+  useUpdateOrderFinancialAdjustment,
 } from '@/services/queries';
-import { PaymentCollectionPanel } from '@/shared/components/PaymentCollectionPanel';
 
 import './SaleOrders.css';
 
@@ -30,7 +27,6 @@ const orderProjectStatuses = new Set([
 export function SaleOrders() {
   const [selectedProjectId, setSelectedProjectId] = useState('');
   const [selectedOrderId, setSelectedOrderId] = useState('');
-  const [activePayment, setActivePayment] = useState<PaymentDetailDto | null>(null);
   const [message, setMessage] = useState<{ tone: 'error' | 'success'; text: string } | null>(null);
   const currentUserQuery = useCurrentUser();
   const currentUser = currentUserQuery.data;
@@ -49,8 +45,7 @@ export function SaleOrders() {
   const orders = ordersQuery.data?.items ?? [];
   const orderDetailQuery = useOrderDetail(selectedOrderId, { enabled: Boolean(selectedOrderId) });
   const order = orderDetailQuery.data ?? null;
-  const depositMutation = useCreateOrderDepositPayment();
-  const remainingMutation = useCreateOrderRemainingPayment();
+  const financialAdjustmentMutation = useUpdateOrderFinancialAdjustment();
   const metrics = getOrderMetrics(orders);
   const unpaidDepositOrders = useMemo(() => orders.filter((item) => isDepositUnpaidStatus(item.status)), [orders]);
   const paidDepositOrders = useMemo(() => orders.filter((item) => isDepositPaidStatus(item.status)), [orders]);
@@ -72,19 +67,19 @@ export function SaleOrders() {
     }
   }, [orders, selectedOrderId]);
 
-  async function createPayment(kind: 'deposit' | 'remaining') {
-    if (!order) return;
-
+  async function updateFinancialAdjustment(input: { depositAmount: number; orderId: string }) {
     setMessage(null);
 
     try {
-      const payment =
-        kind === 'deposit'
-          ? await depositMutation.mutateAsync({ orderId: order.orderId, note: 'Sales created deposit payment.' })
-          : await remainingMutation.mutateAsync({ orderId: order.orderId, note: 'Sales created remaining payment.' });
-
-      setActivePayment(payment);
-      setMessage({ tone: 'success', text: kind === 'deposit' ? 'Deposit payment is ready.' : 'Remaining payment is ready.' });
+      await financialAdjustmentMutation.mutateAsync({
+        additionalDiscountAmount: 0,
+        adjustmentNote: null,
+        depositAmount: input.depositAmount,
+        orderId: input.orderId,
+      });
+      setMessage({ tone: 'success', text: 'Order financial adjustment updated.' });
+      void ordersQuery.refetch();
+      void orderDetailQuery.refetch();
     } catch (error) {
       setMessage({ tone: 'error', text: getOrderServiceResultMessage(error) });
     }
@@ -125,7 +120,6 @@ export function SaleOrders() {
                     onClick={() => {
                       setSelectedProjectId(project.projectId);
                       setSelectedOrderId('');
-                      setActivePayment(null);
                       setMessage(null);
                     }}
                   >
@@ -147,7 +141,7 @@ export function SaleOrders() {
 
               <section className="sale-orders-metrics">
                 <MetricCard icon={IconReceipt} label="Orders" value={String(metrics.total)} />
-                <MetricCard icon={IconCreditCard} label="Deposit Due" value={formatMoney(metrics.depositDue)} />
+                <MetricCard icon={IconCurrencyDollar} label="Deposit Due" value={formatMoney(metrics.depositDue)} />
                 <MetricCard icon={IconCurrencyDollar} label="Remaining" value={formatMoney(metrics.remaining)} />
                 <MetricCard icon={IconPackage} label="Active" value={String(metrics.active)} />
               </section>
@@ -165,37 +159,27 @@ export function SaleOrders() {
                     orders={unpaidDepositOrders}
                     selectedOrderId={selectedOrderId}
                     title="Deposit unpaid"
-                    onSelect={(orderId) => {
-                      setSelectedOrderId(orderId);
-                      setActivePayment(null);
-                    }}
+                    onSelect={setSelectedOrderId}
                   />
                   <OrderGroup
                     emptyText="No order has paid deposit yet."
                     orders={paidDepositOrders}
                     selectedOrderId={selectedOrderId}
                     title="Deposit paid"
-                    onSelect={(orderId) => {
-                      setSelectedOrderId(orderId);
-                      setActivePayment(null);
-                    }}
+                    onSelect={setSelectedOrderId}
                   />
                 </section>
 
                 {order ? (
                   <OrderDetailPanel
-                    depositPending={depositMutation.isPending}
+                    isAdjusting={financialAdjustmentMutation.isPending}
                     order={order}
-                    remainingPending={remainingMutation.isPending}
-                    onCreateDeposit={() => void createPayment('deposit')}
-                    onCreateRemaining={() => void createPayment('remaining')}
+                    onAdjustFinancial={(input) => void updateFinancialAdjustment(input)}
                   />
                 ) : null}
               </section>
             </section>
           </section>
-
-          <PaymentCollectionPanel payment={activePayment} returnPath="/sales/orders" onPaid={() => void orderDetailQuery.refetch()} />
         </main>
       </div>
     </div>
@@ -241,18 +225,28 @@ function OrderGroup({
 }
 
 function OrderDetailPanel({
-  depositPending,
-  onCreateDeposit,
-  onCreateRemaining,
+  isAdjusting,
+  onAdjustFinancial,
   order,
-  remainingPending,
 }: {
-  depositPending: boolean;
-  onCreateDeposit: () => void;
-  onCreateRemaining: () => void;
+  isAdjusting: boolean;
+  onAdjustFinancial: (input: { depositAmount: number; orderId: string }) => void;
   order: OrderDetailDto;
-  remainingPending: boolean;
 }) {
+  const [depositAmount, setDepositAmount] = useState(() => String(order.depositAmount ?? 0));
+
+  useEffect(() => {
+    setDepositAmount(String(order.depositAmount ?? 0));
+  }, [order.depositAmount, order.orderId]);
+
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    onAdjustFinancial({
+      depositAmount: normalizeMoneyInput(depositAmount),
+      orderId: order.orderId,
+    });
+  }
+
   return (
     <section className="sale-orders-card sale-orders-detail">
       <header>
@@ -268,14 +262,16 @@ function OrderDetailPanel({
         <MoneyValue label="Paid" value={formatMoney(order.paidAmount)} />
         <MoneyValue label="Remaining" value={formatMoney(order.remainingAmount)} />
       </div>
-      <div className="sale-orders-actions">
-        <button disabled={order.status !== 'DEPOSIT_PENDING' || depositPending} type="button" onClick={onCreateDeposit}>
-          {depositPending ? 'Preparing...' : 'Create Deposit Payment'}
+      <form className="sale-orders-adjustment-form" onSubmit={handleSubmit}>
+        <label>
+          <span>Deposit Amount</span>
+          <input inputMode="decimal" value={depositAmount} onChange={(event) => setDepositAmount(event.target.value)} />
+        </label>
+        <button disabled={isAdjusting} type="submit">
+          <IconSettings size={16} />
+          {isAdjusting ? 'Updating...' : 'Update Financial'}
         </button>
-        <button disabled={order.status !== 'FINAL_PAYMENT_PENDING' || remainingPending} type="button" onClick={onCreateRemaining}>
-          {remainingPending ? 'Preparing...' : 'Create Remaining Payment'}
-        </button>
-      </div>
+      </form>
       <div className="sale-orders-table-scroll">
         <table>
           <thead>
@@ -366,4 +362,10 @@ function formatMoney(value?: number | null) {
   if (typeof value !== 'number') return '-';
 
   return `${new Intl.NumberFormat('vi-VN').format(value)} VND`;
+}
+
+function normalizeMoneyInput(value: string) {
+  const parsed = Number(value.trim().replace(/\./g, '').replace(',', '.'));
+
+  return Number.isFinite(parsed) ? parsed : 0;
 }

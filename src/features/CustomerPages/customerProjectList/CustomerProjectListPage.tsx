@@ -5,7 +5,6 @@ import {
   IconHome,
   IconMessageCircle,
   IconSearch,
-  IconUsers,
   IconX,
 } from '@tabler/icons-react';
 import { useEffect, useMemo, useState } from 'react';
@@ -189,27 +188,6 @@ function ProjectCard({ onOpenChat, onPaymentCompleted, project }: ProjectCardPro
             <IconCalendar size={16} stroke={1.8} />
             Submitted: {formatDate(project.submittedAt)}
           </p>
-          <p>
-            <IconUsers size={16} stroke={1.8} />
-            {project.assignedSalesId ? 'Sales assigned' : 'Waiting for sales assignment'}
-          </p>
-          <p>
-            <IconUsers size={16} stroke={1.8} />
-            {project.assignedDesignerId ? 'Designer assigned' : 'Waiting for designer assignment'}
-          </p>
-        </div>
-
-        <div className="customer-project-list-people">
-          <div>
-            <IconUsers size={16} stroke={1.8} />
-            <span>Sales</span>
-            <strong>{project.assignedSalesId ? 'Assigned' : 'Pending'}</strong>
-          </div>
-          <div>
-            <IconUsers size={16} stroke={1.8} />
-            <span>Designer</span>
-            <strong>{project.assignedDesignerId ? 'Assigned' : 'Pending'}</strong>
-          </div>
         </div>
 
         <div className="customer-project-list-stage">

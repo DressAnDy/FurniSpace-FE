@@ -5,9 +5,11 @@ import {
   createOrderRemainingPayment,
   getOrderById,
   getProjectOrders,
+  updateOrderFinancialAdjustment,
   type CreateOrderPaymentInput,
   type OrderDetailDto,
   type OrderListItemDto,
+  type UpdateOrderFinancialAdjustmentInput,
 } from '@/services/api/orders';
 import { paymentQueryKeys } from './usePayments';
 
@@ -53,6 +55,20 @@ export function useCreateOrderRemainingPayment() {
     onSuccess: (payment, input) => {
       invalidateOrderPaymentCaches(queryClient, input.orderId, payment.projectId);
       void queryClient.invalidateQueries({ queryKey: paymentQueryKeys.detail(payment.paymentId) });
+    },
+  });
+}
+
+export function useUpdateOrderFinancialAdjustment() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (input: UpdateOrderFinancialAdjustmentInput) => updateOrderFinancialAdjustment(input),
+    onSuccess: (order) => {
+      void queryClient.invalidateQueries({ queryKey: orderQueryKeys.all });
+      void queryClient.invalidateQueries({ queryKey: orderQueryKeys.detail(order.orderId) });
+      void queryClient.invalidateQueries({ queryKey: orderQueryKeys.byProject(order.projectId) });
+      void queryClient.invalidateQueries({ queryKey: ['projects', 'detail', order.projectId] });
     },
   });
 }

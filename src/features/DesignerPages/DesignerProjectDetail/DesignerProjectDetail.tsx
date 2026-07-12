@@ -17,14 +17,13 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 
 import { DesignerLayout } from '@/features/DesignerPages/designercomponents';
 import { getAccountById } from '@/services/api';
-import { getProposalServiceResultMessage } from '@/services/api/proposals';
 import { getProjectServiceResultMessage, type ProjectDto, type ProjectStatus } from '@/services/api/projects';
-import { useCreateProposal, useProjectDetail, useUpdateProjectStatus } from '@/services/queries';
+import { useProjectDetail, useUpdateProjectStatus } from '@/services/queries';
 
-import { ChatTab, CustomizationTab, FeedbackTab, OverviewTab, ProposalsTab, SchedulesTab, SpaceFilesTab } from './tabs';
+import { ChatTab, CustomizationTab, FeedbackTab, OverviewTab, ProjectAreasTab, ProposalsTab, SchedulesTab, SpaceFilesTab } from './tabs';
 import './DesignerProjectDetail.css';
 
-type DesignerProjectDetailTab = 'overview' | 'space-files' | 'proposals' | 'feedback' | 'customization' | 'schedules' | 'chat';
+type DesignerProjectDetailTab = 'overview' | 'space-files' | 'project-areas' | 'proposals' | 'feedback' | 'customization' | 'schedules' | 'chat';
 
 type DesignerProjectTabProps = {
   project: ProjectDto;
@@ -39,6 +38,7 @@ type DesignerProjectTabConfig = {
 const detailTabs: DesignerProjectTabConfig[] = [
   { id: 'overview', label: 'Overview', component: OverviewTab },
   { id: 'space-files', label: 'Space Files', component: SpaceFilesTab },
+  { id: 'project-areas', label: 'Project Areas', component: ProjectAreasTab },
   { id: 'proposals', label: 'Proposals', component: ProposalsTab },
   { id: 'feedback', label: 'Feedback', component: FeedbackTab },
   { id: 'customization', label: 'Customization', component: CustomizationTab },
@@ -52,7 +52,6 @@ export function DesignerProjectDetail() {
   const [activeTab, setActiveTab] = useState<DesignerProjectDetailTab>('overview');
   const [projectActionMessage, setProjectActionMessage] = useState<{ tone: 'error' | 'success'; text: string } | null>(null);
   const projectQuery = useProjectDetail(projectId);
-  const createProposalMutation = useCreateProposal();
   const updateProjectStatusMutation = useUpdateProjectStatus();
   const project = projectQuery.data;
   const accountIds = useMemo(() => [project?.customerId, project?.assignedSalesId].filter((accountId): accountId is string => Boolean(accountId)), [project?.assignedSalesId, project?.customerId]);
@@ -88,24 +87,13 @@ export function DesignerProjectDetail() {
       ]
     : [];
 
-  async function openProposalWorkspace() {
+  function openProposalWorkspace() {
     if (!project) {
       return;
     }
 
     setProjectActionMessage(null);
-
-    try {
-      const proposal = await createProposalMutation.mutateAsync({
-        projectId: project.projectId,
-        proposalName: `${project.projectName} 3D Proposal`,
-        description: 'Created from designer proposal workspace.',
-      });
-
-      navigate(`/designer/projects/${project.projectId}/proposals/${proposal.proposalId}`);
-    } catch (error) {
-      setProjectActionMessage({ tone: 'error', text: getProposalServiceResultMessage(error) });
-    }
+    navigate(`/designer/projects/${project.projectId}/proposals/new`);
   }
 
   async function updateProjectToNextDesignStatus() {
@@ -186,12 +174,12 @@ export function DesignerProjectDetail() {
                   </button>
                   <button
                     className="designer-project-detail-button designer-project-detail-button-primary"
-                    disabled={!isProposalDraftingStatus(project.status) || createProposalMutation.isPending}
+                    disabled={!isProposalDraftingStatus(project.status)}
                     type="button"
-                    onClick={() => void openProposalWorkspace()}
+                    onClick={openProposalWorkspace}
                   >
                     <IconPlus size={17} />
-                    {createProposalMutation.isPending ? 'Creating...' : 'Create Proposal'}
+                    Set Up Proposal
                   </button>
                   <button className="designer-project-detail-button" type="button">
                     <IconCube size={17} />
