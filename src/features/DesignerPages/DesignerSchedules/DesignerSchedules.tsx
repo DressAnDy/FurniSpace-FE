@@ -68,16 +68,16 @@ export function DesignerSchedules() {
     return groups;
   }, [schedules]);
 
-  async function handleConfirmSchedule(scheduleId: string) {
+  async function handleCompleteSchedule(scheduleId: string) {
     setStatusMessage('');
 
     try {
       await updateScheduleStatusMutation.mutateAsync({
         scheduleId,
-        status: 'CONFIRMED',
-        note: 'Designer confirmed the site measurement schedule.',
+        status: 'COMPLETED',
+        note: 'Designer marked the schedule as completed.',
       });
-      setStatusMessage('Schedule confirmed successfully.');
+      setStatusMessage('Schedule completed successfully.');
     } catch (error) {
       setStatusMessage(getProjectScheduleServiceResultMessage(error));
     }
@@ -198,7 +198,7 @@ export function DesignerSchedules() {
               isUpdating={updateScheduleStatusMutation.isPending}
               project={projectById[selectedSchedule.projectId]}
               schedule={selectedSchedule}
-              onConfirm={() => void handleConfirmSchedule(selectedSchedule.scheduleId)}
+              onComplete={() => void handleCompleteSchedule(selectedSchedule.scheduleId)}
             />
           ) : (
             <div className="designer-schedules-empty-detail">
@@ -217,11 +217,11 @@ type ScheduleDetailProps = {
   isUpdating: boolean;
   project: ProjectDto | undefined;
   schedule: ProjectScheduleDto;
-  onConfirm: () => void;
+  onComplete: () => void;
 };
 
-function ScheduleDetail({ isUpdating, project, schedule, onConfirm }: ScheduleDetailProps) {
-  const canConfirm = schedule.status === 'PENDING_CONFIRMATION';
+function ScheduleDetail({ isUpdating, project, schedule, onComplete }: ScheduleDetailProps) {
+  const canComplete = schedule.status === 'CONFIRMED';
 
   return (
     <>
@@ -259,14 +259,14 @@ function ScheduleDetail({ isUpdating, project, schedule, onConfirm }: ScheduleDe
 
       <div className="designer-schedules-notes">
         <h4>Details</h4>
-        <p>{schedule.description || schedule.internalNote || schedule.customerNote || 'No additional schedule details were provided.'}</p>
+        <p>{schedule.description || 'No additional schedule details were provided.'}</p>
       </div>
 
       <div className="designer-schedules-detail-actions">
-        {canConfirm ? (
-          <button className="designer-schedule-confirm" disabled={isUpdating} type="button" onClick={onConfirm}>
+        {canComplete ? (
+          <button className="designer-schedule-confirm" disabled={isUpdating} type="button" onClick={onComplete}>
             <IconCheck size={16} />
-            {isUpdating ? 'Confirming...' : 'Confirm'}
+            {isUpdating ? 'Completing...' : 'Complete Schedule'}
           </button>
         ) : null}
         <Link className="designer-schedule-open" to={`/designer/assigned-projects/${schedule.projectId}`}>Open project</Link>

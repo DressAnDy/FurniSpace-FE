@@ -2,7 +2,7 @@
   min-height: 100vh;
   background: #faf9f7;
   color: #2d2d2d;
-  font-family: Inter, "DM Sans", Arial, sans-serif;
+  font-family: var(--fs-customer-font, "Be Vietnam Pro", "DM Sans", system-ui, -apple-system, "Segoe UI", sans-serif);
 }
 
 .customer-project-request-shell {
@@ -293,6 +293,12 @@
   cursor: pointer;
   padding: 34px;
   text-align: center;
+}
+
+.customer-project-request-upload-active {
+  border-color: #8b6f47;
+  background: #faf7f1;
+  color: #8b6f47;
 }
 
 .customer-project-request-upload strong {

@@ -362,7 +362,7 @@ export function CustomerChatPage() {
                   <a href="/customer/proposals">View Proposals</a>
                 </li>
                 <li>
-                  <a href="#">View Quotations</a>
+                  <a href="/customer/quotations">View Quotations</a>
                 </li>
               </ul>
             </div>

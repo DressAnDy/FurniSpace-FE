@@ -13,6 +13,10 @@ export function getPostLoginPath(role?: string) {
     return '/designer/assigned-projects';
   }
 
+  if (normalizedRole.includes('PRODUCTION')) {
+    return '/production/customization-requests';
+  }
+
   if (normalizedRole.includes('CUSTOMER')) {
     return '/customer/dashboard';
   }

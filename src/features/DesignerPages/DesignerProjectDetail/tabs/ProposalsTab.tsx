@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 
 import { getProposalServiceResultMessage, type ProposalDto, type ProposalSceneDto } from '@/services/api/proposals';
 import type { ProjectDto } from '@/services/api/projects';
-import { useCreateProposal, useProjectProposals, useProposalScenes, usePublishProposal } from '@/services/queries';
+import { useProjectProposals, useProposalScenes, usePublishProposal } from '@/services/queries';
 
 type ProposalsTabProps = {
   project: ProjectDto;
@@ -14,7 +14,6 @@ export function ProposalsTab({ project }: ProposalsTabProps) {
   const [message, setMessage] = useState('');
   const [messageTone, setMessageTone] = useState<'error' | 'success'>('error');
   const [publishingProposalId, setPublishingProposalId] = useState<string | null>(null);
-  const createProposalMutation = useCreateProposal();
   const publishProposalMutation = usePublishProposal();
   const proposalsQuery = useProjectProposals({
     projectId: project.projectId,
@@ -22,23 +21,12 @@ export function ProposalsTab({ project }: ProposalsTabProps) {
     limit: 20,
   });
   const proposals = proposalsQuery.data?.items ?? [];
+  const canCreateProposal = isProposalDraftingStatus(project.status);
 
-  async function createProposal() {
+  function openProposalSetup() {
     setMessage('');
     setMessageTone('error');
-
-    try {
-      const proposal = await createProposalMutation.mutateAsync({
-        projectId: project.projectId,
-        proposalName: `${project.projectName} 3D Proposal`,
-        description: 'Created from designer proposal workspace.',
-      });
-
-      navigate(`/designer/projects/${project.projectId}/proposals/${proposal.proposalId}`);
-    } catch (error) {
-      setMessageTone('error');
-      setMessage(getProposalServiceResultMessage(error));
-    }
+    navigate(`/designer/projects/${project.projectId}/proposals/new`);
   }
 
   function openScene(scene: ProposalSceneDto, proposalId: string) {
@@ -81,11 +69,11 @@ export function ProposalsTab({ project }: ProposalsTabProps) {
         </div>
         <button
           className="designer-project-detail-button designer-project-detail-button-primary"
-          disabled={project.status !== 'PROPOSAL_DRAFTING' || createProposalMutation.isPending}
+          disabled={!canCreateProposal}
           type="button"
-          onClick={() => void createProposal()}
+          onClick={openProposalSetup}
         >
-          {createProposalMutation.isPending ? 'Creating...' : 'Create Proposal'}
+          Set Up Proposal
         </button>
       </div>
 
@@ -94,8 +82,8 @@ export function ProposalsTab({ project }: ProposalsTabProps) {
           {message}
         </p>
       ) : null}
-      {project.status !== 'PROPOSAL_DRAFTING' ? (
-        <p className="designer-project-file-message">Move this project to Proposal Drafting before creating a new proposal.</p>
+      {!canCreateProposal ? (
+        <p className="designer-project-file-message">Move this project to Proposal Consulting before creating a new proposal.</p>
       ) : null}
       {proposalsQuery.isError ? <p className="designer-project-file-message designer-project-file-error">{getProposalServiceResultMessage(proposalsQuery.error)}</p> : null}
 
@@ -208,12 +196,20 @@ function ProposalRow({ proposal, onCreateScene, onOpenScene, onPublish, publishD
 }
 
 function isCustomerVisibleProposal(status: string) {
-  return ['PUBLISHED', 'VIEWED', 'SELECTED', 'REVISION_REQUESTED'].includes(status);
+  return ['PUBLISHED', 'SELECTED', 'REVISION_REQUESTED', 'REJECTED'].includes(status);
+}
+
+function isProposalDraftingStatus(status: string) {
+  return normalizeStatus(status) === 'PROPOSAL_CONSULTING';
+}
+
+function normalizeStatus(status: string) {
+  return status.trim().toUpperCase().replace(/[^A-Z0-9]+/g, '_');
 }
 
 function getProposalStatusTone(status: string) {
   if (status === 'DRAFT') return 'draft';
-  if (status === 'PUBLISHED' || status === 'VIEWED') return 'design';
+  if (status === 'PUBLISHED') return 'design';
   if (status === 'SELECTED') return 'reviewed';
   if (status === 'REVISION_REQUESTED') return 'pending';
 

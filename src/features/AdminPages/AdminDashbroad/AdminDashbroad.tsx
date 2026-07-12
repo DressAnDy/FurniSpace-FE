@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { useMemo } from 'react';
 import {
   IconBriefcase,
   IconBuildingFactory,
@@ -10,81 +11,40 @@ import {
 } from '@tabler/icons-react';
 
 import { AdminNavbar, AdminSidebar } from '../admincomponents';
+import { type ProductListItemDto, type ProjectListItemDto, type ProjectStatus, useProductList, useProjectList } from '@/services/queries';
 import './AdminDashbroad.css';
 
-const stats = [
-  {
-    title: 'Project',
-    description: 'Pipeline and catalog coverage',
-    icon: IconBriefcase,
-    tone: 'gold',
-    metrics: [
-      { label: 'Active Projects', value: '75', delta: '+8%', icon: IconBriefcase, tone: 'gold' },
-      { label: 'Total Products', value: '342', delta: '+18', icon: IconCube, tone: 'blue' },
-    ],
-  },
-  {
-    title: 'Revenue ',
-    description: 'Monthly commercial performance',
-    icon: IconChartLine,
-    tone: 'green',
-    metrics: [{ label: 'Revenue This Month', value: '$245K', delta: '+23%', icon: IconChartLine, tone: 'green' }],
-  },
-  {
-    title: 'Order',
-    description: 'Confirmed and fulfillment status',
-    icon: IconShoppingCartCheck,
-    tone: 'dark-green',
-    metrics: [
-      { label: 'Orders Confirmed', value: '52', delta: '+11%', icon: IconShoppingCartCheck, tone: 'dark-green' },
-      { label: 'In Production', value: '15', delta: '+4', icon: IconBuildingFactory, tone: 'amber' },
-      { label: 'Ready For Delivery', value: '8', delta: '+2', icon: IconTruckDelivery, tone: 'cyan' },
-    ],
-  },
+const activeStatuses: ProjectStatus[] = [
+  'SUBMITTED',
+  'IN_CONSULTATION',
+  'NEED_BASIC_INFORMATION',
+  'WAITING_FOR_DESIGNER_ASSIGNMENT',
+  'MEASUREMENT_REQUIRED',
+  'SPACE_VERIFIED',
+  'PROPOSAL_CONSULTING',
+  'PROPOSAL_SELECTED',
+  'QUOTATION_SENT',
+  'QUOTATION_REVISION_REQUESTED',
+  'ORDER_CONFIRMED',
+  'IN_PRODUCTION',
+  'PRODUCTION_BLOCKED',
+  'READY_FOR_DELIVERY',
+  'DELIVERING',
 ];
 
-const projectStatuses = [
-  { label: 'Submitted', value: 12, tone: 'amber' },
-  { label: 'In Consultation', value: 8, tone: 'blue' },
-  { label: 'Proposal Drafting', value: 6, tone: 'violet' },
-  { label: 'Waiting Review', value: 10, tone: 'gold' },
-  { label: 'In Production', value: 15, tone: 'green' },
-  { label: 'Completed', value: 24, tone: 'dark-green' },
-];
-
-const monthlyRequests = [
-  ['Jan', 12],
-  ['Feb', 18],
-  ['Mar', 15],
-  ['Apr', 22],
-  ['May', 28],
-  ['Jun', 25],
-] as const;
-
-const revenuePoints = [
-  ['Jan', '$125K', 38],
-  ['Feb', '$152K', 30],
-  ['Mar', '$138K', 34],
-  ['Apr', '$195K', 18],
-  ['May', '$218K', 12],
-  ['Jun', '$245K', 6],
-] as const;
-
-const activities = [
-  { title: 'New project submitted', detail: 'PRJ-2024-156 - 5 min ago', status: 'SUBMITTED', tone: 'neutral' },
-  { title: 'Quotation accepted', detail: 'PRJ-2024-142 - 15 min ago', status: 'ACCEPTED', tone: 'success' },
-  { title: 'Production completed', detail: 'PRJ-2024-098 - 1 hour ago', status: 'COMPLETED', tone: 'success' },
-  { title: 'New 3D model uploaded', detail: 'Chair-V3 - 2 hours ago', status: 'ACTIVE', tone: 'success' },
-  { title: 'Order confirmed', detail: 'PRJ-2024-133 - 3 hours ago', status: 'CONFIRMED', tone: 'success' },
-];
-
-const uploadedModels = [
-  ['Modern Office Chair V3', 'V3.2', 'Designer A', '2024-06-05'],
-  ['Conference Table Oak', 'V2.1', 'Designer B', '2024-06-04'],
-  ['Lounge Sofa Premium', 'V1.5', 'Designer C', '2024-06-03'],
-] as const;
+const statusTones = ['amber', 'blue', 'violet', 'gold', 'green', 'dark-green'] as const;
 
 export function AdminDashbroad() {
+  const projectsQuery = useProjectList({ page: 1, limit: 100 });
+  const productsQuery = useProductList({ page: 1, limit: 100 });
+  const projects = useMemo(() => projectsQuery.data?.items ?? [], [projectsQuery.data?.items]);
+  const products = useMemo(() => productsQuery.data?.items ?? [], [productsQuery.data?.items]);
+  const stats = useMemo(() => getStats(projects, products), [products, projects]);
+  const projectStatuses = useMemo(() => getProjectStatuses(projects), [projects]);
+  const monthlyRequests = useMemo(() => getMonthlyRequests(projects), [projects]);
+  const activities = useMemo(() => getRecentActivities(projects), [projects]);
+  const uploadedModels = useMemo(() => getUploadedModels(products), [products]);
+
   return (
     <main className="admin-dashboard-page">
       <div className="admin-dashboard-shell">
@@ -165,20 +125,7 @@ export function AdminDashbroad() {
             <section className="admin-two-column">
               <DashboardCard title="Monthly Revenue Trend">
                 <div className="admin-revenue-chart">
-                  <svg viewBox="0 0 520 210" role="img" aria-label="Monthly revenue trend">
-                    <polyline fill="none" points="0,132 104,102 208,118 312,56 416,34 520,0" stroke="#10b981" strokeWidth="4" />
-                    {revenuePoints.map(([month, value, y], index) => (
-                      <g key={month}>
-                        <circle cx={index * 104} cy={y * 1.8} fill="#10b981" r="5" />
-                        <text fill="#6b7280" fontSize="12" textAnchor="middle" x={index * 104} y="190">
-                          {month}
-                        </text>
-                        <text fill="#1a1d29" fontSize="12" textAnchor="middle" x={index * 104} y="208">
-                          {value}
-                        </text>
-                      </g>
-                    ))}
-                  </svg>
+                  <svg viewBox="0 0 520 210" role="img" aria-label="Monthly revenue trend" />
                 </div>
               </DashboardCard>
 
@@ -220,6 +167,11 @@ export function AdminDashbroad() {
                         <td>{date}</td>
                       </tr>
                     ))}
+                    {!productsQuery.isLoading && uploadedModels.length === 0 ? (
+                      <tr>
+                        <td colSpan={4}></td>
+                      </tr>
+                    ) : null}
                   </tbody>
                 </table>
               </div>
@@ -229,6 +181,106 @@ export function AdminDashbroad() {
       </div>
     </main>
   );
+}
+
+function getStats(projects: ProjectListItemDto[], products: ProductListItemDto[]) {
+  const activeProjects = projects.filter((project) => activeStatuses.includes(project.status)).length;
+  const countStatus = (status: ProjectStatus) => projects.filter((project) => project.status === status).length;
+
+  return [
+    {
+      title: 'Project',
+      description: 'Pipeline and catalog coverage',
+      icon: IconBriefcase,
+      tone: 'gold',
+      metrics: [
+        { label: 'Active Projects', value: String(activeProjects), delta: '', icon: IconBriefcase, tone: 'gold' },
+        { label: 'Total Products', value: String(products.length), delta: '', icon: IconCube, tone: 'blue' },
+      ],
+    },
+    {
+      title: 'Revenue',
+      description: 'Monthly commercial performance',
+      icon: IconChartLine,
+      tone: 'green',
+      metrics: [{ label: 'Revenue This Month', value: '', delta: '', icon: IconChartLine, tone: 'green' }],
+    },
+    {
+      title: 'Order',
+      description: 'Confirmed and fulfillment status',
+      icon: IconShoppingCartCheck,
+      tone: 'dark-green',
+      metrics: [
+        { label: 'Orders Confirmed', value: String(countStatus('ORDER_CONFIRMED')), delta: '', icon: IconShoppingCartCheck, tone: 'dark-green' },
+        { label: 'In Production', value: String(countStatus('IN_PRODUCTION')), delta: '', icon: IconBuildingFactory, tone: 'amber' },
+        { label: 'Ready For Delivery', value: String(countStatus('READY_FOR_DELIVERY')), delta: '', icon: IconTruckDelivery, tone: 'cyan' },
+      ],
+    },
+  ];
+}
+
+function getProjectStatuses(projects: ProjectListItemDto[]) {
+  const counts = projects.reduce<Record<string, number>>((lookup, project) => {
+    lookup[project.status] = (lookup[project.status] ?? 0) + 1;
+    return lookup;
+  }, {});
+
+  return Object.entries(counts).map(([status, value], index) => ({
+    label: formatEnumLabel(status),
+    value,
+    tone: statusTones[index % statusTones.length],
+  }));
+}
+
+function getMonthlyRequests(projects: ProjectListItemDto[]) {
+  const monthCounts = new Map<string, number>();
+
+  projects.forEach((project) => {
+    const month = new Intl.DateTimeFormat('en', { month: 'short' }).format(new Date(project.submittedAt));
+    monthCounts.set(month, (monthCounts.get(month) ?? 0) + 1);
+  });
+
+  return Array.from(monthCounts.entries()).slice(-6);
+}
+
+function getRecentActivities(projects: ProjectListItemDto[]) {
+  return [...projects]
+    .sort((left, right) => new Date(right.submittedAt).getTime() - new Date(left.submittedAt).getTime())
+    .slice(0, 5)
+    .map((project) => ({
+      title: project.projectName,
+      detail: `${project.projectCode} - ${formatDate(project.submittedAt)}`,
+      status: project.status,
+      tone: project.status === 'REJECTED' ? 'neutral' : 'success',
+    }));
+}
+
+function getUploadedModels(products: ProductListItemDto[]) {
+  return products
+    .filter((product) => product.defaultVersion?.files.some((file) => file.fileType === 'MODEL_3D'))
+    .slice(0, 5)
+    .map((product) => [
+      product.productName,
+      product.defaultVersion?.versionName ?? '',
+      '',
+      '',
+    ] as const);
+}
+
+function formatEnumLabel(value: string) {
+  return value
+    .toLowerCase()
+    .split('_')
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
+}
+
+function formatDate(value: string) {
+  return new Intl.DateTimeFormat('en', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  }).format(new Date(value));
 }
 
 function DashboardCard({ title, children }: { title: string; children: ReactNode }) {

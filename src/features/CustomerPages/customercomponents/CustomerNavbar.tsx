@@ -1,9 +1,11 @@
 import {
   IconBox,
   IconCalendarEvent,
+  IconFileDollar,
   IconFileText,
   IconHome,
   IconMessageCircle,
+  IconReceipt,
   IconPlus,
 } from '@tabler/icons-react';
 import type { ReactNode } from 'react';
@@ -22,6 +24,8 @@ type CustomerNavbarItem = {
 const customerNavbarItems: CustomerNavbarItem[] = [
   { icon: <IconHome size={15} stroke={1.8} />, label: 'Home', path: '/customer/dashboard' },
   { icon: <IconFileText size={15} stroke={1.8} />, label: 'My Projects', path: '/customer/projects' },
+  { icon: <IconFileDollar size={15} stroke={1.8} />, label: 'Quotations', path: '/customer/quotations' },
+  { icon: <IconReceipt size={15} stroke={1.8} />, label: 'Orders', path: '/customer/orders' },
   { icon: <IconCalendarEvent size={15} stroke={1.8} />, label: 'Schedules', path: '/customer/schedules' },
   { icon: <IconMessageCircle size={15} stroke={1.8} />, label: 'Project Chat', path: '/customer/chat' },
   { icon: <IconBox size={15} stroke={1.8} />, label: 'Handover', path: '/customer/projects' },
@@ -37,8 +41,8 @@ export function CustomerNavbar({ activeLabel, classPrefix }: CustomerNavbarProps
 
   return (
     <>
-      <aside className={`${classPrefix}-sidenav customer-shell-sidebar`}>
-        <NavLink className={`${classPrefix}-logo customer-shell-logo`} to="/customer/dashboard">
+      <aside className="customer-shell-sidebar">
+        <NavLink className="customer-shell-logo" to="/customer/dashboard">
           <span>
             <IconBox size={19} stroke={1.8} />
           </span>
@@ -48,7 +52,7 @@ export function CustomerNavbar({ activeLabel, classPrefix }: CustomerNavbarProps
         <nav className="customer-shell-nav" aria-label="Customer navigation">
           {customerNavbarItems.map((item) => (
             <NavLink
-              className={item.label === activeLabel ? `${classPrefix}-nav-active customer-shell-nav-active` : undefined}
+              className={item.label === activeLabel ? 'customer-shell-nav-active' : undefined}
               key={item.label}
               to={item.path}
             >
@@ -59,8 +63,8 @@ export function CustomerNavbar({ activeLabel, classPrefix }: CustomerNavbarProps
         </nav>
       </aside>
 
-      <header className={`${classPrefix}-userbar customer-shell-actionbar`}>
-        <button className={`${classPrefix}-create customer-shell-create`} type="button" onClick={() => navigate('/customer/project-request')}>
+      <header className="customer-shell-actionbar">
+        <button className="customer-shell-create" type="button" onClick={() => navigate('/customer/project-request')}>
           <IconPlus size={15} stroke={2} />
           Create Project Request
         </button>

@@ -335,15 +335,31 @@ export function getProductServiceResultFromError(error: unknown) {
   const data = error.response?.data;
 
   if (data && typeof data === 'object' && 'status' in data) {
-    return data as ServiceResult<unknown>;
+    const result = data as ServiceResult<unknown> & {
+      correlationId?: string;
+      detail?: string;
+      title?: string;
+    };
+
+    return {
+      ...result,
+      message: formatProblemDetailsMessage(result),
+    };
   }
 
   if (data && typeof data === 'object') {
-    const fallback = data as { message?: string; errorCode?: string; title?: string; errors?: string[] | Record<string, string[]> };
+    const fallback = data as {
+      correlationId?: string;
+      detail?: string;
+      errorCode?: string;
+      errors?: string[] | Record<string, string[]>;
+      message?: string;
+      title?: string;
+    };
 
     return {
       status: error.response?.status ?? 500,
-      message: fallback.message ?? fallback.title,
+      message: formatProblemDetailsMessage(fallback),
       errorCode: fallback.errorCode,
       errors: Array.isArray(fallback.errors)
         ? fallback.errors
@@ -363,6 +379,16 @@ export function getProductServiceResultFromError(error: unknown) {
   }
 
   return null;
+}
+
+function formatProblemDetailsMessage(problem: { correlationId?: string; detail?: string; message?: string; title?: string }) {
+  return [
+    problem.message ?? problem.title,
+    problem.detail,
+    problem.correlationId ? `Correlation ID: ${problem.correlationId}` : null,
+  ]
+    .filter(Boolean)
+    .join('\n');
 }
 
 export function normalizeOptionalText(value: FormDataEntryValue | string | null | undefined) {
@@ -539,7 +565,9 @@ export async function uploadProductVersionFile(
   options: RequestBehaviorOptions = {},
 ) {
   const formData = new FormData();
-  formData.append('file', file);
+  const uploadFile = normalizeProductVersionUploadFile(file, fileType);
+
+  formData.append('file', uploadFile);
   formData.append('fileType', fileType);
   formData.append('visibility', 'CUSTOMER_VISIBLE');
 
@@ -556,6 +584,40 @@ export async function uploadProductVersionFile(
   );
 
   return response.data.data;
+}
+
+function normalizeProductVersionUploadFile(file: File, fileType: ProductVersionFileType) {
+  const normalizedMimeType = getProductVersionUploadMimeType(file, fileType);
+
+  if (!normalizedMimeType || file.type === normalizedMimeType) {
+    return file;
+  }
+
+  return new File([file], file.name, { lastModified: file.lastModified, type: normalizedMimeType });
+}
+
+function getProductVersionUploadMimeType(file: File, fileType: ProductVersionFileType) {
+  const currentType = file.type === 'image/jpg' ? 'image/jpeg' : file.type;
+  const extension = file.name.split('.').pop()?.toLowerCase();
+
+  if (fileType === 'MODEL_3D') {
+    return currentType || (extension === 'gltf' ? 'model/gltf+json' : extension === 'glb' ? 'model/gltf-binary' : '');
+  }
+
+  if (fileType === 'PRODUCT_PREVIEW') {
+    const fallbackTypes: Record<string, string> = {
+      gif: 'image/gif',
+      jpeg: 'image/jpeg',
+      jpg: 'image/jpeg',
+      png: 'image/png',
+      svg: 'image/svg+xml',
+      webp: 'image/webp',
+    };
+
+    return currentType || fallbackTypes[extension ?? ''] || '';
+  }
+
+  return currentType;
 }
 
 export async function getFilesByReference(params: FileReferenceListParams) {

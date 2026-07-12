@@ -47,9 +47,7 @@ export type ProjectStatus =
   | 'WAITING_FOR_DESIGNER_ASSIGNMENT'
   | 'MEASUREMENT_REQUIRED'
   | 'SPACE_VERIFIED'
-  | 'PROPOSAL_DRAFTING'
-  | 'WAITING_FOR_CUSTOMER_REVIEW'
-  | 'REVISION_REQUESTED'
+  | 'PROPOSAL_CONSULTING'
   | 'PROPOSAL_SELECTED'
   | 'QUOTATION_SENT'
   | 'QUOTATION_REVISION_REQUESTED'
@@ -121,8 +119,8 @@ export type UpdateProjectBasicInformationInput = Partial<CreateProjectInput> & {
 };
 
 export type ProjectInformationRequestInput = {
+  message: string;
   projectId: string;
-  note: string;
 };
 
 export type FileType =
@@ -323,7 +321,7 @@ export async function requestProjectInformation(input: ProjectInformationRequest
   const response = await projectApiClient.post<ServiceResult<ProjectDto>>(
     `/projects/${input.projectId}/information-requests`,
     {
-      note: input.note.trim(),
+      message: input.message.trim(),
     },
   );
 

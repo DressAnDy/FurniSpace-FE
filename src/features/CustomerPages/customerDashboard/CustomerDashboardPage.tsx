@@ -8,11 +8,11 @@ import {
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
-import warmScandinavianUrl from '@/assets/customer-dashboard/warm-scandinavian.png';
 import { CustomerNavbar } from '@/features/CustomerPages/customercomponents';
 import { getProjectServiceResultMessage, type ProjectListItemDto, type ProjectStatus } from '@/services/api/projects';
 import { getProjectScheduleServiceResultMessage, type ProjectScheduleDto } from '@/services/api/schedules';
 import { useProjectDetail, useProjectList } from '@/services/queries/useProjects';
+import { useProjectProposals } from '@/services/queries/useProposals';
 import { useProjectScheduleList, useUpdateProjectScheduleStatus } from '@/services/queries/useSchedules';
 
 import './CustomerDashboardPage.css';
@@ -21,8 +21,7 @@ type JourneyStatus =
   | 'SUBMITTED'
   | 'IN_CONSULTATION'
   | 'SPACE_VERIFIED'
-  | 'PROPOSAL_DRAFTING'
-  | 'WAITING_FOR_CUSTOMER_REVIEW'
+  | 'PROPOSAL_CONSULTING'
   | 'QUOTATION_SENT'
   | 'ORDER_CONFIRMED';
 
@@ -30,8 +29,7 @@ const journeyStatusOrder: JourneyStatus[] = [
   'SUBMITTED',
   'IN_CONSULTATION',
   'SPACE_VERIFIED',
-  'PROPOSAL_DRAFTING',
-  'WAITING_FOR_CUSTOMER_REVIEW',
+  'PROPOSAL_CONSULTING',
   'QUOTATION_SENT',
   'ORDER_CONFIRMED',
 ];
@@ -40,8 +38,7 @@ const journeyLabels: Record<JourneyStatus, string> = {
   SUBMITTED: 'Request Submitted',
   IN_CONSULTATION: 'Consultation',
   SPACE_VERIFIED: 'Space Verified',
-  PROPOSAL_DRAFTING: 'Design Proposal',
-  WAITING_FOR_CUSTOMER_REVIEW: 'Customer Review',
+  PROPOSAL_CONSULTING: 'Proposal Consulting',
   QUOTATION_SENT: 'Quotation',
   ORDER_CONFIRMED: 'Order Confirmed',
 };
@@ -53,9 +50,7 @@ const activeProjectStatuses: ProjectStatus[] = [
   'WAITING_FOR_DESIGNER_ASSIGNMENT',
   'MEASUREMENT_REQUIRED',
   'SPACE_VERIFIED',
-  'PROPOSAL_DRAFTING',
-  'WAITING_FOR_CUSTOMER_REVIEW',
-  'REVISION_REQUESTED',
+  'PROPOSAL_CONSULTING',
   'PROPOSAL_SELECTED',
   'QUOTATION_SENT',
   'QUOTATION_REVISION_REQUESTED',
@@ -67,31 +62,31 @@ const activeProjectStatuses: ProjectStatus[] = [
   'DELIVERED',
 ];
 
-const reviewItems = [
-  {
-    imageUrl: warmScandinavianUrl,
-    meta: '$58,000 - 4 Scenes',
-    title: 'Warm Scandinavian Concept',
-  },
-  {
-    imageUrl: '',
-    meta: '$52,000 - 3 Scenes',
-    title: 'Industrial Modern Concept',
-  },
-];
-
 export function CustomerDashboardPage() {
   const navigate = useNavigate();
+  const todayIso = useMemo(() => new Date().toISOString(), []);
   const [scheduleActionMessage, setScheduleActionMessage] = useState('');
   const [activeScheduleActionId, setActiveScheduleActionId] = useState<string | null>(null);
   const projectsQuery = useProjectList({ page: 1, limit: 50 });
   const activeProject = useMemo(() => getFirstActiveProject(projectsQuery.data?.items ?? []), [projectsQuery.data?.items]);
   const projectDetailQuery = useProjectDetail(activeProject?.projectId);
   const project = projectDetailQuery.data ?? activeProject;
+  const proposalsQuery = useProjectProposals(
+    activeProject
+      ? {
+          projectId: activeProject.projectId,
+          status: 'PUBLISHED',
+          page: 1,
+          limit: 5,
+        }
+      : undefined,
+    { enabled: Boolean(activeProject) },
+  );
   const schedulesQuery = useProjectScheduleList(
     activeProject
       ? {
           projectId: activeProject.projectId,
+          from: todayIso,
           page: 1,
           limit: 5,
         }
@@ -100,6 +95,15 @@ export function CustomerDashboardPage() {
   const updateScheduleStatusMutation = useUpdateProjectScheduleStatus();
   const journeySteps = getJourneySteps(project?.status);
   const hasActiveProject = Boolean(project);
+  const pendingReviewProposals = proposalsQuery.data?.items ?? [];
+  const upcomingSchedules = useMemo(
+    () =>
+      (schedulesQuery.data?.items ?? [])
+        .filter((schedule) => schedule.status !== 'CANCELLED' && new Date(schedule.scheduledStart).getTime() >= new Date(todayIso).getTime())
+        .sort((left, right) => new Date(left.scheduledStart).getTime() - new Date(right.scheduledStart).getTime()),
+    [schedulesQuery.data?.items, todayIso],
+  );
+  const actionConfig = project ? getActionConfig(project.status) : null;
 
   async function handleScheduleConfirm(schedule: ProjectScheduleDto) {
     setScheduleActionMessage('');
@@ -193,14 +197,16 @@ export function CustomerDashboardPage() {
                   </ol>
                 </div>
 
-                <div className="customer-dashboard-action-required">
-                  <IconHelp size={16} stroke={1.8} />
-                  <div>
-                    <strong>{getActionTitle(project.status)}</strong>
-                    <p>{getActionDescription(project.status)}</p>
+                {actionConfig ? (
+                  <div className="customer-dashboard-action-required">
+                    <IconHelp size={16} stroke={1.8} />
+                    <div>
+                      <strong>{actionConfig.title}</strong>
+                      <p>{actionConfig.description}</p>
+                    </div>
+                    <button type="button" onClick={() => navigate(actionConfig.path)}>{actionConfig.label}</button>
                   </div>
-                  <button type="button" onClick={() => navigate(getActionPath(project.status))}>{getActionLabel(project.status)}</button>
-                </div>
+                ) : null}
               </section>
             )}
           </div>
@@ -209,13 +215,19 @@ export function CustomerDashboardPage() {
             {hasActiveProject ? (
               <DashboardPanel title="Pending Your Review">
                 <div className="customer-dashboard-review-list">
-                  {reviewItems.map((item) => (
-                    <article key={item.title}>
-                      {item.imageUrl ? <img src={item.imageUrl} alt={item.title} /> : <div className="customer-dashboard-empty-thumb" />}
+                  {proposalsQuery.isLoading ? <p className="customer-dashboard-state">Loading published proposals...</p> : null}
+                  {proposalsQuery.isError ? <p className="customer-dashboard-api-note">Cannot load published proposals.</p> : null}
+                  {!proposalsQuery.isLoading && !proposalsQuery.isError && pendingReviewProposals.length === 0 ? (
+                    <p className="customer-dashboard-state">No published proposals are pending review.</p>
+                  ) : null}
+                  {pendingReviewProposals.map((proposal) => (
+                    <article key={proposal.proposalId}>
                       <div>
-                        <h3>{item.title}</h3>
-                        <p>{item.meta}</p>
-                        <span>Published</span>
+                        <h3>{proposal.proposalName}</h3>
+                        <p>Version {proposal.versionNo} - {proposal.publishedAt ? formatDate(proposal.publishedAt) : 'Published'}</p>
+                        <button type="button" onClick={() => navigate(`/customer/proposals/${proposal.proposalId}?projectId=${proposal.projectId}`)}>
+                          Review
+                        </button>
                       </div>
                     </article>
                   ))}
@@ -237,14 +249,14 @@ export function CustomerDashboardPage() {
                 {!hasActiveProject ? <p className="customer-dashboard-state">Create a project to receive schedules from your team.</p> : null}
                 {hasActiveProject && schedulesQuery.isLoading ? <p className="customer-dashboard-state">Loading project schedules...</p> : null}
                 {hasActiveProject && schedulesQuery.isError ? <p className="customer-dashboard-api-note">{getProjectScheduleServiceResultMessage(schedulesQuery.error)}</p> : null}
-                {hasActiveProject && !schedulesQuery.isLoading && !schedulesQuery.isError && schedulesQuery.data?.items.length === 0 ? (
-                  <p className="customer-dashboard-state">No schedules have been sent for this project yet.</p>
+                {hasActiveProject && !schedulesQuery.isLoading && !schedulesQuery.isError && upcomingSchedules.length === 0 ? (
+                  <p className="customer-dashboard-state">No upcoming schedules have been sent for this project.</p>
                 ) : null}
-                {schedulesQuery.data?.items.map((item) => (
+                {upcomingSchedules.map((item) => (
                   <article key={item.scheduleId}>
                     <strong>{formatDateTimeRange(item.scheduledStart, item.scheduledEnd)}</strong>
                     <h3>{item.title ?? formatEnumLabel(item.scheduleType)}</h3>
-                    <p>{item.customerNote || item.description || 'Schedule shared with the project roles and customer.'}</p>
+                    <p>{item.description || 'Schedule shared with the project roles and customer.'}</p>
                     <span>{formatEnumLabel(item.status)}</span>
                     {item.status === 'PENDING_CONFIRMATION' ? (
                       <div className="customer-dashboard-schedule-actions">
@@ -325,7 +337,7 @@ function getJourneyIndex(status: ProjectStatus) {
     return 2;
   }
 
-  if (status === 'REVISION_REQUESTED' || status === 'PROPOSAL_SELECTED') {
+  if (status === 'PROPOSAL_SELECTED') {
     return 4;
   }
 
@@ -342,60 +354,35 @@ function getJourneyIndex(status: ProjectStatus) {
   return directIndex >= 0 ? directIndex : 0;
 }
 
-function getActionTitle(status: ProjectStatus) {
+function getActionConfig(status: ProjectStatus) {
   if (status === 'NEED_BASIC_INFORMATION') {
-    return 'Action Required: Add Project Information';
+    return {
+      title: 'Action Required: Add Project Information',
+      description: 'Your sales team needs more details before the project can continue.',
+      label: 'Update Info',
+      path: '/customer/projects',
+    };
   }
 
-  if (status === 'WAITING_FOR_CUSTOMER_REVIEW') {
-    return 'Action Required: Review Design Proposals';
+  if (status === 'PROPOSAL_CONSULTING') {
+    return {
+      title: 'Action Required: Review Design Proposals',
+      description: 'Your designer has published design proposals. Please review and provide feedback.',
+      label: 'Review Now',
+      path: '/customer/proposals',
+    };
   }
 
   if (status === 'QUOTATION_SENT' || status === 'QUOTATION_REVISION_REQUESTED') {
-    return 'Action Required: Review Quotation';
+    return {
+      title: 'Action Required: Review Quotation',
+      description: 'A quotation is ready for review before the next project stage.',
+      label: 'View Quotation',
+      path: '/customer/proposals',
+    };
   }
 
-  return 'Project In Progress';
-}
-
-function getActionDescription(status: ProjectStatus) {
-  if (status === 'NEED_BASIC_INFORMATION') {
-    return 'Your sales team needs more details before the project can continue.';
-  }
-
-  if (status === 'WAITING_FOR_CUSTOMER_REVIEW') {
-    return 'Your designer has published design proposals. Please review and provide feedback.';
-  }
-
-  if (status === 'QUOTATION_SENT' || status === 'QUOTATION_REVISION_REQUESTED') {
-    return 'A quotation is ready for review before the next project stage.';
-  }
-
-  return 'Your team is working on the next step. Check the schedule panel for upcoming appointments.';
-}
-
-function getActionLabel(status: ProjectStatus) {
-  if (status === 'NEED_BASIC_INFORMATION') {
-    return 'Update Info';
-  }
-
-  if (status === 'WAITING_FOR_CUSTOMER_REVIEW') {
-    return 'Review Now';
-  }
-
-  if (status === 'QUOTATION_SENT' || status === 'QUOTATION_REVISION_REQUESTED') {
-    return 'View Quotation';
-  }
-
-  return 'Open Project';
-}
-
-function getActionPath(status: ProjectStatus) {
-  if (status === 'WAITING_FOR_CUSTOMER_REVIEW' || status === 'QUOTATION_SENT' || status === 'QUOTATION_REVISION_REQUESTED') {
-    return '/customer/proposals';
-  }
-
-  return '/customer/projects';
+  return null;
 }
 
 function isScheduleActionError(message: string) {
@@ -445,5 +432,13 @@ function formatDateTime(value: string) {
     month: 'short',
     hour: '2-digit',
     minute: '2-digit',
+  }).format(new Date(value));
+}
+
+function formatDate(value: string) {
+  return new Intl.DateTimeFormat('en', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
   }).format(new Date(value));
 }

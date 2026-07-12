@@ -1,4 +1,4 @@
-import { IconArrowLeft } from '@tabler/icons-react';
+import { IconArrowLeft, IconX } from '@tabler/icons-react';
 import { FormEvent, useEffect, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 
@@ -7,10 +7,10 @@ import type { ProjectDto, ProjectStatus } from '@/services/api/projects';
 import { getProjectServiceResultMessage } from '@/services/api/projects';
 import { useAssignSalesToProject, useProjectDetail, useRequestProjectInformation, useUpdateProjectStatus } from '@/services/queries/useProjects';
 
-import { ChatTab, CustomerInfoTab, FilesAttachmentsTab, OverviewTab, SchedulesTab } from './tabs';
+import { ChatTab, CustomerInfoTab, FilesAttachmentsTab, OrdersTab, OverviewTab, SchedulesTab } from './tabs';
 import './ProjectDetail.css';
 
-type ProjectDetailTab = 'overview' | 'customer' | 'files' | 'chat' | 'schedules';
+type ProjectDetailTab = 'overview' | 'customer' | 'files' | 'chat' | 'schedules' | 'orders';
 
 export type ProjectDetailProject = ProjectDto;
 
@@ -26,12 +26,10 @@ const baseTabs: Array<{ id: ProjectDetailTab; label: string }> = [
   { id: 'chat', label: 'Chat' },
 ];
 
-const assignedProjectTabs: Array<{ id: ProjectDetailTab; label: string }> = [...baseTabs, { id: 'schedules', label: 'Schedules' }];
-
-const projectStatusOptions: ProjectStatus[] = [
-  'NEED_BASIC_INFORMATION',
-  'WAITING_FOR_DESIGNER_ASSIGNMENT',
-  'REJECTED',
+const assignedProjectTabs: Array<{ id: ProjectDetailTab; label: string }> = [
+  ...baseTabs,
+  { id: 'orders', label: 'Orders' },
+  { id: 'schedules', label: 'Schedules' },
 ];
 
 const timelineSteps = [
@@ -41,7 +39,7 @@ const timelineSteps = [
   'Waiting For Designer Assignment',
   'Measurement Required',
   'Space Verified',
-  'Proposal Drafting',
+  'Proposal Consulting',
   'Quotation Sent',
   'Order Confirmed',
   'Completed',
@@ -56,7 +54,7 @@ const statusStepMap: Record<string, string> = {
   WAITING_FOR_DESIGNER_ASSIGNMENT: 'Waiting For Designer Assignment',
   MEASUREMENT_REQUIRED: 'Measurement Required',
   SPACE_VERIFIED: 'Space Verified',
-  PROPOSAL_DRAFTING: 'Proposal Drafting',
+  PROPOSAL_CONSULTING: 'Proposal Consulting',
   QUOTATION_SENT: 'Quotation Sent',
   ORDER_CONFIRMED: 'Order Confirmed',
   REJECTED: 'Rejected',
@@ -68,8 +66,9 @@ export function ProjectDetail() {
   const location = useLocation();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<ProjectDetailTab>('overview');
-  const [selectedStatus, setSelectedStatus] = useState<ProjectStatus>('WAITING_FOR_DESIGNER_ASSIGNMENT');
   const [statusMessage, setStatusMessage] = useState('');
+  const [isRequestInfoModalOpen, setIsRequestInfoModalOpen] = useState(false);
+  const [requestInfoMessage, setRequestInfoMessage] = useState('');
   const projectQuery = useProjectDetail(projectId);
   const assignSalesMutation = useAssignSalesToProject();
   const requestInformationMutation = useRequestProjectInformation();
@@ -88,36 +87,49 @@ export function ProjectDetail() {
     }
   }, [activeTab, visibleTabs]);
 
-  useEffect(() => {
-    if (project) {
-      setSelectedStatus(getDefaultNextSalesStatus(project.status));
-    }
-  }, [project]);
+  async function handleConsultationDecision(status: Extract<ProjectStatus, 'NEED_BASIC_INFORMATION' | 'REJECTED'>) {
+    setStatusMessage('');
 
-  async function handleUpdateStatus(event: FormEvent<HTMLFormElement>) {
+    if (!project) return;
+
+    if (status === 'NEED_BASIC_INFORMATION') {
+      setRequestInfoMessage('');
+      setIsRequestInfoModalOpen(true);
+      return;
+    }
+
+    try {
+      await updateProjectStatusMutation.mutateAsync({
+        projectId: project.projectId,
+        status,
+        note: getStatusUpdateNote(status),
+      });
+      setStatusMessage('Project status updated successfully.');
+    } catch (error) {
+      setStatusMessage(getProjectServiceResultMessage(error));
+    }
+  }
+
+  async function handleRequestInformationSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setStatusMessage('');
 
     if (!project) return;
 
-    if (selectedStatus === project.status) {
-      setStatusMessage('Please choose a new project status.');
+    const trimmedMessage = requestInfoMessage.trim();
+
+    if (!trimmedMessage) {
+      setStatusMessage('Request message is required.');
       return;
     }
 
     try {
-      if (selectedStatus === 'NEED_BASIC_INFORMATION') {
-        await requestInformationMutation.mutateAsync({
-          projectId: project.projectId,
-          note: getStatusUpdateNote(selectedStatus),
-        });
-      } else {
-        await updateProjectStatusMutation.mutateAsync({
-          projectId: project.projectId,
-          status: selectedStatus,
-          note: getStatusUpdateNote(selectedStatus),
-        });
-      }
+      await requestInformationMutation.mutateAsync({
+        projectId: project.projectId,
+        message: trimmedMessage,
+      });
+      setIsRequestInfoModalOpen(false);
+      setRequestInfoMessage('');
       setStatusMessage('Project status updated successfully.');
     } catch (error) {
       setStatusMessage(getProjectServiceResultMessage(error));
@@ -129,6 +141,7 @@ export function ProjectDetail() {
     if (activeTab === 'overview') return <OverviewTab project={project} showAssignedTeam={isAssignedProjectRoute} />;
     if (activeTab === 'customer') return <CustomerInfoTab project={project} />;
     if (activeTab === 'files') return <FilesAttachmentsTab projectId={project.projectId} />;
+    if (activeTab === 'orders' && isAssignedProjectRoute) return <OrdersTab projectId={project.projectId} />;
     if (activeTab === 'schedules' && isAssignedProjectRoute) return <SchedulesTab project={project} />;
     return <ChatTab project={project} />;
   };
@@ -162,29 +175,26 @@ export function ProjectDetail() {
             {project ? (
               <div className="project-detail-header-actions">
                 {isAssignedProjectRoute && canSalesDecideConsultation(project.status) ? (
-                  <form className="project-detail-status-update" onSubmit={handleUpdateStatus}>
-                    <label>
-                      <span>Consultation Decision</span>
-                      <select
-                        value={selectedStatus}
+                  <div className="project-detail-status-update">
+                    <span>Consultation Decision</span>
+                    <div className="project-detail-status-buttons">
+                      <button
+                        type="button"
                         disabled={updateProjectStatusMutation.isPending || requestInformationMutation.isPending}
-                        onChange={(event) => {
-                          setSelectedStatus(event.target.value as ProjectStatus);
-                          setStatusMessage('');
-                        }}
+                        onClick={() => void handleConsultationDecision('NEED_BASIC_INFORMATION')}
                       >
-                        {projectStatusOptions.map((status) => (
-                          <option key={status} value={status} disabled={!canUpdateProjectStatus(project.status, status)}>
-                            {formatStatusLabel(status)}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                    <button type="submit" disabled={updateProjectStatusMutation.isPending || requestInformationMutation.isPending || !canUpdateProjectStatus(project.status, selectedStatus)}>
-                      {updateProjectStatusMutation.isPending || requestInformationMutation.isPending ? 'Updating...' : getStatusActionLabel(selectedStatus)}
-                    </button>
+                        Request More Info
+                      </button>
+                      <button
+                        type="button"
+                        disabled={updateProjectStatusMutation.isPending || requestInformationMutation.isPending}
+                        onClick={() => void handleConsultationDecision('REJECTED')}
+                      >
+                        {updateProjectStatusMutation.isPending ? 'Updating...' : 'Reject Project'}
+                      </button>
+                    </div>
                     {statusMessage ? <p className={statusMessage.toLowerCase().includes('success') ? 'project-detail-status-message' : 'project-detail-status-message project-detail-status-message-error'}>{statusMessage}</p> : null}
-                  </form>
+                  </div>
                 ) : null}
                 {project.status === 'SUBMITTED' || project.status === 'NEED_BASIC_INFORMATION' ? (
                   <button
@@ -230,6 +240,60 @@ export function ProjectDetail() {
               </section>
             </>
           ) : null}
+
+          {isRequestInfoModalOpen && project ? (
+            <div className="project-detail-request-modal-overlay">
+              <form className="project-detail-request-modal" onSubmit={handleRequestInformationSubmit}>
+                <div className="project-detail-request-modal-header">
+                  <div>
+                    <strong>Request Basic Information</strong>
+                    <p>Write the message customers will see before they update their project details.</p>
+                  </div>
+                  <button
+                    aria-label="Close request information modal"
+                    type="button"
+                    onClick={() => {
+                      setIsRequestInfoModalOpen(false);
+                      setRequestInfoMessage('');
+                      setStatusMessage('');
+                    }}
+                  >
+                    <IconX size={16} />
+                  </button>
+                </div>
+                <label className="project-detail-request-modal-field">
+                  <span>Request message *</span>
+                  <textarea
+                    autoFocus
+                    required
+                    rows={5}
+                    value={requestInfoMessage}
+                    placeholder="Explain which basic project information the customer needs to add or update."
+                    onChange={(event) => setRequestInfoMessage(event.target.value)}
+                  />
+                </label>
+                {statusMessage && !statusMessage.toLowerCase().includes('success') ? (
+                  <p className="project-detail-request-modal-error">{statusMessage}</p>
+                ) : null}
+                <div className="project-detail-request-modal-actions">
+                  <button
+                    type="button"
+                    disabled={requestInformationMutation.isPending}
+                    onClick={() => {
+                      setIsRequestInfoModalOpen(false);
+                      setRequestInfoMessage('');
+                      setStatusMessage('');
+                    }}
+                  >
+                    Cancel
+                  </button>
+                  <button type="submit" disabled={requestInformationMutation.isPending || !requestInfoMessage.trim()}>
+                    {requestInformationMutation.isPending ? 'Sending...' : 'Send Request'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          ) : null}
         </main>
       </div>
     </div>
@@ -262,36 +326,8 @@ function canSalesDecideConsultation(status: ProjectStatus) {
   return status === 'IN_CONSULTATION';
 }
 
-function getDefaultNextSalesStatus(status: ProjectStatus): ProjectStatus {
-  if (status === 'IN_CONSULTATION') {
-    return 'WAITING_FOR_DESIGNER_ASSIGNMENT';
-  }
-
-  if (status === 'SUBMITTED' || status === 'NEED_BASIC_INFORMATION') {
-    return 'IN_CONSULTATION';
-  }
-
-  return status;
-}
-
-function canUpdateProjectStatus(currentStatus: ProjectStatus, nextStatus: ProjectStatus) {
-  return (
-    currentStatus === 'IN_CONSULTATION' &&
-    (nextStatus === 'NEED_BASIC_INFORMATION' || nextStatus === 'WAITING_FOR_DESIGNER_ASSIGNMENT' || nextStatus === 'REJECTED')
-  );
-}
-
-function getStatusActionLabel(status: ProjectStatus) {
-  if (status === 'NEED_BASIC_INFORMATION') return 'Request More Info';
-  if (status === 'WAITING_FOR_DESIGNER_ASSIGNMENT') return 'Ready for Designer';
-  if (status === 'REJECTED') return 'Reject Project';
-
-  return 'Update Status';
-}
-
 function getStatusUpdateNote(status: ProjectStatus) {
   if (status === 'NEED_BASIC_INFORMATION') return 'Sales requested more basic information from the customer.';
-  if (status === 'WAITING_FOR_DESIGNER_ASSIGNMENT') return 'Sales confirmed consultation details and moved the project to designer assignment.';
   if (status === 'REJECTED') return 'Sales rejected the project during consultation.';
 
   return 'Project status updated by sales from project detail.';
@@ -303,12 +339,4 @@ function getAcceptForConsultationNote(status: ProjectStatus) {
   }
 
   return 'Sales accepted the submitted project for consultation.';
-}
-
-function formatStatusLabel(status: ProjectStatus) {
-  return status
-    .toLowerCase()
-    .split('_')
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(' ');
 }

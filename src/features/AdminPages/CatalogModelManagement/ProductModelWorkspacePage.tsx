@@ -14,7 +14,6 @@ import { AdminNavbar, AdminSidebar } from '@/features/AdminPages/admincomponents
 import { ModelViewer, type ModelViewerStatus } from '@/features/ThreeD/components';
 import {
   getProductServiceResultMessage,
-  type FileListItemDto,
   type ProductVersionFileType,
 } from '@/services/api';
 import {
@@ -24,11 +23,6 @@ import {
 } from '@/services/queries';
 
 import { getPlannerReadiness, getVersionFile } from './catalogModel.utils';
-import {
-  CATALOG_MOCK_ENABLED,
-  getMockCatalogProduct,
-  getMockVersionFiles,
-} from './catalogModel.mock';
 import './CatalogModelManagement.css';
 
 function formatPrice(value: number | null) {
@@ -38,12 +32,12 @@ function formatPrice(value: number | null) {
 export function ProductModelWorkspacePage() {
   const navigate = useNavigate();
   const { productId, productVersionId } = useParams();
-  const productQuery = useProductDetail(productId, !CATALOG_MOCK_ENABLED);
+  const productQuery = useProductDetail(productId);
   const filesQuery = useFilesByReference(productVersionId ? {
     referenceId: productVersionId,
     referenceType: 'PRODUCT_VERSION',
     limit: 100,
-  } : undefined, !CATALOG_MOCK_ENABLED);
+  } : undefined);
   const uploadMutation = useUploadProductVersionFile(productId);
   const [autoRotate, setAutoRotate] = useState(false);
   const [showGrid, setShowGrid] = useState(true);
@@ -51,23 +45,17 @@ export function ProductModelWorkspacePage() {
   const [viewerStatus, setViewerStatus] = useState<ModelViewerStatus>('idle');
   const [viewerError, setViewerError] = useState<string | null>(null);
   const [actionMessage, setActionMessage] = useState('');
-  const [demoFiles, setDemoFiles] = useState<FileListItemDto[]>([]);
-  const product = CATALOG_MOCK_ENABLED ? getMockCatalogProduct(productId) : productQuery.data;
+  const product = productQuery.data;
   const version = product?.versions.find((candidate) => candidate.productVersionId === productVersionId) ?? null;
   const apiFiles = useMemo(
-    () => (CATALOG_MOCK_ENABLED ? getMockVersionFiles(productVersionId) : filesQuery.data?.items ?? []),
-    [filesQuery.data?.items, productVersionId],
+    () => filesQuery.data?.items ?? [],
+    [filesQuery.data?.items],
   );
-  const displayedFiles = useMemo(
-    () => [...demoFiles, ...apiFiles],
-    [apiFiles, demoFiles],
-  );
+  const displayedFiles = apiFiles;
   const modelFile = displayedFiles.find((file) => file.fileType === 'MODEL_3D');
   const previewFile = displayedFiles.find((file) => file.fileType === 'PRODUCT_PREVIEW');
-  const modelUrl = modelFile?.publicUrl ?? (CATALOG_MOCK_ENABLED ? undefined : getVersionFile(version, 'MODEL_3D')?.fileUrl);
-  const previewUrl = previewFile?.publicUrl ?? (CATALOG_MOCK_ENABLED
-    ? undefined
-    : version?.thumbnail?.fileUrl ?? getVersionFile(version, 'PRODUCT_PREVIEW')?.fileUrl);
+  const modelUrl = modelFile?.publicUrl ?? getVersionFile(version, 'MODEL_3D')?.fileUrl;
+  const previewUrl = previewFile?.publicUrl ?? version?.thumbnail?.fileUrl ?? getVersionFile(version, 'PRODUCT_PREVIEW')?.fileUrl;
   const dimensions = version
     ? `${version.width ?? '-'} x ${version.height ?? '-'} x ${version.depth ?? '-'}`
     : '-';
@@ -101,26 +89,6 @@ export function ProductModelWorkspacePage() {
 
     setActionMessage('');
 
-    if (CATALOG_MOCK_ENABLED) {
-      const demoFile: FileListItemDto = {
-        fileId: `demo-${fileType}-${Date.now()}`,
-        fileLinkId: `demo-link-${Date.now()}`,
-        fileSize: file.size,
-        fileType,
-        mimeType: file.type || (fileType === 'MODEL_3D' ? 'model/gltf-binary' : 'image/*'),
-        originalFileName: file.name,
-        publicUrl: URL.createObjectURL(file),
-        uploadedAt: new Date().toISOString(),
-        uploadedBy: 'Demo Admin',
-        visibility: 'STAFF_ONLY',
-      };
-      setDemoFiles((currentFiles) => [demoFile, ...currentFiles.filter((item) => item.fileType !== fileType)]);
-      setActionMessage(`${fileType} added to the demo workspace.`);
-      setViewerRevision((revision) => revision + 1);
-      event.target.value = '';
-      return;
-    }
-
     try {
       await uploadMutation.mutateAsync({
         file,
@@ -141,8 +109,6 @@ export function ProductModelWorkspacePage() {
     setViewerStatus(status);
     setViewerError(error);
   }, []);
-
-  const queryError = CATALOG_MOCK_ENABLED ? null : productQuery.error ?? filesQuery.error;
 
   return (
     <main className="admin-dashboard-page">
@@ -174,10 +140,6 @@ export function ProductModelWorkspacePage() {
             </header>
 
             {(productQuery.isLoading || filesQuery.isLoading) && <div className="catalog-model-state">Loading Product Version assets...</div>}
-            {queryError && <div className="catalog-model-state is-error">{getProductServiceResultMessage(queryError)}</div>}
-            {!productQuery.isLoading && product && !version && (
-              <div className="catalog-model-state is-error">Product Version was not found in this Product.</div>
-            )}
             {actionMessage && <div className="catalog-action-message">{actionMessage}</div>}
 
             {version && product && (

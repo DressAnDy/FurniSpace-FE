@@ -69,7 +69,7 @@ type ProductModel = {
   name: string;
   productId?: string;
   productVersionId?: string;
-  source?: 'api' | 'local' | 'uploaded';
+  source?: 'api' | 'uploaded';
   thumbnailUrl: string;
   width?: number | null;
 };
@@ -179,18 +179,6 @@ const FALLBACK_SWATCHES: MaterialSwatch[] = [
   { color: '#8E8F88', id: 'stone-gray', name: 'Stone Gray' },
 ];
 
-const FALLBACK_PRODUCT_MODELS: ProductModel[] = [
-  {
-    id: 'fallback-metal-stool',
-    modelUrl: '/models/3d-test/chair01/metal_stool_02_4k.gltf',
-    name: 'Metal Stool',
-    source: 'local',
-    thumbnailUrl: '/models/3d-test/thumbnails/placeholder-product.svg',
-  },
-];
-
-const EMPTY_PRODUCT_MODELS: ProductModel[] = [];
-
 function getCatalogModelFile(files: CatalogFileDto[] | undefined) {
   return files?.find((file) => file.fileType === 'MODEL_3D') ?? null;
 }
@@ -235,6 +223,47 @@ function mergeProductModels(...groups: ProductModel[][]) {
   });
 
   return [...models.values()];
+}
+
+function createSceneObjectId(existingIds: Set<string>) {
+  let candidate = `scene-object-${globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`}`;
+
+  while (existingIds.has(candidate)) {
+    candidate = `scene-object-${globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`}`;
+  }
+
+  return candidate;
+}
+
+function getNextSceneObjectId(products: PlacedProduct3D[]) {
+  return createSceneObjectId(new Set(products.map((product) => product.id)));
+}
+
+function ensureUniquePlacedProductIds(products: PlacedProduct3D[]) {
+  const seenIds = new Set<string>();
+  let changed = false;
+
+  const nextProducts = products.map((product) => {
+    if (product.id && !seenIds.has(product.id)) {
+      seenIds.add(product.id);
+      return product;
+    }
+
+    changed = true;
+    const nextId = createSceneObjectId(seenIds);
+    seenIds.add(nextId);
+
+    return {
+      ...product,
+      id: nextId,
+      proposalItemId: null,
+    };
+  });
+
+  return {
+    changed,
+    products: nextProducts,
+  };
 }
 
 function getSyncableProposalItems(products: PlacedProduct3D[]) {
@@ -301,10 +330,6 @@ function parseNumberInput(value: string, fallback: number) {
 function getCatalogSourceLabel(product: ProductModel) {
   if (product.source === 'uploaded') {
     return 'Uploaded';
-  }
-
-  if (product.source === 'local') {
-    return 'Test asset';
   }
 
   return 'Catalog';
@@ -419,9 +444,7 @@ export function ThreeDTestPage() {
   const [designPanel, setDesignPanel] = useState<DesignPanel>('products');
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [panelSearch, setPanelSearch] = useState('');
-  const [productModels, setProductModels] = useState<ProductModel[]>(() => (isProposalScene ? EMPTY_PRODUCT_MODELS : FALLBACK_PRODUCT_MODELS));
   const [apiProductModels, setApiProductModels] = useState<ProductModel[]>([]);
-  const [catalogModelMessage, setCatalogModelMessage] = useState('Loading catalog MODEL_3D files...');
   const [uploadedProductModels, setUploadedProductModels] = useState<ProductModel[]>([]);
   const [modelUploadProductVersionId, setModelUploadProductVersionId] = useState('');
   const [modelUploadMessage, setModelUploadMessage] = useState('');
@@ -471,9 +494,8 @@ export function ThreeDTestPage() {
     () => mergeProductModels(
       uploadedProductModels,
       apiProductModels,
-      isProposalScene ? EMPTY_PRODUCT_MODELS : productModels,
     ),
-    [apiProductModels, isProposalScene, productModels, uploadedProductModels],
+    [apiProductModels, uploadedProductModels],
   );
   const filteredProductModels = useMemo(() => {
     const normalizedSearch = panelSearch.trim().toLowerCase();
@@ -512,13 +534,19 @@ export function ThreeDTestPage() {
     const hydratedScene = hydrateRoomPlannerScenePayload(roomPlannerSceneQuery.data, {
       resolveModelUrl: resolveSceneObjectModelUrl,
     });
+    const normalizedHydratedProducts = ensureUniquePlacedProductIds(hydratedScene.placedProducts).products;
 
     setLayout(hydratedScene.layout);
-    setPlacedProducts(hydratedScene.placedProducts);
+    setPlacedProducts(normalizedHydratedProducts);
     setActiveTool(hydratedScene.activeTool);
     setHideLabels(hydratedScene.hideLabels);
     setIsSidebarCollapsed(hydratedScene.isSidebarCollapsed);
-    setSelectedProductId(hydratedScene.selectedProductId);
+    setSelectedProductId(
+      hydratedScene.selectedProductId &&
+        normalizedHydratedProducts.some((product) => product.id === hydratedScene.selectedProductId)
+        ? hydratedScene.selectedProductId
+        : null,
+    );
     setViewMode(hydratedScene.viewMode);
     setComparisonProductId(null);
     setProductMeasurements(null);
@@ -586,8 +614,6 @@ export function ThreeDTestPage() {
 
     async function loadCatalogModels() {
       try {
-        setCatalogModelMessage('Loading catalog MODEL_3D files...');
-
         const limit = 100;
         let page = 1;
         let total = 0;
@@ -611,22 +637,10 @@ export function ThreeDTestPage() {
 
         if (isMounted) {
           setApiProductModels(models);
-          setCatalogModelMessage(
-            models.length
-              ? `Loaded ${models.length} catalog MODEL_3D file(s).`
-              : isProposalScene
-                ? 'No catalog MODEL_3D files found from backend.'
-                : 'No catalog MODEL_3D files found. Local test models are still available.',
-          );
         }
-      } catch (error) {
+      } catch {
         if (isMounted) {
           setApiProductModels([]);
-          setCatalogModelMessage(
-            isProposalScene
-              ? getProductServiceResultMessage(error)
-              : `${getProductServiceResultMessage(error)} Local test models are still available.`,
-          );
         }
       }
     }
@@ -636,7 +650,7 @@ export function ThreeDTestPage() {
     return () => {
       isMounted = false;
     };
-  }, [isProposalScene]);
+  }, []);
 
   useEffect(() => {
     let isMounted = true;
@@ -670,46 +684,6 @@ export function ThreeDTestPage() {
     };
   }, []);
 
-  useEffect(() => {
-    let isMounted = true;
-
-    async function loadProductManifest() {
-      if (isProposalScene) {
-        setProductModels(EMPTY_PRODUCT_MODELS);
-        return;
-      }
-
-      try {
-        const response = await fetch('/models/3d-test/models.json', {
-          cache: 'no-store',
-        });
-
-        if (!response.ok) {
-          throw new Error(`Product manifest request failed with ${response.status}.`);
-        }
-
-        const manifest = await response.json() as {
-          models?: ProductModel[];
-        };
-        const models = manifest.models?.filter((model) => model.modelUrl) ?? [];
-
-        if (isMounted) {
-          setProductModels(models.length ? models : FALLBACK_PRODUCT_MODELS);
-        }
-      } catch {
-        if (isMounted) {
-          setProductModels(FALLBACK_PRODUCT_MODELS);
-        }
-      }
-    }
-
-    void loadProductManifest();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [isProposalScene]);
-
   const handleAddBox = useCallback(() => {
     setLayout(createDefaultRoomLayout());
     setPlacedProducts([]);
@@ -739,7 +713,18 @@ export function ThreeDTestPage() {
       viewMode,
       wallMaterial,
     });
-    const roomPlannerPayload = buildRoomPlannerPayload(placedProducts);
+    const normalizedPlacedProducts = ensureUniquePlacedProductIds(placedProducts);
+    const productsToSave = normalizedPlacedProducts.products;
+    const roomPlannerPayload = buildRoomPlannerPayload(productsToSave);
+
+    if (normalizedPlacedProducts.changed) {
+      setPlacedProducts(productsToSave);
+      setSelectedProductId((currentSelectedProductId) => (
+        currentSelectedProductId && productsToSave.some((product) => product.id === currentSelectedProductId)
+          ? currentSelectedProductId
+          : null
+      ));
+    }
 
     if (isProposalScene && sceneId) {
       setSaveMessage('Saving Room Planner scene to MongoDB...');
@@ -749,7 +734,7 @@ export function ThreeDTestPage() {
           sceneId,
           payload: roomPlannerPayload,
         });
-        const syncItems = getSyncableProposalItems(placedProducts);
+        const syncItems = getSyncableProposalItems(productsToSave);
 
         if (currentProposalId && syncItems.length) {
           setSaveMessage('Room Planner scene saved. Syncing proposal items from scene...');
@@ -759,7 +744,7 @@ export function ThreeDTestPage() {
             sceneId,
             items: syncItems,
           });
-          const productsWithProposalItems = applyProposalItemIds(placedProducts, syncResult.items);
+          const productsWithProposalItems = applyProposalItemIds(productsToSave, syncResult.items);
 
           setPlacedProducts(productsWithProposalItems);
 
@@ -872,13 +857,16 @@ export function ThreeDTestPage() {
 
     setPlacedProducts((currentProducts) => {
       const nextIndex = currentProducts.length;
+      const nextProductId = getNextSceneObjectId(currentProducts);
       const initialScale = getInitialProductScale(product);
+      setSelectedProductId(nextProductId);
+
       return [
         ...currentProducts,
         {
           fileId: product.fileId,
           heightOffset: position?.y ?? 0,
-          id: `product-${String(nextIndex + 1).padStart(3, '0')}`,
+          id: nextProductId,
           mountedWallId: null,
           modelName: product.name,
           modelUrl: product.modelUrl,
@@ -907,9 +895,8 @@ export function ThreeDTestPage() {
     });
     setViewMode('3d');
     setComparisonProductId(null);
-    setSelectedProductId(`product-${String(placedProducts.length + 1).padStart(3, '0')}`);
     setSaveMessage('');
-  }, [layout, placedProducts.length]);
+  }, [layout]);
 
   const handleProductDrop = useCallback((productModelId: string, position: PlacedProduct3D['position']) => {
     const product = availableProductModels.find((model) => model.id === productModelId);
@@ -957,7 +944,7 @@ export function ThreeDTestPage() {
   }, []);
 
   const handleDuplicateProduct = useCallback((product: PlacedProduct3D) => {
-    const duplicateId = `product-${String(placedProducts.length + 1).padStart(3, '0')}`;
+    const duplicateId = getNextSceneObjectId(placedProducts);
     const duplicate: PlacedProduct3D = {
       ...product,
       id: duplicateId,
@@ -975,7 +962,7 @@ export function ThreeDTestPage() {
     setShowProductInfo(false);
     setFreeRotateProductId(null);
     setSaveMessage('');
-  }, [placedProducts.length]);
+  }, [placedProducts]);
 
   const handleDeleteProduct = useCallback((productId: string) => {
     setPlacedProducts((currentProducts) => currentProducts.filter((product) => product.id !== productId));
@@ -1256,7 +1243,6 @@ export function ThreeDTestPage() {
                   <strong>Catalog</strong>
                   <span>{filteredProductModels.length} ready model(s)</span>
                 </div>
-                <div className="catalog-status">{catalogModelMessage}</div>
                 {isAdminLab && (
                   <div className="model-upload-card">
                     <div>
@@ -1474,7 +1460,7 @@ export function ThreeDTestPage() {
                 <div className="object-info-box">
                   <dl>
                     <div><dt>Product name</dt><dd>{selectedProduct.modelName}</dd></div>
-                    <div><dt>Product ID</dt><dd>{selectedProduct.productId ?? 'Local test model'}</dd></div>
+                    <div><dt>Product ID</dt><dd>{selectedProduct.productId ?? selectedProduct.productVersionId ?? selectedProduct.id}</dd></div>
                     <div><dt>Model URL</dt><dd>{selectedProduct.modelUrl}</dd></div>
                     <div><dt>Position</dt><dd>{selectedProduct.position.x}, {selectedProduct.position.y}, {selectedProduct.position.z}</dd></div>
                     <div><dt>Rotation Y</dt><dd>{normalizeDegrees(toDegrees(getProductRotation(selectedProduct).y))} deg</dd></div>

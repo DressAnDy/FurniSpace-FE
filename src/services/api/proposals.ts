@@ -33,7 +33,6 @@ proposalApiClient.interceptors.response.use(
 export type ProposalStatus =
   | 'DRAFT'
   | 'PUBLISHED'
-  | 'VIEWED'
   | 'SELECTED'
   | 'REVISION_REQUESTED'
   | 'REJECTED'
@@ -156,6 +155,14 @@ export type CreateProposalSceneInput = {
   proposalId: string;
   sceneName: string;
   sceneType: ProposalSceneType;
+  projectAreaId?: string | null;
+  mongoSceneId?: string | null;
+  previewFileId?: string | null;
+};
+
+export type UpdateProposalSceneInput = {
+  sceneId: string;
+  sceneName?: string | null;
   projectAreaId?: string | null;
   mongoSceneId?: string | null;
   previewFileId?: string | null;
@@ -313,6 +320,17 @@ export async function createProposalScene(input: CreateProposalSceneInput) {
     projectAreaId: input.projectAreaId ?? null,
     mongoSceneId: input.mongoSceneId ?? null,
     previewFileId: input.previewFileId ?? null,
+  });
+
+  return response.data.data;
+}
+
+export async function updateProposalScene(input: UpdateProposalSceneInput) {
+  const response = await proposalApiClient.patch<ServiceResult<ProposalSceneDto>>(`/proposal-scenes/${input.sceneId}`, {
+    sceneName: input.sceneName?.trim() || undefined,
+    projectAreaId: input.projectAreaId ?? undefined,
+    mongoSceneId: input.mongoSceneId ?? undefined,
+    previewFileId: input.previewFileId ?? undefined,
   });
 
   return response.data.data;

@@ -189,6 +189,23 @@ function getNotificationTargetPath(notification: NotificationDto, role?: string)
     return notification.referenceId ? `/customer/schedules?scheduleId=${encodeURIComponent(notification.referenceId)}` : '/customer/schedules';
   }
 
+  if (notification.referenceType === 'PROPOSAL') {
+    if (normalizedRole === 'DESIGNER') {
+      return notification.projectId ? `/designer/assigned-projects/${notification.projectId}` : '/designer/assigned-projects';
+    }
+
+    if (normalizedRole === 'SALES') {
+      return notification.projectId ? `/sales/assigned-projects/${notification.projectId}` : '/sales/assigned-projects';
+    }
+
+    if (notification.referenceId) {
+      const params = notification.projectId ? `?projectId=${encodeURIComponent(notification.projectId)}` : '';
+      return `/customer/proposals/${notification.referenceId}${params}`;
+    }
+
+    return notification.projectId ? `/customer/proposals?projectId=${encodeURIComponent(notification.projectId)}` : '/customer/proposals';
+  }
+
   const projectId = notification.referenceType === 'PROJECT' ? notification.referenceId : notification.projectId;
 
   if (projectId) {

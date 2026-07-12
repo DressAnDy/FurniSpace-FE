@@ -15,6 +15,7 @@ import {
 } from '@/services/api/notifications';
 import { getStoredAccessToken } from '@/services/api/tokenStore';
 import { projectQueryKeys } from './useProjects';
+import { proposalQueryKeys } from './useProposals';
 import { projectScheduleQueryKeys } from './useSchedules';
 
 export const notificationQueryKeys = {
@@ -30,6 +31,7 @@ const inAppNotificationEvents = [
   'project.more_information.requested',
   'project.basic_information.updated',
   'project.designer.assigned',
+  'proposal.published',
 ] as const;
 
 const realtimeOnlyNotificationEvents = ['project.status.changed', 'project_schedule.completed'] as const;
@@ -232,6 +234,14 @@ function invalidateBusinessQueries(queryClient: ReturnType<typeof useQueryClient
 
     if (payload.referenceId) {
       void queryClient.invalidateQueries({ queryKey: projectScheduleQueryKeys.detail(payload.referenceId) });
+    }
+  }
+
+  if (payload.referenceType === 'PROPOSAL') {
+    void queryClient.invalidateQueries({ queryKey: proposalQueryKeys.all });
+
+    if (payload.referenceId) {
+      void queryClient.invalidateQueries({ queryKey: proposalQueryKeys.detail(payload.referenceId) });
     }
   }
 

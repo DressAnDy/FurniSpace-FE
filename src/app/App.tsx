@@ -22,6 +22,8 @@ import { CustomerProjectListPage } from '@/features/CustomerPages/customerProjec
 import { CustomerProjectInformationPage } from '@/features/CustomerPages/customerProjectInformation/CustomerProjectInformationPage';
 import { CustomerProjectRequestPage } from '@/features/CustomerPages/customerProjectRequest';
 import { CustomerProposalDetailPage } from '@/features/CustomerPages/customerProposalDetail';
+import { CustomerOrdersPage } from '@/features/CustomerPages/customerOrders';
+import { CustomerQuotationsPage } from '@/features/CustomerPages/customerQuotations';
 import { DesignerAssignedProjects } from '@/features/DesignerPages/DesignerAssignedProjects';
 import { DesignerProposalWorkspace } from '@/features/DesignerPages/DesignerProposalWorkspace';
 import { CustomerSchedulesPage } from '@/features/CustomerPages/customerSchedules';
@@ -38,7 +40,10 @@ import { DesignerDashbroad } from '@/features/DesignerPages/DesignerDashbroad';
 import { DesignerProductLibrary } from '@/features/DesignerPages/DesignerProductLibrary';
 import { DesignerProjectDetail } from '@/features/DesignerPages/DesignerProjectDetail';
 import { DesignerSchedules } from '@/features/DesignerPages/DesignerSchedules';
+import { ProductionCustomizationRequests } from '@/features/ProductionPages/ProductionCustomizationRequests';
+import { ProductionDashbroad } from '@/features/ProductionPages/ProductionDashbroad';
 import { SaleQuotations } from '@/features/SalePages/SaleQuotations';
+import { SaleOrders } from '@/features/SalePages/SaleOrders';
 import { SaleSchedules } from '@/features/SalePages/SaleSchedules';
 import { SaleDashbroad } from '@/features/SalePages/SaleDashbroad';
 import { ThreeDTestPage } from '@/features/ThreeD/pages/ThreeDTestPage';
@@ -99,6 +104,8 @@ export default function App() {
               <Route path="/customer/schedules" element={<CustomerSchedulesPage />} />
               <Route path="/customer/proposals" element={<CustomerProposalDetailPage />} />
               <Route path="/customer/proposals/:proposalId" element={<CustomerProposalDetailPage />} />
+              <Route path="/customer/quotations" element={<CustomerQuotationsPage />} />
+              <Route path="/customer/orders" element={<CustomerOrdersPage />} />
               <Route path="/customer/3d-preview" element={<Customer3dPreviewPage />} />
               <Route path="/customer/chat" element={<CustomerChatPage />} />
               {/* Customer legacy redirects */}
@@ -122,6 +129,7 @@ export default function App() {
               <Route path="/sales/assigned-projects/:projectId" element={<ProjectDetail />} />
               <Route path="/sales/schedules" element={<SaleSchedules />} />
               <Route path="/sales/quotations" element={<SaleQuotations />} />
+              <Route path="/sales/orders" element={<SaleOrders />} />
               <Route path="/sales/project-requests/:projectId" element={<ProjectDetail />} />
             </Route>
 
@@ -135,12 +143,20 @@ export default function App() {
               <Route path="/designer/schedules" element={<DesignerSchedules />} />
             </Route>
 
+            {/* Production routes (role: PRODUCTION) */}
+            <Route element={<ProtectedRoute allowedRoles={['PRODUCTION']} />}>
+              <Route path="/production" element={<Navigate to="/production/customization-requests" replace />} />
+              <Route path="/production/dashbroad" element={<ProductionDashbroad />} />
+              <Route path="/production/customization-requests" element={<ProductionCustomizationRequests />} />
+            </Route>
+
             <Route path="/viewer3d" element={<ViewerDemoPage />} />
             <Route path="/3d-lab" element={<ThreeDTestPage />} />
             <Route path="/proposal-scenes/:sceneId/room-planner" element={<ThreeDTestPage />} />
 
             <Route path="/designer" element={<Navigate to="/designer/assigned-projects" replace />} />
             <Route path="/designer/assigned-projects" element={<DesignerAssignedProjects />} />
+            <Route path="/designer/projects/:projectId/proposals/new" element={<DesignerProposalWorkspace />} />
             <Route path="/designer/projects/:projectId/proposals/:proposalId" element={<DesignerProposalWorkspace />} />
 
             <Route path="/customer" element={<Navigate to="/customer/dashboard" replace />} />
@@ -150,6 +166,8 @@ export default function App() {
             <Route path="/customer/project-request" element={<CustomerProjectRequestPage />} />
             <Route path="/customer/proposals" element={<CustomerProposalDetailPage />} />
             <Route path="/customer/proposals/:proposalId" element={<CustomerProposalDetailPage />} />
+            <Route path="/customer/quotations" element={<CustomerQuotationsPage />} />
+            <Route path="/customer/orders" element={<CustomerOrdersPage />} />
             <Route path="/customer/3d-preview" element={<Customer3dPreviewPage />} />
             <Route path="/customer-dashboard" element={<Navigate to="/customer/dashboard" replace />} />
             <Route path="/customer-3d-preview" element={<Navigate to="/customer/3d-preview" replace />} />
@@ -184,6 +202,7 @@ export default function App() {
             <Route path="/sales/assigned-projects/:projectId" element={<ProjectDetail />} />
             <Route path="/sales/schedules" element={<SaleSchedules />} />
             <Route path="/sales/quotations" element={<SaleQuotations />} />
+            <Route path="/sales/orders" element={<SaleOrders />} />
             <Route path="/sales/project-requests/:projectId" element={<ProjectDetail />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

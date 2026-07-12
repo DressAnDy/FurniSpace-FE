@@ -3,8 +3,15 @@ import { useQueries } from '@tanstack/react-query';
 
 import { getAccountById, getAccountRoleName, type AccountDto } from '@/services/api';
 import { getAccountServiceResultMessage } from '@/services/api/accounts';
+import { getPaymentServiceResultMessage } from '@/services/api/payments';
 import { getProjectServiceResultMessage, type ProjectSpaceDataStatus } from '@/services/api/projects';
-import { useAssignDesignerToProject, useAvailableDesigners } from '@/services/queries';
+import {
+  useAssignDesignerToProject,
+  useAvailableDesigners,
+  useCreateProjectStartFeePayment,
+  usePaymentDetail,
+  useProjectStartFeeStatus,
+} from '@/services/queries';
 
 import type { ProjectDetailProject } from '../ProjectDetail';
 
@@ -16,6 +23,9 @@ type OverviewTabProps = {
 export function OverviewTab({ project, showAssignedTeam = false }: OverviewTabProps) {
   const [assignmentMessage, setAssignmentMessage] = useState('');
   const [selectedDesignerId, setSelectedDesignerId] = useState(project.assignedDesignerId ?? '');
+  const [startFeeMessage, setStartFeeMessage] = useState('');
+  const [startFeeAmount, setStartFeeAmount] = useState('');
+  const [startFeeExpiredAt, setStartFeeExpiredAt] = useState('');
   const teamAccountIds = [project.assignedSalesId, project.assignedDesignerId].filter((accountId): accountId is string => Boolean(accountId));
   const teamQueries = useQueries({
     queries: teamAccountIds.map((accountId) => ({
@@ -41,6 +51,18 @@ export function OverviewTab({ project, showAssignedTeam = false }: OverviewTabPr
     { enabled: showAssignedTeam && !project.assignedDesignerId },
   );
   const assignDesignerMutation = useAssignDesignerToProject();
+  const startFeeStatusQuery = useProjectStartFeeStatus(project.projectId, {
+    enabled: showAssignedTeam && !project.assignedDesignerId,
+  });
+  const startFeeStatus = startFeeStatusQuery.data;
+  const existingStartFeePaymentQuery = usePaymentDetail(startFeeStatus?.paymentId ?? undefined, {
+    enabled: Boolean(startFeeStatus?.paymentId),
+  });
+  const existingStartFeePayment = existingStartFeePaymentQuery.data;
+  const createStartFeePaymentMutation = useCreateProjectStartFeePayment();
+  const isStartFeeChecking = showAssignedTeam && !project.assignedDesignerId && startFeeStatusQuery.isLoading;
+  const isStartFeeBlocking = Boolean(startFeeStatus?.requiresProjectStartFee && !startFeeStatus.isEligibleForDesignerAssignment);
+  const canShowDesignerAssignment = !project.assignedDesignerId && !isStartFeeChecking && !isStartFeeBlocking;
   const availableDesigners = useMemo(
     () => availableDesignersQuery.data?.items ?? [],
     [availableDesignersQuery.data?.items],
@@ -100,6 +122,32 @@ export function OverviewTab({ project, showAssignedTeam = false }: OverviewTabPr
     }
   }
 
+  async function handleCreateStartFeePayment() {
+    setStartFeeMessage('');
+
+    const amount = normalizePositiveAmount(startFeeAmount);
+
+    if (!amount) {
+      setStartFeeMessage('Please enter a project start fee amount greater than 0.');
+      return;
+    }
+
+    try {
+      const payment = await createStartFeePaymentMutation.mutateAsync({
+        projectId: project.projectId,
+        amount,
+        expiredAt: toApiDateTime(startFeeExpiredAt),
+        note: 'Project start fee created before designer assignment.',
+      });
+      setStartFeeMessage(`Start fee request ${payment.paymentCode} was created and sent to the customer.`);
+      setStartFeeAmount('');
+      setStartFeeExpiredAt('');
+      void startFeeStatusQuery.refetch();
+    } catch (error) {
+      setStartFeeMessage(getPaymentServiceResultMessage(error));
+    }
+  }
+
   return (
     <div className="project-detail-overview project-detail-tab-panel">
       <section className="project-detail-card project-detail-information-card">
@@ -155,6 +203,62 @@ export function OverviewTab({ project, showAssignedTeam = false }: OverviewTabPr
           {!project.assignedDesignerId ? <div className="project-detail-section-divider" /> : null}
 
           {!project.assignedDesignerId ? (
+            <section className={isStartFeeBlocking ? 'project-detail-start-fee-card project-detail-start-fee-card-blocking' : 'project-detail-start-fee-card'}>
+              <div>
+                <h4>Project Start Fee</h4>
+                <p>{getStartFeeCopy(startFeeStatusQuery.isLoading, startFeeStatusQuery.isError, startFeeStatus)}</p>
+              </div>
+              <span>{formatStatusLabel(startFeeStatus?.projectStartFeeStatus ?? (startFeeStatus?.isEligibleForDesignerAssignment ? 'PAID' : null))}</span>
+              {isStartFeeBlocking ? (
+                <div className="project-detail-start-fee-actions">
+                  {startFeeStatus?.paymentId ? (
+                    <div className="project-detail-start-fee-existing">
+                      <strong>Existing request found</strong>
+                      <span>{existingStartFeePaymentQuery.isLoading ? 'Loading payment detail...' : formatExistingStartFee(existingStartFeePayment)}</span>
+                    </div>
+                  ) : (
+                    <div className="project-detail-start-fee-create">
+                      <label>
+                        <span>Fee amount</span>
+                        <input
+                          min="1"
+                          inputMode="decimal"
+                          placeholder="Enter amount"
+                          type="number"
+                          value={startFeeAmount}
+                          disabled={createStartFeePaymentMutation.isPending}
+                          onChange={(event) => setStartFeeAmount(event.currentTarget.value)}
+                        />
+                      </label>
+                      <label>
+                        <span>Due date</span>
+                        <input
+                          type="datetime-local"
+                          value={startFeeExpiredAt}
+                          disabled={createStartFeePaymentMutation.isPending}
+                          onChange={(event) => setStartFeeExpiredAt(event.currentTarget.value)}
+                        />
+                      </label>
+                      <button
+                        type="button"
+                        disabled={createStartFeePaymentMutation.isPending || !normalizePositiveAmount(startFeeAmount) || !startFeeExpiredAt}
+                        onClick={() => void handleCreateStartFeePayment()}
+                      >
+                        {createStartFeePaymentMutation.isPending ? 'Creating...' : 'Create Start Fee'}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ) : null}
+              {startFeeMessage ? (
+                <p className={`project-detail-form-message ${startFeeMessage.toLowerCase().includes('created') ? '' : 'project-detail-form-message-error'}`}>{startFeeMessage}</p>
+              ) : null}
+            </section>
+          ) : null}
+
+          {isStartFeeChecking ? <p className="project-detail-muted">Checking project start fee status...</p> : null}
+
+          {canShowDesignerAssignment ? (
             <form className="project-detail-designer-assignment" onSubmit={handleAssignDesigner}>
             <div className="project-detail-designer-form">
               <h4>Assignment Details</h4>
@@ -233,6 +337,20 @@ export function OverviewTab({ project, showAssignedTeam = false }: OverviewTabPr
   );
 }
 
+function getStartFeeCopy(
+  isLoading: boolean,
+  isError: boolean,
+  status: ReturnType<typeof useProjectStartFeeStatus>['data'],
+) {
+  if (isLoading) return 'Checking whether this project needs a start fee before designer assignment.';
+  if (isError) return 'Cannot load start fee status. You can retry by refreshing this project detail.';
+  if (!status?.requiresProjectStartFee) return 'No start fee is required for this project.';
+  if (status.isEligibleForDesignerAssignment) return 'Start fee is paid. Designer assignment can continue.';
+  if (status.paymentId) return 'A start fee request already exists. Waiting for customer payment confirmation.';
+
+  return 'Create the start fee payment before assigning a designer.';
+}
+
 type TeamMemberCardProps = {
   label: string;
   fallbackId: string | null;
@@ -302,4 +420,41 @@ function formatBudgetRange(min: number | null, max: number | null) {
 
   if (minText && maxText) return `${minText} - ${maxText}`;
   return minText ?? maxText;
+}
+
+function formatStatusLabel(value?: string | null) {
+  if (!value) return 'Not created';
+
+  return value
+    .toLowerCase()
+    .split('_')
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
+}
+
+function normalizePositiveAmount(value: string) {
+  const amount = Number(value);
+
+  return Number.isFinite(amount) && amount > 0 ? amount : null;
+}
+
+function toApiDateTime(value: string) {
+  if (!value) return null;
+
+  const date = new Date(value);
+
+  return Number.isNaN(date.getTime()) ? null : date.toISOString();
+}
+
+function formatExistingStartFee(payment?: { amount: number; currency: string; expiredAt?: string | null } | null) {
+  if (!payment) return 'A collectable payment request already exists.';
+
+  const amount = new Intl.NumberFormat('vi-VN', {
+    style: 'currency',
+    currency: payment.currency || 'VND',
+    maximumFractionDigits: 0,
+  }).format(payment.amount);
+  const dueDate = payment.expiredAt ? formatDateOnly(payment.expiredAt) : 'No due date';
+
+  return `${amount} - Due ${dueDate}`;
 }

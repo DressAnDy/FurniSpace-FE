@@ -30,7 +30,7 @@ export const MOCK_PROJECT = {
   name: 'Harbor Coffee Flagship',
   projectCode: 'FS-PRJ-2026-018',
   projectId: 'mock-project-cafe',
-  status: 'PROPOSAL_DRAFTING',
+  status: 'PROPOSAL_CONSULTING',
 };
 
 export const MOCK_PROPOSAL = {

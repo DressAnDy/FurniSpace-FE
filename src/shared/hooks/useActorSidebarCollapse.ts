@@ -1,16 +1,18 @@
 import { useEffect, useState } from 'react';
 
-type ActorKey = 'admin' | 'designer' | 'sale';
+type ActorKey = 'admin' | 'designer' | 'production' | 'sale';
 
 const storageKeyByActor: Record<ActorKey, string> = {
   admin: 'furnispace:admin-sidebar-collapsed',
   designer: 'furnispace:designer-sidebar-collapsed',
+  production: 'furnispace:production-sidebar-collapsed',
   sale: 'furnispace:sale-sidebar-collapsed',
 };
 
 const bodyClassByActor: Record<ActorKey, string> = {
   admin: 'admin-sidebar-collapsed',
   designer: 'designer-sidebar-collapsed',
+  production: 'production-sidebar-collapsed',
   sale: 'sale-sidebar-collapsed',
 };
 
