@@ -1,12 +1,8 @@
 import {
   IconArrowRight,
   IconChevronRight,
-  IconClock,
-  IconCurrencyDollar,
-  IconFileDollar,
   IconHome,
-  IconRefresh,
-  IconShieldCheck,
+  IconRefresh
 } from '@tabler/icons-react';
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
@@ -52,7 +48,6 @@ export function CustomerQuotationsPage() {
   const acceptMutation = useAcceptQuotation();
   const revisionMutation = useRequestQuotationRevision();
   const rejectMutation = useRejectQuotation();
-  const metrics = getQuotationMetrics(quotations);
 
   useEffect(() => {
     if (!selectedProjectId && quotationProjects.length > 0) {
@@ -192,12 +187,6 @@ export function CustomerQuotationsPage() {
           </aside>
 
           <section className="customer-quotations-workspace">
-            <div className="customer-quotations-metrics">
-              <MetricCard icon={IconFileDollar} label="Quotations" value={String(metrics.total)} />
-              <MetricCard icon={IconClock} label="Pending" value={String(metrics.pending)} />
-              <MetricCard icon={IconShieldCheck} label="Accepted" value={String(metrics.accepted)} />
-              <MetricCard icon={IconCurrencyDollar} label="Latest Total" value={formatMoney(quotations[0]?.totalAmount)} />
-            </div>
 
             <section className="customer-quotations-card">
               <header>
@@ -379,18 +368,6 @@ function QuotationDetail({
   );
 }
 
-function MetricCard({ icon: Icon, label, value }: { icon: typeof IconFileDollar; label: string; value: string }) {
-  return (
-    <article>
-      <div>
-        <span>{label}</span>
-        <strong>{value}</strong>
-      </div>
-      <Icon size={24} stroke={1.8} />
-    </article>
-  );
-}
-
 function NoteBlock({ label, value }: { label: string; value?: string | null }) {
   if (!value) return null;
 
@@ -408,13 +385,6 @@ function getQuotationProjects(projects: ProjectListItemDto[]) {
   return preferred.length > 0 ? preferred : projects.filter((project) => project.status === 'PROPOSAL_SELECTED');
 }
 
-function getQuotationMetrics(quotations: QuotationDto[]) {
-  return {
-    accepted: quotations.filter((quotation) => quotation.status === 'ACCEPTED').length,
-    pending: quotations.filter((quotation) => quotation.status === 'SENT' || quotation.status === 'REVISED').length,
-    total: quotations.length,
-  };
-}
 
 function statusClass(status?: QuotationStatus | null) {
   return (status ?? 'UNKNOWN').toLowerCase().replace(/_/g, '-');

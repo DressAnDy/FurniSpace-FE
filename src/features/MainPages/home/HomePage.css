@@ -31,10 +31,12 @@
 }
 
 .home-hero {
+  --hero-parallax-x: 0;
+  --hero-parallax-y: 0;
   display: grid;
   min-height: 620px;
   grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
-  gap: 64px;
+  gap: clamp(24px, 4vw, 48px);
   align-items: center;
   padding-top: 32px;
   padding-bottom: 96px;
@@ -44,6 +46,12 @@
   display: flex;
   flex-direction: column;
   gap: 32px;
+  transform: translate3d(
+    calc(var(--hero-parallax-x) * -8px),
+    calc(var(--hero-parallax-y) * -5px),
+    0
+  );
+  transition: transform 260ms ease-out;
 }
 
 .home-kicker {
@@ -176,6 +184,30 @@
   box-shadow: 0 16px 32px rgba(15, 13, 11, 0.18);
 }
 
+.home-hero-primary-cta {
+  position: relative;
+  isolation: isolate;
+}
+
+.home-hero-primary-cta::after {
+  position: absolute;
+  inset: -8px;
+  z-index: -1;
+  border-radius: 999px;
+  background: radial-gradient(circle, rgba(196, 160, 122, 0.34), transparent 70%);
+  content: "";
+  opacity: 0;
+  transform: scale(0.82);
+  transition:
+    opacity 260ms ease,
+    transform 260ms ease;
+}
+
+.home-hero-primary-cta:hover::after {
+  opacity: 1;
+  transform: scale(1);
+}
+
 .button-outline:hover {
   border-color: rgba(196, 160, 122, 0.72);
   color: #0f0d0b;
@@ -230,11 +262,99 @@
 
 .home-hero-visual {
   position: relative;
-  min-height: 560px;
+  min-height: clamp(520px, 58vh, 680px);
   overflow: hidden;
   background:
-    linear-gradient(135deg, rgba(196, 160, 122, 0.18), transparent 38%),
-    #f5f1eb;
+    radial-gradient(circle at 50% 52%, rgba(255, 255, 255, 0.78), transparent 44%),
+    radial-gradient(circle at 56% 58%, rgba(222, 196, 166, 0.18), transparent 64%);
+  transform: translate3d(
+    calc(var(--hero-parallax-x) * 12px),
+    calc(var(--hero-parallax-y) * 8px),
+    0
+  );
+  transition: transform 260ms ease-out;
+}
+
+.home-hero-background,
+.home-hero-particle,
+.home-hero-wireframe {
+  position: absolute;
+  pointer-events: none;
+}
+
+.home-hero-background {
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+}
+
+.home-hero-background::before {
+  position: absolute;
+  inset: 12% 6% 10%;
+  background-image:
+    linear-gradient(rgba(196, 160, 122, 0.08) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(196, 160, 122, 0.08) 1px, transparent 1px);
+  background-size: 58px 58px;
+  content: "";
+  mask-image: radial-gradient(circle at center, black, transparent 68%);
+  opacity: 0.36;
+  transform: perspective(700px) rotateX(62deg) translateY(70px);
+}
+
+.home-hero-particle {
+  width: 4px;
+  height: 4px;
+  border-radius: 999px;
+  background: rgba(196, 160, 122, 0.55);
+  box-shadow: 0 0 18px rgba(196, 160, 122, 0.42);
+  animation: homeHeroParticleDrift 12s ease-in-out infinite alternate;
+}
+
+.home-hero-particle-one {
+  top: 20%;
+  left: 28%;
+}
+
+.home-hero-particle-two {
+  top: 64%;
+  left: 76%;
+  animation-delay: -4s;
+}
+
+.home-hero-particle-three {
+  top: 36%;
+  left: 88%;
+  animation-delay: -7s;
+}
+
+.home-hero-wireframe {
+  width: 120px;
+  height: 78px;
+  border: 1px solid rgba(196, 160, 122, 0.14);
+  opacity: 0;
+  transform: skewY(-8deg);
+  animation: homeHeroWireframePulse 10s ease-in-out infinite;
+}
+
+.home-hero-wireframe-one {
+  top: 16%;
+  right: 16%;
+}
+
+.home-hero-wireframe-two {
+  bottom: 18%;
+  left: 18%;
+  animation-delay: -5s;
+}
+
+.home-hero-canvas {
+  position: relative;
+  z-index: 1;
+  display: block;
+  height: 100%;
+  outline: none;
+  touch-action: none;
+  width: 100%;
 }
 
 .home-hero-image,
@@ -261,6 +381,32 @@
   width: 42%;
   height: 240px;
   box-shadow: 0 20px 45px rgba(15, 13, 11, 0.18);
+}
+
+@keyframes homeHeroParticleDrift {
+  from {
+    opacity: 0.18;
+    transform: translate3d(-8px, 10px, 0) scale(0.8);
+  }
+
+  to {
+    opacity: 0.72;
+    transform: translate3d(18px, -16px, 0) scale(1.15);
+  }
+}
+
+@keyframes homeHeroWireframePulse {
+  0%,
+  100% {
+    opacity: 0;
+    transform: translate3d(0, 12px, 0) skewY(-8deg) scale(0.94);
+  }
+
+  40%,
+  58% {
+    opacity: 0.48;
+    transform: translate3d(0, 0, 0) skewY(-8deg) scale(1);
+  }
 }
 
 .home-intro,
@@ -636,7 +782,15 @@
 @media (prefers-reduced-motion: reduce) {
   .button,
   .home-project-card,
-  .home-project-card img {
+  .home-project-card img,
+  .home-hero-copy,
+  .home-hero-primary-cta::after,
+  .home-hero-visual {
     transition: none;
+  }
+
+  .home-hero-particle,
+  .home-hero-wireframe {
+    animation: none;
   }
 }

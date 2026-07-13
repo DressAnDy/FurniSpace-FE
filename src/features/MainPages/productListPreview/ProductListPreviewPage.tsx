@@ -8,10 +8,6 @@ import {
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 
-import categoryChairsUrl from '@/assets/product-list/category-chairs.png';
-import categoryNewArrivalsUrl from '@/assets/product-list/category-new-arrivals.png';
-import categorySofasUrl from '@/assets/product-list/category-sofas.png';
-import categoryTablesUrl from '@/assets/product-list/category-tables.png';
 import { useLang } from '@/app/providers/useLang';
 import { MainNavbar } from '@/features/MainPages/maincomponents';
 import {
@@ -39,10 +35,10 @@ const pageContent = {
     noProducts: 'Chưa có sản phẩm public phù hợp để hiển thị.',
     loading: 'Đang tải danh sách sản phẩm...',
     categories: [
-      { imageUrl: categoryNewArrivalsUrl, title: 'Mới nhất' },
-      { imageUrl: categorySofasUrl, title: 'Ghế sofa' },
-      { imageUrl: categoryChairsUrl, title: 'Ghế' },
-      { imageUrl: categoryTablesUrl, title: 'Bàn' },
+      { imageUrl: null, title: 'Mới nhất' },
+      { imageUrl: null, title: 'Ghế sofa' },
+      { imageUrl: null, title: 'Ghế' },
+      { imageUrl: null, title: 'Bàn' },
     ],
   },
   en: {
@@ -58,10 +54,10 @@ const pageContent = {
     noProducts: 'No public standard products are available yet.',
     loading: 'Loading products...',
     categories: [
-      { imageUrl: categoryNewArrivalsUrl, title: 'New arrivals' },
-      { imageUrl: categorySofasUrl, title: 'Sofas' },
-      { imageUrl: categoryChairsUrl, title: 'Chairs' },
-      { imageUrl: categoryTablesUrl, title: 'Tables' },
+      { imageUrl: null, title: 'New arrivals' },
+      { imageUrl: null, title: 'Sofas' },
+      { imageUrl: null, title: 'Chairs' },
+      { imageUrl: null, title: 'Tables' },
     ],
   },
 } as const;
@@ -86,7 +82,7 @@ export function ProductListPreviewPage() {
           {t.categories.map((category) => (
             <button className="product-list-preview-category" key={category.title} type="button">
               <span>{category.title}</span>
-              <img src={category.imageUrl} alt="" />
+              {category.imageUrl ? <img src={category.imageUrl} alt="" /> : null}
             </button>
           ))}
         </div>

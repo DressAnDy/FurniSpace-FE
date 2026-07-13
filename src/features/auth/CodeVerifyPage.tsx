@@ -1,7 +1,6 @@
 import { ChangeEvent, FormEvent, KeyboardEvent, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 
-import authHero from '@/assets/auth/register-hero.png';
 import {
   AUTH_PENDING_EMAIL_KEY,
   getServiceResultMessage,
@@ -116,7 +115,6 @@ export function CodeVerifyPage() {
       </section>
 
       <section className="code-verify-hero" aria-label="FurniSpace verification preview">
-        <img src={authHero} alt="Warm wooden interior design preview" />
         <Link className="code-verify-back-home" to="/">
           Trở về trang chủ
         </Link>

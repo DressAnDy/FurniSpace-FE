@@ -35,7 +35,7 @@ apiClient.interceptors.response.use(
 );
 
 axiosRetry(apiClient, {
-  retries: 3,
+  retries: 1,
   retryDelay: axiosRetry.exponentialDelay,
   retryCondition: (error) =>
     axiosRetry.isNetworkOrIdempotentRequestError(error) ||

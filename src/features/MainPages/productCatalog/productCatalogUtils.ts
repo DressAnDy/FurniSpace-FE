@@ -36,47 +36,29 @@ export function getCatalogFileUrl(file: CatalogFileDto | null | undefined) {
   return fileLike?.fileUrl ?? fileLike?.publicUrl ?? fileLike?.url ?? null;
 }
 
-function isProductPreviewFile(file: CatalogFileDto | null | undefined) {
-  return Boolean(file && file.fileType === 'PRODUCT_PREVIEW');
-}
-
 export function getProductThumbnailImage(product: ProductDetailDto | ProductListItemDto | null | undefined) {
-  return getCatalogFileUrl(product?.thumbnail) ?? null;
+  void product;
+
+  return null;
 }
 
 export function getVersionPreviewImage(version: ProductVersionDto | null | undefined) {
-  if (isProductPreviewFile(version?.thumbnail)) {
-    return getCatalogFileUrl(version?.thumbnail);
-  }
+  void version;
 
-  return getCatalogFileUrl(version?.files.find((file) => file.fileType === 'PRODUCT_PREVIEW'));
+  return null;
 }
 
 export function getProductCoverImage(product: ProductDetailDto | ProductListItemDto | null | undefined, version?: ProductVersionDto | null) {
-  return getVersionPreviewImage(version)
-    ?? getProductThumbnailImage(product)
-    ?? ('files' in (product ?? {}) ? getCatalogFileUrl((product as ProductDetailDto).files.find((file) => file.fileType === 'PRODUCT_PREVIEW')) : undefined)
-    ?? null;
+  void product;
+  void version;
+
+  return null;
 }
 
-export function getProductPreviewFiles(product: ProductDetailDto | null | undefined) {
-  const productFiles = [
-    isProductPreviewFile(product?.thumbnail) ? product?.thumbnail : null,
-    ...(product?.files.filter((file) => file.fileType === 'PRODUCT_PREVIEW') ?? []),
-  ];
-  const versionFiles = getDisplayableVersions(product).flatMap((version) => [
-    isProductPreviewFile(version.thumbnail) ? version.thumbnail : null,
-    ...version.files.filter((file) => file.fileType === 'PRODUCT_PREVIEW'),
-  ]);
-  const uniqueFiles = new Map<string, CatalogFileDto>();
+export function getProductPreviewFiles(product: ProductDetailDto | null | undefined): CatalogFileDto[] {
+  void product;
 
-  [...productFiles, ...versionFiles].forEach((file) => {
-    if (file?.fileId && getCatalogFileUrl(file)) {
-      uniqueFiles.set(file.fileId, file);
-    }
-  });
-
-  return [...uniqueFiles.values()];
+  return [];
 }
 
 export function getVersionModelFile(version: ProductVersionDto | null | undefined) {

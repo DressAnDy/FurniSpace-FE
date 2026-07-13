@@ -35,7 +35,7 @@ import {
 } from '@/services/queries';
 
 type ViewMode = '2d' | '3d';
-type SidePanelMode = 'items' | 'chat';
+type SidePanelMode = 'items' | 'chat' | null;
 
 export function Customer3dPreviewPage() {
   const navigate = useNavigate();
@@ -45,7 +45,7 @@ export function Customer3dPreviewPage() {
   const sceneIdFromUrl = searchParams.get('sceneId') ?? '';
   const stageRef = useRef<HTMLDivElement>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('3d');
-  const [sidePanelMode, setSidePanelMode] = useState<SidePanelMode>('items');
+  const [sidePanelMode, setSidePanelMode] = useState<SidePanelMode>(null);
   const [selectedObjectId, setSelectedObjectId] = useState<string | null>(null);
   const [decisionMessage, setDecisionMessage] = useState('');
   const [selectedProjectId, setSelectedProjectId] = useState(() => projectIdFromUrl);
@@ -220,7 +220,7 @@ export function Customer3dPreviewPage() {
 
   return (
     <main className="customer-3d-preview-page">
-      <CustomerNavbar activeLabel="2D/3D Review" classPrefix="customer-3d-preview" />
+      <CustomerNavbar activeLabel="Design Proposals" classPrefix="customer-3d-preview" />
 
       <section className="customer-3d-preview-viewer" aria-label="Customer proposal scene review">
         <div className="customer-3d-preview-toolbar">
@@ -262,7 +262,7 @@ export function Customer3dPreviewPage() {
                 type="button"
                 role="tab"
                 aria-selected={sidePanelMode === 'chat'}
-                onClick={() => setSidePanelMode('chat')}
+                onClick={() => setSidePanelMode((currentMode) => (currentMode === 'chat' ? null : 'chat'))}
               >
                 <IconMessageDots size={16} stroke={1.8} /> Chat
               </button>
@@ -271,7 +271,7 @@ export function Customer3dPreviewPage() {
                 type="button"
                 role="tab"
                 aria-selected={sidePanelMode === 'items'}
-                onClick={() => setSidePanelMode('items')}
+                onClick={() => setSidePanelMode((currentMode) => (currentMode === 'items' ? null : 'items'))}
               >
                 <IconPackage size={16} stroke={1.8} /> Scene Items
               </button>
@@ -288,7 +288,7 @@ export function Customer3dPreviewPage() {
           </div>
         </div>
 
-        <div className="customer-3d-preview-workspace">
+        <div className={`customer-3d-preview-workspace${sidePanelMode ? '' : ' customer-3d-preview-workspace-no-side'}`}>
           <aside className="customer-3d-preview-left-panel" aria-label="Project proposals">
             <PanelHeader title="Proposals" />
             <div className="customer-proposal-list">
@@ -386,13 +386,13 @@ export function Customer3dPreviewPage() {
 
             <div className="customer-3d-preview-scene-card">
               <strong>{selectedScene?.sceneName ?? selectedProposal?.proposalName ?? 'Room Planner Scene'}</strong>
-              <span />
               <p>{selectedScene ? `Scene version ${selectedScene.versionNo}` : selectedProposal ? `Proposal version ${selectedProposal.versionNo}` : 'No scene selected'}</p>
             </div>
 
             <div className="customer-readonly-notice">Saved scene - editing disabled</div>
           </div>
 
+          {sidePanelMode ? (
           <aside className="customer-3d-preview-right-panel" aria-label={sidePanelMode === 'chat' ? 'Designer chat' : 'Scene items'}>
             <PanelHeader title={sidePanelMode === 'chat' ? 'Designer Chat' : 'Scene Items'} />
             {sidePanelMode === 'chat' ? (
@@ -450,6 +450,7 @@ export function Customer3dPreviewPage() {
               </>
             )}
           </aside>
+          ) : null}
         </div>
       </section>
     </main>
@@ -548,7 +549,7 @@ function getSceneFloorMaterial(scene: RoomPlannerSceneData | null | undefined): 
     fallbackColor: layout?.floor?.color ?? '#8B5A2B',
     id: layout?.floor?.materialId ?? layout?.floorMaterialId ?? 'scene-floor',
     label: layout?.floor?.materialId ?? layout?.floorMaterialId ?? 'Scene Floor',
-    textureUrl: layout?.floor?.textureUrlSnapshot ?? undefined,
+    textureUrl: undefined,
     type: 'floor',
   };
 }
@@ -570,7 +571,7 @@ function getSceneWallMaterial(scene: RoomPlannerSceneData | null | undefined): R
     fallbackColor: wallStyle?.color ?? '#D8D2C5',
     id: wallStyle?.materialId ?? layout?.wallMaterialId ?? 'scene-wall',
     label: wallStyle?.materialId ?? layout?.wallMaterialId ?? 'Scene Wall',
-    textureUrl: wallStyle?.textureUrlSnapshot ?? undefined,
+    textureUrl: undefined,
     type: 'wall',
   };
 }

@@ -283,16 +283,6 @@ export function ProjectChatPanel({
             ))}
           </div>
 
-          <div className="project-chat-panel-caption-row">
-            <input
-              disabled={isReadonly || sendFileMutation.isPending}
-              maxLength={4000}
-              placeholder="Optional file caption"
-              value={caption}
-              onChange={(event) => setCaption(event.target.value)}
-            />
-          </div>
-
           <div className="project-chat-panel-composer">
             <input
               ref={fileInputRef}

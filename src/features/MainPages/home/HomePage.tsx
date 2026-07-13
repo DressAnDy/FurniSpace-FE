@@ -1,24 +1,13 @@
+import type { PointerEvent } from 'react';
 import { IconArrowRight, IconPhone, IconShieldCheck } from '@tabler/icons-react';
 
-import galleryOneImage from '@/assets/product-detail/gallery-1.png';
-import galleryThreeImage from '@/assets/product-detail/gallery-3.png';
-import diningRoomImage from '@/assets/product-detail-shop/dining-room.png';
-import roomDetailImage from '@/assets/product-detail-shop/room-detail.png';
-import tableRoomImage from '@/assets/product-detail-shop/table-room.png';
-import terraSalonImage from '@/assets/project-list/terra-salon.png';
 import { useLang } from '@/app/providers/useLang';
 import { MainFooter, MainNavbar } from '@/features/MainPages/maincomponents';
+import { HeroCanvas } from '@/features/MainPages/home/hero3d';
 
 import './HomePage.css';
 
-const projectImages = [
-  terraSalonImage,
-  galleryOneImage,
-  roomDetailImage,
-  diningRoomImage,
-  tableRoomImage,
-  galleryThreeImage,
-];
+const projectImages: string[] = [];
 
 const homeContent = {
   vi: {
@@ -148,6 +137,21 @@ export function HomePage() {
 function HomePageContent() {
   const { lang } = useLang();
   const t = homeContent[lang];
+  const handleHeroPointerMove = (event: PointerEvent<HTMLElement>) => {
+    const bounds = event.currentTarget.getBoundingClientRect();
+    const x = ((event.clientX - bounds.left) / bounds.width - 0.5) * 2;
+    const y = ((event.clientY - bounds.top) / bounds.height - 0.5) * 2;
+
+    event.currentTarget.style.setProperty('--hero-parallax-x', x.toFixed(3));
+    event.currentTarget.style.setProperty('--hero-parallax-y', y.toFixed(3));
+  };
+  const resetHeroParallax = (event: PointerEvent<HTMLElement>) => {
+    event.currentTarget.style.setProperty('--hero-parallax-x', '0');
+    event.currentTarget.style.setProperty('--hero-parallax-y', '0');
+  };
+  const nudgeHeroCamera = (active: boolean) => {
+    window.dispatchEvent(new CustomEvent('home-hero-camera-nudge', { detail: { active } }));
+  };
 
   return (
     <main className="home-page">
@@ -162,7 +166,12 @@ function HomePageContent() {
       />
 
       {/* Hero */}
-      <section className="home-hero section-container" aria-labelledby="home-hero-title">
+      <section
+        className="home-hero section-container"
+        aria-labelledby="home-hero-title"
+        onPointerLeave={resetHeroParallax}
+        onPointerMove={handleHeroPointerMove}
+      >
         <div className="home-hero-copy">
           <div className="home-kicker">
             <span />
@@ -186,10 +195,20 @@ function HomePageContent() {
           </div>
 
           <div className="home-actions">
-            <button className="button button-dark" type="button">
+            <button
+              className="button button-dark home-hero-primary-cta"
+              onPointerEnter={() => nudgeHeroCamera(true)}
+              onPointerLeave={() => nudgeHeroCamera(false)}
+              type="button"
+            >
               {t.startBtn}
             </button>
-            <button className="button button-outline" type="button">
+            <button
+              className="button button-outline"
+              onPointerEnter={() => nudgeHeroCamera(true)}
+              onPointerLeave={() => nudgeHeroCamera(false)}
+              type="button"
+            >
               {t.contactBtn}
             </button>
           </div>
@@ -200,9 +219,15 @@ function HomePageContent() {
           </div>
         </div>
 
-        <div className="home-hero-visual" aria-hidden="true">
-          <img className="home-hero-image" src={roomDetailImage} alt="" />
-          <img className="home-hero-inset" src={tableRoomImage} alt="" />
+        <div className="home-hero-visual">
+          <div className="home-hero-background" aria-hidden="true">
+            <span className="home-hero-particle home-hero-particle-one" />
+            <span className="home-hero-particle home-hero-particle-two" />
+            <span className="home-hero-particle home-hero-particle-three" />
+            <span className="home-hero-wireframe home-hero-wireframe-one" />
+            <span className="home-hero-wireframe home-hero-wireframe-two" />
+          </div>
+          <HeroCanvas />
         </div>
       </section>
 
@@ -218,10 +243,7 @@ function HomePageContent() {
             </button>
           </div>
 
-          <div className="home-gallery" aria-hidden="true">
-            <img className="home-gallery-back" src={diningRoomImage} alt="" />
-            <img className="home-gallery-front" src={galleryThreeImage} alt="" />
-          </div>
+          <div className="home-gallery" aria-hidden="true" />
         </div>
       </section>
 

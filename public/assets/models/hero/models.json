@@ -1,0 +1,54 @@
+{
+  "generatedAt": "2026-07-13T17:06:04.391Z",
+  "root": "/assets/models/hero",
+  "models": [
+    {
+      "category": "Chair",
+      "priority": 86,
+      "preferredScale": 0.96,
+      "sceneGroup": "LivingRoom",
+      "name": "AccentChair",
+      "path": "/assets/models/hero/AccentChair.glb"
+    },
+    {
+      "category": "CoffeeTable",
+      "priority": 82,
+      "preferredScale": 0.92,
+      "sceneGroup": "LivingRoom",
+      "name": "CoffeeTable",
+      "path": "/assets/models/hero/CoffeeTable.glb"
+    },
+    {
+      "category": "Lamp",
+      "priority": 56,
+      "preferredScale": 0.68,
+      "sceneGroup": "LivingRoom",
+      "name": "FloorLamp",
+      "path": "/assets/models/hero/FloorLamp.glb"
+    },
+    {
+      "category": "Decoration",
+      "priority": 54,
+      "preferredScale": 0.78,
+      "sceneGroup": "LivingRoom",
+      "name": "MarbleSideTable",
+      "path": "/assets/models/hero/MarbleSideTable.glb"
+    },
+    {
+      "category": "Plant",
+      "priority": 58,
+      "preferredScale": 0.82,
+      "sceneGroup": "LivingRoom",
+      "name": "Plant",
+      "path": "/assets/models/hero/Plant.glb"
+    },
+    {
+      "category": "Sofa",
+      "priority": 100,
+      "preferredScale": 1.05,
+      "sceneGroup": "LivingRoom",
+      "name": "Sofa",
+      "path": "/assets/models/hero/Sofa.glb"
+    }
+  ]
+}

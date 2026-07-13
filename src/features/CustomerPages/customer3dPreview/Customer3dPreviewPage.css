@@ -4,6 +4,11 @@
   background: #faf9f7;
   color: #2d2d2d;
   font-family: var(--fs-customer-font, "Be Vietnam Pro", "DM Sans", system-ui, -apple-system, "Segoe UI", sans-serif);
+  padding-top: 0;
+}
+
+.customer-3d-preview-page .customer-shell-actionbar {
+  display: none;
 }
 
 .customer-3d-preview-topnav {
@@ -174,7 +179,7 @@
 }
 
 .customer-3d-preview-viewer {
-  height: calc(100vh - 65px);
+  height: 100vh;
   min-height: 620px;
   background: #ffffff;
 }
@@ -304,6 +309,10 @@
   display: grid;
   height: calc(100% - 72px);
   grid-template-columns: 264px minmax(420px, 1fr) 320px;
+}
+
+.customer-3d-preview-workspace-no-side {
+  grid-template-columns: 264px minmax(420px, 1fr);
 }
 
 .customer-3d-preview-left-panel,
@@ -773,18 +782,87 @@
 
 .customer-3d-preview-side-chat .project-chat-panel-thread {
   min-height: 0;
+  grid-template-rows: auto minmax(0, 1fr) auto;
 }
 
 .customer-3d-preview-side-chat .project-chat-panel-thread-header {
-  padding: 12px;
+  min-height: 48px;
+  padding: 8px 12px;
+}
+
+.customer-3d-preview-side-chat .project-chat-panel-thread-header strong {
+  font-size: 13px;
+}
+
+.customer-3d-preview-side-chat .project-chat-panel-thread-header span {
+  font-size: 11px;
 }
 
 .customer-3d-preview-side-chat .project-chat-panel-messages {
-  padding: 12px;
+  gap: 9px;
+  max-height: none;
+  padding: 10px;
+}
+
+.customer-3d-preview-side-chat .project-chat-panel-message {
+  gap: 7px;
+}
+
+.customer-3d-preview-side-chat .project-chat-panel-avatar {
+  width: 26px;
+  height: 26px;
+  font-size: 9px;
+}
+
+.customer-3d-preview-side-chat .project-chat-panel-bubble {
+  max-width: calc(100% - 34px);
+  border-radius: 12px;
+  padding: 8px 10px;
+}
+
+.customer-3d-preview-side-chat .project-chat-panel-meta {
+  gap: 5px;
+  margin-bottom: 3px;
+  font-size: 9px;
+}
+
+.customer-3d-preview-side-chat .project-chat-panel-meta span:not(:first-of-type) {
+  display: none;
+}
+
+.customer-3d-preview-side-chat .project-chat-panel-bubble p {
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.customer-3d-preview-side-chat .project-chat-panel-state,
+.customer-3d-preview-side-chat .project-chat-panel-system-message {
+  font-size: 11px;
 }
 
 .customer-3d-preview-side-chat .project-chat-panel-composer {
-  padding: 10px;
+  grid-template-columns: 34px minmax(0, 1fr) 38px;
+  gap: 7px;
+  padding: 8px 10px 10px;
+}
+
+.customer-3d-preview-side-chat .project-chat-panel-composer input {
+  height: 34px;
+  border-radius: 999px;
+  font-size: 12px;
+  padding: 0 12px;
+}
+
+.customer-3d-preview-side-chat .project-chat-panel-composer button {
+  min-height: 34px;
+  border-radius: 999px;
+  font-size: 0;
+  padding: 0;
+}
+
+.customer-3d-preview-side-chat .project-chat-panel-composer button svg {
+  width: 16px;
+  height: 16px;
 }
 
 .customer-selected-object {
@@ -912,12 +990,26 @@
 
   .customer-3d-preview-viewer {
     height: auto;
-    min-height: calc(100vh - 96px);
+    min-height: 100vh;
   }
 
   .customer-3d-preview-workspace {
     min-height: 720px;
     grid-template-columns: 220px minmax(360px, 1fr) 300px;
+  }
+
+  .customer-3d-preview-workspace-no-side {
+    grid-template-columns: 220px minmax(360px, 1fr);
+  }
+}
+
+@media (max-width: 980px) {
+  .customer-3d-preview-page {
+    padding-top: 66px;
+  }
+
+  .customer-3d-preview-viewer {
+    min-height: calc(100vh - 66px);
   }
 }
 
