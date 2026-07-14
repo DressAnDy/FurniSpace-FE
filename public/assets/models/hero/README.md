@@ -51,3 +51,37 @@ rotationY: yaw rotation in radians. Around 3.14 faces the camera.
 targetRadius: visual size after normalization.
 enabled: false hides this model from the hero composition.
 ```
+
+## Manual hero layout
+
+Edit `layout.json` when you want to move furniture manually without touching
+TypeScript.
+
+```json
+{
+  "objects": {
+    "Sofa": {
+      "enabled": true,
+      "targetRadius": 2,
+      "transform": {
+        "position": { "x": 0, "y": 0, "z": 0 },
+        "rotation": { "x": 0, "y": 1.5708, "z": 0 },
+        "scale": { "x": 1, "y": 1, "z": 1 }
+      },
+      "placement": { "mode": "FLOOR", "heightOffset": 0 }
+    }
+  }
+}
+```
+
+Coordinate notes:
+
+```text
+x: left/right in the hero scene.
+y: height above the visual floor. Use 0 for floor furniture.
+z: depth. In the current hero camera, positive z is closer to the camera.
+rotation.y: yaw in radians. 1.5708 = 90 degrees, 3.1416 = 180 degrees.
+targetRadius: visual size after automatic GLB normalization.
+transform.scale: optional fine multiplier after targetRadius is applied.
+enabled: false hides the model.
+```

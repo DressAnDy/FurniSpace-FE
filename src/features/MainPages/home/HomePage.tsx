@@ -1,9 +1,10 @@
-import type { PointerEvent } from 'react';
 import { IconArrowRight, IconPhone, IconShieldCheck } from '@tabler/icons-react';
+import { useEffect } from 'react';
 
 import { useLang } from '@/app/providers/useLang';
+import heroRoomScene from '@/assets/hero/hero-room-scene-3d.png';
 import { MainFooter, MainNavbar } from '@/features/MainPages/maincomponents';
-import { HeroCanvas } from '@/features/MainPages/home/hero3d';
+import { HomeModelGallery } from '@/features/MainPages/home/HomeModelGallery';
 
 import './HomePage.css';
 
@@ -137,21 +138,131 @@ export function HomePage() {
 function HomePageContent() {
   const { lang } = useLang();
   const t = homeContent[lang];
-  const handleHeroPointerMove = (event: PointerEvent<HTMLElement>) => {
-    const bounds = event.currentTarget.getBoundingClientRect();
-    const x = ((event.clientX - bounds.left) / bounds.width - 0.5) * 2;
-    const y = ((event.clientY - bounds.top) / bounds.height - 0.5) * 2;
 
-    event.currentTarget.style.setProperty('--hero-parallax-x', x.toFixed(3));
-    event.currentTarget.style.setProperty('--hero-parallax-y', y.toFixed(3));
-  };
-  const resetHeroParallax = (event: PointerEvent<HTMLElement>) => {
-    event.currentTarget.style.setProperty('--hero-parallax-x', '0');
-    event.currentTarget.style.setProperty('--hero-parallax-y', '0');
-  };
-  const nudgeHeroCamera = (active: boolean) => {
-    window.dispatchEvent(new CustomEvent('home-hero-camera-nudge', { detail: { active } }));
-  };
+  useEffect(() => {
+    const root = document.documentElement;
+    const darkSectionSelectors = ['.home-intro', '.home-process', '.main-footer'];
+    const desktopQuery = window.matchMedia('(min-width: 901px)');
+    const reducedMotionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+    let isSectionScrolling = false;
+    let wheelUnlockTimeout: number | undefined;
+    let scrollAnimationFrame: number | undefined;
+
+    function updateHeaderTone() {
+      const probeY = 92;
+      const isOverDarkSection = darkSectionSelectors.some((selector) => {
+        const section = document.querySelector(selector);
+
+        if (!(section instanceof HTMLElement)) {
+          return false;
+        }
+
+        const rect = section.getBoundingClientRect();
+
+        return rect.top <= probeY && rect.bottom >= probeY;
+      });
+
+      root.classList.toggle('home-header-light', isOverDarkSection);
+    }
+
+    function getSnapSections() {
+      return Array.from(document.querySelectorAll<HTMLElement>('.home-page > section, .home-page > .main-footer'));
+    }
+
+    function getActiveSectionIndex(sections: HTMLElement[], direction: number) {
+      const activationOffset = direction > 0 ? Math.min(window.innerHeight * 0.34, 280) : Math.min(window.innerHeight * 0.2, 180);
+      const currentPosition = window.scrollY + activationOffset;
+
+      return sections.reduce((activeIndex, section, index) => {
+        return section.offsetTop <= currentPosition ? index : activeIndex;
+      }, 0);
+    }
+
+    function easeInOutCubic(progress: number) {
+      return progress < 0.5 ? 4 * progress * progress * progress : 1 - Math.pow(-2 * progress + 2, 3) / 2;
+    }
+
+    function animateScrollTo(targetY: number, duration = 2000) {
+      const startY = window.scrollY;
+      const distance = targetY - startY;
+      const startTime = performance.now();
+
+      if (scrollAnimationFrame !== undefined) {
+        window.cancelAnimationFrame(scrollAnimationFrame);
+      }
+
+      function step(currentTime: number) {
+        const elapsed = currentTime - startTime;
+        const progress = Math.min(elapsed / duration, 1);
+        const easedProgress = easeInOutCubic(progress);
+
+        window.scrollTo(0, startY + distance * easedProgress);
+        updateHeaderTone();
+
+        if (progress < 1) {
+          scrollAnimationFrame = window.requestAnimationFrame(step);
+          return;
+        }
+
+        scrollAnimationFrame = undefined;
+        isSectionScrolling = false;
+      }
+
+      scrollAnimationFrame = window.requestAnimationFrame(step);
+    }
+
+    function handleSectionWheel(event: WheelEvent) {
+      if (!desktopQuery.matches || reducedMotionQuery.matches || Math.abs(event.deltaY) < 18) {
+        return;
+      }
+
+      const sections = getSnapSections();
+
+      if (sections.length < 2) {
+        return;
+      }
+
+      if (isSectionScrolling) {
+        event.preventDefault();
+        return;
+      }
+
+      const direction = event.deltaY > 0 ? 1 : -1;
+      const currentIndex = getActiveSectionIndex(sections, direction);
+      const nextIndex = Math.min(Math.max(currentIndex + direction, 0), sections.length - 1);
+
+      if (nextIndex === currentIndex) {
+        return;
+      }
+
+      event.preventDefault();
+      isSectionScrolling = true;
+      animateScrollTo(sections[nextIndex].offsetTop);
+
+      window.clearTimeout(wheelUnlockTimeout);
+      wheelUnlockTimeout = window.setTimeout(() => {
+        isSectionScrolling = false;
+      }, 2200);
+    }
+
+    root.classList.add('home-scroll-snap');
+    updateHeaderTone();
+
+    window.addEventListener('scroll', updateHeaderTone, { passive: true });
+    window.addEventListener('resize', updateHeaderTone);
+    window.addEventListener('wheel', handleSectionWheel, { passive: false });
+
+    return () => {
+      window.clearTimeout(wheelUnlockTimeout);
+      if (scrollAnimationFrame !== undefined) {
+        window.cancelAnimationFrame(scrollAnimationFrame);
+      }
+      window.removeEventListener('scroll', updateHeaderTone);
+      window.removeEventListener('resize', updateHeaderTone);
+      window.removeEventListener('wheel', handleSectionWheel);
+      root.classList.remove('home-scroll-snap', 'home-header-light');
+    };
+  }, []);
 
   return (
     <main className="home-page">
@@ -169,8 +280,6 @@ function HomePageContent() {
       <section
         className="home-hero section-container"
         aria-labelledby="home-hero-title"
-        onPointerLeave={resetHeroParallax}
-        onPointerMove={handleHeroPointerMove}
       >
         <div className="home-hero-copy">
           <div className="home-kicker">
@@ -197,16 +306,12 @@ function HomePageContent() {
           <div className="home-actions">
             <button
               className="button button-dark home-hero-primary-cta"
-              onPointerEnter={() => nudgeHeroCamera(true)}
-              onPointerLeave={() => nudgeHeroCamera(false)}
               type="button"
             >
               {t.startBtn}
             </button>
             <button
               className="button button-outline"
-              onPointerEnter={() => nudgeHeroCamera(true)}
-              onPointerLeave={() => nudgeHeroCamera(false)}
               type="button"
             >
               {t.contactBtn}
@@ -219,15 +324,8 @@ function HomePageContent() {
           </div>
         </div>
 
-        <div className="home-hero-visual">
-          <div className="home-hero-background" aria-hidden="true">
-            <span className="home-hero-particle home-hero-particle-one" />
-            <span className="home-hero-particle home-hero-particle-two" />
-            <span className="home-hero-particle home-hero-particle-three" />
-            <span className="home-hero-wireframe home-hero-wireframe-one" />
-            <span className="home-hero-wireframe home-hero-wireframe-two" />
-          </div>
-          <HeroCanvas />
+        <div className="home-hero-visual" aria-hidden="true">
+          <img className="home-hero-scene" src={heroRoomScene} alt="" />
         </div>
       </section>
 
@@ -243,7 +341,7 @@ function HomePageContent() {
             </button>
           </div>
 
-          <div className="home-gallery" aria-hidden="true" />
+          <HomeModelGallery />
         </div>
       </section>
 

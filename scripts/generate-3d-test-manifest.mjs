@@ -9,6 +9,7 @@ const manifestPath = path.join(modelRoot, 'models.json');
 const heroModelRoot = path.join(repoRoot, 'public', 'assets', 'models', 'hero');
 const heroManifestPath = path.join(heroModelRoot, 'models.json');
 const heroMetadataPath = path.join(heroModelRoot, 'metadata.json');
+const heroLayoutPath = path.join(heroModelRoot, 'layout.json');
 const fallbackThumbnailUrl = '/models/3d-test/thumbnails/placeholder-product.svg';
 const thumbnailNames = [
   'thumbnail',
@@ -148,14 +149,17 @@ function inferHeroCategory(modelName) {
 async function createHeroManifest() {
   const modelFiles = await collectModelFiles(heroModelRoot);
   const metadata = await readHeroMetadata();
+  const layout = await readHeroLayout();
   const models = modelFiles.sort().map((modelFilePath) => {
     const relativePath = toPosixPath(path.relative(heroModelRoot, modelFilePath));
     const modelName = toTitleCase(path.basename(modelFilePath));
     const semanticMetadata = findHeroMetadata(metadata, relativePath, modelName);
+    const layoutMetadata = findHeroLayout(layout, relativePath, modelName);
 
     return {
       category: inferHeroCategory(modelName),
       ...semanticMetadata,
+      ...(layoutMetadata ? { layout: layoutMetadata } : {}),
       name: modelName,
       path: `/assets/models/hero/${relativePath}`,
     };
@@ -179,10 +183,25 @@ async function readHeroMetadata() {
   return JSON.parse(await readFile(heroMetadataPath, 'utf8'));
 }
 
+async function readHeroLayout() {
+  if (!await fileExists(heroLayoutPath)) {
+    return {};
+  }
+
+  return JSON.parse(await readFile(heroLayoutPath, 'utf8'));
+}
+
 function findHeroMetadata(metadata, relativePath, modelName) {
   const extensionlessPath = relativePath.replace(/\.(glb|gltf)$/i, '');
   const extensionlessName = path.basename(extensionlessPath);
   return metadata[relativePath] ?? metadata[extensionlessPath] ?? metadata[extensionlessName] ?? metadata[modelName] ?? {};
+}
+
+function findHeroLayout(layout, relativePath, modelName) {
+  const extensionlessPath = relativePath.replace(/\.(glb|gltf)$/i, '');
+  const extensionlessName = path.basename(extensionlessPath);
+  const objects = layout.objects ?? layout;
+  return objects[relativePath] ?? objects[extensionlessPath] ?? objects[extensionlessName] ?? objects[modelName] ?? null;
 }
 
 Promise.all([createManifest(), createHeroManifest()]).catch((error) => {

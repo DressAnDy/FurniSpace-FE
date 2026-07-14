@@ -1,8 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { Engine, TransformNode } from 'babylonjs';
 
-import { AnimationController } from '@/features/MainPages/home/hero3d/animation/AnimationController';
-import { CameraAnimation } from '@/features/MainPages/home/hero3d/animation/CameraAnimation';
+import { FloatingAnimationController } from '@/features/MainPages/home/hero3d/animation/FloatingAnimationController';
 import { createHeroScene } from '@/features/MainPages/home/hero3d/hero/HeroScene';
 import { frameHeroCamera } from '@/features/MainPages/home/hero3d/hero/HeroCamera';
 import { LayoutGenerator } from '@/features/MainPages/home/hero3d/layout/LayoutGenerator';
@@ -22,13 +21,10 @@ export function HeroCanvas() {
     const scanner = new AssetScanner();
     const loader = new ModelLoader();
     const layout = new LayoutGenerator();
-    const animation = new AnimationController();
-    const cameraAnimation = new CameraAnimation();
+    const animation = new FloatingAnimationController();
     const clusterRig = new TransformNode('home-hero-cluster-rig', scene);
     const objects: HeroObject[] = [];
     const abortController = new AbortController();
-    const startedAt = performance.now();
-    const tilt = { currentX: 0, currentY: 0, targetX: 0, targetY: 0 };
     let compositionBounds: HeroCompositionBounds | null = null;
     let heroObject: HeroObject | null = null;
     let heroCamera: import('babylonjs').ArcRotateCamera | null = null;
@@ -53,7 +49,10 @@ export function HeroCanvas() {
         if (camera?.getClassName() === 'ArcRotateCamera') {
           heroCamera = camera as import('babylonjs').ArcRotateCamera;
           frameHeroCamera(heroCamera, objects, compositionBounds, heroObject);
-          cameraAnimation.setBase(heroCamera);
+          console.info('[Hero3D] Camera framing', {
+            cameraDistance: Math.round(heroCamera.radius * 1000) / 1000,
+            fovDegrees: Math.round((heroCamera.fov * 180 / Math.PI) * 1000) / 1000,
+          });
         }
         animation.setObjects(objects);
       })
@@ -63,13 +62,8 @@ export function HeroCanvas() {
 
     const renderLoop = () => {
       const now = performance.now();
-      const frame = animation.update(objects, now);
-      tilt.currentX += (tilt.targetX - tilt.currentX) * 0.08;
-      tilt.currentY += (tilt.targetY - tilt.currentY) * 0.08;
-      clusterRig.rotation.x = tilt.currentY * 0.045;
-      clusterRig.rotation.z = -tilt.currentX * 0.045;
-      cameraAnimation.update(heroCamera, (now - startedAt) / 1000);
-      lighting.setHighlight(frame.phase === 'highlight' ? frame.progress : 0);
+      animation.update(objects, now);
+      lighting.setHighlight(0);
       scene.render();
     };
     engine.runRenderLoop(renderLoop);
@@ -78,36 +72,15 @@ export function HeroCanvas() {
       engine.resize();
       if (heroCamera && objects.length) {
         frameHeroCamera(heroCamera, objects, compositionBounds, heroObject);
-        cameraAnimation.setBase(heroCamera);
       }
     };
     const observer = new ResizeObserver(resize);
     observer.observe(canvas.parentElement ?? canvas);
     window.addEventListener('resize', resize);
-    const updateTilt = (event: PointerEvent) => {
-      const bounds = canvas.getBoundingClientRect();
-      tilt.targetX = ((event.clientX - bounds.left) / bounds.width - 0.5) * 2;
-      tilt.targetY = ((event.clientY - bounds.top) / bounds.height - 0.5) * 2;
-    };
-    const resetTilt = () => {
-      tilt.targetX = 0;
-      tilt.targetY = 0;
-    };
-    const handleCameraNudge = (event: Event) => {
-      const detail = (event as CustomEvent<{ active?: boolean }>).detail;
-      cameraAnimation.setNudge(Boolean(detail?.active));
-    };
-    canvas.addEventListener('pointermove', updateTilt);
-    canvas.addEventListener('pointerleave', resetTilt);
-    window.addEventListener('home-hero-camera-nudge', handleCameraNudge);
-
     return () => {
       abortController.abort();
       observer.disconnect();
       window.removeEventListener('resize', resize);
-      canvas.removeEventListener('pointermove', updateTilt);
-      canvas.removeEventListener('pointerleave', resetTilt);
-      window.removeEventListener('home-hero-camera-nudge', handleCameraNudge);
       engine.stopRenderLoop(renderLoop);
       scene.dispose();
       engine.dispose();

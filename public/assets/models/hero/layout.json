@@ -1,0 +1,40 @@
+{
+  "unit": "scene-units",
+  "mode": "FLOATING_GALLERY",
+  "description": "Hero3D now generates stable seeded floating positions in code. This file only controls visibility and optional targetRadius per model.",
+  "coordinateSystem": {
+    "position": {
+      "x": "generated once by LayoutGenerator; biased toward the right half of the hero",
+      "y": "generated once by LayoutGenerator; floating height",
+      "z": "generated once by LayoutGenerator; depth for parallax"
+    },
+    "rotation": "generated once by LayoutGenerator; radians, Babylon.js convention",
+    "placementMode": "SEEDED_FLOATING"
+  },
+  "objects": {
+    "Sofa": {
+      "enabled": true,
+      "targetRadius": 1.05
+    },
+    "AccentChair": {
+      "enabled": true,
+      "targetRadius": 0.82
+    },
+    "CoffeeTable": {
+      "enabled": true,
+      "targetRadius": 0.62
+    },
+    "MarbleSideTable": {
+      "enabled": true,
+      "targetRadius": 0.54
+    },
+    "Plant": {
+      "enabled": true,
+      "targetRadius": 0.68
+    },
+    "FloorLamp": {
+      "enabled": true,
+      "targetRadius": 0.58
+    }
+  }
+}

@@ -2,7 +2,7 @@
   "Sofa": {
     "category": "Sofa",
     "priority": 100,
-    "preferredScale": 1.05,
+    "preferredScale": 0.95,
     "sceneGroup": "LivingRoom"
   },
   "AccentChair": {
@@ -14,25 +14,25 @@
   "CoffeeTable": {
     "category": "CoffeeTable",
     "priority": 82,
-    "preferredScale": 0.92,
+    "preferredScale": 1,
     "sceneGroup": "LivingRoom"
   },
   "MarbleSideTable": {
     "category": "Decoration",
     "priority": 54,
-    "preferredScale": 0.78,
+    "preferredScale": 0.9,
     "sceneGroup": "LivingRoom"
   },
   "Plant": {
     "category": "Plant",
     "priority": 58,
-    "preferredScale": 0.82,
+    "preferredScale": 0.95,
     "sceneGroup": "LivingRoom"
   },
   "FloorLamp": {
     "category": "Lamp",
     "priority": 56,
-    "preferredScale": 0.68,
+    "preferredScale": 0.72,
     "sceneGroup": "LivingRoom"
   }
 }

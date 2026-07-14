@@ -76,7 +76,7 @@ export function SaleQuotations() {
   const reviseQuotationMutation = useReviseQuotation();
   const cancelQuotationMutation = useCancelQuotation();
   const quotationDetailQuery = useQuotationDetail(selectedQuotationId, { enabled: Boolean(selectedQuotationId) });
-  const projects = projectsQuery.data?.items ?? [];
+  const projects = useMemo(() => projectsQuery.data?.items ?? [], [projectsQuery.data?.items]);
   const pendingQuotationProjects = useMemo(
     () => projects.filter((project) => pendingQuotationProjectStatuses.has(project.status)),
     [projects],

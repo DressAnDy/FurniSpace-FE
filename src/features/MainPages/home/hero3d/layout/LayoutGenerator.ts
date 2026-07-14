@@ -7,32 +7,54 @@ import type {
   HeroObject,
 } from '@/features/MainPages/home/hero3d/types';
 
-type HeroRole = 'accentChair' | 'coffeeTable' | 'floorLamp' | 'plant' | 'sideTable' | 'sofa';
-
-type HeroItem = {
-  object: HeroObject;
-  rawHeight: number;
-  rawRadius: number;
-  role: HeroRole;
-};
-
-type HeroPlacement = {
+type FloatingPlacement = {
   radius: number;
+  rotationX: number;
   rotationY: number;
+  rotationZ: number;
+  side: 'left' | 'right';
   x: number;
+  y: number;
   z: number;
 };
 
-const CATEGORY_PRIORITY: Record<HeroModelCategory, number> = {
-  Sofa: 100,
-  Chair: 82,
-  CoffeeTable: 86,
-  DiningTable: 70,
-  Plant: 58,
-  Lamp: 56,
-  Pouf: 44,
-  Cabinet: 54,
-  Decoration: 38,
+type FloatingPlacementWithObject = FloatingPlacement & {
+  object: HeroObject;
+};
+
+const CATEGORY_RADIUS: Record<HeroModelCategory, number> = {
+  Sofa: 0.96,
+  Chair: 0.78,
+  CoffeeTable: 0.56,
+  DiningTable: 0.78,
+  Plant: 0.64,
+  Lamp: 0.54,
+  Pouf: 0.54,
+  Cabinet: 0.76,
+  Decoration: 0.48,
+};
+
+const CENTER_DEAD_ZONE = 3.35;
+const MAX_FLOATING_MODELS = 10;
+const MIN_DISTANCE_MULTIPLIER = 2.75;
+const PLACEMENT_ATTEMPTS = 90;
+const SIDE_BOUNDS = {
+  left: {
+    maxX: -3.85,
+    minX: -6.85,
+  },
+  right: {
+    maxX: 6.85,
+    minX: 3.85,
+  },
+};
+const Y_BOUNDS = {
+  max: 4.45,
+  min: 0.85,
+};
+const Z_BOUNDS = {
+  max: 1.35,
+  min: -1.35,
 };
 
 export class LayoutGenerator {
@@ -46,15 +68,21 @@ export class LayoutGenerator {
 
     objects.forEach((object) => object.rootNode.setEnabled(false));
 
-    const items = this.createHeroItems(objects);
-    items.forEach((item) => {
-      item.object.rootNode.setEnabled(true);
-      this.place(item);
-      this.storeRestingTransform(item.object);
+    const visibleObjects = objects
+      .filter((object) => object.metadata.layout?.enabled !== false)
+      .sort((left, right) => this.priority(right) - this.priority(left))
+      .slice(0, MAX_FLOATING_MODELS);
+    const placements = this.generateTwoSideFloatingLayout(visibleObjects);
+
+    placements.forEach((placement) => {
+      placement.object.rootNode.setEnabled(true);
+      this.placeFloatingObject(placement.object, placement);
+      this.storeRestingTransform(placement.object);
     });
 
-    this.heroObject = items.find((item) => item.role === 'sofa')?.object ?? items[0]?.object ?? null;
-    this.compositionBounds = this.measureComposition(items.map((item) => item.object));
+    this.heroObject = visibleObjects[0] ?? null;
+    this.compositionBounds = this.measureComposition(visibleObjects);
+    this.debugComposition(placements, this.compositionBounds);
     return this.compositionBounds;
   }
 
@@ -66,121 +94,145 @@ export class LayoutGenerator {
     return this.heroObject;
   }
 
-  private createHeroItems(objects: HeroObject[]) {
-    const enabledObjects = objects.filter((object) => object.metadata.layout?.enabled !== false);
-    const sofa = this.findByRole(enabledObjects, 'sofa') ?? this.findLargest(enabledObjects);
-    const selected = new Map<HeroRole, HeroObject>();
+  private generateTwoSideFloatingLayout(objects: HeroObject[]) {
+    const placements: FloatingPlacementWithObject[] = [];
 
-    if (sofa) selected.set('sofa', sofa);
-    this.pickRole(enabledObjects, selected, 'accentChair');
-    this.pickRole(enabledObjects, selected, 'coffeeTable');
-    this.pickRole(enabledObjects, selected, 'plant');
-    this.pickRole(enabledObjects, selected, 'floorLamp');
-    this.pickRole(enabledObjects, selected, 'sideTable');
+    objects.forEach((object, index) => {
+      const side = this.sideForIndex(index, placements);
+      const placement = this.findPlacement(object, index, side, placements);
+      placements.push({ ...placement, object });
+    });
 
-    return [...selected.entries()].map(([role, object]) => ({
-      object,
-      rawHeight: this.rawHeight(object),
-      rawRadius: this.rawRadius(object),
-      role,
-    }));
+    return placements;
   }
 
-  private pickRole(objects: HeroObject[], selected: Map<HeroRole, HeroObject>, role: HeroRole) {
-    const object = this.findByRole(objects, role);
-    if (object && ![...selected.values()].includes(object)) selected.set(role, object);
+  private sideForIndex(index: number, placements: FloatingPlacementWithObject[]): 'left' | 'right' {
+    const leftCount = placements.filter((placement) => placement.side === 'left').length;
+    const rightCount = placements.length - leftCount;
+
+    if (leftCount < rightCount) return 'left';
+    if (rightCount < leftCount) return 'right';
+    return index % 2 === 0 ? 'left' : 'right';
   }
 
-  private place(item: HeroItem) {
-    const placement = this.getPlacement(item.role);
-    this.applyScale(item, placement.radius);
+  private findPlacement(
+    object: HeroObject,
+    index: number,
+    side: 'left' | 'right',
+    existing: FloatingPlacementWithObject[],
+  ): FloatingPlacement {
+    const random = this.createRandom(this.seedForObject(object, index));
+    const radius = this.targetRadius(object, random);
+    let bestPlacement: FloatingPlacement | null = null;
+    let bestDistance = -Infinity;
 
-    const height = this.height(item.object);
-    item.object.rootNode.position.set(placement.x, height / 2, placement.z);
-    item.object.rootNode.rotation.set(0, placement.rotationY, 0);
+    for (let attempt = 0; attempt < PLACEMENT_ATTEMPTS; attempt += 1) {
+      const candidate = this.createCandidate(random, side, radius);
+      const nearestDistance = this.nearestDistance(candidate, existing);
+
+      if (this.isValidPlacement(candidate, existing) && nearestDistance > bestDistance) {
+        bestPlacement = candidate;
+        bestDistance = nearestDistance;
+      }
+
+      if (!bestPlacement && nearestDistance > bestDistance) {
+        bestPlacement = candidate;
+        bestDistance = nearestDistance;
+      }
+    }
+
+    return bestPlacement ?? this.createFallbackPlacement(side, radius, index);
   }
 
-  private getPlacement(role: HeroRole): HeroPlacement {
-    const placements: Record<HeroRole, HeroPlacement> = {
-      sofa: {
-        radius: 2.82,
-        rotationY: Math.PI / 2,
-        x: 0.52,
-        z: 0,
-      },
-      accentChair: {
-        radius: 1.08,
-        rotationY: Math.PI / 2 - 0.24,
-        x: -2.05,
-        z: -0.12,
-      },
-      coffeeTable: {
-        radius: 0.78,
-        rotationY: Math.PI / 2,
-        x: 0.18,
-        z: -1.08,
-      },
-      sideTable: {
-        radius: 0.42,
-        rotationY: Math.PI / 2 + 0.08,
-        x: 1.95,
-        z: -0.38,
-      },
-      plant: {
-        radius: 0.56,
-        rotationY: Math.PI / 2,
-        x: -1.24,
-        z: 0.86,
-      },
-      floorLamp: {
-        radius: 0.42,
-        rotationY: Math.PI / 2 + 0.06,
-        x: 2.62,
-        z: 0.92,
-      },
+  private createCandidate(random: () => number, side: 'left' | 'right', radius: number): FloatingPlacement {
+    const bounds = SIDE_BOUNDS[side];
+    const x = this.range(random, bounds.minX, bounds.maxX);
+    const y = this.range(random, Y_BOUNDS.min, Y_BOUNDS.max);
+    const z = this.range(random, Z_BOUNDS.min, Z_BOUNDS.max);
+
+    return {
+      radius,
+      rotationX: this.range(random, -0.08, 0.08),
+      rotationY: this.range(random, -Math.PI, Math.PI),
+      rotationZ: this.range(random, -0.04, 0.04),
+      side,
+      x: side === 'left' ? Math.min(x, -CENTER_DEAD_ZONE - radius) : Math.max(x, CENTER_DEAD_ZONE + radius),
+      y,
+      z,
     };
-
-    return placements[role];
   }
 
-  private findByRole(objects: HeroObject[], role: HeroRole) {
-    return objects
-      .filter((object) => this.roleForObject(object) === role)
-      .sort((left, right) => this.semanticScore(right) - this.semanticScore(left))[0] ?? null;
+  private createFallbackPlacement(side: 'left' | 'right', radius: number, index: number): FloatingPlacement {
+    const slot = Math.floor(index / 2);
+    const bounds = SIDE_BOUNDS[side];
+    const x = side === 'left'
+      ? bounds.minX + (slot % 2) * 1.25
+      : bounds.maxX - (slot % 2) * 1.25;
+    const y = Y_BOUNDS.min + (slot % 3) * 1.35;
+
+    return {
+      radius,
+      rotationX: 0,
+      rotationY: side === 'left' ? Math.PI * 0.18 : -Math.PI * 0.18,
+      rotationZ: 0,
+      side,
+      x,
+      y,
+      z: slot % 2 === 0 ? -0.8 : 0.8,
+    };
   }
 
-  private roleForObject(object: HeroObject): HeroRole | null {
-    const name = object.metadata.name.replace(/\s+/g, '').toLowerCase();
+  private isValidPlacement(candidate: FloatingPlacement, existing: FloatingPlacementWithObject[]) {
+    if (Math.abs(candidate.x) < CENTER_DEAD_ZONE + candidate.radius) return false;
 
-    if (name.includes('sofa') || object.metadata.category === 'Sofa') return 'sofa';
-    if (name.includes('accentchair') || name.includes('chair')) return 'accentChair';
-    if (name.includes('coffeetable') || object.metadata.category === 'CoffeeTable') return 'coffeeTable';
-    if (name.includes('sidetable') || name.includes('marble')) return 'sideTable';
-    if (name.includes('floorlamp') || name.includes('lamp')) return 'floorLamp';
-    if (name.includes('plant') || object.metadata.category === 'Plant') return 'plant';
-    return null;
+    return existing.every((placement) => {
+      const requiredDistance = (candidate.radius + placement.radius) * MIN_DISTANCE_MULTIPLIER;
+      return this.visualDistance(candidate, placement) >= requiredDistance;
+    });
   }
 
-  private findLargest(objects: HeroObject[]) {
-    return [...objects].sort((left, right) => this.visualWeight(right) - this.visualWeight(left))[0] ?? null;
+  private nearestDistance(candidate: FloatingPlacement, existing: FloatingPlacementWithObject[]) {
+    if (!existing.length) return Infinity;
+
+    return existing.reduce((nearest, placement) => (
+      Math.min(nearest, this.visualDistance(candidate, placement))
+    ), Infinity);
   }
 
-  private applyScale(item: HeroItem, targetRadius: number) {
-    const multiplier = (targetRadius * (item.object.metadata.preferredScale ?? 1)) / Math.max(item.rawRadius, 0.001);
-    item.object.rootNode.scaling.setAll(Math.min(Math.max(multiplier, 0.12), 7));
+  private visualDistance(left: FloatingPlacement, right: FloatingPlacement) {
+    const dx = left.x - right.x;
+    const dy = left.y - right.y;
+    const dz = (left.z - right.z) * 0.52;
+    return Math.sqrt(dx * dx + dy * dy + dz * dz);
   }
 
-  private semanticScore(object: HeroObject) {
-    const categoryWeight = object.metadata.category ? CATEGORY_PRIORITY[object.metadata.category] : 0;
-    return categoryWeight + (object.metadata.priority ?? 0) + this.visualWeightObject(object) * 0.1;
+  private placeFloatingObject(object: HeroObject, placement: FloatingPlacement) {
+    this.applyScale(object, placement.radius);
+    object.rootNode.position.set(placement.x, placement.y, placement.z);
+    object.rootNode.rotation.set(placement.rotationX, placement.rotationY, placement.rotationZ);
+    object.rootNode.computeWorldMatrix(true);
   }
 
-  private visualWeight(item: HeroObject) {
-    return this.visualWeightObject(item);
+  private applyScale(object: HeroObject, targetRadius: number) {
+    const radius = this.rawRadius(object);
+    const multiplier = targetRadius / Math.max(radius, 0.001);
+    object.rootNode.scaling.setAll(Math.min(Math.max(multiplier, 0.16), 3.6));
+  }
+
+  private targetRadius(object: HeroObject, random: () => number) {
+    const baseRadius = object.metadata.layout?.targetRadius
+      ?? CATEGORY_RADIUS[object.metadata.category ?? 'Decoration']
+      ?? 0.56;
+    const jitter = this.range(random, 0.9, 1.08);
+    return baseRadius * (object.metadata.preferredScale ?? 1) * jitter;
+  }
+
+  private priority(object: HeroObject) {
+    return (object.metadata.priority ?? 0) + this.visualWeightObject(object) * 0.04;
   }
 
   private visualWeightObject(object: HeroObject) {
-    return this.rawRadius(object) * 2.8 + this.rawHeight(object) * 0.42;
+    return this.rawRadius(object) * 2.2 + this.rawHeight(object) * 0.28;
   }
 
   private storeRestingTransform(object: HeroObject) {
@@ -213,8 +265,31 @@ export class LayoutGenerator {
     });
   }
 
-  private height(object: HeroObject) {
-    return Math.max(this.rawHeight(object) * object.rootNode.scaling.y, 0.1);
+  private debugComposition(placements: FloatingPlacementWithObject[], bounds: HeroCompositionBounds | null) {
+    const rows = placements.map((placement) => ({
+      name: placement.object.metadata.name,
+      nearestNeighborDistance: this.round(this.nearestDistance(placement, placements.filter((item) => item !== placement))),
+      radius: this.round(placement.radius),
+      scale: this.round(placement.object.rootNode.scaling.x),
+      side: placement.side,
+      x: this.round(placement.x),
+      y: this.round(placement.y),
+      z: this.round(placement.z),
+    }));
+    const compositionWidth = bounds ? bounds.maximum.x - bounds.minimum.x : 0;
+    const compositionHeight = bounds ? bounds.maximum.y - bounds.minimum.y : 0;
+    const compositionDepth = bounds ? bounds.maximum.z - bounds.minimum.z : 0;
+
+    console.groupCollapsed('[Hero3D] Two-side floating layout');
+    console.table(rows);
+    console.info('[Hero3D] Composition', {
+      centerDeadZone: CENTER_DEAD_ZONE,
+      compositionDepth: this.round(compositionDepth),
+      compositionHeight: this.round(compositionHeight),
+      compositionWidth: this.round(compositionWidth),
+      minDistanceMultiplier: MIN_DISTANCE_MULTIPLIER,
+    });
+    console.groupEnd();
   }
 
   private rawHeight(object: HeroObject) {
@@ -231,5 +306,31 @@ export class LayoutGenerator {
   private dimension(bounds: HeroBounds | null, axis: 'x' | 'y' | 'z') {
     if (!bounds) return 1;
     return Math.abs(bounds.maximum[axis] - bounds.minimum[axis]);
+  }
+
+  private seedForObject(object: HeroObject, index: number) {
+    const source = `${object.metadata.name}:${object.metadata.category ?? 'Unknown'}:${index}`;
+    let hash = 2166136261;
+    for (let charIndex = 0; charIndex < source.length; charIndex += 1) {
+      hash ^= source.charCodeAt(charIndex);
+      hash = Math.imul(hash, 16777619);
+    }
+    return hash >>> 0;
+  }
+
+  private createRandom(seed: number) {
+    let state = seed || 1;
+    return () => {
+      state = Math.imul(1664525, state) + 1013904223;
+      return (state >>> 0) / 4294967296;
+    };
+  }
+
+  private range(random: () => number, min: number, max: number) {
+    return min + (max - min) * random();
+  }
+
+  private round(value: number) {
+    return Math.round(value * 1000) / 1000;
   }
 }

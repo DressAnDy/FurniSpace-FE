@@ -29,8 +29,17 @@ export type HeroModelCategory =
 
 export type HeroModelLayoutOverride = {
   enabled?: boolean;
+  placement?: {
+    heightOffset?: number;
+    mode?: 'CUSTOM_HEIGHT' | 'FLOOR';
+  };
   rotationY?: number;
   targetRadius?: number;
+  transform?: {
+    position?: Partial<Vector3Data>;
+    rotation?: Partial<Vector3Data>;
+    scale?: Partial<Vector3Data>;
+  };
   x?: number;
   y?: number;
   z?: number;
@@ -75,14 +84,15 @@ export type HeroModelManifest = {
   root: string;
 };
 
-export type HeroAnimationPhase = 'idle' | 'wakeUp' | 'lift' | 'vortex' | 'highlight' | 'return' | 'settle';
+export type HeroAnimationPhase = 'floating';
 
 export type HeroAnimationObject = {
-  height: number;
-  index: number;
+  basePosition: Vector3;
+  baseRotation: Vector3;
+  floatAmplitude: number;
+  floatSpeed: number;
   phaseOffset: number;
-  radius: number;
+  randomSeed: number;
+  rotationAmplitude: Vector3;
   rotationSpeed: number;
-  size: number;
-  vortexRadius: number;
 };
