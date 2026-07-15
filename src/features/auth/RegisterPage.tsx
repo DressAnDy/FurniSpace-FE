@@ -1,6 +1,7 @@
 import { FormEvent, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 
+import authenPic from '@/assets/auth/register-hero.png';
 import {
   AUTH_PENDING_EMAIL_KEY,
   getServiceResultMessage,
@@ -92,6 +93,7 @@ export function RegisterPage() {
       </section>
 
       <section className="register-hero" aria-label="FurniSpace register preview">
+        <img src={authenPic} alt="" aria-hidden="true" />
         <Link className="register-back-home" to="/">
           Trở về trang chủ
         </Link>

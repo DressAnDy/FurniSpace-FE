@@ -1,11 +1,6 @@
 import {
-  IconBox,
   IconChevronRight,
-  IconCircleCheck,
-  IconCircleX,
   IconHome,
-  IconMessageDots,
-  IconRefresh,
 } from '@tabler/icons-react';
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
@@ -21,10 +16,9 @@ import {
   useProposalDetail,
   useProposalItems,
   useProposalScenes,
-  useRequestProposalRevision,
-  useSelectFinalProposal,
   useSubmitCustomizationRequest,
 } from '@/services/queries';
+import { aggregateDuplicateItems } from '@/shared/utils/itemAggregation';
 
 import './CustomerProposalDetailPage.css';
 
@@ -37,7 +31,6 @@ export function CustomerProposalDetailPage() {
   const projectIdFromUrl = searchParams.get('projectId') ?? '';
   const [selectedProjectId, setSelectedProjectId] = useState(projectIdFromUrl);
   const [selectedProposalId, setSelectedProposalId] = useState(proposalId ?? '');
-  const [decisionMessage, setDecisionMessage] = useState('');
   const [customizationMessage, setCustomizationMessage] = useState('');
   const [customizingItemId, setCustomizingItemId] = useState<string | null>(null);
   const [customizationTitle, setCustomizationTitle] = useState('');
@@ -76,19 +69,17 @@ export function CustomerProposalDetailPage() {
     },
     { enabled: Boolean(selectedProposalId) },
   );
-  const selectFinalMutation = useSelectFinalProposal();
-  const requestRevisionMutation = useRequestProposalRevision();
   const submitCustomizationMutation = useSubmitCustomizationRequest();
   const customizationDecisionMutation = useCustomerDecisionCustomizationRequest();
   const backendProposal = proposalQuery.data;
-  const selectedProject = projectsQuery.data?.items.find((project) => project.projectId === selectedProjectId) ?? null;
   const proposals = useMemo(
     () => (projectProposalsQuery.data?.items ?? []).filter((proposal) => isCustomerVisibleProposal(proposal.status)),
     [projectProposalsQuery.data?.items],
   );
   const scenes = useMemo(() => scenesQuery.data?.items ?? backendProposal?.scenes ?? [], [backendProposal?.scenes, scenesQuery.data?.items]);
   const proposalItems = useMemo(() => itemsQuery.data?.items ?? backendProposal?.items ?? [], [backendProposal?.items, itemsQuery.data?.items]);
-  const estimatedTotal = proposalItems.reduce((total, item) => total + (item.subtotalAmount ?? 0), 0);
+  const displayProposalItems = useMemo(() => aggregateDuplicateItems(proposalItems), [proposalItems]);
+  const estimatedTotal = displayProposalItems.reduce((total, item) => total + (item.subtotalAmount ?? 0), 0);
   const customizationRequestsQuery = useProjectCustomizationRequests(
     {
       projectId: backendProposal?.projectId ?? '',
@@ -98,7 +89,6 @@ export function CustomerProposalDetailPage() {
   );
   const customizationRequests = customizationRequestsQuery.data?.items ?? [];
   const customerApprovalRequests = customizationRequests.filter((request) => request.status === 'WAITING_FOR_CUSTOMER_FINAL_APPROVAL');
-  const canDecideProposal = backendProposal?.status === 'PUBLISHED';
 
   useEffect(() => {
     if (proposalId && proposalId !== selectedProposalId) {
@@ -129,7 +119,6 @@ export function CustomerProposalDetailPage() {
 
   function openProposal(proposal: ProposalDto) {
     setSelectedProposalId(proposal.proposalId);
-    setDecisionMessage('');
     setCustomizationMessage('');
     setCustomizingItemId(null);
     navigate(`/customer/proposals/${proposal.proposalId}?projectId=${proposal.projectId}`);
@@ -216,44 +205,6 @@ export function CustomerProposalDetailPage() {
     }
   }
 
-  async function selectFinalProposal() {
-    if (!selectedProposalId) {
-      setDecisionMessage('Choose a proposal before selecting the final design.');
-      return;
-    }
-
-    setDecisionMessage('');
-
-    try {
-      await selectFinalMutation.mutateAsync({
-        proposalId: selectedProposalId,
-        note: 'Customer selected this proposal as the final design for quotation preparation.',
-      });
-      setDecisionMessage('Final proposal selected. The project can move toward quotation.');
-    } catch (error) {
-      setDecisionMessage(getProposalServiceResultMessage(error));
-    }
-  }
-
-  async function requestRevision() {
-    if (!selectedProposalId) {
-      setDecisionMessage('Choose a proposal before requesting a revision.');
-      return;
-    }
-
-    setDecisionMessage('');
-
-    try {
-      await requestRevisionMutation.mutateAsync({
-        proposalId: selectedProposalId,
-        note: 'Customer requested another review/revision for this design proposal.',
-      });
-      setDecisionMessage('Revision request sent to the design team.');
-    } catch (error) {
-      setDecisionMessage(getProposalServiceResultMessage(error));
-    }
-  }
-
   return (
     <main className="customer-proposal-detail-page">
       <CustomerNavbar activeLabel="Design Proposals" classPrefix="customer-proposal-detail" />
@@ -272,8 +223,11 @@ export function CustomerProposalDetailPage() {
         {projectsQuery.isLoading ? <section className="customer-proposal-detail-state">Loading your projects...</section> : null}
         {projectsQuery.isError ? <section className="customer-proposal-detail-state is-error">Cannot load customer projects.</section> : null}
 
-        {selectedProjectId ? (
-          <section className="customer-proposal-detail-proposal-list">
+        {proposalQuery.isLoading ? <section className="customer-proposal-detail-state">Loading proposal detail...</section> : null}
+        {proposalQuery.isError ? <section className="customer-proposal-detail-state is-error">{getProposalServiceResultMessage(proposalQuery.error)}</section> : null}
+
+        <div className="customer-proposal-detail-layout">
+          <aside className="customer-proposal-detail-proposal-list">
             <header>
               <div>
                 <h2>Project Proposals</h2>
@@ -282,7 +236,7 @@ export function CustomerProposalDetailPage() {
             </header>
             {projectProposalsQuery.isLoading ? <p>Loading proposals...</p> : null}
             {projectProposalsQuery.isError ? <p>{getProposalServiceResultMessage(projectProposalsQuery.error)}</p> : null}
-            {!projectProposalsQuery.isLoading && proposals.length === 0 ? <p>No proposal is available for this project yet.</p> : null}
+            {!projectProposalsQuery.isLoading && selectedProjectId && proposals.length === 0 ? <p>No proposal is available for this project yet.</p> : null}
             <div>
               {proposals.map((proposal) => (
                 <button
@@ -296,58 +250,11 @@ export function CustomerProposalDetailPage() {
                 </button>
               ))}
             </div>
-          </section>
-        ) : null}
+          </aside>
 
-        {proposalQuery.isLoading ? <section className="customer-proposal-detail-state">Loading proposal detail...</section> : null}
-        {proposalQuery.isError ? <section className="customer-proposal-detail-state is-error">{getProposalServiceResultMessage(proposalQuery.error)}</section> : null}
-
-        {backendProposal ? (
-          <>
-          <section className="customer-proposal-detail-snapshot-strip" aria-label="Proposal snapshot">
-            <div>
-              <h2>Proposal Snapshot</h2>
-              <p>{selectedProject?.projectName ?? selectedProject?.projectCode ?? backendProposal.projectId}</p>
-            </div>
-            <div className="customer-proposal-detail-summary-grid">
-              <SnapshotItem label="Status" value={formatEnumLabel(backendProposal.status)} />
-              <SnapshotItem label="Published" value={backendProposal.publishedAt ? formatDate(backendProposal.publishedAt) : '-'} />
-              <SnapshotItem label="Revision" value={`Version ${backendProposal.versionNo}`} />
-              <SnapshotItem label="Scenes" value={`${scenes.length} active`} />
-              <SnapshotItem label="Estimated Cost" value={formatMoney(estimatedTotal)} />
-            </div>
-          </section>
-
-          <div className="customer-proposal-detail-layout">
-            <div className="customer-proposal-detail-primary">
-              <section className="customer-proposal-detail-hero">
-                {getHeroImage(scenes) ? (
-                  <img className="customer-proposal-detail-hero-media" alt="Published interior proposal" src={getHeroImage(scenes)} />
-                ) : null}
-                <div className="customer-proposal-detail-hero-copy">
-                  <div>
-                    <h1>{backendProposal.proposalName}</h1>
-                    <span>Version {backendProposal.versionNo}</span>
-                  </div>
-                  <p>{backendProposal.description ?? 'Published design proposal ready for customer review.'}</p>
-                  <ul>
-                    <li>{selectedProject?.projectCode ?? backendProposal.projectId}</li>
-                    <li>{backendProposal.publishedAt ? `Published ${formatDate(backendProposal.publishedAt)}` : 'Not published yet'}</li>
-                    <li>{formatMoney(estimatedTotal)}</li>
-                  </ul>
-                </div>
-                <div className="customer-proposal-detail-hero-footer">
-                  <div>
-                    <span className="customer-proposal-detail-status">{formatEnumLabel(backendProposal.status)}</span>
-                    <p>{scenes.length} active scene(s) - {proposalItems.length} item(s)</p>
-                  </div>
-                  <button disabled={scenes.length === 0} type="button" onClick={() => scenes[0] && openScene(scenes[0])}>
-                    <IconBox size={20} stroke={1.8} />
-                    Open 2D/3D Review
-                  </button>
-                </div>
-              </section>
-
+          <div className="customer-proposal-detail-primary">
+            {backendProposal ? (
+              <>
               <section className="customer-proposal-detail-card customer-proposal-detail-scenes">
                 <div className="customer-proposal-detail-section-heading">
                   <div>
@@ -372,7 +279,7 @@ export function CustomerProposalDetailPage() {
 
               <section className="customer-proposal-detail-card customer-proposal-detail-items">
                 <div>
-                  <h2>Furniture & Items ({proposalItems.length})</h2>
+                  <h2>Furniture & Items</h2>
                   <p>Total Estimated: {formatMoney(estimatedTotal)}</p>
                 </div>
                 {customizationMessage ? <p className="customer-proposal-detail-message">{customizationMessage}</p> : null}
@@ -387,7 +294,7 @@ export function CustomerProposalDetailPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {proposalItems.map((item) => (
+                      {displayProposalItems.map((item) => (
                         <ProposalItemRow
                           item={item}
                           key={item.proposalItemId}
@@ -398,7 +305,7 @@ export function CustomerProposalDetailPage() {
                           }}
                         />
                       ))}
-                      {!itemsQuery.isLoading && proposalItems.length === 0 ? (
+                      {!itemsQuery.isLoading && displayProposalItems.length === 0 ? (
                         <tr>
                           <td colSpan={tableHeaders.length}>No proposal item is available for customization.</td>
                         </tr>
@@ -426,32 +333,6 @@ export function CustomerProposalDetailPage() {
                     </div>
                   </form>
                 ) : null}
-              </section>
-            </div>
-
-            <aside className="customer-proposal-detail-sidebar">
-              <section className="customer-proposal-detail-decision">
-                <h2>Make Your Decision</h2>
-                <p>Resolve customization requests before selecting the final proposal.</p>
-                {decisionMessage ? <p>{decisionMessage}</p> : null}
-                <div>
-                  <button type="button">
-                    <IconMessageDots size={20} stroke={1.8} />
-                    Submit Feedback
-                  </button>
-                  <button disabled={!canDecideProposal || requestRevisionMutation.isPending} type="button" onClick={() => void requestRevision()}>
-                    <IconRefresh size={20} stroke={1.8} />
-                    {requestRevisionMutation.isPending ? 'Requesting...' : 'Request Revision'}
-                  </button>
-                  <button disabled={!canDecideProposal || selectFinalMutation.isPending || customerApprovalRequests.length > 0} type="button" onClick={() => void selectFinalProposal()}>
-                    <IconCircleCheck size={20} stroke={1.8} />
-                    {selectFinalMutation.isPending ? 'Selecting...' : 'Select This Proposal'}
-                  </button>
-                  <button type="button">
-                    <IconCircleX size={20} stroke={1.8} />
-                    Reject Proposal
-                  </button>
-                </div>
               </section>
 
               {customerApprovalRequests.length > 0 ? (
@@ -485,10 +366,12 @@ export function CustomerProposalDetailPage() {
                   ))}
                 </section>
               ) : null}
-            </aside>
+              </>
+            ) : (
+              <section className="customer-proposal-detail-state">Select a proposal to review scenes and furniture items.</section>
+            )}
           </div>
-          </>
-        ) : null}
+        </div>
       </div>
     </main>
   );
@@ -517,15 +400,6 @@ function isCustomerVisibleProposal(status: ProposalDto['status']) {
   return ['PUBLISHED', 'REVISION_REQUESTED', 'SELECTED', 'REJECTED'].includes(status);
 }
 
-function SnapshotItem({ label, value }: { label: string; value: string }) {
-  return (
-    <article>
-      <span>{label}</span>
-      <strong>{value}</strong>
-    </article>
-  );
-}
-
 function normalizeNumber(value: string) {
   if (!value.trim()) return null;
 
@@ -542,14 +416,6 @@ function formatEnumLabel(value: string) {
     .join(' ');
 }
 
-function formatDate(value: string) {
-  return new Intl.DateTimeFormat('en', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-  }).format(new Date(value));
-}
-
 function formatDimensions(width?: number | null, height?: number | null, depth?: number | null, unit?: string | null) {
   const values = [
     width ? `W ${width}` : null,
@@ -564,8 +430,4 @@ function formatMoney(value?: number | null) {
   if (typeof value !== 'number') return '-';
 
   return `${new Intl.NumberFormat('vi-VN').format(value)} VND`;
-}
-
-function getHeroImage(scenes: ProposalSceneDto[]) {
-  return scenes.find((scene) => scene.previewFileUrl)?.previewFileUrl ?? '';
 }

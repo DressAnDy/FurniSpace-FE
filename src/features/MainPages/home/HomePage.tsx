@@ -1,8 +1,9 @@
 import { IconArrowRight, IconPhone, IconShieldCheck } from '@tabler/icons-react';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 
 import { useLang } from '@/app/providers/useLang';
 import heroRoomScene from '@/assets/hero/hero-room-scene-3d.png';
+import processVideo from '@/assets/hero/process-mp4.mp4';
 import { MainFooter, MainNavbar } from '@/features/MainPages/maincomponents';
 import { HomeModelGallery } from '@/features/MainPages/home/HomeModelGallery';
 
@@ -138,12 +139,24 @@ export function HomePage() {
 function HomePageContent() {
   const { lang } = useLang();
   const t = homeContent[lang];
+  const processVideoReplayTimeoutRef = useRef<number | undefined>(undefined);
+
+  function handleProcessVideoEnded(event: { currentTarget: HTMLVideoElement }) {
+    const video = event.currentTarget;
+
+    window.clearTimeout(processVideoReplayTimeoutRef.current);
+    processVideoReplayTimeoutRef.current = window.setTimeout(() => {
+      video.currentTime = 0;
+      void video.play();
+    }, 750);
+  }
 
   useEffect(() => {
     const root = document.documentElement;
     const darkSectionSelectors = ['.home-intro', '.home-process', '.main-footer'];
     const desktopQuery = window.matchMedia('(min-width: 901px)');
     const reducedMotionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const sectionScrollDurationMs = 750;
     let isSectionScrolling = false;
     let wheelUnlockTimeout: number | undefined;
     let scrollAnimationFrame: number | undefined;
@@ -170,6 +183,19 @@ function HomePageContent() {
     }
 
     function getActiveSectionIndex(sections: HTMLElement[], direction: number) {
+      if (direction < 0) {
+        const viewportBottom = window.scrollY + window.innerHeight;
+        const documentHeight = document.documentElement.scrollHeight;
+        const isNearPageBottom = viewportBottom >= documentHeight - 8;
+        const lastVisibleSectionIndex = sections.reduce((visibleIndex, section, index) => {
+          const isVisible = section.offsetTop < viewportBottom - 24 && section.offsetTop + section.offsetHeight > window.scrollY + 24;
+
+          return isVisible ? index : visibleIndex;
+        }, 0);
+
+        return isNearPageBottom ? sections.length - 1 : lastVisibleSectionIndex;
+      }
+
       const activationOffset = direction > 0 ? Math.min(window.innerHeight * 0.34, 280) : Math.min(window.innerHeight * 0.2, 180);
       const currentPosition = window.scrollY + activationOffset;
 
@@ -178,11 +204,11 @@ function HomePageContent() {
       }, 0);
     }
 
-    function easeInOutCubic(progress: number) {
-      return progress < 0.5 ? 4 * progress * progress * progress : 1 - Math.pow(-2 * progress + 2, 3) / 2;
+    function easeInOutSine(progress: number) {
+      return -(Math.cos(Math.PI * progress) - 1) / 2;
     }
 
-    function animateScrollTo(targetY: number, duration = 2000) {
+    function animateScrollTo(targetY: number, duration = sectionScrollDurationMs) {
       const startY = window.scrollY;
       const distance = targetY - startY;
       const startTime = performance.now();
@@ -194,7 +220,7 @@ function HomePageContent() {
       function step(currentTime: number) {
         const elapsed = currentTime - startTime;
         const progress = Math.min(elapsed / duration, 1);
-        const easedProgress = easeInOutCubic(progress);
+        const easedProgress = easeInOutSine(progress);
 
         window.scrollTo(0, startY + distance * easedProgress);
         updateHeaderTone();
@@ -205,6 +231,7 @@ function HomePageContent() {
         }
 
         scrollAnimationFrame = undefined;
+        window.clearTimeout(wheelUnlockTimeout);
         isSectionScrolling = false;
       }
 
@@ -212,7 +239,7 @@ function HomePageContent() {
     }
 
     function handleSectionWheel(event: WheelEvent) {
-      if (!desktopQuery.matches || reducedMotionQuery.matches || Math.abs(event.deltaY) < 18) {
+      if (!desktopQuery.matches || reducedMotionQuery.matches || Math.abs(event.deltaY) < 6) {
         return;
       }
 
@@ -242,7 +269,7 @@ function HomePageContent() {
       window.clearTimeout(wheelUnlockTimeout);
       wheelUnlockTimeout = window.setTimeout(() => {
         isSectionScrolling = false;
-      }, 2200);
+      }, sectionScrollDurationMs + 240);
     }
 
     root.classList.add('home-scroll-snap');
@@ -253,6 +280,7 @@ function HomePageContent() {
     window.addEventListener('wheel', handleSectionWheel, { passive: false });
 
     return () => {
+      window.clearTimeout(processVideoReplayTimeoutRef.current);
       window.clearTimeout(wheelUnlockTimeout);
       if (scrollAnimationFrame !== undefined) {
         window.cancelAnimationFrame(scrollAnimationFrame);
@@ -390,6 +418,11 @@ function HomePageContent() {
               <br />
               {t.processTitle2}
             </h2>
+            <div className="home-process-video-card" aria-hidden="true">
+              <video className="home-process-video" autoPlay muted playsInline preload="metadata" onEnded={handleProcessVideoEnded}>
+                <source src={processVideo} type="video/mp4" />
+              </video>
+            </div>
           </div>
 
           <div className="home-process-content">

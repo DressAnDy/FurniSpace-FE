@@ -2,7 +2,7 @@ import { IconCurrencyDollar, IconPackage, IconReceipt, IconSettings } from '@tab
 import { type FormEvent, useEffect, useMemo, useState } from 'react';
 
 import { SaleNavbar, SaleSidebar } from '@/features/SalePages/salecomponents';
-import { getOrderServiceResultMessage, type OrderDetailDto, type OrderListItemDto, type OrderStatus } from '@/services/api/orders';
+import { getOrderServiceResultMessage, type OrderDetailDto, type OrderItemDto, type OrderListItemDto, type OrderStatus } from '@/services/api/orders';
 import type { ProjectListItemDto } from '@/services/api/projects';
 import {
   useCurrentUser,
@@ -11,6 +11,7 @@ import {
   useProjectOrders,
   useUpdateOrderFinancialAdjustment,
 } from '@/services/queries';
+import { aggregateDuplicateItems } from '@/shared/utils/itemAggregation';
 
 import './SaleOrders.css';
 
@@ -214,7 +215,7 @@ function OrderGroup({
             type="button"
             onClick={() => onSelect(item.orderId)}
           >
-            <span>{item.orderCode}</span>
+            <span title={item.orderCode}>{formatOrderCode(item.orderCode)}</span>
             <strong>{formatMoney(item.originalTotalAmount)}</strong>
             <em className={`sale-orders-status sale-orders-status-${statusClass(item.status)}`}>{formatEnumLabel(item.status ?? 'UNKNOWN')}</em>
           </button>
@@ -234,6 +235,7 @@ function OrderDetailPanel({
   order: OrderDetailDto;
 }) {
   const [depositAmount, setDepositAmount] = useState(() => String(order.depositAmount ?? 0));
+  const orderItems = useMemo(() => aggregateDuplicateItems(order.items), [order.items]);
 
   useEffect(() => {
     setDepositAmount(String(order.depositAmount ?? 0));
@@ -250,10 +252,6 @@ function OrderDetailPanel({
   return (
     <section className="sale-orders-card sale-orders-detail">
       <header>
-        <div>
-          <h3>{order.orderCode}</h3>
-          <p>Quotation {order.quotationId}</p>
-        </div>
         <span className={`sale-orders-status sale-orders-status-${statusClass(order.status)}`}>{formatEnumLabel(order.status ?? 'UNKNOWN')}</span>
       </header>
       <div className="sale-orders-money-grid">
@@ -286,9 +284,9 @@ function OrderDetailPanel({
             </tr>
           </thead>
           <tbody>
-            {order.items.map((item) => (
+            {orderItems.map((item) => (
               <tr key={item.orderItemId}>
-                <td>{item.itemName ?? item.productNameSnapshot ?? '-'}</td>
+                <td>{getOrderItemName(item)}</td>
                 <td>{formatEnumLabel(item.itemType ?? 'UNKNOWN')}</td>
                 <td>{item.quantity ?? '-'}</td>
                 <td>{formatMoney(item.unitPrice)}</td>
@@ -323,6 +321,10 @@ function MoneyValue({ label, value }: { label: string; value: string }) {
       <strong>{value}</strong>
     </div>
   );
+}
+
+function getOrderItemName(item: Pick<OrderItemDto, 'itemName' | 'productNameSnapshot'>) {
+  return item.itemName ?? item.productNameSnapshot ?? '-';
 }
 
 function getOrderProjects(projects: ProjectListItemDto[]) {
@@ -362,6 +364,13 @@ function formatMoney(value?: number | null) {
   if (typeof value !== 'number') return '-';
 
   return `${new Intl.NumberFormat('vi-VN').format(value)} VND`;
+}
+
+function formatOrderCode(value?: string | null) {
+  if (!value) return '-';
+
+  const [, suffix] = value.split('-', 2);
+  return (suffix || value).slice(0, 6);
 }
 
 function normalizeMoneyInput(value: string) {

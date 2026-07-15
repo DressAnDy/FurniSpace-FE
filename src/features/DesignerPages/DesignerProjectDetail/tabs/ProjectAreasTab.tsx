@@ -1,4 +1,4 @@
-import { IconCheck, IconPlus, IconRulerMeasure } from '@tabler/icons-react';
+import { IconPlus, IconRulerMeasure } from '@tabler/icons-react';
 import { useState } from 'react';
 
 import { getProjectAreaServiceResultMessage, type ProjectAreaDto, type ProjectAreaType } from '@/services/api/projectAreas';
@@ -149,13 +149,6 @@ export function ProjectAreasTab({ project }: ProjectAreasTabProps) {
         </section>
 
         <section className="designer-project-area-list-card">
-          <div className="designer-project-area-heading">
-            <IconCheck size={22} />
-            <div>
-              <h4>Available Areas</h4>
-              <p>{areasQuery.isLoading ? 'Loading project areas...' : `${areas.length} area${areas.length === 1 ? '' : 's'} ready for proposals.`}</p>
-            </div>
-          </div>
           <div className="designer-project-area-list">
             {areasQuery.isLoading ? <p className="designer-project-empty-text">Loading project areas...</p> : null}
             {!areasQuery.isLoading && areas.length === 0 ? <p className="designer-project-empty-text">No project areas yet.</p> : null}

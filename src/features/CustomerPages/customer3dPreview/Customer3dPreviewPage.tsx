@@ -33,6 +33,7 @@ import {
   useRoomPlannerScene,
   useSelectFinalProposal,
 } from '@/services/queries';
+import { aggregateDuplicateItems } from '@/shared/utils/itemAggregation';
 
 type ViewMode = '2d' | '3d';
 type SidePanelMode = 'items' | 'chat' | null;
@@ -107,6 +108,8 @@ export function Customer3dPreviewPage() {
   );
   const proposalItems = useMemo(() => proposalItemsQuery.data?.items ?? [], [proposalItemsQuery.data?.items]);
   const sceneProducts = hydratedScene.placedProducts;
+  const displayProposalItems = useMemo(() => aggregateDuplicateItems(proposalItems), [proposalItems]);
+  const displaySceneProducts = useMemo(() => aggregateSceneProducts(sceneProducts), [sceneProducts]);
   const selectedObject = useMemo(
     () => sceneProducts.find((object) => object.id === selectedObjectId) ?? null,
     [sceneProducts, selectedObjectId],
@@ -421,10 +424,10 @@ export function Customer3dPreviewPage() {
                   )}
                   <div className="customer-3d-preview-item-list">
                     {proposalItemsQuery.isLoading && <p className="customer-scene-state">Loading proposal items...</p>}
-                    {proposalItems.length > 0
-                      ? proposalItems.map((item) => <ProposalItemCard item={item} key={item.proposalItemId} />)
-                      : sceneProducts.map((product) => <SceneProductCard product={product} key={product.id} />)}
-                    {!proposalItemsQuery.isLoading && proposalItems.length === 0 && sceneProducts.length === 0 && (
+                    {displayProposalItems.length > 0
+                      ? displayProposalItems.map((item) => <ProposalItemCard item={item} key={item.proposalItemId} />)
+                      : displaySceneProducts.map((product) => <SceneProductCard product={product} key={product.id} />)}
+                    {!proposalItemsQuery.isLoading && displayProposalItems.length === 0 && displaySceneProducts.length === 0 && (
                       <p className="customer-scene-state">No furniture objects are saved in this scene yet.</p>
                     )}
                   </div>
@@ -496,7 +499,9 @@ function ProposalItemCard({ item }: { item: ProposalItemDto }) {
   );
 }
 
-function SceneProductCard({ product }: { product: PlacedProduct3D }) {
+type AggregatedSceneProduct = PlacedProduct3D & { quantity: number };
+
+function SceneProductCard({ product }: { product: AggregatedSceneProduct }) {
   return (
     <article className="customer-3d-preview-item-card">
       <div>
@@ -504,11 +509,33 @@ function SceneProductCard({ product }: { product: PlacedProduct3D }) {
         <span>{[product.visualSnapshot?.material, product.visualSnapshot?.color].filter(Boolean).join(' - ') || product.productVersionId || product.id}</span>
       </div>
       <div>
-        <span>1x</span>
+        <span>{product.quantity}x</span>
         <strong>{product.productVersionId ? 'From scene' : 'Local object'}</strong>
       </div>
     </article>
   );
+}
+
+function aggregateSceneProducts(products: PlacedProduct3D[]) {
+  const productsBySample = new Map<string, AggregatedSceneProduct>();
+
+  for (const product of products) {
+    const key = [
+      product.productVersionId ?? product.productId ?? product.modelName,
+      product.visualSnapshot?.material ?? 'NO_MATERIAL',
+      product.visualSnapshot?.color ?? 'NO_COLOR',
+    ].join('|');
+    const existingProduct = productsBySample.get(key);
+
+    if (existingProduct) {
+      existingProduct.quantity += 1;
+      continue;
+    }
+
+    productsBySample.set(key, { ...product, quantity: 1 });
+  }
+
+  return Array.from(productsBySample.values());
 }
 
 function SceneState({ message }: { message: string }) {

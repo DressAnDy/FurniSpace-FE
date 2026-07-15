@@ -2,6 +2,7 @@ import { FormEvent, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate } from 'react-router-dom';
 
+import authenPic from '@/assets/auth/register-hero.png';
 import { getCurrentUser, getServiceResultMessage, normalizeEmail } from '@/services/api/auth';
 import { useLogin } from '@/services/queries';
 
@@ -91,6 +92,7 @@ export function LoginPage() {
       </section>
 
       <section className="login-hero" aria-label="FurniSpace login preview">
+        <img src={authenPic} alt="" aria-hidden="true" />
         <Link className="login-back-home" to="/">
           Trở về trang chủ
         </Link>

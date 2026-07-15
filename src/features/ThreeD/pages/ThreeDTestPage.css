@@ -1,6 +1,16 @@
 .room-layout-page {
-  background: #e7ece8;
-  color: #263331;
+  --fs-primary: #c59c76;
+  --fs-primary-dark: #0f0d0b;
+  --fs-primary-soft: #f5f1eb;
+  --fs-secondary: #9b734b;
+  --fs-secondary-soft: #f2e8dc;
+  --fs-page: #f7f5f3;
+  --fs-panel: #ffffff;
+  --fs-border: #e4d8ca;
+  --fs-text: #0f0d0b;
+  --fs-muted: #756b61;
+  background: var(--fs-page);
+  color: var(--fs-text);
   height: 100vh;
   overflow: hidden;
   padding: 8px;
@@ -8,8 +18,8 @@
 
 .room-layout-header {
   align-items: center;
-  background: #fbfbf8;
-  border: 1px solid #cfd8d1;
+  background: var(--fs-panel);
+  border: 1px solid var(--fs-border);
   display: flex;
   gap: 16px;
   justify-content: space-between;
@@ -55,14 +65,14 @@
 .room-layout-header-actions button,
 .room-workspace-actions button {
   background: #ffffff;
-  color: #28444d;
+  color: var(--fs-primary-dark);
   padding: 9px 12px;
   text-decoration: none;
 }
 
 .room-workspace-actions button:first-child,
 .room-layout-header-actions button {
-  background: #2f6f67;
+  background: var(--fs-primary);
   color: #ffffff;
 }
 
@@ -132,7 +142,7 @@
 }
 
 .room-tool-menu button.is-active {
-  background: #4fc0d7;
+  background: var(--fs-primary);
   color: #ffffff;
 }
 
@@ -152,8 +162,8 @@
 }
 
 .room-design-sidebar {
-  background: #f5f4ef;
-  border-right: 1px solid #cfd8d1;
+  background: var(--fs-page);
+  border-right: 1px solid var(--fs-border);
   display: grid;
   grid-template-columns: 176px minmax(0, 1fr);
   overflow: hidden;
@@ -161,8 +171,8 @@
 }
 
 .design-sidebar-menu {
-  background: #fbfbf8;
-  border-right: 1px solid #cfd8d1;
+  background: var(--fs-panel);
+  border-right: 1px solid var(--fs-border);
   display: flex;
   flex-direction: column;
   min-height: 0;
@@ -181,8 +191,8 @@
 
 .design-sidebar-menu button {
   align-items: center;
-  background: #fbfbf8;
-  border-bottom: 1px solid #dfe5df;
+  background: var(--fs-panel);
+  border-bottom: 1px solid var(--fs-border);
   color: #52615d;
   display: flex;
   font-size: 14px;
@@ -198,17 +208,17 @@
 }
 
 .design-sidebar-menu button.is-active {
-  background: #2f6f67;
+  background: var(--fs-primary);
   color: #ffffff;
 }
 
 .design-sidebar-menu button.is-active-secondary {
-  border-left: 4px solid #b78355;
-  color: #2f6f67;
+  border-left: 4px solid var(--fs-secondary);
+  color: var(--fs-primary);
 }
 
 .design-sidebar-footer button:nth-child(2) {
-  background: #1f3431;
+  background: var(--fs-primary-dark);
   color: #ffffff;
 }
 
@@ -237,8 +247,8 @@
 
 .design-panel-toolbar {
   align-items: center;
-  background: #fbfbf8;
-  border-bottom: 1px solid #cfd8d1;
+  background: var(--fs-panel);
+  border-bottom: 1px solid var(--fs-border);
   display: grid;
   gap: 8px;
   grid-template-columns: auto minmax(0, 1fr) 38px;
@@ -364,7 +374,7 @@
 }
 
 .room-workspace {
-  background: #d8ddd8;
+  background: var(--fs-primary-soft);
   display: flex;
   flex-direction: column;
   min-width: 0;
@@ -394,15 +404,15 @@
 }
 
 .room-workspace-toolbar > div:first-child {
-  background: rgba(251, 251, 248, 0.94);
-  border: 1px solid #cfd8d1;
+  background: rgba(255, 255, 255, 0.94);
+  border: 1px solid var(--fs-border);
   padding: 10px 14px;
   pointer-events: auto;
 }
 
 .room-workspace-actions {
-  background: #fbfbf8;
-  border: 1px solid #cfd8d1;
+  background: var(--fs-panel);
+  border: 1px solid var(--fs-border);
   pointer-events: auto;
 }
 
@@ -429,7 +439,7 @@
 }
 
 .room-layout-shell.is-2d .room-workspace {
-  background: #244d7f;
+  background: var(--fs-primary-dark);
 }
 
 .room-layout-shell.is-2d .room-workspace-toolbar {
@@ -495,7 +505,7 @@
 }
 
 .blueprint-view-controls button {
-  background: #255f73;
+  background: var(--fs-primary);
   border: 0;
   color: #ffffff;
   cursor: pointer;
@@ -510,7 +520,7 @@
 }
 
 .blueprint-view-controls span {
-  color: #28444d;
+  color: var(--fs-primary-dark);
   font-size: 13px;
   font-weight: 800;
   min-width: 48px;
@@ -545,7 +555,7 @@
 }
 
 .blueprint-wall.is-selected {
-  filter: drop-shadow(0 0 6px rgba(53, 214, 255, 0.65));
+  filter: drop-shadow(0 0 6px rgba(196, 160, 122, 0.58));
 }
 
 .blueprint-wall-label {
@@ -560,7 +570,7 @@
 
 .blueprint-node {
   fill: #ffffff;
-  stroke: #35d6ff;
+  stroke: var(--fs-primary);
   stroke-width: 3px;
 }
 
@@ -601,8 +611,8 @@
 .blueprint-opening.is-selected .blueprint-opening-line,
 .blueprint-opening.is-selected .blueprint-window-symbol,
 .blueprint-opening.is-selected .blueprint-opening-symbol {
-  filter: drop-shadow(0 0 6px rgba(53, 214, 255, 0.8));
-  stroke: #35d6ff;
+  filter: drop-shadow(0 0 6px rgba(196, 160, 122, 0.64));
+  stroke: var(--fs-primary);
 }
 
 .blueprint-door-arc {
@@ -752,7 +762,7 @@
 }
 
 .room-preview-3d {
-  background: #d8ddd8;
+  background: var(--fs-primary-soft);
 }
 
 .three-d-canvas {
@@ -841,7 +851,7 @@
 
 .object-action-grid button:nth-child(5),
 .height-action-grid button:first-child {
-  background: #255f73;
+  background: var(--fs-primary);
   color: #ffffff;
 }
 
@@ -916,7 +926,7 @@
 }
 
 .product-floating-menu::after {
-  background: #d80f1d;
+  background: var(--fs-secondary);
   content: '';
   inset: 0 0 0 auto;
   position: absolute;
@@ -1052,7 +1062,7 @@
 }
 
 .wall-tabs button.is-active {
-  background: #2f6f67;
+  background: var(--fs-primary);
   color: #ffffff;
 }
 
@@ -1096,7 +1106,7 @@
 }
 
 .wall-placeholder-actions button:not(:disabled) {
-  background: #2f6f67;
+  background: var(--fs-primary);
   color: #ffffff;
   cursor: pointer;
 }
@@ -1133,8 +1143,8 @@
 }
 
 .material-option.is-selected {
-  border-color: #2f6f67;
-  box-shadow: inset 0 0 0 2px #2f6f67;
+  border-color: var(--fs-primary);
+  box-shadow: inset 0 0 0 2px var(--fs-primary);
 }
 
 .material-option span {
@@ -1144,7 +1154,7 @@
 }
 
 .product-list-toggle {
-  background: #255f73;
+  background: var(--fs-primary);
   border: 0;
   color: #ffffff;
   cursor: pointer;
@@ -1157,17 +1167,56 @@
   display: grid;
   align-content: start;
   gap: 12px;
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   overflow: auto;
 }
 
+.catalog-category-list {
+  display: grid;
+  gap: 18px;
+}
+
+.catalog-category-section {
+  display: grid;
+  gap: 10px;
+}
+
+.catalog-category-heading {
+  align-items: center;
+  border-bottom: 1px solid var(--fs-border);
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+  padding-bottom: 8px;
+}
+
+.catalog-category-heading strong {
+  color: var(--fs-primary-dark);
+  font-size: 13px;
+  text-transform: uppercase;
+}
+
+.catalog-category-heading span {
+  background: var(--fs-primary-soft);
+  color: var(--fs-primary);
+  font-size: 12px;
+  font-weight: 700;
+  padding: 4px 8px;
+}
+
 .catalog-status {
-  background: #edf2ee;
-  border: 1px solid #d7e0d8;
-  color: #607068;
+  background: var(--fs-primary-soft);
+  border: 1px solid var(--fs-border);
+  color: var(--fs-muted);
   font-size: 12px;
   margin-bottom: 14px;
   padding: 9px 10px;
+}
+
+.catalog-status.is-error {
+  background: var(--fs-secondary-soft);
+  border-color: #e1bba9;
+  color: #8a3f25;
 }
 
 .model-upload-card {
@@ -1219,8 +1268,8 @@
 }
 
 .scene-product-list button.is-selected {
-  border-color: #255f73;
-  box-shadow: inset 3px 0 0 #255f73;
+  border-color: var(--fs-primary);
+  box-shadow: inset 3px 0 0 var(--fs-primary);
 }
 
 .model-upload-card > div:first-child {
@@ -1263,7 +1312,7 @@
 .model-upload-actions label,
 .model-upload-actions button {
   align-items: center;
-  background: #255f73;
+  background: var(--fs-primary);
   border: 0;
   color: #ffffff;
   cursor: pointer;
@@ -1302,7 +1351,7 @@
 }
 
 .product-catalog-card:hover {
-  border-color: #2f6f67;
+  border-color: var(--fs-primary);
   box-shadow: 0 8px 18px rgba(32, 48, 54, 0.12);
   transform: translateY(-1px);
 }
@@ -1338,7 +1387,7 @@
 }
 
 .product-catalog-info strong {
-  color: #263331;
+  color: var(--fs-text);
   font-size: 13px;
   line-height: 1.25;
 }
@@ -1352,7 +1401,7 @@
 }
 
 .product-catalog-info button {
-  background: #2f6f67;
+  background: var(--fs-primary);
   border: 0;
   color: #ffffff;
   cursor: pointer;
@@ -1367,9 +1416,9 @@
 }
 
 .room-save-message {
-  background: #fbfbf8;
+  background: var(--fs-panel);
   border-top: 1px solid #d5dde1;
-  color: #2f6f67;
+  color: var(--fs-primary);
   font-size: 13px;
   padding: 10px 14px;
 }

@@ -8,16 +8,19 @@ import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 
 import { CustomerNavbar } from '@/features/CustomerPages/customercomponents';
-import { getQuotationServiceResultMessage, type QuotationDto, type QuotationStatus } from '@/services/api/quotations';
+import { getQuotationServiceResultMessage, type QuotationDto, type QuotationItemDto, type QuotationStatus } from '@/services/api/quotations';
 import type { ProjectListItemDto } from '@/services/api/projects';
 import {
   useAcceptQuotation,
   useProjectList,
+  useProjectProposals,
+  useProposalDetail,
   useProjectQuotations,
   useQuotationDetail,
   useRejectQuotation,
   useRequestQuotationRevision,
 } from '@/services/queries';
+import { aggregateDuplicateItems } from '@/shared/utils/itemAggregation';
 
 import './CustomerQuotationsPage.css';
 
@@ -41,10 +44,19 @@ export function CustomerQuotationsPage() {
   const projectsQuery = useProjectList({ page: 1, limit: 50 });
   const projects = useMemo(() => projectsQuery.data?.items ?? [], [projectsQuery.data?.items]);
   const quotationProjects = useMemo(() => getQuotationProjects(projects), [projects]);
-  const selectedProject = quotationProjects.find((project) => project.projectId === selectedProjectId) ?? null;
   const quotationsQuery = useProjectQuotations({ projectId: selectedProjectId }, { enabled: Boolean(selectedProjectId) });
+  const projectProposalsQuery = useProjectProposals(
+    { projectId: selectedProjectId, limit: 50 },
+    { enabled: Boolean(selectedProjectId) },
+  );
   const quotations = useMemo(() => quotationsQuery.data?.items ?? [], [quotationsQuery.data?.items]);
   const selectedQuotation = useQuotationDetail(selectedQuotationId, { enabled: Boolean(selectedQuotationId) }).data;
+  const proposalNameById = useMemo(
+    () => new Map((projectProposalsQuery.data?.items ?? []).map((proposal) => [proposal.proposalId, proposal.proposalName])),
+    [projectProposalsQuery.data?.items],
+  );
+  const selectedProposalQuery = useProposalDetail(selectedQuotation?.proposalId, { enabled: Boolean(selectedQuotation?.proposalId) });
+  const selectedProposalName = getProposalName(selectedQuotation?.proposalId, proposalNameById, selectedProposalQuery.data?.proposalName);
   const acceptMutation = useAcceptQuotation();
   const revisionMutation = useRequestQuotationRevision();
   const rejectMutation = useRejectQuotation();
@@ -188,41 +200,11 @@ export function CustomerQuotationsPage() {
 
           <section className="customer-quotations-workspace">
 
-            <section className="customer-quotations-card">
-              <header>
-                <div>
-                  <h2>{selectedProject ? selectedProject.projectName : 'Select a project'}</h2>
-                  <p>{selectedProject ? `${selectedProject.projectCode} - ${formatEnumLabel(selectedProject.status)}` : 'Choose a project to review quotation versions.'}</p>
-                </div>
-              </header>
-
-              {quotationsQuery.isLoading ? <p className="customer-quotations-muted">Loading quotations...</p> : null}
-              {!quotationsQuery.isLoading && selectedProjectId && quotations.length === 0 ? (
-                <p className="customer-quotations-muted">No customer-visible quotation found for this project.</p>
-              ) : null}
-
-              <div className="customer-quotations-version-list">
-                {quotations.map((quotation) => (
-                  <button
-                    className={quotation.quotationId === selectedQuotationId ? 'is-active' : ''}
-                    key={quotation.quotationId}
-                    type="button"
-                    onClick={() => setSelectedQuotationId(quotation.quotationId)}
-                  >
-                    <span>{quotation.quotationCode}</span>
-                    <strong>{formatMoney(quotation.totalAmount)}</strong>
-                    <em className={`customer-quotations-status customer-quotations-status-${statusClass(quotation.status)}`}>
-                      {formatEnumLabel(quotation.status ?? 'UNKNOWN')}
-                    </em>
-                  </button>
-                ))}
-              </div>
-            </section>
-
             {selectedQuotation ? (
               <QuotationDetail
                 acceptPending={acceptMutation.isPending}
                 quotation={selectedQuotation}
+                proposalName={selectedProposalName}
                 rejectPending={rejectMutation.isPending}
                 rejectReason={rejectReason}
                 revisionPending={revisionMutation.isPending}
@@ -249,6 +231,7 @@ function QuotationDetail({
   onRequestRevision,
   onRevisionReasonChange,
   quotation,
+  proposalName,
   rejectPending,
   rejectReason,
   revisionPending,
@@ -260,20 +243,22 @@ function QuotationDetail({
   onRejectReasonChange: (value: string) => void;
   onRequestRevision: (event: FormEvent<HTMLFormElement>) => void;
   onRevisionReasonChange: (value: string) => void;
-  quotation: QuotationDto & { items?: Array<{ quotationItemId: string; itemName?: string | null; productNameSnapshot?: string | null; productVersionNameSnapshot?: string | null; itemType?: string | null; quantity?: number | null; unitPrice?: number | null; customizationAdditionalCost?: number | null; discountAmount?: number | null; subtotalAmount?: number | null; note?: string | null; customizationNote?: string | null }> };
+  proposalName: string;
+  quotation: QuotationDto & { items?: QuotationItemDto[] };
   rejectPending: boolean;
   rejectReason: string;
   revisionPending: boolean;
   revisionReason: string;
 }) {
   const canDecide = quotation.status === 'SENT' || quotation.status === 'REVISED';
+  const quotationItems = useMemo(() => aggregateDuplicateItems(quotation.items ?? []), [quotation.items]);
 
   return (
     <section className="customer-quotations-card customer-quotations-detail">
       <header>
         <div>
-          <h2>{quotation.quotationCode}</h2>
-          <p>Version {quotation.versionNo ?? 1} - Valid until {quotation.validUntil ?? '-'}</p>
+          <h2>{formatQuotationCode(quotation.quotationCode)}</h2>
+          <p title={proposalName}>{proposalName} - Version {quotation.versionNo ?? 1} - Valid until {quotation.validUntil ?? '-'}</p>
         </div>
         <span className={`customer-quotations-status customer-quotations-status-${statusClass(quotation.status)}`}>
           {formatEnumLabel(quotation.status ?? 'UNKNOWN')}
@@ -313,10 +298,10 @@ function QuotationDetail({
             </tr>
           </thead>
           <tbody>
-            {(quotation.items ?? []).map((item) => (
+            {quotationItems.map((item) => (
               <tr key={item.quotationItemId}>
                 <td>
-                  <strong>{item.itemName ?? item.productNameSnapshot ?? item.productVersionNameSnapshot ?? '-'}</strong>
+                  <strong title={getQuotationItemName(item)}>{getQuotationItemName(item)}</strong>
                   {item.note || item.customizationNote ? <span>{item.note ?? item.customizationNote}</span> : null}
                 </td>
                 <td>{formatEnumLabel(item.itemType ?? 'UNKNOWN')}</td>
@@ -385,6 +370,22 @@ function getQuotationProjects(projects: ProjectListItemDto[]) {
   return preferred.length > 0 ? preferred : projects.filter((project) => project.status === 'PROPOSAL_SELECTED');
 }
 
+function formatQuotationCode(value?: string | null) {
+  if (!value) return '-';
+
+  const [, suffix] = value.split('-', 2);
+  return (suffix || value).slice(0, 6);
+}
+
+function getProposalName(proposalId?: string | null, proposalNameById?: Map<string, string>, fallbackName?: string | null) {
+  if (!proposalId) return '-';
+
+  return proposalNameById?.get(proposalId) ?? fallbackName ?? proposalId;
+}
+
+function getQuotationItemName(item: Pick<QuotationItemDto, 'itemName' | 'productNameSnapshot' | 'productVersionNameSnapshot'>) {
+  return item.itemName ?? item.productNameSnapshot ?? item.productVersionNameSnapshot ?? '-';
+}
 
 function statusClass(status?: QuotationStatus | null) {
   return (status ?? 'UNKNOWN').toLowerCase().replace(/_/g, '-');
