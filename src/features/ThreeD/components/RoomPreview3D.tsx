@@ -132,6 +132,8 @@ type ProductFootprint = {
 
 const sceneProductLoadLocks = new WeakMap<Scene, Set<string>>();
 const PRODUCT_DRAG_DATA_TYPE = 'application/x-furnispace-product-id';
+const PRODUCT_COLLISION_GAP = 0.03;
+const PRODUCT_COLLISION_SWEEP_STEP = 0.08;
 
 function getSceneProductLoadLocks(scene: Scene) {
   let loadLocks = sceneProductLoadLocks.get(scene);
@@ -863,6 +865,97 @@ function getFootprintBounds(root: TransformNode) {
   };
 }
 
+function getProductBoundsAtPosition(
+  root: TransformNode,
+  position: PlacedProduct3D['position'],
+) {
+  const originalPosition = getProductAnchorPosition(root);
+
+  setProductRootPosition(root, position);
+  root.computeWorldMatrix(true);
+  root.getChildMeshes(false).forEach((mesh) => mesh.computeWorldMatrix(true));
+
+  const bounds = getFootprintBounds(root);
+
+  setProductRootPosition(root, originalPosition);
+  root.computeWorldMatrix(true);
+  root.getChildMeshes(false).forEach((mesh) => mesh.computeWorldMatrix(true));
+
+  return bounds;
+}
+
+function doFootprintBoundsOverlap(
+  first: ReturnType<typeof getFootprintBounds>,
+  second: ReturnType<typeof getFootprintBounds>,
+) {
+  return first.minX < second.maxX - PRODUCT_COLLISION_GAP &&
+    first.maxX > second.minX + PRODUCT_COLLISION_GAP &&
+    first.minY < second.maxY - PRODUCT_COLLISION_GAP &&
+    first.maxY > second.minY + PRODUCT_COLLISION_GAP;
+}
+
+function doProductHeightsOverlap(
+  first: { maximumWorld: Vector3; minimumWorld: Vector3 },
+  second: { maximumWorld: Vector3; minimumWorld: Vector3 },
+) {
+  return first.minimumWorld.y < second.maximumWorld.y - PRODUCT_COLLISION_GAP &&
+    first.maximumWorld.y > second.minimumWorld.y + PRODUCT_COLLISION_GAP;
+}
+
+function getProductWorldBoundsAtPosition(
+  root: TransformNode,
+  position: PlacedProduct3D['position'],
+) {
+  const originalPosition = getProductAnchorPosition(root);
+
+  setProductRootPosition(root, position);
+  root.computeWorldMatrix(true);
+  root.getChildMeshes(false).forEach((mesh) => mesh.computeWorldMatrix(true));
+
+  const bounds = getProductProxyBounds(root);
+
+  setProductRootPosition(root, originalPosition);
+  root.computeWorldMatrix(true);
+  root.getChildMeshes(false).forEach((mesh) => mesh.computeWorldMatrix(true));
+
+  return bounds;
+}
+
+function isProductCollidingWithOtherProducts(
+  scene: Scene,
+  productId: string,
+  position: PlacedProduct3D['position'],
+) {
+  const productRoot = getProductRoot(scene, productId);
+
+  if (!productRoot) {
+    return false;
+  }
+
+  const productFootprintBounds = getProductBoundsAtPosition(productRoot, position);
+  const productWorldBounds = getProductWorldBoundsAtPosition(productRoot, position);
+
+  if (!productWorldBounds) {
+    return false;
+  }
+
+  return scene.transformNodes
+    .filter((node) =>
+      node.metadata?.source === 'product-preview' &&
+      node.metadata?.productId &&
+      node.metadata.productId !== productId,
+    )
+    .some((otherRoot) => {
+      const otherWorldBounds = getProductProxyBounds(otherRoot);
+
+      if (!otherWorldBounds || !doProductHeightsOverlap(productWorldBounds, otherWorldBounds)) {
+        return false;
+      }
+
+      return doFootprintBoundsOverlap(productFootprintBounds, getFootprintBounds(otherRoot));
+    });
+}
+
 function getBoundsDistance(
   first: ReturnType<typeof getFootprintBounds>,
   second: ReturnType<typeof getFootprintBounds>,
@@ -942,6 +1035,48 @@ function isProductPlacementInsideRoom(
       return getPointToSegmentDistance(point, start, end) >= wallPadding;
     });
   });
+}
+
+function isValidDraggedProductPosition(
+  scene: Scene,
+  productId: string,
+  position: PlacedProduct3D['position'],
+  layout: RoomLayoutState,
+) {
+  return isProductPlacementInsideRoom(scene, productId, position, layout) &&
+    !isProductCollidingWithOtherProducts(scene, productId, position);
+}
+
+function getLastValidDraggedProductPosition(
+  scene: Scene,
+  productId: string,
+  previousPosition: PlacedProduct3D['position'],
+  desiredPosition: PlacedProduct3D['position'],
+  layout: RoomLayoutState,
+) {
+  const deltaX = desiredPosition.x - previousPosition.x;
+  const deltaY = desiredPosition.y - previousPosition.y;
+  const deltaZ = desiredPosition.z - previousPosition.z;
+  const travelDistance = Math.hypot(deltaX, deltaY, deltaZ);
+  const steps = Math.max(1, Math.ceil(travelDistance / PRODUCT_COLLISION_SWEEP_STEP));
+  let lastValidPosition = previousPosition;
+
+  for (let step = 1; step <= steps; step += 1) {
+    const progress = step / steps;
+    const candidate = {
+      x: previousPosition.x + deltaX * progress,
+      y: previousPosition.y + deltaY * progress,
+      z: previousPosition.z + deltaZ * progress,
+    };
+
+    if (!isValidDraggedProductPosition(scene, productId, candidate, layout)) {
+      break;
+    }
+
+    lastValidPosition = candidate;
+  }
+
+  return lastValidPosition;
 }
 
 function getNearestValidProductPosition(
@@ -1487,7 +1622,7 @@ export function RoomPreview3D({
 
                 nextPosition = {
                   ...dragState.position,
-                  y: Number(Math.max(0, dragState.startPosition.y + verticalDelta).toFixed(2)),
+                  y: Math.max(0, dragState.startPosition.y + verticalDelta),
                 };
               } else if (dragState.placementMode === 'WALL_MOUNTED') {
                 const wallPick = scene.pick(
@@ -1542,9 +1677,9 @@ export function RoomPreview3D({
                 }
 
                 nextPosition = {
-                  x: Number(point.x.toFixed(2)),
+                  x: point.x,
                   y: dragState.placementMode === 'CUSTOM_HEIGHT' ? dragState.position.y : 0,
-                  z: Number(point.z.toFixed(2)),
+                  z: point.z,
                 };
 
                 if (dragState.placementMode === 'ON_OBJECT') {
@@ -1558,11 +1693,14 @@ export function RoomPreview3D({
 
               const root = getProductRoot(scene, dragState.productId);
 
-              if (
-                dragState.placementMode !== 'WALL_MOUNTED' &&
-                !isProductPlacementInsideRoom(scene, dragState.productId, nextPosition, currentLayout)
-              ) {
-                return;
+              if (dragState.placementMode !== 'WALL_MOUNTED') {
+                nextPosition = getLastValidDraggedProductPosition(
+                  scene,
+                  dragState.productId,
+                  dragState.position,
+                  nextPosition,
+                  currentLayout,
+                );
               }
 
               if (root) {

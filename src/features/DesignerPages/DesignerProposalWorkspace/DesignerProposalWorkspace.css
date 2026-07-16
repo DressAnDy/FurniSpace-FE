@@ -75,11 +75,11 @@
 .designer-proposal-setup-section h2 { font-size: 17px; margin: 0; }
 .designer-proposal-setup-section p { color: #687983; font-size: 12px; margin: 3px 0 0; }
 .designer-proposal-setup-section > header > span { background: var(--fs-surface-warm); color: var(--fs-wood); font-size: 12px; font-weight: 700; padding: 7px 9px; white-space: nowrap; }
-.designer-proposal-setup-form { align-items: end; display: grid; gap: 12px; grid-template-columns: minmax(180px, 0.8fr) minmax(260px, 1fr) auto; }
+.designer-proposal-setup-form { align-items: end; display: grid; gap: 12px; grid-template-columns: repeat(2, minmax(0, 1fr)) auto; }
 .designer-proposal-setup-form label { display: grid; gap: 5px; min-width: 0; }
 .designer-proposal-setup-form label span { color: #65757d; font-size: 11px; font-weight: 700; text-transform: uppercase; }
-.designer-proposal-setup-form input, .designer-proposal-setup-form textarea { border: 1px solid #d8e0e4; color: var(--fs-ink-soft); font: inherit; min-height: 38px; padding: 8px 10px; width: 100%; }
-.designer-proposal-setup-form textarea { min-height: 38px; resize: vertical; }
+.designer-proposal-setup-form input, .designer-proposal-setup-form textarea { border: 1px solid #d8e0e4; box-sizing: border-box; color: var(--fs-ink-soft); font: inherit; height: 38px; min-height: 38px; padding: 8px 10px; width: 100%; }
+.designer-proposal-setup-form textarea { resize: none; }
 .designer-proposal-setup-form button { align-items: center; background: var(--fs-gold-strong); border: 0; color: #fff; cursor: pointer; display: flex; font: inherit; gap: 7px; min-height: 38px; padding: 8px 12px; white-space: nowrap; }
 .designer-proposal-setup-form button:disabled { cursor: not-allowed; opacity: 0.55; }
 .designer-scene-context { border-bottom: 1px solid #e6ebee; display: grid; gap: 4px; padding: 13px 20px; }

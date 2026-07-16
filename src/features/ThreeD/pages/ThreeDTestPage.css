@@ -439,7 +439,7 @@
 }
 
 .room-layout-shell.is-2d .room-workspace {
-  background: var(--fs-primary-dark);
+  background: #0f3d63;
 }
 
 .room-layout-shell.is-2d .room-workspace-toolbar {
@@ -456,6 +456,7 @@
 }
 
 .blueprint-canvas {
+  background: #0f3d63;
   display: block;
   height: 100%;
   min-height: 0;
@@ -1171,34 +1172,85 @@
   overflow: auto;
 }
 
-.catalog-category-list {
+.catalog-page,
+.catalog-tile-list {
   display: grid;
-  gap: 18px;
+  gap: 12px;
 }
 
-.catalog-category-section {
-  display: grid;
-  gap: 10px;
+.catalog-tile-list {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
-.catalog-category-heading {
+.catalog-page-heading {
   align-items: center;
   border-bottom: 1px solid var(--fs-border);
   display: flex;
   gap: 10px;
-  justify-content: space-between;
-  padding-bottom: 8px;
+  padding-bottom: 10px;
 }
 
-.catalog-category-heading strong {
+.catalog-page-heading button {
+  background: var(--fs-primary-soft);
+  border: 1px solid var(--fs-border);
+  color: var(--fs-primary-dark);
+  cursor: pointer;
+  font: inherit;
+  min-height: 34px;
+  padding: 6px 10px;
+}
+
+.catalog-page-heading div {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.catalog-page-heading strong {
+  color: var(--fs-primary-dark);
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.catalog-page-heading span {
+  color: var(--fs-muted);
+  font-size: 12px;
+}
+
+.catalog-category-tile {
+  align-items: center;
+  background: #ffffff;
+  border: 1px solid var(--fs-border);
+  color: var(--fs-primary-dark);
+  cursor: pointer;
+  display: grid;
+  gap: 8px;
+  min-height: 92px;
+  padding: 12px;
+  text-align: left;
+  transition: border-color 140ms ease, box-shadow 140ms ease, transform 140ms ease;
+}
+
+.catalog-category-tile:hover,
+.product-browser-card:hover {
+  border-color: var(--fs-primary);
+  box-shadow: 0 8px 18px rgba(31, 22, 14, 0.1);
+  transform: translateY(-1px);
+}
+
+.catalog-category-tile strong {
   color: var(--fs-primary-dark);
   font-size: 13px;
   text-transform: uppercase;
 }
 
-.catalog-category-heading span {
+.catalog-category-tile span {
   background: var(--fs-primary-soft);
   color: var(--fs-primary);
+  justify-self: start;
   font-size: 12px;
   font-weight: 700;
   padding: 4px 8px;
@@ -1348,6 +1400,17 @@
   overflow: hidden;
   padding: 0;
   transition: border-color 120ms ease, box-shadow 120ms ease, transform 120ms ease;
+}
+
+.product-browser-card {
+  border-color: var(--fs-border);
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+}
+
+.product-browser-card:active {
+  cursor: pointer;
 }
 
 .product-catalog-card:hover {

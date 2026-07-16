@@ -1,4 +1,4 @@
-import { IconCurrencyDollar, IconPackage, IconReceipt, IconSettings } from '@tabler/icons-react';
+import { IconSettings } from '@tabler/icons-react';
 import { type FormEvent, useEffect, useMemo, useState } from 'react';
 
 import { SaleNavbar, SaleSidebar } from '@/features/SalePages/salecomponents';
@@ -47,7 +47,6 @@ export function SaleOrders() {
   const orderDetailQuery = useOrderDetail(selectedOrderId, { enabled: Boolean(selectedOrderId) });
   const order = orderDetailQuery.data ?? null;
   const financialAdjustmentMutation = useUpdateOrderFinancialAdjustment();
-  const metrics = getOrderMetrics(orders);
   const unpaidDepositOrders = useMemo(() => orders.filter((item) => isDepositUnpaidStatus(item.status)), [orders]);
   const paidDepositOrders = useMemo(() => orders.filter((item) => isDepositPaidStatus(item.status)), [orders]);
 
@@ -138,13 +137,6 @@ export function SaleOrders() {
                   <span>Selected Project</span>
                   <strong>{selectedProject ? `${selectedProject.projectCode} - ${formatEnumLabel(selectedProject.status)}` : 'No project selected'}</strong>
                 </div>
-              </section>
-
-              <section className="sale-orders-metrics">
-                <MetricCard icon={IconReceipt} label="Orders" value={String(metrics.total)} />
-                <MetricCard icon={IconCurrencyDollar} label="Deposit Due" value={formatMoney(metrics.depositDue)} />
-                <MetricCard icon={IconCurrencyDollar} label="Remaining" value={formatMoney(metrics.remaining)} />
-                <MetricCard icon={IconPackage} label="Active" value={String(metrics.active)} />
               </section>
 
               <section className="sale-orders-grid">
@@ -302,18 +294,6 @@ function OrderDetailPanel({
   );
 }
 
-function MetricCard({ icon: Icon, label, value }: { icon: typeof IconReceipt; label: string; value: string }) {
-  return (
-    <article>
-      <div>
-        <span>{label}</span>
-        <strong>{value}</strong>
-      </div>
-      <Icon size={26} />
-    </article>
-  );
-}
-
 function MoneyValue({ label, value }: { label: string; value: string }) {
   return (
     <div>
@@ -329,15 +309,6 @@ function getOrderItemName(item: Pick<OrderItemDto, 'itemName' | 'productNameSnap
 
 function getOrderProjects(projects: ProjectListItemDto[]) {
   return projects.filter((project) => orderProjectStatuses.has(project.status));
-}
-
-function getOrderMetrics(orders: OrderListItemDto[]) {
-  return {
-    active: orders.filter((order) => order.status !== 'COMPLETED' && order.status !== 'CANCELLED').length,
-    depositDue: orders.reduce((sum, order) => sum + (order.status === 'DEPOSIT_PENDING' ? order.depositAmount ?? 0 : 0), 0),
-    remaining: orders.reduce((sum, order) => sum + (order.remainingAmount ?? 0), 0),
-    total: orders.length,
-  };
 }
 
 function isDepositUnpaidStatus(status?: OrderStatus | null) {

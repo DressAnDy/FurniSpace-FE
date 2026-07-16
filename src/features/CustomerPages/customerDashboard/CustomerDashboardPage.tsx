@@ -11,6 +11,7 @@ import { useNavigate } from 'react-router-dom';
 import { CustomerNavbar } from '@/features/CustomerPages/customercomponents';
 import { getProjectServiceResultMessage, type ProjectListItemDto, type ProjectStatus } from '@/services/api/projects';
 import { getProjectScheduleServiceResultMessage, type ProjectScheduleDto } from '@/services/api/schedules';
+import { useCurrentUser } from '@/services/queries/useAuth';
 import { useProjectDetail, useProjectList } from '@/services/queries/useProjects';
 import { useProjectProposals } from '@/services/queries/useProposals';
 import { useProjectScheduleList, useUpdateProjectScheduleStatus } from '@/services/queries/useSchedules';
@@ -67,6 +68,8 @@ export function CustomerDashboardPage() {
   const todayIso = useMemo(() => new Date().toISOString(), []);
   const [scheduleActionMessage, setScheduleActionMessage] = useState('');
   const [activeScheduleActionId, setActiveScheduleActionId] = useState<string | null>(null);
+  const currentUserQuery = useCurrentUser();
+  const customerName = getCustomerGreetingName(currentUserQuery.data?.fullName);
   const projectsQuery = useProjectList({ page: 1, limit: 50 });
   const activeProject = useMemo(() => getFirstActiveProject(projectsQuery.data?.items ?? []), [projectsQuery.data?.items]);
   const projectDetailQuery = useProjectDetail(activeProject?.projectId);
@@ -131,7 +134,7 @@ export function CustomerDashboardPage() {
         <div className="customer-dashboard-layout">
           <div className="customer-dashboard-primary">
             <section className="customer-dashboard-welcome">
-              <h1>Welcome back, Alex!</h1>
+              <h1>Welcome back, {customerName}!</h1>
               <p>{hasActiveProject ? 'Your interior design journey is in progress. Let us continue transforming your space.' : 'Start a project request so your team can guide the next steps.'}</p>
             </section>
 
@@ -441,4 +444,10 @@ function formatDate(value: string) {
     month: 'short',
     year: 'numeric',
   }).format(new Date(value));
+}
+
+function getCustomerGreetingName(fullName?: string | null) {
+  const nameParts = fullName?.trim().split(/\s+/).filter(Boolean) ?? [];
+
+  return nameParts[nameParts.length - 1] ?? 'Customer';
 }
