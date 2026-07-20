@@ -79,7 +79,7 @@ html.home-header-light .home-header.main-navbar .main-navbar-avatar {
   position: relative;
   display: grid;
   box-sizing: border-box;
-  min-height: calc(100vh - 80px);
+  min-height: 100vh;
   grid-template-columns: minmax(360px, 4.4fr) minmax(0, 7.6fr);
   align-items: center;
   gap: clamp(28px, 4.6vw, 72px);

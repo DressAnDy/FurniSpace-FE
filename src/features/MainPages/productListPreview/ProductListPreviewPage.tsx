@@ -1,11 +1,10 @@
 import {
   IconAdjustmentsHorizontal,
   IconChevronDown,
-  IconHeart,
   IconPackage,
   IconSearch,
 } from '@tabler/icons-react';
-import { useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent } from 'react';
 import { Link } from 'react-router-dom';
 
 import { useLang } from '@/app/providers/useLang';
@@ -16,8 +15,8 @@ import {
   getPublicDefaultVersion,
 } from '@/features/MainPages/productCatalog/productCatalogUtils';
 import { getProductServiceResultMessage, type ProductListItemDto } from '@/services/api';
-import { useProductList } from '@/services/queries';
-import { SiteFooter } from '@/shared/components';
+import { useInfiniteProductList } from '@/services/queries';
+import { SiteFooter, useTileTransition } from '@/shared/components';
 
 import './ProductListPreviewPage.css';
 
@@ -62,11 +61,20 @@ const pageContent = {
   },
 } as const;
 
+const PRODUCT_PAGE_SIZE = 12;
+const INITIAL_SKELETON_COUNT = 8;
+const NEXT_PAGE_SKELETON_COUNT = 4;
+const PRODUCT_CARD_REVEAL_STAGGER_MS = 140;
+
 export function ProductListPreviewPage() {
   const { lang } = useLang();
   const t = pageContent[lang];
-  const productListQuery = useProductList({ page: 1, limit: 100 });
-  const products = (productListQuery.data?.items ?? []).filter((product) => getPublicDefaultVersion(product));
+  const productListQuery = useInfiniteProductList({ page: 1, limit: PRODUCT_PAGE_SIZE });
+  const productBatches = useMemo(
+    () => (productListQuery.data?.pages ?? []).map((page) => page.items.filter((product) => getPublicDefaultVersion(product))),
+    [productListQuery.data?.pages],
+  );
+  const products = productBatches.flat();
 
   return (
     <main className="product-list-preview-page">
@@ -116,17 +124,33 @@ export function ProductListPreviewPage() {
           </button>
         </div>
 
-        {productListQuery.isLoading ? <div className="product-list-preview-state">{t.loading}</div> : null}
+        {productListQuery.isLoading ? (
+          <div className="product-list-preview-grid">
+            <ProductGridSkeleton count={INITIAL_SKELETON_COUNT} label={t.loading} />
+          </div>
+        ) : null}
         {productListQuery.isError ? <div className="product-list-preview-state is-error">{getProductServiceResultMessage(productListQuery.error)}</div> : null}
         {!productListQuery.isLoading && !productListQuery.isError && products.length === 0 ? (
           <div className="product-list-preview-state">{t.noProducts}</div>
         ) : null}
 
-        <div className="product-list-preview-grid">
-          {products.map((product) => (
-            <ProductCard key={product.productId} product={product} />
-          ))}
-        </div>
+        {!productListQuery.isLoading && !productListQuery.isError && products.length > 0 ? (
+          <div className="product-list-preview-grid">
+            {productBatches.map((batch, batchIndex) => (
+              <AnimatedProductBatch batchIndex={batchIndex} key={productListQuery.data?.pages[batchIndex]?.page ?? batchIndex} products={batch} />
+            ))}
+            {productListQuery.isFetchingNextPage ? <ProductGridSkeleton count={NEXT_PAGE_SKELETON_COUNT} /> : null}
+          </div>
+        ) : null}
+
+        <ProductLoadMoreSentinel
+          disabled={productListQuery.isLoading || productListQuery.isFetchingNextPage || !productListQuery.hasNextPage}
+          onIntersect={() => {
+            if (!productListQuery.isFetchingNextPage && productListQuery.hasNextPage) {
+              void productListQuery.fetchNextPage();
+            }
+          }}
+        />
       </section>
 
       <SiteFooter />
@@ -134,31 +158,70 @@ export function ProductListPreviewPage() {
   );
 }
 
-type ProductCardProps = {
-  product: ProductListItemDto;
+type AnimatedProductBatchProps = {
+  batchIndex: number;
+  products: ProductListItemDto[];
 };
 
-function ProductCard({ product }: ProductCardProps) {
+function AnimatedProductBatch({ batchIndex, products }: AnimatedProductBatchProps) {
+  return (
+    <>
+      {products.map((product, index) => (
+        <ProductCard
+          eagerImage={batchIndex === 0 && index < 4}
+          key={product.productId}
+          product={product}
+          revealIndex={index}
+        />
+      ))}
+    </>
+  );
+}
+
+type ProductCardProps = {
+  eagerImage?: boolean;
+  product: ProductListItemDto;
+  revealIndex: number;
+};
+
+function ProductCard({ eagerImage = false, product, revealIndex }: ProductCardProps) {
   const defaultVersion = getPublicDefaultVersion(product);
   const imageUrl = getProductThumbnailImage(product);
+  const { isTransitioning, transitionTo } = useTileTransition();
+  const detailPath = `/products/detail?productId=${product.productId}`;
+  const revealStyle = {
+    '--product-card-reveal-delay': `${Math.min(revealIndex, PRODUCT_PAGE_SIZE - 1) * PRODUCT_CARD_REVEAL_STAGGER_MS}ms`,
+  } as CSSProperties;
+
+  function handleCardClick(event: MouseEvent<HTMLAnchorElement>) {
+    if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
+      return;
+    }
+
+    event.preventDefault();
+
+    if (isTransitioning) {
+      return;
+    }
+
+    void transitionTo({
+      originElement: event.currentTarget,
+      to: detailPath,
+    });
+  }
 
   return (
-    <article className="product-list-preview-card">
-      <Link className="product-list-preview-card-link" to={`/products/detail?productId=${product.productId}`}>
+    <article className="product-list-preview-card product-list-preview-card-reveal" style={revealStyle}>
+      <Link className="product-list-preview-card-link" to={detailPath} onClick={handleCardClick} aria-disabled={isTransitioning}>
         <div className="product-list-preview-card-media">
           {imageUrl ? (
-            <ProductCardImage alt={product.productName} src={imageUrl} />
+            <ProductCardImage alt={product.productName} eager={eagerImage} src={imageUrl} />
           ) : (
             <div className="product-list-preview-card-placeholder">
               <IconPackage size={52} stroke={1.4} />
               <span>No image</span>
             </div>
           )}
-          <div className="product-list-preview-card-actions">
-            <button aria-label={`Save ${product.productName}`} type="button" onClick={(event) => event.preventDefault()}>
-              <IconHeart size={19} stroke={1.8} />
-            </button>
-          </div>
         </div>
 
         <div className="product-list-preview-card-body">
@@ -175,10 +238,11 @@ function ProductCard({ product }: ProductCardProps) {
 
 type ProductCardImageProps = {
   alt: string;
+  eager?: boolean;
   src: string;
 };
 
-function ProductCardImage({ alt, src }: ProductCardImageProps) {
+function ProductCardImage({ alt, eager = false, src }: ProductCardImageProps) {
   const [hasError, setHasError] = useState(false);
 
   if (hasError) {
@@ -190,5 +254,81 @@ function ProductCardImage({ alt, src }: ProductCardImageProps) {
     );
   }
 
-  return <img src={src} alt={alt} onError={() => setHasError(true)} />;
+  return (
+    <img
+      src={src}
+      alt={alt}
+      decoding="async"
+      loading={eager ? 'eager' : 'lazy'}
+      onError={() => setHasError(true)}
+    />
+  );
+}
+
+type ProductGridSkeletonProps = {
+  count: number;
+  label?: string;
+};
+
+function ProductGridSkeleton({ count, label }: ProductGridSkeletonProps) {
+  return (
+    <>
+      {label ? <span className="product-list-preview-skeleton-label">{label}</span> : null}
+      {Array.from({ length: count }, (_, index) => (
+        <article aria-hidden="true" className="product-list-preview-card product-list-preview-card-skeleton" key={index}>
+          <div className="product-list-preview-card-media">
+            <span className="product-list-preview-skeleton-image" />
+          </div>
+          <div className="product-list-preview-card-body">
+            <span className="product-list-preview-skeleton-line product-list-preview-skeleton-line-title" />
+            <span className="product-list-preview-skeleton-line" />
+            <span className="product-list-preview-skeleton-line product-list-preview-skeleton-line-price" />
+          </div>
+        </article>
+      ))}
+    </>
+  );
+}
+
+type ProductLoadMoreSentinelProps = {
+  disabled: boolean;
+  onIntersect: () => void;
+};
+
+function ProductLoadMoreSentinel({ disabled, onIntersect }: ProductLoadMoreSentinelProps) {
+  const sentinelRef = useRef<HTMLDivElement>(null);
+  const hasRequestedRef = useRef(false);
+  const onIntersectRef = useRef(onIntersect);
+
+  useEffect(() => {
+    onIntersectRef.current = onIntersect;
+  }, [onIntersect]);
+
+  useEffect(() => {
+    const sentinel = sentinelRef.current;
+
+    if (!sentinel || disabled) {
+      return undefined;
+    }
+
+    hasRequestedRef.current = false;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (!hasRequestedRef.current && entries.some((entry) => entry.isIntersecting)) {
+          hasRequestedRef.current = true;
+          onIntersectRef.current();
+        }
+      },
+      { rootMargin: '520px 0px' },
+    );
+
+    observer.observe(sentinel);
+
+    return () => {
+      observer.disconnect();
+    };
+  }, [disabled]);
+
+  return <div className="product-list-preview-sentinel" ref={sentinelRef} aria-hidden="true" />;
 }

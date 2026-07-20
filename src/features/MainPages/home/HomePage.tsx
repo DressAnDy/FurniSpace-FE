@@ -4,8 +4,9 @@ import { useEffect, useRef } from 'react';
 import { useLang } from '@/app/providers/useLang';
 import heroRoomScene from '@/assets/hero/hero-room-scene-3d.png';
 import processVideo from '@/assets/hero/process-mp4.mp4';
-import { MainFooter, MainNavbar } from '@/features/MainPages/maincomponents';
+import { MainNavbar } from '@/features/MainPages/maincomponents';
 import { HomeModelGallery } from '@/features/MainPages/home/HomeModelGallery';
+import { SiteFooter } from '@/shared/components';
 
 import './HomePage.css';
 
@@ -153,7 +154,7 @@ function HomePageContent() {
 
   useEffect(() => {
     const root = document.documentElement;
-    const darkSectionSelectors = ['.home-intro', '.home-process', '.main-footer'];
+    const darkSectionSelectors = ['.home-intro', '.home-process', '.site-footer'];
     const desktopQuery = window.matchMedia('(min-width: 901px)');
     const reducedMotionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
     const sectionScrollDurationMs = 750;
@@ -179,7 +180,7 @@ function HomePageContent() {
     }
 
     function getSnapSections() {
-      return Array.from(document.querySelectorAll<HTMLElement>('.home-page > section, .home-page > .main-footer'));
+      return Array.from(document.querySelectorAll<HTMLElement>('.home-page > section, .home-page > .site-footer'));
     }
 
     function getActiveSectionIndex(sections: HTMLElement[], direction: number) {
@@ -478,7 +479,7 @@ function HomePageContent() {
         </div>
       </section>
 
-      <MainFooter />
+      <SiteFooter />
     </main>
   );
 }

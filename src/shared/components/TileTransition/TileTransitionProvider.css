@@ -1,0 +1,106 @@
+.tile-transition-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  pointer-events: all;
+}
+
+.tile-transition-grid {
+  display: grid;
+  width: 100%;
+  height: 100%;
+  grid-template-columns: repeat(var(--tile-transition-cols), minmax(0, 1fr));
+  grid-template-rows: repeat(var(--tile-transition-rows), minmax(0, 1fr));
+  overflow: hidden;
+  background: transparent;
+}
+
+.tile-transition-tile {
+  display: block;
+  width: 102%;
+  height: 102%;
+  margin: -1%;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0)),
+    #e7dccf;
+  animation-duration: 360ms;
+  animation-fill-mode: both;
+  animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+  animation-delay: var(--tile-transition-delay, 0ms);
+  transform-origin: center;
+  will-change: opacity, transform;
+}
+
+.tile-transition-overlay-cover .tile-transition-tile {
+  animation-name: tile-transition-cover;
+}
+
+.tile-transition-overlay-reveal .tile-transition-tile {
+  animation-name: tile-transition-reveal;
+}
+
+@keyframes tile-transition-cover {
+  from {
+    opacity: 0;
+    transform: scale(0);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes tile-transition-reveal {
+  from {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  to {
+    opacity: 0;
+    transform: scale(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tile-transition-grid {
+    display: block;
+    background: #e7dccf;
+    animation-duration: 180ms;
+    animation-fill-mode: both;
+    animation-timing-function: ease-out;
+  }
+
+  .tile-transition-tile {
+    display: none;
+  }
+
+  .tile-transition-overlay-cover .tile-transition-grid {
+    animation-name: tile-transition-fade-cover;
+  }
+
+  .tile-transition-overlay-reveal .tile-transition-grid {
+    animation-name: tile-transition-fade-reveal;
+  }
+}
+
+@keyframes tile-transition-fade-cover {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes tile-transition-fade-reveal {
+  from {
+    opacity: 1;
+  }
+
+  to {
+    opacity: 0;
+  }
+}

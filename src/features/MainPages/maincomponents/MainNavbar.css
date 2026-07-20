@@ -1,6 +1,7 @@
 .main-navbar.main-navbar {
-  position: sticky;
+  position: fixed;
   top: 0;
+  left: 0;
   z-index: 50;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
@@ -10,8 +11,8 @@
   gap: 32px;
   box-sizing: border-box;
   border-radius: 0 0 2px 2px;
-  background: #ffffff;
-  box-shadow: 0 4px 8px rgba(17, 17, 17, 0.18);
+  background: transparent;
+  box-shadow: none;
   padding: 0 28px 0 18px;
   transition:
     background-color 280ms ease,
@@ -22,9 +23,9 @@
 
 .main-navbar.main-navbar-scrolled {
   min-height: 72px;
-  background: rgba(255, 255, 255, 0.92);
-  box-shadow: 0 12px 28px rgba(17, 17, 17, 0.14);
-  backdrop-filter: blur(16px);
+  background: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
 }
 
 .main-navbar .main-navbar-brand {
