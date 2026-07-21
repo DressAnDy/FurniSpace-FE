@@ -1,4 +1,5 @@
 import {
+  IconAdjustmentsHorizontal,
   IconArrowRight,
   IconChartLine,
   IconChecks,
@@ -85,7 +86,15 @@ const schedules: ScheduleItem[] = [
   { title: 'Client Consultation', code: 'PRJ-2024-149', type: 'CONSULTATION', date: '2024-06-09', time: '11:00 AM' },
 ];
 
-const filters = ['Submitted (24)', 'In Consultation (12)', 'Need Information (5)', 'Awaiting Designer (7)', 'Quotation Sent (18)', 'Order Confirmed (9)', 'In Production (6)'];
+const filters = [
+  { label: 'Submitted', count: 24 },
+  { label: 'In Consultation', count: 12 },
+  { label: 'Need Information', count: 5 },
+  { label: 'Awaiting Designer', count: 7 },
+  { label: 'Quotation Sent', count: 18 },
+  { label: 'Order Confirmed', count: 9 },
+  { label: 'In Production', count: 6 },
+];
 
 function getStatusClass(status: string) {
   if (status === 'Need Information') return 'sale-status-badge sale-status-muted';
@@ -114,6 +123,26 @@ export function SaleDashbroad() {
           </section>
 
           <section className="sale-metrics-grid">
+            <article className="sale-card sale-status-filter-card">
+              <header className="sale-status-filter-header">
+                <span className="sale-status-filter-icon">
+                  <IconAdjustmentsHorizontal size={20} />
+                </span>
+                <div>
+                  <h3>Quick Status Filters</h3>
+                  <p>Jump directly to projects by their current status</p>
+                </div>
+              </header>
+              <div className="sale-filter-list">
+                {filters.map(({ label, count }) => (
+                  <button key={label} type="button">
+                    <span>{label}</span>
+                    <strong>{count}</strong>
+                  </button>
+                ))}
+              </div>
+            </article>
+
             {metrics.map(({ title, subtitle, icon: MetricIcon, items }) => (
               <article key={title} className="sale-metric-card">
                 <header className="sale-metric-card-header">
@@ -208,19 +237,6 @@ export function SaleDashbroad() {
             </article>
           </section>
 
-          <section className="sale-card sale-status-filter-card">
-            <header className="sale-card-header">
-              <h3>Quick Status Filters</h3>
-              <p>View projects by status</p>
-            </header>
-            <div className="sale-filter-list">
-              {filters.map((filter) => (
-                <button key={filter} type="button">
-                  {filter}
-                </button>
-              ))}
-            </div>
-          </section>
         </main>
       </div>
     </div>

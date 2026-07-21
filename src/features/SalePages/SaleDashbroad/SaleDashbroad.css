@@ -666,25 +666,95 @@ body.sale-sidebar-collapsed .sale-sidebar-open-button {
 }
 
 .sale-status-filter-card {
-  padding-bottom: 24px;
+  grid-column: 1 / -1;
+  overflow: hidden;
+  border-color: rgba(139, 111, 71, 0.22);
+  background:
+    radial-gradient(circle at 100% 0, rgba(212, 175, 55, 0.12), transparent 32%),
+    linear-gradient(135deg, #ffffff 0%, #faf7f2 100%);
+  padding: 20px 24px 22px;
+}
+
+.sale-status-filter-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.sale-status-filter-header h3 {
+  margin: 0;
+  color: #2d2d2d;
+  font-size: 17px;
+  font-weight: 600;
+  line-height: 22px;
+}
+
+.sale-status-filter-header p {
+  margin: 3px 0 0;
+  color: #6b6b6b;
+  font-size: 13px;
+  line-height: 18px;
+}
+
+.sale-status-filter-icon {
+  display: inline-flex;
+  width: 40px;
+  height: 40px;
+  flex: 0 0 40px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  background: #6d502f;
+  box-shadow: 0 6px 16px rgba(109, 80, 47, 0.2);
+  color: #ffffff;
 }
 
 .sale-filter-list {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
-  padding: 0 24px;
+  gap: 10px;
 }
 
 .sale-filter-list button {
-  height: 32px;
+  display: inline-flex;
+  min-height: 38px;
+  align-items: center;
+  gap: 10px;
   border: 1px solid rgba(139, 111, 71, 0.15);
-  border-radius: 6px;
-  background: #faf9f7;
-  padding: 0 13px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.86);
+  padding: 5px 7px 5px 14px;
   color: #2d2d2d;
+  cursor: pointer;
   font-size: 14px;
   font-weight: 500;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.sale-filter-list button strong {
+  display: inline-flex;
+  min-width: 26px;
+  height: 26px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: #f2ede6;
+  padding: 0 7px;
+  color: #6d502f;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.sale-filter-list button:hover {
+  transform: translateY(-1px);
+  border-color: rgba(109, 80, 47, 0.4);
+  box-shadow: 0 6px 14px rgba(109, 80, 47, 0.1);
+}
+
+.sale-filter-list button:focus-visible {
+  outline: 2px solid #8b6f47;
+  outline-offset: 2px;
 }
 
 .sale-dashboard-scrollbar {
