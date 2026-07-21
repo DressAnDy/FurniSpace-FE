@@ -159,8 +159,12 @@
 
 .customer-quotations-project-list strong,
 .customer-quotations-version-list strong,
-.customer-quotations-version-list span {
-  overflow-wrap: anywhere;
+.customer-quotations-version-list span,
+.customer-quotations-version-list small {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .customer-quotations-project-list strong {
@@ -223,6 +227,21 @@
 .customer-quotations-version-list button strong {
   color: #8b6f47;
   font-size: 15px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.customer-quotations-version-list button span {
+  color: #8b6f47;
+  font-size: 13px;
+  font-weight: 900;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.customer-quotations-version-list button small {
+  color: #7f7368;
+  font-size: 12px;
   font-weight: 800;
 }
 
@@ -311,7 +330,7 @@
   font-size: 13px;
   font-weight: 700;
   padding: 15px 14px;
-  vertical-align: top;
+  vertical-align: middle;
 }
 
 .customer-quotations-table-wrap td strong,
@@ -322,6 +341,10 @@
 .customer-quotations-table-wrap td strong {
   color: #2f2a24;
   font-size: 14px;
+  max-width: 300px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .customer-quotations-table-wrap td span {
@@ -329,6 +352,14 @@
   color: #8d8174;
   font-size: 12px;
   line-height: 18px;
+  max-width: 300px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.customer-quotations-table-wrap td:not(:first-child) {
+  white-space: nowrap;
 }
 
 .customer-quotations-note-grid {

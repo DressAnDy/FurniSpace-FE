@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import * as signalR from '@microsoft/signalr';
 import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 
@@ -45,6 +45,7 @@ export function useProjectChatUnreadCounts(
   currentUserId?: string | null,
   activeChatId?: string | null,
 ) {
+  const [readThroughByChatId, setReadThroughByChatId] = useState<Record<string, string>>({});
   const messageQueries = useQueries({
     queries: chats.map((chat) => {
       const params = {
@@ -63,6 +64,46 @@ export function useProjectChatUnreadCounts(
     }),
   });
 
+  useEffect(() => {
+    if (!activeChatId) {
+      return;
+    }
+
+    const activeChatIndex = chats.findIndex((chat) => chat.chatId === activeChatId);
+    const activeMessages = activeChatIndex >= 0 ? messageQueries[activeChatIndex]?.data?.items : undefined;
+
+    if (!activeMessages?.length) {
+      return;
+    }
+
+    const incomingMessages = activeMessages.filter(
+      (message) =>
+        message.messageType !== 'SYSTEM' &&
+        !message.deletedAt &&
+        Boolean(message.senderId && message.senderId !== currentUserId && message.createdAt),
+    );
+    const latestIncomingMessage = incomingMessages[incomingMessages.length - 1];
+
+    const latestIncomingCreatedAt = latestIncomingMessage?.createdAt;
+
+    if (!latestIncomingCreatedAt) {
+      return;
+    }
+
+    setReadThroughByChatId((current) => {
+      const currentReadThrough = current[activeChatId];
+
+      if (currentReadThrough && new Date(currentReadThrough).getTime() >= new Date(latestIncomingCreatedAt).getTime()) {
+        return current;
+      }
+
+      return {
+        ...current,
+        [activeChatId]: latestIncomingCreatedAt,
+      };
+    });
+  }, [activeChatId, chats, currentUserId, messageQueries]);
+
   return useMemo(
     () =>
       chats.reduce<Record<string, number>>((lookup, chat, index) => {
@@ -72,17 +113,25 @@ export function useProjectChatUnreadCounts(
         }
 
         const messages = messageQueries[index]?.data?.items ?? [];
+        const readThrough = readThroughByChatId[chat.chatId];
+        const readThroughTime = readThrough ? new Date(readThrough).getTime() : null;
+
         lookup[chat.chatId] = messages.filter(
           (message) =>
             message.messageType !== 'SYSTEM' &&
             !message.deletedAt &&
             !message.readAt &&
             Boolean(message.senderId && message.senderId !== currentUserId),
+        ).filter(
+          (message) =>
+            !readThroughTime ||
+            !message.createdAt ||
+            new Date(message.createdAt).getTime() > readThroughTime,
         ).length;
 
         return lookup;
       }, {}),
-    [activeChatId, chats, currentUserId, messageQueries],
+    [activeChatId, chats, currentUserId, messageQueries, readThroughByChatId],
   );
 }
 
@@ -216,9 +265,58 @@ export function upsertProjectChatMessage(
     };
   }
 
+  const matchingPendingIndex = current.items.findIndex((item) => isMatchingPendingMessage(item, message));
+
+  if (matchingPendingIndex >= 0) {
+    const items = [...current.items];
+    items[matchingPendingIndex] = message;
+
+    return {
+      ...current,
+      items,
+    };
+  }
+
   return {
     ...current,
     items: [...current.items, message],
     total: current.total + 1,
   };
+}
+
+export function replaceProjectChatTempMessage(
+  current: ProjectChatMessageListResponse | undefined,
+  tempMessageId: string,
+  savedMessage: ProjectChatMessage,
+): ProjectChatMessageListResponse | undefined {
+  if (!current) {
+    return current;
+  }
+
+  const items = current.items.filter((item) => item.messageId !== tempMessageId && item.messageId !== savedMessage.messageId);
+
+  return {
+    ...current,
+    items: [...items, savedMessage],
+  };
+}
+
+function isMatchingPendingMessage(currentMessage: ProjectChatMessage, savedMessage: ProjectChatMessage) {
+  if (!currentMessage.messageId.startsWith('temp-') || currentMessage.chatId !== savedMessage.chatId) {
+    return false;
+  }
+
+  if (currentMessage.senderId !== savedMessage.senderId || currentMessage.messageType !== savedMessage.messageType) {
+    return false;
+  }
+
+  if ((currentMessage.content ?? '') !== (savedMessage.content ?? '')) {
+    return false;
+  }
+
+  if (currentMessage.attachment?.originalFileName !== savedMessage.attachment?.originalFileName) {
+    return false;
+  }
+
+  return true;
 }

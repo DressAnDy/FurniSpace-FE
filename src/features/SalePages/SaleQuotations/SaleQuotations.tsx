@@ -1,20 +1,23 @@
-import { IconCheck, IconCurrencyDollar, IconFileText, IconPlus } from '@tabler/icons-react';
+import { IconPlus } from '@tabler/icons-react';
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 
 import { SaleNavbar, SaleSidebar } from '@/features/SalePages/salecomponents';
-import { getQuotationServiceResultMessage, type QuotationDto, type QuotationStatus } from '@/services/api/quotations';
+import { getQuotationServiceResultMessage, type QuotationDto, type QuotationItemDto, type QuotationStatus } from '@/services/api/quotations';
 import type { ProjectListItemDto, ProjectStatus } from '@/services/api/projects';
 import {
   useCancelQuotation,
   useCreateDraftQuotation,
   useCurrentUser,
   useProjectList,
+  useProjectProposals,
+  useProposalDetail,
   useProjectQuotations,
   useQuotationDetail,
   useReviseQuotation,
   useSendQuotation,
   useUpdateQuotation,
 } from '@/services/queries';
+import { aggregateDuplicateItems } from '@/shared/utils/itemAggregation';
 
 import './SaleQuotations.css';
 
@@ -76,7 +79,11 @@ export function SaleQuotations() {
   const reviseQuotationMutation = useReviseQuotation();
   const cancelQuotationMutation = useCancelQuotation();
   const quotationDetailQuery = useQuotationDetail(selectedQuotationId, { enabled: Boolean(selectedQuotationId) });
-  const projects = projectsQuery.data?.items ?? [];
+  const projectProposalsQuery = useProjectProposals(
+    { projectId: selectedProjectId, limit: 50 },
+    { enabled: Boolean(selectedProjectId) },
+  );
+  const projects = useMemo(() => projectsQuery.data?.items ?? [], [projectsQuery.data?.items]);
   const pendingQuotationProjects = useMemo(
     () => projects.filter((project) => pendingQuotationProjectStatuses.has(project.status)),
     [projects],
@@ -94,9 +101,16 @@ export function SaleQuotations() {
   const visibleProjectGroupEmptyText =
     projectView === 'pending' ? 'No project is waiting for quotation.' : 'No project has a finalized quotation yet.';
   const quotations = useMemo(() => quotationsQuery.data?.items ?? [], [quotationsQuery.data?.items]);
+  const proposalNameById = useMemo(
+    () => new Map((projectProposalsQuery.data?.items ?? []).map((proposal) => [proposal.proposalId, proposal.proposalName])),
+    [projectProposalsQuery.data?.items],
+  );
   const selectedProject = quotationProjects.find((project) => project.projectId === selectedProjectId);
   const canCreateDraftForSelectedProject = selectedProject?.status === 'PROPOSAL_SELECTED';
   const selectedQuotation = quotationDetailQuery.data;
+  const selectedProposalQuery = useProposalDetail(selectedQuotation?.proposalId, { enabled: Boolean(selectedQuotation?.proposalId) });
+  const selectedProposalName = getProposalName(selectedQuotation?.proposalId, proposalNameById, selectedProposalQuery.data?.proposalName);
+  const selectedQuotationItems = useMemo(() => aggregateDuplicateItems(selectedQuotation?.items ?? []), [selectedQuotation?.items]);
 
   useEffect(() => {
     if (!selectedProjectId && quotationProjects.length > 0) {
@@ -204,7 +218,6 @@ export function SaleQuotations() {
     }
   }
 
-  const metrics = getMetrics(quotations);
 
   return (
     <div className="sale-quotations-shell">
@@ -299,13 +312,6 @@ export function SaleQuotations() {
                 </div>
               </section>
 
-              <section className="sale-quotations-metrics">
-                <MetricCard icon={IconFileText} label="Total" value={String(metrics.total)} />
-                <MetricCard icon={IconFileText} label="Sent" value={String(metrics.sent)} />
-                <MetricCard icon={IconCheck} label="Accepted" value={String(metrics.accepted)} />
-                <MetricCard icon={IconCurrencyDollar} label="Value" value={formatMoney(metrics.value)} />
-              </section>
-
               <section className="sale-quotations-card">
                 <header>
                   <h3>Project Quotations</h3>
@@ -322,7 +328,6 @@ export function SaleQuotations() {
                         <th>Total Amount</th>
                         <th>Status</th>
                         <th>Valid Until</th>
-                        <th>Actions</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -334,12 +339,12 @@ export function SaleQuotations() {
                       ) : null}
                       {quotations.map((quotation) => (
                         <tr key={quotation.quotationId}>
-                          <td className="sale-quotations-code">{quotation.quotationCode}</td>
+                          <td className="sale-quotations-code" title={quotation.quotationCode}>{formatQuotationCode(quotation.quotationCode)}</td>
                           <td>
                             <strong>{selectedProject?.projectCode ?? quotation.projectId}</strong>
                             <span>{selectedProject?.projectName ?? '-'}</span>
                           </td>
-                          <td>{quotation.proposalId}</td>
+                          <td className="sale-quotations-truncate" title={getProposalName(quotation.proposalId, proposalNameById)}>{getProposalName(quotation.proposalId, proposalNameById)}</td>
                           <td>
                             <span className="sale-quotations-version">v{quotation.versionNo ?? 1}</span>
                           </td>
@@ -348,11 +353,6 @@ export function SaleQuotations() {
                             <span className={`sale-quotations-status sale-quotations-status-${statusClass(quotation.status)}`}>{formatEnumLabel(quotation.status ?? 'UNKNOWN')}</span>
                           </td>
                           <td>{quotation.validUntil ?? '-'}</td>
-                          <td>
-                            <button className="sale-quotations-link-button" type="button" onClick={() => setSelectedQuotationId(quotation.quotationId)}>
-                              View Details
-                            </button>
-                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -364,7 +364,7 @@ export function SaleQuotations() {
               <section className="sale-quotations-card sale-quotations-detail">
               <header className="sale-quotations-detail-header">
                 <div>
-                  <h3>Quotation Detail - {selectedQuotation.quotationCode}</h3>
+                  <h3>Quotation Detail - {formatQuotationCode(selectedQuotation.quotationCode)}</h3>
                   <p>{selectedProject ? `${selectedProject.projectCode} - ${selectedProject.projectName}` : selectedQuotation.projectId}</p>
                 </div>
                 <span className={`sale-quotations-status sale-quotations-status-${statusClass(selectedQuotation.status)}`}>
@@ -375,7 +375,7 @@ export function SaleQuotations() {
               <div className="sale-quotations-detail-grid">
                 <div>
                   <span>Proposal</span>
-                  <strong>{selectedQuotation.proposalId}</strong>
+                  <strong title={selectedProposalName}>{selectedProposalName}</strong>
                 </div>
                 <div>
                   <span>Valid Until</span>
@@ -432,9 +432,9 @@ export function SaleQuotations() {
                     </tr>
                   </thead>
                   <tbody>
-                    {selectedQuotation.items.map((item) => (
+                    {selectedQuotationItems.map((item) => (
                       <tr key={item.quotationItemId}>
-                        <td>{item.itemName ?? item.productNameSnapshot ?? item.productVersionNameSnapshot ?? '-'}</td>
+                        <td className="sale-quotations-item-name" title={getQuotationItemName(item)}>{getQuotationItemName(item)}</td>
                         <td>{formatEnumLabel(item.itemType ?? 'UNKNOWN')}</td>
                         <td>{item.quantity ?? '-'}</td>
                         <td>{formatMoney(item.unitPrice)}</td>
@@ -531,27 +531,6 @@ function ProjectGroup({
   );
 }
 
-function MetricCard({ icon: Icon, label, value }: { icon: typeof IconFileText; label: string; value: string }) {
-  return (
-    <article>
-      <div>
-        <span>{label}</span>
-        <strong>{value}</strong>
-      </div>
-      <Icon size={20} />
-    </article>
-  );
-}
-
-function getMetrics(quotations: QuotationDto[]) {
-  return {
-    total: quotations.length,
-    sent: quotations.filter((quotation) => quotation.status === 'SENT').length,
-    accepted: quotations.filter((quotation) => quotation.status === 'ACCEPTED').length,
-    value: quotations.reduce((sum, quotation) => sum + (quotation.totalAmount ?? 0), 0),
-  };
-}
-
 function canEditHeader(status?: QuotationStatus | null) {
   return status === 'DRAFT' || status === 'REVISION_REQUESTED' || status === 'REVISED';
 }
@@ -592,6 +571,23 @@ function normalizeNumber(value: string) {
   const numberValue = Number(value);
 
   return Number.isFinite(numberValue) ? numberValue : 0;
+}
+
+function formatQuotationCode(value?: string | null) {
+  if (!value) return '-';
+
+  const [, suffix] = value.split('-', 2);
+  return (suffix || value).slice(0, 6);
+}
+
+function getProposalName(proposalId?: string | null, proposalNameById?: Map<string, string>, fallbackName?: string | null) {
+  if (!proposalId) return '-';
+
+  return proposalNameById?.get(proposalId) ?? fallbackName ?? proposalId;
+}
+
+function getQuotationItemName(item: Pick<QuotationItemDto, 'itemName' | 'productNameSnapshot' | 'productVersionNameSnapshot'>) {
+  return item.itemName ?? item.productNameSnapshot ?? item.productVersionNameSnapshot ?? '-';
 }
 
 function statusClass(status?: string | null) {

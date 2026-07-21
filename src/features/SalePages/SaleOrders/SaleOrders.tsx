@@ -1,8 +1,8 @@
-import { IconCurrencyDollar, IconPackage, IconReceipt, IconSettings } from '@tabler/icons-react';
+import { IconSettings } from '@tabler/icons-react';
 import { type FormEvent, useEffect, useMemo, useState } from 'react';
 
 import { SaleNavbar, SaleSidebar } from '@/features/SalePages/salecomponents';
-import { getOrderServiceResultMessage, type OrderDetailDto, type OrderListItemDto, type OrderStatus } from '@/services/api/orders';
+import { getOrderServiceResultMessage, type OrderDetailDto, type OrderItemDto, type OrderListItemDto, type OrderStatus } from '@/services/api/orders';
 import type { ProjectListItemDto } from '@/services/api/projects';
 import {
   useCurrentUser,
@@ -11,6 +11,7 @@ import {
   useProjectOrders,
   useUpdateOrderFinancialAdjustment,
 } from '@/services/queries';
+import { aggregateDuplicateItems } from '@/shared/utils/itemAggregation';
 
 import './SaleOrders.css';
 
@@ -46,7 +47,6 @@ export function SaleOrders() {
   const orderDetailQuery = useOrderDetail(selectedOrderId, { enabled: Boolean(selectedOrderId) });
   const order = orderDetailQuery.data ?? null;
   const financialAdjustmentMutation = useUpdateOrderFinancialAdjustment();
-  const metrics = getOrderMetrics(orders);
   const unpaidDepositOrders = useMemo(() => orders.filter((item) => isDepositUnpaidStatus(item.status)), [orders]);
   const paidDepositOrders = useMemo(() => orders.filter((item) => isDepositPaidStatus(item.status)), [orders]);
 
@@ -139,13 +139,6 @@ export function SaleOrders() {
                 </div>
               </section>
 
-              <section className="sale-orders-metrics">
-                <MetricCard icon={IconReceipt} label="Orders" value={String(metrics.total)} />
-                <MetricCard icon={IconCurrencyDollar} label="Deposit Due" value={formatMoney(metrics.depositDue)} />
-                <MetricCard icon={IconCurrencyDollar} label="Remaining" value={formatMoney(metrics.remaining)} />
-                <MetricCard icon={IconPackage} label="Active" value={String(metrics.active)} />
-              </section>
-
               <section className="sale-orders-grid">
                 <section className="sale-orders-card">
                   <header>
@@ -214,7 +207,7 @@ function OrderGroup({
             type="button"
             onClick={() => onSelect(item.orderId)}
           >
-            <span>{item.orderCode}</span>
+            <span title={item.orderCode}>{formatOrderCode(item.orderCode)}</span>
             <strong>{formatMoney(item.originalTotalAmount)}</strong>
             <em className={`sale-orders-status sale-orders-status-${statusClass(item.status)}`}>{formatEnumLabel(item.status ?? 'UNKNOWN')}</em>
           </button>
@@ -234,6 +227,7 @@ function OrderDetailPanel({
   order: OrderDetailDto;
 }) {
   const [depositAmount, setDepositAmount] = useState(() => String(order.depositAmount ?? 0));
+  const orderItems = useMemo(() => aggregateDuplicateItems(order.items), [order.items]);
 
   useEffect(() => {
     setDepositAmount(String(order.depositAmount ?? 0));
@@ -250,10 +244,6 @@ function OrderDetailPanel({
   return (
     <section className="sale-orders-card sale-orders-detail">
       <header>
-        <div>
-          <h3>{order.orderCode}</h3>
-          <p>Quotation {order.quotationId}</p>
-        </div>
         <span className={`sale-orders-status sale-orders-status-${statusClass(order.status)}`}>{formatEnumLabel(order.status ?? 'UNKNOWN')}</span>
       </header>
       <div className="sale-orders-money-grid">
@@ -286,9 +276,9 @@ function OrderDetailPanel({
             </tr>
           </thead>
           <tbody>
-            {order.items.map((item) => (
+            {orderItems.map((item) => (
               <tr key={item.orderItemId}>
-                <td>{item.itemName ?? item.productNameSnapshot ?? '-'}</td>
+                <td>{getOrderItemName(item)}</td>
                 <td>{formatEnumLabel(item.itemType ?? 'UNKNOWN')}</td>
                 <td>{item.quantity ?? '-'}</td>
                 <td>{formatMoney(item.unitPrice)}</td>
@@ -304,18 +294,6 @@ function OrderDetailPanel({
   );
 }
 
-function MetricCard({ icon: Icon, label, value }: { icon: typeof IconReceipt; label: string; value: string }) {
-  return (
-    <article>
-      <div>
-        <span>{label}</span>
-        <strong>{value}</strong>
-      </div>
-      <Icon size={26} />
-    </article>
-  );
-}
-
 function MoneyValue({ label, value }: { label: string; value: string }) {
   return (
     <div>
@@ -325,17 +303,12 @@ function MoneyValue({ label, value }: { label: string; value: string }) {
   );
 }
 
-function getOrderProjects(projects: ProjectListItemDto[]) {
-  return projects.filter((project) => orderProjectStatuses.has(project.status));
+function getOrderItemName(item: Pick<OrderItemDto, 'itemName' | 'productNameSnapshot'>) {
+  return item.itemName ?? item.productNameSnapshot ?? '-';
 }
 
-function getOrderMetrics(orders: OrderListItemDto[]) {
-  return {
-    active: orders.filter((order) => order.status !== 'COMPLETED' && order.status !== 'CANCELLED').length,
-    depositDue: orders.reduce((sum, order) => sum + (order.status === 'DEPOSIT_PENDING' ? order.depositAmount ?? 0 : 0), 0),
-    remaining: orders.reduce((sum, order) => sum + (order.remainingAmount ?? 0), 0),
-    total: orders.length,
-  };
+function getOrderProjects(projects: ProjectListItemDto[]) {
+  return projects.filter((project) => orderProjectStatuses.has(project.status));
 }
 
 function isDepositUnpaidStatus(status?: OrderStatus | null) {
@@ -362,6 +335,13 @@ function formatMoney(value?: number | null) {
   if (typeof value !== 'number') return '-';
 
   return `${new Intl.NumberFormat('vi-VN').format(value)} VND`;
+}
+
+function formatOrderCode(value?: string | null) {
+  if (!value) return '-';
+
+  const [, suffix] = value.split('-', 2);
+  return (suffix || value).slice(0, 6);
 }
 
 function normalizeMoneyInput(value: string) {

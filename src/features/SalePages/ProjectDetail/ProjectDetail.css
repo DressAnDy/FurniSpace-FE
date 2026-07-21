@@ -1191,8 +1191,10 @@
   display: grid;
   min-height: 560px;
   grid-template-columns: 260px minmax(0, 1fr);
-  border-top: 1px solid rgba(139, 111, 71, 0.15);
+  gap: 10px;
+  background: #faf9f7;
   margin: 0 -20px;
+  padding: 16px 20px 20px;
 }
 
 .project-detail-chat-header-row {
@@ -1219,7 +1221,9 @@
   display: flex;
   flex-direction: column;
   gap: 10px;
-  border-right: 1px solid rgba(139, 111, 71, 0.15);
+  border: 1px solid rgba(139, 111, 71, 0.15);
+  border-radius: 12px;
+  background: #ffffff;
   padding: 16px;
 }
 
@@ -1281,7 +1285,11 @@
 .project-detail-chat-thread {
   display: grid;
   min-width: 0;
+  border: 1px solid rgba(139, 111, 71, 0.15);
+  border-radius: 12px;
+  background: #ffffff;
   grid-template-rows: auto minmax(0, 1fr) auto;
+  overflow: hidden;
 }
 
 .project-detail-chat-thread-header {
@@ -1919,7 +1927,6 @@
     flex-direction: row;
     overflow-x: auto;
     border-right: 0;
-    border-bottom: 1px solid rgba(139, 111, 71, 0.15);
   }
 
   .project-detail-chat-selector button {

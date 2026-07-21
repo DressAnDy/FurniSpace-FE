@@ -42,6 +42,7 @@
 }
 
 .register-field {
+  position: relative;
   display: block;
 }
 
@@ -68,6 +69,43 @@
   transition:
     border-color 160ms ease,
     box-shadow 160ms ease;
+}
+
+.register-field input[type="password"],
+.register-field input[type="text"][name="password"],
+.register-field input[type="text"][name="confirmPassword"] {
+  padding-right: 54px;
+}
+
+.register-password-toggle {
+  position: absolute;
+  top: 50%;
+  right: 14px;
+  z-index: 1;
+  display: grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: #8b6f47;
+  cursor: pointer;
+  padding: 0;
+  transform: translateY(-50%);
+  transition:
+    background-color 160ms ease,
+    color 160ms ease;
+}
+
+.register-password-toggle:hover {
+  background: rgba(139, 111, 71, 0.12);
+  color: #c99243;
+}
+
+.register-password-toggle:focus-visible {
+  outline: 2px solid #c99243;
+  outline-offset: 2px;
 }
 
 .register-field input::placeholder {

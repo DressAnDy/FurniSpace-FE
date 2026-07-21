@@ -5,6 +5,7 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import logoImage from '@/assets/Logo/Logo.png';
 import { useLang } from '@/app/providers/useLang';
 import { useCurrentUser, useLogout } from '@/services/queries';
+import { getStoredAccessToken } from '@/services/api/tokenStore';
 
 import './MainNavbar.css';
 
@@ -59,7 +60,8 @@ export function MainNavbar({
   const accountMenuRef = useRef<HTMLDivElement>(null);
   const [isScrolled, setIsScrolled] = useState(false);
   const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false);
-  const { data: user } = useCurrentUser();
+  const [hasStoredAuthToken, setHasStoredAuthToken] = useState(() => Boolean(getStoredAccessToken()));
+  const { data: user } = useCurrentUser({ enabled: hasStoredAuthToken });
   const logoutMutation = useLogout();
   const { lang, setLang } = useLang();
   const t = navbarText[lang];
@@ -91,6 +93,20 @@ export function MainNavbar({
 
     return () => {
       document.removeEventListener('mousedown', handleDocumentPointerDown);
+    };
+  }, []);
+
+  useEffect(() => {
+    const handleStoredAuthTokenChange = () => {
+      setHasStoredAuthToken(Boolean(getStoredAccessToken()));
+    };
+
+    window.addEventListener('storage', handleStoredAuthTokenChange);
+    window.addEventListener('focus', handleStoredAuthTokenChange);
+
+    return () => {
+      window.removeEventListener('storage', handleStoredAuthTokenChange);
+      window.removeEventListener('focus', handleStoredAuthTokenChange);
     };
   }, []);
 

@@ -42,6 +42,7 @@
 }
 
 .login-field {
+  position: relative;
   display: block;
 }
 
@@ -68,6 +69,41 @@
   transition:
     border-color 160ms ease,
     box-shadow 160ms ease;
+}
+
+.login-field input[type="password"],
+.login-field input[type="text"][name="password"] {
+  padding-right: 54px;
+}
+
+.login-password-toggle {
+  position: absolute;
+  top: 50%;
+  right: 14px;
+  display: grid;
+  width: 36px;
+  height: 36px;
+  place-items: center;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: #8b6f47;
+  cursor: pointer;
+  padding: 0;
+  transform: translateY(-50%);
+  transition:
+    background-color 160ms ease,
+    color 160ms ease;
+}
+
+.login-password-toggle:hover {
+  background: rgba(139, 111, 71, 0.12);
+  color: #c99243;
+}
+
+.login-password-toggle:focus-visible {
+  outline: 2px solid #c99243;
+  outline-offset: 2px;
 }
 
 .login-field input::placeholder {

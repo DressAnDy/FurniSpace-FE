@@ -5,22 +5,24 @@
 }
 
 .admin-three-d-lab-content {
+  background: #f6f7f4;
   flex: 1;
   min-height: 0;
   overflow: auto;
   padding: 28px;
-  background: #f6f7f4;
 }
 
 .admin-three-d-lab-header {
-  display: flex;
   align-items: flex-start;
-  justify-content: space-between;
+  display: flex;
   gap: 20px;
+  justify-content: space-between;
   margin-bottom: 22px;
 }
 
-.admin-three-d-lab-header span {
+.admin-three-d-lab-header span,
+.admin-three-d-panel-heading span,
+.admin-three-d-scene-panel-heading span {
   color: #637165;
   font-size: 12px;
   font-weight: 800;
@@ -29,28 +31,28 @@
 }
 
 .admin-three-d-lab-header h1 {
-  margin: 6px 0;
   color: #1f2a22;
   font-size: 30px;
   line-height: 1.15;
+  margin: 6px 0;
 }
 
 .admin-three-d-lab-header p {
-  max-width: 620px;
-  margin: 0;
   color: #68756b;
   font-size: 14px;
+  margin: 0;
+  max-width: 620px;
 }
 
 .admin-three-d-lab-search {
-  display: flex;
   align-items: center;
-  min-width: min(420px, 100%);
-  overflow: hidden;
+  background: #ffffff;
   border: 1px solid #d7ddd4;
   border-radius: 8px;
-  background: #ffffff;
   color: #617063;
+  display: flex;
+  min-width: min(420px, 100%);
+  overflow: hidden;
 }
 
 .admin-three-d-lab-search svg {
@@ -59,29 +61,29 @@
 }
 
 .admin-three-d-lab-search input {
-  width: 100%;
-  min-width: 0;
   border: 0;
-  outline: 0;
-  padding: 13px 12px;
   color: #1f2a22;
   font: inherit;
+  min-width: 0;
+  outline: 0;
+  padding: 13px 12px;
+  width: 100%;
 }
 
 .admin-three-d-lab-search button,
 .admin-three-d-lab-pagination button {
-  display: inline-flex;
   align-items: center;
-  justify-content: center;
-  gap: 7px;
+  background: #244c3a;
   border: 0;
   border-radius: 7px;
-  background: #244c3a;
   color: #ffffff;
   cursor: pointer;
+  display: inline-flex;
   font: inherit;
   font-size: 13px;
   font-weight: 800;
+  gap: 7px;
+  justify-content: center;
   min-height: 38px;
   padding: 0 14px;
 }
@@ -96,133 +98,352 @@
   opacity: 0.5;
 }
 
-.admin-three-d-lab-grid {
+.admin-three-d-lab-workspace {
+  align-items: start;
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 16px;
+  gap: 18px;
+  grid-template-columns: minmax(260px, 320px) minmax(0, 1fr);
 }
 
-.admin-three-d-project-card {
-  display: flex;
-  flex-direction: column;
-  min-height: 330px;
+.admin-three-d-project-list {
+  background: #ffffff;
   border: 1px solid #dfe5db;
   border-radius: 8px;
-  background: #ffffff;
-  box-shadow: 0 12px 30px rgba(39, 53, 43, 0.07);
-}
-
-.admin-three-d-project-card > header {
+  box-shadow: 0 12px 30px rgba(39, 53, 43, 0.06);
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  gap: 12px;
-  padding: 16px;
-  border-bottom: 1px solid #edf0e9;
-}
-
-.admin-three-d-project-icon {
-  display: grid;
-  place-items: center;
-  width: 38px;
-  height: 38px;
-  border-radius: 8px;
-  background: #e7eee6;
-  color: #244c3a;
-}
-
-.admin-three-d-project-card span,
-.admin-three-d-version-heading span,
-.admin-three-d-scene-link small {
-  color: #758078;
-  font-size: 12px;
-}
-
-.admin-three-d-project-card h2 {
-  overflow-wrap: anywhere;
-  margin: 3px 0 5px;
-  color: #1f2a22;
-  font-size: 17px;
-  line-height: 1.25;
-}
-
-.admin-three-d-project-card p {
-  margin: 0;
-  color: #68756b;
-  font-size: 13px;
-}
-
-.admin-three-d-version-list {
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  gap: 10px;
-  padding: 14px;
+  gap: 8px;
+  max-height: calc(100vh - 230px);
   overflow: auto;
-}
-
-.admin-three-d-version-row {
-  border: 1px solid #e3e8df;
-  border-radius: 8px;
   padding: 10px;
-  background: #fbfcfa;
 }
 
-.admin-three-d-version-heading {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 10px;
-  margin-bottom: 9px;
-}
-
-.admin-three-d-version-heading > div {
-  display: flex;
+.admin-three-d-project-item {
   align-items: center;
-  min-width: 0;
-  gap: 7px;
-  color: #244c3a;
-}
-
-.admin-three-d-version-heading strong {
-  overflow-wrap: anywhere;
-  color: #253026;
-  font-size: 13px;
-}
-
-.admin-three-d-scene-link {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  align-items: center;
-  width: 100%;
-  gap: 9px;
-  border: 0;
-  border-radius: 7px;
   background: #ffffff;
+  border: 1px solid transparent;
+  border-radius: 8px;
   color: #244c3a;
   cursor: pointer;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(0, 1fr) auto;
   padding: 10px;
   text-align: left;
 }
 
+.admin-three-d-project-item:hover,
+.admin-three-d-project-item.is-selected {
+  background: #edf4ed;
+  border-color: #cbd9cb;
+}
+
+.admin-three-d-project-item-main {
+  align-items: center;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: auto minmax(0, 1fr);
+  min-width: 0;
+}
+
+.admin-three-d-project-icon {
+  background: #e7eee6;
+  border-radius: 8px;
+  color: #244c3a;
+  display: grid;
+  height: 38px;
+  place-items: center;
+  width: 38px;
+}
+
+.admin-three-d-project-item span span,
+.admin-three-d-scene-link small,
+.admin-three-d-proposal-selector small {
+  color: #758078;
+  font-size: 12px;
+}
+
+.admin-three-d-project-item strong {
+  color: #1f2a22;
+  display: block;
+  font-size: 14px;
+  line-height: 1.25;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-three-d-project-item-meta {
+  color: #68756b;
+  display: block;
+  font-size: 12px;
+  margin: 3px 0 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-three-d-detail-stack {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+}
+
+.admin-three-d-info-panel {
+  background: #ffffff;
+  border: 1px solid #dfe5db;
+  border-radius: 8px;
+  box-shadow: 0 12px 30px rgba(39, 53, 43, 0.07);
+  padding: 18px;
+}
+
+.admin-three-d-panel-heading {
+  align-items: flex-start;
+  border-bottom: 1px solid #edf0e9;
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+  margin-bottom: 16px;
+  padding-bottom: 14px;
+}
+
+.admin-three-d-panel-heading h2 {
+  color: #1f2a22;
+  font-size: 20px;
+  line-height: 1.2;
+  margin: 5px 0 0;
+  overflow-wrap: anywhere;
+}
+
+.admin-three-d-panel-heading > strong,
+.admin-three-d-scene-panel-heading strong {
+  background: #edf4ed;
+  border-radius: 999px;
+  color: #244c3a;
+  flex: 0 0 auto;
+  font-size: 12px;
+  font-weight: 800;
+  padding: 7px 10px;
+}
+
+.admin-three-d-project-facts {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin: 0;
+}
+
+.admin-three-d-project-facts div {
+  background: #f7f9f5;
+  border: 1px solid #edf0e9;
+  border-radius: 8px;
+  min-width: 0;
+  padding: 10px;
+}
+
+.admin-three-d-project-facts dt {
+  color: #758078;
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.admin-three-d-project-facts dd {
+  color: #253026;
+  font-size: 13px;
+  font-weight: 700;
+  margin: 4px 0 0;
+  overflow-wrap: anywhere;
+}
+
+.admin-three-d-project-description {
+  color: #5f6d62;
+  font-size: 13px;
+  line-height: 1.55;
+  margin: 14px 0 0;
+}
+
+.admin-three-d-proposal-selector {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-bottom: 16px;
+}
+
+.admin-three-d-proposal-selector button {
+  align-items: center;
+  background: #fbfcfa;
+  border: 1px solid #e3e8df;
+  border-radius: 8px;
+  color: #244c3a;
+  cursor: pointer;
+  display: grid;
+  font: inherit;
+  gap: 8px;
+  grid-template-columns: auto minmax(0, 1fr);
+  padding: 10px;
+  text-align: left;
+}
+
+.admin-three-d-proposal-selector button.is-selected,
+.admin-three-d-proposal-selector button:hover {
+  background: #edf4ed;
+  border-color: #cbd9cb;
+}
+
+.admin-three-d-proposal-selector span {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.admin-three-d-proposal-selector strong {
+  color: #253026;
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-three-d-scene-panel {
+  border-top: 1px solid #edf0e9;
+  padding-top: 16px;
+}
+
+.admin-three-d-scene-panel-heading {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.admin-three-d-scene-link {
+  align-items: center;
+  background: #ffffff;
+  border: 1px solid #e3e8df;
+  border-radius: 8px;
+  color: #244c3a;
+  cursor: pointer;
+  display: grid;
+  gap: 9px;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  padding: 12px;
+  text-align: left;
+  width: 100%;
+}
+
 .admin-three-d-scene-link + .admin-three-d-scene-link {
-  margin-top: 7px;
+  margin-top: 8px;
 }
 
 .admin-three-d-scene-link span {
   display: flex;
-  min-width: 0;
   flex-direction: column;
   gap: 2px;
+  min-width: 0;
 }
 
 .admin-three-d-scene-link strong {
-  overflow-wrap: anywhere;
   color: #253026;
   font-size: 13px;
+  overflow-wrap: anywhere;
 }
 
 .admin-three-d-scene-link:hover {
   background: #edf4ed;
+}
+
+.admin-three-d-modal-backdrop {
+  align-items: center;
+  background: rgba(15, 23, 42, 0.58);
+  display: flex;
+  inset: 0;
+  justify-content: center;
+  padding: 24px;
+  position: fixed;
+  z-index: 1000;
+}
+
+.admin-three-d-scene-modal {
+  background: #ffffff;
+  border-radius: 8px;
+  box-shadow: 0 30px 80px rgba(15, 23, 42, 0.28);
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  height: 75vh;
+  max-height: 860px;
+  max-width: 1180px;
+  overflow: hidden;
+  width: 75vw;
+}
+
+.admin-three-d-scene-modal-header {
+  align-items: flex-start;
+  border-bottom: 1px solid #edf0e9;
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+  padding: 16px 18px;
+}
+
+.admin-three-d-scene-modal-header span {
+  color: #637165;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.admin-three-d-scene-modal-header h2 {
+  color: #1f2a22;
+  font-size: 20px;
+  line-height: 1.2;
+  margin: 4px 0;
+  overflow-wrap: anywhere;
+}
+
+.admin-three-d-scene-modal-header p {
+  color: #68756b;
+  font-size: 13px;
+  margin: 0;
+}
+
+.admin-three-d-scene-modal-header button {
+  align-items: center;
+  background: #f2f4ef;
+  border: 0;
+  border-radius: 8px;
+  color: #244c3a;
+  cursor: pointer;
+  display: flex;
+  flex: 0 0 auto;
+  height: 38px;
+  justify-content: center;
+  width: 38px;
+}
+
+.admin-three-d-scene-modal-body {
+  background: #eef1ec;
+  min-height: 0;
+  position: relative;
+}
+
+.admin-three-d-scene-modal-body .room-preview-3d,
+.admin-three-d-scene-modal-body .room-preview-canvas,
+.admin-three-d-scene-modal-body canvas {
+  height: 100%;
+  min-height: 0;
+  width: 100%;
+}
+
+.admin-three-d-scene-modal-state {
+  align-items: center;
+  color: #5d6b60;
+  display: flex;
+  font-size: 14px;
+  height: 100%;
+  justify-content: center;
+  padding: 24px;
+  text-align: center;
 }
 
 .admin-three-d-muted,
@@ -241,32 +462,32 @@
 
 .admin-three-d-lab-empty,
 .admin-three-d-lab-alert {
-  border: 1px dashed #cfd8cd;
   background: #ffffff;
+  border: 1px dashed #cfd8cd;
   padding: 28px;
   text-align: center;
 }
 
 .admin-three-d-lab-alert,
 .admin-three-d-card-alert {
-  border: 1px solid #f0c5bd;
   background: #fff4f2;
+  border: 1px solid #f0c5bd;
   color: #9a3f32;
 }
 
 .admin-three-d-card-alert {
-  margin: 12px 14px 0;
+  margin-top: 10px;
   padding: 10px;
 }
 
 .admin-three-d-lab-pagination {
-  display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  margin-top: 20px;
   color: #5d6b60;
+  display: flex;
   font-size: 13px;
+  gap: 16px;
+  justify-content: space-between;
+  margin-top: 20px;
 }
 
 .admin-three-d-lab-pagination > div {
@@ -275,7 +496,16 @@
 }
 
 @media (max-width: 1180px) {
-  .admin-three-d-lab-grid {
+  .admin-three-d-lab-workspace {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-three-d-project-list {
+    max-height: none;
+  }
+
+  .admin-three-d-proposal-selector,
+  .admin-three-d-project-facts {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
@@ -286,12 +516,19 @@
   }
 
   .admin-three-d-lab-header,
-  .admin-three-d-lab-pagination {
+  .admin-three-d-lab-pagination,
+  .admin-three-d-panel-heading {
     align-items: stretch;
     flex-direction: column;
   }
 
-  .admin-three-d-lab-grid {
+  .admin-three-d-proposal-selector,
+  .admin-three-d-project-facts {
     grid-template-columns: 1fr;
+  }
+
+  .admin-three-d-scene-modal {
+    height: 82vh;
+    width: 94vw;
   }
 }

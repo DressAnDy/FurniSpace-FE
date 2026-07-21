@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
-import { getProposalServiceResultMessage, type ProposalDto, type ProposalSceneDto } from '@/services/api/proposals';
+import { getProposalServiceResultMessage, type ProposalDto } from '@/services/api/proposals';
 import type { ProjectDto } from '@/services/api/projects';
 import { useProjectProposals, useProposalScenes, usePublishProposal } from '@/services/queries';
 
@@ -27,17 +27,6 @@ export function ProposalsTab({ project }: ProposalsTabProps) {
     setMessage('');
     setMessageTone('error');
     navigate(`/designer/projects/${project.projectId}/proposals/new`);
-  }
-
-  function openScene(scene: ProposalSceneDto, proposalId: string) {
-    navigate(`/proposal-scenes/${scene.sceneId}/room-planner`, {
-      state: {
-        mode: 'create-proposal',
-        projectId: project.projectId,
-        proposalId,
-        returnTo: `/designer/assigned-projects/${project.projectId}`,
-      },
-    });
   }
 
   async function publishProposal(proposal: ProposalDto) {
@@ -113,8 +102,7 @@ export function ProposalsTab({ project }: ProposalsTabProps) {
               <ProposalRow
                 key={proposal.proposalId}
                 proposal={proposal}
-                onCreateScene={async () => navigate(`/designer/projects/${project.projectId}/proposals/${proposal.proposalId}`)}
-                onOpenScene={(scene) => openScene(scene, proposal.proposalId)}
+                onOpenDetail={() => navigate(`/designer/projects/${project.projectId}/proposals/${proposal.proposalId}`)}
                 onPublish={() => publishProposal(proposal)}
                 publishDisabled={publishingProposalId === proposal.proposalId || publishProposalMutation.isPending}
               />
@@ -128,13 +116,12 @@ export function ProposalsTab({ project }: ProposalsTabProps) {
 
 type ProposalRowProps = {
   proposal: ProposalDto;
-  onCreateScene: () => Promise<void>;
-  onOpenScene: (scene: ProposalSceneDto) => void;
+  onOpenDetail: () => void;
   onPublish: () => void | Promise<void>;
   publishDisabled: boolean;
 };
 
-function ProposalRow({ proposal, onCreateScene, onOpenScene, onPublish, publishDisabled }: ProposalRowProps) {
+function ProposalRow({ proposal, onOpenDetail, onPublish, publishDisabled }: ProposalRowProps) {
   const scenesQuery = useProposalScenes({
     proposalId: proposal.proposalId,
     sceneType: 'THREE_D',
@@ -165,15 +152,9 @@ function ProposalRow({ proposal, onCreateScene, onOpenScene, onPublish, publishD
       <td>{formatDateTime(proposal.updatedAt)}</td>
       <td>
         <div className="designer-project-table-actions">
-          {primaryScene ? (
-            <button className="designer-project-table-open" type="button" onClick={() => onOpenScene(primaryScene)}>
-              Open 3D Scene
-            </button>
-          ) : (
-            <button className="designer-project-table-open" disabled={proposal.status !== 'DRAFT'} type="button" onClick={() => void onCreateScene()}>
-              Open Workspace
-            </button>
-          )}
+          <button className="designer-project-table-open" type="button" onClick={onOpenDetail}>
+            Open Detail
+          </button>
           {proposal.status === 'DRAFT' ? (
             <button
               className="designer-project-table-publish"

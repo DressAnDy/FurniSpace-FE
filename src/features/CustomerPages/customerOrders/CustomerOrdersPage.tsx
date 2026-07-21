@@ -1,16 +1,12 @@
 import {
   IconChevronRight,
-  IconCreditCard,
-  IconCurrencyDollar,
-  IconHome,
-  IconPackage,
-  IconReceipt,
+  IconHome
 } from '@tabler/icons-react';
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 
 import { CustomerNavbar } from '@/features/CustomerPages/customercomponents';
-import { getOrderServiceResultMessage, type OrderDetailDto, type OrderListItemDto, type OrderStatus } from '@/services/api/orders';
+import { getOrderServiceResultMessage, type OrderDetailDto, type OrderItemDto, type OrderStatus } from '@/services/api/orders';
 import type { PaymentDetailDto } from '@/services/api/payments';
 import type { ProjectListItemDto } from '@/services/api/projects';
 import {
@@ -21,6 +17,7 @@ import {
   useProjectOrders,
 } from '@/services/queries';
 import { PaymentCollectionModal } from '@/features/payments/PaymentCollectionModal';
+import { aggregateDuplicateItems } from '@/shared/utils/itemAggregation';
 
 import './CustomerOrdersPage.css';
 
@@ -42,14 +39,12 @@ export function CustomerOrdersPage() {
   const projectsQuery = useProjectList({ page: 1, limit: 50 });
   const projects = useMemo(() => projectsQuery.data?.items ?? [], [projectsQuery.data?.items]);
   const orderProjects = useMemo(() => getOrderProjects(projects), [projects]);
-  const selectedProject = orderProjects.find((project) => project.projectId === selectedProjectId) ?? null;
   const ordersQuery = useProjectOrders(selectedProjectId, { enabled: Boolean(selectedProjectId) });
   const orders = useMemo(() => ordersQuery.data?.items ?? [], [ordersQuery.data?.items]);
   const orderDetailQuery = useOrderDetail(selectedOrderId, { enabled: Boolean(selectedOrderId) });
   const order = orderDetailQuery.data ?? null;
   const depositMutation = useCreateOrderDepositPayment();
   const remainingMutation = useCreateOrderRemainingPayment();
-  const metrics = getOrderMetrics(orders);
 
   useEffect(() => {
     if (!selectedProjectId && orderProjects.length > 0) {
@@ -141,41 +136,6 @@ export function CustomerOrdersPage() {
           </aside>
 
           <section className="customer-orders-workspace">
-            <div className="customer-orders-metrics">
-              <MetricCard icon={IconReceipt} label="Orders" value={String(metrics.total)} />
-              <MetricCard icon={IconCreditCard} label="Deposit Due" value={formatMoney(metrics.depositDue)} />
-              <MetricCard icon={IconCurrencyDollar} label="Remaining" value={formatMoney(metrics.remaining)} />
-              <MetricCard icon={IconPackage} label="Active" value={String(metrics.active)} />
-            </div>
-
-            <section className="customer-orders-card">
-              <header>
-                <div>
-                  <h2>{selectedProject ? selectedProject.projectName : 'Select a project'}</h2>
-                  <p>{selectedProject ? `${selectedProject.projectCode} - ${formatEnumLabel(selectedProject.status)}` : 'Choose a project to view orders.'}</p>
-                </div>
-              </header>
-              {ordersQuery.isLoading ? <p className="customer-orders-muted">Loading orders...</p> : null}
-              {!ordersQuery.isLoading && selectedProjectId && orders.length === 0 ? <p className="customer-orders-muted">No order found for this project.</p> : null}
-              <div className="customer-orders-order-list">
-                {orders.map((item) => (
-                  <button
-                    className={item.orderId === selectedOrderId ? 'is-active' : ''}
-                    key={item.orderId}
-                    type="button"
-                    onClick={() => {
-                      setSelectedOrderId(item.orderId);
-                      setActivePayment(null);
-                    }}
-                  >
-                    <span>{item.orderCode}</span>
-                    <strong>{formatMoney(item.originalTotalAmount)}</strong>
-                    <em className={`customer-orders-status customer-orders-status-${statusClass(item.status)}`}>{formatEnumLabel(item.status ?? 'UNKNOWN')}</em>
-                  </button>
-                ))}
-              </div>
-            </section>
-
             {order ? (
               <OrderDetailCard
                 depositPending={depositMutation.isPending}
@@ -215,12 +175,13 @@ function OrderDetailCard({
   order: OrderDetailDto;
   remainingPending: boolean;
 }) {
+  const orderItems = useMemo(() => aggregateDuplicateItems(order.items), [order.items]);
+
   return (
     <section className="customer-orders-card customer-orders-detail">
       <header>
         <div>
-          <h2>{order.orderCode}</h2>
-          <p>Quotation {order.quotationId}</p>
+          <h2 title={order.orderCode}>{formatOrderCode(order.orderCode)}</h2>
         </div>
         <span className={`customer-orders-status customer-orders-status-${statusClass(order.status)}`}>{formatEnumLabel(order.status ?? 'UNKNOWN')}</span>
       </header>
@@ -246,23 +207,19 @@ function OrderDetailCard({
           <thead>
             <tr>
               <th>Item</th>
-              <th>Type</th>
-              <th>Qty</th>
+              <th>Quantity</th>
               <th>Unit</th>
               <th>Customization</th>
-              <th>Discount</th>
               <th>Subtotal</th>
             </tr>
           </thead>
           <tbody>
-            {order.items.map((item) => (
+            {orderItems.map((item) => (
               <tr key={item.orderItemId}>
-                <td>{item.itemName ?? item.productNameSnapshot ?? '-'}</td>
-                <td>{formatEnumLabel(item.itemType ?? 'UNKNOWN')}</td>
+                <td>{getOrderItemName(item)}</td>
                 <td>{item.quantity ?? '-'}</td>
                 <td>{formatMoney(item.unitPrice)}</td>
                 <td>{formatMoney(item.customizationAdditionalCost)}</td>
-                <td>{formatMoney(item.discountAmount)}</td>
                 <td>{formatMoney(item.subtotalAmount)}</td>
               </tr>
             ))}
@@ -270,18 +227,6 @@ function OrderDetailCard({
         </table>
       </div>
     </section>
-  );
-}
-
-function MetricCard({ icon: Icon, label, value }: { icon: typeof IconReceipt; label: string; value: string }) {
-  return (
-    <article>
-      <div>
-        <span>{label}</span>
-        <strong>{value}</strong>
-      </div>
-      <Icon size={24} stroke={1.8} />
-    </article>
   );
 }
 
@@ -294,17 +239,12 @@ function MoneyValue({ label, value }: { label: string; value: string }) {
   );
 }
 
-function getOrderProjects(projects: ProjectListItemDto[]) {
-  return projects.filter((project) => orderProjectStatuses.has(project.status));
+function getOrderItemName(item: Pick<OrderItemDto, 'itemName' | 'productNameSnapshot'>) {
+  return item.itemName ?? item.productNameSnapshot ?? '-';
 }
 
-function getOrderMetrics(orders: OrderListItemDto[]) {
-  return {
-    active: orders.filter((order) => order.status !== 'COMPLETED' && order.status !== 'CANCELLED').length,
-    depositDue: orders.reduce((sum, order) => sum + (order.status === 'DEPOSIT_PENDING' ? order.depositAmount ?? 0 : 0), 0),
-    remaining: orders.reduce((sum, order) => sum + (order.remainingAmount ?? 0), 0),
-    total: orders.length,
-  };
+function getOrderProjects(projects: ProjectListItemDto[]) {
+  return projects.filter((project) => orderProjectStatuses.has(project.status));
 }
 
 function statusClass(value?: OrderStatus | null) {
@@ -323,4 +263,11 @@ function formatMoney(value?: number | null) {
   if (typeof value !== 'number') return '-';
 
   return `${new Intl.NumberFormat('vi-VN').format(value)} VND`;
+}
+
+function formatOrderCode(value?: string | null) {
+  if (!value) return '-';
+
+  const [, suffix] = value.split('-', 2);
+  return (suffix || value).slice(0, 6);
 }

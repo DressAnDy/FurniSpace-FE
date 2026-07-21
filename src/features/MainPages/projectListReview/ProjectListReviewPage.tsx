@@ -2,7 +2,6 @@ import { IconSearch, IconX } from '@tabler/icons-react';
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 
-import terraSalonUrl from '@/assets/project-list/terra-salon.png';
 import { useLang } from '@/app/providers/useLang';
 import { MainNavbar } from '@/features/MainPages/maincomponents';
 import { SiteFooter } from '@/shared/components';
@@ -64,14 +63,7 @@ const pageContent = {
 
 type Category = (typeof pageContent)['vi']['categories'][number] | (typeof pageContent)['en']['categories'][number];
 
-const allProjects = [
-  { area: 105, areaLabel: '105m²', category: 0, imageUrl: terraSalonUrl, title: 'TERRA SALON', year: 2025 },
-  { area: 98, areaLabel: '98m²', category: 1, imageUrl: terraSalonUrl, title: 'TERRA SALON', year: 2024 },
-  { area: 105, areaLabel: '105m²', category: 2, imageUrl: terraSalonUrl, title: 'TERRA SALON', year: 2025 },
-  { area: 210, areaLabel: '210m²', category: 3, imageUrl: terraSalonUrl, title: 'TERRA SALON', year: 2023 },
-  { area: 88, areaLabel: '88m²', category: 4, imageUrl: terraSalonUrl, title: 'TERRA SALON', year: 2025 },
-  { area: 144, areaLabel: '144m²', category: 5, imageUrl: terraSalonUrl, title: 'TERRA SALON', year: 2024 },
-];
+const allProjects: Array<{ area: number; areaLabel: string; category: number; imageUrl: string | null; title: string; year: number }> = [];
 
 export function ProjectListReviewPage() {
   const { lang } = useLang();
@@ -222,7 +214,7 @@ type ProjectCardProps = {
   area: string;
   cardLabels: { category: string; year: string; area: string };
   compact?: boolean;
-  imageUrl: string;
+  imageUrl: string | null;
   category: Category;
   title: string;
   year: string;
@@ -235,7 +227,7 @@ function ProjectCard({ area, cardLabels, category, compact = false, imageUrl, ti
       to="/projects/detail"
     >
       <div className="product-card-image-wrap">
-        <img src={imageUrl} alt={title} />
+        {imageUrl ? <img src={imageUrl} alt={title} /> : null}
         <div className="product-card-title-pill">
           <h3>{title}</h3>
         </div>

@@ -48,6 +48,7 @@ import { SaleSchedules } from '@/features/SalePages/SaleSchedules';
 import { SaleDashbroad } from '@/features/SalePages/SaleDashbroad';
 import { ThreeDTestPage } from '@/features/ThreeD/pages/ThreeDTestPage';
 import { ViewerDemoPage } from '@/features/viewer3d';
+import { TileTransitionProvider } from '@/shared/components';
 
 export default function App() {
   return (
@@ -56,6 +57,7 @@ export default function App() {
         <CssBaseline />
         <LangProvider>
         <BrowserRouter>
+          <TileTransitionProvider>
           <Routes>
             {/* ── Public routes ── */}
             <Route path="/" element={<HomePage />} />
@@ -85,6 +87,7 @@ export default function App() {
               <Route path="/admin/products/create" element={<CreateProductPage />} />
               <Route path="/admin/products/:productId/versions" element={<ProductVersionManagement />} />
               <Route path="/admin/products/:productId/versions/create" element={<CreateProductVersionPage />} />
+              <Route path="/admin/products/:productId/versions/:productVersionId/edit" element={<CreateProductVersionPage />} />
               <Route path="/admin/projects" element={<AdminProjects />} />
               <Route path="/admin/reports" element={<AdminReports />} />
               {/* Admin legacy redirects */}
@@ -183,6 +186,7 @@ export default function App() {
             <Route path="/admin/products/create" element={<CreateProductPage />} />
             <Route path="/admin/products/:productId/versions" element={<ProductVersionManagement />} />
             <Route path="/admin/products/:productId/versions/create" element={<CreateProductVersionPage />} />
+            <Route path="/admin/products/:productId/versions/:productVersionId/edit" element={<CreateProductVersionPage />} />
             <Route path="/admin/projects" element={<AdminProjects />} />
             <Route path="/admin/catalog/models" element={<CatalogModelManagementPage />} />
             <Route path="/admin/catalog/models/workspace/:productId/:productVersionId" element={<ProductModelWorkspacePage />} />
@@ -206,6 +210,7 @@ export default function App() {
             <Route path="/sales/project-requests/:projectId" element={<ProjectDetail />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
+          </TileTransitionProvider>
         </BrowserRouter>
         </LangProvider>
       </ThemeProvider>

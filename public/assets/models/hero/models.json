@@ -1,0 +1,78 @@
+{
+  "generatedAt": "2026-07-14T16:19:57.946Z",
+  "root": "/assets/models/hero",
+  "models": [
+    {
+      "category": "Chair",
+      "priority": 86,
+      "preferredScale": 0.96,
+      "sceneGroup": "LivingRoom",
+      "layout": {
+        "enabled": true,
+        "targetRadius": 0.82
+      },
+      "name": "AccentChair",
+      "path": "/assets/models/hero/AccentChair.glb"
+    },
+    {
+      "category": "CoffeeTable",
+      "priority": 82,
+      "preferredScale": 1,
+      "sceneGroup": "LivingRoom",
+      "layout": {
+        "enabled": true,
+        "targetRadius": 0.62
+      },
+      "name": "CoffeeTable",
+      "path": "/assets/models/hero/CoffeeTable.glb"
+    },
+    {
+      "category": "Lamp",
+      "priority": 56,
+      "preferredScale": 0.72,
+      "sceneGroup": "LivingRoom",
+      "layout": {
+        "enabled": true,
+        "targetRadius": 0.58
+      },
+      "name": "FloorLamp",
+      "path": "/assets/models/hero/FloorLamp.glb"
+    },
+    {
+      "category": "Decoration",
+      "priority": 54,
+      "preferredScale": 0.9,
+      "sceneGroup": "LivingRoom",
+      "layout": {
+        "enabled": true,
+        "targetRadius": 0.54
+      },
+      "name": "MarbleSideTable",
+      "path": "/assets/models/hero/MarbleSideTable.glb"
+    },
+    {
+      "category": "Plant",
+      "priority": 58,
+      "preferredScale": 0.95,
+      "sceneGroup": "LivingRoom",
+      "layout": {
+        "enabled": true,
+        "targetRadius": 0.68
+      },
+      "name": "Plant",
+      "path": "/assets/models/hero/Plant.glb"
+    },
+    {
+      "category": "Sofa",
+      "priority": 100,
+      "preferredScale": 0.95,
+      "sceneGroup": "LivingRoom",
+      "layout": {
+        "enabled": true,
+        "targetRadius": 1.05
+      },
+      "name": "Sofa",
+      "path": "/assets/models/hero/Sofa.glb"
+    }
+  ]
+}

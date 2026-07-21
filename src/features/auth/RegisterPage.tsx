@@ -1,7 +1,8 @@
 import { FormEvent, useState } from 'react';
+import { IconEye, IconEyeOff } from '@tabler/icons-react';
 import { Link, useNavigate } from 'react-router-dom';
 
-import registerHero from '@/assets/auth/register-hero.png';
+import authenPic from '@/assets/auth/register-hero.png';
 import {
   AUTH_PENDING_EMAIL_KEY,
   getServiceResultMessage,
@@ -23,6 +24,14 @@ export function RegisterPage() {
   const navigate = useNavigate();
   const registerMutation = useRegister();
   const [message, setMessage] = useState('');
+  const [visiblePasswordFields, setVisiblePasswordFields] = useState<Record<string, boolean>>({});
+
+  function togglePasswordVisibility(fieldName: string) {
+    setVisiblePasswordFields((current) => ({
+      ...current,
+      [fieldName]: !current[fieldName],
+    }));
+  }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -67,12 +76,22 @@ export function RegisterPage() {
             {registerFields.map((field) => (
               <label className="register-field" key={field.name}>
                 <span>{field.label}</span>
+                {field.type === 'password' ? (
+                  <button
+                    aria-label={visiblePasswordFields[field.name] ? `Ẩn ${field.label.toLowerCase()}` : `Hiện ${field.label.toLowerCase()}`}
+                    className="register-password-toggle"
+                    type="button"
+                    onClick={() => togglePasswordVisibility(field.name)}
+                  >
+                    {visiblePasswordFields[field.name] ? <IconEyeOff size={20} stroke={1.9} /> : <IconEye size={20} stroke={1.9} />}
+                  </button>
+                ) : null}
                 <input
                   aria-label={field.label}
                   autoComplete={field.autoComplete}
                   name={field.name}
                   placeholder={field.label}
-                  type={field.type}
+                  type={field.type === 'password' && visiblePasswordFields[field.name] ? 'text' : field.type}
                 />
               </label>
             ))}
@@ -93,7 +112,7 @@ export function RegisterPage() {
       </section>
 
       <section className="register-hero" aria-label="FurniSpace register preview">
-        <img src={registerHero} alt="Warm wooden interior design preview" />
+        <img src={authenPic} alt="" aria-hidden="true" />
         <Link className="register-back-home" to="/">
           Trở về trang chủ
         </Link>

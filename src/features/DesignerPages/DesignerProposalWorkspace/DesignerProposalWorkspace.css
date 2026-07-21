@@ -13,6 +13,17 @@
 .designer-proposal-message { background: var(--fs-surface-warm); border-left: 3px solid var(--fs-gold); color: var(--fs-ink-soft); margin-top: 16px; padding: 10px 12px; }
 .designer-proposal-message.is-error { background: #fff0f0; border-left-color: #c94d4d; color: #8d2d2d; }
 .designer-proposal-empty { color: #687983; font-size: 13px; padding: 24px 20px; }
+.designer-proposal-summary { background: #fff; border: 1px solid var(--fs-border); display: grid; gap: 0; margin-top: 18px; }
+.designer-proposal-summary > header { align-items: center; border-bottom: 1px solid var(--fs-border); display: flex; gap: 16px; justify-content: space-between; padding: 18px 20px; }
+.designer-proposal-summary > header > div { align-items: center; display: flex; gap: 10px; min-width: 0; }
+.designer-proposal-summary h2 { font-size: 17px; margin: 0; }
+.designer-proposal-summary p { color: #687983; font-size: 12px; margin: 3px 0 0; }
+.designer-proposal-summary > header > span { background: rgba(196, 160, 122, 0.16); color: var(--fs-wood); font-size: 11px; font-weight: 700; padding: 7px 9px; white-space: nowrap; }
+.designer-proposal-summary dl { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); margin: 0; }
+.designer-proposal-summary dl > div { border-right: 1px solid #e3e9ec; display: grid; gap: 4px; min-width: 0; padding: 14px 16px; }
+.designer-proposal-summary dl > div:last-child { border-right: 0; }
+.designer-proposal-summary dt { color: #65757d; font-size: 10px; font-weight: 800; text-transform: uppercase; }
+.designer-proposal-summary dd { color: var(--fs-ink-soft); font-size: 13px; font-weight: 700; margin: 0; overflow-wrap: anywhere; }
 .designer-scenes-workflow { display: grid; gap: 18px; margin-top: 18px; }
 .designer-scenes-section, .designer-items-section, .designer-review-section, .designer-design-scope, .designer-proposal-setup-section { background: #fff; border: 1px solid var(--fs-border); margin-top: 18px; }
 .designer-scenes-workflow .designer-scenes-section, .designer-scenes-workflow .designer-design-scope { margin-top: 0; }
@@ -64,11 +75,11 @@
 .designer-proposal-setup-section h2 { font-size: 17px; margin: 0; }
 .designer-proposal-setup-section p { color: #687983; font-size: 12px; margin: 3px 0 0; }
 .designer-proposal-setup-section > header > span { background: var(--fs-surface-warm); color: var(--fs-wood); font-size: 12px; font-weight: 700; padding: 7px 9px; white-space: nowrap; }
-.designer-proposal-setup-form { align-items: end; display: grid; gap: 12px; grid-template-columns: minmax(180px, 0.8fr) minmax(260px, 1fr) auto; }
+.designer-proposal-setup-form { align-items: end; display: grid; gap: 12px; grid-template-columns: repeat(2, minmax(0, 1fr)) auto; }
 .designer-proposal-setup-form label { display: grid; gap: 5px; min-width: 0; }
 .designer-proposal-setup-form label span { color: #65757d; font-size: 11px; font-weight: 700; text-transform: uppercase; }
-.designer-proposal-setup-form input, .designer-proposal-setup-form textarea { border: 1px solid #d8e0e4; color: var(--fs-ink-soft); font: inherit; min-height: 38px; padding: 8px 10px; width: 100%; }
-.designer-proposal-setup-form textarea { min-height: 38px; resize: vertical; }
+.designer-proposal-setup-form input, .designer-proposal-setup-form textarea { border: 1px solid #d8e0e4; box-sizing: border-box; color: var(--fs-ink-soft); font: inherit; height: 38px; min-height: 38px; padding: 8px 10px; width: 100%; }
+.designer-proposal-setup-form textarea { resize: none; }
 .designer-proposal-setup-form button { align-items: center; background: var(--fs-gold-strong); border: 0; color: #fff; cursor: pointer; display: flex; font: inherit; gap: 7px; min-height: 38px; padding: 8px 12px; white-space: nowrap; }
 .designer-proposal-setup-form button:disabled { cursor: not-allowed; opacity: 0.55; }
 .designer-scene-context { border-bottom: 1px solid #e6ebee; display: grid; gap: 4px; padding: 13px 20px; }
@@ -120,6 +131,6 @@
 .designer-review-section > footer { align-items: center; border-top: 1px solid var(--fs-border); display: flex; justify-content: space-between; padding: 12px 16px; }
 .designer-review-section > footer span { color: #687983; font-size: 12px; }
 .designer-review-section > footer button { background: var(--fs-sidebar-soft); border: 0; color: #fff; cursor: pointer; font: inherit; padding: 9px 12px; }
-@media (max-width: 1100px) { .designer-area-form, .designer-publish-checklist, .designer-proposal-setup-form { grid-template-columns: repeat(2, minmax(0, 1fr)); } .designer-area-form-note { grid-column: 1 / -1; } .designer-proposal-setup-form button { justify-content: center; } }
-@media (max-width: 900px) { .designer-proposal-heading, .designer-design-scope-heading, .designer-publish-actions, .designer-proposal-setup-section > header { align-items: flex-start; flex-direction: column; gap: 14px; } .designer-scene-row { grid-template-columns: 1fr; } .designer-scene-actions { grid-column: auto; } }
-@media (max-width: 600px) { .designer-area-form, .designer-publish-checklist, .designer-proposal-setup-form, .designer-proposal-metadata-form { grid-template-columns: 1fr; } .designer-area-form-note { grid-column: auto; } .designer-scene-row { grid-template-columns: 1fr; } .designer-scene-actions { grid-column: auto; } }
+@media (max-width: 1100px) { .designer-area-form, .designer-publish-checklist, .designer-proposal-setup-form { grid-template-columns: repeat(2, minmax(0, 1fr)); } .designer-proposal-summary dl { grid-template-columns: repeat(3, minmax(0, 1fr)); } .designer-proposal-summary dl > div:nth-child(3n) { border-right: 0; } .designer-area-form-note { grid-column: 1 / -1; } .designer-proposal-setup-form button { justify-content: center; } }
+@media (max-width: 900px) { .designer-proposal-heading, .designer-design-scope-heading, .designer-publish-actions, .designer-proposal-setup-section > header, .designer-proposal-summary > header { align-items: flex-start; flex-direction: column; gap: 14px; } .designer-scene-row { grid-template-columns: 1fr; } .designer-scene-actions { grid-column: auto; } }
+@media (max-width: 600px) { .designer-area-form, .designer-publish-checklist, .designer-proposal-setup-form, .designer-proposal-metadata-form, .designer-proposal-summary dl { grid-template-columns: 1fr; } .designer-proposal-summary dl > div { border-right: 0; border-bottom: 1px solid #e3e9ec; } .designer-proposal-summary dl > div:last-child { border-bottom: 0; } .designer-area-form-note { grid-column: auto; } .designer-scene-row { grid-template-columns: 1fr; } .designer-scene-actions { grid-column: auto; } }

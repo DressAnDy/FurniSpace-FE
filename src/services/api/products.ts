@@ -4,6 +4,7 @@ import { getStoredAccessToken } from './tokenStore';
 
 declare module 'axios' {
   export interface AxiosRequestConfig {
+    skipAuth?: boolean;
     skipAuthRedirect?: boolean;
   }
 }
@@ -15,8 +16,9 @@ const productApiClient = axios.create({
 
 productApiClient.interceptors.request.use((config) => {
   const token = getStoredAccessToken();
+  const shouldSkipAuth = Boolean((config as { skipAuth?: boolean }).skipAuth);
 
-  if (token) {
+  if (token && !shouldSkipAuth) {
     config.headers.Authorization = `Bearer ${token}`;
   }
 
@@ -257,6 +259,7 @@ export type ProductListParams = {
 };
 
 export type RequestBehaviorOptions = {
+  skipAuth?: boolean;
   skipAuthRedirect?: boolean;
 };
 
@@ -428,13 +431,20 @@ export async function getProducts(params: ProductListParams = {}) {
       page: params.page ?? 1,
       limit: params.limit ?? 20,
     },
+    skipAuth: true,
+    skipAuthRedirect: true,
+    withCredentials: false,
   });
 
   return response.data.data;
 }
 
 export async function getProductById(productId: string) {
-  const response = await productApiClient.get<ServiceResult<ProductDetailDto>>(`/products/${productId}`);
+  const response = await productApiClient.get<ServiceResult<ProductDetailDto>>(`/products/${productId}`, {
+    skipAuth: true,
+    skipAuthRedirect: true,
+    withCredentials: false,
+  });
 
   return response.data.data;
 }

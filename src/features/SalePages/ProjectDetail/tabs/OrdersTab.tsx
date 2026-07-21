@@ -1,8 +1,9 @@
 import { useMemo, useState } from 'react';
 import { IconEye } from '@tabler/icons-react';
 
-import { getOrderServiceResultMessage, type OrderStatus } from '@/services/api/orders';
+import { getOrderServiceResultMessage, type OrderItemDto, type OrderStatus } from '@/services/api/orders';
 import { useOrderDetail, useProjectOrders } from '@/services/queries';
+import { aggregateDuplicateItems } from '@/shared/utils/itemAggregation';
 
 type OrdersTabProps = {
   projectId: string;
@@ -14,6 +15,7 @@ export function OrdersTab({ projectId }: OrdersTabProps) {
   const selectedOrderQuery = useOrderDetail(selectedOrderId ?? undefined, { enabled: Boolean(selectedOrderId) });
   const orders = useMemo(() => ordersQuery.data?.items ?? [], [ordersQuery.data?.items]);
   const selectedOrder = selectedOrderQuery.data;
+  const selectedOrderItems = useMemo(() => aggregateDuplicateItems(selectedOrder?.items ?? []), [selectedOrder?.items]);
 
   return (
     <section className="project-detail-card project-detail-tab-panel project-detail-orders-card">
@@ -45,7 +47,7 @@ export function OrdersTab({ projectId }: OrdersTabProps) {
               >
                 <div className="project-detail-order-main">
                   <div>
-                    <strong>{order.orderCode}</strong>
+                    <strong title={order.orderCode}>{formatOrderCode(order.orderCode)}</strong>
                     <span>{formatDate(order.createdAt)}</span>
                   </div>
                   <OrderStatusBadge status={order.status} />
@@ -78,7 +80,7 @@ export function OrdersTab({ projectId }: OrdersTabProps) {
               <>
                 <div className="project-detail-order-detail-header">
                   <div>
-                    <h4>{selectedOrder.orderCode}</h4>
+                    <h4 title={selectedOrder.orderCode}>{formatOrderCode(selectedOrder.orderCode)}</h4>
                     <p>Quotation {selectedOrder.quotationId}</p>
                   </div>
                   <OrderStatusBadge status={selectedOrder.status} />
@@ -90,10 +92,10 @@ export function OrdersTab({ projectId }: OrdersTabProps) {
                   <OrderMoney label="Remaining" value={selectedOrder.remainingAmount} />
                 </div>
                 <div className="project-detail-order-items">
-                  {selectedOrder.items.map((item) => (
+                  {selectedOrderItems.map((item) => (
                     <article key={item.orderItemId}>
                       <div>
-                        <strong>{item.itemName ?? item.productNameSnapshot ?? 'Order item'}</strong>
+                        <strong>{getOrderItemName(item)}</strong>
                         <span>{formatStatusLabel(item.itemType)}{item.isCustomized ? ' - Customized' : ''}</span>
                       </div>
                       <div>
@@ -125,6 +127,10 @@ function OrderStatusBadge({ status }: { status?: OrderStatus | null }) {
   return <span className={`project-detail-order-status project-detail-order-status-${(status ?? 'CREATED').toLowerCase()}`}>{formatStatusLabel(status)}</span>;
 }
 
+function getOrderItemName(item: Pick<OrderItemDto, 'itemName' | 'productNameSnapshot'>) {
+  return item.itemName ?? item.productNameSnapshot ?? 'Order item';
+}
+
 function formatMoney(value?: number | null) {
   return new Intl.NumberFormat('vi-VN', {
     style: 'currency',
@@ -151,4 +157,11 @@ function formatStatusLabel(value?: string | null) {
     .split('_')
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(' ');
+}
+
+function formatOrderCode(value?: string | null) {
+  if (!value) return '-';
+
+  const [, suffix] = value.split('-', 2);
+  return (suffix || value).slice(0, 6);
 }

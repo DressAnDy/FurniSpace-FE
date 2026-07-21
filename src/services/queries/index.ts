@@ -108,6 +108,7 @@ export {
   useDeleteFile,
   useDeleteProductPreviewImage,
   useFilesByReference,
+  useInfiniteProductList,
   useProductDetail,
   useProductList,
   useProductPreviewImages,
