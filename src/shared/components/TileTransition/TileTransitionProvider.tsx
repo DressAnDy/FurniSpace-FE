@@ -1,18 +1,8 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { useCallback, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 
+import { TileTransitionContext, type TileTransitionContextValue, type TileTransitionInput } from './TileTransitionContext';
 import './TileTransitionProvider.css';
-
-type TileTransitionContextValue = {
-  isTransitioning: boolean;
-  markRouteReady: () => void;
-  transitionTo: (input: TileTransitionInput) => Promise<void>;
-};
-
-type TileTransitionInput = {
-  originElement: HTMLElement;
-  to: string;
-};
 
 type TileTransitionState = {
   cols: number;
@@ -29,8 +19,6 @@ const TILE_ROUTE_READY_TIMEOUT_MS = 4500;
 const REDUCED_MOTION_DURATION_MS = 180;
 const TRANSITION_BUFFER_MS = 80;
 
-const TileTransitionContext = createContext<TileTransitionContextValue | null>(null);
-
 export function TileTransitionProvider({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
   const [transitionState, setTransitionState] = useState<TileTransitionState | null>(null);
@@ -44,16 +32,14 @@ export function TileTransitionProvider({ children }: { children: ReactNode }) {
 
   const waitForRouteReady = useCallback(() => {
     return new Promise<void>((resolve) => {
-      let timeoutId: number | undefined;
-
       const complete = () => {
         window.clearTimeout(timeoutId);
         routeReadyResolverRef.current = null;
         resolve();
       };
 
+      const timeoutId = window.setTimeout(complete, TILE_ROUTE_READY_TIMEOUT_MS);
       routeReadyResolverRef.current = complete;
-      timeoutId = window.setTimeout(complete, TILE_ROUTE_READY_TIMEOUT_MS);
     });
   }, []);
 
@@ -105,26 +91,6 @@ export function TileTransitionProvider({ children }: { children: ReactNode }) {
       <TileTransitionOverlay state={transitionState} />
     </TileTransitionContext.Provider>
   );
-}
-
-export function useTileTransition() {
-  const context = useContext(TileTransitionContext);
-
-  if (!context) {
-    throw new Error('useTileTransition must be used within TileTransitionProvider.');
-  }
-
-  return context;
-}
-
-export function useTileTransitionRouteReady(isReady: boolean) {
-  const context = useContext(TileTransitionContext);
-
-  useEffect(() => {
-    if (isReady) {
-      context?.markRouteReady();
-    }
-  }, [context, isReady]);
 }
 
 function TileTransitionOverlay({ state }: { state: TileTransitionState | null }) {

@@ -38,7 +38,7 @@ export function AdminThreeDLabPage() {
     page,
     search,
   });
-  const projects = projectsQuery.data?.items ?? [];
+  const projects = useMemo(() => projectsQuery.data?.items ?? [], [projectsQuery.data?.items]);
   const totalProjects = projectsQuery.data?.total ?? 0;
   const totalPages = Math.max(1, Math.ceil(totalProjects / PROJECTS_PER_PAGE));
   const selectedProject = projects.find((project) => project.projectId === selectedProjectId) ?? projects[0] ?? null;

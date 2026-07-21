@@ -17,7 +17,7 @@ export function HeroCanvas() {
     if (!canvas) return undefined;
 
     const engine = new Engine(canvas, true, { adaptToDeviceRatio: true });
-    const { lighting, scene } = createHeroScene(engine, canvas);
+    const { lighting, scene } = createHeroScene(engine);
     const scanner = new AssetScanner();
     const loader = new ModelLoader();
     const layout = new LayoutGenerator();
@@ -26,7 +26,6 @@ export function HeroCanvas() {
     const objects: HeroObject[] = [];
     const abortController = new AbortController();
     let compositionBounds: HeroCompositionBounds | null = null;
-    let heroObject: HeroObject | null = null;
     let heroCamera: import('babylonjs').ArcRotateCamera | null = null;
 
     void scanner.scan(abortController.signal)
@@ -37,7 +36,6 @@ export function HeroCanvas() {
           else console.warn('Unable to load hero model.', result.reason);
         });
         compositionBounds = layout.layout(objects);
-        heroObject = layout.getHeroObject();
         objects.forEach((object) => {
           if (object.rootNode.isEnabled()) object.rootNode.parent = clusterRig;
         });
@@ -48,7 +46,7 @@ export function HeroCanvas() {
         const camera = scene.activeCamera;
         if (camera?.getClassName() === 'ArcRotateCamera') {
           heroCamera = camera as import('babylonjs').ArcRotateCamera;
-          frameHeroCamera(heroCamera, objects, compositionBounds, heroObject);
+          frameHeroCamera(heroCamera, objects, compositionBounds);
           console.info('[Hero3D] Camera framing', {
             cameraDistance: Math.round(heroCamera.radius * 1000) / 1000,
             fovDegrees: Math.round((heroCamera.fov * 180 / Math.PI) * 1000) / 1000,
@@ -71,7 +69,7 @@ export function HeroCanvas() {
     const resize = () => {
       engine.resize();
       if (heroCamera && objects.length) {
-        frameHeroCamera(heroCamera, objects, compositionBounds, heroObject);
+        frameHeroCamera(heroCamera, objects, compositionBounds);
       }
     };
     const observer = new ResizeObserver(resize);

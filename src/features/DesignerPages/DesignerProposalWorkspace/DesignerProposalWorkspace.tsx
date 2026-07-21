@@ -214,16 +214,17 @@ export function DesignerProposalWorkspace() {
     }
 
     const proposalName = proposalDraft.proposalName.trim();
+    const description = proposalDraft.description.trim();
 
     setMessage('');
 
-    if (!selectedAreaId) {
-      setMessage('Create or select a project area before creating a proposal.');
+    if (!proposalName) {
+      setMessage('Proposal name is required. Leave the default blank and enter the sale/designer naming before creating it.');
       return;
     }
 
-    if (!proposalName) {
-      setMessage('Proposal name is required. Leave the default blank and enter the sale/designer naming before creating it.');
+    if (!description) {
+      setMessage('Proposal description is required.');
       return;
     }
 
@@ -231,13 +232,13 @@ export function DesignerProposalWorkspace() {
       const createdProposal = await createProposalMutation.mutateAsync({
         projectId,
         proposalName,
-        description: proposalDraft.description,
+        description,
       });
 
       setProposalDraft(DEFAULT_PROPOSAL_DRAFT);
-      setMessage('Proposal created. You can create a proposal scene for the selected project area now.');
+      setMessage('Proposal created. Select a project area before creating a proposal scene.');
       navigate(`/designer/projects/${projectId}/proposals/${createdProposal.proposalId}`, {
-        state: { selectedAreaId },
+        state: selectedAreaId ? { selectedAreaId } : undefined,
       });
     } catch (error) {
       setMessage(getProposalServiceResultMessage(error));
@@ -422,19 +423,20 @@ export function DesignerProposalWorkspace() {
 
       {activeTab === 'scenes' && (
         <div className="designer-scenes-workflow">
-          <ProjectAreasSection
-            areas={areas}
-            isLoading={areasQuery.isLoading}
-            projectId={projectId}
-            selectedAreaId={selectedAreaId}
-            onSelectArea={setSelectedAreaId}
-          />
+          {!isProposalSetupMode ? (
+            <ProjectAreasSection
+              areas={areas}
+              isLoading={areasQuery.isLoading}
+              projectId={projectId}
+              selectedAreaId={selectedAreaId}
+              onSelectArea={setSelectedAreaId}
+            />
+          ) : null}
 
           {isProposalSetupMode ? (
             <ProposalSetupSection
               draft={proposalDraft}
               isCreating={createProposalMutation.isPending}
-              selectedArea={selectedArea}
               onCreateProposal={() => void createProposal()}
               onDraftChange={setProposalDraft}
             />
@@ -760,13 +762,11 @@ function SceneUpdateModal({
 function ProposalSetupSection({
   draft,
   isCreating,
-  selectedArea,
   onCreateProposal,
   onDraftChange,
 }: {
   draft: ProposalDraft;
   isCreating: boolean;
-  selectedArea: ProjectAreaDto | null;
   onCreateProposal: () => void;
   onDraftChange: (draft: ProposalDraft) => void;
 }) {
@@ -784,7 +784,7 @@ function ProposalSetupSection({
             <p>Name and description are intentionally blank. Fill them before creating the proposal workspace.</p>
           </div>
         </div>
-        <span>{selectedArea ? `Area selected: ${selectedArea.areaName}` : 'Select a project area first'}</span>
+        <span>Name and description required</span>
       </header>
 
       <div className="designer-proposal-setup-form">
@@ -804,7 +804,7 @@ function ProposalSetupSection({
             onChange={(event) => updateDraft('description', event.target.value)}
           />
         </label>
-        <button disabled={isCreating || !selectedArea || !draft.proposalName.trim()} type="button" onClick={onCreateProposal}>
+        <button disabled={isCreating || !draft.proposalName.trim() || !draft.description.trim()} type="button" onClick={onCreateProposal}>
           <IconPlus size={17} /> {isCreating ? 'Creating proposal...' : 'Create Proposal'}
         </button>
       </div>

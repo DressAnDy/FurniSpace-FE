@@ -1,1 +1,2 @@
-export { TileTransitionProvider, useTileTransition, useTileTransitionRouteReady } from './TileTransitionProvider';
+export { TileTransitionProvider } from './TileTransitionProvider';
+export { useTileTransition, useTileTransitionRouteReady } from './TileTransitionContext';

@@ -1,5 +1,6 @@
 import { FormEvent, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
+import { IconEye, IconEyeOff } from '@tabler/icons-react';
 import { Link, useNavigate } from 'react-router-dom';
 
 import authenPic from '@/assets/auth/register-hero.png';
@@ -19,6 +20,7 @@ export function LoginPage() {
   const queryClient = useQueryClient();
   const loginMutation = useLogin();
   const [message, setMessage] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -71,8 +73,18 @@ export function LoginPage() {
                   autoComplete={field.autoComplete}
                   name={field.name}
                   placeholder={field.label}
-                  type={field.type}
+                  type={field.type === 'password' && showPassword ? 'text' : field.type}
                 />
+                {field.type === 'password' ? (
+                  <button
+                    aria-label={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
+                    className="login-password-toggle"
+                    type="button"
+                    onClick={() => setShowPassword((current) => !current)}
+                  >
+                    {showPassword ? <IconEyeOff size={20} stroke={1.9} /> : <IconEye size={20} stroke={1.9} />}
+                  </button>
+                ) : null}
               </label>
             ))}
           </div>

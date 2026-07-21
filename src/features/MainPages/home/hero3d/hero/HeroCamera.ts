@@ -2,7 +2,7 @@ import { ArcRotateCamera, Tools, Vector3 } from 'babylonjs';
 
 import type { HeroCompositionBounds, HeroObject } from '@/features/MainPages/home/hero3d/types';
 
-export function createHeroCamera(scene: import('babylonjs').Scene, canvas: HTMLCanvasElement) {
+export function createHeroCamera(scene: import('babylonjs').Scene) {
   const camera = new ArcRotateCamera(
     'home-hero-camera',
     Tools.ToRadians(0),
@@ -28,7 +28,6 @@ export function frameHeroCamera(
   camera: ArcRotateCamera,
   objects: HeroObject[],
   compositionBounds?: HeroCompositionBounds | null,
-  _heroObject?: HeroObject | null,
 ) {
   const meshes = objects.flatMap((object) => object.meshes).filter((mesh) => mesh.getTotalVertices() > 0);
   if (!compositionBounds && !meshes.length) return;
