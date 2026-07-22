@@ -43,6 +43,7 @@ import { SaleSchedules } from '@/features/SalePages/SaleSchedules';
 import { SaleDashbroad } from '@/features/SalePages/SaleDashbroad';
 import { ThreeDTestPage } from '@/features/ThreeD/pages/ThreeDTestPage';
 import { ViewerDemoPage } from '@/features/viewer3d';
+import { NotificationRealtimeProvider } from '@/shared/components';
 
 export default function App() {
   return (
@@ -50,8 +51,9 @@ export default function App() {
       <ThemeProvider theme={theme}>
         <CssBaseline />
         <LangProvider>
-        <BrowserRouter>
-          <Routes>
+          <NotificationRealtimeProvider>
+            <BrowserRouter>
+              <Routes>
             {/* ── Public routes ── */}
             <Route path="/" element={<HomePage />} />
             <Route path="/login" element={<LoginPage />} />
@@ -186,8 +188,9 @@ export default function App() {
             <Route path="/sales/quotations" element={<SaleQuotations />} />
             <Route path="/sales/project-requests/:projectId" element={<ProjectDetail />} />
             <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
-        </BrowserRouter>
+              </Routes>
+            </BrowserRouter>
+          </NotificationRealtimeProvider>
         </LangProvider>
       </ThemeProvider>
     </QueryClientProvider>

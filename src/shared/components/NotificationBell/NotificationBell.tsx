@@ -5,16 +5,15 @@ import { useNavigate } from 'react-router-dom';
 import {
   getNotificationServiceResultMessage,
   type NotificationDto,
-  type RealtimeNotificationPayload,
 } from '@/services/api/notifications';
 import {
   useCurrentUser,
   useMarkAllNotificationsAsRead,
   useMarkNotificationAsRead,
-  useNotificationRealtime,
   useNotificationUnreadCount,
   useNotifications,
 } from '@/services/queries';
+import { useRealtimeNotificationMessage } from './NotificationRealtimeProvider';
 
 import './NotificationBell.css';
 
@@ -27,7 +26,7 @@ export function NotificationBell({ buttonClassName, className }: NotificationBel
   const navigate = useNavigate();
   const wrapRef = useRef<HTMLDivElement>(null);
   const [isOpen, setIsOpen] = useState(false);
-  const [realtimeMessage, setRealtimeMessage] = useState<RealtimeNotificationPayload | null>(null);
+  const realtimeMessage = useRealtimeNotificationMessage();
   const notificationsQuery = useNotifications({ page: 1, limit: 10 });
   const unreadCountQuery = useNotificationUnreadCount();
   const markReadMutation = useMarkNotificationAsRead();
@@ -36,26 +35,6 @@ export function NotificationBell({ buttonClassName, className }: NotificationBel
   const unreadCount = unreadCountQuery.data?.unreadCount ?? 0;
   const notifications = notificationsQuery.data?.items ?? [];
   const formattedUnreadCount = unreadCount > 99 ? '99+' : unreadCount.toString();
-
-  useNotificationRealtime({
-    enabled: Boolean(user),
-    onInAppNotification: (payload) => {
-      setRealtimeMessage(payload);
-    },
-    onRealtimeOnlyNotification: (payload) => {
-      setRealtimeMessage(payload);
-    },
-  });
-
-  useEffect(() => {
-    if (!realtimeMessage) {
-      return undefined;
-    }
-
-    const timeoutId = window.setTimeout(() => setRealtimeMessage(null), 4500);
-
-    return () => window.clearTimeout(timeoutId);
-  }, [realtimeMessage]);
 
   useEffect(() => {
     function handlePointerDown(event: MouseEvent) {
