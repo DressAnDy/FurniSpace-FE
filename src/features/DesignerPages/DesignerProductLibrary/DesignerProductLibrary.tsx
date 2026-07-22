@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useQueries } from '@tanstack/react-query';
 import { IconArrowLeft, IconBox, IconChevronRight, IconCube, IconPlus, IconSearch, IconX } from '@tabler/icons-react';
+import { useNavigate } from 'react-router-dom';
 
 import { DesignerLayout } from '@/features/DesignerPages/designercomponents';
 import { ModelViewer, type ModelViewerStatus } from '@/features/ThreeD/components';
@@ -12,7 +13,7 @@ import {
   getVersionPreviewImage,
 } from '@/features/MainPages/productCatalog/productCatalogUtils';
 import { getProductById, getProductServiceResultMessage, type ProductDetailDto, type ProductListItemDto, type ProductVersionDto } from '@/services/api';
-import { productQueryKeys, useProductList } from '@/services/queries';
+import { productQueryKeys, useBusinessTypeList, useProductList } from '@/services/queries';
 
 import './DesignerProductLibrary.css';
 
@@ -24,9 +25,13 @@ const EMPTY_PRODUCTS: ProductListItemDto[] = [];
 export function DesignerProductLibrary() {
   const [search, setSearch] = useState('');
   const [activeFilter, setActiveFilter] = useState<VersionFilter>('All Types');
+  const [businessTypeFilterIds, setBusinessTypeFilterIds] = useState<number[]>([]);
   const [page, setPage] = useState(1);
   const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
-  const productListQuery = useProductList({ page: 1, limit: 100 });
+  const navigate = useNavigate();
+  const productListQuery = useProductList({ page: 1, limit: 100, businessTypeIds: businessTypeFilterIds });
+  const businessTypeListQuery = useBusinessTypeList({ page: 1, limit: 100 });
+  const businessTypeOptions = businessTypeListQuery.data?.items.filter((businessType) => businessType.status) ?? [];
   const products = productListQuery.data?.items ?? EMPTY_PRODUCTS;
   const productDetailQueries = useQueries({
     queries: products.map((product) => ({
@@ -57,6 +62,7 @@ export function DesignerProductLibrary() {
           card.product.productName,
           card.product.productCode ?? '',
           card.product.categoryName,
+          card.product.businessTypes?.map((businessType) => `${businessType.name} ${businessType.code}`).join(' ') ?? '',
           card.product.description ?? '',
           ...card.versions.flatMap((version) => [
             version.versionName,
@@ -86,6 +92,15 @@ export function DesignerProductLibrary() {
 
   function openProductVersions(productId: string) {
     setSelectedProductId(productId);
+  }
+
+  function toggleBusinessTypeFilter(businessTypeId: number) {
+    setBusinessTypeFilterIds((currentIds) =>
+      currentIds.includes(businessTypeId)
+        ? currentIds.filter((id) => id !== businessTypeId)
+        : [...currentIds, businessTypeId],
+    );
+    setPage(1);
   }
 
   return (
@@ -131,6 +146,23 @@ export function DesignerProductLibrary() {
             ))}
             <span>{visibleCards.reduce((total, card) => total + card.versions.length, 0)} versions</span>
           </div>
+          <div className="designer-products-filters designer-products-business-filters">
+            {businessTypeOptions.map((businessType) => (
+              <button
+                className={businessTypeFilterIds.includes(businessType.id) ? 'is-active' : ''}
+                key={businessType.id}
+                type="button"
+                onClick={() => toggleBusinessTypeFilter(businessType.id)}
+              >
+                {businessType.name}
+              </button>
+            ))}
+            {businessTypeFilterIds.length > 0 ? (
+              <button type="button" onClick={() => setBusinessTypeFilterIds([])}>
+                Clear Business Type
+              </button>
+            ) : null}
+          </div>
         </section>
       ) : null}
 
@@ -153,7 +185,7 @@ export function DesignerProductLibrary() {
       ) : null}
 
       {selectedCard ? (
-        <ProductVersionList card={selectedCard} />
+        <ProductVersionList card={selectedCard} onCreateVersion={(productId) => navigate(`/designer/product-library/${productId}/versions/create`)} />
       ) : (
         <section className="designer-products-grid">
           {productListQuery.isLoading
@@ -247,7 +279,7 @@ function ProductCard({ card, onOpen }: { card: ProductLibraryCardData; onOpen: (
   );
 }
 
-function ProductVersionList({ card }: { card: ProductLibraryCardData }) {
+function ProductVersionList({ card, onCreateVersion }: { card: ProductLibraryCardData; onCreateVersion: (productId: string) => void }) {
   const { product, versions } = card;
   const [previewVersionId, setPreviewVersionId] = useState<string | null>(null);
   const [viewerStatus, setViewerStatus] = useState<ModelViewerStatus>('idle');
@@ -269,7 +301,12 @@ function ProductVersionList({ card }: { card: ProductLibraryCardData }) {
           <div className="designer-product-summary">
             <span>{versions.length} version{versions.length === 1 ? '' : 's'}</span>
             <span>{card.hasModel3d ? 'Has MODEL_3D' : 'No model yet'}</span>
+            {(product.businessTypes ?? []).map((businessType) => <span key={businessType.id}>{businessType.name}</span>)}
           </div>
+          <button className="designer-product-create-version-button" type="button" onClick={() => onCreateVersion(product.productId)}>
+            <IconPlus size={15} />
+            Create version
+          </button>
         </div>
       </div>
 

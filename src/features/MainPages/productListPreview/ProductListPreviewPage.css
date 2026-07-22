@@ -187,6 +187,12 @@
   font-size: 14px;
 }
 
+.product-list-preview-filter-toggle.is-active {
+  border-color: #17130f;
+  background: #17130f;
+  color: #ffffff;
+}
+
 .product-list-preview-search {
   width: 42px;
   height: 42px;
@@ -309,6 +315,22 @@
   margin: 5px 0 0;
   color: rgba(23, 19, 15, 0.56);
   font-size: 13px;
+}
+
+.product-list-preview-card-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.product-list-preview-card-tags span {
+  border-radius: 999px;
+  background: #f0e8de;
+  color: rgba(23, 19, 15, 0.72);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 8px;
 }
 
 .product-list-preview-card-swatches {

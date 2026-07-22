@@ -147,6 +147,11 @@ function inferHeroCategory(modelName) {
 }
 
 async function createHeroManifest() {
+  if (!await fileExists(heroModelRoot)) {
+    console.log(`Skipped ${toPosixPath(path.relative(repoRoot, heroManifestPath))}; hero models folder does not exist.`);
+    return;
+  }
+
   const modelFiles = await collectModelFiles(heroModelRoot);
   const metadata = await readHeroMetadata();
   const layout = await readHeroLayout();

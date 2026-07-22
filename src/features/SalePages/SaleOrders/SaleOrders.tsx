@@ -2,7 +2,7 @@ import { IconSettings } from '@tabler/icons-react';
 import { type FormEvent, useEffect, useMemo, useState } from 'react';
 
 import { SaleNavbar, SaleSidebar } from '@/features/SalePages/salecomponents';
-import { getOrderServiceResultMessage, type OrderDetailDto, type OrderItemDto, type OrderListItemDto, type OrderStatus } from '@/services/api/orders';
+import { getOrderServiceResultMessage, type OrderDetailDto, type OrderItemDto, type OrderStatus } from '@/services/api/orders';
 import type { ProjectListItemDto } from '@/services/api/projects';
 import {
   useCurrentUser,
@@ -47,8 +47,6 @@ export function SaleOrders() {
   const orderDetailQuery = useOrderDetail(selectedOrderId, { enabled: Boolean(selectedOrderId) });
   const order = orderDetailQuery.data ?? null;
   const financialAdjustmentMutation = useUpdateOrderFinancialAdjustment();
-  const unpaidDepositOrders = useMemo(() => orders.filter((item) => isDepositUnpaidStatus(item.status)), [orders]);
-  const paidDepositOrders = useMemo(() => orders.filter((item) => isDepositPaidStatus(item.status)), [orders]);
 
   useEffect(() => {
     if (!selectedProjectId && orderProjects.length > 0) {
@@ -140,35 +138,16 @@ export function SaleOrders() {
               </section>
 
               <section className="sale-orders-grid">
-                <section className="sale-orders-card">
-                  <header>
-                    <h3>Project Orders</h3>
-                    <p>Orders are grouped by deposit payment status.</p>
-                  </header>
-                  {ordersQuery.isLoading ? <p className="sale-orders-muted">Loading orders...</p> : null}
-                  {!ordersQuery.isLoading && selectedProjectId && orders.length === 0 ? <p className="sale-orders-muted">No order found for this project.</p> : null}
-                  <OrderGroup
-                    emptyText="No order is waiting for deposit."
-                    orders={unpaidDepositOrders}
-                    selectedOrderId={selectedOrderId}
-                    title="Deposit unpaid"
-                    onSelect={setSelectedOrderId}
-                  />
-                  <OrderGroup
-                    emptyText="No order has paid deposit yet."
-                    orders={paidDepositOrders}
-                    selectedOrderId={selectedOrderId}
-                    title="Deposit paid"
-                    onSelect={setSelectedOrderId}
-                  />
-                </section>
-
                 {order ? (
                   <OrderDetailPanel
                     isAdjusting={financialAdjustmentMutation.isPending}
                     order={order}
                     onAdjustFinancial={(input) => void updateFinancialAdjustment(input)}
                   />
+                ) : ordersQuery.isLoading ? (
+                  <p className="sale-orders-muted">Loading orders...</p>
+                ) : selectedProjectId ? (
+                  <p className="sale-orders-muted">No order found for this project.</p>
                 ) : null}
               </section>
             </section>
@@ -176,44 +155,6 @@ export function SaleOrders() {
         </main>
       </div>
     </div>
-  );
-}
-
-function OrderGroup({
-  emptyText,
-  onSelect,
-  orders,
-  selectedOrderId,
-  title,
-}: {
-  emptyText: string;
-  onSelect: (orderId: string) => void;
-  orders: OrderListItemDto[];
-  selectedOrderId: string;
-  title: string;
-}) {
-  return (
-    <section className="sale-orders-order-group">
-      <div>
-        <strong>{title}</strong>
-        <span>{orders.length}</span>
-      </div>
-      {orders.length === 0 ? <p className="sale-orders-muted">{emptyText}</p> : null}
-      <div className="sale-orders-list">
-        {orders.map((item) => (
-          <button
-            className={item.orderId === selectedOrderId ? 'is-active' : ''}
-            key={item.orderId}
-            type="button"
-            onClick={() => onSelect(item.orderId)}
-          >
-            <span title={item.orderCode}>{formatOrderCode(item.orderCode)}</span>
-            <strong>{formatMoney(item.originalTotalAmount)}</strong>
-            <em className={`sale-orders-status sale-orders-status-${statusClass(item.status)}`}>{formatEnumLabel(item.status ?? 'UNKNOWN')}</em>
-          </button>
-        ))}
-      </div>
-    </section>
   );
 }
 
@@ -242,7 +183,7 @@ function OrderDetailPanel({
   }
 
   return (
-    <section className="sale-orders-card sale-orders-detail">
+    <section className="sale-orders-detail">
       <header>
         <span className={`sale-orders-status sale-orders-status-${statusClass(order.status)}`}>{formatEnumLabel(order.status ?? 'UNKNOWN')}</span>
       </header>
@@ -311,14 +252,6 @@ function getOrderProjects(projects: ProjectListItemDto[]) {
   return projects.filter((project) => orderProjectStatuses.has(project.status));
 }
 
-function isDepositUnpaidStatus(status?: OrderStatus | null) {
-  return status === 'CREATED' || status === 'DEPOSIT_PENDING';
-}
-
-function isDepositPaidStatus(status?: OrderStatus | null) {
-  return Boolean(status) && !isDepositUnpaidStatus(status) && status !== 'CANCELLED';
-}
-
 function statusClass(value?: OrderStatus | null) {
   return (value ?? 'UNKNOWN').toLowerCase().replace(/_/g, '-');
 }
@@ -335,13 +268,6 @@ function formatMoney(value?: number | null) {
   if (typeof value !== 'number') return '-';
 
   return `${new Intl.NumberFormat('vi-VN').format(value)} VND`;
-}
-
-function formatOrderCode(value?: string | null) {
-  if (!value) return '-';
-
-  const [, suffix] = value.split('-', 2);
-  return (suffix || value).slice(0, 6);
 }
 
 function normalizeMoneyInput(value: string) {

@@ -5,7 +5,6 @@ import { useLang } from '@/app/providers/useLang';
 import heroRoomScene from '@/assets/hero/hero-room-scene-3d.png';
 import processVideo from '@/assets/hero/process-mp4.mp4';
 import { MainNavbar } from '@/features/MainPages/maincomponents';
-import { HomeModelGallery } from '@/features/MainPages/home/HomeModelGallery';
 import { SiteFooter } from '@/shared/components';
 
 import './HomePage.css';
@@ -370,7 +369,9 @@ function HomePageContent() {
             </button>
           </div>
 
-          <HomeModelGallery />
+          <div className="home-gallery home-gallery-static" aria-hidden="true">
+            <img src={heroRoomScene} alt="" />
+          </div>
         </div>
       </section>
 

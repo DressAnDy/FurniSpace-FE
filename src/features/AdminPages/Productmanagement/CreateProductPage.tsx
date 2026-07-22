@@ -2,8 +2,9 @@ import { type DragEvent, type FormEvent, useEffect, useState } from 'react';
 import { IconArrowLeft, IconPackage, IconPhoto, IconRefresh, IconUpload, IconX } from '@tabler/icons-react';
 import { useNavigate } from 'react-router-dom';
 
-import { getProductServiceResultMessage, normalizeOptionalText, normalizeRequiredText } from '@/services/api';
+import { getBusinessTypeServiceResultMessage, getProductServiceResultMessage, normalizeBusinessTypeIds, normalizeOptionalText, normalizeRequiredText } from '@/services/api';
 import {
+  useBusinessTypeList,
   useCategoryList,
   useCreateProduct,
   useDeleteProductPreviewImage,
@@ -30,6 +31,7 @@ type PreviewUploadItem = {
 export function CreateProductPage() {
   const navigate = useNavigate();
   const categoryListQuery = useCategoryList({ page: 1, limit: 100 });
+  const businessTypeListQuery = useBusinessTypeList({ page: 1, limit: 100 });
   const createProductMutation = useCreateProduct();
   const uploadProductPreviewMutation = useUploadProductPreviewFile();
   const reorderProductPreviewMutation = useReorderProductPreviewImages();
@@ -40,6 +42,7 @@ export function CreateProductPage() {
   const [imageMessage, setImageMessage] = useState<string | null>(null);
   const [formMessage, setFormMessage] = useState<string | null>(null);
   const categoryOptions = categoryListQuery.data?.items ?? [];
+  const businessTypeOptions = businessTypeListQuery.data?.items.filter((businessType) => businessType.status) ?? [];
   const isSaving =
     createProductMutation.isPending ||
     uploadProductPreviewMutation.isPending ||
@@ -228,6 +231,7 @@ export function CreateProductPage() {
         (
           await createProductMutation.mutateAsync({
             categoryId,
+            businessTypeIds: normalizeBusinessTypeIds(formData.getAll('business_type_ids').map((value) => Number(value))),
             productCode: normalizeOptionalText(formData.get('product_code')),
             productName,
             description: normalizeOptionalText(formData.get('description')),
@@ -343,6 +347,22 @@ export function CreateProductPage() {
                         <span>Description</span>
                         <textarea className="admin-form-textarea" name="description" placeholder="Describe product purpose, use cases, and catalog notes" />
                       </label>
+
+                      <div className="product-form-field product-form-field-full">
+                        <span>Business Type</span>
+                        <div className="product-business-type-checkboxes">
+                          {businessTypeListQuery.isLoading ? <small>Loading business types...</small> : null}
+                          {!businessTypeListQuery.isLoading && businessTypeOptions.length === 0 ? <small>No active business types yet.</small> : null}
+                          {businessTypeOptions.map((businessType) => (
+                            <label key={businessType.id}>
+                              <input name="business_type_ids" type="checkbox" value={businessType.id} />
+                              <span>{businessType.name}</span>
+                            </label>
+                          ))}
+                        </div>
+                        {businessTypeListQuery.isError ? <em>{getBusinessTypeServiceResultMessage(businessTypeListQuery.error)}</em> : null}
+                        <p className="product-form-helper">Optional. Products without business types still appear when no Business Type filter is selected.</p>
+                      </div>
                     </div>
                   </div>
                 </div>

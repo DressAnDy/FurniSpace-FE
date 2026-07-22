@@ -28,7 +28,7 @@ const customerNavbarItems: CustomerNavbarItem[] = [
   { icon: <IconReceipt size={15} stroke={1.8} />, label: 'Orders', path: '/customer/orders' },
   { icon: <IconCalendarEvent size={15} stroke={1.8} />, label: 'Schedules', path: '/customer/schedules' },
   { icon: <IconMessageCircle size={15} stroke={1.8} />, label: 'Project Chat', path: '/customer/chat' },
-  { icon: <IconBox size={15} stroke={1.8} />, label: 'Handover', path: '/customer/projects' },
+  { icon: <IconBox size={15} stroke={1.8} />, label: 'Tracking', path: '/customer/projects' },
 ];
 
 type CustomerNavbarProps = {
