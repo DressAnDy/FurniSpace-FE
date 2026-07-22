@@ -419,6 +419,31 @@ html.home-header-light .home-header.main-navbar .main-navbar-avatar {
   background: radial-gradient(circle at 50% 50%, rgba(196, 160, 122, 0.13), transparent 58%);
 }
 
+.home-gallery-static {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border: 1px solid rgba(196, 160, 122, 0.18);
+  border-radius: 24px;
+  background:
+    radial-gradient(circle at 48% 38%, rgba(196, 160, 122, 0.2), transparent 54%),
+    rgba(255, 255, 255, 0.045);
+  box-shadow:
+    0 28px 70px rgba(0, 0, 0, 0.24),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.home-gallery-static img {
+  display: block;
+  width: min(760px, 100%);
+  max-width: none;
+  height: auto;
+  object-fit: contain;
+  opacity: 0.86;
+  filter: saturate(0.86) contrast(0.98) brightness(0.82);
+}
+
 .home-gallery-stage {
   position: absolute;
   inset: 0;

@@ -1,6 +1,7 @@
 import type {
   CatalogFileDto,
   FileListItemDto,
+  ProductBusinessTypeDto,
   ProductDetailDto,
   ProductListItemDto,
   ProductVersionDto,
@@ -9,6 +10,27 @@ import type {
 export const CATALOG_MOCK_ENABLED = import.meta.env.VITE_CATALOG_USE_MOCK_DATA !== 'false';
 
 const PLACEHOLDER_IMAGE = '/models/3d-test/thumbnails/placeholder-product.svg';
+
+const cafeBusinessType: ProductBusinessTypeDto = {
+  code: 'CAFE',
+  id: 1,
+  name: 'Cafe',
+  status: true,
+};
+
+const showroomBusinessType: ProductBusinessTypeDto = {
+  code: 'SHOWROOM',
+  id: 2,
+  name: 'Showroom',
+  status: true,
+};
+
+const retailBusinessType: ProductBusinessTypeDto = {
+  code: 'RETAIL',
+  id: 3,
+  name: 'Retail',
+  status: true,
+};
 
 function createCatalogFile(
   id: string,
@@ -150,6 +172,8 @@ const cabinetVersion = createVersion({
 
 export const MOCK_CATALOG_PRODUCTS: ProductDetailDto[] = [
   {
+    businessTypeIds: [cafeBusinessType.id, retailBusinessType.id],
+    businessTypes: [cafeBusinessType, retailBusinessType],
     categoryId: 'mock-category-seating',
     categoryName: 'Seating',
     defaultVersion: stoolVersion,
@@ -163,6 +187,8 @@ export const MOCK_CATALOG_PRODUCTS: ProductDetailDto[] = [
     versions: [stoolVersion, stoolSilverVersion],
   },
   {
+    businessTypeIds: [cafeBusinessType.id, showroomBusinessType.id],
+    businessTypes: [cafeBusinessType, showroomBusinessType],
     categoryId: 'mock-category-tables',
     categoryName: 'Tables',
     defaultVersion: tableVersion,
@@ -176,6 +202,8 @@ export const MOCK_CATALOG_PRODUCTS: ProductDetailDto[] = [
     versions: [tableVersion],
   },
   {
+    businessTypeIds: [showroomBusinessType.id],
+    businessTypes: [showroomBusinessType],
     categoryId: 'mock-category-seating',
     categoryName: 'Seating',
     defaultVersion: loungeVersion,
@@ -189,6 +217,8 @@ export const MOCK_CATALOG_PRODUCTS: ProductDetailDto[] = [
     versions: [loungeVersion],
   },
   {
+    businessTypeIds: null,
+    businessTypes: [],
     categoryId: 'mock-category-storage',
     categoryName: 'Storage',
     defaultVersion: cabinetVersion,
@@ -204,6 +234,8 @@ export const MOCK_CATALOG_PRODUCTS: ProductDetailDto[] = [
 ];
 
 export const MOCK_CATALOG_LIST_ITEMS: ProductListItemDto[] = MOCK_CATALOG_PRODUCTS.map((product) => ({
+  businessTypeIds: product.businessTypeIds,
+  businessTypes: product.businessTypes,
   categoryId: product.categoryId,
   categoryName: product.categoryName,
   defaultVersion: product.defaultVersion,

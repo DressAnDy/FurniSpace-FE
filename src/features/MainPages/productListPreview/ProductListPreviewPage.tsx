@@ -15,7 +15,7 @@ import {
   getPublicDefaultVersion,
 } from '@/features/MainPages/productCatalog/productCatalogUtils';
 import { getProductServiceResultMessage, type ProductListItemDto } from '@/services/api';
-import { useInfiniteProductList } from '@/services/queries';
+import { useBusinessTypeList, useInfiniteProductList } from '@/services/queries';
 import { SiteFooter, useTileTransition } from '@/shared/components';
 
 import './ProductListPreviewPage.css';
@@ -69,12 +69,23 @@ const PRODUCT_CARD_REVEAL_STAGGER_MS = 140;
 export function ProductListPreviewPage() {
   const { lang } = useLang();
   const t = pageContent[lang];
-  const productListQuery = useInfiniteProductList({ page: 1, limit: PRODUCT_PAGE_SIZE });
+  const [businessTypeFilterIds, setBusinessTypeFilterIds] = useState<number[]>([]);
+  const productListQuery = useInfiniteProductList({ page: 1, limit: PRODUCT_PAGE_SIZE, businessTypeIds: businessTypeFilterIds });
+  const businessTypeListQuery = useBusinessTypeList({ page: 1, limit: 100 });
+  const businessTypeOptions = businessTypeListQuery.data?.items.filter((businessType) => businessType.status) ?? [];
   const productBatches = useMemo(
     () => (productListQuery.data?.pages ?? []).map((page) => page.items.filter((product) => getPublicDefaultVersion(product))),
     [productListQuery.data?.pages],
   );
   const products = productBatches.flat();
+
+  function toggleBusinessTypeFilter(businessTypeId: number) {
+    setBusinessTypeFilterIds((currentIds) =>
+      currentIds.includes(businessTypeId)
+        ? currentIds.filter((id) => id !== businessTypeId)
+        : [...currentIds, businessTypeId],
+    );
+  }
 
   return (
     <main className="product-list-preview-page">
@@ -108,6 +119,21 @@ export function ProductListPreviewPage() {
               <IconChevronDown size={17} stroke={1.7} />
             </button>
           ))}
+          {businessTypeOptions.map((businessType) => (
+            <button
+              className={`product-list-preview-filter product-list-preview-filter-toggle${businessTypeFilterIds.includes(businessType.id) ? ' is-active' : ''}`}
+              key={businessType.id}
+              type="button"
+              onClick={() => toggleBusinessTypeFilter(businessType.id)}
+            >
+              <span>{businessType.name}</span>
+            </button>
+          ))}
+          {businessTypeFilterIds.length > 0 ? (
+            <button className="product-list-preview-filter" type="button" onClick={() => setBusinessTypeFilterIds([])}>
+              <span>Clear</span>
+            </button>
+          ) : null}
         </div>
 
         <button className="product-list-preview-search" aria-label={t.searchLabel} type="button">
@@ -130,6 +156,7 @@ export function ProductListPreviewPage() {
           </div>
         ) : null}
         {productListQuery.isError ? <div className="product-list-preview-state is-error">{getProductServiceResultMessage(productListQuery.error)}</div> : null}
+        {businessTypeListQuery.isError ? <div className="product-list-preview-state is-error">Could not load business type filters.</div> : null}
         {!productListQuery.isLoading && !productListQuery.isError && products.length === 0 ? (
           <div className="product-list-preview-state">{t.noProducts}</div>
         ) : null}
@@ -228,6 +255,13 @@ function ProductCard({ eagerImage = false, product, revealIndex }: ProductCardPr
           <div>
             <h2>{product.productName}</h2>
             <p>{product.description ?? product.categoryName}</p>
+            {product.businessTypes?.length ? (
+              <div className="product-list-preview-card-tags">
+                {product.businessTypes.slice(0, 3).map((businessType) => (
+                  <span key={businessType.id}>{businessType.name}</span>
+                ))}
+              </div>
+            ) : null}
           </div>
           <strong>{formatCatalogPrice(defaultVersion?.estimatedPrice)}</strong>
         </div>

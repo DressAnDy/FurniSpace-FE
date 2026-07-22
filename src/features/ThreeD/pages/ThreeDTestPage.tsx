@@ -41,6 +41,7 @@ import {
 } from '@/services/api';
 import {
   useCategoryList,
+  useProposalDetail,
   useRoomPlannerScene,
   useSaveRoomPlannerScene,
   useSyncProposalItemsFromScene,
@@ -322,6 +323,8 @@ const TOOL_ITEMS: Array<{
   { id: 'save', label: 'Save' },
 ];
 
+const ROOM_PLANNER_SAVE_STATUSES = ['DRAFT', 'PUBLISHED', 'REVISION_REQUESTED'] as const;
+
 function materialFromSwatch(swatch: MaterialSwatch): RoomMaterialSelection {
   return {
     fallbackColor: swatch.color,
@@ -450,6 +453,7 @@ export function ThreeDTestPage() {
   const saveRoomPlannerSceneMutation = useSaveRoomPlannerScene();
   const syncProposalItemsMutation = useSyncProposalItemsFromScene();
   const currentProposalId = routeState?.proposalId ?? roomPlannerSceneQuery.data?.proposalId ?? null;
+  const proposalDetailQuery = useProposalDetail(currentProposalId ?? undefined, { enabled: Boolean(currentProposalId) && isProposalScene });
   const currentProjectId = routeState?.projectId ?? roomPlannerSceneQuery.data?.projectId ?? null;
   const backLinkTarget = routeState?.returnTo ?? (currentProjectId ? `/designer/assigned-projects/${currentProjectId}` : isAdminLab ? '/admin/dashbroad' : '/designer/assigned-projects');
   const [activeTool, setActiveTool] = useState<BlueprintTool>('select');
@@ -504,6 +508,9 @@ export function ThreeDTestPage() {
   );
   const roomArea = useMemo(() => (layout ? getRoomArea(layout) : 0), [layout]);
   const isSavingRoomPlanner = saveRoomPlannerSceneMutation.isPending || syncProposalItemsMutation.isPending;
+  const canSaveRoomPlannerStatus =
+    !proposalDetailQuery.data?.status ||
+    ROOM_PLANNER_SAVE_STATUSES.includes(proposalDetailQuery.data.status as (typeof ROOM_PLANNER_SAVE_STATUSES)[number]);
   const selectedProduct = useMemo(
     () => placedProducts.find((product) => product.id === selectedProductId) ?? null,
     [placedProducts, selectedProductId],
@@ -802,6 +809,11 @@ export function ThreeDTestPage() {
   }, []);
 
   const handleSave = useCallback(async () => {
+    if (!canSaveRoomPlannerStatus) {
+      setSaveMessage(`Room Planner can be saved only when proposal is ${ROOM_PLANNER_SAVE_STATUSES.join(', ')}.`);
+      return;
+    }
+
     if (!layout) {
       setSaveMessage('Add a room before saving.');
       return;
@@ -880,6 +892,7 @@ export function ThreeDTestPage() {
     setSaveMessage('Room layout saved locally and logged to console.');
   }, [
     activeTool,
+    canSaveRoomPlannerStatus,
     currentProposalId,
     floorMaterial,
     hideLabels,
@@ -1320,7 +1333,7 @@ export function ThreeDTestPage() {
                 }}>
                   {hideLabels ? 'Show Labels' : 'Hide Labels'}
                 </button>
-                <button disabled={isSavingRoomPlanner} type="button" onClick={() => void handleSave()}>
+                <button disabled={isSavingRoomPlanner || !canSaveRoomPlannerStatus} type="button" onClick={() => void handleSave()}>
                   {isSavingRoomPlanner ? 'Saving...' : 'Save Project'}
                 </button>
               </div>

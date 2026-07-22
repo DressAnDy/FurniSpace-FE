@@ -37,7 +37,7 @@ import { ProjectDetail } from '@/features/SalePages/ProjectDetail';
 import { ProjectRequestQueue } from '@/features/SalePages/ProjectRequestQueue';
 import { AssignedProjects } from '@/features/SalePages/AssignedProjects';
 import { DesignerDashbroad } from '@/features/DesignerPages/DesignerDashbroad';
-import { DesignerProductLibrary } from '@/features/DesignerPages/DesignerProductLibrary';
+import { DesignerCreateProductVersionPage, DesignerProductLibrary } from '@/features/DesignerPages/DesignerProductLibrary';
 import { DesignerProjectDetail } from '@/features/DesignerPages/DesignerProjectDetail';
 import { DesignerSchedules } from '@/features/DesignerPages/DesignerSchedules';
 import { ProductionCustomizationRequests } from '@/features/ProductionPages/ProductionCustomizationRequests';
@@ -143,6 +143,7 @@ export default function App() {
               <Route path="/designer/assigned-projects" element={<DesignerAssignedProjects />} />
               <Route path="/designer/assigned-projects/:projectId" element={<DesignerProjectDetail />} />
               <Route path="/designer/product-library" element={<DesignerProductLibrary />} />
+              <Route path="/designer/product-library/:productId/versions/create" element={<DesignerCreateProductVersionPage />} />
               <Route path="/designer/schedules" element={<DesignerSchedules />} />
             </Route>
 

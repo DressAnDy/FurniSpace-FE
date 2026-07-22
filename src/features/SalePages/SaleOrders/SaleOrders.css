@@ -40,7 +40,7 @@
 }
 
 .sale-orders-toolbar,
-.sale-orders-card,
+.sale-orders-detail,
 .sale-orders-metrics article,
 .sale-orders-message {
   border: 1px solid rgba(139, 111, 71, 0.15);
@@ -208,92 +208,23 @@
 
 .sale-orders-grid {
   display: grid;
-  grid-template-columns: minmax(320px, 0.55fr) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
   gap: 18px;
   align-items: start;
 }
 
-.sale-orders-card {
+.sale-orders-detail {
+  display: grid;
+  gap: 12px;
   min-width: 0;
   padding: 20px;
 }
 
-.sale-orders-card header {
+.sale-orders-detail header {
   display: flex;
   justify-content: space-between;
   gap: 14px;
   margin-bottom: 16px;
-}
-
-.sale-orders-card h3 {
-  margin: 0;
-  color: #2d2d2d;
-  font-size: 18px;
-  font-weight: 600;
-}
-
-.sale-orders-card header p {
-  margin: 4px 0 0;
-  color: #6b6b6b;
-  font-size: 13px;
-}
-
-.sale-orders-order-group,
-.sale-orders-detail {
-  display: grid;
-  gap: 12px;
-}
-
-.sale-orders-order-group > div {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-}
-
-.sale-orders-order-group > div span {
-  display: inline-grid;
-  min-width: 24px;
-  height: 24px;
-  place-items: center;
-  border-radius: 999px;
-  background: #f5f1ec;
-  color: #8b6f47;
-  font-size: 12px;
-  font-weight: 800;
-}
-
-.sale-orders-list {
-  display: grid;
-  gap: 10px;
-}
-
-.sale-orders-list button {
-  display: grid;
-  gap: 6px;
-  border: 1px solid rgba(139, 111, 71, 0.15);
-  border-radius: 10px;
-  background: #faf9f7;
-  cursor: pointer;
-  font: inherit;
-  padding: 14px;
-  text-align: left;
-}
-
-.sale-orders-list button.is-active {
-  border-color: #8b6f47;
-  background: #f5f1ec;
-}
-
-.sale-orders-list span {
-  color: #6b6b6b;
-  font-size: 12px;
-  font-weight: 700;
-}
-
-.sale-orders-list strong {
-  color: #2d2d2d;
-  font-size: 15px;
 }
 
 .sale-orders-status {
