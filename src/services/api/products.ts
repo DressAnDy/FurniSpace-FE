@@ -4,6 +4,7 @@ import { getStoredAccessToken } from './tokenStore';
 
 declare module 'axios' {
   export interface AxiosRequestConfig {
+    skipAuth?: boolean;
     skipAuthRedirect?: boolean;
   }
 }
@@ -15,8 +16,9 @@ const productApiClient = axios.create({
 
 productApiClient.interceptors.request.use((config) => {
   const token = getStoredAccessToken();
+  const shouldSkipAuth = Boolean((config as { skipAuth?: boolean }).skipAuth);
 
-  if (token) {
+  if (token && !shouldSkipAuth) {
     config.headers.Authorization = `Bearer ${token}`;
   }
 
@@ -218,10 +220,19 @@ export type ProductVersionDto = {
   files: CatalogFileDto[];
 };
 
+export type ProductBusinessTypeDto = {
+  id: number;
+  code: string;
+  name: string;
+  status: boolean;
+};
+
 export type ProductListItemDto = {
   productId: string;
   categoryId: string;
   categoryName: string;
+  businessTypeIds: number[] | null;
+  businessTypes: ProductBusinessTypeDto[];
   productCode: string | null;
   productName: string;
   description: string | null;
@@ -238,6 +249,8 @@ export type ProductDetailDto = ProductListItemDto & {
 export type ProductDto = {
   productId: string;
   categoryId: string;
+  businessTypeIds: number[] | null;
+  businessTypes?: ProductBusinessTypeDto[];
   productCode: string | null;
   productName: string;
   description: string | null;
@@ -252,15 +265,18 @@ export type ProductListData = {
 };
 
 export type ProductListParams = {
+  businessTypeIds?: number[] | null;
   page?: number;
   limit?: number;
 };
 
 export type RequestBehaviorOptions = {
+  skipAuth?: boolean;
   skipAuthRedirect?: boolean;
 };
 
 export type CreateProductInput = {
+  businessTypeIds?: number[] | null;
   categoryId: string;
   productCode?: string | null;
   productName: string;
@@ -268,6 +284,7 @@ export type CreateProductInput = {
 };
 
 export type UpdateProductInput = {
+  businessTypeIds?: number[] | null;
   productId: string;
   categoryId: string;
   productName: string;
@@ -335,15 +352,31 @@ export function getProductServiceResultFromError(error: unknown) {
   const data = error.response?.data;
 
   if (data && typeof data === 'object' && 'status' in data) {
-    return data as ServiceResult<unknown>;
+    const result = data as ServiceResult<unknown> & {
+      correlationId?: string;
+      detail?: string;
+      title?: string;
+    };
+
+    return {
+      ...result,
+      message: formatProblemDetailsMessage(result),
+    };
   }
 
   if (data && typeof data === 'object') {
-    const fallback = data as { message?: string; errorCode?: string; title?: string; errors?: string[] | Record<string, string[]> };
+    const fallback = data as {
+      correlationId?: string;
+      detail?: string;
+      errorCode?: string;
+      errors?: string[] | Record<string, string[]>;
+      message?: string;
+      title?: string;
+    };
 
     return {
       status: error.response?.status ?? 500,
-      message: fallback.message ?? fallback.title,
+      message: formatProblemDetailsMessage(fallback),
       errorCode: fallback.errorCode,
       errors: Array.isArray(fallback.errors)
         ? fallback.errors
@@ -363,6 +396,16 @@ export function getProductServiceResultFromError(error: unknown) {
   }
 
   return null;
+}
+
+function formatProblemDetailsMessage(problem: { correlationId?: string; detail?: string; message?: string; title?: string }) {
+  return [
+    problem.message ?? problem.title,
+    problem.detail,
+    problem.correlationId ? `Correlation ID: ${problem.correlationId}` : null,
+  ]
+    .filter(Boolean)
+    .join('\n');
 }
 
 export function normalizeOptionalText(value: FormDataEntryValue | string | null | undefined) {
@@ -398,17 +441,21 @@ export function generateProductVersionCode(productCode: string | null | undefine
 
 export async function getProducts(params: ProductListParams = {}) {
   const response = await productApiClient.get<ServiceResult<ProductListData>>('/products', {
-    params: {
-      page: params.page ?? 1,
-      limit: params.limit ?? 20,
-    },
+    params: getProductListSearchParams(params),
+    skipAuth: true,
+    skipAuthRedirect: true,
+    withCredentials: false,
   });
 
   return response.data.data;
 }
 
 export async function getProductById(productId: string) {
-  const response = await productApiClient.get<ServiceResult<ProductDetailDto>>(`/products/${productId}`);
+  const response = await productApiClient.get<ServiceResult<ProductDetailDto>>(`/products/${productId}`, {
+    skipAuth: true,
+    skipAuthRedirect: true,
+    withCredentials: false,
+  });
 
   return response.data.data;
 }
@@ -416,6 +463,7 @@ export async function getProductById(productId: string) {
 export async function createProduct(input: CreateProductInput) {
   const response = await productApiClient.post<ServiceResult<ProductDto>>('/products', {
     categoryId: input.categoryId,
+    businessTypeIds: normalizeBusinessTypeIds(input.businessTypeIds),
     productCode: input.productCode?.trim() || null,
     productName: input.productName.trim(),
     description: input.description?.trim() || null,
@@ -427,6 +475,7 @@ export async function createProduct(input: CreateProductInput) {
 export async function updateProduct(input: UpdateProductInput) {
   const response = await productApiClient.patch<ServiceResult<ProductDto>>(`/products/${input.productId}`, {
     categoryId: input.categoryId,
+    businessTypeIds: normalizeBusinessTypeIds(input.businessTypeIds),
     productName: input.productName.trim(),
     description: input.description?.trim() || null,
   });
@@ -539,7 +588,9 @@ export async function uploadProductVersionFile(
   options: RequestBehaviorOptions = {},
 ) {
   const formData = new FormData();
-  formData.append('file', file);
+  const uploadFile = normalizeProductVersionUploadFile(file, fileType);
+
+  formData.append('file', uploadFile);
   formData.append('fileType', fileType);
   formData.append('visibility', 'CUSTOMER_VISIBLE');
 
@@ -556,6 +607,40 @@ export async function uploadProductVersionFile(
   );
 
   return response.data.data;
+}
+
+function normalizeProductVersionUploadFile(file: File, fileType: ProductVersionFileType) {
+  const normalizedMimeType = getProductVersionUploadMimeType(file, fileType);
+
+  if (!normalizedMimeType || file.type === normalizedMimeType) {
+    return file;
+  }
+
+  return new File([file], file.name, { lastModified: file.lastModified, type: normalizedMimeType });
+}
+
+function getProductVersionUploadMimeType(file: File, fileType: ProductVersionFileType) {
+  const currentType = file.type === 'image/jpg' ? 'image/jpeg' : file.type;
+  const extension = file.name.split('.').pop()?.toLowerCase();
+
+  if (fileType === 'MODEL_3D') {
+    return currentType || (extension === 'gltf' ? 'model/gltf+json' : extension === 'glb' ? 'model/gltf-binary' : '');
+  }
+
+  if (fileType === 'PRODUCT_PREVIEW') {
+    const fallbackTypes: Record<string, string> = {
+      gif: 'image/gif',
+      jpeg: 'image/jpeg',
+      jpg: 'image/jpeg',
+      png: 'image/png',
+      svg: 'image/svg+xml',
+      webp: 'image/webp',
+    };
+
+    return currentType || fallbackTypes[extension ?? ''] || '';
+  }
+
+  return currentType;
 }
 
 export async function getFilesByReference(params: FileReferenceListParams) {
@@ -595,6 +680,26 @@ function getProductApiBaseUrl() {
   const configuredApiUrl = import.meta.env.VITE_API_BASE_URL ?? import.meta.env.VITE_API_URL;
 
   return configuredApiUrl?.replace(/\/api\/?$/, '');
+}
+
+function getProductListSearchParams(params: ProductListParams) {
+  const searchParams = new URLSearchParams();
+  searchParams.set('page', String(params.page ?? 1));
+  searchParams.set('limit', String(params.limit ?? 20));
+
+  normalizeBusinessTypeIds(params.businessTypeIds).forEach((businessTypeId) => {
+    searchParams.append('businessTypeIds', String(businessTypeId));
+  });
+
+  return searchParams;
+}
+
+export function normalizeBusinessTypeIds(ids: number[] | null | undefined) {
+  if (!ids?.length) {
+    return [];
+  }
+
+  return Array.from(new Set(ids.map((id) => Math.trunc(Number(id))).filter((id) => Number.isFinite(id) && id > 0)));
 }
 
 function clearMultipartContentType(headers: unknown) {

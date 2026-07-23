@@ -15,6 +15,33 @@
   padding: 24px;
 }
 
+.category-management-tabs {
+  display: inline-flex;
+  gap: 6px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #ffffff;
+  margin: 18px 0 20px;
+  padding: 4px;
+}
+
+.category-management-tabs button {
+  height: 34px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #6b7280;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 0 14px;
+}
+
+.category-management-tabs button.is-active {
+  background: #d4a574;
+  color: #ffffff;
+}
+
 .category-stat-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -357,6 +384,42 @@
   display: block;
 }
 
+.category-modal-toggle-field {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #f8f9fa;
+  padding: 12px;
+}
+
+.category-modal-toggle-field input {
+  width: 16px;
+  height: 16px;
+  accent-color: #d4a574;
+  margin-top: 3px;
+}
+
+.category-modal-toggle-field strong,
+.category-modal-toggle-field small {
+  display: block;
+}
+
+.category-modal-toggle-field strong {
+  color: #1a1d29;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 20px;
+}
+
+.category-modal-toggle-field small {
+  color: #6b7280;
+  font-size: 13px;
+  line-height: 18px;
+  margin-top: 2px;
+}
+
 .category-modal-field > span {
   display: block;
   color: #1a1d29;
@@ -476,6 +539,12 @@
 
   .category-stat-grid {
     grid-template-columns: 1fr;
+  }
+
+  .category-management-tabs {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    width: 100%;
   }
 
   .category-management-search {

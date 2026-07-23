@@ -19,6 +19,7 @@ import {
 import { useCurrentUser } from '@/services/queries/useAuth';
 import {
   projectChatQueryKeys,
+  replaceProjectChatTempMessage,
   upsertProjectChatMessage,
   useCloseProjectChat,
   useProjectChatMessages,
@@ -162,12 +163,7 @@ export function ProjectChatPanel({
 
       if (messagesQueryParams) {
         queryClient.setQueryData(projectChatQueryKeys.messages(messagesQueryParams), (currentData: ProjectChatMessageListResponse | undefined) => {
-          if (!currentData) return currentData;
-
-          return {
-            ...currentData,
-            items: currentData.items.filter((item) => item.messageId !== tempMessage.messageId).concat(savedMessage),
-          };
+          return replaceProjectChatTempMessage(currentData, tempMessage.messageId, savedMessage);
         });
       }
       void queryClient.invalidateQueries({ queryKey: projectChatQueryKeys.list({ projectId, chatType: preferredChatType ?? null, page: 1, limit: 20 }) });
@@ -281,16 +277,6 @@ export function ProjectChatPanel({
             {messages.map((message) => (
               <MessageBubble currentUserId={currentUserId} key={message.messageId} message={message} />
             ))}
-          </div>
-
-          <div className="project-chat-panel-caption-row">
-            <input
-              disabled={isReadonly || sendFileMutation.isPending}
-              maxLength={4000}
-              placeholder="Optional file caption"
-              value={caption}
-              onChange={(event) => setCaption(event.target.value)}
-            />
           </div>
 
           <div className="project-chat-panel-composer">

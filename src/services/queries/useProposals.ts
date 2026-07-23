@@ -14,6 +14,7 @@ import {
   selectFinalProposal,
   syncProposalItemsFromScene,
   updateProposal,
+  updateProposalScene,
   type CreateProposalInput,
   type CreateProposalSceneInput,
   type ProposalDecisionInput,
@@ -23,6 +24,7 @@ import {
   type SaveRoomPlannerSceneInput,
   type SyncProposalItemsFromSceneInput,
   type UpdateProposalInput,
+  type UpdateProposalSceneInput,
 } from '@/services/api/proposals';
 
 export const proposalQueryKeys = {
@@ -125,6 +127,19 @@ export function useCreateProposalScene() {
     mutationFn: (input: CreateProposalSceneInput) => createProposalScene(input),
     onSuccess: (scene) => {
       void queryClient.invalidateQueries({ queryKey: ['proposals', scene.proposalId, 'scenes'] });
+    },
+  });
+}
+
+export function useUpdateProposalScene() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (input: UpdateProposalSceneInput) => updateProposalScene(input),
+    onSuccess: (scene) => {
+      void queryClient.invalidateQueries({ queryKey: ['proposals', scene.proposalId, 'scenes'] });
+      void queryClient.invalidateQueries({ queryKey: proposalQueryKeys.scenes({ proposalId: scene.proposalId }) });
+      void queryClient.invalidateQueries({ queryKey: proposalQueryKeys.roomPlanner(scene.sceneId) });
     },
   });
 }

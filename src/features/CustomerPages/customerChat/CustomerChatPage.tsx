@@ -331,42 +331,6 @@ export function CustomerChatPage() {
               </button>
             </div>
           </section>
-
-          <aside className="customer-chat-info-panel">
-            <h2>Project Information</h2>
-
-            <div className="customer-chat-info-cards">
-              <div className="customer-chat-info-card">
-                <span>Project</span>
-                <strong>{activeProject?.projectName ?? 'No project selected'}</strong>
-              </div>
-
-              <div className="customer-chat-info-card">
-                <span>Status</span>
-                <strong>{activeProject?.status ? formatEnumLabel(activeProject.status) : '-'}</strong>
-              </div>
-
-              <div className="customer-chat-info-card">
-                <span>Active Chat</span>
-                <strong>{activeConversation ? `${getChatParticipant(activeConversation, { viewerRole: 'CUSTOMER' }).name} - ${activeConversation.status}` : '-'}</strong>
-              </div>
-            </div>
-
-            <div className="customer-chat-quick-links">
-              <p>Quick Links</p>
-              <ul>
-                <li>
-                  <a href="/customer/projects">View Project Details</a>
-                </li>
-                <li>
-                  <a href="/customer/proposals">View Proposals</a>
-                </li>
-                <li>
-                  <a href="#">View Quotations</a>
-                </li>
-              </ul>
-            </div>
-          </aside>
         </div>
       </div>
     </main>
@@ -430,12 +394,4 @@ function CustomerMessage({ currentUserId, message }: { currentUserId?: string; m
       <time>{formatChatTime(message.createdAt)}</time>
     </article>
   );
-}
-
-function formatEnumLabel(value: string) {
-  return value
-    .toLowerCase()
-    .split('_')
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(' ');
 }

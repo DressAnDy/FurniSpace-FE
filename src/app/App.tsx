@@ -22,6 +22,8 @@ import { CustomerProjectListPage } from '@/features/CustomerPages/customerProjec
 import { CustomerProjectInformationPage } from '@/features/CustomerPages/customerProjectInformation/CustomerProjectInformationPage';
 import { CustomerProjectRequestPage } from '@/features/CustomerPages/customerProjectRequest';
 import { CustomerProposalDetailPage } from '@/features/CustomerPages/customerProposalDetail';
+import { CustomerOrdersPage } from '@/features/CustomerPages/customerOrders';
+import { CustomerQuotationsPage } from '@/features/CustomerPages/customerQuotations';
 import { DesignerAssignedProjects } from '@/features/DesignerPages/DesignerAssignedProjects';
 import { DesignerProposalWorkspace } from '@/features/DesignerPages/DesignerProposalWorkspace';
 import { CustomerSchedulesPage } from '@/features/CustomerPages/customerSchedules';
@@ -35,15 +37,18 @@ import { ProjectDetail } from '@/features/SalePages/ProjectDetail';
 import { ProjectRequestQueue } from '@/features/SalePages/ProjectRequestQueue';
 import { AssignedProjects } from '@/features/SalePages/AssignedProjects';
 import { DesignerDashbroad } from '@/features/DesignerPages/DesignerDashbroad';
-import { DesignerProductLibrary } from '@/features/DesignerPages/DesignerProductLibrary';
+import { DesignerCreateProductVersionPage, DesignerProductLibrary } from '@/features/DesignerPages/DesignerProductLibrary';
 import { DesignerProjectDetail } from '@/features/DesignerPages/DesignerProjectDetail';
 import { DesignerSchedules } from '@/features/DesignerPages/DesignerSchedules';
+import { ProductionCustomizationRequests } from '@/features/ProductionPages/ProductionCustomizationRequests';
+import { ProductionDashbroad } from '@/features/ProductionPages/ProductionDashbroad';
 import { SaleQuotations } from '@/features/SalePages/SaleQuotations';
+import { SaleOrders } from '@/features/SalePages/SaleOrders';
 import { SaleSchedules } from '@/features/SalePages/SaleSchedules';
 import { SaleDashbroad } from '@/features/SalePages/SaleDashbroad';
 import { ThreeDTestPage } from '@/features/ThreeD/pages/ThreeDTestPage';
 import { ViewerDemoPage } from '@/features/viewer3d';
-import { NotificationRealtimeProvider } from '@/shared/components';
+import { TileTransitionProvider } from '@/shared/components';
 
 export default function App() {
   return (
@@ -51,13 +56,13 @@ export default function App() {
       <ThemeProvider theme={theme}>
         <CssBaseline />
         <LangProvider>
+<<<<<<< HEAD
           <NotificationRealtimeProvider>
             <BrowserRouter>
               <Routes>
             {/* ── Public routes ── */}
             <Route path="/" element={<HomePage />} />
             <Route path="/login" element={<LoginPage />} />
-            <Route path="/register" element={<RegisterPage />} />
             <Route path="/code-verify" element={<CodeVerifyPage />} />
             <Route path="/products" element={<ProductListPreviewPage />} />
             <Route path="/products/detail" element={<ProductDetailPage />} />
@@ -82,6 +87,7 @@ export default function App() {
               <Route path="/admin/products/create" element={<CreateProductPage />} />
               <Route path="/admin/products/:productId/versions" element={<ProductVersionManagement />} />
               <Route path="/admin/products/:productId/versions/create" element={<CreateProductVersionPage />} />
+              <Route path="/admin/products/:productId/versions/:productVersionId/edit" element={<CreateProductVersionPage />} />
               <Route path="/admin/projects" element={<AdminProjects />} />
               <Route path="/admin/reports" element={<AdminReports />} />
               {/* Admin legacy redirects */}
@@ -101,6 +107,8 @@ export default function App() {
               <Route path="/customer/schedules" element={<CustomerSchedulesPage />} />
               <Route path="/customer/proposals" element={<CustomerProposalDetailPage />} />
               <Route path="/customer/proposals/:proposalId" element={<CustomerProposalDetailPage />} />
+              <Route path="/customer/quotations" element={<CustomerQuotationsPage />} />
+              <Route path="/customer/orders" element={<CustomerOrdersPage />} />
               <Route path="/customer/3d-preview" element={<Customer3dPreviewPage />} />
               <Route path="/customer/chat" element={<CustomerChatPage />} />
               {/* Customer legacy redirects */}
@@ -124,6 +132,7 @@ export default function App() {
               <Route path="/sales/assigned-projects/:projectId" element={<ProjectDetail />} />
               <Route path="/sales/schedules" element={<SaleSchedules />} />
               <Route path="/sales/quotations" element={<SaleQuotations />} />
+              <Route path="/sales/orders" element={<SaleOrders />} />
               <Route path="/sales/project-requests/:projectId" element={<ProjectDetail />} />
             </Route>
 
@@ -134,7 +143,15 @@ export default function App() {
               <Route path="/designer/assigned-projects" element={<DesignerAssignedProjects />} />
               <Route path="/designer/assigned-projects/:projectId" element={<DesignerProjectDetail />} />
               <Route path="/designer/product-library" element={<DesignerProductLibrary />} />
+              <Route path="/designer/product-library/:productId/versions/create" element={<DesignerCreateProductVersionPage />} />
               <Route path="/designer/schedules" element={<DesignerSchedules />} />
+            </Route>
+
+            {/* Production routes (role: PRODUCTION) */}
+            <Route element={<ProtectedRoute allowedRoles={['PRODUCTION']} />}>
+              <Route path="/production" element={<Navigate to="/production/customization-requests" replace />} />
+              <Route path="/production/dashbroad" element={<ProductionDashbroad />} />
+              <Route path="/production/customization-requests" element={<ProductionCustomizationRequests />} />
             </Route>
 
             <Route path="/viewer3d" element={<ViewerDemoPage />} />
@@ -143,6 +160,7 @@ export default function App() {
 
             <Route path="/designer" element={<Navigate to="/designer/assigned-projects" replace />} />
             <Route path="/designer/assigned-projects" element={<DesignerAssignedProjects />} />
+            <Route path="/designer/projects/:projectId/proposals/new" element={<DesignerProposalWorkspace />} />
             <Route path="/designer/projects/:projectId/proposals/:proposalId" element={<DesignerProposalWorkspace />} />
 
             <Route path="/customer" element={<Navigate to="/customer/dashboard" replace />} />
@@ -152,6 +170,8 @@ export default function App() {
             <Route path="/customer/project-request" element={<CustomerProjectRequestPage />} />
             <Route path="/customer/proposals" element={<CustomerProposalDetailPage />} />
             <Route path="/customer/proposals/:proposalId" element={<CustomerProposalDetailPage />} />
+            <Route path="/customer/quotations" element={<CustomerQuotationsPage />} />
+            <Route path="/customer/orders" element={<CustomerOrdersPage />} />
             <Route path="/customer/3d-preview" element={<Customer3dPreviewPage />} />
             <Route path="/customer-dashboard" element={<Navigate to="/customer/dashboard" replace />} />
             <Route path="/customer-3d-preview" element={<Navigate to="/customer/3d-preview" replace />} />
@@ -167,6 +187,7 @@ export default function App() {
             <Route path="/admin/products/create" element={<CreateProductPage />} />
             <Route path="/admin/products/:productId/versions" element={<ProductVersionManagement />} />
             <Route path="/admin/products/:productId/versions/create" element={<CreateProductVersionPage />} />
+            <Route path="/admin/products/:productId/versions/:productVersionId/edit" element={<CreateProductVersionPage />} />
             <Route path="/admin/projects" element={<AdminProjects />} />
             <Route path="/admin/catalog/models" element={<CatalogModelManagementPage />} />
             <Route path="/admin/catalog/models/workspace/:productId/:productVersionId" element={<ProductModelWorkspacePage />} />
@@ -186,11 +207,18 @@ export default function App() {
             <Route path="/sales/assigned-projects/:projectId" element={<ProjectDetail />} />
             <Route path="/sales/schedules" element={<SaleSchedules />} />
             <Route path="/sales/quotations" element={<SaleQuotations />} />
+            <Route path="/sales/orders" element={<SaleOrders />} />
             <Route path="/sales/project-requests/:projectId" element={<ProjectDetail />} />
             <Route path="*" element={<Navigate to="/" replace />} />
+<<<<<<< HEAD
               </Routes>
             </BrowserRouter>
           </NotificationRealtimeProvider>
+=======
+          </Routes>
+          </TileTransitionProvider>
+        </BrowserRouter>
+>>>>>>> develop
         </LangProvider>
       </ThemeProvider>
     </QueryClientProvider>

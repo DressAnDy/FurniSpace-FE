@@ -1,24 +1,15 @@
 import { IconArrowRight, IconPhone, IconShieldCheck } from '@tabler/icons-react';
+import { useEffect, useRef } from 'react';
 
-import galleryOneImage from '@/assets/product-detail/gallery-1.png';
-import galleryThreeImage from '@/assets/product-detail/gallery-3.png';
-import diningRoomImage from '@/assets/product-detail-shop/dining-room.png';
-import roomDetailImage from '@/assets/product-detail-shop/room-detail.png';
-import tableRoomImage from '@/assets/product-detail-shop/table-room.png';
-import terraSalonImage from '@/assets/project-list/terra-salon.png';
 import { useLang } from '@/app/providers/useLang';
-import { MainFooter, MainNavbar } from '@/features/MainPages/maincomponents';
+import heroRoomScene from '@/assets/hero/hero-room-scene-3d.png';
+import processVideo from '@/assets/hero/process-mp4.mp4';
+import { MainNavbar } from '@/features/MainPages/maincomponents';
+import { SiteFooter } from '@/shared/components';
 
 import './HomePage.css';
 
-const projectImages = [
-  terraSalonImage,
-  galleryOneImage,
-  roomDetailImage,
-  diningRoomImage,
-  tableRoomImage,
-  galleryThreeImage,
-];
+const projectImages: string[] = [];
 
 const homeContent = {
   vi: {
@@ -148,6 +139,158 @@ export function HomePage() {
 function HomePageContent() {
   const { lang } = useLang();
   const t = homeContent[lang];
+  const processVideoReplayTimeoutRef = useRef<number | undefined>(undefined);
+
+  function handleProcessVideoEnded(event: { currentTarget: HTMLVideoElement }) {
+    const video = event.currentTarget;
+
+    window.clearTimeout(processVideoReplayTimeoutRef.current);
+    processVideoReplayTimeoutRef.current = window.setTimeout(() => {
+      video.currentTime = 0;
+      void video.play();
+    }, 750);
+  }
+
+  useEffect(() => {
+    const root = document.documentElement;
+    const darkSectionSelectors = ['.home-intro', '.home-process', '.site-footer'];
+    const desktopQuery = window.matchMedia('(min-width: 901px)');
+    const reducedMotionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const sectionScrollDurationMs = 750;
+    let isSectionScrolling = false;
+    let wheelUnlockTimeout: number | undefined;
+    let scrollAnimationFrame: number | undefined;
+
+    function updateHeaderTone() {
+      const probeY = 92;
+      const isOverDarkSection = darkSectionSelectors.some((selector) => {
+        const section = document.querySelector(selector);
+
+        if (!(section instanceof HTMLElement)) {
+          return false;
+        }
+
+        const rect = section.getBoundingClientRect();
+
+        return rect.top <= probeY && rect.bottom >= probeY;
+      });
+
+      root.classList.toggle('home-header-light', isOverDarkSection);
+    }
+
+    function getSnapSections() {
+      return Array.from(document.querySelectorAll<HTMLElement>('.home-page > section, .home-page > .site-footer'));
+    }
+
+    function getActiveSectionIndex(sections: HTMLElement[], direction: number) {
+      if (direction < 0) {
+        const viewportBottom = window.scrollY + window.innerHeight;
+        const documentHeight = document.documentElement.scrollHeight;
+        const isNearPageBottom = viewportBottom >= documentHeight - 8;
+        const lastVisibleSectionIndex = sections.reduce((visibleIndex, section, index) => {
+          const isVisible = section.offsetTop < viewportBottom - 24 && section.offsetTop + section.offsetHeight > window.scrollY + 24;
+
+          return isVisible ? index : visibleIndex;
+        }, 0);
+
+        return isNearPageBottom ? sections.length - 1 : lastVisibleSectionIndex;
+      }
+
+      const activationOffset = direction > 0 ? Math.min(window.innerHeight * 0.34, 280) : Math.min(window.innerHeight * 0.2, 180);
+      const currentPosition = window.scrollY + activationOffset;
+
+      return sections.reduce((activeIndex, section, index) => {
+        return section.offsetTop <= currentPosition ? index : activeIndex;
+      }, 0);
+    }
+
+    function easeInOutSine(progress: number) {
+      return -(Math.cos(Math.PI * progress) - 1) / 2;
+    }
+
+    function animateScrollTo(targetY: number, duration = sectionScrollDurationMs) {
+      const startY = window.scrollY;
+      const distance = targetY - startY;
+      const startTime = performance.now();
+
+      if (scrollAnimationFrame !== undefined) {
+        window.cancelAnimationFrame(scrollAnimationFrame);
+      }
+
+      function step(currentTime: number) {
+        const elapsed = currentTime - startTime;
+        const progress = Math.min(elapsed / duration, 1);
+        const easedProgress = easeInOutSine(progress);
+
+        window.scrollTo(0, startY + distance * easedProgress);
+        updateHeaderTone();
+
+        if (progress < 1) {
+          scrollAnimationFrame = window.requestAnimationFrame(step);
+          return;
+        }
+
+        scrollAnimationFrame = undefined;
+        window.clearTimeout(wheelUnlockTimeout);
+        isSectionScrolling = false;
+      }
+
+      scrollAnimationFrame = window.requestAnimationFrame(step);
+    }
+
+    function handleSectionWheel(event: WheelEvent) {
+      if (!desktopQuery.matches || reducedMotionQuery.matches || Math.abs(event.deltaY) < 6) {
+        return;
+      }
+
+      const sections = getSnapSections();
+
+      if (sections.length < 2) {
+        return;
+      }
+
+      if (isSectionScrolling) {
+        event.preventDefault();
+        return;
+      }
+
+      const direction = event.deltaY > 0 ? 1 : -1;
+      const currentIndex = getActiveSectionIndex(sections, direction);
+      const nextIndex = Math.min(Math.max(currentIndex + direction, 0), sections.length - 1);
+
+      if (nextIndex === currentIndex) {
+        return;
+      }
+
+      event.preventDefault();
+      isSectionScrolling = true;
+      animateScrollTo(sections[nextIndex].offsetTop);
+
+      window.clearTimeout(wheelUnlockTimeout);
+      wheelUnlockTimeout = window.setTimeout(() => {
+        isSectionScrolling = false;
+      }, sectionScrollDurationMs + 240);
+    }
+
+    root.classList.add('home-scroll-snap');
+    updateHeaderTone();
+
+    window.addEventListener('scroll', updateHeaderTone, { passive: true });
+    window.addEventListener('resize', updateHeaderTone);
+    window.addEventListener('wheel', handleSectionWheel, { passive: false });
+
+    return () => {
+      window.clearTimeout(processVideoReplayTimeoutRef.current);
+      window.clearTimeout(wheelUnlockTimeout);
+      if (scrollAnimationFrame !== undefined) {
+        window.cancelAnimationFrame(scrollAnimationFrame);
+      }
+      window.removeEventListener('scroll', updateHeaderTone);
+      window.removeEventListener('resize', updateHeaderTone);
+      window.removeEventListener('wheel', handleSectionWheel);
+      root.classList.remove('home-scroll-snap', 'home-header-light');
+    };
+  }, []);
 
   return (
     <main className="home-page">
@@ -162,7 +305,10 @@ function HomePageContent() {
       />
 
       {/* Hero */}
-      <section className="home-hero section-container" aria-labelledby="home-hero-title">
+      <section
+        className="home-hero section-container"
+        aria-labelledby="home-hero-title"
+      >
         <div className="home-hero-copy">
           <div className="home-kicker">
             <span />
@@ -186,10 +332,16 @@ function HomePageContent() {
           </div>
 
           <div className="home-actions">
-            <button className="button button-dark" type="button">
+            <button
+              className="button button-dark home-hero-primary-cta"
+              type="button"
+            >
               {t.startBtn}
             </button>
-            <button className="button button-outline" type="button">
+            <button
+              className="button button-outline"
+              type="button"
+            >
               {t.contactBtn}
             </button>
           </div>
@@ -201,8 +353,7 @@ function HomePageContent() {
         </div>
 
         <div className="home-hero-visual" aria-hidden="true">
-          <img className="home-hero-image" src={roomDetailImage} alt="" />
-          <img className="home-hero-inset" src={tableRoomImage} alt="" />
+          <img className="home-hero-scene" src={heroRoomScene} alt="" />
         </div>
       </section>
 
@@ -218,9 +369,8 @@ function HomePageContent() {
             </button>
           </div>
 
-          <div className="home-gallery" aria-hidden="true">
-            <img className="home-gallery-back" src={diningRoomImage} alt="" />
-            <img className="home-gallery-front" src={galleryThreeImage} alt="" />
+          <div className="home-gallery home-gallery-static" aria-hidden="true">
+            <img src={heroRoomScene} alt="" />
           </div>
         </div>
       </section>
@@ -270,6 +420,11 @@ function HomePageContent() {
               <br />
               {t.processTitle2}
             </h2>
+            <div className="home-process-video-card" aria-hidden="true">
+              <video className="home-process-video" autoPlay muted playsInline preload="metadata" onEnded={handleProcessVideoEnded}>
+                <source src={processVideo} type="video/mp4" />
+              </video>
+            </div>
           </div>
 
           <div className="home-process-content">
@@ -325,7 +480,7 @@ function HomePageContent() {
         </div>
       </section>
 
-      <MainFooter />
+      <SiteFooter />
     </main>
   );
 }

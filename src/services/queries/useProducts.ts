@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import {
   archiveFile,
@@ -28,6 +28,7 @@ import {
 export const productQueryKeys = {
   all: ['products'] as const,
   list: (params?: ProductListParams) => ['products', 'list', params] as const,
+  infiniteList: (params?: ProductListParams) => ['products', 'infinite-list', params] as const,
   detail: (productId: string) => ['products', 'detail', productId] as const,
   previewImages: (productId: string) => ['products', 'preview-images', productId] as const,
   filesByReference: (params: FileReferenceListParams) => ['products', 'files-by-reference', params] as const,
@@ -38,6 +39,22 @@ export function useProductList(params?: ProductListParams, enabled = true) {
     queryKey: productQueryKeys.list(params),
     queryFn: () => getProducts(params),
     enabled,
+  });
+}
+
+export function useInfiniteProductList(params?: ProductListParams, enabled = true) {
+  const limit = params?.limit ?? 12;
+
+  return useInfiniteQuery({
+    queryKey: productQueryKeys.infiniteList({ ...params, limit }),
+    queryFn: ({ pageParam }) => getProducts({ ...params, page: pageParam, limit }),
+    initialPageParam: params?.page ?? 1,
+    enabled,
+    getNextPageParam: (lastPage) => {
+      const loadedCount = lastPage.page * lastPage.limit;
+
+      return loadedCount < lastPage.total ? lastPage.page + 1 : undefined;
+    },
   });
 }
 
@@ -200,8 +217,14 @@ export function useUploadProductVersionFile(productId?: string) {
         input.description,
         { skipAuthRedirect: input.skipAuthRedirect },
       ),
-    onSuccess: () => {
+    onSuccess: (_data, input) => {
       void queryClient.invalidateQueries({ queryKey: productQueryKeys.all });
+      void queryClient.invalidateQueries({
+        queryKey: productQueryKeys.filesByReference({
+          referenceId: input.productVersionId,
+          referenceType: 'PRODUCT_VERSION',
+        }),
+      });
 
       if (productId) {
         void queryClient.invalidateQueries({ queryKey: productQueryKeys.detail(productId) });

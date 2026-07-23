@@ -2,7 +2,7 @@ import axios, { AxiosError } from 'axios';
 
 import { shouldRedirectUnauthorized } from '@/shared/config/authPreview';
 
-export type NotificationReferenceType = 'PROJECT' | 'PROJECT_SCHEDULE' | string;
+export type NotificationReferenceType = 'PROJECT' | 'PROJECT_SCHEDULE' | 'PROPOSAL' | string;
 
 export type NotificationType =
   | 'ProjectRequestSubmitted'
@@ -16,6 +16,7 @@ export type NotificationType =
   | 'ProjectScheduleConfirmed'
   | 'ProjectScheduleCompleted'
   | 'ProjectScheduleCancelled'
+  | 'ProposalPublished'
   | string;
 
 export type ServiceResult<T> = {

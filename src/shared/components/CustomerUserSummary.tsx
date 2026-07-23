@@ -65,7 +65,7 @@ export function CustomerUserSummary({ classPrefix }: CustomerUserSummaryProps) {
         <button
           aria-expanded={isMenuOpen}
           aria-haspopup="menu"
-          className={`${classPrefix}-user customer-user-summary-button`}
+          className="customer-user-summary-button"
           disabled={logoutMutation.isPending}
           onClick={() => setIsMenuOpen((current) => !current)}
           title="Account menu"

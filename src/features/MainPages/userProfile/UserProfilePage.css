@@ -12,12 +12,12 @@
   grid-template-columns: 286px minmax(0, 1fr);
   gap: 28px;
   margin: 0 auto;
-  padding: 48px 40px 80px;
+  padding: 96px 40px 80px;
 }
 
 .user-profile-sidebar {
   position: sticky;
-  top: 104px;
+  top: 88px;
   align-self: start;
 }
 
@@ -412,7 +412,7 @@
 
 @media (max-width: 720px) {
   .user-profile-shell {
-    padding: 28px 20px 56px;
+    padding: 112px 20px 56px;
   }
 
   .user-profile-hero,

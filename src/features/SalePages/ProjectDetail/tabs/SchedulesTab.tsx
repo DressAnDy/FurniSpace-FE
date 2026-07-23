@@ -13,7 +13,7 @@ type SchedulesTabProps = {
   project: ProjectDetailProject;
 };
 
-const scheduleTypeOptions: ProjectScheduleType[] = ['MEASUREMENT', 'CONSULTATION', 'DESIGN_REVIEW', 'DELIVERY', 'HANDOVER', 'OTHER'];
+const scheduleTypeOptions: ProjectScheduleType[] = ['MEASUREMENT', 'CONSULTATION'];
 const scheduleStatusOptions: ProjectScheduleStatus[] = ['PENDING_CONFIRMATION', 'CONFIRMED', 'COMPLETED', 'CANCELLED'];
 
 export function SchedulesTab({ project }: SchedulesTabProps) {
@@ -58,8 +58,6 @@ export function SchedulesTab({ project }: SchedulesTabProps) {
       title: String(formData.get('title') ?? '').trim() || defaultTitle,
       description: String(formData.get('description') ?? '').trim() || null,
       location: String(formData.get('location') ?? '').trim() || project.projectAddress,
-      customerNote: String(formData.get('customerNote') ?? '').trim() || null,
-      internalNote: String(formData.get('internalNote') ?? '').trim() || null,
     });
   }
 
@@ -72,8 +70,6 @@ export function SchedulesTab({ project }: SchedulesTabProps) {
     title: string;
     description: string | null;
     location: string | null;
-    customerNote: string | null;
-    internalNote: string | null;
   }) {
     try {
       try {
@@ -86,8 +82,8 @@ export function SchedulesTab({ project }: SchedulesTabProps) {
           scheduledStart: toIsoString(input.scheduledStart),
           scheduledEnd: input.scheduledEnd ? toIsoString(input.scheduledEnd) : null,
           location: input.location,
-          customerNote: input.customerNote,
-          internalNote: input.internalNote,
+          customerNote: null,
+          internalNote: null,
         });
       } catch (error) {
         setMessage(getProjectScheduleServiceResultMessage(error));
@@ -138,7 +134,7 @@ export function SchedulesTab({ project }: SchedulesTabProps) {
             </label>
             <label>
               <span>Title</span>
-              <input name="title" placeholder={defaultTitle} type="text" disabled={createScheduleMutation.isPending} />
+              <input name="title" defaultValue={defaultTitle} placeholder={defaultTitle} type="text" disabled={createScheduleMutation.isPending} />
             </label>
           </div>
 
@@ -155,24 +151,13 @@ export function SchedulesTab({ project }: SchedulesTabProps) {
 
           <label>
             <span>Location</span>
-            <input name="location" placeholder={project.projectAddress ?? 'Meeting location'} type="text" disabled={createScheduleMutation.isPending} />
+            <input name="location" defaultValue={project.projectAddress ?? ''} placeholder={project.projectAddress ?? 'Meeting location'} type="text" disabled={createScheduleMutation.isPending} />
           </label>
 
           <label>
             <span>Description</span>
             <textarea name="description" placeholder="Schedule purpose and preparation notes" disabled={createScheduleMutation.isPending} />
           </label>
-
-          <div className="project-detail-schedule-form-grid">
-            <label>
-              <span>Customer Note</span>
-              <textarea name="customerNote" placeholder="Visible to customer" disabled={createScheduleMutation.isPending} />
-            </label>
-            <label>
-              <span>Internal Note</span>
-              <textarea name="internalNote" placeholder="Internal team note" disabled={createScheduleMutation.isPending} />
-            </label>
-          </div>
 
           {message ? <p className={`project-detail-form-message ${message.toLowerCase().includes('success') || message.toLowerCase().includes('created') ? '' : 'project-detail-form-message-error'}`}>{message}</p> : null}
 

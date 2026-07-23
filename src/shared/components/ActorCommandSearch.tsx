@@ -2,7 +2,7 @@ import { type FormEvent, useMemo, useState } from 'react';
 import { IconSearch } from '@tabler/icons-react';
 import { useNavigate } from 'react-router-dom';
 
-type Actor = 'admin' | 'designer' | 'sale';
+type Actor = 'admin' | 'designer' | 'production' | 'sale';
 
 type CommandItem = {
   label: string;
@@ -27,6 +27,10 @@ const commandsByActor: Record<Actor, CommandItem[]> = {
     { label: 'Assigned Projects', path: '/designer/assigned-projects', group: 'Projects', keywords: 'assigned projects project list customer', description: 'Open the list of projects assigned to the designer.' },
     { label: 'Product Library', path: '/designer/product-library', group: 'Catalog', keywords: 'product library furniture catalog models', description: 'Browse products, materials, and furniture library items.' },
     { label: 'My Schedule', path: '/designer/schedules', group: 'Schedule', keywords: 'schedule calendar appointments my schedule', description: 'Review appointments and design schedule.' },
+  ],
+  production: [
+    { label: 'Production Dashboard', path: '/production/dashbroad', group: 'Overview', keywords: 'dashboard production home overview feasibility', description: 'View production feasibility workload and review summary.' },
+    { label: 'Customization Requests', path: '/production/customization-requests', group: 'Review', keywords: 'customization requests production review feasible material cost days', description: 'Review customer customization requests for feasibility, material, cost, and production days.' },
   ],
   sale: [
     { label: 'Sales Dashboard', path: '/sales/dashbroad', group: 'Overview', keywords: 'dashboard sales sale home overview', description: 'View sale metrics, activity, and project summary.' },

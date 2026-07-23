@@ -7,15 +7,6 @@ import {
   IconSparkles,
 } from '@tabler/icons-react';
 
-import detailFloorPlanUrl from '@/assets/product-detail/floor-plan.png';
-import detailGallery1Url from '@/assets/product-detail/gallery-1.png';
-import detailGallery2Url from '@/assets/product-detail/gallery-2.png';
-import detailGallery3Url from '@/assets/product-detail/gallery-3.png';
-import detailGallery4Url from '@/assets/product-detail/gallery-4.png';
-import detailGallery5Url from '@/assets/product-detail/gallery-5.png';
-import detailGallery6Url from '@/assets/product-detail/gallery-6.png';
-import detailHeroUrl from '@/assets/product-detail/hero.png';
-import terraSalonUrl from '@/assets/project-list/terra-salon.png';
 import { MainNavbar } from '@/features/MainPages/maincomponents';
 import { SiteFooter } from '@/shared/components';
 
@@ -54,22 +45,11 @@ const designIdeas = [
   },
 ];
 
-const galleryImages = [
-  detailGallery1Url,
-  detailGallery2Url,
-  detailGallery3Url,
-  detailGallery4Url,
-  detailGallery5Url,
-  detailGallery6Url,
-];
+const detailFloorPlanUrl: string | null = null;
+const detailHeroUrl: string | null = null;
+const galleryImages: string[] = [];
 
-const latestProjects = Array.from({ length: 3 }, (_, index) => ({
-  area: index === 2 ? '90m2' : '105m2',
-  category: 'Nhà hàng - Quán bar',
-  imageUrl: terraSalonUrl,
-  title: 'TERRA SALON',
-  year: '2025',
-}));
+const latestProjects: ProjectCardProps[] = [];
 
 export function ProjectDetailPage() {
   return (
@@ -77,7 +57,7 @@ export function ProjectDetailPage() {
       <MainNavbar activePath="/projects" classPrefix="project-detail" />
 
       <section className="project-detail-hero" aria-label="Terra Beauty Centre">
-        <img src={detailHeroUrl} alt="" />
+        {detailHeroUrl ? <img src={detailHeroUrl} alt="" /> : null}
       </section>
 
       <section className="project-detail-layout">
@@ -128,7 +108,7 @@ export function ProjectDetailPage() {
 
           <section className="project-detail-plan-section">
             <h2>Mặt bằng 2D</h2>
-            <img src={detailFloorPlanUrl} alt="Mặt bằng 2D Terra Beauty Centre" />
+            {detailFloorPlanUrl ? <img src={detailFloorPlanUrl} alt="Mặt bằng 2D Terra Beauty Centre" /> : null}
           </section>
 
           <section className="project-detail-gallery-section">
@@ -162,7 +142,7 @@ export function ProjectDetailPage() {
 type ProjectCardProps = {
   area: string;
   category: string;
-  imageUrl: string;
+  imageUrl: string | null;
   title: string;
   year: string;
 };
@@ -171,7 +151,7 @@ function ProjectCard({ area, category, imageUrl, title, year }: ProjectCardProps
   return (
     <article className="project-detail-card">
       <div className="project-detail-card-image">
-        <img src={imageUrl} alt={title} />
+        {imageUrl ? <img src={imageUrl} alt={title} /> : null}
         <div className="project-detail-card-pill">
           <h3>{title}</h3>
         </div>

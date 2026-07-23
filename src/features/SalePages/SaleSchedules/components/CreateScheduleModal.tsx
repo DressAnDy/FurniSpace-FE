@@ -7,7 +7,7 @@ import {
   type ProjectScheduleType,
 } from '@/services/api';
 import type { ProjectListItemDto } from '@/services/api/projects';
-import { useCreateProjectSchedule, useUpdateProjectSchedule } from '@/services/queries';
+import { useCreateProjectSchedule, useProjectDetail, useUpdateProjectSchedule } from '@/services/queries';
 
 type CreateScheduleModalProps = {
   editingSchedule: ProjectScheduleDto | null;
@@ -27,14 +27,51 @@ const scheduleTypes: ProjectScheduleType[] = [
 
 export function CreateScheduleModal({ editingSchedule, isOpen, projects, onClose }: CreateScheduleModalProps) {
   const [message, setMessage] = useState('');
+  const [selectedProjectId, setSelectedProjectId] = useState('');
+  const [scheduleTitle, setScheduleTitle] = useState('');
+  const [scheduleLocation, setScheduleLocation] = useState('');
+  const [hasEditedLocation, setHasEditedLocation] = useState(false);
   const createMutation = useCreateProjectSchedule();
   const updateMutation = useUpdateProjectSchedule();
   const isSaving = createMutation.isPending || updateMutation.isPending;
   const eligibleProjects = projects.filter((project) => Boolean(project.assignedDesignerId));
+  const selectedProject = editingSchedule
+    ? projects.find((project) => project.projectId === editingSchedule.projectId)
+    : projects.find((project) => project.projectId === selectedProjectId);
+  const selectedProjectDetailQuery = useProjectDetail(selectedProjectId || undefined);
 
   useEffect(() => {
     setMessage('');
+
+    if (!isOpen) {
+      setSelectedProjectId('');
+      setScheduleTitle('');
+      setScheduleLocation('');
+      setHasEditedLocation(false);
+      return;
+    }
+
+    if (editingSchedule) {
+      setSelectedProjectId(editingSchedule.projectId);
+      setScheduleTitle(editingSchedule.title ?? '');
+      setScheduleLocation(editingSchedule.location ?? '');
+      setHasEditedLocation(Boolean(editingSchedule.location));
+      return;
+    }
+
+    setSelectedProjectId('');
+    setScheduleTitle('');
+    setScheduleLocation('');
+    setHasEditedLocation(false);
   }, [editingSchedule, isOpen]);
+
+  useEffect(() => {
+    if (!isOpen || editingSchedule || !selectedProjectDetailQuery.data || hasEditedLocation) {
+      return;
+    }
+
+    setScheduleLocation(selectedProjectDetailQuery.data.projectAddress ?? '');
+  }, [editingSchedule, hasEditedLocation, isOpen, selectedProjectDetailQuery.data]);
 
   if (!isOpen) {
     return null;
@@ -45,7 +82,7 @@ export function CreateScheduleModal({ editingSchedule, isOpen, projects, onClose
     setMessage('');
 
     const formData = new FormData(event.currentTarget);
-    const projectId = editingSchedule?.projectId ?? String(formData.get('projectId') ?? '');
+    const projectId = editingSchedule?.projectId ?? selectedProjectId;
     const project = projects.find((item) => item.projectId === projectId);
     const scheduledStart = String(formData.get('scheduledStart') ?? '');
     const scheduledEnd = String(formData.get('scheduledEnd') ?? '');
@@ -74,23 +111,23 @@ export function CreateScheduleModal({ editingSchedule, isOpen, projects, onClose
       if (editingSchedule) {
         await updateMutation.mutateAsync({
           scheduleId: editingSchedule.scheduleId,
-          title: String(formData.get('title') ?? ''),
+          title: scheduleTitle,
           description: String(formData.get('description') ?? ''),
           assignedStaffId: project.assignedDesignerId,
           scheduledStart: toIsoString(scheduledStart),
           scheduledEnd: scheduledEnd ? toIsoString(scheduledEnd) : null,
-          location: String(formData.get('location') ?? ''),
+          location: scheduleLocation,
         });
       } else {
         await createMutation.mutateAsync({
           projectId,
           scheduleType: String(formData.get('scheduleType') ?? 'MEASUREMENT') as ProjectScheduleType,
-          title: String(formData.get('title') ?? ''),
+          title: scheduleTitle,
           description: String(formData.get('description') ?? ''),
           assignedStaffId: project.assignedDesignerId,
           scheduledStart: toIsoString(scheduledStart),
           scheduledEnd: scheduledEnd ? toIsoString(scheduledEnd) : null,
-          location: String(formData.get('location') ?? ''),
+          location: scheduleLocation,
         });
       }
 
@@ -99,10 +136,6 @@ export function CreateScheduleModal({ editingSchedule, isOpen, projects, onClose
       setMessage(getProjectScheduleServiceResultMessage(error));
     }
   }
-
-  const selectedProject = editingSchedule
-    ? projects.find((project) => project.projectId === editingSchedule.projectId)
-    : null;
 
   return (
     <div className="sale-schedules-modal-overlay" role="presentation">
@@ -128,7 +161,20 @@ export function CreateScheduleModal({ editingSchedule, isOpen, projects, onClose
             {editingSchedule ? (
               <input value={selectedProject ? `${selectedProject.projectCode} - ${selectedProject.projectName}` : 'Assigned project'} disabled readOnly />
             ) : (
-              <select defaultValue="" name="projectId" required>
+              <select
+                name="projectId"
+                required
+                value={selectedProjectId}
+                onChange={(event) => {
+                  const nextProjectId = event.target.value;
+                  const nextProject = projects.find((project) => project.projectId === nextProjectId);
+
+                  setSelectedProjectId(nextProjectId);
+                  setScheduleTitle(nextProject ? getDefaultScheduleTitle(nextProject) : '');
+                  setScheduleLocation('');
+                  setHasEditedLocation(false);
+                }}
+              >
                 <option value="" disabled>Select project</option>
                 {eligibleProjects.map((project) => (
                   <option key={project.projectId} value={project.projectId}>
@@ -150,7 +196,13 @@ export function CreateScheduleModal({ editingSchedule, isOpen, projects, onClose
 
           <label>
             <span>Title</span>
-            <input defaultValue={editingSchedule?.title ?? ''} name="title" placeholder="Schedule title" type="text" />
+            <input
+              name="title"
+              placeholder="Schedule title"
+              type="text"
+              value={scheduleTitle}
+              onChange={(event) => setScheduleTitle(event.target.value)}
+            />
           </label>
 
           <div className="sale-schedules-modal-grid">
@@ -166,7 +218,16 @@ export function CreateScheduleModal({ editingSchedule, isOpen, projects, onClose
 
           <label>
             <span>Location</span>
-            <input defaultValue={editingSchedule?.location ?? ''} name="location" placeholder="Meeting location or address" type="text" />
+            <input
+              name="location"
+              placeholder={selectedProjectDetailQuery.isLoading ? 'Loading project address...' : 'Meeting location or address'}
+              type="text"
+              value={scheduleLocation}
+              onChange={(event) => {
+                setScheduleLocation(event.target.value);
+                setHasEditedLocation(true);
+              }}
+            />
           </label>
 
           <label>
@@ -193,6 +254,10 @@ export function CreateScheduleModal({ editingSchedule, isOpen, projects, onClose
 
 function toIsoString(value: string) {
   return new Date(value).toISOString();
+}
+
+function getDefaultScheduleTitle(project: ProjectListItemDto) {
+  return `${project.projectName} - designer schedule`;
 }
 
 function toDateTimeLocal(value?: string | null) {

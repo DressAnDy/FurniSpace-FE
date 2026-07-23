@@ -1,4 +1,4 @@
-import { type FormEvent, useState } from 'react';
+import { useState } from 'react';
 import { IconArrowLeft, IconBox, IconCheck, IconCube, IconEdit, IconPlus, IconX } from '@tabler/icons-react';
 import { useNavigate, useParams } from 'react-router-dom';
 
@@ -6,13 +6,9 @@ import { ModelViewer, type ModelViewerStatus } from '@/features/ThreeD/component
 import {
   type CatalogFileDto,
   getProductServiceResultMessage,
-  normalizeOptionalNumber,
-  normalizeOptionalText,
-  normalizeRequiredText,
   type ProductVersionDto,
-  type ProductVersionType,
 } from '@/services/api';
-import { useProductDetail, useSetDefaultProductVersion, useUpdateProductVersion } from '@/services/queries';
+import { useProductDetail, useSetDefaultProductVersion } from '@/services/queries';
 
 import { AdminNavbar, AdminSidebar } from '../admincomponents';
 import './Productmanagement.css';
@@ -58,48 +54,16 @@ function getCatalogFileUrl(file: CatalogFileDto | null | undefined) {
 export function ProductVersionManagement() {
   const navigate = useNavigate();
   const { productId } = useParams();
-  const [editingVersionId, setEditingVersionId] = useState<string | null>(null);
   const [previewVersionId, setPreviewVersionId] = useState<string | null>(null);
   const [viewerStatus, setViewerStatus] = useState<ModelViewerStatus>('idle');
   const [viewerError, setViewerError] = useState<string | null>(null);
   const productQuery = useProductDetail(productId);
   const setDefaultMutation = useSetDefaultProductVersion(productId);
-  const updateVersionMutation = useUpdateProductVersion(productId);
   const product = productQuery.data;
   const versions = product?.versions ?? [];
   const previewVersion = versions.find((version) => version.productVersionId === previewVersionId) ?? null;
   const previewModelFile = getVersionModelFile(previewVersion);
   const previewImageFile = getVersionPreviewFile(previewVersion);
-
-  const handleEditSubmit = async (event: FormEvent<HTMLFormElement>, productVersionId: string) => {
-    event.preventDefault();
-    const formData = new FormData(event.currentTarget);
-    const versionName = normalizeRequiredText(formData.get('version_name'));
-
-    if (!versionName) {
-      return;
-    }
-
-    try {
-      await updateVersionMutation.mutateAsync({
-        productVersionId,
-        versionName,
-        versionType: normalizeRequiredText(formData.get('version_type')) as ProductVersionType,
-        material: normalizeOptionalText(formData.get('material')),
-        color: normalizeOptionalText(formData.get('color')),
-        width: normalizeOptionalNumber(formData.get('width')),
-        height: normalizeOptionalNumber(formData.get('height')),
-        depth: normalizeOptionalNumber(formData.get('depth')),
-        estimatedPrice: normalizeOptionalNumber(formData.get('estimated_price')),
-        isDefault: formData.get('is_default') === 'on',
-        isPublic: formData.get('is_public') === 'on',
-        isProjectSpecific: false,
-      });
-      setEditingVersionId(null);
-    } catch {
-      // Error state is rendered from React Query mutation.
-    }
-  };
 
   return (
     <main className="admin-dashboard-page">
@@ -229,7 +193,7 @@ export function ProductVersionManagement() {
                       <button
                         className="product-card-button product-card-button-secondary"
                         type="button"
-                        onClick={() => setEditingVersionId(version.productVersionId)}
+                        onClick={() => navigate(`/admin/products/${productId}/versions/${version.productVersionId}/edit`)}
                       >
                         <IconEdit size={16} />
                         Edit
@@ -245,120 +209,6 @@ export function ProductVersionManagement() {
                       </button>
                     </div>
 
-                    {editingVersionId === version.productVersionId ? (
-                      <div className="product-edit-modal-overlay">
-                        <form className="product-edit-modal-panel product-version-edit-modal-panel" onSubmit={(event) => handleEditSubmit(event, version.productVersionId)}>
-                          <div className="product-card-edit-heading">
-                            <div>
-                              <strong>Edit Product Version</strong>
-                              <p>Update version details and visibility settings.</p>
-                            </div>
-                            <button
-                              aria-label="Close edit product version form"
-                              className="product-card-icon-button"
-                              type="button"
-                              onClick={() => setEditingVersionId(null)}
-                            >
-                              <IconX size={16} />
-                            </button>
-                          </div>
-
-                          <div className="product-form-grid">
-                            <label className="product-form-field">
-                              <span>Version Code</span>
-                              <input className="admin-form-input" defaultValue={version.versionCode} disabled type="text" />
-                            </label>
-
-                            <label className="product-form-field">
-                              <span>Version Name *</span>
-                              <input
-                                className="admin-form-input"
-                                defaultValue={version.versionName}
-                                maxLength={150}
-                                name="version_name"
-                                required
-                                type="text"
-                              />
-                            </label>
-
-                            <label className="product-form-field">
-                              <span>Version Type</span>
-                              <select className="admin-form-input" defaultValue={version.versionType} name="version_type">
-                                <option value="STANDARD">STANDARD</option>
-                                <option value="CUSTOM">CUSTOM</option>
-                                <option value="PROJECT_SPECIFIC">PROJECT_SPECIFIC</option>
-                              </select>
-                            </label>
-
-                            <label className="product-form-field">
-                              <span>Material</span>
-                              <input className="admin-form-input" defaultValue={version.material ?? ''} name="material" type="text" />
-                            </label>
-
-                            <label className="product-form-field">
-                              <span>Color</span>
-                              <input className="admin-form-input" defaultValue={version.color ?? ''} name="color" type="text" />
-                            </label>
-
-                            <label className="product-form-field">
-                              <span>Estimated Price</span>
-                              <input className="admin-form-input" defaultValue={version.estimatedPrice ?? ''} name="estimated_price" type="number" />
-                            </label>
-                          </div>
-
-                          <div className="product-form-grid product-form-grid-three">
-                            <label className="product-form-field">
-                              <span>Width</span>
-                              <input className="admin-form-input" defaultValue={version.width ?? ''} name="width" type="number" />
-                            </label>
-
-                            <label className="product-form-field">
-                              <span>Height</span>
-                              <input className="admin-form-input" defaultValue={version.height ?? ''} name="height" type="number" />
-                            </label>
-
-                            <label className="product-form-field">
-                              <span>Depth</span>
-                              <input className="admin-form-input" defaultValue={version.depth ?? ''} name="depth" type="number" />
-                            </label>
-                          </div>
-
-                          <div className="product-setting-list product-card-edit-settings">
-                            <label>
-                              <input defaultChecked={version.isDefault} name="is_default" type="checkbox" />
-                              <span>
-                                <strong>Set as Default Version</strong>
-                                <small>Only one version should be default for a product.</small>
-                              </span>
-                            </label>
-                            <label>
-                              <input defaultChecked={version.isPublic} name="is_public" type="checkbox" />
-                              <span>
-                                <strong>Is Public</strong>
-                                <small>Controls whether this version is visible in catalog responses.</small>
-                              </span>
-                            </label>
-                            <div className="product-setting-fixed">
-                              <strong>Is Project Specific</strong>
-                              <small>Always submitted as false in this edit form.</small>
-                            </div>
-                          </div>
-
-                          {updateVersionMutation.isError ? (
-                            <p className="product-form-error">{getProductServiceResultMessage(updateVersionMutation.error)}</p>
-                          ) : null}
-
-                          <div className="product-card-edit-actions">
-                            <button className="product-form-button product-form-button-secondary" type="button" onClick={() => setEditingVersionId(null)}>
-                              Cancel
-                            </button>
-                            <button className="product-form-button product-form-button-primary" disabled={updateVersionMutation.isPending} type="submit">
-                              {updateVersionMutation.isPending ? 'Saving...' : 'Save Changes'}
-                            </button>
-                          </div>
-                        </form>
-                      </div>
-                    ) : null}
                   </div>
                   </article>
                 );

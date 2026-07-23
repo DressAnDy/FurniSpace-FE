@@ -9,12 +9,10 @@ import {
 } from '@tabler/icons-react';
 import { useNavigate } from 'react-router-dom';
 
-import { getProductServiceResultMessage } from '@/services/api';
 import { useProductList } from '@/services/queries';
 import { AdminNavbar, AdminSidebar } from '@/features/AdminPages/admincomponents';
 
-import { getPlannerReadiness, getVersionFile } from './catalogModel.utils';
-import { CATALOG_MOCK_ENABLED, MOCK_CATALOG_LIST_ITEMS } from './catalogModel.mock';
+import { getPlannerReadiness } from './catalogModel.utils';
 import './CatalogModelManagement.css';
 
 type ReadinessFilter = 'ALL' | 'READY' | 'INCOMPLETE';
@@ -26,9 +24,9 @@ export function CatalogModelManagementPage() {
   const [query, setQuery] = useState('');
   const [readinessFilter, setReadinessFilter] = useState<ReadinessFilter>('ALL');
   const [sortFilter, setSortFilter] = useState<CatalogSortFilter>('NEWEST');
-  const productsQuery = useProductList({ limit: 100, page: 1 }, !CATALOG_MOCK_ENABLED);
+  const productsQuery = useProductList({ limit: 100, page: 1 });
   const products = useMemo(
-    () => (CATALOG_MOCK_ENABLED ? MOCK_CATALOG_LIST_ITEMS : productsQuery.data?.items ?? []),
+    () => productsQuery.data?.items ?? [],
     [productsQuery.data?.items],
   );
 
@@ -144,19 +142,11 @@ export function CatalogModelManagementPage() {
                 </div>
               </div>
 
-              {!CATALOG_MOCK_ENABLED && productsQuery.isLoading && <div className="product-management-state">Loading catalog from API...</div>}
-              {!CATALOG_MOCK_ENABLED && productsQuery.isError && (
-                <div className="product-management-state product-management-state-error">{getProductServiceResultMessage(productsQuery.error)}</div>
-              )}
-              {(!productsQuery.isLoading || CATALOG_MOCK_ENABLED) && (!productsQuery.isError || CATALOG_MOCK_ENABLED) && filteredProducts.length === 0 && (
-                <div className="product-management-state">No products match the current filter.</div>
-              )}
+              {productsQuery.isLoading && <div className="product-management-state">Loading catalog from API...</div>}
 
-              <section className="catalog-model-table" aria-label="Product Version model readiness">
+              <section className="catalog-model-table" aria-label="Product Version model library">
                 {filteredProducts.map((product) => {
                   const version = product.defaultVersion;
-                  const readiness = getPlannerReadiness(product.status, version);
-                  const modelFile = getVersionFile(version, 'MODEL_3D');
                   const thumbnailUrl = version?.thumbnail?.fileUrl ?? product.thumbnail?.fileUrl;
 
                   return (
@@ -172,14 +162,6 @@ export function CatalogModelManagementPage() {
                         <span>Default version</span>
                         <strong>{version?.versionName ?? 'Not created'}</strong>
                         <small>{version?.versionCode ?? 'Add a version first'}</small>
-                      </div>
-                      <div className="catalog-model-file">
-                        <span>MODEL_3D</span>
-                        <strong>{modelFile?.originalFileName ?? 'Missing'}</strong>
-                      </div>
-                      <div className={readiness.isReady ? 'catalog-ready-status is-ready' : 'catalog-ready-status is-warning'}>
-                        {readiness.isReady ? <IconCheck size={16} /> : <IconAlertTriangle size={16} />}
-                        <span>{readiness.isReady ? 'Planner ready' : `${readiness.issues.length} issue(s)`}</span>
                       </div>
                       <div className="catalog-model-actions">
                         <button

@@ -2,8 +2,8 @@ import { type FormEvent, useMemo, useState } from 'react';
 import { IconArchive, IconCheck, IconClock, IconEdit, IconPackage, IconPlus, IconSearch, IconX } from '@tabler/icons-react';
 import { useNavigate } from 'react-router-dom';
 
-import { getProductServiceResultMessage, normalizeOptionalText, normalizeRequiredText } from '@/services/api';
-import { useCategoryList, useProductList, useUpdateProduct } from '@/services/queries';
+import { getBusinessTypeServiceResultMessage, getProductServiceResultMessage, normalizeBusinessTypeIds, normalizeOptionalText, normalizeRequiredText } from '@/services/api';
+import { useBusinessTypeList, useCategoryList, useProductList, useUpdateProduct } from '@/services/queries';
 
 import { AdminNavbar, AdminSidebar } from '../admincomponents';
 import './Productmanagement.css';
@@ -14,22 +14,18 @@ const statusClassName: Record<string, string> = {
   ARCHIVED: 'product-management-status-archived',
 };
 
-const productStatusOptions = ['', 'DRAFT', 'PENDING_APPROVAL', 'PENDING', 'APPROVED', 'ACTIVE', 'REJECTED', 'ARCHIVED'] as const;
-type ProductStatusFilter = (typeof productStatusOptions)[number];
-const productSortOptions = ['NEWEST', 'NAME_ASC', 'NAME_DESC'] as const;
-type ProductSortFilter = (typeof productSortOptions)[number];
-
 export function Productmanagement() {
   const navigate = useNavigate();
   const [searchValue, setSearchValue] = useState('');
-  const [statusFilter, setStatusFilter] = useState<ProductStatusFilter>('');
   const [categoryFilter, setCategoryFilter] = useState('');
-  const [sortFilter, setSortFilter] = useState<ProductSortFilter>('NEWEST');
+  const [businessTypeFilterIds, setBusinessTypeFilterIds] = useState<number[]>([]);
   const [editingProductId, setEditingProductId] = useState<string | null>(null);
-  const productListQuery = useProductList({ page: 1, limit: 100 });
+  const productListQuery = useProductList({ page: 1, limit: 100, businessTypeIds: businessTypeFilterIds });
   const categoryListQuery = useCategoryList({ page: 1, limit: 100 });
+  const businessTypeListQuery = useBusinessTypeList({ page: 1, limit: 100 });
   const updateProductMutation = useUpdateProduct();
   const categoryOptions = categoryListQuery.data?.items ?? [];
+  const businessTypeOptions = businessTypeListQuery.data?.items.filter((businessType) => businessType.status) ?? [];
 
   const filteredProducts = useMemo(() => {
     const products = productListQuery.data?.items ?? [];
@@ -40,26 +36,16 @@ export function Productmanagement() {
         product.productName.toLowerCase().includes(keyword) ||
         (product.productCode ?? '').toLowerCase().includes(keyword) ||
         product.categoryName.toLowerCase().includes(keyword) ||
+        product.businessTypes?.some((businessType) => businessType.name.toLowerCase().includes(keyword) || businessType.code.toLowerCase().includes(keyword)) ||
         (product.description ?? '').toLowerCase().includes(keyword) ||
         product.status.toLowerCase().includes(keyword);
-      const matchesStatus = !statusFilter || product.status === statusFilter;
       const matchesCategory = !categoryFilter || product.categoryId === categoryFilter;
 
-      return matchesKeyword && matchesStatus && matchesCategory;
+      return matchesKeyword && matchesCategory;
     });
 
-    return [...nextProducts].sort((left, right) => {
-      if (sortFilter === 'NAME_ASC') {
-        return left.productName.localeCompare(right.productName);
-      }
-
-      if (sortFilter === 'NAME_DESC') {
-        return right.productName.localeCompare(left.productName);
-      }
-
-      return 0;
-    });
-  }, [categoryFilter, productListQuery.data?.items, searchValue, sortFilter, statusFilter]);
+    return nextProducts;
+  }, [categoryFilter, productListQuery.data?.items, searchValue]);
 
   const productStats = useMemo(() => {
     const products = productListQuery.data?.items ?? [];
@@ -84,13 +70,12 @@ export function Productmanagement() {
 
   const visibleProducts = filteredProducts;
 
-  const totalProducts = productListQuery.data?.total ?? (productListQuery.data?.items ?? []).length;
-
   const handleEditSubmit = async (event: FormEvent<HTMLFormElement>, productId: string) => {
     event.preventDefault();
     const formData = new FormData(event.currentTarget);
     const productName = normalizeRequiredText(formData.get('product_name'));
     const categoryId = normalizeRequiredText(formData.get('category_id'));
+    const businessTypeIds = normalizeBusinessTypeIds(formData.getAll('business_type_ids').map((value) => Number(value)));
 
     if (!productName || !categoryId) {
       return;
@@ -100,6 +85,7 @@ export function Productmanagement() {
       await updateProductMutation.mutateAsync({
         productId,
         categoryId,
+        businessTypeIds,
         productName,
         description: normalizeOptionalText(formData.get('description')),
       });
@@ -107,6 +93,14 @@ export function Productmanagement() {
     } catch {
       // Error state is rendered from React Query mutation.
     }
+  };
+
+  const toggleBusinessTypeFilter = (businessTypeId: number) => {
+    setBusinessTypeFilterIds((currentIds) =>
+      currentIds.includes(businessTypeId)
+        ? currentIds.filter((id) => id !== businessTypeId)
+        : [...currentIds, businessTypeId],
+    );
   };
 
   return (
@@ -144,71 +138,86 @@ export function Productmanagement() {
             </section>
 
             <section className="admin-card product-management-card">
-              <div className="product-management-tools">
-                <label className="admin-search product-management-search">
-                  <IconSearch size={18} />
-                  <input
-                    value={searchValue}
-                    onChange={(event) => setSearchValue(event.target.value)}
-                    placeholder="Search products..."
-                    type="search"
-                  />
-                </label>
+              <div className="product-management-layout">
+                <aside className="product-management-filter-sidebar" aria-label="Product filters">
+                  <div className="product-filter-sidebar-heading">
+                    <strong>Filters</strong>
+                    {(searchValue || categoryFilter || businessTypeFilterIds.length > 0) ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSearchValue('');
+                          setCategoryFilter('');
+                          setBusinessTypeFilterIds([]);
+                        }}
+                      >
+                        Reset
+                      </button>
+                    ) : null}
+                  </div>
 
-                <label className="product-management-filter">
-                  <span>Status</span>
-                  <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as ProductStatusFilter)}>
-                    {productStatusOptions.map((option) => (
-                      <option key={option || 'ALL'} value={option}>
-                        {option ? formatEnumLabel(option) : 'All statuses'}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+                  <label className="admin-search product-management-search product-management-sidebar-search">
+                    <IconSearch size={18} />
+                    <input
+                      value={searchValue}
+                      onChange={(event) => setSearchValue(event.target.value)}
+                      placeholder="Search products..."
+                      type="search"
+                    />
+                  </label>
 
-                <label className="product-management-filter">
-                  <span>Category</span>
-                  <select value={categoryFilter} onChange={(event) => setCategoryFilter(event.target.value)}>
-                    <option value="">All categories</option>
-                    {categoryFilterOptions.map((category) => (
-                      <option key={category.categoryId} value={category.categoryId}>
-                        {category.categoryName}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+                  <label className="product-management-filter">
+                    <span>Category</span>
+                    <select value={categoryFilter} onChange={(event) => setCategoryFilter(event.target.value)}>
+                      <option value="">All categories</option>
+                      {categoryFilterOptions.map((category) => (
+                        <option key={category.categoryId} value={category.categoryId}>
+                          {category.categoryName}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
 
-                <label className="product-management-filter">
-                  <span>Sort by</span>
-                  <select value={sortFilter} onChange={(event) => setSortFilter(event.target.value as ProductSortFilter)}>
-                    {productSortOptions.map((option) => (
-                      <option key={option} value={option}>
-                        {formatSortLabel(option)}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+                  <div className="product-management-filter product-management-filter-wide">
+                    <span>Business Type</span>
+                    <div className="product-business-filter-list">
+                      {businessTypeListQuery.isLoading ? <small>Loading...</small> : null}
+                      {!businessTypeListQuery.isLoading && businessTypeOptions.length === 0 ? <small>No active types</small> : null}
+                      {businessTypeOptions.map((businessType) => (
+                        <label key={businessType.id}>
+                          <input
+                            checked={businessTypeFilterIds.includes(businessType.id)}
+                            type="checkbox"
+                            onChange={() => toggleBusinessTypeFilter(businessType.id)}
+                          />
+                          <span>{businessType.name}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                </aside>
 
-                <div className="product-management-total">
-                  <span>Total</span>
-                  <strong>{totalProducts}</strong>
-                </div>
-              </div>
+                <div className="product-management-results-panel">
+                  {productListQuery.isLoading ? <div className="product-management-state">Loading products from API...</div> : null}
 
-              {productListQuery.isLoading ? <div className="product-management-state">Loading products from API...</div> : null}
+                  {productListQuery.isError ? (
+                    <div className="product-management-state product-management-state-error">
+                      {getProductServiceResultMessage(productListQuery.error)}
+                    </div>
+                  ) : null}
 
-              {productListQuery.isError ? (
-                <div className="product-management-state product-management-state-error">
-                  {getProductServiceResultMessage(productListQuery.error)}
-                </div>
-              ) : null}
+                  {businessTypeListQuery.isError ? (
+                    <div className="product-management-state product-management-state-error">
+                      {getBusinessTypeServiceResultMessage(businessTypeListQuery.error)}
+                    </div>
+                  ) : null}
 
-              {!productListQuery.isLoading && !productListQuery.isError && visibleProducts.length === 0 ? (
-                <div className="product-management-state">No products found.</div>
-              ) : null}
+                  {!productListQuery.isLoading && !productListQuery.isError && visibleProducts.length === 0 ? (
+                    <div className="product-management-state">No products found.</div>
+                  ) : null}
 
-              {!productListQuery.isLoading && !productListQuery.isError && visibleProducts.length > 0 ? (
-                <section className="product-management-grid">
+                  {!productListQuery.isLoading && !productListQuery.isError && visibleProducts.length > 0 ? (
+                    <section className="product-management-grid">
                   {visibleProducts.map((product) => {
                     const thumbnailUrl = product.thumbnail?.fileUrl ?? product.defaultVersion?.thumbnail?.fileUrl;
 
@@ -230,6 +239,15 @@ export function Productmanagement() {
                         <div className="product-card-body">
                           <h3>{product.productName}</h3>
                           <p className="product-card-category">{product.categoryName}</p>
+                          <div className="product-business-type-tags">
+                            {product.businessTypes?.length ? (
+                              product.businessTypes.map((businessType) => (
+                                <span key={businessType.id}>{businessType.name}</span>
+                              ))
+                            ) : (
+                              <span className="product-business-type-empty">No business type</span>
+                            )}
+                          </div>
                           <p className="product-card-description">{product.description ?? 'No description.'}</p>
                           <div className="product-card-meta">
                             <span>{product.productCode ?? 'Auto-generated'}</span>
@@ -301,6 +319,25 @@ export function Productmanagement() {
                                 {categoryListQuery.isError ? <em>{getProductServiceResultMessage(categoryListQuery.error)}</em> : null}
                               </label>
 
+                              <div className="product-form-field">
+                                <span>Business Type</span>
+                                <div className="product-business-type-checkboxes">
+                                  {businessTypeListQuery.isLoading ? <small>Loading business types...</small> : null}
+                                  {businessTypeOptions.map((businessType) => (
+                                    <label key={businessType.id}>
+                                      <input
+                                        defaultChecked={(product.businessTypeIds ?? []).includes(businessType.id)}
+                                        name="business_type_ids"
+                                        type="checkbox"
+                                        value={businessType.id}
+                                      />
+                                      <span>{businessType.name}</span>
+                                    </label>
+                                  ))}
+                                </div>
+                                {businessTypeListQuery.isError ? <em>{getBusinessTypeServiceResultMessage(businessTypeListQuery.error)}</em> : null}
+                              </div>
+
                               <label className="product-form-field">
                                 <span>Description</span>
                                 <textarea
@@ -337,8 +374,10 @@ export function Productmanagement() {
                       </article>
                     );
                   })}
-                </section>
-              ) : null}
+                    </section>
+                  ) : null}
+                </div>
+              </div>
             </section>
 
             <div className="product-management-note">
@@ -353,22 +392,3 @@ export function Productmanagement() {
 
 export default Productmanagement;
 
-function formatEnumLabel(value: string) {
-  return value
-    .toLowerCase()
-    .split('_')
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(' ');
-}
-
-function formatSortLabel(value: ProductSortFilter) {
-  if (value === 'NAME_ASC') {
-    return 'Name A-Z';
-  }
-
-  if (value === 'NAME_DESC') {
-    return 'Name Z-A';
-  }
-
-  return 'Newest';
-}

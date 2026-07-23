@@ -6,10 +6,12 @@ import {
   IconLayoutDashboard,
   IconMaximize,
   IconMessageDots,
+  IconPackage,
 } from '@tabler/icons-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 
 import { CustomerNavbar } from '@/features/CustomerPages/customercomponents';
+import { ProjectChatPanel } from '@/features/projectChat/ProjectChatPanel';
 import { BlueprintCanvas } from '@/features/ThreeD/components/BlueprintCanvas';
 import { RoomPreview3D, type PlacedProduct3D } from '@/features/ThreeD/components/RoomPreview3D';
 import type { RoomMaterialSelection } from '@/features/ThreeD/types/roomLayout.types';
@@ -27,21 +29,31 @@ import {
   useProjectProposals,
   useProposalItems,
   useProposalScenes,
+  useRequestProposalRevision,
   useRoomPlannerScene,
+  useSelectFinalProposal,
 } from '@/services/queries';
+import { aggregateDuplicateItems } from '@/shared/utils/itemAggregation';
 
 type ViewMode = '2d' | '3d';
+type SidePanelMode = 'items' | 'chat' | null;
 
 export function Customer3dPreviewPage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
+  const projectIdFromUrl = searchParams.get('projectId') ?? '';
+  const proposalIdFromUrl = searchParams.get('proposalId') ?? '';
+  const sceneIdFromUrl = searchParams.get('sceneId') ?? '';
   const stageRef = useRef<HTMLDivElement>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('3d');
+  const [sidePanelMode, setSidePanelMode] = useState<SidePanelMode>(null);
   const [selectedObjectId, setSelectedObjectId] = useState<string | null>(null);
   const [decisionMessage, setDecisionMessage] = useState('');
-  const [selectedProjectId, setSelectedProjectId] = useState(() => searchParams.get('projectId') ?? '');
-  const [selectedProposalId, setSelectedProposalId] = useState<string | null>(null);
-  const [selectedSceneId, setSelectedSceneId] = useState<string | null>(null);
+  const [selectedProjectId, setSelectedProjectId] = useState(() => projectIdFromUrl);
+  const [selectedProposalId, setSelectedProposalId] = useState<string | null>(() => proposalIdFromUrl || null);
+  const [selectedSceneId, setSelectedSceneId] = useState<string | null>(() => sceneIdFromUrl || null);
+  const selectFinalProposalMutation = useSelectFinalProposal();
+  const requestProposalRevisionMutation = useRequestProposalRevision();
 
   const projectsQuery = useProjectList({ page: 1, limit: 50 });
   const projects = useMemo(() => projectsQuery.data?.items ?? [], [projectsQuery.data?.items]);
@@ -96,6 +108,8 @@ export function Customer3dPreviewPage() {
   );
   const proposalItems = useMemo(() => proposalItemsQuery.data?.items ?? [], [proposalItemsQuery.data?.items]);
   const sceneProducts = hydratedScene.placedProducts;
+  const displayProposalItems = useMemo(() => aggregateDuplicateItems(proposalItems), [proposalItems]);
+  const displaySceneProducts = useMemo(() => aggregateSceneProducts(sceneProducts), [sceneProducts]);
   const selectedObject = useMemo(
     () => sceneProducts.find((object) => object.id === selectedObjectId) ?? null,
     [sceneProducts, selectedObjectId],
@@ -116,7 +130,25 @@ export function Customer3dPreviewPage() {
   }, [projects, selectedProjectId, setSearchParams]);
 
   useEffect(() => {
-    if (!selectedProjectId || searchParams.get('projectId') === selectedProjectId) {
+    if (projectIdFromUrl && projectIdFromUrl !== selectedProjectId) {
+      setSelectedProjectId(projectIdFromUrl);
+    }
+  }, [projectIdFromUrl, selectedProjectId]);
+
+  useEffect(() => {
+    if (proposalIdFromUrl && proposalIdFromUrl !== selectedProposalId) {
+      setSelectedProposalId(proposalIdFromUrl);
+    }
+  }, [proposalIdFromUrl, selectedProposalId]);
+
+  useEffect(() => {
+    if (sceneIdFromUrl && sceneIdFromUrl !== selectedSceneId) {
+      setSelectedSceneId(sceneIdFromUrl);
+    }
+  }, [sceneIdFromUrl, selectedSceneId]);
+
+  useEffect(() => {
+    if (!selectedProjectId || projectIdFromUrl === selectedProjectId) {
       return;
     }
 
@@ -125,23 +157,73 @@ export function Customer3dPreviewPage() {
       nextParams.set('projectId', selectedProjectId);
       return nextParams;
     }, { replace: true });
-  }, [searchParams, selectedProjectId, setSearchParams]);
+  }, [projectIdFromUrl, selectedProjectId, setSearchParams]);
 
   useEffect(() => {
-    setSelectedProposalId(proposals[0]?.proposalId ?? null);
-  }, [selectedProjectId, proposals]);
+    setSelectedProposalId((currentProposalId) => {
+      if (currentProposalId && proposals.some((proposal) => proposal.proposalId === currentProposalId)) {
+        return currentProposalId;
+      }
+
+      if (proposalIdFromUrl && proposals.some((proposal) => proposal.proposalId === proposalIdFromUrl)) {
+        return proposalIdFromUrl;
+      }
+
+      return proposals[0]?.proposalId ?? null;
+    });
+  }, [proposalIdFromUrl, proposals, selectedProjectId]);
 
   useEffect(() => {
-    setSelectedSceneId(scenes[0]?.sceneId ?? null);
-  }, [selectedProposal?.proposalId, scenes]);
+    setSelectedSceneId((currentSceneId) => {
+      if (currentSceneId && scenes.some((scene) => scene.sceneId === currentSceneId)) {
+        return currentSceneId;
+      }
+
+      if (sceneIdFromUrl && scenes.some((scene) => scene.sceneId === sceneIdFromUrl)) {
+        return sceneIdFromUrl;
+      }
+
+      return scenes[0]?.sceneId ?? null;
+    });
+  }, [sceneIdFromUrl, selectedProposal?.proposalId, scenes]);
 
   useEffect(() => {
     setSelectedObjectId(null);
   }, [selectedScene?.sceneId]);
 
+  async function selectProposal() {
+    if (!selectedProposal) {
+      return;
+    }
+
+    setDecisionMessage('');
+
+    try {
+      await selectFinalProposalMutation.mutateAsync({ proposalId: selectedProposal.proposalId });
+      setDecisionMessage('Proposal selected successfully.');
+    } catch (error) {
+      setDecisionMessage(getProposalServiceResultMessage(error));
+    }
+  }
+
+  async function requestRevision() {
+    if (!selectedProposal) {
+      return;
+    }
+
+    setDecisionMessage('');
+
+    try {
+      await requestProposalRevisionMutation.mutateAsync({ proposalId: selectedProposal.proposalId });
+      setDecisionMessage('Revision requested successfully.');
+    } catch (error) {
+      setDecisionMessage(getProposalServiceResultMessage(error));
+    }
+  }
+
   return (
     <main className="customer-3d-preview-page">
-      <CustomerNavbar activeLabel="2D/3D Review" classPrefix="customer-3d-preview" />
+      <CustomerNavbar activeLabel="Design Proposals" classPrefix="customer-3d-preview" />
 
       <section className="customer-3d-preview-viewer" aria-label="Customer proposal scene review">
         <div className="customer-3d-preview-toolbar">
@@ -177,6 +259,26 @@ export function Customer3dPreviewPage() {
                 <IconCube size={16} stroke={1.8} /> 3D View
               </button>
             </div>
+            <div className="customer-3d-preview-panel-switch" role="tablist" aria-label="Preview side panel">
+              <button
+                className={sidePanelMode === 'chat' ? 'customer-3d-preview-view-active' : ''}
+                type="button"
+                role="tab"
+                aria-selected={sidePanelMode === 'chat'}
+                onClick={() => setSidePanelMode((currentMode) => (currentMode === 'chat' ? null : 'chat'))}
+              >
+                <IconMessageDots size={16} stroke={1.8} /> Chat
+              </button>
+              <button
+                className={sidePanelMode === 'items' ? 'customer-3d-preview-view-active' : ''}
+                type="button"
+                role="tab"
+                aria-selected={sidePanelMode === 'items'}
+                onClick={() => setSidePanelMode((currentMode) => (currentMode === 'items' ? null : 'items'))}
+              >
+                <IconPackage size={16} stroke={1.8} /> Scene Items
+              </button>
+            </div>
             <span className="customer-3d-preview-status">{selectedProposal?.status ?? 'No proposal'}</span>
             <button
               className="customer-3d-preview-icon-button"
@@ -189,30 +291,9 @@ export function Customer3dPreviewPage() {
           </div>
         </div>
 
-        <div className="customer-3d-preview-workspace">
+        <div className={`customer-3d-preview-workspace${sidePanelMode ? '' : ' customer-3d-preview-workspace-no-side'}`}>
           <aside className="customer-3d-preview-left-panel" aria-label="Project proposals">
             <PanelHeader title="Proposals" />
-            <div className="customer-proposal-project-picker">
-              <label>
-                <span>Project</span>
-                <select
-                  disabled={projectsQuery.isLoading || projects.length === 0}
-                  value={selectedProjectId}
-                  onChange={(event) => {
-                    setSelectedProjectId(event.target.value);
-                    setSelectedProposalId(null);
-                    setSelectedSceneId(null);
-                  }}
-                >
-                  {!selectedProjectId && <option value="">Select project</option>}
-                  {projects.map((project) => (
-                    <option key={project.projectId} value={project.projectId}>
-                      {project.projectName}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </div>
             <div className="customer-proposal-list">
               {projectsQuery.isLoading && <p>Loading projects...</p>}
               {!projectsQuery.isLoading && projects.length === 0 && <p>No customer projects returned yet.</p>}
@@ -229,6 +310,13 @@ export function Customer3dPreviewPage() {
                   onSelect={() => {
                     setSelectedProposalId(proposal.proposalId);
                     setSelectedSceneId(null);
+                    setSearchParams((currentParams) => {
+                      const nextParams = new URLSearchParams(currentParams);
+                      nextParams.set('projectId', proposal.projectId);
+                      nextParams.set('proposalId', proposal.proposalId);
+                      nextParams.delete('sceneId');
+                      return nextParams;
+                    }, { replace: true });
                   }}
                 />
               ))}
@@ -246,7 +334,16 @@ export function Customer3dPreviewPage() {
                   className={scene.sceneId === selectedScene?.sceneId ? 'is-active' : ''}
                   key={scene.sceneId}
                   type="button"
-                  onClick={() => setSelectedSceneId(scene.sceneId)}
+                  onClick={() => {
+                    setSelectedSceneId(scene.sceneId);
+                    setSearchParams((currentParams) => {
+                      const nextParams = new URLSearchParams(currentParams);
+                      nextParams.set('projectId', selectedProjectId);
+                      nextParams.set('proposalId', scene.proposalId);
+                      nextParams.set('sceneId', scene.sceneId);
+                      return nextParams;
+                    }, { replace: true });
+                  }}
                 >
                   <span>{String(index + 1).padStart(2, '0')}</span>
                   <div><strong>{scene.sceneName}</strong><small>Version {scene.versionNo}</small></div>
@@ -292,42 +389,71 @@ export function Customer3dPreviewPage() {
 
             <div className="customer-3d-preview-scene-card">
               <strong>{selectedScene?.sceneName ?? selectedProposal?.proposalName ?? 'Room Planner Scene'}</strong>
-              <span />
               <p>{selectedScene ? `Scene version ${selectedScene.versionNo}` : selectedProposal ? `Proposal version ${selectedProposal.versionNo}` : 'No scene selected'}</p>
             </div>
 
             <div className="customer-readonly-notice">Saved scene - editing disabled</div>
           </div>
 
-          <aside className="customer-3d-preview-right-panel" aria-label="Scene items">
-            <PanelHeader title="Scene Items" />
-            {selectedObject && (
-              <div className="customer-selected-object">
-                <span>Selected object</span>
-                <strong>{selectedObject.modelName}</strong>
-                <small>{selectedObject.productVersionId ?? selectedObject.productId ?? selectedObject.id}</small>
-              </div>
-            )}
-            <div className="customer-3d-preview-item-list">
-              {proposalItemsQuery.isLoading && <p className="customer-scene-state">Loading proposal items...</p>}
-              {proposalItems.length > 0
-                ? proposalItems.map((item) => <ProposalItemCard item={item} key={item.proposalItemId} />)
-                : sceneProducts.map((product) => <SceneProductCard product={product} key={product.id} />)}
-              {!proposalItemsQuery.isLoading && proposalItems.length === 0 && sceneProducts.length === 0 && (
-                <p className="customer-scene-state">No furniture objects are saved in this scene yet.</p>
-              )}
-            </div>
+          {sidePanelMode ? (
+          <aside className="customer-3d-preview-right-panel" aria-label={sidePanelMode === 'chat' ? 'Designer chat' : 'Scene items'}>
+            <PanelHeader title={sidePanelMode === 'chat' ? 'Designer Chat' : 'Scene Items'} />
+            {sidePanelMode === 'chat' ? (
+              selectedProject ? (
+                <div className="customer-3d-preview-side-content customer-3d-preview-side-chat">
+                  <ProjectChatPanel
+                    compact
+                    preferredChatType="DESIGNER"
+                    projectCode={selectedProject.projectCode}
+                    projectId={selectedProject.projectId}
+                    title="Designer Chat"
+                  />
+                </div>
+              ) : (
+                <p className="customer-scene-state">Select a project to chat with the assigned designer.</p>
+              )
+            ) : (
+              <>
+                <div className="customer-3d-preview-side-content">
+                  {selectedObject && (
+                    <div className="customer-selected-object">
+                      <span>Selected object</span>
+                      <strong>{selectedObject.modelName}</strong>
+                      <small>{selectedObject.productVersionId ?? selectedObject.productId ?? selectedObject.id}</small>
+                    </div>
+                  )}
+                  <div className="customer-3d-preview-item-list">
+                    {proposalItemsQuery.isLoading && <p className="customer-scene-state">Loading proposal items...</p>}
+                    {displayProposalItems.length > 0
+                      ? displayProposalItems.map((item) => <ProposalItemCard item={item} key={item.proposalItemId} />)
+                      : displaySceneProducts.map((product) => <SceneProductCard product={product} key={product.id} />)}
+                    {!proposalItemsQuery.isLoading && displayProposalItems.length === 0 && displaySceneProducts.length === 0 && (
+                      <p className="customer-scene-state">No furniture objects are saved in this scene yet.</p>
+                    )}
+                  </div>
+                </div>
 
-            {decisionMessage && <div className="customer-decision-message">{decisionMessage}</div>}
-            <div className="customer-3d-preview-decision">
-              <button type="button" onClick={() => setDecisionMessage('Feedback draft opened for this proposal scene.')}>
-                <IconMessageDots size={18} stroke={1.8} /> Request Revision
-              </button>
-              <button type="button" onClick={() => setDecisionMessage('Proposal selection recorded in demo mode.')}>
-                <IconCircleCheck size={18} stroke={1.8} /> Select Proposal
-              </button>
-            </div>
+                {decisionMessage && <div className="customer-decision-message">{decisionMessage}</div>}
+                <div className="customer-3d-preview-decision">
+                  <button
+                    disabled={!selectedProposal || requestProposalRevisionMutation.isPending}
+                    type="button"
+                    onClick={() => void requestRevision()}
+                  >
+                    <IconMessageDots size={18} stroke={1.8} /> Request Revision
+                  </button>
+                  <button
+                    disabled={!selectedProposal || selectFinalProposalMutation.isPending}
+                    type="button"
+                    onClick={() => void selectProposal()}
+                  >
+                    <IconCircleCheck size={18} stroke={1.8} /> Select Proposal
+                  </button>
+                </div>
+              </>
+            )}
           </aside>
+          ) : null}
         </div>
       </section>
     </main>
@@ -373,7 +499,9 @@ function ProposalItemCard({ item }: { item: ProposalItemDto }) {
   );
 }
 
-function SceneProductCard({ product }: { product: PlacedProduct3D }) {
+type AggregatedSceneProduct = PlacedProduct3D & { quantity: number };
+
+function SceneProductCard({ product }: { product: AggregatedSceneProduct }) {
   return (
     <article className="customer-3d-preview-item-card">
       <div>
@@ -381,11 +509,33 @@ function SceneProductCard({ product }: { product: PlacedProduct3D }) {
         <span>{[product.visualSnapshot?.material, product.visualSnapshot?.color].filter(Boolean).join(' - ') || product.productVersionId || product.id}</span>
       </div>
       <div>
-        <span>1x</span>
+        <span>{product.quantity}x</span>
         <strong>{product.productVersionId ? 'From scene' : 'Local object'}</strong>
       </div>
     </article>
   );
+}
+
+function aggregateSceneProducts(products: PlacedProduct3D[]) {
+  const productsBySample = new Map<string, AggregatedSceneProduct>();
+
+  for (const product of products) {
+    const key = [
+      product.productVersionId ?? product.productId ?? product.modelName,
+      product.visualSnapshot?.material ?? 'NO_MATERIAL',
+      product.visualSnapshot?.color ?? 'NO_COLOR',
+    ].join('|');
+    const existingProduct = productsBySample.get(key);
+
+    if (existingProduct) {
+      existingProduct.quantity += 1;
+      continue;
+    }
+
+    productsBySample.set(key, { ...product, quantity: 1 });
+  }
+
+  return Array.from(productsBySample.values());
 }
 
 function SceneState({ message }: { message: string }) {
@@ -426,7 +576,7 @@ function getSceneFloorMaterial(scene: RoomPlannerSceneData | null | undefined): 
     fallbackColor: layout?.floor?.color ?? '#8B5A2B',
     id: layout?.floor?.materialId ?? layout?.floorMaterialId ?? 'scene-floor',
     label: layout?.floor?.materialId ?? layout?.floorMaterialId ?? 'Scene Floor',
-    textureUrl: layout?.floor?.textureUrlSnapshot ?? undefined,
+    textureUrl: undefined,
     type: 'floor',
   };
 }
@@ -448,7 +598,7 @@ function getSceneWallMaterial(scene: RoomPlannerSceneData | null | undefined): R
     fallbackColor: wallStyle?.color ?? '#D8D2C5',
     id: wallStyle?.materialId ?? layout?.wallMaterialId ?? 'scene-wall',
     label: wallStyle?.materialId ?? layout?.wallMaterialId ?? 'Scene Wall',
-    textureUrl: wallStyle?.textureUrlSnapshot ?? undefined,
+    textureUrl: undefined,
     type: 'wall',
   };
 }

@@ -2,51 +2,46 @@ import {
   IconArrowRight,
   IconCalendar,
   IconChevronRight,
-  IconCurrencyDollar,
-  IconFilter,
   IconHome,
-  IconMapPin,
   IconMessageCircle,
   IconSearch,
-  IconUsers,
   IconX,
 } from '@tabler/icons-react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 import './CustomerProjectListPage.css';
 import { CustomerNavbar } from '@/features/CustomerPages/customercomponents';
-import { mockCustomerProjects } from '@/features/CustomerPages/mockData';
+import { PaymentCollectionModal } from '@/features/payments';
 import { ProjectChatPanel } from '@/features/projectChat/ProjectChatPanel';
+import type { PaymentDetailDto } from '@/services/api/payments';
 import type { ProjectListItemDto, ProjectStatus } from '@/services/api/projects';
+import { usePayments } from '@/services/queries';
 import { useProjectList } from '@/services/queries/useProjects';
+
+const PROJECT_PAGE_SIZE = 6;
 
 export function CustomerProjectListPage() {
   const navigate = useNavigate();
   const [keyword, setKeyword] = useState('');
   const [status, setStatus] = useState<ProjectStatus | ''>('');
-  const [businessType, setBusinessType] = useState('');
+  const [page, setPage] = useState(1);
   const [chatProject, setChatProject] = useState<ProjectListItemDto | null>(null);
   const projectsQuery = useProjectList({
     search: keyword,
     status: status || null,
-    page: 1,
-    limit: 50,
+    page,
+    limit: PROJECT_PAGE_SIZE,
   });
-  const apiProjects = projectsQuery.data?.items ?? [];
-  const usingMockData = projectsQuery.isError || apiProjects.length === 0;
-  const projects = usingMockData ? mockCustomerProjects : apiProjects;
-  const visibleProjects = useMemo(() => {
-    const normalizedKeyword = keyword.trim().toLowerCase();
+  const projects = projectsQuery.data?.items ?? [];
+  const totalProjects = projectsQuery.data?.total ?? 0;
+  const totalPages = Math.max(1, Math.ceil(totalProjects / PROJECT_PAGE_SIZE));
+  const showingFrom = totalProjects === 0 ? 0 : (page - 1) * PROJECT_PAGE_SIZE + 1;
+  const showingTo = Math.min(page * PROJECT_PAGE_SIZE, totalProjects);
 
-    return projects.filter((project) => {
-      const searchableFields = [project.projectCode, project.projectName, project.businessType, project.status];
-      const matchesKeyword = !normalizedKeyword || searchableFields.some((value) => value.toLowerCase().includes(normalizedKeyword));
-      const matchesType = !businessType || project.businessType === businessType;
-
-      return matchesKeyword && matchesType;
-    });
-  }, [businessType, keyword, projects]);
+  useEffect(() => {
+    setPage(1);
+  }, [keyword, status]);
 
   return (
     <main className="customer-project-list-page">
@@ -89,45 +84,38 @@ export function CustomerProjectListPage() {
             <option value="SPACE_VERIFIED">Space Verified</option>
             <option value="REJECTED">Rejected</option>
           </select>
-          <select value={businessType} onChange={(event) => setBusinessType(event.target.value)}>
-            <option value="">Project type</option>
-            <option value="Cafe">Cafe</option>
-            <option value="Retail">Retail</option>
-            <option value="Office">Office</option>
-            <option value="Restaurant">Restaurant</option>
-            <option value="Showroom">Showroom</option>
-          </select>
-          <button type="button">
-            <IconFilter size={17} stroke={1.8} />
-            More Filters
-          </button>
         </section>
 
         <section className="customer-project-list-grid" aria-label="Projects">
           {projectsQuery.isLoading ? <p className="customer-project-list-state">Loading projects...</p> : null}
-          {!projectsQuery.isLoading && usingMockData ? (
-            <p className="customer-project-list-state">Using demo projects for UI preview.</p>
+          {projectsQuery.isError ? <p className="customer-project-list-state customer-project-list-state-error">Cannot load projects. Please try again.</p> : null}
+          {!projectsQuery.isLoading && !projectsQuery.isError && projects.length === 0 ? (
+            <p className="customer-project-list-state">No projects match your current filters.</p>
           ) : null}
-          {!projectsQuery.isLoading && !projectsQuery.isError && visibleProjects.length === 0 ? (
-            <p className="customer-project-list-state">No projects found. Create a project request to start the flow.</p>
-          ) : null}
-          {visibleProjects.map((project) => (
-            <ProjectCard key={project.projectId} project={project} onOpenChat={() => setChatProject(project)} />
+          {projects.map((project) => (
+            <ProjectCard
+              key={project.projectId}
+              project={project}
+              onOpenChat={() => setChatProject(project)}
+              onPaymentCompleted={() => void projectsQuery.refetch()}
+            />
           ))}
         </section>
 
         <footer className="customer-project-list-pagination">
           <p>
-            Showing <strong>{visibleProjects.length}</strong> of <strong>{projects.length}</strong> projects
+            Showing <strong>{showingFrom}-{showingTo}</strong> of <strong>{totalProjects}</strong> projects
           </p>
           <div>
-            <button disabled type="button">
+            <button disabled={page <= 1 || projectsQuery.isFetching} type="button" onClick={() => setPage((current) => Math.max(1, current - 1))}>
               Previous
             </button>
-            <button className="customer-project-list-page-active" type="button">
-              1
+            <button className="customer-project-list-page-active" type="button" aria-current="page">
+              {page}
             </button>
-            <button disabled type="button">Next</button>
+            <button disabled={page >= totalPages || projectsQuery.isFetching} type="button" onClick={() => setPage((current) => Math.min(totalPages, current + 1))}>
+              Next
+            </button>
           </div>
         </footer>
       </div>
@@ -153,20 +141,38 @@ export function CustomerProjectListPage() {
 
 type ProjectCardProps = {
   onOpenChat: () => void;
+  onPaymentCompleted: () => void;
   project: ProjectListItemDto;
 };
 
-function ProjectCard({ onOpenChat, project }: ProjectCardProps) {
+function ProjectCard({ onOpenChat, onPaymentCompleted, project }: ProjectCardProps) {
   const navigate = useNavigate();
+  const [startFeePayment, setStartFeePayment] = useState<PaymentDetailDto | null>(null);
   const stage = getProjectStage(project.status);
   const needsInformationUpdate = project.status === 'NEED_BASIC_INFORMATION';
+  const startFeePaymentsQuery = usePayments(
+    {
+      projectId: project.projectId,
+      paymentType: 'PROJECT_START_FEE',
+    },
+    {
+      enabled: !project.assignedDesignerId && project.status !== 'SUBMITTED' && project.status !== 'REJECTED',
+    },
+  );
+  const projectStartFeePayment = useMemo(() => {
+    const payments = startFeePaymentsQuery.data?.items ?? [];
+
+    return payments.find((payment) => isCollectablePaymentStatus(normalizePaymentStatus(payment.status))) ?? payments[0] ?? null;
+  }, [startFeePaymentsQuery.data?.items]);
+  const startFeePaymentStatus = normalizePaymentStatus(projectStartFeePayment?.status);
+  const canPayStartFee = Boolean(projectStartFeePayment && isCollectablePaymentStatus(startFeePaymentStatus));
 
   return (
     <article className="customer-project-list-card">
       <div className="customer-project-list-card-cover">
         <div>
           <strong>{project.businessType}</strong>
-          <span>{formatDate(project.submittedAt)}</span>
+          <span>{project.projectCode}</span>
         </div>
         <span className={`customer-project-list-status customer-project-list-status-${stage.tone}`}>
           {stage.label}
@@ -179,30 +185,9 @@ function ProjectCard({ onOpenChat, project }: ProjectCardProps) {
 
         <div className="customer-project-list-detail-stack">
           <p>
-            <IconMapPin size={16} stroke={1.8} />
-            Project address available in detail
-          </p>
-          <p>
-            <IconCurrencyDollar size={16} stroke={1.8} />
-            Budget available in detail
-          </p>
-          <p>
             <IconCalendar size={16} stroke={1.8} />
             Submitted: {formatDate(project.submittedAt)}
           </p>
-        </div>
-
-        <div className="customer-project-list-people">
-          <div>
-            <IconUsers size={16} stroke={1.8} />
-            <span>Sales</span>
-            <strong>{project.assignedSalesId ? 'Assigned' : 'Pending'}</strong>
-          </div>
-          <div>
-            <IconUsers size={16} stroke={1.8} />
-            <span>Designer</span>
-            <strong>{project.assignedDesignerId ? 'Assigned' : 'Pending'}</strong>
-          </div>
         </div>
 
         <div className="customer-project-list-stage">
@@ -210,12 +195,26 @@ function ProjectCard({ onOpenChat, project }: ProjectCardProps) {
           <strong>{stage.label}</strong>
         </div>
 
+        {projectStartFeePayment ? (
+          <div className={`customer-project-start-fee ${canPayStartFee ? 'customer-project-start-fee-due' : ''}`}>
+            <span>Project Start Fee</span>
+            <strong>{formatPaymentStatus(startFeePaymentStatus)}</strong>
+          </div>
+        ) : null}
+
         <div className="customer-project-list-actions">
           <button
             type="button"
-            onClick={() => navigate(needsInformationUpdate ? `/customer/projects/${project.projectId}/edit` : '/customer/proposals')}
+            onClick={() => {
+              if (canPayStartFee && projectStartFeePayment) {
+                setStartFeePayment(projectStartFeePayment);
+                return;
+              }
+
+              navigate(needsInformationUpdate ? `/customer/projects/${project.projectId}/edit` : `/customer/proposals?projectId=${project.projectId}`);
+            }}
           >
-            {needsInformationUpdate ? 'Update Information' : 'Open Project'}
+            {canPayStartFee ? 'Pay Start Fee' : needsInformationUpdate ? 'Update Information' : 'Open Project'}
             <IconArrowRight size={16} stroke={1.8} />
           </button>
           <button type="button" onClick={onOpenChat}>
@@ -224,6 +223,23 @@ function ProjectCard({ onOpenChat, project }: ProjectCardProps) {
           </button>
         </div>
       </div>
+
+      <PaymentCollectionModal
+        payment={startFeePayment}
+        title="Project Start Fee"
+        completionTitle="Start fee paid"
+        completionDescription="Your project can now continue to designer assignment."
+        continueLabel="Back to Projects"
+        onClose={() => setStartFeePayment(null)}
+        onContinue={() => {
+          setStartFeePayment(null);
+          onPaymentCompleted();
+        }}
+        onPaid={() => {
+          void startFeePaymentsQuery.refetch();
+          onPaymentCompleted();
+        }}
+      />
     </article>
   );
 }
@@ -236,9 +252,7 @@ function getProjectStage(status: ProjectListItemDto['status']) {
     WAITING_FOR_DESIGNER_ASSIGNMENT: { label: 'Waiting Designer', tone: 'stone' },
     MEASUREMENT_REQUIRED: { label: 'Measurement Required', tone: 'stone' },
     SPACE_VERIFIED: { label: 'Space Verified', tone: 'green' },
-    PROPOSAL_DRAFTING: { label: 'Proposal Drafting', tone: 'stone' },
-    WAITING_FOR_CUSTOMER_REVIEW: { label: 'Awaiting Your Review', tone: 'gold' },
-    REVISION_REQUESTED: { label: 'Revision Requested', tone: 'gold' },
+    PROPOSAL_CONSULTING: { label: 'Proposal Consulting', tone: 'gold' },
     PROPOSAL_SELECTED: { label: 'Proposal Selected', tone: 'green' },
     QUOTATION_SENT: { label: 'Quotation Sent', tone: 'gold' },
     QUOTATION_REVISION_REQUESTED: { label: 'Quotation Revision', tone: 'gold' },
@@ -261,4 +275,54 @@ function formatDate(value: string) {
     month: 'short',
     year: 'numeric',
   }).format(new Date(value));
+}
+
+const paymentStatusByNumber: Record<number, string> = {
+  0: 'PENDING',
+  1: 'PROCESSING',
+  2: 'PARTIALLY_PAID',
+  3: 'PAID',
+  4: 'FAILED',
+  5: 'CANCELLED',
+  6: 'EXPIRED',
+  7: 'REFUNDED',
+};
+
+function isCollectablePaymentStatus(status?: string | null) {
+  return status === 'PENDING' || status === 'PROCESSING' || status === 'PARTIALLY_PAID';
+}
+
+function normalizePaymentStatus(value: unknown) {
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    const numeric = Number(trimmed);
+
+    if (trimmed && Number.isInteger(numeric) && numeric in paymentStatusByNumber) {
+      return paymentStatusByNumber[numeric];
+    }
+
+    return trimmed ? trimmed.toUpperCase() : null;
+  }
+
+  if (typeof value === 'number' && Number.isInteger(value) && value in paymentStatusByNumber) {
+    return paymentStatusByNumber[value];
+  }
+
+  if (value && typeof value === 'object') {
+    const candidate = value as { name?: unknown; value?: unknown; status?: unknown };
+
+    return normalizePaymentStatus(candidate.name ?? candidate.value ?? candidate.status);
+  }
+
+  return null;
+}
+
+function formatPaymentStatus(status?: string | null) {
+  if (!status) return 'Not created';
+
+  return status
+    .toLowerCase()
+    .split('_')
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
 }

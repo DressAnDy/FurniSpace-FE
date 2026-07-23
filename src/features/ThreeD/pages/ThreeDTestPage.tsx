@@ -31,6 +31,7 @@ import {
 import { createRoomPlannerScenePayload, hydrateRoomPlannerScenePayload } from '@/features/ThreeD/utils/roomPlannerSceneMapper';
 import type { RoomPlannerObject } from '@/features/ThreeD/types/roomPlannerScene.types';
 import {
+  getCategoryServiceResultMessage,
   getProductById,
   getProducts,
   getProductServiceResultMessage,
@@ -39,6 +40,8 @@ import {
   type ProductVersionDto,
 } from '@/services/api';
 import {
+  useCategoryList,
+  useProposalDetail,
   useRoomPlannerScene,
   useSaveRoomPlannerScene,
   useSyncProposalItemsFromScene,
@@ -67,9 +70,11 @@ type ProductModel = {
   missingReferences?: string[];
   modelUrl: string;
   name: string;
+  categoryId?: string | null;
+  categoryName?: string | null;
   productId?: string;
   productVersionId?: string;
-  source?: 'api' | 'local' | 'uploaded';
+  source?: 'api' | 'uploaded';
   thumbnailUrl: string;
   width?: number | null;
 };
@@ -179,18 +184,6 @@ const FALLBACK_SWATCHES: MaterialSwatch[] = [
   { color: '#8E8F88', id: 'stone-gray', name: 'Stone Gray' },
 ];
 
-const FALLBACK_PRODUCT_MODELS: ProductModel[] = [
-  {
-    id: 'fallback-metal-stool',
-    modelUrl: '/models/3d-test/chair01/metal_stool_02_4k.gltf',
-    name: 'Metal Stool',
-    source: 'local',
-    thumbnailUrl: '/models/3d-test/thumbnails/placeholder-product.svg',
-  },
-];
-
-const EMPTY_PRODUCT_MODELS: ProductModel[] = [];
-
 function getCatalogModelFile(files: CatalogFileDto[] | undefined) {
   return files?.find((file) => file.fileType === 'MODEL_3D') ?? null;
 }
@@ -199,6 +192,14 @@ function getVersionThumbnail(product: ProductDetailDto, version: ProductVersionD
   return version.thumbnail?.fileUrl ??
     product.thumbnail?.fileUrl ??
     version.files?.find((file) => file.fileType === 'PRODUCT_PREVIEW')?.fileUrl ??
+    '/models/3d-test/thumbnails/placeholder-product.svg';
+}
+
+function getProductThumbnail(product: ProductDetailDto) {
+  return product.thumbnail?.fileUrl ??
+    product.files?.find((file) => file.fileType === 'PRODUCT_PREVIEW')?.fileUrl ??
+    product.defaultVersion?.thumbnail?.fileUrl ??
+    product.defaultVersion?.files?.find((file) => file.fileType === 'PRODUCT_PREVIEW')?.fileUrl ??
     '/models/3d-test/thumbnails/placeholder-product.svg';
 }
 
@@ -218,6 +219,8 @@ function mapCatalogVersionToModel(product: ProductDetailDto, version: ProductVer
     material: version.material,
     modelUrl: modelFile.fileUrl,
     name: `${product.productName} - ${version.versionName}`,
+    categoryId: product.categoryId,
+    categoryName: product.categoryName,
     productId: product.productId,
     productVersionId: version.productVersionId,
     source: 'api',
@@ -235,6 +238,47 @@ function mergeProductModels(...groups: ProductModel[][]) {
   });
 
   return [...models.values()];
+}
+
+function createSceneObjectId(existingIds: Set<string>) {
+  let candidate = `scene-object-${globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`}`;
+
+  while (existingIds.has(candidate)) {
+    candidate = `scene-object-${globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`}`;
+  }
+
+  return candidate;
+}
+
+function getNextSceneObjectId(products: PlacedProduct3D[]) {
+  return createSceneObjectId(new Set(products.map((product) => product.id)));
+}
+
+function ensureUniquePlacedProductIds(products: PlacedProduct3D[]) {
+  const seenIds = new Set<string>();
+  let changed = false;
+
+  const nextProducts = products.map((product) => {
+    if (product.id && !seenIds.has(product.id)) {
+      seenIds.add(product.id);
+      return product;
+    }
+
+    changed = true;
+    const nextId = createSceneObjectId(seenIds);
+    seenIds.add(nextId);
+
+    return {
+      ...product,
+      id: nextId,
+      proposalItemId: null,
+    };
+  });
+
+  return {
+    changed,
+    products: nextProducts,
+  };
 }
 
 function getSyncableProposalItems(products: PlacedProduct3D[]) {
@@ -279,6 +323,8 @@ const TOOL_ITEMS: Array<{
   { id: 'save', label: 'Save' },
 ];
 
+const ROOM_PLANNER_SAVE_STATUSES = ['DRAFT', 'PUBLISHED', 'REVISION_REQUESTED'] as const;
+
 function materialFromSwatch(swatch: MaterialSwatch): RoomMaterialSelection {
   return {
     fallbackColor: swatch.color,
@@ -301,10 +347,6 @@ function parseNumberInput(value: string, fallback: number) {
 function getCatalogSourceLabel(product: ProductModel) {
   if (product.source === 'uploaded') {
     return 'Uploaded';
-  }
-
-  if (product.source === 'local') {
-    return 'Test asset';
   }
 
   return 'Catalog';
@@ -406,10 +448,12 @@ export function ThreeDTestPage() {
   const isCreateProposal = routeState?.mode === 'create-proposal';
   const isAdminLab = location.pathname.startsWith('/admin/3d-lab');
   const uploadModelMutation = useUploadProductVersionFile();
+  const categoriesQuery = useCategoryList({ page: 1, limit: 100 });
   const roomPlannerSceneQuery = useRoomPlannerScene(sceneId, { enabled: isProposalScene });
   const saveRoomPlannerSceneMutation = useSaveRoomPlannerScene();
   const syncProposalItemsMutation = useSyncProposalItemsFromScene();
   const currentProposalId = routeState?.proposalId ?? roomPlannerSceneQuery.data?.proposalId ?? null;
+  const proposalDetailQuery = useProposalDetail(currentProposalId ?? undefined, { enabled: Boolean(currentProposalId) && isProposalScene });
   const currentProjectId = routeState?.projectId ?? roomPlannerSceneQuery.data?.projectId ?? null;
   const backLinkTarget = routeState?.returnTo ?? (currentProjectId ? `/designer/assigned-projects/${currentProjectId}` : isAdminLab ? '/admin/dashbroad' : '/designer/assigned-projects');
   const [activeTool, setActiveTool] = useState<BlueprintTool>('select');
@@ -419,9 +463,10 @@ export function ThreeDTestPage() {
   const [designPanel, setDesignPanel] = useState<DesignPanel>('products');
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [panelSearch, setPanelSearch] = useState('');
-  const [productModels, setProductModels] = useState<ProductModel[]>(() => (isProposalScene ? EMPTY_PRODUCT_MODELS : FALLBACK_PRODUCT_MODELS));
+  const [selectedCatalogCategoryId, setSelectedCatalogCategoryId] = useState<string | null>(null);
+  const [selectedCatalogProductId, setSelectedCatalogProductId] = useState<string | null>(null);
+  const [apiCatalogProducts, setApiCatalogProducts] = useState<ProductDetailDto[]>([]);
   const [apiProductModels, setApiProductModels] = useState<ProductModel[]>([]);
-  const [catalogModelMessage, setCatalogModelMessage] = useState('Loading catalog MODEL_3D files...');
   const [uploadedProductModels, setUploadedProductModels] = useState<ProductModel[]>([]);
   const [modelUploadProductVersionId, setModelUploadProductVersionId] = useState('');
   const [modelUploadMessage, setModelUploadMessage] = useState('');
@@ -463,6 +508,9 @@ export function ThreeDTestPage() {
   );
   const roomArea = useMemo(() => (layout ? getRoomArea(layout) : 0), [layout]);
   const isSavingRoomPlanner = saveRoomPlannerSceneMutation.isPending || syncProposalItemsMutation.isPending;
+  const canSaveRoomPlannerStatus =
+    !proposalDetailQuery.data?.status ||
+    ROOM_PLANNER_SAVE_STATUSES.includes(proposalDetailQuery.data.status as (typeof ROOM_PLANNER_SAVE_STATUSES)[number]);
   const selectedProduct = useMemo(
     () => placedProducts.find((product) => product.id === selectedProductId) ?? null,
     [placedProducts, selectedProductId],
@@ -471,9 +519,8 @@ export function ThreeDTestPage() {
     () => mergeProductModels(
       uploadedProductModels,
       apiProductModels,
-      isProposalScene ? EMPTY_PRODUCT_MODELS : productModels,
     ),
-    [apiProductModels, isProposalScene, productModels, uploadedProductModels],
+    [apiProductModels, uploadedProductModels],
   );
   const filteredProductModels = useMemo(() => {
     const normalizedSearch = panelSearch.trim().toLowerCase();
@@ -482,11 +529,86 @@ export function ThreeDTestPage() {
       ? availableProductModels.filter((product) => product.name.toLowerCase().includes(normalizedSearch))
       : availableProductModels;
   }, [availableProductModels, panelSearch]);
+  const normalizedCatalogSearch = panelSearch.trim().toLowerCase();
+  const productModelCountByProductId = useMemo(() => {
+    const counts = new Map<string, number>();
+
+    apiProductModels.forEach((model) => {
+      if (!model.productId) {
+        return;
+      }
+
+      counts.set(model.productId, (counts.get(model.productId) ?? 0) + 1);
+    });
+
+    return counts;
+  }, [apiProductModels]);
+  const catalogCategoryCards = useMemo(() => {
+    const categories = categoriesQuery.data?.items ?? [];
+    const productCountsByCategoryId = new Map<string, number>();
+
+    apiCatalogProducts.forEach((product) => {
+      if (!productModelCountByProductId.has(product.productId)) {
+        return;
+      }
+
+      productCountsByCategoryId.set(
+        product.categoryId,
+        (productCountsByCategoryId.get(product.categoryId) ?? 0) + 1,
+      );
+    });
+
+    return categories
+      .map((category) => ({
+        category,
+        productCount: productCountsByCategoryId.get(category.categoryId) ?? 0,
+      }))
+      .filter((item) => item.productCount > 0)
+      .filter((item) =>
+        normalizedCatalogSearch
+          ? item.category.categoryName.toLowerCase().includes(normalizedCatalogSearch)
+          : true,
+      );
+  }, [apiCatalogProducts, categoriesQuery.data?.items, normalizedCatalogSearch, productModelCountByProductId]);
+  const selectedCatalogCategory = useMemo(
+    () => categoriesQuery.data?.items.find((category) => category.categoryId === selectedCatalogCategoryId) ?? null,
+    [categoriesQuery.data?.items, selectedCatalogCategoryId],
+  );
+  const selectedCategoryProducts = useMemo(
+    () =>
+      apiCatalogProducts
+        .filter((product) => product.categoryId === selectedCatalogCategoryId)
+        .filter((product) => productModelCountByProductId.has(product.productId))
+        .filter((product) =>
+          normalizedCatalogSearch
+            ? product.productName.toLowerCase().includes(normalizedCatalogSearch)
+            : true,
+        ),
+    [apiCatalogProducts, normalizedCatalogSearch, productModelCountByProductId, selectedCatalogCategoryId],
+  );
+  const selectedCatalogProduct = useMemo(
+    () => apiCatalogProducts.find((product) => product.productId === selectedCatalogProductId) ?? null,
+    [apiCatalogProducts, selectedCatalogProductId],
+  );
+  const selectedProductModels = useMemo(
+    () =>
+      filteredProductModels.filter((model) =>
+        selectedCatalogProductId
+          ? model.productId === selectedCatalogProductId
+          : false,
+      ),
+    [filteredProductModels, selectedCatalogProductId],
+  );
 
   const openDesignPanel = useCallback((panel: Exclude<DesignPanel, null>) => {
     setDesignPanel(panel);
     setIsSidebarCollapsed(false);
     setPanelSearch('');
+
+    if (panel === 'products') {
+      setSelectedCatalogCategoryId(null);
+      setSelectedCatalogProductId(null);
+    }
   }, []);
 
   const addUploadedProductModel = useCallback((model: ProductModel) => {
@@ -512,13 +634,19 @@ export function ThreeDTestPage() {
     const hydratedScene = hydrateRoomPlannerScenePayload(roomPlannerSceneQuery.data, {
       resolveModelUrl: resolveSceneObjectModelUrl,
     });
+    const normalizedHydratedProducts = ensureUniquePlacedProductIds(hydratedScene.placedProducts).products;
 
     setLayout(hydratedScene.layout);
-    setPlacedProducts(hydratedScene.placedProducts);
+    setPlacedProducts(normalizedHydratedProducts);
     setActiveTool(hydratedScene.activeTool);
     setHideLabels(hydratedScene.hideLabels);
     setIsSidebarCollapsed(hydratedScene.isSidebarCollapsed);
-    setSelectedProductId(hydratedScene.selectedProductId);
+    setSelectedProductId(
+      hydratedScene.selectedProductId &&
+        normalizedHydratedProducts.some((product) => product.id === hydratedScene.selectedProductId)
+        ? hydratedScene.selectedProductId
+        : null,
+    );
     setViewMode(hydratedScene.viewMode);
     setComparisonProductId(null);
     setProductMeasurements(null);
@@ -585,20 +713,29 @@ export function ThreeDTestPage() {
     let isMounted = true;
 
     async function loadCatalogModels() {
-      try {
-        setCatalogModelMessage('Loading catalog MODEL_3D files...');
+      if (categoriesQuery.isLoading || categoriesQuery.isError) {
+        return;
+      }
 
+      try {
         const limit = 100;
         let page = 1;
         let total = 0;
+        let fetchedCount = 0;
         const productIds: string[] = [];
+        const categoryIds = new Set((categoriesQuery.data?.items ?? []).map((category) => category.categoryId));
 
         do {
           const productList = await getProducts({ page, limit });
           total = productList.total;
-          productIds.push(...productList.items.map((product) => product.productId));
+          fetchedCount += productList.items.length;
+          productIds.push(
+            ...productList.items
+              .filter((product) => categoryIds.size === 0 || categoryIds.has(product.categoryId))
+              .map((product) => product.productId),
+          );
           page += 1;
-        } while (productIds.length < total);
+        } while (fetchedCount < total);
 
         const productDetails = await Promise.all(
           productIds.map((productId) => getProductById(productId)),
@@ -610,23 +747,13 @@ export function ThreeDTestPage() {
         );
 
         if (isMounted) {
+          setApiCatalogProducts(productDetails);
           setApiProductModels(models);
-          setCatalogModelMessage(
-            models.length
-              ? `Loaded ${models.length} catalog MODEL_3D file(s).`
-              : isProposalScene
-                ? 'No catalog MODEL_3D files found from backend.'
-                : 'No catalog MODEL_3D files found. Local test models are still available.',
-          );
         }
-      } catch (error) {
+      } catch {
         if (isMounted) {
+          setApiCatalogProducts([]);
           setApiProductModels([]);
-          setCatalogModelMessage(
-            isProposalScene
-              ? getProductServiceResultMessage(error)
-              : `${getProductServiceResultMessage(error)} Local test models are still available.`,
-          );
         }
       }
     }
@@ -636,7 +763,7 @@ export function ThreeDTestPage() {
     return () => {
       isMounted = false;
     };
-  }, [isProposalScene]);
+  }, [categoriesQuery.data?.items, categoriesQuery.isError, categoriesQuery.isLoading]);
 
   useEffect(() => {
     let isMounted = true;
@@ -670,46 +797,6 @@ export function ThreeDTestPage() {
     };
   }, []);
 
-  useEffect(() => {
-    let isMounted = true;
-
-    async function loadProductManifest() {
-      if (isProposalScene) {
-        setProductModels(EMPTY_PRODUCT_MODELS);
-        return;
-      }
-
-      try {
-        const response = await fetch('/models/3d-test/models.json', {
-          cache: 'no-store',
-        });
-
-        if (!response.ok) {
-          throw new Error(`Product manifest request failed with ${response.status}.`);
-        }
-
-        const manifest = await response.json() as {
-          models?: ProductModel[];
-        };
-        const models = manifest.models?.filter((model) => model.modelUrl) ?? [];
-
-        if (isMounted) {
-          setProductModels(models.length ? models : FALLBACK_PRODUCT_MODELS);
-        }
-      } catch {
-        if (isMounted) {
-          setProductModels(FALLBACK_PRODUCT_MODELS);
-        }
-      }
-    }
-
-    void loadProductManifest();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [isProposalScene]);
-
   const handleAddBox = useCallback(() => {
     setLayout(createDefaultRoomLayout());
     setPlacedProducts([]);
@@ -722,6 +809,11 @@ export function ThreeDTestPage() {
   }, []);
 
   const handleSave = useCallback(async () => {
+    if (!canSaveRoomPlannerStatus) {
+      setSaveMessage(`Room Planner can be saved only when proposal is ${ROOM_PLANNER_SAVE_STATUSES.join(', ')}.`);
+      return;
+    }
+
     if (!layout) {
       setSaveMessage('Add a room before saving.');
       return;
@@ -739,7 +831,18 @@ export function ThreeDTestPage() {
       viewMode,
       wallMaterial,
     });
-    const roomPlannerPayload = buildRoomPlannerPayload(placedProducts);
+    const normalizedPlacedProducts = ensureUniquePlacedProductIds(placedProducts);
+    const productsToSave = normalizedPlacedProducts.products;
+    const roomPlannerPayload = buildRoomPlannerPayload(productsToSave);
+
+    if (normalizedPlacedProducts.changed) {
+      setPlacedProducts(productsToSave);
+      setSelectedProductId((currentSelectedProductId) => (
+        currentSelectedProductId && productsToSave.some((product) => product.id === currentSelectedProductId)
+          ? currentSelectedProductId
+          : null
+      ));
+    }
 
     if (isProposalScene && sceneId) {
       setSaveMessage('Saving Room Planner scene to MongoDB...');
@@ -749,7 +852,7 @@ export function ThreeDTestPage() {
           sceneId,
           payload: roomPlannerPayload,
         });
-        const syncItems = getSyncableProposalItems(placedProducts);
+        const syncItems = getSyncableProposalItems(productsToSave);
 
         if (currentProposalId && syncItems.length) {
           setSaveMessage('Room Planner scene saved. Syncing proposal items from scene...');
@@ -759,7 +862,7 @@ export function ThreeDTestPage() {
             sceneId,
             items: syncItems,
           });
-          const productsWithProposalItems = applyProposalItemIds(placedProducts, syncResult.items);
+          const productsWithProposalItems = applyProposalItemIds(productsToSave, syncResult.items);
 
           setPlacedProducts(productsWithProposalItems);
 
@@ -789,6 +892,7 @@ export function ThreeDTestPage() {
     setSaveMessage('Room layout saved locally and logged to console.');
   }, [
     activeTool,
+    canSaveRoomPlannerStatus,
     currentProposalId,
     floorMaterial,
     hideLabels,
@@ -872,13 +976,16 @@ export function ThreeDTestPage() {
 
     setPlacedProducts((currentProducts) => {
       const nextIndex = currentProducts.length;
+      const nextProductId = getNextSceneObjectId(currentProducts);
       const initialScale = getInitialProductScale(product);
+      setSelectedProductId(nextProductId);
+
       return [
         ...currentProducts,
         {
           fileId: product.fileId,
           heightOffset: position?.y ?? 0,
-          id: `product-${String(nextIndex + 1).padStart(3, '0')}`,
+          id: nextProductId,
           mountedWallId: null,
           modelName: product.name,
           modelUrl: product.modelUrl,
@@ -907,9 +1014,8 @@ export function ThreeDTestPage() {
     });
     setViewMode('3d');
     setComparisonProductId(null);
-    setSelectedProductId(`product-${String(placedProducts.length + 1).padStart(3, '0')}`);
     setSaveMessage('');
-  }, [layout, placedProducts.length]);
+  }, [layout]);
 
   const handleProductDrop = useCallback((productModelId: string, position: PlacedProduct3D['position']) => {
     const product = availableProductModels.find((model) => model.id === productModelId);
@@ -957,7 +1063,7 @@ export function ThreeDTestPage() {
   }, []);
 
   const handleDuplicateProduct = useCallback((product: PlacedProduct3D) => {
-    const duplicateId = `product-${String(placedProducts.length + 1).padStart(3, '0')}`;
+    const duplicateId = getNextSceneObjectId(placedProducts);
     const duplicate: PlacedProduct3D = {
       ...product,
       id: duplicateId,
@@ -975,7 +1081,7 @@ export function ThreeDTestPage() {
     setShowProductInfo(false);
     setFreeRotateProductId(null);
     setSaveMessage('');
-  }, [placedProducts.length]);
+  }, [placedProducts]);
 
   const handleDeleteProduct = useCallback((productId: string) => {
     setPlacedProducts((currentProducts) => currentProducts.filter((product) => product.id !== productId));
@@ -1114,7 +1220,6 @@ export function ThreeDTestPage() {
       <header className="room-layout-header">
         <div>
           <h1>{isCreateProposal ? 'Create Proposal 3D Scene' : isProposalScene ? `Room Planner Scene ${sceneId}` : 'FurniSpace Room Layout Editor'}</h1>
-          <p>{isProposalScene ? `Backend scene${currentProposalId ? ` for proposal ${currentProposalId}` : ''}. Load and save are handled through Room Planner APIs.` : 'Draw a 2D blueprint first, edit wall data, then generate the 3D room preview from the same layout.'}</p>
         </div>
         <div className="room-layout-header-actions">
           <button type="button" onClick={() => setViewMode(viewMode === '2d' ? '3d' : '2d')}>
@@ -1228,7 +1333,7 @@ export function ThreeDTestPage() {
                 }}>
                   {hideLabels ? 'Show Labels' : 'Hide Labels'}
                 </button>
-                <button disabled={isSavingRoomPlanner} type="button" onClick={() => void handleSave()}>
+                <button disabled={isSavingRoomPlanner || !canSaveRoomPlannerStatus} type="button" onClick={() => void handleSave()}>
                   {isSavingRoomPlanner ? 'Saving...' : 'Save Project'}
                 </button>
               </div>
@@ -1256,7 +1361,12 @@ export function ThreeDTestPage() {
                   <strong>Catalog</strong>
                   <span>{filteredProductModels.length} ready model(s)</span>
                 </div>
-                <div className="catalog-status">{catalogModelMessage}</div>
+                {categoriesQuery.isLoading && (
+                  <div className="catalog-status">Loading categories...</div>
+                )}
+                {categoriesQuery.isError && (
+                  <div className="catalog-status is-error">{getCategoryServiceResultMessage(categoriesQuery.error)}</div>
+                )}
                 {isAdminLab && (
                   <div className="model-upload-card">
                     <div>
@@ -1286,49 +1396,140 @@ export function ThreeDTestPage() {
                     {modelUploadMessage && <small>{modelUploadMessage}</small>}
                   </div>
                 )}
-                <div className="product-catalog-list">
-                  {filteredProductModels.map((product) => {
-                    const disabled = Boolean(product.missingReferences?.length) || !layout;
+                {!selectedCatalogCategoryId && (
+                  <div className="catalog-page">
+                    {catalogCategoryCards.length === 0 && (
+                      <div className="catalog-status">
+                        {panelSearch.trim() ? 'No categories match your search.' : 'No categories with ready 3D models yet.'}
+                      </div>
+                    )}
+                    <div className="catalog-tile-list">
+                      {catalogCategoryCards.map(({ category, productCount }) => (
+                        <button
+                          className="catalog-category-tile"
+                          key={category.categoryId}
+                          type="button"
+                          onClick={() => {
+                            setSelectedCatalogCategoryId(category.categoryId);
+                            setSelectedCatalogProductId(null);
+                            setPanelSearch('');
+                          }}
+                        >
+                          <strong>{category.categoryName}</strong>
+                          <span>{productCount} product(s)</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
-                    return (
-                      <article
-                        aria-label={product.name}
-                        className={disabled ? 'product-catalog-card is-disabled' : 'product-catalog-card'}
-                        draggable={!disabled}
-                        key={product.id}
-                        title={product.missingReferences?.length ? `${product.name} - missing files` : `Drag ${product.name} into the room`}
-                        onDragStart={(event) => {
-                          if (disabled) {
-                            event.preventDefault();
-                            return;
-                          }
-
-                          event.dataTransfer.effectAllowed = 'copy';
-                          event.dataTransfer.setData('application/x-furnispace-product-id', product.id);
-                        }}
-                      >
-                        <div className="product-catalog-media">
-                          <div className="product-live-thumbnail">
-                            <ModelViewer
-                              autoRotate
-                              fallbackImageUrl={product.thumbnailUrl}
-                              height="100%"
-                              modelUrl={product.modelUrl}
-                              showGrid={false}
-                            />
+                {selectedCatalogCategoryId && !selectedCatalogProductId && (
+                  <div className="catalog-page">
+                    <div className="catalog-page-heading">
+                      <button type="button" onClick={() => {
+                        setSelectedCatalogCategoryId(null);
+                        setPanelSearch('');
+                      }}>
+                        Back
+                      </button>
+                      <div>
+                        <strong>{selectedCatalogCategory?.categoryName ?? 'Category'}</strong>
+                        <span>{selectedCategoryProducts.length} product(s)</span>
+                      </div>
+                    </div>
+                    {selectedCategoryProducts.length === 0 && (
+                      <div className="catalog-status">
+                        {panelSearch.trim() ? 'No products match your search.' : 'No products with ready 3D models in this category.'}
+                      </div>
+                    )}
+                    <div className="product-catalog-list">
+                      {selectedCategoryProducts.map((product) => (
+                        <button
+                          className="product-catalog-card product-browser-card"
+                          key={product.productId}
+                          type="button"
+                          onClick={() => {
+                            setSelectedCatalogProductId(product.productId);
+                            setPanelSearch('');
+                          }}
+                        >
+                          <div className="product-catalog-media">
+                            <img alt="" src={getProductThumbnail(product)} />
                           </div>
-                        </div>
-                        <div className="product-catalog-info">
-                          <strong>{product.name}</strong>
-                          <span>{getCatalogSourceLabel(product)}{product.material ? ` / ${product.material}` : ''}{product.color ? ` / ${product.color}` : ''}</span>
-                          <button disabled={disabled} type="button" onClick={() => handleAddProduct(product)}>
-                            Add to scene
-                          </button>
-                        </div>
-                      </article>
-                    );
-                  })}
-                </div>
+                          <div className="product-catalog-info">
+                            <strong>{product.productName}</strong>
+                            <span>{productModelCountByProductId.get(product.productId) ?? 0} 3D model(s)</span>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {selectedCatalogProductId && (
+                  <div className="catalog-page">
+                    <div className="catalog-page-heading">
+                      <button type="button" onClick={() => {
+                        setSelectedCatalogProductId(null);
+                        setPanelSearch('');
+                      }}>
+                        Back
+                      </button>
+                      <div>
+                        <strong>{selectedCatalogProduct?.productName ?? 'Product'}</strong>
+                        <span>{selectedProductModels.length} version model(s)</span>
+                      </div>
+                    </div>
+                    {selectedProductModels.length === 0 && (
+                      <div className="catalog-status">
+                        {panelSearch.trim() ? 'No product versions match your search.' : 'No 3D model versions are ready for this product.'}
+                      </div>
+                    )}
+                    <div className="product-catalog-list">
+                      {selectedProductModels.map((product) => {
+                        const disabled = Boolean(product.missingReferences?.length) || !layout;
+
+                        return (
+                          <article
+                            aria-label={product.name}
+                            className={disabled ? 'product-catalog-card is-disabled' : 'product-catalog-card'}
+                            draggable={!disabled}
+                            key={product.id}
+                            title={product.missingReferences?.length ? `${product.name} - missing files` : `Drag ${product.name} into the room`}
+                            onDragStart={(event) => {
+                              if (disabled) {
+                                event.preventDefault();
+                                return;
+                              }
+
+                              event.dataTransfer.effectAllowed = 'copy';
+                              event.dataTransfer.setData('application/x-furnispace-product-id', product.id);
+                            }}
+                          >
+                            <div className="product-catalog-media">
+                              <div className="product-live-thumbnail">
+                                <ModelViewer
+                                  autoRotate
+                                  fallbackImageUrl={product.thumbnailUrl}
+                                  height="100%"
+                                  modelUrl={product.modelUrl}
+                                  showGrid={false}
+                                />
+                              </div>
+                            </div>
+                            <div className="product-catalog-info">
+                              <strong>{product.name}</strong>
+                              <span>{getCatalogSourceLabel(product)}{product.material ? ` / ${product.material}` : ''}{product.color ? ` / ${product.color}` : ''}</span>
+                              <button disabled={disabled} type="button" onClick={() => handleAddProduct(product)}>
+                                Add to scene
+                              </button>
+                            </div>
+                          </article>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
               </section>
             )}
 
@@ -1474,7 +1675,7 @@ export function ThreeDTestPage() {
                 <div className="object-info-box">
                   <dl>
                     <div><dt>Product name</dt><dd>{selectedProduct.modelName}</dd></div>
-                    <div><dt>Product ID</dt><dd>{selectedProduct.productId ?? 'Local test model'}</dd></div>
+                    <div><dt>Product ID</dt><dd>{selectedProduct.productId ?? selectedProduct.productVersionId ?? selectedProduct.id}</dd></div>
                     <div><dt>Model URL</dt><dd>{selectedProduct.modelUrl}</dd></div>
                     <div><dt>Position</dt><dd>{selectedProduct.position.x}, {selectedProduct.position.y}, {selectedProduct.position.z}</dd></div>
                     <div><dt>Rotation Y</dt><dd>{normalizeDegrees(toDegrees(getProductRotation(selectedProduct).y))} deg</dd></div>

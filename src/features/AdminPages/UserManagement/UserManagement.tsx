@@ -32,6 +32,7 @@ export function UserManagement() {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [editingAccount, setEditingAccount] = useState<AccountDto | null>(null);
   const [viewingAccountId, setViewingAccountId] = useState<string | null>(null);
+  const [deletingAccount, setDeletingAccount] = useState<AccountDto | null>(null);
 
   const accountListQuery = useAccountList({
     page: 1,
@@ -114,16 +115,16 @@ export function UserManagement() {
           status,
         });
       } else {
-        const passwordHash = normalizeAccountRequiredText(formData.get('passwordHash'));
+        const password = normalizeAccountRequiredText(formData.get('password'));
 
-        if (!passwordHash) {
+        if (!password) {
           return;
         }
 
         await createAccountMutation.mutateAsync({
           roleId,
           email,
-          passwordHash,
+          password,
           fullName,
           phone: normalizeAccountOptionalText(formData.get('phone')),
           avatarUrl: normalizeAccountOptionalText(formData.get('avatarUrl')),
@@ -138,14 +139,9 @@ export function UserManagement() {
   };
 
   const handleDeleteAccount = async (account: AccountDto) => {
-    const shouldDelete = window.confirm(`Delete account ${account.email}? This will soft delete the account and set it inactive.`);
-
-    if (!shouldDelete) {
-      return;
-    }
-
     try {
       await deleteAccountMutation.mutateAsync(account.accountId);
+      setDeletingAccount(null);
     } catch {
       // Error state is rendered below the toolbar.
     }
@@ -291,7 +287,7 @@ export function UserManagement() {
                                 aria-label={`Delete ${account.fullName}`}
                                 title="Soft delete account"
                                 disabled={deleteAccountMutation.isPending}
-                                onClick={() => handleDeleteAccount(account)}
+                                onClick={() => setDeletingAccount(account)}
                               >
                                 <IconTrash size={16} />
                               </button>
@@ -324,6 +320,15 @@ export function UserManagement() {
           errorMessage={accountDetailQuery.isError ? getAccountServiceResultMessage(accountDetailQuery.error) : null}
           account={accountDetailQuery.data}
           onClose={() => setViewingAccountId(null)}
+        />
+      ) : null}
+
+      {deletingAccount ? (
+        <DeleteAccountModal
+          account={deletingAccount}
+          isDeleting={deleteAccountMutation.isPending}
+          onClose={() => setDeletingAccount(null)}
+          onConfirm={() => void handleDeleteAccount(deletingAccount)}
         />
       ) : null}
     </main>
@@ -375,7 +380,7 @@ function AccountFormModal({ isOpen, mode, account, isSubmitting, errorMessage, o
           {mode === 'create' ? (
             <label className="user-modal-field">
               <span>Password *</span>
-              <input maxLength={255} name="passwordHash" required type="text" />
+              <input maxLength={255} name="password" required type="password" />
             </label>
           ) : null}
 
@@ -481,6 +486,46 @@ function AccountDetailModal({ isLoading, errorMessage, account, onClose }: Accou
             <DetailItem label="Deleted At" value={formatDateTime(account.deletedAt)} />
           </div>
         ) : null}
+      </div>
+    </div>
+  );
+}
+
+type DeleteAccountModalProps = {
+  account: AccountDto;
+  isDeleting: boolean;
+  onClose: () => void;
+  onConfirm: () => void;
+};
+
+function DeleteAccountModal({ account, isDeleting, onClose, onConfirm }: DeleteAccountModalProps) {
+  return (
+    <div className="user-modal-overlay">
+      <div className="user-modal-panel user-confirm-panel">
+        <div className="user-modal-header">
+          <div>
+            <h2>Delete Account</h2>
+            <p>This will soft delete the account and set it inactive.</p>
+          </div>
+          <button className="user-modal-icon-button" type="button" aria-label="Close delete confirmation" disabled={isDeleting} onClick={onClose}>
+            <IconX size={18} />
+          </button>
+        </div>
+
+        <div className="user-confirm-summary">
+          <span>Account</span>
+          <strong>{account.email}</strong>
+          <p>{account.fullName}</p>
+        </div>
+
+        <div className="user-modal-actions">
+          <button className="user-modal-secondary" type="button" disabled={isDeleting} onClick={onClose}>
+            Cancel
+          </button>
+          <button className="user-modal-danger" type="button" disabled={isDeleting} onClick={onConfirm}>
+            {isDeleting ? 'Deleting...' : 'Delete Account'}
+          </button>
+        </div>
       </div>
     </div>
   );

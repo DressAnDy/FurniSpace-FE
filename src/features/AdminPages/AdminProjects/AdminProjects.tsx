@@ -41,9 +41,7 @@ const PROJECT_STATUSES: ProjectStatus[] = [
   'WAITING_FOR_DESIGNER_ASSIGNMENT',
   'MEASUREMENT_REQUIRED',
   'SPACE_VERIFIED',
-  'PROPOSAL_DRAFTING',
-  'WAITING_FOR_CUSTOMER_REVIEW',
-  'REVISION_REQUESTED',
+  'PROPOSAL_CONSULTING',
   'PROPOSAL_SELECTED',
   'QUOTATION_SENT',
   'QUOTATION_REVISION_REQUESTED',
@@ -73,7 +71,7 @@ const PROJECT_STAGES: ProjectStage[] = [
   },
   {
     label: 'Design Review',
-    statuses: ['PROPOSAL_DRAFTING', 'WAITING_FOR_CUSTOMER_REVIEW', 'REVISION_REQUESTED', 'PROPOSAL_SELECTED'],
+    statuses: ['PROPOSAL_CONSULTING', 'PROPOSAL_SELECTED'],
   },
   {
     label: 'Quotation & Order',
@@ -530,7 +528,8 @@ function getNextFocus(project: ProjectListItemDto | ProjectDto) {
   if (project.status === 'IN_CONSULTATION') return 'Confirm info and prepare designer assignment';
   if (project.status === 'WAITING_FOR_DESIGNER_ASSIGNMENT') return 'Assign designer';
   if (project.status === 'MEASUREMENT_REQUIRED') return 'Schedule measurement';
-  if (project.status === 'SPACE_VERIFIED') return 'Start proposal drafting';
+  if (project.status === 'SPACE_VERIFIED') return 'Start proposal consulting';
+  if (project.status === 'PROPOSAL_CONSULTING') return 'Create, publish, and compare proposals';
   if (project.status === 'PRODUCTION_BLOCKED') return 'Resolve production blocker';
   if (project.status === 'READY_FOR_DELIVERY') return 'Prepare delivery';
   if (project.status === 'REJECTED') return 'Closed as rejected';
@@ -552,8 +551,8 @@ function getProjectStageDescription(status: ProjectStatus) {
 function getStatusTone(status: ProjectStatus) {
   if (status === 'COMPLETED' || status === 'DELIVERED') return 'success';
   if (status === 'REJECTED' || status === 'PRODUCTION_BLOCKED') return 'danger';
-  if (status === 'NEED_BASIC_INFORMATION' || status === 'REVISION_REQUESTED' || status === 'MEASUREMENT_REQUIRED') return 'warning';
-  if (status === 'SUBMITTED' || status === 'WAITING_FOR_DESIGNER_ASSIGNMENT' || status === 'WAITING_FOR_CUSTOMER_REVIEW') return 'info';
+  if (status === 'NEED_BASIC_INFORMATION' || status === 'MEASUREMENT_REQUIRED') return 'warning';
+  if (status === 'SUBMITTED' || status === 'WAITING_FOR_DESIGNER_ASSIGNMENT' || status === 'PROPOSAL_CONSULTING') return 'info';
   return 'neutral';
 }
 

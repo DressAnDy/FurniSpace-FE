@@ -1,5 +1,5 @@
 import { IconChevronLeft, IconFileText, IconPhoto, IconUpload, IconX } from '@tabler/icons-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 
 import { CustomerNavbar } from '@/features/CustomerPages/customercomponents';
@@ -19,8 +19,10 @@ export function CustomerProjectInformationPage() {
   const projectQuery = useProjectDetail(projectId);
   const updateProjectMutation = useUpdateProjectBasicInformation();
   const uploadProjectFileMutation = useUploadProjectFile();
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [formMessage, setFormMessage] = useState<string | null>(null);
+  const [isDraggingFiles, setIsDraggingFiles] = useState(false);
   const project = projectQuery.data;
   const isSubmitting = updateProjectMutation.isPending || uploadProjectFileMutation.isPending;
   const canEdit = project?.status === 'NEED_BASIC_INFORMATION' || project?.status === 'SUBMITTED' || project?.status === 'IN_CONSULTATION';
@@ -42,6 +44,17 @@ export function CustomerProjectInformationPage() {
     setSelectedFiles((currentFiles) => currentFiles.filter((file) => file !== fileToRemove));
   }
 
+  function handleFileDrop(event: React.DragEvent<HTMLDivElement>) {
+    event.preventDefault();
+    setIsDraggingFiles(false);
+
+    if (!canEdit || isSubmitting) {
+      return;
+    }
+
+    addSelectedFiles(event.dataTransfer.files);
+  }
+
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setFormMessage(null);
@@ -54,6 +67,22 @@ export function CustomerProjectInformationPage() {
     const formData = new FormData(event.currentTarget);
 
     try {
+      const uploads = await Promise.allSettled(
+        selectedFiles.map((file) =>
+          uploadProjectFileMutation.mutateAsync({
+            projectId,
+            file,
+            note: 'Customer updated project information attachment',
+          }),
+        ),
+      );
+      const failedUploads = uploads.filter((upload) => upload.status === 'rejected').length;
+
+      if (failedUploads > 0) {
+        setFormMessage(`${failedUploads} file(s) could not be uploaded. Please remove or retry those files before submitting updated information.`);
+        return;
+      }
+
       await updateProjectMutation.mutateAsync({
         projectId,
         projectName: normalizeRequiredText(formData.get('projectName')),
@@ -69,22 +98,7 @@ export function CustomerProjectInformationPage() {
         targetCompletionDate: normalizeOptionalText(formData.get('targetCompletionDate')),
       });
 
-      const uploads = await Promise.allSettled(
-        selectedFiles.map((file) =>
-          uploadProjectFileMutation.mutateAsync({
-            projectId,
-            file,
-            note: 'Customer updated project information attachment',
-          }),
-        ),
-      );
-      const failedUploads = uploads.filter((upload) => upload.status === 'rejected').length;
-
-      if (failedUploads > 0) {
-        setFormMessage(`Project information was updated, but ${failedUploads} file(s) could not be uploaded.`);
-        return;
-      }
-
+      setSelectedFiles([]);
       navigate('/customer/projects');
     } catch (error) {
       setFormMessage(getProjectServiceResultMessage(error));
@@ -174,11 +188,31 @@ export function CustomerProjectInformationPage() {
               </FormSection>
 
               <FormSection description="Add new floor plans, reference images, or documents requested by Sales" title="Additional Files">
-                <label className="customer-project-request-upload">
+                <div
+                  className={`customer-project-request-upload ${isDraggingFiles ? 'customer-project-request-upload-active' : ''}`}
+                  role="button"
+                  tabIndex={canEdit && !isSubmitting ? 0 : -1}
+                  onClick={() => fileInputRef.current?.click()}
+                  onDragLeave={() => setIsDraggingFiles(false)}
+                  onDragOver={(event) => {
+                    event.preventDefault();
+                    if (canEdit && !isSubmitting) {
+                      setIsDraggingFiles(true);
+                    }
+                  }}
+                  onDrop={handleFileDrop}
+                  onKeyDown={(event) => {
+                    if ((event.key === 'Enter' || event.key === ' ') && canEdit && !isSubmitting) {
+                      event.preventDefault();
+                      fileInputRef.current?.click();
+                    }
+                  }}
+                >
                   <IconUpload size={48} stroke={1.7} />
-                  <strong>Click to upload or drag and drop</strong>
-                  <span>Images, PDFs, 3D files, documents up to backend limit</span>
+                  <strong>{selectedFiles.length > 0 ? `${selectedFiles.length} file(s) ready to upload` : 'Click to upload or drag and drop'}</strong>
+                  <span>{isDraggingFiles ? 'Drop files here' : 'Images, PDFs, 3D files, documents up to backend limit'}</span>
                   <input
+                    ref={fileInputRef}
                     disabled={!canEdit || isSubmitting}
                     multiple
                     type="file"
@@ -187,7 +221,7 @@ export function CustomerProjectInformationPage() {
                       event.currentTarget.value = '';
                     }}
                   />
-                </label>
+                </div>
                 {selectedFiles.length > 0 ? (
                   <div className="customer-project-request-file-preview">
                     <p className="customer-project-request-file-count">{selectedFiles.length} file(s) selected</p>

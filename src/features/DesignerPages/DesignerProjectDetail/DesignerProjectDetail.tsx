@@ -12,19 +12,18 @@ import {
   IconRulerMeasure,
 } from '@tabler/icons-react';
 import { useQueries } from '@tanstack/react-query';
-import { useMemo, useState, type ComponentType, type CSSProperties } from 'react';
+import { useMemo, useState, type ComponentType } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 
 import { DesignerLayout } from '@/features/DesignerPages/designercomponents';
 import { getAccountById } from '@/services/api';
-import { getProposalServiceResultMessage } from '@/services/api/proposals';
 import { getProjectServiceResultMessage, type ProjectDto, type ProjectStatus } from '@/services/api/projects';
-import { useCreateProposal, useProjectDetail, useUpdateProjectStatus } from '@/services/queries';
+import { useProjectDetail, useUpdateProjectStatus } from '@/services/queries';
 
-import { ChatTab, CustomizationTab, OverviewTab, ProposalsTab, SchedulesTab, SpaceFilesTab } from './tabs';
+import { ChatTab, CustomizationTab, FeedbackTab, OverviewTab, ProjectAreasTab, ProposalsTab, SchedulesTab, SpaceFilesTab } from './tabs';
 import './DesignerProjectDetail.css';
 
-type DesignerProjectDetailTab = 'overview' | 'space-files' | 'proposals' | 'feedback' | 'customization' | 'schedules' | 'chat';
+type DesignerProjectDetailTab = 'overview' | 'space-files' | 'project-areas' | 'proposals' | 'feedback' | 'customization' | 'schedules' | 'chat';
 
 type DesignerProjectTabProps = {
   project: ProjectDto;
@@ -39,8 +38,9 @@ type DesignerProjectTabConfig = {
 const detailTabs: DesignerProjectTabConfig[] = [
   { id: 'overview', label: 'Overview', component: OverviewTab },
   { id: 'space-files', label: 'Space Files', component: SpaceFilesTab },
+  { id: 'project-areas', label: 'Project Areas', component: ProjectAreasTab },
   { id: 'proposals', label: 'Proposals', component: ProposalsTab },
-  { id: 'feedback', label: 'Feedback' },
+  { id: 'feedback', label: 'Feedback', component: FeedbackTab },
   { id: 'customization', label: 'Customization', component: CustomizationTab },
   { id: 'schedules', label: 'Schedules', component: SchedulesTab },
   { id: 'chat', label: 'Chat', component: ChatTab },
@@ -52,7 +52,6 @@ export function DesignerProjectDetail() {
   const [activeTab, setActiveTab] = useState<DesignerProjectDetailTab>('overview');
   const [projectActionMessage, setProjectActionMessage] = useState<{ tone: 'error' | 'success'; text: string } | null>(null);
   const projectQuery = useProjectDetail(projectId);
-  const createProposalMutation = useCreateProposal();
   const updateProjectStatusMutation = useUpdateProjectStatus();
   const project = projectQuery.data;
   const accountIds = useMemo(() => [project?.customerId, project?.assignedSalesId].filter((accountId): accountId is string => Boolean(accountId)), [project?.assignedSalesId, project?.customerId]);
@@ -88,24 +87,13 @@ export function DesignerProjectDetail() {
       ]
     : [];
 
-  async function openProposalWorkspace() {
+  function openProposalWorkspace() {
     if (!project) {
       return;
     }
 
     setProjectActionMessage(null);
-
-    try {
-      const proposal = await createProposalMutation.mutateAsync({
-        projectId: project.projectId,
-        proposalName: `${project.projectName} 3D Proposal`,
-        description: 'Created from designer proposal workspace.',
-      });
-
-      navigate(`/designer/projects/${project.projectId}/proposals/${proposal.proposalId}`);
-    } catch (error) {
-      setProjectActionMessage({ tone: 'error', text: getProposalServiceResultMessage(error) });
-    }
+    navigate(`/designer/projects/${project.projectId}/proposals/new`);
   }
 
   async function updateProjectToNextDesignStatus() {
@@ -169,11 +157,7 @@ export function DesignerProjectDetail() {
                 </div>
               </div>
 
-              <div className="designer-project-progress-card">
-                <div className="designer-project-progress-ring" style={{ '--progress': `${getProjectProgress(project.status)}%` } as CSSProperties}>
-                  <span>{getProjectProgress(project.status)}%</span>
-                </div>
-                <p>Design Progress</p>
+              <div className="designer-project-process-card">
                 <div className="designer-project-current-status">
                   <span>Current Status</span>
                   <strong>{formatEnumLabel(project.status)}</strong>
@@ -190,12 +174,12 @@ export function DesignerProjectDetail() {
                   </button>
                   <button
                     className="designer-project-detail-button designer-project-detail-button-primary"
-                    disabled={project.status !== 'PROPOSAL_DRAFTING' || createProposalMutation.isPending}
+                    disabled={!isProposalDraftingStatus(project.status)}
                     type="button"
-                    onClick={() => void openProposalWorkspace()}
+                    onClick={openProposalWorkspace}
                   >
                     <IconPlus size={17} />
-                    {createProposalMutation.isPending ? 'Creating...' : 'Create Proposal'}
+                    Set Up Proposal
                   </button>
                   <button className="designer-project-detail-button" type="button">
                     <IconCube size={17} />
@@ -255,25 +239,9 @@ export function DesignerProjectDetail() {
   );
 }
 
-function getProjectProgress(status: string) {
-  const progressByStatus: Record<string, number> = {
-    MEASUREMENT_REQUIRED: 15,
-    SPACE_VERIFIED: 25,
-    PROPOSAL_DRAFTING: 45,
-    WAITING_FOR_CUSTOMER_REVIEW: 65,
-    REVISION_REQUESTED: 70,
-    PROPOSAL_SELECTED: 82,
-    QUOTATION_SENT: 90,
-    COMPLETED: 100,
-  };
-
-  return progressByStatus[status] ?? 10;
-}
-
 function getNextDesignStatus(status: ProjectStatus): ProjectStatus | null {
   if (status === 'MEASUREMENT_REQUIRED') return 'SPACE_VERIFIED';
-  if (status === 'SPACE_VERIFIED') return 'PROPOSAL_DRAFTING';
-  if (status === 'REVISION_REQUESTED') return 'PROPOSAL_DRAFTING';
+  if (status === 'SPACE_VERIFIED') return 'PROPOSAL_CONSULTING';
 
   return null;
 }
@@ -286,24 +254,27 @@ function getDesignStatusActionLabel(status: ProjectStatus) {
   }
 
   if (status === 'SPACE_VERIFIED') {
-    return 'Start Proposal Draft';
-  }
-
-  if (status === 'REVISION_REQUESTED') {
-    return 'Start Revision Draft';
+    return 'Start Proposal Consulting';
   }
 
   if (!nextStatus) {
-    return status === 'PROPOSAL_DRAFTING' ? 'Ready for Proposal' : 'No Designer Step';
+    return status === 'PROPOSAL_CONSULTING' ? 'Ready for Proposals' : 'No Designer Step';
   }
 
   return `Update to ${formatEnumLabel(nextStatus)}`;
 }
 
+function isProposalDraftingStatus(status: string) {
+  return normalizeStatus(status) === 'PROPOSAL_CONSULTING';
+}
+
+function normalizeStatus(status: string) {
+  return status.trim().toUpperCase().replace(/[^A-Z0-9]+/g, '_');
+}
+
 function getStatusTone(status: string) {
   if (status === 'MEASUREMENT_REQUIRED' || status === 'SPACE_VERIFIED') return 'new';
-  if (status === 'PROPOSAL_DRAFTING' || status === 'WAITING_FOR_CUSTOMER_REVIEW') return 'design';
-  if (status === 'REVISION_REQUESTED') return 'pending';
+  if (status === 'PROPOSAL_CONSULTING') return 'design';
   if (status === 'PROPOSAL_SELECTED' || status === 'QUOTATION_SENT') return 'reviewed';
   return 'missing';
 }

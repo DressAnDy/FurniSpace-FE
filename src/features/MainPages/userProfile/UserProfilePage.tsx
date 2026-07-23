@@ -11,8 +11,9 @@ import {
   IconUser,
 } from '@tabler/icons-react';
 
-import { MainFooter, MainNavbar } from '@/features/MainPages/maincomponents';
+import { MainNavbar } from '@/features/MainPages/maincomponents';
 import { useCurrentUser } from '@/services/queries';
+import { SiteFooter } from '@/shared/components';
 
 import './UserProfilePage.css';
 
@@ -145,7 +146,7 @@ export function UserProfilePage() {
         </div>
       </section>
 
-      <MainFooter />
+      <SiteFooter />
     </main>
   );
 }

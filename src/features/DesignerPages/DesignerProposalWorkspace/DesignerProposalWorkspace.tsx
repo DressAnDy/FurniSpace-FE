@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   IconArrowLeft,
   IconCheck,
@@ -10,17 +10,17 @@ import {
   IconPackage,
   IconPlus,
   IconRulerMeasure,
+  IconX,
 } from '@tabler/icons-react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 
-import scenePreview from '@/assets/product-detail-shop/table-room.png';
 import { DesignerShell } from '@/features/DesignerPages/components/DesignerShell';
 import { ProjectChatPanel } from '@/features/projectChat/ProjectChatPanel';
-import { getProjectAreaServiceResultMessage, type ProjectAreaDto, type ProjectAreaType } from '@/services/api/projectAreas';
+import { getProjectAreaServiceResultMessage, type ProjectAreaDto } from '@/services/api/projectAreas';
 import { getProjectServiceResultMessage } from '@/services/api/projects';
-import { getProposalServiceResultMessage, type ProposalItemDto, type ProposalSceneDto } from '@/services/api/proposals';
+import { getProposalServiceResultMessage, type ProposalDetailDto, type ProposalItemDto, type ProposalSceneDto } from '@/services/api/proposals';
 import {
-  useCreateProjectArea,
+  useCreateProposal,
   useCreateProposalScene,
   useProjectDetail,
   useProjectAreas,
@@ -28,63 +28,73 @@ import {
   useProposalItems,
   useProposalScenes,
   usePublishProposal,
+  useUpdateProposal,
+  useUpdateProposalScene,
 } from '@/services/queries';
+import { aggregateDuplicateItems } from '@/shared/utils/itemAggregation';
 
 import './DesignerProposalWorkspace.css';
 
 type WorkspaceTab = 'scenes' | 'items' | 'review' | 'chat';
-type AreaDraft = {
-  areaName: string;
-  areaType: ProjectAreaType;
-  areaSqm: string;
-  floorNumber: string;
-  height: string;
-  length: string;
-  requirementNote: string;
-  width: string;
+type ProposalDraft = {
+  description: string;
+  proposalName: string;
 };
 
-const DEFAULT_AREA_DRAFT: AreaDraft = {
-  areaName: '',
-  areaType: 'ROOM',
-  areaSqm: '',
-  floorNumber: '',
-  height: '',
-  length: '',
-  requirementNote: '',
-  width: '',
+type SceneEditDraft = {
+  projectAreaId: string;
+  sceneName: string;
 };
 
-const AREA_TYPES: ProjectAreaType[] = ['STORE', 'FLOOR', 'ROOM', 'ZONE', 'OUTDOOR_AREA', 'OTHER'];
+const DEFAULT_PROPOSAL_DRAFT: ProposalDraft = {
+  description: '',
+  proposalName: '',
+};
+
+const DEFAULT_SCENE_EDIT_DRAFT: SceneEditDraft = {
+  projectAreaId: '',
+  sceneName: '',
+};
 
 export function DesignerProposalWorkspace() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { projectId, proposalId } = useParams();
+  const isProposalSetupMode = !proposalId || proposalId === 'new';
+  const activeProposalId = isProposalSetupMode ? undefined : proposalId;
+  const routeState = location.state as { selectedAreaId?: string } | null;
   const [activeTab, setActiveTab] = useState<WorkspaceTab>('scenes');
   const [message, setMessage] = useState('');
-  const [selectedAreaId, setSelectedAreaId] = useState('');
-  const [areaDraft, setAreaDraft] = useState<AreaDraft>(DEFAULT_AREA_DRAFT);
-  const [showAreaForm, setShowAreaForm] = useState(false);
+  const [selectedAreaId, setSelectedAreaId] = useState(routeState?.selectedAreaId ?? '');
+  const [selectedSceneId, setSelectedSceneId] = useState('');
+  const [proposalDraft, setProposalDraft] = useState<ProposalDraft>(DEFAULT_PROPOSAL_DRAFT);
+  const [proposalEditDraft, setProposalEditDraft] = useState<ProposalDraft>(DEFAULT_PROPOSAL_DRAFT);
+  const [editingScene, setEditingScene] = useState<ProposalSceneDto | null>(null);
+  const [sceneEditDraft, setSceneEditDraft] = useState<SceneEditDraft>(DEFAULT_SCENE_EDIT_DRAFT);
+  const [isUpdateInfoModalOpen, setIsUpdateInfoModalOpen] = useState(false);
   const projectQuery = useProjectDetail(projectId);
-  const proposalQuery = useProposalDetail(proposalId);
+  const proposalQuery = useProposalDetail(activeProposalId);
   const areasQuery = useProjectAreas({
     projectId: projectId ?? '',
     includeCancelled: false,
   });
   const scenesQuery = useProposalScenes({
-    proposalId: proposalId ?? '',
+    proposalId: activeProposalId ?? '',
     isActive: true,
     page: 1,
     limit: 100,
   });
   const itemsQuery = useProposalItems({
-    proposalId: proposalId ?? '',
+    proposalId: activeProposalId ?? '',
+    sceneId: selectedSceneId || null,
     page: 1,
     limit: 100,
   });
-  const createAreaMutation = useCreateProjectArea();
+  const createProposalMutation = useCreateProposal();
   const createSceneMutation = useCreateProposalScene();
   const publishProposalMutation = usePublishProposal();
+  const updateProposalMutation = useUpdateProposal();
+  const updateProposalSceneMutation = useUpdateProposalScene();
   const project = projectQuery.data;
   const proposal = proposalQuery.data;
   const areas = useMemo(() => areasQuery.data ?? [], [areasQuery.data]);
@@ -96,17 +106,19 @@ export function DesignerProposalWorkspace() {
     () => itemsQuery.data?.items ?? proposal?.items ?? [],
     [itemsQuery.data?.items, proposal?.items],
   );
+  const displayItems = useMemo(() => aggregateDuplicateItems(items), [items]);
   const total = useMemo(
-    () => items.reduce((sum, item) => sum + (item.subtotalAmount ?? 0), 0),
-    [items],
+    () => displayItems.reduce((sum, item) => sum + (item.subtotalAmount ?? 0), 0),
+    [displayItems],
   );
   const primaryScene = scenes.find((scene) => scene.sceneType === 'THREE_D') ?? scenes[0] ?? null;
+  const selectedScene = scenes.find((scene) => scene.sceneId === selectedSceneId) ?? primaryScene;
   const selectedArea = areas.find((area) => area.projectAreaId === selectedAreaId) ?? null;
   const selectedAreaScenes = useMemo(
     () => (selectedAreaId ? scenes.filter((scene) => scene.projectAreaId === selectedAreaId) : []),
     [scenes, selectedAreaId],
   );
-  const canPublishProposal = Boolean(proposalId && proposal?.status === 'DRAFT' && scenes.length > 0);
+  const canPublishProposal = Boolean(activeProposalId && proposal?.status === 'DRAFT' && scenes.length > 0);
   const publishChecklist = useMemo(
     () => [
       { label: 'Proposal is Draft', ready: proposal?.status === 'DRAFT' },
@@ -117,8 +129,36 @@ export function DesignerProposalWorkspace() {
     [items.length, proposal?.status, scenes],
   );
 
+  useEffect(() => {
+    if (!proposal) {
+      return;
+    }
+
+    setProposalEditDraft({
+      description: proposal.description ?? '',
+      proposalName: proposal.proposalName,
+    });
+  }, [proposal]);
+
+  useEffect(() => {
+    if (selectedSceneId || scenes.length === 0) {
+      return;
+    }
+
+    setSelectedSceneId(scenes[0].sceneId);
+  }, [scenes, selectedSceneId]);
+
+  useEffect(() => {
+    if (selectedAreaId || isProposalSetupMode || areas.length === 0) {
+      return;
+    }
+
+    const areaWithScene = areas.find((area) => scenes.some((scene) => scene.projectAreaId === area.projectAreaId));
+    setSelectedAreaId((areaWithScene ?? areas[0]).projectAreaId);
+  }, [areas, isProposalSetupMode, scenes, selectedAreaId]);
+
   async function publishCurrentProposal() {
-    if (!proposalId) {
+    if (!activeProposalId) {
       return;
     }
 
@@ -132,7 +172,7 @@ export function DesignerProposalWorkspace() {
 
     try {
       await publishProposalMutation.mutateAsync({
-        proposalId,
+        proposalId: activeProposalId,
         note: 'Published by designer from proposal workspace.',
       });
       setActiveTab('review');
@@ -143,7 +183,7 @@ export function DesignerProposalWorkspace() {
   }
 
   async function createScene() {
-    if (!proposalId || !project) {
+    if (!activeProposalId || !project) {
       return;
     }
 
@@ -156,7 +196,7 @@ export function DesignerProposalWorkspace() {
 
     try {
       const scene = await createSceneMutation.mutateAsync({
-        proposalId,
+        proposalId: activeProposalId,
         sceneName: `${selectedArea?.areaName ?? project.projectName} 3D Scene`,
         sceneType: 'THREE_D',
         projectAreaId: selectedAreaId,
@@ -168,40 +208,40 @@ export function DesignerProposalWorkspace() {
     }
   }
 
-  async function createArea() {
+  async function createProposal() {
     if (!projectId) {
       return;
     }
 
-    const areaName = areaDraft.areaName.trim();
+    const proposalName = proposalDraft.proposalName.trim();
+    const description = proposalDraft.description.trim();
 
     setMessage('');
 
-    if (!areaName) {
-      setMessage('Area name is required before the proposal can move into 3D design.');
+    if (!proposalName) {
+      setMessage('Proposal name is required. Leave the default blank and enter the sale/designer naming before creating it.');
+      return;
+    }
+
+    if (!description) {
+      setMessage('Proposal description is required.');
       return;
     }
 
     try {
-      const area = await createAreaMutation.mutateAsync({
+      const createdProposal = await createProposalMutation.mutateAsync({
         projectId,
-        areaName,
-        areaType: areaDraft.areaType,
-        areaSqm: parseOptionalNumber(areaDraft.areaSqm),
-        floorNumber: parseOptionalNumber(areaDraft.floorNumber),
-        height: parseOptionalNumber(areaDraft.height),
-        length: parseOptionalNumber(areaDraft.length),
-        requirementNote: areaDraft.requirementNote,
-        status: 'NEED_MEASUREMENT',
-        width: parseOptionalNumber(areaDraft.width),
+        proposalName,
+        description,
       });
 
-      setSelectedAreaId(area.projectAreaId);
-      setAreaDraft(DEFAULT_AREA_DRAFT);
-      setShowAreaForm(false);
-      setMessage(`${area.areaName} is ready. You can create the 3D scene for this area now.`);
+      setProposalDraft(DEFAULT_PROPOSAL_DRAFT);
+      setMessage('Proposal created. Select a project area before creating a proposal scene.');
+      navigate(`/designer/projects/${projectId}/proposals/${createdProposal.proposalId}`, {
+        state: selectedAreaId ? { selectedAreaId } : undefined,
+      });
     } catch (error) {
-      setMessage(getProjectAreaServiceResultMessage(error));
+      setMessage(getProposalServiceResultMessage(error));
     }
   }
 
@@ -211,10 +251,100 @@ export function DesignerProposalWorkspace() {
         mode: 'create-proposal',
         projectAreaId: scene.projectAreaId,
         projectId,
-        proposalId,
-        returnTo: `/designer/projects/${projectId}/proposals/${proposalId}`,
+        proposalId: activeProposalId,
+        returnTo: `/designer/projects/${projectId}/proposals/${activeProposalId}`,
       },
     });
+  }
+
+  function openUpdateInfoModal() {
+    if (!proposal) {
+      return;
+    }
+
+    setProposalEditDraft({
+      description: proposal.description ?? '',
+      proposalName: proposal.proposalName,
+    });
+    setIsUpdateInfoModalOpen(true);
+  }
+
+  function closeUpdateInfoModal() {
+    if (proposal) {
+      setProposalEditDraft({
+        description: proposal.description ?? '',
+        proposalName: proposal.proposalName,
+      });
+    }
+
+    setIsUpdateInfoModalOpen(false);
+  }
+
+  async function updateProposalMetadata() {
+    if (!activeProposalId) {
+      return;
+    }
+
+    const proposalName = proposalEditDraft.proposalName.trim();
+
+    setMessage('');
+
+    if (!proposalName) {
+      setMessage('Proposal name is required.');
+      return;
+    }
+
+    try {
+      await updateProposalMutation.mutateAsync({
+        proposalId: activeProposalId,
+        proposalName,
+        description: proposalEditDraft.description,
+      });
+      setIsUpdateInfoModalOpen(false);
+      setMessage('Proposal information updated.');
+    } catch (error) {
+      setMessage(getProposalServiceResultMessage(error));
+    }
+  }
+
+  function openSceneEditModal(scene: ProposalSceneDto) {
+    setEditingScene(scene);
+    setSceneEditDraft({
+      projectAreaId: scene.projectAreaId ?? '',
+      sceneName: scene.sceneName,
+    });
+  }
+
+  function closeSceneEditModal() {
+    setEditingScene(null);
+    setSceneEditDraft(DEFAULT_SCENE_EDIT_DRAFT);
+  }
+
+  async function updateSceneMetadata() {
+    if (!editingScene) {
+      return;
+    }
+
+    const sceneName = sceneEditDraft.sceneName.trim();
+
+    setMessage('');
+
+    if (!sceneName) {
+      setMessage('Scene name is required.');
+      return;
+    }
+
+    try {
+      await updateProposalSceneMutation.mutateAsync({
+        sceneId: editingScene.sceneId,
+        sceneName,
+        projectAreaId: sceneEditDraft.projectAreaId || null,
+      });
+      setMessage('Scene information updated.');
+      closeSceneEditModal();
+    } catch (error) {
+      setMessage(getProposalServiceResultMessage(error));
+    }
   }
 
   return (
@@ -226,14 +356,21 @@ export function DesignerProposalWorkspace() {
       <header className="designer-proposal-heading">
         <div>
           <span>{projectQuery.isLoading ? 'LOADING PROJECT' : project?.projectCode ?? 'PROJECT NOT FOUND'}</span>
-          <h1>{proposalQuery.isLoading ? 'Loading proposal...' : proposal?.proposalName ?? 'Proposal not found'}</h1>
+          <h1>{isProposalSetupMode ? 'Set Up Project Areas & Proposal' : proposalQuery.isLoading ? 'Loading proposal...' : proposal?.proposalName ?? 'Proposal not found'}</h1>
           <p>
             {project?.projectName ?? 'No project data from backend'}
             {proposal ? ` · Version ${proposal.versionNo}` : ''}
           </p>
         </div>
         <div>
-          <span className="designer-proposal-status">{proposal?.status ?? 'UNKNOWN'}</span>
+          <span className="designer-proposal-status">{isProposalSetupMode ? 'SETUP' : proposal?.status ?? 'UNKNOWN'}</span>
+          <button
+            disabled={isProposalSetupMode || !proposal}
+            type="button"
+            onClick={openUpdateInfoModal}
+          >
+            <IconEdit size={17} /> Update Info
+          </button>
           <button
             disabled={!canPublishProposal || publishProposalMutation.isPending}
             title={canPublishProposal ? 'Publish this proposal for customer review.' : 'Proposal must be Draft and have at least one active scene.'}
@@ -247,8 +384,8 @@ export function DesignerProposalWorkspace() {
 
       <nav className="designer-proposal-tabs" aria-label="Proposal workspace tabs">
         <button className={activeTab === 'scenes' ? 'is-active' : ''} type="button" onClick={() => setActiveTab('scenes')}><IconCube size={16} /> Scenes</button>
-        <button className={activeTab === 'items' ? 'is-active' : ''} type="button" onClick={() => setActiveTab('items')}><IconPackage size={16} /> Proposal Items</button>
-        <button className={activeTab === 'review' ? 'is-active' : ''} type="button" onClick={() => setActiveTab('review')}><IconFileText size={16} /> Review & Publish</button>
+        <button className={activeTab === 'items' ? 'is-active' : ''} disabled={isProposalSetupMode} type="button" onClick={() => setActiveTab('items')}><IconPackage size={16} /> Proposal Items</button>
+        <button className={activeTab === 'review' ? 'is-active' : ''} disabled={isProposalSetupMode} type="button" onClick={() => setActiveTab('review')}><IconFileText size={16} /> Review & Publish</button>
         <button className={activeTab === 'chat' ? 'is-active' : ''} type="button" onClick={() => setActiveTab('chat')}><IconMessageCircle size={16} /> Chat</button>
       </nav>
 
@@ -256,42 +393,71 @@ export function DesignerProposalWorkspace() {
       {projectQuery.isError && <div className="designer-proposal-message is-error">{getProjectServiceResultMessage(projectQuery.error)}</div>}
       {proposalQuery.isError && <div className="designer-proposal-message is-error">{getProposalServiceResultMessage(proposalQuery.error)}</div>}
       {areasQuery.isError && <div className="designer-proposal-message is-error">{getProjectAreaServiceResultMessage(areasQuery.error)}</div>}
+      {isUpdateInfoModalOpen && proposal ? (
+        <ProposalUpdateModal
+          draft={proposalEditDraft}
+          isSaving={updateProposalMutation.isPending}
+          onClose={closeUpdateInfoModal}
+          onDraftChange={setProposalEditDraft}
+          onSave={() => void updateProposalMetadata()}
+        />
+      ) : null}
+      {editingScene ? (
+        <SceneUpdateModal
+          areas={areas}
+          draft={sceneEditDraft}
+          isSaving={updateProposalSceneMutation.isPending}
+          onClose={closeSceneEditModal}
+          onDraftChange={setSceneEditDraft}
+          onSave={() => void updateSceneMetadata()}
+        />
+      ) : null}
+
+      {!isProposalSetupMode && proposal ? (
+        <ProposalSummarySection
+          proposal={proposal}
+          sceneCount={scenesQuery.data?.total ?? scenes.length}
+          itemCount={itemsQuery.data?.total ?? items.length}
+        />
+      ) : null}
 
       {activeTab === 'scenes' && (
         <div className="designer-scenes-workflow">
-          <ProjectAreasSection
-            areaDraft={areaDraft}
-            areas={areas}
-            isCreating={createAreaMutation.isPending}
-            isLoading={areasQuery.isLoading}
-            selectedAreaId={selectedAreaId}
-            showAreaForm={showAreaForm}
-            onCreateArea={() => void createArea()}
-            onDraftChange={setAreaDraft}
-            onSelectArea={setSelectedAreaId}
-            onToggleAreaForm={() => setShowAreaForm((isOpen) => !isOpen)}
-          />
+          {!isProposalSetupMode ? (
+            <ProjectAreasSection
+              areas={areas}
+              isLoading={areasQuery.isLoading}
+              projectId={projectId}
+              selectedAreaId={selectedAreaId}
+              onSelectArea={setSelectedAreaId}
+            />
+          ) : null}
 
+          {isProposalSetupMode ? (
+            <ProposalSetupSection
+              draft={proposalDraft}
+              isCreating={createProposalMutation.isPending}
+              onCreateProposal={() => void createProposal()}
+              onDraftChange={setProposalDraft}
+            />
+          ) : (
           <section className="designer-scenes-section">
             <header>
-              <div><h2>Proposal Scenes</h2><p>Scenes belong to this proposal and are linked to the selected project area.</p></div>
-              <button disabled={!proposalId || proposal?.status !== 'DRAFT' || !selectedAreaId || createSceneMutation.isPending} type="button" onClick={() => void createScene()}>
+              <div><h2>Proposal Scenes</h2></div>
+              <button disabled={!activeProposalId || proposal?.status !== 'DRAFT' || !selectedAreaId || createSceneMutation.isPending} type="button" onClick={() => void createScene()}>
                 <IconPlus size={17} /> {createSceneMutation.isPending ? 'Creating...' : selectedArea ? `Create Scene for ${selectedArea.areaName}` : 'Create Scene'}
               </button>
             </header>
-            <div className="designer-scene-context">
-              <span>{selectedArea ? `Selected area: ${selectedArea.areaName}` : 'Select a project area first.'}</span>
-              <small>Project Area is the real space of the project. Proposal Scene is the design version of one Project Area inside one Proposal. Room Planner stores the detailed 3D data of that Proposal Scene.</small>
-            </div>
             <div className="designer-scenes-list">
               {scenesQuery.isLoading ? <EmptyState message="Loading proposal scenes from backend..." /> : null}
               {!selectedAreaId ? <EmptyState message="Select a project area first." /> : null}
               {selectedAreaId && !scenesQuery.isLoading && selectedAreaScenes.length === 0 ? <EmptyState message="No scene has been created for the selected project area in this proposal." /> : null}
               {selectedAreaScenes.map((scene) => (
-                <SceneRow key={scene.sceneId} area={selectedArea} scene={scene} onOpen={() => openRoomPlanner(scene)} />
+                <SceneRow key={scene.sceneId} area={selectedArea} scene={scene} onEdit={() => openSceneEditModal(scene)} onOpen={() => openRoomPlanner(scene)} />
               ))}
             </div>
           </section>
+          )}
         </div>
       )}
 
@@ -301,10 +467,23 @@ export function DesignerProposalWorkspace() {
             <div><h2>Proposal Items</h2><p>SQL business items synchronized from Room Planner scene objects.</p></div>
             <button disabled type="button"><IconCube size={17} /> Sync From Scene</button>
           </header>
+          <div className="designer-items-scene-filter">
+            {scenes.length === 0 ? <span>No scenes available.</span> : null}
+            {scenes.map((scene) => (
+              <button
+                className={scene.sceneId === selectedScene?.sceneId ? 'is-active' : ''}
+                key={scene.sceneId}
+                type="button"
+                onClick={() => setSelectedSceneId(scene.sceneId)}
+              >
+                {scene.sceneName}
+              </button>
+            ))}
+          </div>
           {itemsQuery.isLoading ? (
             <EmptyState message="Loading proposal items from backend..." />
-          ) : items.length ? (
-            <ItemsTable items={items} total={total} />
+          ) : displayItems.length ? (
+            <ItemsTable items={displayItems} total={total} />
           ) : (
             <EmptyState message="No proposal items returned by backend. Open a scene, add catalog products, then Save Project to sync." />
           )}
@@ -370,34 +549,66 @@ export function DesignerProposalWorkspace() {
   );
 }
 
+function ProposalSummarySection({
+  itemCount,
+  proposal,
+  sceneCount,
+}: {
+  itemCount: number;
+  proposal: ProposalDetailDto;
+  sceneCount: number;
+}) {
+  return (
+    <section className="designer-proposal-summary" aria-label="Proposal information">
+      <header>
+        <div>
+          <IconFileText size={22} />
+          <div>
+            <h2>Proposal Information</h2>
+            <p>{proposal.description?.trim() || 'No description provided.'}</p>
+          </div>
+        </div>
+        <span>{formatEnumLabel(proposal.status)}</span>
+      </header>
+      <dl>
+        <div>
+          <dt>Version</dt>
+          <dd>v{proposal.versionNo}</dd>
+        </div>
+        <div>
+          <dt>Scenes</dt>
+          <dd>{sceneCount}</dd>
+        </div>
+        <div>
+          <dt>Items</dt>
+          <dd>{itemCount}</dd>
+        </div>
+        <div>
+          <dt>Published</dt>
+          <dd>{proposal.publishedAt ? formatDateTime(proposal.publishedAt) : '-'}</dd>
+        </div>
+        <div>
+          <dt>Updated</dt>
+          <dd>{formatDateTime(proposal.updatedAt)}</dd>
+        </div>
+      </dl>
+    </section>
+  );
+}
+
 function ProjectAreasSection({
-  areaDraft,
   areas,
-  isCreating,
   isLoading,
   selectedAreaId,
-  showAreaForm,
-  onCreateArea,
-  onDraftChange,
   onSelectArea,
-  onToggleAreaForm,
 }: {
-  areaDraft: AreaDraft;
   areas: ProjectAreaDto[];
-  isCreating: boolean;
   isLoading: boolean;
+  projectId?: string;
   selectedAreaId: string;
-  showAreaForm: boolean;
-  onCreateArea: () => void;
-  onDraftChange: (draft: AreaDraft) => void;
   onSelectArea: (areaId: string) => void;
-  onToggleAreaForm: () => void;
 }) {
   const selectedArea = areas.find((area) => area.projectAreaId === selectedAreaId) ?? null;
-
-  function updateDraft<K extends keyof AreaDraft>(field: K, value: AreaDraft[K]) {
-    onDraftChange({ ...areaDraft, [field]: value });
-  }
 
   return (
     <section className="designer-design-scope">
@@ -406,7 +617,6 @@ function ProjectAreasSection({
           <IconRulerMeasure size={22} />
           <div>
             <h3>Project Areas</h3>
-            <p>Project areas belong to the project and can be reused across proposals.</p>
           </div>
         </div>
         {selectedArea ? <span><IconCheck size={15} /> Selected: {selectedArea.areaName}</span> : <span>Select a project area</span>}
@@ -414,7 +624,7 @@ function ProjectAreasSection({
 
       <div className="designer-area-picker">
         {isLoading ? <p>Loading project areas...</p> : null}
-        {!isLoading && areas.length === 0 ? <p>No project areas exist for this project yet. Add one project area, then create the proposal scene from it.</p> : null}
+        {!isLoading && areas.length === 0 ? <p>No project areas exist for this project yet. Create project areas from Project Detail &gt; Project Areas before creating proposal scenes.</p> : null}
         {areas.map((area) => (
           <button
             className={selectedAreaId === area.projectAreaId ? 'is-selected' : ''}
@@ -428,61 +638,183 @@ function ProjectAreasSection({
         ))}
       </div>
 
-      <div className="designer-area-form-shell">
-        <button className="designer-area-form-toggle" type="button" onClick={onToggleAreaForm}>
-          <IconPlus size={16} /> {showAreaForm ? 'Hide Project Area Form' : 'Add Project Area to This Project'}
-        </button>
+    </section>
+  );
+}
 
-        {(showAreaForm || areas.length === 0) && (
-          <div className="designer-area-form">
-            <label>
-              <span>Area Name</span>
-              <input value={areaDraft.areaName} onChange={(event) => updateDraft('areaName', event.target.value)} />
-            </label>
-            <label>
-              <span>Type</span>
-              <select value={areaDraft.areaType} onChange={(event) => updateDraft('areaType', event.target.value as ProjectAreaType)}>
-                {AREA_TYPES.map((type) => <option key={type} value={type}>{formatEnumLabel(type)}</option>)}
-              </select>
-            </label>
-            <label>
-              <span>Floor</span>
-              <input inputMode="numeric" value={areaDraft.floorNumber} onChange={(event) => updateDraft('floorNumber', event.target.value)} />
-            </label>
-            <label>
-              <span>Area m2</span>
-              <input inputMode="decimal" value={areaDraft.areaSqm} onChange={(event) => updateDraft('areaSqm', event.target.value)} />
-            </label>
-            <label>
-              <span>Width</span>
-              <input inputMode="decimal" value={areaDraft.width} onChange={(event) => updateDraft('width', event.target.value)} />
-            </label>
-            <label>
-              <span>Length</span>
-              <input inputMode="decimal" value={areaDraft.length} onChange={(event) => updateDraft('length', event.target.value)} />
-            </label>
-            <label>
-              <span>Height</span>
-              <input inputMode="decimal" value={areaDraft.height} onChange={(event) => updateDraft('height', event.target.value)} />
-            </label>
-            <label className="designer-area-form-note">
-              <span>Requirement Note</span>
-              <textarea value={areaDraft.requirementNote} onChange={(event) => updateDraft('requirementNote', event.target.value)} />
-            </label>
-            <button disabled={isCreating || !areaDraft.areaName.trim()} type="button" onClick={onCreateArea}>
-              <IconPlus size={16} /> {isCreating ? 'Creating area...' : 'Create Project Area'}
-            </button>
+function ProposalUpdateModal({
+  draft,
+  isSaving,
+  onClose,
+  onDraftChange,
+  onSave,
+}: {
+  draft: ProposalDraft;
+  isSaving: boolean;
+  onClose: () => void;
+  onDraftChange: (draft: ProposalDraft) => void;
+  onSave: () => void;
+}) {
+  function updateDraft<K extends keyof ProposalDraft>(field: K, value: ProposalDraft[K]) {
+    onDraftChange({ ...draft, [field]: value });
+  }
+
+  return (
+    <div className="designer-proposal-modal-backdrop">
+      <section className="designer-proposal-update-modal" role="dialog" aria-modal="true" aria-labelledby="proposal-update-title">
+        <header>
+          <div>
+            <IconFileText size={22} />
+            <div>
+              <h2 id="proposal-update-title">Update Proposal Info</h2>
+              <p>Edit the proposal name and description before publishing.</p>
+            </div>
           </div>
-        )}
+          <button aria-label="Close update proposal info modal" className="designer-proposal-modal-close" type="button" onClick={onClose}>
+            <IconX size={18} />
+          </button>
+        </header>
+        <div className="designer-proposal-metadata-form">
+          <label>
+            <span>Proposal Name</span>
+            <input value={draft.proposalName} onChange={(event) => updateDraft('proposalName', event.target.value)} />
+          </label>
+          <label>
+            <span>Description</span>
+            <textarea value={draft.description} onChange={(event) => updateDraft('description', event.target.value)} />
+          </label>
+        </div>
+        <footer>
+          <button className="designer-proposal-modal-secondary" disabled={isSaving} type="button" onClick={onClose}>
+            Cancel
+          </button>
+          <button disabled={isSaving || !draft.proposalName.trim()} type="button" onClick={onSave}>
+            <IconCheck size={16} /> {isSaving ? 'Saving...' : 'Save Info'}
+          </button>
+        </footer>
+      </section>
+    </div>
+  );
+}
+
+function SceneUpdateModal({
+  areas,
+  draft,
+  isSaving,
+  onClose,
+  onDraftChange,
+  onSave,
+}: {
+  areas: ProjectAreaDto[];
+  draft: SceneEditDraft;
+  isSaving: boolean;
+  onClose: () => void;
+  onDraftChange: (draft: SceneEditDraft) => void;
+  onSave: () => void;
+}) {
+  function updateDraft<K extends keyof SceneEditDraft>(field: K, value: SceneEditDraft[K]) {
+    onDraftChange({ ...draft, [field]: value });
+  }
+
+  return (
+    <div className="designer-proposal-modal-backdrop">
+      <section className="designer-proposal-update-modal" role="dialog" aria-modal="true" aria-labelledby="scene-update-title">
+        <header>
+          <div>
+            <IconEdit size={22} />
+            <div>
+              <h2 id="scene-update-title">Update Scene Info</h2>
+              <p>Update the scene name and link it to a project area.</p>
+            </div>
+          </div>
+          <button aria-label="Close update scene info modal" className="designer-proposal-modal-close" type="button" onClick={onClose}>
+            <IconX size={18} />
+          </button>
+        </header>
+        <div className="designer-proposal-metadata-form">
+          <label>
+            <span>Scene Name</span>
+            <input value={draft.sceneName} onChange={(event) => updateDraft('sceneName', event.target.value)} />
+          </label>
+          <label>
+            <span>Project Area</span>
+            <select value={draft.projectAreaId} onChange={(event) => updateDraft('projectAreaId', event.target.value)}>
+              <option value="">No area linked</option>
+              {areas.map((area) => (
+                <option key={area.projectAreaId} value={area.projectAreaId}>{area.areaName}</option>
+              ))}
+            </select>
+          </label>
+        </div>
+        <footer>
+          <button className="designer-proposal-modal-secondary" disabled={isSaving} type="button" onClick={onClose}>
+            Cancel
+          </button>
+          <button disabled={isSaving || !draft.sceneName.trim()} type="button" onClick={onSave}>
+            <IconCheck size={16} /> {isSaving ? 'Saving...' : 'Save Scene'}
+          </button>
+        </footer>
+      </section>
+    </div>
+  );
+}
+
+function ProposalSetupSection({
+  draft,
+  isCreating,
+  onCreateProposal,
+  onDraftChange,
+}: {
+  draft: ProposalDraft;
+  isCreating: boolean;
+  onCreateProposal: () => void;
+  onDraftChange: (draft: ProposalDraft) => void;
+}) {
+  function updateDraft<K extends keyof ProposalDraft>(field: K, value: ProposalDraft[K]) {
+    onDraftChange({ ...draft, [field]: value });
+  }
+
+  return (
+    <section className="designer-proposal-setup-section">
+      <header>
+        <div>
+          <IconFileText size={22} />
+          <div>
+            <h2>Create Proposal</h2>
+            <p>Name and description are intentionally blank. Fill them before creating the proposal workspace.</p>
+          </div>
+        </div>
+        <span>Name and description required</span>
+      </header>
+
+      <div className="designer-proposal-setup-form">
+        <label>
+          <span>Proposal Name</span>
+          <input
+            placeholder="Enter proposal name"
+            value={draft.proposalName}
+            onChange={(event) => updateDraft('proposalName', event.target.value)}
+          />
+        </label>
+        <label>
+          <span>Description</span>
+          <textarea
+            placeholder="Enter proposal description"
+            value={draft.description}
+            onChange={(event) => updateDraft('description', event.target.value)}
+          />
+        </label>
+        <button disabled={isCreating || !draft.proposalName.trim() || !draft.description.trim()} type="button" onClick={onCreateProposal}>
+          <IconPlus size={17} /> {isCreating ? 'Creating proposal...' : 'Create Proposal'}
+        </button>
       </div>
     </section>
   );
 }
 
-function SceneRow({ area, scene, onOpen }: { area: ProjectAreaDto | null; scene: ProposalSceneDto; onOpen: () => void }) {
+function SceneRow({ area, scene, onEdit, onOpen }: { area: ProjectAreaDto | null; scene: ProposalSceneDto; onEdit: () => void; onOpen: () => void }) {
   return (
     <article className="designer-scene-row">
-      <img alt="Room scene preview" src={scene.previewFileUrl ?? scenePreview} />
       <div>
         <span>{scene.sceneType}</span>
         <h3>{scene.sceneName}</h3>
@@ -491,7 +823,7 @@ function SceneRow({ area, scene, onOpen }: { area: ProjectAreaDto | null; scene:
         <small>Version {scene.versionNo} · Updated {formatDateTime(scene.updatedAt)}</small>
       </div>
       <div className="designer-scene-actions">
-        <button disabled title="Edit scene metadata" type="button"><IconEdit size={17} /></button>
+        <button title="Edit scene metadata" type="button" onClick={onEdit}><IconEdit size={17} /></button>
         <button type="button" onClick={onOpen}>Open Room Planner <IconChevronRight size={17} /></button>
       </div>
     </article>
@@ -533,18 +865,6 @@ function formatCurrency(value: number | null | undefined) {
   }
 
   return `${new Intl.NumberFormat('vi-VN').format(value)} VND`;
-}
-
-function parseOptionalNumber(value: string) {
-  const normalizedValue = value.trim().replace(',', '.');
-
-  if (!normalizedValue) {
-    return null;
-  }
-
-  const parsedValue = Number(normalizedValue);
-
-  return Number.isFinite(parsedValue) ? parsedValue : null;
 }
 
 function formatDateTime(value: string) {

@@ -19,16 +19,16 @@ export function SchedulesTab({ project }: SchedulesTabProps) {
   const schedules = schedulesQuery.data?.items ?? [];
   const updateScheduleStatusMutation = useUpdateProjectScheduleStatus();
 
-  async function handleConfirmSchedule(scheduleId: string) {
+  async function handleCompleteSchedule(scheduleId: string) {
     setStatusMessage('');
 
     try {
       await updateScheduleStatusMutation.mutateAsync({
         scheduleId,
-        status: 'CONFIRMED',
-        note: 'Designer confirmed the site measurement schedule.',
+        status: 'COMPLETED',
+        note: 'Designer marked the schedule as completed from project detail.',
       });
-      setStatusMessage('Schedule confirmed successfully.');
+      setStatusMessage('Schedule completed successfully.');
     } catch (error) {
       setStatusMessage(getProjectScheduleServiceResultMessage(error));
     }
@@ -78,14 +78,14 @@ export function SchedulesTab({ project }: SchedulesTabProps) {
                 </span>
               </div>
             </div>
-            {schedule.status === 'PENDING_CONFIRMATION' ? (
+            {schedule.status === 'CONFIRMED' ? (
               <button
-                className="designer-project-detail-button designer-project-detail-button-primary"
+                className="designer-project-detail-button designer-project-detail-button-primary designer-project-schedule-complete-button"
                 type="button"
                 disabled={updateScheduleStatusMutation.isPending}
-                onClick={() => void handleConfirmSchedule(schedule.scheduleId)}
+                onClick={() => void handleCompleteSchedule(schedule.scheduleId)}
               >
-                {updateScheduleStatusMutation.isPending ? 'Confirming...' : 'Confirm Schedule'}
+                {updateScheduleStatusMutation.isPending ? 'Completing...' : 'Complete Schedule'}
               </button>
             ) : null}
           </article>

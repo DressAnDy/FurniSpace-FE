@@ -9,6 +9,7 @@
 .designer-products-filters button { border: 1px solid #e4e4e7; border-radius: 999px; background: #fff; padding: 6px 10px; color: #52525b; font-size: 12px; font-weight: 600; }
 .designer-products-filters button.is-active { border-color: #c7a15f; background: #f7efe1; color: #6f5636; }
 .designer-products-filters span { color: #71717a; font-size: 12px; font-weight: 600; }
+.designer-products-business-filters { width: 100%; border-top: 1px solid #f0ede8; padding-top: 10px; }
 .designer-products-grid { display: grid; grid-template-columns: repeat(4,minmax(210px,1fr)); gap: 12px; }
 .designer-product-card { display: flex; min-height: 0; flex-direction: column; overflow: hidden; }
 .designer-product-preview { display: grid; height: 86px; place-items: center; overflow: hidden; background: linear-gradient(135deg,#f6ead9,#fff,#ded7ce); color: #8b6f47; }
@@ -24,6 +25,8 @@
 .designer-product-summary { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 8px; }
 .designer-product-summary span { border-radius: 999px; background: #f4f4f5; padding: 3px 7px; color: #52525b; font-size: 10px; font-weight: 700; }
 .designer-product-open-button { display: inline-flex; width: 100%; height: 30px; align-items: center; justify-content: center; gap: 5px; border: 0; border-radius: 8px; background: #18181b; color: #fff; cursor: pointer; font-size: 11px; font-weight: 700; margin-top: 10px; }
+.designer-product-create-version-button { display: inline-flex; height: 32px; align-items: center; justify-content: center; gap: 6px; border: 0; border-radius: 8px; background: #18181b; color: #fff; cursor: pointer; font-size: 12px; font-weight: 800; margin-top: 12px; padding: 0 12px; }
+.designer-create-version-shell { max-width: 920px; }
 .designer-product-version-panel { display: flex; flex-direction: column; gap: 12px; }
 .designer-product-version-summary-card { display: grid; grid-template-columns: 132px minmax(0,1fr); gap: 14px; overflow: hidden; padding: 12px; }
 .designer-product-version-summary-media { display: grid; min-height: 98px; place-items: center; overflow: hidden; border-radius: 8px; background: linear-gradient(135deg,#f6ead9,#fff,#ded7ce); color: #8b6f47; }

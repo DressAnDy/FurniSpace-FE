@@ -25,7 +25,7 @@ const saleSidebarItems: SaleSidebarItem[] = [
   { label: 'Assigned Projects', icon: IconBriefcase, path: '/sales/assigned-projects' },
   { label: 'Schedules', icon: IconCalendarEvent, path: '/sales/schedules' },
   { label: 'Quotations', icon: IconFileDollar, path: '/sales/quotations' },
-  { label: 'Orders', icon: IconFileDollar },
+  { label: 'Orders', icon: IconFileDollar, path: '/sales/orders' },
   { label: 'Production Tracking', icon: IconClipboardList },
 ];
 
