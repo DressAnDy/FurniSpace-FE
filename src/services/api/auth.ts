@@ -23,6 +23,30 @@ export type LoginInput = {
   password: string;
 };
 
+export type ResendVerificationOtpInput = {
+  email: string;
+};
+
+export type ForgotPasswordInput = {
+  email: string;
+};
+
+export type ResetPasswordInput = {
+  email: string;
+  token: string;
+  newPassword: string;
+};
+
+export type UpdateCurrentUserInput = {
+  fullName: string;
+  phone?: string | null;
+};
+
+export type ChangePasswordInput = {
+  currentPassword: string;
+  newPassword: string;
+};
+
 const authApiClient = axios.create({
   baseURL: getAuthApiBaseUrl(),
   withCredentials: true,
@@ -87,6 +111,14 @@ export async function verifyEmail(input: VerifyEmailInput) {
   return response.data;
 }
 
+export async function resendVerificationOtp(input: ResendVerificationOtpInput) {
+  const response = await authApiClient.post<ServiceResult<null>>('/auth/resend-verification-otp', {
+    email: normalizeEmail(input.email),
+  });
+
+  return response.data;
+}
+
 export async function login(input: LoginInput) {
   const response = await authApiClient.post<ServiceResult<AuthTokenData>>('/auth/login', {
     email: normalizeEmail(input.email),
@@ -98,8 +130,56 @@ export async function login(input: LoginInput) {
   return response.data;
 }
 
+export async function refresh() {
+  const response = await authApiClient.post<ServiceResult<AuthTokenData>>('/auth/refresh', {});
+
+  storeAccessTokenFromAuthResponse(response.data, response.headers.authorization);
+
+  return response.data;
+}
+
+export async function forgotPassword(input: ForgotPasswordInput) {
+  const response = await authApiClient.post<ServiceResult<null>>('/auth/forgot-password', {
+    email: normalizeEmail(input.email),
+  });
+
+  return response.data;
+}
+
+export async function resetPassword(input: ResetPasswordInput) {
+  const response = await authApiClient.post<ServiceResult<null>>('/auth/reset-password', {
+    email: normalizeEmail(input.email),
+    token: input.token.trim(),
+    newPassword: input.newPassword,
+  });
+
+  removeStoredAccessToken();
+
+  return response.data;
+}
+
 export async function getCurrentUser() {
   const response = await authApiClient.get<ServiceResult<CurrentUserData>>('/auth/me');
+
+  return response.data;
+}
+
+export async function updateCurrentUser(input: UpdateCurrentUserInput) {
+  const response = await authApiClient.patch<ServiceResult<CurrentUserData>>('/auth/me', {
+    fullName: input.fullName.trim(),
+    phone: input.phone ? normalizePhone(input.phone) : null,
+  });
+
+  return response.data;
+}
+
+export async function changePassword(input: ChangePasswordInput) {
+  const response = await authApiClient.patch<ServiceResult<null>>('/auth/me/password', {
+    currentPassword: input.currentPassword,
+    newPassword: input.newPassword,
+  });
+
+  removeStoredAccessToken();
 
   return response.data;
 }

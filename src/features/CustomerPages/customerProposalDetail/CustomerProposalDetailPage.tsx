@@ -231,7 +231,6 @@ export function CustomerProposalDetailPage() {
             <header>
               <div>
                 <h2>Project Proposals</h2>
-                <p>Select a published proposal to review scenes, items, and customization options.</p>
               </div>
             </header>
             {projectProposalsQuery.isLoading ? <p>Loading proposals...</p> : null}
