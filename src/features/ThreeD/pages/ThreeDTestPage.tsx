@@ -89,6 +89,7 @@ const PLACEMENT_MODES: Array<{
   { label: 'Custom Height', value: 'CUSTOM_HEIGHT' },
 ];
 const API_PRODUCT_DEFAULT_SCALE = 3;
+const EMPTY_MODEL_THUMBNAIL = '';
 
 function getDefaultVector3(value: Partial<Vector3State> | undefined, fallback: Vector3State): Vector3State {
   return {
@@ -192,7 +193,7 @@ function getVersionThumbnail(product: ProductDetailDto, version: ProductVersionD
   return version.thumbnail?.fileUrl ??
     product.thumbnail?.fileUrl ??
     version.files?.find((file) => file.fileType === 'PRODUCT_PREVIEW')?.fileUrl ??
-    '/models/3d-test/thumbnails/placeholder-product.svg';
+    EMPTY_MODEL_THUMBNAIL;
 }
 
 function getProductThumbnail(product: ProductDetailDto) {
@@ -200,7 +201,7 @@ function getProductThumbnail(product: ProductDetailDto) {
     product.files?.find((file) => file.fileType === 'PRODUCT_PREVIEW')?.fileUrl ??
     product.defaultVersion?.thumbnail?.fileUrl ??
     product.defaultVersion?.files?.find((file) => file.fileType === 'PRODUCT_PREVIEW')?.fileUrl ??
-    '/models/3d-test/thumbnails/placeholder-product.svg';
+    EMPTY_MODEL_THUMBNAIL;
 }
 
 function mapCatalogVersionToModel(product: ProductDetailDto, version: ProductVersionDto): ProductModel | null {
@@ -689,7 +690,7 @@ export function ThreeDTestPage() {
         name: uploadedFile.originalFileName.replace(/\.(glb|gltf)$/i, '') || 'Uploaded 3D Model',
         productVersionId: uploadedFile.referenceId,
         source: 'uploaded',
-        thumbnailUrl: '/models/3d-test/thumbnails/placeholder-product.svg',
+        thumbnailUrl: EMPTY_MODEL_THUMBNAIL,
       };
 
       addUploadedProductModel(uploadedModel);
