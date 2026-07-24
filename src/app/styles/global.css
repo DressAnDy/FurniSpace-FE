@@ -1,11 +1,30 @@
-@import url("https://fonts.googleapis.com/css2?family=Archivo:wght@400;700;900&family=DM+Sans:wght@400;500;600;700&family=Libre+Baskerville:wght@400;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Archivo:wght@400;700;900&family=Be+Vietnam+Pro:wght@400;500;600;700;800;900&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700;9..40,800;9..40,900&family=Merriweather:wght@400;700&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
 :root {
-  font-family: "DM Sans", "Open Sans", Arial, sans-serif;
-  color: #1e2421;
-  background: #fafaf8;
+  --fs-bg: #fafaf8;
+  --fs-surface: #ffffff;
+  --fs-surface-warm: #f5f1eb;
+  --fs-ink: #0f0d0b;
+  --fs-ink-soft: #2a241f;
+  --fs-muted: rgba(15, 13, 11, 0.58);
+  --fs-border: rgba(139, 111, 71, 0.16);
+  --fs-wood: #8b6f47;
+  --fs-wood-dark: #6f5636;
+  --fs-gold: #c4a07a;
+  --fs-gold-strong: #c0954b;
+  --fs-sidebar: #17110a;
+  --fs-sidebar-soft: #2a241f;
+  --fs-danger: #991b1b;
+  --fs-customer-font: "Be Vietnam Pro", "DM Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-family: "Be Vietnam Pro", "DM Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  color: var(--fs-ink);
+  background: var(--fs-bg);
   font-synthesis: none;
-  text-rendering: optimizeLegibility;
+  text-rendering: optimizeSpeed;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -22,4 +41,145 @@ body {
 
 #root {
   min-height: 100vh;
+}
+
+/* ── Auth loading screen ── */
+
+.auth-loading {
+  display: grid;
+  min-height: 100vh;
+  place-items: center;
+  background: #fafaf9;
+}
+
+.auth-loading-spinner {
+  display: block;
+  width: 36px;
+  height: 36px;
+  border: 3px solid #e7e5e4;
+  border-top-color: #c9a13b;
+  border-radius: 50%;
+  animation: auth-spin 0.7s linear infinite;
+}
+
+@keyframes auth-spin {
+  to { transform: rotate(360deg); }
+}
+
+.actor-command-search {
+  position: relative;
+  z-index: 30;
+}
+
+.actor-command-search input::-webkit-search-cancel-button {
+  display: none;
+}
+
+.actor-command-results {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  right: 0;
+  z-index: 90;
+  overflow: hidden;
+  border: 1px solid rgba(139, 111, 71, 0.16);
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 18px 42px rgba(15, 13, 11, 0.14);
+  color: #0f0d0b;
+}
+
+.actor-command-results button {
+  display: grid;
+  width: 100%;
+  gap: 4px;
+  border: 0;
+  border-bottom: 1px solid #f0ece6;
+  background: transparent;
+  padding: 10px 12px;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+}
+
+.actor-command-results button:last-child {
+  border-bottom: 0;
+}
+
+.actor-command-results button:hover {
+  background: #f5f1eb;
+}
+
+.actor-command-results span {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+}
+
+.actor-command-results strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+}
+
+.actor-command-results small {
+  color: rgba(15, 13, 11, 0.56);
+  flex: 0 0 auto;
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.actor-command-results p {
+  margin: 0;
+  color: rgba(15, 13, 11, 0.62);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.actor-command-empty {
+  padding: 12px;
+}
+
+.actor-sidebar-open-button,
+.actor-sidebar-collapse-button {
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  cursor: pointer;
+  font: inherit;
+}
+
+.actor-sidebar-open-button {
+  position: fixed;
+  top: 16px;
+  left: 16px;
+  z-index: 120;
+  display: none;
+  width: 42px;
+  height: 42px;
+  border-radius: 8px;
+  background: var(--fs-sidebar);
+  color: #ffffff;
+  box-shadow: 0 14px 30px rgba(15, 13, 11, 0.18);
+}
+
+.actor-sidebar-collapse-button {
+  display: flex;
+  width: 34px;
+  height: 34px;
+  flex: 0 0 34px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(245, 241, 235, 0.9);
+}
+
+.actor-sidebar-collapse-button:hover,
+.actor-sidebar-open-button:hover {
+  background: var(--fs-gold);
+  color: var(--fs-ink);
 }

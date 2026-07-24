@@ -1,0 +1,386 @@
+.main-navbar.main-navbar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 50;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  width: 100%;
+  min-height: 80px;
+  align-items: center;
+  gap: 32px;
+  box-sizing: border-box;
+  border-radius: 0 0 2px 2px;
+  background: transparent;
+  box-shadow: none;
+  padding: 0 28px 0 18px;
+  transition:
+    background-color 280ms ease,
+    box-shadow 280ms ease,
+    min-height 280ms ease,
+    backdrop-filter 280ms ease;
+}
+
+.main-navbar.main-navbar-scrolled {
+  min-height: 72px;
+  background: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
+}
+
+.main-navbar .main-navbar-brand {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-self: start;
+  gap: 8px;
+  color: inherit;
+  text-decoration: none;
+}
+
+.main-navbar .main-navbar-logo-wrap {
+  position: relative;
+  display: grid;
+  flex: 0 0 50px;
+  width: 50px;
+  height: 50px;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 10px;
+  background: transparent;
+}
+
+.main-navbar .main-navbar-logo-image {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.main-navbar .main-navbar-brand-name.main-navbar-brand-name {
+  color: #c59c76;
+  font-family: Archivo, Arial, sans-serif;
+  font-size: clamp(32px, 2.9vw, 40px);
+  font-weight: 900;
+  letter-spacing: 0;
+  line-height: 1;
+  text-transform: none;
+}
+
+.main-navbar .main-navbar-nav {
+  display: flex;
+  align-items: center;
+  justify-self: center;
+  justify-content: center;
+  gap: clamp(28px, 3.1vw, 38px);
+}
+
+.main-navbar .main-navbar-link.main-navbar-link,
+.main-navbar .main-navbar-action {
+  position: relative;
+  color: #0b0b0b;
+  font-family: "Be Vietnam Pro", "DM Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  line-height: 20px;
+  text-decoration: none;
+  text-transform: none;
+  white-space: nowrap;
+  transition:
+    color 220ms ease,
+    transform 220ms ease;
+}
+
+.main-navbar .main-navbar-link::after,
+.main-navbar .main-navbar-action::after {
+  position: absolute;
+  right: 0;
+  bottom: -8px;
+  left: 0;
+  height: 2px;
+  background: #c59c76;
+  content: "";
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 260ms ease;
+}
+
+.main-navbar .main-navbar-link.main-navbar-link-active {
+  color: #0b0b0b;
+}
+
+.main-navbar .main-navbar-link.main-navbar-link-active::after,
+.main-navbar .main-navbar-link:hover::after,
+.main-navbar .main-navbar-action:hover::after {
+  transform: scaleX(1);
+}
+
+.main-navbar .main-navbar-actions {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-self: end;
+  justify-content: flex-end;
+  gap: 18px;
+}
+
+.main-navbar .main-navbar-action-login {
+  color: #c59c76;
+}
+
+.main-navbar .main-navbar-link:hover,
+.main-navbar .main-navbar-action:hover {
+  color: #c59c76;
+}
+
+.main-navbar .main-navbar-account {
+  position: relative;
+}
+
+.main-navbar .main-navbar-user-button,
+.main-navbar .main-navbar-language {
+  border: 0;
+  cursor: pointer;
+  font-family: "Be Vietnam Pro", "DM Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+.main-navbar .main-navbar-user-button {
+  display: flex;
+  height: 44px;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 6px 4px 14px;
+  border-radius: 999px;
+  background: rgba(197, 156, 118, 0.1);
+  color: #0b0b0b;
+  transition:
+    background-color 220ms ease,
+    box-shadow 220ms ease,
+    transform 220ms ease;
+}
+
+.main-navbar .main-navbar-user-button:hover,
+.main-navbar .main-navbar-user-button[aria-expanded="true"] {
+  background: rgba(197, 156, 118, 0.18);
+  box-shadow: 0 10px 22px rgba(23, 17, 10, 0.1);
+  transform: translateY(-1px);
+}
+
+.main-navbar .main-navbar-user-name {
+  max-width: 150px;
+  overflow: hidden;
+  font-size: 14px;
+  font-weight: 800;
+  line-height: 1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.main-navbar .main-navbar-avatar {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  flex: 0 0 34px;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 50%;
+  background: #17110a;
+  color: #c59c76;
+  font-size: 12px;
+  font-weight: 900;
+  object-fit: cover;
+}
+
+.main-navbar .main-navbar-user-chevron {
+  color: #c59c76;
+  transition: transform 220ms ease;
+}
+
+.main-navbar .main-navbar-user-button[aria-expanded="true"] .main-navbar-user-chevron {
+  transform: rotate(180deg);
+}
+
+.main-navbar .main-navbar-account-menu {
+  position: absolute;
+  top: calc(100% + 12px);
+  right: 0;
+  z-index: 80;
+  display: flex;
+  min-width: 232px;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px;
+  border: 1px solid rgba(17, 17, 17, 0.08);
+  border-radius: 10px;
+  background: #ffffff;
+  box-shadow: 0 22px 52px rgba(17, 17, 17, 0.16);
+}
+
+.main-navbar .main-navbar-account-menu::before {
+  position: absolute;
+  top: -6px;
+  right: 22px;
+  width: 12px;
+  height: 12px;
+  background: #ffffff;
+  border-top: 1px solid rgba(17, 17, 17, 0.08);
+  border-left: 1px solid rgba(17, 17, 17, 0.08);
+  content: "";
+  transform: rotate(45deg);
+}
+
+.main-navbar .main-navbar-account-menu-item {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 10px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #17110a;
+  cursor: pointer;
+  font-family: "Be Vietnam Pro", "DM Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.25;
+  padding: 11px 12px;
+  text-align: left;
+  text-decoration: none;
+  transition:
+    background-color 180ms ease,
+    color 180ms ease;
+}
+
+.main-navbar .main-navbar-account-menu-item svg {
+  flex: 0 0 auto;
+  color: #c59c76;
+}
+
+.main-navbar .main-navbar-account-menu-item:hover {
+  background: rgba(197, 156, 118, 0.12);
+  color: #9b734b;
+}
+
+.main-navbar .main-navbar-account-menu-item:disabled {
+  cursor: not-allowed;
+  opacity: 0.62;
+}
+
+.main-navbar .main-navbar-language {
+  display: flex;
+  height: 38px;
+  min-width: 58px;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 1px solid rgba(197, 156, 118, 0.42);
+  border-radius: 999px;
+  background: #ffffff;
+  color: #17110a;
+  font-size: 13px;
+  font-weight: 900;
+  letter-spacing: 0.4px;
+  transition:
+    background-color 220ms ease,
+    border-color 220ms ease,
+    color 220ms ease,
+    transform 220ms ease;
+}
+
+.main-navbar .main-navbar-language svg {
+  color: #c59c76;
+}
+
+.main-navbar .main-navbar-language:hover {
+  border-color: #c59c76;
+  background: rgba(197, 156, 118, 0.1);
+  color: #9b734b;
+  transform: translateY(-1px);
+}
+
+.main-navbar .main-navbar-logo-wrap,
+.main-navbar .main-navbar-brand-name {
+  transition: transform 320ms ease;
+}
+
+.main-navbar .main-navbar-brand:hover .main-navbar-logo-wrap {
+  transform: scale(1.04);
+}
+
+.main-navbar .main-navbar-brand:hover .main-navbar-brand-name {
+  transform: translateX(2px);
+}
+
+@media (max-width: 1180px) {
+  .main-navbar.main-navbar {
+    gap: 22px;
+    padding-right: 22px;
+  }
+
+  .main-navbar .main-navbar-brand {
+    min-width: 0;
+  }
+
+  .main-navbar .main-navbar-brand-name.main-navbar-brand-name {
+    font-size: 32px;
+  }
+
+  .main-navbar .main-navbar-nav {
+    gap: 22px;
+  }
+
+  .main-navbar .main-navbar-link.main-navbar-link,
+  .main-navbar .main-navbar-action {
+    font-size: 14px;
+  }
+
+  .main-navbar .main-navbar-actions {
+    min-width: 0;
+    gap: 12px;
+  }
+
+  .main-navbar .main-navbar-user-name {
+    max-width: 112px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .main-navbar.main-navbar,
+  .main-navbar .main-navbar-link,
+  .main-navbar .main-navbar-action,
+  .main-navbar .main-navbar-link::after,
+  .main-navbar .main-navbar-action::after,
+  .main-navbar .main-navbar-logo-wrap,
+  .main-navbar .main-navbar-brand-name {
+    transition: none;
+  }
+}
+
+@media (max-width: 900px) {
+  .main-navbar.main-navbar {
+    display: flex;
+    min-height: 96px;
+    flex-wrap: wrap;
+    justify-content: center;
+    padding: 14px 18px;
+  }
+
+  .main-navbar .main-navbar-brand {
+    min-width: 0;
+  }
+
+  .main-navbar .main-navbar-nav {
+    order: 3;
+    flex-basis: 100%;
+    gap: 18px;
+  }
+
+  .main-navbar .main-navbar-actions {
+    min-width: 0;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+}

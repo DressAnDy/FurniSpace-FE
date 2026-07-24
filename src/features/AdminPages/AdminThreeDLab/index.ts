@@ -1,0 +1,1 @@
+export { AdminThreeDLabPage } from './AdminThreeDLabPage';

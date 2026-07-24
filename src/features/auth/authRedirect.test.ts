@@ -1,0 +1,22 @@
+import { describe, expect, it } from 'vitest';
+
+import { getPostLoginPath } from './authRedirect';
+
+describe('getPostLoginPath', () => {
+  it.each([
+    ['ADMIN', '/admin/dashbroad'],
+    ['ROLE_SALE', '/sale/dashbroad'],
+    ['designer', '/designer/assigned-projects'],
+    ['ROLE-DESIGNER', '/designer/assigned-projects'],
+    ['PRODUCTION', '/production/customization-requests'],
+    ['ROLE_PRODUCTION', '/production/customization-requests'],
+    ['CUSTOMER', '/customer/dashboard'],
+  ])('routes %s to the correct workspace', (role, expectedPath) => {
+    expect(getPostLoginPath(role)).toBe(expectedPath);
+  });
+
+  it('does not route an unknown role into the customer workspace', () => {
+    expect(getPostLoginPath('WAREHOUSE')).toBe('/');
+    expect(getPostLoginPath()).toBe('/');
+  });
+});

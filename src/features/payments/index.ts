@@ -1,0 +1,1 @@
+export { PaymentCollectionModal } from './PaymentCollectionModal';
