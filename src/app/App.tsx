@@ -48,7 +48,7 @@ import { SaleSchedules } from '@/features/SalePages/SaleSchedules';
 import { SaleDashbroad } from '@/features/SalePages/SaleDashbroad';
 import { ThreeDTestPage } from '@/features/ThreeD/pages/ThreeDTestPage';
 import { ViewerDemoPage } from '@/features/viewer3d';
-import { TileTransitionProvider } from '@/shared/components';
+import { NotificationRealtimeProvider, TileTransitionProvider } from '@/shared/components';
 
 export default function App() {
   return (
@@ -56,10 +56,10 @@ export default function App() {
       <ThemeProvider theme={theme}>
         <CssBaseline />
         <LangProvider>
-<<<<<<< HEAD
           <NotificationRealtimeProvider>
             <BrowserRouter>
-              <Routes>
+              <TileTransitionProvider>
+                <Routes>
             {/* ── Public routes ── */}
             <Route path="/" element={<HomePage />} />
             <Route path="/login" element={<LoginPage />} />
@@ -210,15 +210,10 @@ export default function App() {
             <Route path="/sales/orders" element={<SaleOrders />} />
             <Route path="/sales/project-requests/:projectId" element={<ProjectDetail />} />
             <Route path="*" element={<Navigate to="/" replace />} />
-<<<<<<< HEAD
-              </Routes>
+                </Routes>
+              </TileTransitionProvider>
             </BrowserRouter>
           </NotificationRealtimeProvider>
-=======
-          </Routes>
-          </TileTransitionProvider>
-        </BrowserRouter>
->>>>>>> develop
         </LangProvider>
       </ThemeProvider>
     </QueryClientProvider>
