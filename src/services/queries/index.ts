@@ -161,4 +161,17 @@ export {
   useUpdateManualQuotationItem,
   useUpdateQuotation,
 } from './useQuotations';
-export { useCurrentUser, useLogin, useLogout, useRegister, useVerifyEmail } from './useAuth';
+export {
+  authQueryKeys,
+  useChangePassword,
+  useCurrentUser,
+  useForgotPassword,
+  useLogin,
+  useLogout,
+  useRefreshAuth,
+  useRegister,
+  useResendVerificationOtp,
+  useResetPassword,
+  useUpdateCurrentUser,
+  useVerifyEmail,
+} from './useAuth';

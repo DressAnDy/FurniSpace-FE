@@ -167,8 +167,8 @@
 
 .customer-proposal-detail-layout {
   display: grid;
-  grid-template-columns: minmax(260px, 30%) minmax(0, 70%);
-  gap: 20px;
+  grid-template-columns: minmax(160px, 15%) minmax(0, 1fr);
+  gap: 16px;
   align-items: start;
   margin-top: 18px;
 }
@@ -232,6 +232,10 @@
   padding: 18px;
 }
 
+.customer-proposal-detail-proposal-list {
+  padding: 14px;
+}
+
 .customer-proposal-detail-state {
   color: #6b6b6b;
   font-size: 14px;
@@ -285,7 +289,7 @@
 .customer-proposal-detail-proposal-list h2 {
   margin: 0;
   color: #2d2d2d;
-  font-size: 18px;
+  font-size: 15px;
   font-weight: 600;
 }
 
@@ -309,7 +313,7 @@
   color: #2d2d2d;
   cursor: pointer;
   font: inherit;
-  padding: 12px 14px;
+  padding: 10px 12px;
   text-align: left;
 }
 
@@ -531,8 +535,9 @@
 
 .customer-proposal-detail-scene-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min-content, max-content));
   gap: 14px;
+  justify-content: start;
   margin-top: 18px;
 }
 
@@ -541,6 +546,8 @@
   border: 1px solid #e8e5e0;
   border-radius: 12px;
   background: #faf9f7;
+  width: max-content;
+  max-width: 100%;
 }
 
 .customer-proposal-detail-scene-grid img,
@@ -643,10 +650,17 @@
   border-bottom: 1px solid #f0ece5;
   color: #2d2d2d;
   font-size: 13px;
-  overflow-wrap: anywhere;
   padding: 12px 10px;
   vertical-align: top;
+  white-space: nowrap;
   word-break: normal;
+}
+
+.customer-proposal-detail-items td:nth-child(1),
+.customer-proposal-detail-items td:nth-child(2),
+.customer-proposal-detail-items td:nth-child(4) {
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .customer-proposal-detail-items td:nth-child(n + 5) {
@@ -909,7 +923,7 @@
   }
 
   .customer-proposal-detail-scene-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(min-content, max-content));
   }
 }
 
@@ -952,6 +966,11 @@
 
   .customer-proposal-detail-scene-grid {
     grid-template-columns: 1fr;
+    justify-content: stretch;
+  }
+
+  .customer-proposal-detail-scene-grid article {
+    width: 100%;
   }
 
   .customer-proposal-detail-snapshot-strip {
@@ -1007,8 +1026,10 @@
     display: flex;
     justify-content: space-between;
     gap: 14px;
+    overflow-wrap: anywhere;
     padding: 7px 0;
     text-align: right;
+    white-space: normal;
   }
 
   .customer-proposal-detail-items td::before {
