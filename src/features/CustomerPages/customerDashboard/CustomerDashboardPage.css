@@ -297,6 +297,13 @@
   gap: 20px;
 }
 
+.customer-dashboard-project-head-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
 .customer-dashboard-title-row {
   display: flex;
   align-items: center;
@@ -851,6 +858,7 @@
   }
 
   .customer-dashboard-project-head,
+  .customer-dashboard-project-head-actions,
   .customer-dashboard-title-row,
   .customer-dashboard-empty-project,
   .customer-dashboard-action-required {

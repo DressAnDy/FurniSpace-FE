@@ -1,0 +1,9 @@
+.production-requests-check {
+  display: inline-flex;
+  width: fit-content;
+  align-items: center;
+  gap: 8px;
+  color: #6b6b6b;
+  font-size: 13px;
+  font-weight: 800;
+}

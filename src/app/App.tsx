@@ -6,7 +6,7 @@ import { queryClient } from '@/app/providers/queryClient';
 import { theme } from '@/app/providers/theme';
 import { ProtectedRoute } from '@/app/providers/ProtectedRoute';
 import { LangProvider } from '@/app/providers/LangContext';
-import { CodeVerifyPage, LoginPage, RegisterPage } from '@/features/auth';
+import { CodeVerifyPage, ForgotPasswordPage, LoginPage, RegisterPage } from '@/features/auth';
 import { AdminDashbroad } from '@/features/AdminPages/AdminDashbroad';
 import { AdminProjects } from '@/features/AdminPages/AdminProjects';
 import { AdminReports } from '@/features/AdminPages/AdminReports';
@@ -24,6 +24,8 @@ import { CustomerProjectRequestPage } from '@/features/CustomerPages/customerPro
 import { CustomerProposalDetailPage } from '@/features/CustomerPages/customerProposalDetail';
 import { CustomerOrdersPage } from '@/features/CustomerPages/customerOrders';
 import { CustomerQuotationsPage } from '@/features/CustomerPages/customerQuotations';
+import { ProjectFeedback } from '@/features/CustomerPages/Feedback';
+import { Tracking } from '@/features/CustomerPages/Tracking';
 import { DesignerAssignedProjects } from '@/features/DesignerPages/DesignerAssignedProjects';
 import { DesignerProposalWorkspace } from '@/features/DesignerPages/DesignerProposalWorkspace';
 import { CustomerSchedulesPage } from '@/features/CustomerPages/customerSchedules';
@@ -40,8 +42,13 @@ import { DesignerDashbroad } from '@/features/DesignerPages/DesignerDashbroad';
 import { DesignerCreateProductVersionPage, DesignerProductLibrary } from '@/features/DesignerPages/DesignerProductLibrary';
 import { DesignerProjectDetail } from '@/features/DesignerPages/DesignerProjectDetail';
 import { DesignerSchedules } from '@/features/DesignerPages/DesignerSchedules';
+import { BlockedIssues } from '@/features/ProductionPages/BlockedIssues';
+import { MyProductionTasks } from '@/features/ProductionPages/MyProductionTasks';
 import { ProductionCustomizationRequests } from '@/features/ProductionPages/ProductionCustomizationRequests';
 import { ProductionDashbroad } from '@/features/ProductionPages/ProductionDashbroad';
+import { ProductionRequestDetail } from '@/features/ProductionPages/ProductionRequestDetail';
+import { ProductionRequests } from '@/features/ProductionPages/ProductionRequests';
+import { ReadyForDelivery } from '@/features/ProductionPages/ReadyForDelivery';
 import { SaleQuotations } from '@/features/SalePages/SaleQuotations';
 import { SaleOrders } from '@/features/SalePages/SaleOrders';
 import { SaleSchedules } from '@/features/SalePages/SaleSchedules';
@@ -62,6 +69,7 @@ export default function App() {
             {/* ── Public routes ── */}
             <Route path="/" element={<HomePage />} />
             <Route path="/login" element={<LoginPage />} />
+            <Route path="/forgot-password" element={<ForgotPasswordPage />} />
             <Route path="/register" element={<RegisterPage />} />
             <Route path="/code-verify" element={<CodeVerifyPage />} />
             <Route path="/products" element={<ProductListPreviewPage />} />
@@ -104,11 +112,14 @@ export default function App() {
               <Route path="/customer/projects" element={<CustomerProjectListPage />} />
               <Route path="/customer/projects/:projectId/edit" element={<CustomerProjectInformationPage />} />
               <Route path="/customer/project-request" element={<CustomerProjectRequestPage />} />
+              <Route path="/customer/tracking" element={<Tracking />} />
               <Route path="/customer/schedules" element={<CustomerSchedulesPage />} />
               <Route path="/customer/proposals" element={<CustomerProposalDetailPage />} />
               <Route path="/customer/proposals/:proposalId" element={<CustomerProposalDetailPage />} />
               <Route path="/customer/quotations" element={<CustomerQuotationsPage />} />
               <Route path="/customer/orders" element={<CustomerOrdersPage />} />
+              <Route path="/customer/profile" element={<UserProfilePage />} />
+              <Route path="/customer/projects/:projectId/feedback" element={<ProjectFeedback />} />
               <Route path="/customer/3d-preview" element={<Customer3dPreviewPage />} />
               <Route path="/customer/chat" element={<CustomerChatPage />} />
               {/* Customer legacy redirects */}
@@ -116,6 +127,7 @@ export default function App() {
               <Route path="/customer-3d-preview" element={<Navigate to="/customer/3d-preview" replace />} />
               <Route path="/customer-projects" element={<Navigate to="/customer/projects" replace />} />
               <Route path="/customer-project-request" element={<Navigate to="/customer/project-request" replace />} />
+              <Route path="/customer-tracking" element={<Navigate to="/customer/tracking" replace />} />
               <Route path="/customer-schedules" element={<Navigate to="/customer/schedules" replace />} />
               <Route path="/customer-proposal-detail" element={<Navigate to="/customer/proposals" replace />} />
               <Route path="/customer-chat" element={<Navigate to="/customer/chat" replace />} />
@@ -149,9 +161,17 @@ export default function App() {
 
             {/* Production routes (role: PRODUCTION) */}
             <Route element={<ProtectedRoute allowedRoles={['PRODUCTION']} />}>
-              <Route path="/production" element={<Navigate to="/production/customization-requests" replace />} />
+              <Route path="/production" element={<Navigate to="/production/dashboard" replace />} />
+              <Route path="/production/dashboard" element={<ProductionDashbroad />} />
               <Route path="/production/dashbroad" element={<ProductionDashbroad />} />
+              <Route path="/production/customization-reviews" element={<ProductionCustomizationRequests />} />
               <Route path="/production/customization-requests" element={<ProductionCustomizationRequests />} />
+              <Route path="/production/requests" element={<ProductionRequests />} />
+              <Route path="/production/requests/:productionRequestId" element={<ProductionRequestDetail />} />
+              <Route path="/production/my-tasks" element={<MyProductionTasks />} />
+              <Route path="/production/blocked-issues" element={<BlockedIssues />} />
+              <Route path="/production/ready-for-delivery" element={<ReadyForDelivery />} />
+              <Route path="/production/settings" element={<Navigate to="/production/dashboard" replace />} />
             </Route>
 
             <Route path="/viewer3d" element={<ViewerDemoPage />} />
@@ -168,15 +188,19 @@ export default function App() {
             <Route path="/customer/projects" element={<CustomerProjectListPage />} />
             <Route path="/customer/projects/:projectId/edit" element={<CustomerProjectInformationPage />} />
             <Route path="/customer/project-request" element={<CustomerProjectRequestPage />} />
+            <Route path="/customer/tracking" element={<Tracking />} />
             <Route path="/customer/proposals" element={<CustomerProposalDetailPage />} />
             <Route path="/customer/proposals/:proposalId" element={<CustomerProposalDetailPage />} />
             <Route path="/customer/quotations" element={<CustomerQuotationsPage />} />
             <Route path="/customer/orders" element={<CustomerOrdersPage />} />
+            <Route path="/customer/profile" element={<UserProfilePage />} />
+            <Route path="/customer/projects/:projectId/feedback" element={<ProjectFeedback />} />
             <Route path="/customer/3d-preview" element={<Customer3dPreviewPage />} />
             <Route path="/customer-dashboard" element={<Navigate to="/customer/dashboard" replace />} />
             <Route path="/customer-3d-preview" element={<Navigate to="/customer/3d-preview" replace />} />
             <Route path="/customer-projects" element={<Navigate to="/customer/projects" replace />} />
             <Route path="/customer-project-request" element={<Navigate to="/customer/project-request" replace />} />
+            <Route path="/customer-tracking" element={<Navigate to="/customer/tracking" replace />} />
             <Route path="/customer-proposal-detail" element={<Navigate to="/customer/proposals" replace />} />
             
             <Route path="/admin" element={<Navigate to="/admin/dashbroad" replace />} />

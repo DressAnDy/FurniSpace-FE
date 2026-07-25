@@ -167,10 +167,16 @@ export function CustomerDashboardPage() {
                     </div>
                     <p>Track progress and take next steps</p>
                   </div>
-                  <button type="button" onClick={() => navigate('/customer/projects')}>
-                    Open Project
-                    <IconArrowRight size={16} stroke={1.8} />
-                  </button>
+                  <div className="customer-dashboard-project-head-actions">
+                    <button type="button" onClick={() => navigate('/customer/tracking')}>
+                      Track Project
+                      <IconArrowRight size={16} stroke={1.8} />
+                    </button>
+                    <button type="button" onClick={() => navigate('/customer/projects')}>
+                      Open Project
+                      <IconArrowRight size={16} stroke={1.8} />
+                    </button>
+                  </div>
                 </div>
 
                 <div className="customer-dashboard-project-meta">
@@ -382,6 +388,15 @@ function getActionConfig(status: ProjectStatus) {
       description: 'A quotation is ready for review before the next project stage.',
       label: 'View Quotation',
       path: '/customer/proposals',
+    };
+  }
+
+  if (status === 'COMPLETED') {
+    return {
+      title: 'Project Completed',
+      description: 'Your project is complete. Please share feedback about your FurniSpace experience.',
+      label: 'Submit Feedback',
+      path: '/customer/tracking',
     };
   }
 

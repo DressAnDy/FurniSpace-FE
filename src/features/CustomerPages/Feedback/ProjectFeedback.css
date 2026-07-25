@@ -1,0 +1,63 @@
+.customer-feedback-form {
+  display: grid;
+  gap: 14px;
+}
+
+.customer-feedback-rating {
+  display: grid;
+  gap: 8px;
+  border-radius: 10px;
+  background: #faf9f7;
+  padding: 13px;
+}
+
+.customer-feedback-rating span,
+.customer-feedback-form label span {
+  color: #6b6b6b;
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.customer-feedback-rating div {
+  display: flex;
+  gap: 6px;
+}
+
+.customer-feedback-rating button {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border: 0;
+  border-radius: 8px;
+  background: rgba(196, 160, 122, 0.14);
+  color: #c19a5b;
+  cursor: pointer;
+}
+
+.customer-feedback-form label {
+  display: grid;
+  gap: 8px;
+}
+
+.customer-feedback-form textarea {
+  width: 100%;
+  border: 1px solid rgba(139, 111, 71, 0.2);
+  border-radius: 8px;
+  background: #faf9f7;
+  color: #2d2d2d;
+  font: inherit;
+  padding: 12px;
+  resize: vertical;
+}
+
+.customer-feedback-form button:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
+}
+
+.customer-feedback-existing {
+  display: grid;
+  gap: 14px;
+}

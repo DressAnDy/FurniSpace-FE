@@ -1,0 +1,198 @@
+.customer-tracking-selector {
+  min-height: 40px;
+  border: 1px solid rgba(139, 111, 71, 0.2);
+  border-radius: 8px;
+  background: #faf9f7;
+  color: #2d2d2d;
+  font: inherit;
+  padding: 0 12px;
+}
+
+.customer-tracking-status-banner {
+  display: grid;
+  align-content: center;
+  gap: 12px;
+  min-height: 100%;
+  border: 1px solid rgba(139, 111, 71, 0.15);
+  border-radius: 12px;
+  background: linear-gradient(174deg, #2d2d2d 0%, #1e1e1e 100%);
+  color: #ffffff;
+  padding: 26px;
+}
+
+.customer-tracking-status-banner h2 {
+  margin: 0;
+  font-size: 26px;
+  line-height: 1.2;
+}
+
+.customer-tracking-status-banner p,
+.customer-tracking-status-banner strong {
+  color: rgba(255, 255, 255, 0.78);
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.customer-tracking-status-banner .customer-workspace-button {
+  width: fit-content;
+  margin-top: 4px;
+}
+
+.customer-tracking-warning-panel {
+  border: 1px solid rgba(184, 92, 80, 0.22);
+  border-radius: 12px;
+  background: #fff7f5;
+  padding: 20px;
+}
+
+.customer-tracking-warning-panel > header {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: start;
+  margin-bottom: 14px;
+}
+
+.customer-tracking-warning-panel > header > svg {
+  color: #b85c50;
+}
+
+.customer-tracking-warning-panel h2 {
+  margin: 0;
+  color: #2d2d2d;
+  font-size: 18px;
+}
+
+.customer-tracking-warning-panel p {
+  margin: 5px 0 0;
+  color: #6b6b6b;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.customer-tracking-item-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.customer-tracking-item-card {
+  display: grid;
+  gap: 14px;
+  border: 1px solid rgba(139, 111, 71, 0.14);
+  border-radius: 12px;
+  background: #faf9f7;
+  padding: 16px;
+}
+
+.customer-tracking-item-card-blocked {
+  border-color: rgba(245, 158, 11, 0.32);
+  background: #fffaf0;
+}
+
+.customer-tracking-item-card-cancelled {
+  border-color: rgba(184, 92, 80, 0.3);
+  background: #fff7f5;
+}
+
+.customer-tracking-item-card header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.customer-tracking-item-card header span:not(.customer-workspace-status) {
+  display: block;
+  color: #8b6f47;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.customer-tracking-item-card h3 {
+  margin: 5px 0 0;
+  color: #2d2d2d;
+  font-size: 18px;
+  font-weight: 800;
+}
+
+.customer-tracking-item-card header p {
+  margin: 4px 0 0;
+  color: #6b6b6b;
+  font-size: 13px;
+}
+
+.customer-tracking-item-warning {
+  border: 1px solid rgba(245, 158, 11, 0.2);
+  border-radius: 10px;
+  background: rgba(245, 158, 11, 0.1);
+  padding: 12px;
+}
+
+.customer-tracking-item-warning-danger {
+  border-color: rgba(184, 92, 80, 0.22);
+  background: rgba(184, 92, 80, 0.1);
+}
+
+.customer-tracking-item-warning strong {
+  display: block;
+  color: #2d2d2d;
+  font-size: 13px;
+}
+
+.customer-tracking-item-warning p {
+  margin: 5px 0 0;
+  color: #6b6b6b;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.customer-tracking-project-overview {
+  opacity: 0.88;
+}
+
+.customer-tracking-related-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.customer-tracking-related-card {
+  display: grid;
+  gap: 8px;
+  border: 1px solid rgba(139, 111, 71, 0.14);
+  border-radius: 10px;
+  background: #faf9f7;
+  color: #2d2d2d;
+  padding: 14px;
+  text-decoration: none;
+}
+
+.customer-tracking-related-card svg {
+  color: #8b6f47;
+}
+
+.customer-tracking-related-card strong {
+  color: #2d2d2d;
+  font-size: 14px;
+}
+
+.customer-tracking-related-card p {
+  margin: 0;
+  color: #6b6b6b;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+@media (max-width: 760px) {
+  .customer-tracking-related-grid,
+  .customer-tracking-item-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .customer-tracking-warning-panel > header,
+  .customer-tracking-item-card header {
+    grid-template-columns: 1fr;
+    flex-direction: column;
+  }
+}

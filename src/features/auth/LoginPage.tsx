@@ -97,9 +97,14 @@ export function LoginPage() {
 
           <div className="login-divider" />
 
-          <p className="login-register-copy">
-            Bạn chưa có tài khoản? <Link to="/register">Đăng ký</Link>
-          </p>
+          <div className="login-account-row">
+            <p className="login-register-copy">
+              Bạn chưa có tài khoản? <Link to="/register">Đăng ký</Link>
+            </p>
+            <Link className="login-forgot-link" to="/forgot-password">
+              Quên mật khẩu?
+            </Link>
+          </div>
         </form>
       </section>
 

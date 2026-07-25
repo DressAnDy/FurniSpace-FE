@@ -6,6 +6,56 @@
   margin-bottom: 24px;
 }
 
+.production-dashboard-list-item {
+  display: grid;
+  gap: 8px;
+  border: 1px solid rgba(139, 111, 71, 0.15);
+  border-radius: 10px;
+  background: #faf9f7;
+  color: #2d2d2d;
+  padding: 14px;
+  text-decoration: none;
+}
+
+.production-dashboard-list-item strong {
+  color: #2d2d2d;
+  font-size: 15px;
+}
+
+.production-dashboard-list-item small,
+.production-dashboard-list-item p {
+  margin: 0;
+  color: #6b6b6b;
+  font-size: 13px;
+  line-height: 20px;
+}
+
+.production-dashboard-report-summary {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+
+.production-dashboard-report-table {
+  min-width: 1480px;
+}
+
+.production-dashboard-report-table a {
+  color: #6f5636;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+@media (max-width: 1380px) {
+  .production-dashboard-report-summary {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 760px) {
+  .production-dashboard-report-summary {
+    grid-template-columns: 1fr;
+  }
+}
+
 .production-dashboard-title span {
   color: #8b6f47;
   font-size: 12px;
