@@ -1,9 +1,11 @@
 import { type Dispatch, type FormEvent, type SetStateAction, useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   IconChevronRight,
+  IconClock,
   IconCreditCard,
   IconEdit,
+  IconFileInvoice,
   IconHome,
   IconKey,
   IconLock,
@@ -14,9 +16,12 @@ import {
   IconUser,
 } from '@tabler/icons-react';
 
+import { mockCustomerPayments } from '@/features/CustomerPages/mock';
+import type { CustomerPayment } from '@/features/CustomerPages/types';
+import { formatCustomerDate, formatCustomerMoney, paymentStatusLabels, paymentTypeLabels } from '@/features/CustomerPages/utils';
 import { MainNavbar } from '@/features/MainPages/maincomponents';
 import { getServiceResultMessage } from '@/services/api/auth';
-import { useChangePassword, useCurrentUser, useForgotPassword, useUpdateCurrentUser } from '@/services/queries';
+import { useChangePassword, useCurrentUser, useUpdateCurrentUser } from '@/services/queries';
 import { SiteFooter } from '@/shared/components';
 
 import './UserProfilePage.css';
@@ -52,11 +57,11 @@ type PasswordFormState = {
 
 export function UserProfilePage() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { data: user, isLoading } = useCurrentUser();
   const updateProfileMutation = useUpdateCurrentUser();
   const changePasswordMutation = useChangePassword();
-  const forgotPasswordMutation = useForgotPassword();
-  const [activeTab, setActiveTab] = useState<ProfileTab>('profile');
+  const [activeTab, setActiveTab] = useState<ProfileTab>(searchParams.get('tab') === 'payments' ? 'billing' : 'profile');
   const [profileForm, setProfileForm] = useState<ProfileFormState>({ fullName: '', phone: '' });
   const [passwordForm, setPasswordForm] = useState<PasswordFormState>({
     currentPassword: '',
@@ -78,6 +83,11 @@ export function UserProfilePage() {
       phone: user.phone ?? '',
     });
   }, [user]);
+
+  function changeTab(tab: ProfileTab) {
+    setActiveTab(tab);
+    setSearchParams(tab === 'billing' ? { tab: 'payments' } : tab === 'security' ? { tab: 'security' } : {});
+  }
 
   const handleProfileSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -118,22 +128,6 @@ export function UserProfilePage() {
     }
   };
 
-  const handleForgotPassword = async () => {
-    setSecurityMessage(null);
-
-    if (!user?.email) {
-      setSecurityMessage({ tone: 'error', text: 'Không tìm thấy email tài khoản hiện tại.' });
-      return;
-    }
-
-    try {
-      const result = await forgotPasswordMutation.mutateAsync({ email: user.email });
-      setSecurityMessage({ tone: 'success', text: result.message || 'Nếu tài khoản tồn tại, email đặt lại mật khẩu đã được gửi.' });
-    } catch (error) {
-      setSecurityMessage({ tone: 'error', text: getServiceResultMessage(error) });
-    }
-  };
-
   return (
     <main className="user-profile-page">
       <MainNavbar activePath="/user-profile" classPrefix="user-profile" />
@@ -161,7 +155,7 @@ export function UserProfilePage() {
                   className={isActive ? 'user-profile-sidebar-link user-profile-sidebar-link-active' : 'user-profile-sidebar-link'}
                   key={item.id}
                   type="button"
-                  onClick={() => setActiveTab(item.id)}
+                  onClick={() => changeTab(item.id)}
                 >
                   <Icon size={18} stroke={1.8} />
                   <span>{item.label}</span>
@@ -179,11 +173,11 @@ export function UserProfilePage() {
               <h1>{activeTab === 'security' ? 'Bảo mật tài khoản FurniSpace' : 'Quản lý hồ sơ FurniSpace của bạn'}</h1>
               <p>
                 {activeTab === 'security'
-                  ? 'Cập nhật mật khẩu và yêu cầu email đặt lại mật khẩu cho tài khoản hiện tại.'
+                  ? 'Cập nhật mật khẩu cho tài khoản đang đăng nhập.'
                   : 'Theo dõi thông tin tài khoản, liên hệ và các thiết lập cá nhân cho hành trình thiết kế không gian.'}
               </p>
             </div>
-            <button className="user-profile-edit-button" type="button" onClick={() => setActiveTab(activeTab === 'security' ? 'profile' : 'security')}>
+            <button className="user-profile-edit-button" type="button" onClick={() => changeTab(activeTab === 'security' ? 'profile' : 'security')}>
               {activeTab === 'security' ? <IconUser size={18} stroke={1.8} /> : <IconEdit size={18} stroke={1.8} />}
               <span>{activeTab === 'security' ? 'Xem hồ sơ' : 'Mở bảo mật'}</span>
             </button>
@@ -219,11 +213,9 @@ export function UserProfilePage() {
           {activeTab === 'security' ? (
             <SecurityTabPanel
               changePasswordMutation={changePasswordMutation}
-              forgotPasswordMutation={forgotPasswordMutation}
               passwordForm={passwordForm}
               securityMessage={securityMessage}
               userEmail={email}
-              onForgotPassword={handleForgotPassword}
               onPasswordFormChange={setPasswordForm}
               onPasswordSubmit={handlePasswordSubmit}
             />
@@ -342,22 +334,18 @@ function ProfileTabPanel({
 
 type SecurityTabPanelProps = {
   changePasswordMutation: ReturnType<typeof useChangePassword>;
-  forgotPasswordMutation: ReturnType<typeof useForgotPassword>;
   passwordForm: PasswordFormState;
   securityMessage: { tone: 'success' | 'error'; text: string } | null;
   userEmail: string;
-  onForgotPassword: () => void;
   onPasswordFormChange: Dispatch<SetStateAction<PasswordFormState>>;
   onPasswordSubmit: (event: FormEvent<HTMLFormElement>) => void;
 };
 
 function SecurityTabPanel({
   changePasswordMutation,
-  forgotPasswordMutation,
   passwordForm,
   securityMessage,
   userEmail,
-  onForgotPassword,
   onPasswordFormChange,
   onPasswordSubmit,
 }: SecurityTabPanelProps) {
@@ -377,12 +365,10 @@ function SecurityTabPanel({
 
         <div className="user-profile-security-intro">
           <div>
-            <strong>Email đăng nhập</strong>
+            <strong>Tài khoản đang đăng nhập</strong>
             <span>{userEmail}</span>
           </div>
-          <button className="user-profile-link-button" disabled={forgotPasswordMutation.isPending} type="button" onClick={onForgotPassword}>
-            {forgotPasswordMutation.isPending ? 'Đang gửi email...' : 'Gửi email đặt lại mật khẩu'}
-          </button>
+          <p>Đổi mật khẩu định kỳ giúp bảo vệ tài khoản và các thông tin dự án của bạn.</p>
         </div>
 
         <form className="user-profile-form user-profile-security-form" onSubmit={onPasswordSubmit}>
@@ -429,15 +415,180 @@ function SecurityTabPanel({
 }
 
 function BillingTabPanel() {
+  const [selectedPayment, setSelectedPayment] = useState<CustomerPayment | null>(mockCustomerPayments[0] ?? null);
+  const pendingPayments = mockCustomerPayments.filter((payment) => payment.status === 'PENDING' || payment.status === 'PROCESSING');
+  const historyPayments = mockCustomerPayments.filter((payment) => payment.status !== 'PENDING' && payment.status !== 'PROCESSING');
+  const pendingAmount = pendingPayments.reduce((total, payment) => total + payment.amount, 0);
+
   return (
-    <section className="user-profile-security-layout">
-      <article className="user-profile-panel user-profile-empty-panel">
-        <p className="user-profile-eyebrow">Thanh toán</p>
-        <h2>Thanh toán & hóa đơn</h2>
-        <p>Thông tin thanh toán của các dự án sẽ được đồng bộ tại đây khi backend mở API tương ứng.</p>
+    <section className="user-profile-billing-layout">
+      <div className="user-profile-billing-overview">
+        <BillingStat icon={<IconCreditCard size={22} />} label="Pending Amount" value={formatCustomerMoney(pendingAmount)} />
+        <BillingStat icon={<IconFileInvoice size={22} />} label="Paid Payments" value={mockCustomerPayments.filter((payment) => payment.status === 'PAID').length} />
+        <BillingStat icon={<IconClock size={22} />} label="Expired Payments" value={mockCustomerPayments.filter((payment) => payment.status === 'EXPIRED').length} />
+        <BillingStat icon={<IconCreditCard size={22} />} label="Refunded Payments" value={mockCustomerPayments.filter((payment) => payment.status === 'REFUNDED').length} />
+      </div>
+
+      <article className="user-profile-panel user-profile-billing-panel">
+        <div className="user-profile-panel-head">
+          <div>
+            <p className="user-profile-eyebrow">Thanh toán</p>
+            <h2>Pending Payments</h2>
+          </div>
+          <span className="user-profile-status">Mock mode</span>
+        </div>
+        <div className="user-profile-payment-list">
+          {pendingPayments.map((payment) => (
+            <PaymentCard key={payment.paymentId} payment={payment} onSelect={setSelectedPayment} />
+          ))}
+        </div>
+      </article>
+
+      <section className="user-profile-billing-grid">
+        <article className="user-profile-panel">
+          <div className="user-profile-panel-head">
+            <div>
+              <p className="user-profile-eyebrow">Lịch sử</p>
+              <h2>Payment History</h2>
+            </div>
+          </div>
+          <div className="user-profile-payment-table-wrap">
+            <table className="user-profile-payment-table">
+              <thead>
+                <tr>
+                  <th>Payment Code</th>
+                  <th>Project</th>
+                  <th>Order</th>
+                  <th>Payment Type</th>
+                  <th>Amount</th>
+                  <th>Status</th>
+                  <th>Paid At</th>
+                  <th>Expired At</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {historyPayments.map((payment) => (
+                  <tr key={payment.paymentId}>
+                    <td>{payment.paymentCode}</td>
+                    <td>{payment.projectName}</td>
+                    <td>{payment.orderCode ?? '-'}</td>
+                    <td>{paymentTypeLabels[payment.paymentType]}</td>
+                    <td>{formatCustomerMoney(payment.amount, payment.currency)}</td>
+                    <td><PaymentStatusPill status={payment.status} /></td>
+                    <td>{formatCustomerDate(payment.paidAt)}</td>
+                    <td>{formatCustomerDate(payment.expiredAt)}</td>
+                    <td><button type="button" onClick={() => setSelectedPayment(payment)}>View detail</button></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </article>
+
+        <article className="user-profile-panel">
+          <div className="user-profile-panel-head">
+            <div>
+              <p className="user-profile-eyebrow">Chi tiết</p>
+              <h2>Transaction Detail</h2>
+            </div>
+          </div>
+          {selectedPayment ? <TransactionDetail payment={selectedPayment} /> : <p className="user-profile-muted">Select a payment to view transaction attempts.</p>}
+        </article>
+      </section>
+
+      <article className="user-profile-panel user-profile-documents">
+        <div className="user-profile-panel-head">
+          <div>
+            <p className="user-profile-eyebrow">Tài liệu</p>
+            <h2>Invoice & Receipt Documents</h2>
+          </div>
+        </div>
+        <div>
+          {['Quotation File', 'Order Document', 'Payment Receipt', 'Refund Receipt'].map((item) => (
+            <div key={item}>
+              <strong>{item}</strong>
+              <span>Receipt download will be available after payment is confirmed.</span>
+            </div>
+          ))}
+        </div>
       </article>
     </section>
   );
+}
+
+function BillingStat({ icon, label, value }: { icon: React.ReactNode; label: string; value: string | number }) {
+  return (
+    <article className="user-profile-stat user-profile-billing-stat">
+      <span>{icon}</span>
+      <strong>{value}</strong>
+      <em>{label}</em>
+    </article>
+  );
+}
+
+function PaymentCard({ onSelect, payment }: { payment: CustomerPayment; onSelect: (payment: CustomerPayment) => void }) {
+  return (
+    <article>
+      <div>
+        <strong>{payment.paymentCode}</strong>
+        <PaymentStatusPill status={payment.status} />
+      </div>
+      <p>{payment.projectName} - {payment.orderCode ?? payment.quotationCode ?? '-'}</p>
+      <div className="user-profile-payment-card-meta">
+        <span>{paymentTypeLabels[payment.paymentType]}</span>
+        <strong>{formatCustomerMoney(payment.amount, payment.currency)}</strong>
+        <span>Expires {formatCustomerDate(payment.expiredAt)}</span>
+      </div>
+      <div className="user-profile-payment-actions">
+        <button type="button">{getPaymentActionLabel(payment.status)}</button>
+        <button type="button">View QR</button>
+        <button type="button" onClick={() => onSelect(payment)}>View Detail</button>
+      </div>
+    </article>
+  );
+}
+
+function TransactionDetail({ payment }: { payment: CustomerPayment }) {
+  return (
+    <div className="user-profile-transaction-list">
+      <div className="user-profile-payment-selected">
+        <strong>{payment.paymentCode}</strong>
+        <span>{paymentTypeLabels[payment.paymentType]} - {formatCustomerMoney(payment.amount, payment.currency)}</span>
+      </div>
+      {payment.transactions.map((transaction) => (
+        <article key={transaction.paymentTransactionId}>
+          <div><span>Transaction code</span><strong>{transaction.transactionCode}</strong></div>
+          <div><span>Transaction type</span><strong>{transaction.transactionType}</strong></div>
+          <div><span>Amount</span><strong>{formatCustomerMoney(transaction.amount, transaction.currency)}</strong></div>
+          <div><span>Payment provider</span><strong>{transaction.paymentProvider ?? '-'}</strong></div>
+          <div><span>Payment method</span><strong>{transaction.paymentMethod ?? '-'}</strong></div>
+          <div><span>Provider transaction ID</span><strong>{transaction.providerTransactionId ?? '-'}</strong></div>
+          <div><span>Provider reference code</span><strong>{transaction.providerReferenceCode ?? '-'}</strong></div>
+          <div><span>Status</span><strong>{transaction.status}</strong></div>
+          <div><span>Transaction time</span><strong>{formatCustomerDate(transaction.transactionTime)}</strong></div>
+          <div><span>Failure reason</span><strong>{transaction.failureReason ?? '-'}</strong></div>
+        </article>
+      ))}
+    </div>
+  );
+}
+
+function PaymentStatusPill({ status }: { status: CustomerPayment['status'] }) {
+  return <span className={`user-profile-payment-status user-profile-payment-status-${status.toLowerCase()}`}>{paymentStatusLabels[status]}</span>;
+}
+
+function getPaymentActionLabel(status: CustomerPayment['status']) {
+  const labels: Record<CustomerPayment['status'], string> = {
+    PENDING: 'Pay Now',
+    PROCESSING: 'Continue Payment',
+    EXPIRED: 'Contact Sales',
+    PAID: 'View Receipt',
+    CANCELLED: 'Disabled',
+    REFUNDED: 'View Refund Detail',
+  };
+
+  return labels[status];
 }
 
 function FormMessage({ children, tone }: { children: React.ReactNode; tone: 'success' | 'error' }) {
