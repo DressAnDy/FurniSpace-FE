@@ -25,7 +25,7 @@ export type ProductionItemStatus =
   | 'BLOCKED'
   | 'CANCELLED';
 
-export type Priority = 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
+export type Priority = 'LOW' | 'MEDIUM' | 'NORMAL' | 'HIGH' | 'URGENT';
 
 export type ProductionRelatedProjectStatus =
   | 'IN_PRODUCTION'

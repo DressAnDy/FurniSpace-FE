@@ -8,6 +8,21 @@
   padding: 0 12px;
 }
 
+.customer-tracking-message {
+  margin-bottom: 18px;
+  border: 1px solid rgba(139, 111, 71, 0.15);
+  border-radius: 12px;
+  background: #ffffff;
+  padding: 13px 15px;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.customer-tracking-message-error {
+  background: rgba(220, 38, 38, 0.1);
+  color: #b91c1c;
+}
+
 .customer-tracking-status-banner {
   display: grid;
   align-content: center;

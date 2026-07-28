@@ -2,15 +2,21 @@ import { useMemo, useState } from 'react';
 import { IconAlertTriangle, IconCheck, IconClipboardList, IconClockCog } from '@tabler/icons-react';
 import { Link } from 'react-router-dom';
 
-import { mockProductionRequests } from '@/features/ProductionPages/mock';
 import {
   ProductionFilterBar,
   ProductionLayout,
   ProductionStatusBadge,
   ProductionSummaryCard,
 } from '@/features/ProductionPages/productioncomponents';
-import type { ProductionRequestStatus } from '@/features/ProductionPages/types';
+import type { Priority, ProductionRequestStatus } from '@/features/ProductionPages/types';
 import { formatDate, getProductionRequestStatusLabel, productionRequestAllowedActions } from '@/features/ProductionPages/utils';
+import { getProductionServiceResultMessage } from '@/services/api/production';
+import {
+  useCurrentUser,
+  useMarkProductionRequestFeasible,
+  useProductionRequests,
+  useStartProductionRequest,
+} from '@/services/queries';
 
 type RequestFilter = ProductionRequestStatus | 'ALL';
 
@@ -29,22 +35,48 @@ export function ProductionRequests() {
   const [priorityFilter, setPriorityFilter] = useState('ALL');
   const [assignedToMe, setAssignedToMe] = useState(false);
   const [searchText, setSearchText] = useState('');
+  const [message, setMessage] = useState<{ tone: 'error' | 'success'; text: string } | null>(null);
+  const currentUserQuery = useCurrentUser();
+  const requestsQuery = useProductionRequests({
+    assignedTo: assignedToMe ? currentUserQuery.data?.accountId : null,
+    priority: priorityFilter === 'ALL' ? null : (priorityFilter as Priority),
+    status: statusFilter === 'ALL' ? null : statusFilter,
+  });
+  const markFeasibleMutation = useMarkProductionRequestFeasible();
+  const startMutation = useStartProductionRequest();
+  const rawRequests = requestsQuery.data?.items ?? [];
   const requests = useMemo(
     () =>
-      mockProductionRequests.filter((request) => {
+      rawRequests.filter((request) => {
         const search = searchText.trim().toLowerCase();
         const matchesSearch = !search
           || request.productionCode.toLowerCase().includes(search)
           || request.projectName.toLowerCase().includes(search)
           || request.orderCode.toLowerCase().includes(search);
 
-        return (statusFilter === 'ALL' || request.status === statusFilter)
-          && (priorityFilter === 'ALL' || request.priority === priorityFilter)
-          && (!assignedToMe || request.assignedTo === 'PD-001')
-          && matchesSearch;
+        return matchesSearch;
       }),
-    [assignedToMe, priorityFilter, searchText, statusFilter],
+    [rawRequests, searchText],
   );
+
+  async function runQuickAction(action: string, productionRequestId: string) {
+    setMessage(null);
+
+    try {
+      if (action === 'Mark Feasible') {
+        await markFeasibleMutation.mutateAsync({ productionRequestId, note: 'Production request reviewed as feasible.' });
+        setMessage({ tone: 'success', text: 'Production request marked feasible.' });
+        return;
+      }
+
+      if (action === 'Start Production') {
+        await startMutation.mutateAsync({ productionRequestId });
+        setMessage({ tone: 'success', text: 'Production request started.' });
+      }
+    } catch (error) {
+      setMessage({ tone: 'error', text: getProductionServiceResultMessage(error) });
+    }
+  }
 
   return (
     <ProductionLayout activeLabel="Production Requests" searchPlaceholder="Search production requests...">
@@ -57,12 +89,18 @@ export function ProductionRequests() {
           </div>
         </section>
 
+        {message ? <section className={`production-workspace-message production-workspace-message-${message.tone}`}>{message.text}</section> : null}
+        {requestsQuery.isError ? (
+          <section className="production-workspace-message production-workspace-message-error">{getProductionServiceResultMessage(requestsQuery.error)}</section>
+        ) : null}
+
         <section className="production-workspace-filter-card">
           <ProductionFilterBar activeValue={statusFilter} filters={filters} onChange={setStatusFilter} />
           <div className="production-workspace-form-grid">
             <select className="production-workspace-select" value={priorityFilter} onChange={(event) => setPriorityFilter(event.target.value)}>
               <option value="ALL">All Priority</option>
               <option value="LOW">Low</option>
+              <option value="NORMAL">Normal</option>
               <option value="MEDIUM">Medium</option>
               <option value="HIGH">High</option>
               <option value="URGENT">Urgent</option>
@@ -76,10 +114,10 @@ export function ProductionRequests() {
         </section>
 
         <section className="production-workspace-summary-grid">
-          <ProductionSummaryCard icon={IconClipboardList} label="Pending Review" value={mockProductionRequests.filter((request) => request.status === 'PENDING_REVIEW').length} />
-          <ProductionSummaryCard icon={IconClockCog} label="In Production" value={mockProductionRequests.filter((request) => request.status === 'IN_PRODUCTION').length} />
-          <ProductionSummaryCard icon={IconAlertTriangle} label="Blocked" value={mockProductionRequests.filter((request) => request.status === 'BLOCKED').length} />
-          <ProductionSummaryCard icon={IconCheck} label="Completed" value={mockProductionRequests.filter((request) => request.status === 'COMPLETED').length} />
+          <ProductionSummaryCard icon={IconClipboardList} label="Pending Review" value={rawRequests.filter((request) => request.status === 'PENDING_REVIEW').length} />
+          <ProductionSummaryCard icon={IconClockCog} label="In Production" value={rawRequests.filter((request) => request.status === 'IN_PRODUCTION').length} />
+          <ProductionSummaryCard icon={IconAlertTriangle} label="Blocked" value={rawRequests.filter((request) => request.status === 'BLOCKED').length} />
+          <ProductionSummaryCard icon={IconCheck} label="Completed" value={rawRequests.filter((request) => request.status === 'COMPLETED').length} />
         </section>
 
         <article className="production-workspace-card">
@@ -105,6 +143,16 @@ export function ProductionRequests() {
                 </tr>
               </thead>
               <tbody>
+                {requestsQuery.isLoading ? (
+                  <tr>
+                    <td colSpan={9}>Loading production requests...</td>
+                  </tr>
+                ) : null}
+                {!requestsQuery.isLoading && requests.length === 0 ? (
+                  <tr>
+                    <td colSpan={9}>No production request matched current filters.</td>
+                  </tr>
+                ) : null}
                 {requests.map((request) => (
                   <tr key={request.productionRequestId}>
                     <td>{request.productionCode}</td>
@@ -119,7 +167,15 @@ export function ProductionRequests() {
                       <div className="production-workspace-row-actions">
                         <Link to={`/production/requests/${request.productionRequestId}`}>View Detail</Link>
                         {productionRequestAllowedActions[request.status].slice(0, 2).map((action) => (
-                          <button className="is-secondary" key={action} type="button">{action}</button>
+                          <button
+                            className="is-secondary"
+                            disabled={markFeasibleMutation.isPending || startMutation.isPending || action === 'Mark Blocked' || action === 'Cancel' || action === 'Resolve Blocked'}
+                            key={action}
+                            type="button"
+                            onClick={() => void runQuickAction(action, request.productionRequestId)}
+                          >
+                            {action}
+                          </button>
                         ))}
                       </div>
                     </td>

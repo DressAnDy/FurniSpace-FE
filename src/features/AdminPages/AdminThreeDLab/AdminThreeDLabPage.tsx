@@ -8,14 +8,21 @@ import {
   IconSearch,
   IconX,
 } from '@tabler/icons-react';
+import { useQueryClient } from '@tanstack/react-query';
 
 import { AdminNavbar, AdminSidebar } from '@/features/AdminPages/admincomponents';
 import { getProjectServiceResultMessage, type ProjectListItemDto } from '@/services/api/projects';
-import { type ProposalDto, type ProposalSceneDto, getProposalServiceResultMessage, type RoomPlannerSceneData } from '@/services/api/proposals';
+import {
+  type ProposalDto,
+  type ProposalSceneDto,
+  getProposalServiceResultMessage,
+  getRoomPlannerScene,
+  type RoomPlannerSceneData,
+} from '@/services/api/proposals';
 import { RoomPreview3D } from '@/features/ThreeD/components';
 import type { RoomMaterialSelection } from '@/features/ThreeD/types/roomLayout.types';
 import { hydrateRoomPlannerScenePayload } from '@/features/ThreeD/utils/roomPlannerSceneMapper';
-import { useProjectDetail, useProjectList, useProjectProposals, useProposalScenes, useRoomPlannerScene } from '@/services/queries';
+import { proposalQueryKeys, useProjectDetail, useProjectList, useProjectProposals, useProposalScenes, useRoomPlannerScene } from '@/services/queries';
 
 import '@/features/AdminPages/AdminDashbroad/AdminDashbroad.css';
 import './AdminThreeDLabPage.css';
@@ -358,11 +365,23 @@ function SceneLink({
   proposalId: string;
   scene: ProposalSceneDto;
 }) {
+  const queryClient = useQueryClient();
+
+  function warmScenePreview() {
+    void queryClient.prefetchQuery({
+      queryKey: proposalQueryKeys.roomPlanner(scene.sceneId),
+      queryFn: () => getRoomPlannerScene(scene.sceneId),
+      staleTime: 60_000,
+    });
+  }
+
   return (
     <button
       className="admin-three-d-scene-link"
       type="button"
       onClick={() => onOpen({ projectId, proposalId, scene })}
+      onFocus={warmScenePreview}
+      onMouseEnter={warmScenePreview}
     >
       <IconCube size={17} />
       <span>

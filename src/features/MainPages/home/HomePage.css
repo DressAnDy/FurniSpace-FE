@@ -195,8 +195,9 @@ html.home-header-light .home-header.main-navbar .main-navbar-avatar {
 .home-hero-visual {
   position: relative;
   min-height: clamp(390px, 50vh, 560px);
-  align-self: end;
+  align-self: center;
   perspective: 1200px;
+  transform: translateY(clamp(-48px, -4vh, -16px));
 }
 
 .home-hero-scene {
@@ -826,6 +827,7 @@ html.home-header-light .home-header.main-navbar .main-navbar-avatar {
 
   .home-hero-visual {
     min-height: 300px;
+    transform: none;
   }
 
   .home-hero-scene {

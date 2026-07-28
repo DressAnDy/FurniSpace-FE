@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef } from 'react';
 import {
   ArcRotateCamera,
+  AssetContainer,
   Color3,
   Engine,
   HemisphericLight,
@@ -131,6 +132,7 @@ type ProductFootprint = {
 };
 
 const sceneProductLoadLocks = new WeakMap<Scene, Set<string>>();
+const sceneModelContainerCache = new WeakMap<Scene, Map<string, Promise<AssetContainer>>>();
 const PRODUCT_DRAG_DATA_TYPE = 'application/x-furnispace-product-id';
 const PRODUCT_COLLISION_GAP = 0.03;
 const PRODUCT_COLLISION_SWEEP_STEP = 0.08;
@@ -144,6 +146,36 @@ function getSceneProductLoadLocks(scene: Scene) {
   }
 
   return loadLocks;
+}
+
+function getSceneModelContainerCache(scene: Scene) {
+  let cache = sceneModelContainerCache.get(scene);
+
+  if (!cache) {
+    cache = new Map<string, Promise<AssetContainer>>();
+    sceneModelContainerCache.set(scene, cache);
+  }
+
+  return cache;
+}
+
+function loadModelContainer(scene: Scene, modelUrl: string) {
+  const cache = getSceneModelContainerCache(scene);
+  const cachedContainer = cache.get(modelUrl);
+
+  if (cachedContainer) {
+    return cachedContainer;
+  }
+
+  const { fileName, rootUrl } = splitModelUrl(modelUrl);
+  const containerPromise = SceneLoader.LoadAssetContainerAsync(rootUrl, fileName, scene).catch((error) => {
+    cache.delete(modelUrl);
+    throw error;
+  });
+
+  cache.set(modelUrl, containerPromise);
+
+  return containerPromise;
 }
 
 function getProductRootGroundOffsetY(root: TransformNode) {
@@ -564,8 +596,8 @@ async function loadProductPreview(scene: Scene, product: PlacedProduct3D) {
     return currentRoot;
   }
 
-  const { fileName, rootUrl } = splitModelUrl(product.modelUrl);
-  const result = await SceneLoader.ImportMeshAsync('', rootUrl, fileName, scene);
+  const container = await loadModelContainer(scene, product.modelUrl);
+  const result = container.instantiateModelsToScene((sourceName) => `product-${product.id}-${sourceName}`, false);
   const root = new TransformNode(`product-preview-${product.id}`, scene);
   root.metadata = {
     productId: product.id,
@@ -583,11 +615,13 @@ async function loadProductPreview(scene: Scene, product: PlacedProduct3D) {
     product.scale?.z ?? 1,
   );
 
-  result.meshes.forEach((mesh) => {
-    if (!mesh.parent) {
-      mesh.parent = root;
+  result.rootNodes.forEach((node) => {
+    if (!node.parent) {
+      node.parent = root;
     }
+  });
 
+  root.getChildMeshes(false).forEach((mesh) => {
     mesh.metadata = {
       ...(mesh.metadata ?? {}),
       productId: product.id,
@@ -1145,6 +1179,7 @@ function syncProductPreviews(
   scene: Scene,
   products: PlacedProduct3D[],
   layout: RoomLayoutState | null,
+  readOnly: boolean,
   onProductMove?: RoomPreview3DProps['onProductMove'],
   onProductReady?: () => void,
   onProductLoadError?: RoomPreview3DProps['onProductLoadError'],
@@ -1176,12 +1211,12 @@ function syncProductPreviews(
         product.scale?.y ?? 1,
         product.scale?.z ?? 1,
       );
-      const nextPosition = layout && product.placementMode !== 'WALL_MOUNTED'
+      const nextPosition = !readOnly && layout && product.placementMode !== 'WALL_MOUNTED'
         ? getNearestValidProductPosition(scene, product.id, product.position, layout) ?? product.position
         : product.position;
       setProductRootPosition(root, nextPosition);
 
-      if (layout && !arePositionsEqual(nextPosition, product.position)) {
+      if (!readOnly && layout && !arePositionsEqual(nextPosition, product.position)) {
         onProductMove?.(product.id, nextPosition);
       }
 
@@ -1199,7 +1234,7 @@ function syncProductPreviews(
     loadLocks.add(product.id);
 
     void loadProductPreview(scene, product).then(() => {
-      if (!layout) {
+      if (!layout || readOnly) {
         return;
       }
 
@@ -1408,12 +1443,13 @@ export function RoomPreview3D({
       scene,
       placedProducts,
       layoutRef.current,
+      readOnly,
       onProductMoveRef.current,
       refreshMeasurements,
       onProductLoadErrorRef.current,
     );
     refreshMeasurements();
-  }, [placedProducts, refreshMeasurements]);
+  }, [placedProducts, readOnly, refreshMeasurements]);
 
   useEffect(() => {
     const scene = sceneRef.current;
@@ -1748,6 +1784,7 @@ export function RoomPreview3D({
               scene,
               placedProducts,
               layout,
+              readOnly,
               onProductMoveRef.current,
               refreshMeasurements,
               onProductLoadErrorRef.current,
