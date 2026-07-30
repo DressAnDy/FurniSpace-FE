@@ -378,27 +378,32 @@
 
 .customer-quotations-decision {
   display: grid;
-  grid-template-columns: minmax(180px, 0.48fr) minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-columns: 1fr;
+  align-items: stretch;
   gap: 12px;
+  border-top: 1px solid rgba(139, 111, 71, 0.12);
+  padding-top: 4px;
 }
 
 .customer-quotations-decision form {
   display: grid;
-  gap: 8px;
-  border: 1px solid rgba(139, 111, 71, 0.14);
-  border-radius: 12px;
-  background: #ffffff;
-  padding: 12px;
+  grid-template-columns: auto minmax(150px, 1fr) auto;
+  align-items: end;
+  gap: 10px;
+  min-width: 0;
 }
 
 .customer-quotations-decision form > strong {
   color: #2f2a24;
   font-size: 13px;
   font-weight: 900;
+  line-height: 42px;
+  white-space: nowrap;
 }
 
 .customer-quotations-decision textarea {
   width: 100%;
+  min-height: 58px;
   min-width: 0;
   resize: vertical;
   border: 1px solid rgba(139, 111, 71, 0.18);
@@ -414,6 +419,7 @@
 
 .customer-quotations-decision button {
   display: inline-flex;
+  width: 100%;
   min-height: 42px;
   align-items: center;
   justify-content: center;
@@ -426,10 +432,17 @@
   font: inherit;
   font-size: 13px;
   font-weight: 900;
+  white-space: nowrap;
   padding: 0 14px;
 }
 
-.customer-quotations-decision form:last-child button {
+.customer-quotations-decision form:first-of-type button {
+  border-color: rgba(139, 111, 71, 0.28);
+  background: #ffffff;
+  color: #8b6f47;
+}
+
+.customer-quotations-decision form:last-of-type button {
   border-color: rgba(185, 28, 28, 0.26);
   background: #ffffff;
   color: #b91c1c;
@@ -441,8 +454,7 @@
 }
 
 @media (max-width: 1180px) {
-  .customer-quotations-grid,
-  .customer-quotations-decision {
+  .customer-quotations-grid {
     grid-template-columns: 1fr;
   }
 }
@@ -463,5 +475,13 @@
   .customer-quotations-total-strip,
   .customer-quotations-note-grid {
     grid-template-columns: 1fr;
+  }
+
+  .customer-quotations-decision form {
+    grid-template-columns: 1fr;
+  }
+
+  .customer-quotations-decision form > strong {
+    line-height: normal;
   }
 }

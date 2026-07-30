@@ -343,7 +343,7 @@
 
 .project-chat-panel-composer {
   display: grid;
-  grid-template-columns: 40px minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) auto;
   gap: 10px;
   padding: 10px 16px 16px;
 }
@@ -368,12 +368,6 @@
   font-size: 14px;
   font-weight: 700;
   padding: 0 14px;
-}
-
-.project-chat-panel-composer button:first-of-type {
-  padding: 0;
-  background: #faf9f7;
-  color: #2d2d2d;
 }
 
 .project-chat-panel-composer button:disabled,
@@ -407,10 +401,6 @@
   }
 
   .project-chat-panel-composer {
-    grid-template-columns: 40px minmax(0, 1fr);
-  }
-
-  .project-chat-panel-composer button:last-child {
-    grid-column: 1 / -1;
+    grid-template-columns: 1fr;
   }
 }

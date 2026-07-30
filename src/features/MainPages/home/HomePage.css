@@ -82,7 +82,7 @@ html.home-header-light .home-header.main-navbar .main-navbar-avatar {
   min-height: 100vh;
   grid-template-columns: minmax(360px, 4.4fr) minmax(0, 7.6fr);
   align-items: center;
-  gap: clamp(28px, 4.6vw, 72px);
+  gap: clamp(48px, 6vw, 104px);
   isolation: isolate;
   padding-top: clamp(24px, 4vh, 48px);
   padding-bottom: clamp(36px, 5vh, 64px);
@@ -202,10 +202,10 @@ html.home-header-light .home-header.main-navbar .main-navbar-avatar {
 
 .home-hero-scene {
   position: absolute;
-  right: clamp(0px, 2.4vw, 34px);
-  bottom: clamp(10px, 2vh, 24px);
+  top: 50%;
+  left: 50%;
   display: block;
-  width: min(760px, 55vw);
+  width: min(760px, 52vw);
   max-width: none;
   height: auto;
   border: 1px solid rgba(196, 160, 122, 0.18);
@@ -225,15 +225,15 @@ html.home-header-light .home-header.main-navbar .main-navbar-avatar {
 @keyframes homeHeroSceneBounce {
   0%,
   100% {
-    transform: translate3d(0, 0, 0) rotateX(0deg) rotateZ(0deg);
+    transform: translate(-50%, -50%) translate3d(0, 0, 0) rotateX(0deg) rotateZ(0deg);
   }
 
   42% {
-    transform: translate3d(0, -12px, 0) rotateX(1.2deg) rotateZ(-0.35deg);
+    transform: translate(-50%, -50%) translate3d(0, -12px, 0) rotateX(1.2deg) rotateZ(-0.35deg);
   }
 
   62% {
-    transform: translate3d(0, -7px, 0) rotateX(0.5deg) rotateZ(0.25deg);
+    transform: translate(-50%, -50%) translate3d(0, -7px, 0) rotateX(0.5deg) rotateZ(0.25deg);
   }
 }
 
@@ -831,7 +831,10 @@ html.home-header-light .home-header.main-navbar .main-navbar-avatar {
   }
 
   .home-hero-scene {
+    top: auto;
+    left: auto;
     right: 50%;
+    bottom: 0;
     width: min(620px, 92vw);
     transform: translateX(50%);
     animation-name: homeHeroSceneBounceMobile;

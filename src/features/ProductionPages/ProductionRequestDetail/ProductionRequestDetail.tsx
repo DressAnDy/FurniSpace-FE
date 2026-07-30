@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { IconArrowLeft } from '@tabler/icons-react';
 import { Link, useParams } from 'react-router-dom';
 
@@ -7,7 +7,7 @@ import {
   ProductionLayout,
   ProductionStatusBadge,
 } from '@/features/ProductionPages/productioncomponents';
-import type { ProductionItemStatus } from '@/features/ProductionPages/types';
+import type { ProductionItem, ProductionItemStatus } from '@/features/ProductionPages/types';
 import { formatDate, getProductionItemStatusLabel, getProductionRequestStatusLabel } from '@/features/ProductionPages/utils';
 import { getProductionServiceResultMessage } from '@/services/api/production';
 import {
@@ -25,12 +25,14 @@ export function ProductionRequestDetail() {
   const { productionRequestId } = useParams();
   const [activeTab, setActiveTab] = useState<DetailTab>('Overview');
   const [message, setMessage] = useState<{ tone: 'error' | 'success'; text: string } | null>(null);
+  const [itemUpdateQuantities, setItemUpdateQuantities] = useState<Record<string, number>>({});
   const requestQuery = useProductionRequestDetail(productionRequestId);
   const markFeasibleMutation = useMarkProductionRequestFeasible();
   const startMutation = useStartProductionRequest();
   const completeMutation = useCompleteProductionRequest();
   const itemStatusMutation = useUpdateProductionItemStatus();
   const request = requestQuery.data ?? null;
+  const groupedItems = useMemo(() => groupProductionItems(request?.items ?? []), [request?.items]);
 
   if (requestQuery.isLoading) {
     return (
@@ -69,7 +71,9 @@ export function ProductionRequestDetail() {
     }
   }
 
-  async function updateItemStatus(productionItemId: string, status: ProductionItemStatus) {
+  async function updateItemGroupStatus(group: ProductionItemGroup, status: ProductionItemStatus) {
+    const requestedCount = itemUpdateQuantities[group.key] ?? group.items.length;
+    const updateCount = clampQuantity(requestedCount, group.items.length);
     const cancellationReason = status === 'CANCELLED' ? window.prompt('Cancellation reason') : null;
 
     if (status === 'CANCELLED' && !cancellationReason?.trim()) {
@@ -85,13 +89,21 @@ export function ProductionRequestDetail() {
     setMessage(null);
 
     try {
-      await itemStatusMutation.mutateAsync({
-        cancellationReason,
-        productionItemId,
-        productionNote,
-        status,
+      const itemsToUpdate = group.items.slice(0, updateCount);
+
+      for (const item of itemsToUpdate) {
+        await itemStatusMutation.mutateAsync({
+          cancellationReason,
+          productionItemId: item.productionItemId,
+          productionNote,
+          status,
+        });
+      }
+
+      setMessage({
+        tone: 'success',
+        text: `${updateCount} production item${updateCount > 1 ? 's' : ''} updated.`,
       });
-      setMessage({ tone: 'success', text: 'Production item updated.' });
     } catch (error) {
       setMessage({ tone: 'error', text: getProductionServiceResultMessage(error) });
     }
@@ -179,34 +191,52 @@ export function ProductionRequestDetail() {
                   </tr>
                 </thead>
                 <tbody>
-                  {request.items.map((item) => (
-                    <tr key={item.productionItemId}>
-                      <td>{item.productNameSnapshot}</td>
-                      <td>{item.productVersionNameSnapshot ?? '-'}</td>
-                      <td>{item.quantity}</td>
-                      <td><ProductionStatusBadge label={getProductionItemStatusLabel(item.status)} status={item.status} /></td>
-                      <td>{item.materialNote ?? '-'}</td>
-                      <td>{formatDate(item.estimatedCompletionDate)}</td>
-                      <td>{formatDate(item.completedAt)}</td>
+                  {groupedItems.map((group) => (
+                    <tr key={group.key}>
+                      <td>
+                        <strong>{group.productName}</strong>
+                        {group.items.length > 1 ? <small>{group.items.length} matching item record(s)</small> : null}
+                      </td>
+                      <td>{group.productVersionName}</td>
+                      <td>{group.totalQuantity}</td>
+                      <td><ProductionStatusBadge label={getProductionItemStatusLabel(group.status)} status={group.status} /></td>
+                      <td>{group.materialNote}</td>
+                      <td>{formatDate(group.estimatedCompletionDate)}</td>
+                      <td>{formatDate(group.completedAt)}</td>
                       <td>
                         <div className="production-workspace-row-actions">
-                          {item.status === 'PENDING' ? (
-                            <button disabled={itemStatusMutation.isPending} type="button" onClick={() => void updateItemStatus(item.productionItemId, 'IN_PRODUCTION')}>Start Item</button>
+                          <input
+                            aria-label={`Quantity to update for ${group.productName}`}
+                            className="production-workspace-quantity-input"
+                            disabled={itemStatusMutation.isPending || group.items.length <= 1 || !canUpdateItemGroup(group)}
+                            min={1}
+                            max={group.items.length}
+                            type="number"
+                            value={itemUpdateQuantities[group.key] ?? group.items.length}
+                            onChange={(event) =>
+                              setItemUpdateQuantities((current) => ({
+                                ...current,
+                                [group.key]: clampQuantity(Number(event.target.value), group.items.length),
+                              }))
+                            }
+                          />
+                          {group.status === 'PENDING' ? (
+                            <button disabled={itemStatusMutation.isPending} type="button" onClick={() => void updateItemGroupStatus(group, 'IN_PRODUCTION')}>Start Items</button>
                           ) : null}
-                          {item.status === 'PENDING' ? (
-                            <button className="is-secondary" disabled={itemStatusMutation.isPending} type="button" onClick={() => void updateItemStatus(item.productionItemId, 'BLOCKED')}>Mark Blocked</button>
+                          {group.status === 'PENDING' ? (
+                            <button className="is-secondary" disabled={itemStatusMutation.isPending} type="button" onClick={() => void updateItemGroupStatus(group, 'BLOCKED')}>Mark Blocked</button>
                           ) : null}
-                          {item.status === 'IN_PRODUCTION' ? (
-                            <button disabled={itemStatusMutation.isPending} type="button" onClick={() => void updateItemStatus(item.productionItemId, 'COMPLETED')}>Mark Completed</button>
+                          {group.status === 'IN_PRODUCTION' ? (
+                            <button disabled={itemStatusMutation.isPending} type="button" onClick={() => void updateItemGroupStatus(group, 'COMPLETED')}>Mark Completed</button>
                           ) : null}
-                          {item.status === 'IN_PRODUCTION' ? (
-                            <button className="is-secondary" disabled={itemStatusMutation.isPending} type="button" onClick={() => void updateItemStatus(item.productionItemId, 'BLOCKED')}>Mark Blocked</button>
+                          {group.status === 'IN_PRODUCTION' ? (
+                            <button className="is-secondary" disabled={itemStatusMutation.isPending} type="button" onClick={() => void updateItemGroupStatus(group, 'BLOCKED')}>Mark Blocked</button>
                           ) : null}
-                          {item.status === 'BLOCKED' ? (
-                            <button className="is-secondary" disabled={itemStatusMutation.isPending} type="button" onClick={() => void updateItemStatus(item.productionItemId, 'IN_PRODUCTION')}>Resume</button>
+                          {group.status === 'BLOCKED' ? (
+                            <button className="is-secondary" disabled={itemStatusMutation.isPending} type="button" onClick={() => void updateItemGroupStatus(group, 'IN_PRODUCTION')}>Resume</button>
                           ) : null}
-                          {item.status !== 'COMPLETED' && item.status !== 'CANCELLED' ? (
-                            <button className="is-secondary" disabled={itemStatusMutation.isPending} type="button" onClick={() => void updateItemStatus(item.productionItemId, 'CANCELLED')}>Cancel Item</button>
+                          {group.status !== 'COMPLETED' && group.status !== 'CANCELLED' ? (
+                            <button className="is-secondary" disabled={itemStatusMutation.isPending} type="button" onClick={() => void updateItemGroupStatus(group, 'CANCELLED')}>Cancel Items</button>
                           ) : null}
                         </div>
                       </td>
@@ -264,4 +294,65 @@ function TimelineItem({ label, value }: { label: string; value: string }) {
       <small>{value}</small>
     </div>
   );
+}
+
+type ProductionItemGroup = {
+  completedAt?: string;
+  estimatedCompletionDate?: string;
+  items: ProductionItem[];
+  key: string;
+  materialNote: string;
+  productName: string;
+  productVersionName: string;
+  status: ProductionItemStatus;
+  totalQuantity: number;
+};
+
+function groupProductionItems(items: ProductionItem[]): ProductionItemGroup[] {
+  const groupsByKey = new Map<string, ProductionItemGroup>();
+
+  for (const item of items) {
+    const key = [
+      item.productVersionId ?? item.productVersionNameSnapshot ?? item.productNameSnapshot,
+      item.productNameSnapshot,
+      item.productVersionNameSnapshot ?? '-',
+      item.status,
+      item.materialNote ?? '-',
+      item.estimatedCompletionDate ?? '-',
+      item.completedAt ?? '-',
+    ].join('|');
+    const existingGroup = groupsByKey.get(key);
+
+    if (existingGroup) {
+      existingGroup.items.push(item);
+      existingGroup.totalQuantity += item.quantity;
+      continue;
+    }
+
+    groupsByKey.set(key, {
+      completedAt: item.completedAt,
+      estimatedCompletionDate: item.estimatedCompletionDate,
+      items: [item],
+      key,
+      materialNote: item.materialNote ?? '-',
+      productName: item.productNameSnapshot,
+      productVersionName: item.productVersionNameSnapshot ?? '-',
+      status: item.status,
+      totalQuantity: item.quantity,
+    });
+  }
+
+  return Array.from(groupsByKey.values());
+}
+
+function clampQuantity(value: number, max: number) {
+  if (!Number.isFinite(value)) {
+    return 1;
+  }
+
+  return Math.min(Math.max(Math.trunc(value), 1), max);
+}
+
+function canUpdateItemGroup(group: ProductionItemGroup) {
+  return group.status !== 'COMPLETED' && group.status !== 'CANCELLED';
 }

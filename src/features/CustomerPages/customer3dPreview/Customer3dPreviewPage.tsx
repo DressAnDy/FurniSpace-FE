@@ -29,7 +29,6 @@ import {
   useProjectProposals,
   useProposalItems,
   useProposalScenes,
-  useRequestProposalRevision,
   useRoomPlannerScene,
   useSelectFinalProposal,
 } from '@/services/queries';
@@ -52,8 +51,7 @@ export function Customer3dPreviewPage() {
   const [selectedProjectId, setSelectedProjectId] = useState(() => projectIdFromUrl);
   const [selectedProposalId, setSelectedProposalId] = useState<string | null>(() => proposalIdFromUrl || null);
   const [selectedSceneId, setSelectedSceneId] = useState<string | null>(() => sceneIdFromUrl || null);
-  const selectFinalProposalMutation = useSelectFinalProposal();
-  const requestProposalRevisionMutation = useRequestProposalRevision();
+  const selectFinalProposalMutation = useSelectFinalProposal()
 
   const projectsQuery = useProjectList({ page: 1, limit: 50 });
   const projects = useMemo(() => projectsQuery.data?.items ?? [], [projectsQuery.data?.items]);
@@ -201,21 +199,6 @@ export function Customer3dPreviewPage() {
     try {
       await selectFinalProposalMutation.mutateAsync({ proposalId: selectedProposal.proposalId });
       setDecisionMessage('Proposal selected successfully.');
-    } catch (error) {
-      setDecisionMessage(getProposalServiceResultMessage(error));
-    }
-  }
-
-  async function requestRevision() {
-    if (!selectedProposal) {
-      return;
-    }
-
-    setDecisionMessage('');
-
-    try {
-      await requestProposalRevisionMutation.mutateAsync({ proposalId: selectedProposal.proposalId });
-      setDecisionMessage('Revision requested successfully.');
     } catch (error) {
       setDecisionMessage(getProposalServiceResultMessage(error));
     }
@@ -435,13 +418,6 @@ export function Customer3dPreviewPage() {
 
                 {decisionMessage && <div className="customer-decision-message">{decisionMessage}</div>}
                 <div className="customer-3d-preview-decision">
-                  <button
-                    disabled={!selectedProposal || requestProposalRevisionMutation.isPending}
-                    type="button"
-                    onClick={() => void requestRevision()}
-                  >
-                    <IconMessageDots size={18} stroke={1.8} /> Request Revision
-                  </button>
                   <button
                     disabled={!selectedProposal || selectFinalProposalMutation.isPending}
                     type="button"

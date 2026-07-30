@@ -351,6 +351,24 @@
   vertical-align: top;
 }
 
+.production-workspace-table td strong,
+.production-workspace-table td small {
+  display: block;
+}
+
+.production-workspace-table td strong {
+  color: #2d2d2d;
+  font-weight: 800;
+}
+
+.production-workspace-table td small {
+  margin-top: 4px;
+  color: #8a8177;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 18px;
+}
+
 .production-workspace-status {
   display: inline-flex;
   width: fit-content;
