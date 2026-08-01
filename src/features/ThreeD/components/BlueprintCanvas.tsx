@@ -41,6 +41,10 @@ export type BlueprintCanvasProps = {
   onSelectItem: (item: SelectedRoomItem | null) => void;
   readOnly?: boolean;
   selectedItem: SelectedRoomItem | null;
+  underlay?: {
+    label: string;
+    layout: RoomLayoutState | null;
+  } | null;
   wallFillColor: string;
 };
 
@@ -115,6 +119,7 @@ export function BlueprintCanvas({
   onSelectItem,
   readOnly = false,
   selectedItem,
+  underlay,
   wallFillColor,
 }: BlueprintCanvasProps) {
   const [dragPoint, setDragPoint] = useState<DragPointState | null>(null);
@@ -407,8 +412,17 @@ export function BlueprintCanvas({
   }
 
   const closedBoundary = layout ? getClosedRoomBoundary(layout) : [];
+  const underlayBoundary = underlay?.layout ? getClosedRoomBoundary(underlay.layout) : [];
   const polygonPoints = closedBoundary.length
     ? closedBoundary
+        .map((point) => {
+          const svgPoint = toSvgPoint(point);
+          return `${svgPoint.x},${svgPoint.y}`;
+        })
+        .join(' ')
+    : '';
+  const underlayPolygonPoints = underlayBoundary.length
+    ? underlayBoundary
         .map((point) => {
           const svgPoint = toSvgPoint(point);
           return `${svgPoint.x},${svgPoint.y}`;
@@ -516,6 +530,30 @@ export function BlueprintCanvas({
 
         {layout && (
           <>
+            {underlay?.layout && underlayBoundary.length >= 3 && (
+              <g className="blueprint-underlay-layer">
+                <polygon className="blueprint-underlay-fill" points={underlayPolygonPoints} />
+                {underlay.layout.walls.map((wall) => {
+                  const start = toSvgPoint(getPointById(underlay.layout?.points ?? [], wall.startPointId));
+                  const end = toSvgPoint(getPointById(underlay.layout?.points ?? [], wall.endPointId));
+
+                  return (
+                    <line
+                      className="blueprint-underlay-wall"
+                      key={wall.id}
+                      strokeWidth={Math.max(wall.thickness * activeTransform.scale, 6)}
+                      x1={start.x}
+                      x2={end.x}
+                      y1={start.y}
+                      y2={end.y}
+                    />
+                  );
+                })}
+                <text className="blueprint-underlay-layer-label" x={VIEWBOX_WIDTH - 150} y="42">
+                  {underlay.label}
+                </text>
+              </g>
+            )}
             {closedBoundary.length >= 3 && (
               <polygon className="blueprint-room-fill blueprint-click-surface" fill={floorFillColor} points={polygonPoints} />
             )}
