@@ -68,7 +68,7 @@ export function Tracking() {
   );
   const selectedProject = projects.find((project) => project.projectId === selectedProjectId) ?? projects[0] ?? null;
   const ordersQuery = useProjectOrders(selectedProjectId, { enabled: Boolean(selectedProjectId) });
-  const orders = ordersQuery.data?.items ?? [];
+  const orders = useMemo(() => ordersQuery.data?.items ?? [], [ordersQuery.data?.items]);
   const selectedOrder = orders.find((order) => order.orderId === selectedOrderId) ?? orders[0] ?? null;
   const orderDetailQuery = useOrderDetail(selectedOrderId, { enabled: Boolean(selectedOrderId) });
   const order = orderDetailQuery.data ?? null;

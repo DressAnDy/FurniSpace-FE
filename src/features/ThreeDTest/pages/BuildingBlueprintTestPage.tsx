@@ -619,7 +619,6 @@ export function BuildingBlueprintTestPage() {
   const activeLevelCenter = activeLevel ? getLevelCenter(sceneData, activeLevel) : sceneData.building.position;
   const underlayCenter = underlayLevel ? getLevelCenter(sceneData, underlayLevel) : null;
   const frontYard = sceneData.surfaces.find((surface) => surface.id === 'front-yard');
-  const activeBalcony = activeLevel ? sceneData.surfaces.find((surface) => surface.id === `${activeLevel.id}-balcony`) : null;
   const frontYardBasePlacement = frontYard ? getFrontYardBasePlacement(sceneData, frontYard.depth) : null;
   const frontYardOffset = frontYard && frontYardBasePlacement
     ? {

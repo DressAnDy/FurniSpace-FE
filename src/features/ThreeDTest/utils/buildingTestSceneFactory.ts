@@ -870,22 +870,6 @@ function createLevelWalls(
   frontGlass.metadata = { kind: 'wall-collision', levelId, source: 'building-test-environment' };
 }
 
-function createLevelRail(
-  scene: Scene,
-  center: { x: number; z: number },
-  levelId: string,
-  floorY: number,
-  width: number,
-  depth: number,
-  railMaterial: StandardMaterial,
-) {
-  const railY = floorY + 0.58;
-  const frontRail = MeshBuilder.CreateBox(`building-test-${levelId}-front-rail`, { depth: 0.08, height: 0.18, width }, scene);
-  frontRail.position = new Vector3(center.x, railY, center.z - depth / 2);
-  frontRail.material = railMaterial;
-  frontRail.metadata = { levelId, source: 'building-test-environment' };
-}
-
 export function getSurfaceFromPickedMesh(mesh: Mesh | null | undefined, pickedY?: number): BuildingPlacementSurface | null {
   if (mesh?.metadata?.kind !== 'placement-surface') {
     return null;

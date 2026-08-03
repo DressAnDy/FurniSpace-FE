@@ -19,7 +19,7 @@ export function ReadyForDelivery() {
   const [deliveredQuantityInputs, setDeliveredQuantityInputs] = useState<Record<string, string>>({});
   const [message, setMessage] = useState<{ tone: 'error' | 'success'; text: string } | null>(null);
   const readyRequestsQuery = useProductionRequests({ status: 'COMPLETED' });
-  const readyRequests = readyRequestsQuery.data?.items ?? [];
+  const readyRequests = useMemo(() => readyRequestsQuery.data?.items ?? [], [readyRequestsQuery.data?.items]);
   const selectedRequest = readyRequests.find((request) => request.productionRequestId === selectedProductionRequestId) ?? readyRequests[0] ?? null;
   const orderDetailQuery = useOrderDetail(selectedRequest?.orderId, { enabled: Boolean(selectedRequest?.orderId) });
   const order = orderDetailQuery.data ?? null;

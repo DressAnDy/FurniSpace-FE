@@ -44,7 +44,7 @@ export function ProductionRequests() {
   });
   const markFeasibleMutation = useMarkProductionRequestFeasible();
   const startMutation = useStartProductionRequest();
-  const rawRequests = requestsQuery.data?.items ?? [];
+  const rawRequests = useMemo(() => requestsQuery.data?.items ?? [], [requestsQuery.data?.items]);
   const requests = useMemo(
     () =>
       rawRequests.filter((request) => {

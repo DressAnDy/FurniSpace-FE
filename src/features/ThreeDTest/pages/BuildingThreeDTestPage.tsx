@@ -345,7 +345,7 @@ export function BuildingThreeDTestPage() {
     if (hydratedScene.activeLevel && hydratedScene.activeLevel !== 'site' && sceneData.building.levels.some((level) => level.id === hydratedScene.activeLevel)) {
       setActiveLevel(hydratedScene.activeLevel);
     }
-  }, [modelsByVersionId, roomPlannerSceneQuery.data, sceneData.building.levels, setRemoteSceneData, shouldKeepSceneDraft, shouldKeepPlacedProductsDraft]);
+  }, [modelsByVersionId, roomPlannerSceneQuery.data, sceneData.building.levels, sceneId, setRemoteSceneData, shouldKeepSceneDraft, shouldKeepPlacedProductsDraft]);
 
   useEffect(() => {
     if (!placedProductsDraft?.placedProducts.length) {
@@ -355,7 +355,7 @@ export function BuildingThreeDTestPage() {
     skipNextDraftPersistRef.current = true;
     setPlacedProducts(placedProductsDraft.placedProducts);
     setSelectedProductId(placedProductsDraft.selectedProductId);
-  }, [placedProductsDraft?.updatedAt]);
+  }, [placedProductsDraft?.placedProducts, placedProductsDraft?.selectedProductId, placedProductsDraft?.updatedAt]);
 
   useEffect(() => {
     if (skipNextDraftPersistRef.current) {

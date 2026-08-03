@@ -133,7 +133,6 @@ export function DesignerProposalWorkspace() {
   );
   const primaryScene = scenes.find((scene) => scene.sceneType === 'ROOM_PLANNER') ?? scenes.find((scene) => scene.sceneType === 'THREE_D') ?? scenes[0] ?? null;
   const selectedScene = scenes.find((scene) => scene.sceneId === selectedSceneId) ?? primaryScene;
-  const selectedArea = areas.find((area) => area.projectAreaId === selectedAreaId) ?? null;
   const selectedAreaScenes = useMemo(
     () => (selectedAreaId ? scenes.filter((scene) => getSceneAreaIds(scene).includes(selectedAreaId)) : []),
     [scenes, selectedAreaId],

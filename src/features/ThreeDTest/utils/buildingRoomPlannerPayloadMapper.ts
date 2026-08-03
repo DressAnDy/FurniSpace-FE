@@ -10,7 +10,6 @@ import type {
 import {
   createDefaultBuildingTestScene,
   createLevelFloorSurface,
-  getLevelCenter,
 } from '@/features/ThreeDTest/utils/buildingTestSceneFactory';
 
 type BlueprintLayoutDocument = {
