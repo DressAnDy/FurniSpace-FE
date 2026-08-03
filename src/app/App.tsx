@@ -42,6 +42,7 @@ import { DesignerDashbroad } from '@/features/DesignerPages/DesignerDashbroad';
 import { DesignerCreateProductVersionPage, DesignerProductLibrary } from '@/features/DesignerPages/DesignerProductLibrary';
 import { DesignerProjectDetail } from '@/features/DesignerPages/DesignerProjectDetail';
 import { DesignerSchedules } from '@/features/DesignerPages/DesignerSchedules';
+import { BuildingBlueprintTestPage, BuildingThreeDTestPage } from '@/features/ThreeDTest';
 import { BlockedIssues } from '@/features/ProductionPages/BlockedIssues';
 import { MyProductionTasks } from '@/features/ProductionPages/MyProductionTasks';
 import { ProductionCustomizationRequests } from '@/features/ProductionPages/ProductionCustomizationRequests';
@@ -78,6 +79,8 @@ export default function App() {
             <Route path="/projects/detail" element={<ProjectDetailPage />} />
             <Route path="/user-profile" element={<UserProfilePage />} />
             <Route path="/viewer3d" element={<ViewerDemoPage />} />
+            <Route path="/3d-building-test" element={<BuildingThreeDTestPage />} />
+            <Route path="/3d-building-test/blueprint" element={<BuildingBlueprintTestPage />} />
 
             {/* Legacy public redirects */}
             <Route path="/product-detail" element={<Navigate to="/products/detail" replace />} />
@@ -176,10 +179,17 @@ export default function App() {
 
             <Route path="/viewer3d" element={<ViewerDemoPage />} />
             <Route path="/3d-lab" element={<ThreeDTestPage />} />
-            <Route path="/proposal-scenes/:sceneId/room-planner" element={<ThreeDTestPage />} />
+            <Route path="/3d-building-test" element={<BuildingThreeDTestPage />} />
+            <Route path="/3d-building-test/blueprint" element={<BuildingBlueprintTestPage />} />
+            <Route path="/proposal-scenes/:sceneId/building-room-planner" element={<BuildingThreeDTestPage />} />
+            <Route path="/proposal-scenes/:sceneId/building-room-planner/blueprint" element={<BuildingBlueprintTestPage />} />
+            <Route path="/proposal-scenes/:sceneId/room-planner" element={<BuildingThreeDTestPage />} />
+            <Route path="/proposal-scenes/:sceneId/room-planner/blueprint" element={<BuildingBlueprintTestPage />} />
+            <Route path="/proposal-scenes/:sceneId/legacy-room-planner" element={<ThreeDTestPage />} />
 
             <Route path="/designer" element={<Navigate to="/designer/assigned-projects" replace />} />
             <Route path="/designer/assigned-projects" element={<DesignerAssignedProjects />} />
+            <Route path="/designer/projects/:projectId/proposals/legacy-new" element={<DesignerProposalWorkspace />} />
             <Route path="/designer/projects/:projectId/proposals/new" element={<DesignerProposalWorkspace />} />
             <Route path="/designer/projects/:projectId/proposals/:proposalId" element={<DesignerProposalWorkspace />} />
 

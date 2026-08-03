@@ -1,6 +1,5 @@
 export { ChatTab } from './ChatTab';
 export { CustomizationTab } from './CustomizationTab';
-export { FeedbackTab } from './FeedbackTab';
 export { OverviewTab } from './OverviewTab';
 export { ProjectAreasTab } from './ProjectAreasTab';
 export { ProposalsTab } from './ProposalsTab';

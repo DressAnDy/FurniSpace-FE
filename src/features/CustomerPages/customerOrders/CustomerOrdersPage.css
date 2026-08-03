@@ -279,6 +279,48 @@
   padding: 15px 14px;
 }
 
+.customer-orders-table-action {
+  min-height: 34px;
+  border: 1px solid #8b6f47;
+  border-radius: 8px;
+  background: #8b6f47;
+  color: #ffffff;
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 900;
+  padding: 0 12px;
+}
+
+.customer-orders-table-action:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.customer-orders-delivery-confirm-list {
+  display: grid;
+  gap: 10px;
+}
+
+.customer-orders-delivery-confirm-list div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: 1px solid rgba(139, 111, 71, 0.14);
+  border-radius: 10px;
+  background: #fbfaf7;
+  color: #5f5244;
+  font-size: 13px;
+  font-weight: 800;
+  padding: 12px;
+}
+
+.customer-orders-delivery-confirm-list span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
 @media (max-width: 1180px) {
   .customer-orders-layout { grid-template-columns: 1fr; }
 }

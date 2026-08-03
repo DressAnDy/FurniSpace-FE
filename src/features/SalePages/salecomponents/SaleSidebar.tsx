@@ -1,7 +1,6 @@
 import {
   IconBriefcase,
   IconCalendarEvent,
-  IconClipboardList,
   IconFileDollar,
   IconHome,
   IconMenu2,
@@ -26,7 +25,6 @@ const saleSidebarItems: SaleSidebarItem[] = [
   { label: 'Schedules', icon: IconCalendarEvent, path: '/sales/schedules' },
   { label: 'Quotations', icon: IconFileDollar, path: '/sales/quotations' },
   { label: 'Orders', icon: IconFileDollar, path: '/sales/orders' },
-  { label: 'Production Tracking', icon: IconClipboardList },
 ];
 
 type SaleSidebarProps = {

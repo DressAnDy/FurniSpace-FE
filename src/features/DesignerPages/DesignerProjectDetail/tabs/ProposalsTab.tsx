@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 
 import { getProposalServiceResultMessage, type ProposalDto } from '@/services/api/proposals';
 import type { ProjectDto } from '@/services/api/projects';
-import { useProjectProposals, useProposalScenes, usePublishProposal } from '@/services/queries';
+import { useCreateProposal, useCreateProposalScene, useProjectAreas, useProjectProposals, useProposalScenes, usePublishProposal } from '@/services/queries';
 
 type ProposalsTabProps = {
   project: ProjectDto;
@@ -14,19 +14,85 @@ export function ProposalsTab({ project }: ProposalsTabProps) {
   const [message, setMessage] = useState('');
   const [messageTone, setMessageTone] = useState<'error' | 'success'>('error');
   const [publishingProposalId, setPublishingProposalId] = useState<string | null>(null);
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [proposalDraft, setProposalDraft] = useState({ description: '', proposalName: '' });
+  const createProposalMutation = useCreateProposal();
+  const createSceneMutation = useCreateProposalScene();
   const publishProposalMutation = usePublishProposal();
+  const areasQuery = useProjectAreas({
+    projectId: project.projectId,
+    includeCancelled: false,
+  });
   const proposalsQuery = useProjectProposals({
     projectId: project.projectId,
     page: 1,
     limit: 20,
   });
   const proposals = proposalsQuery.data?.items ?? [];
+  const areas = areasQuery.data ?? [];
   const canCreateProposal = isProposalDraftingStatus(project.status);
 
   function openProposalSetup() {
     setMessage('');
     setMessageTone('error');
-    navigate(`/designer/projects/${project.projectId}/proposals/new`);
+    setProposalDraft({ description: '', proposalName: '' });
+    setIsCreateModalOpen(true);
+  }
+
+  async function createRoomPlannerProposal() {
+    const proposalName = proposalDraft.proposalName.trim();
+    const description = proposalDraft.description.trim();
+    const projectAreaIds = areas
+      .filter((area) => area.status !== 'CANCELLED')
+      .map((area) => area.projectAreaId);
+
+    setMessage('');
+    setMessageTone('error');
+
+    if (!proposalName) {
+      setMessage('Proposal name is required.');
+      return;
+    }
+
+    if (!description) {
+      setMessage('Proposal description is required.');
+      return;
+    }
+
+    if (projectAreaIds.length === 0) {
+      setMessage('Create at least one project area first. Each area will become a floor in the new room planner scene.');
+      return;
+    }
+
+    try {
+      const createdProposal = await createProposalMutation.mutateAsync({
+        projectId: project.projectId,
+        proposalName,
+        description,
+      });
+
+      const createdScene = await createSceneMutation.mutateAsync({
+        proposalId: createdProposal.proposalId,
+        sceneName: `${proposalName} Room Planner`,
+        sceneType: 'ROOM_PLANNER',
+        projectAreaIds,
+      });
+
+      setIsCreateModalOpen(false);
+      setProposalDraft({ description: '', proposalName: '' });
+      setMessageTone('success');
+      setMessage(`Created ${createdProposal.proposalName} with a room planner scene across ${projectAreaIds.length} floor${projectAreaIds.length === 1 ? '' : 's'}.`);
+      navigate(`/designer/projects/${project.projectId}/proposals/${createdProposal.proposalId}`, {
+        state: { createdSceneId: createdScene.sceneId },
+      });
+    } catch (error) {
+      setMessageTone('error');
+      setMessage(getProposalServiceResultMessage(error));
+    }
+  }
+
+  function openLegacyProposalSetup() {
+    navigate(`/designer/projects/${project.projectId}/proposals/legacy-new`);
   }
 
   async function publishProposal(proposal: ProposalDto) {
@@ -56,15 +122,36 @@ export function ProposalsTab({ project }: ProposalsTabProps) {
           <h3>Proposals</h3>
           <p>{proposalsQuery.isLoading ? 'Loading proposals from backend...' : `${proposalsQuery.data?.total ?? proposals.length} proposal${(proposalsQuery.data?.total ?? proposals.length) === 1 ? '' : 's'} for this project.`}</p>
         </div>
-        <button
-          className="designer-project-detail-button designer-project-detail-button-primary"
-          disabled={!canCreateProposal}
-          type="button"
-          onClick={openProposalSetup}
-        >
-          Set Up Proposal
-        </button>
+        <div className="designer-project-table-actions">
+          <button
+            className="designer-project-detail-button"
+            disabled={!canCreateProposal}
+            type="button"
+            onClick={openLegacyProposalSetup}
+          >
+            Legacy Setup
+          </button>
+          <button
+            className="designer-project-detail-button designer-project-detail-button-primary"
+            disabled={!canCreateProposal || areasQuery.isLoading}
+            type="button"
+            onClick={openProposalSetup}
+          >
+            Set Up Proposal
+          </button>
+        </div>
       </div>
+
+      {isCreateModalOpen ? (
+        <CreateProposalModal
+          areaCount={areas.length}
+          draft={proposalDraft}
+          isCreating={createProposalMutation.isPending || createSceneMutation.isPending}
+          onClose={() => setIsCreateModalOpen(false)}
+          onDraftChange={setProposalDraft}
+          onSubmit={() => void createRoomPlannerProposal()}
+        />
+      ) : null}
 
       {message ? (
         <p className={`designer-project-file-message ${messageTone === 'success' ? 'designer-project-message-success' : 'designer-project-file-error'}`}>
@@ -124,7 +211,6 @@ type ProposalRowProps = {
 function ProposalRow({ proposal, onOpenDetail, onPublish, publishDisabled }: ProposalRowProps) {
   const scenesQuery = useProposalScenes({
     proposalId: proposal.proposalId,
-    sceneType: 'THREE_D',
     isActive: true,
     page: 1,
     limit: 20,
@@ -173,6 +259,74 @@ function ProposalRow({ proposal, onOpenDetail, onPublish, publishDisabled }: Pro
         </div>
       </td>
     </tr>
+  );
+}
+
+function CreateProposalModal({
+  areaCount,
+  draft,
+  isCreating,
+  onClose,
+  onDraftChange,
+  onSubmit,
+}: {
+  areaCount: number;
+  draft: { description: string; proposalName: string };
+  isCreating: boolean;
+  onClose: () => void;
+  onDraftChange: (draft: { description: string; proposalName: string }) => void;
+  onSubmit: () => void;
+}) {
+  function updateDraft(field: keyof typeof draft, value: string) {
+    onDraftChange({ ...draft, [field]: value });
+  }
+
+  return (
+    <div className="designer-project-modal-backdrop">
+      <section className="designer-project-modal" role="dialog" aria-modal="true" aria-labelledby="designer-create-proposal-title">
+        <header>
+          <div>
+            <h3 id="designer-create-proposal-title">Create Room Planner Proposal</h3>
+            <p>{areaCount} project area{areaCount === 1 ? '' : 's'} will be attached to the new scene as floors.</p>
+          </div>
+          <button className="designer-project-modal-close" type="button" aria-label="Close create proposal modal" onClick={onClose}>
+            X
+          </button>
+        </header>
+        <div className="designer-project-modal-form">
+          <label>
+            <span>Name</span>
+            <input
+              autoFocus
+              placeholder="Enter proposal name"
+              value={draft.proposalName}
+              onChange={(event) => updateDraft('proposalName', event.target.value)}
+            />
+          </label>
+          <label>
+            <span>Description</span>
+            <textarea
+              placeholder="Enter proposal description"
+              value={draft.description}
+              onChange={(event) => updateDraft('description', event.target.value)}
+            />
+          </label>
+        </div>
+        <footer>
+          <button className="designer-project-detail-button" disabled={isCreating} type="button" onClick={onClose}>
+            Cancel
+          </button>
+          <button
+            className="designer-project-detail-button designer-project-detail-button-primary"
+            disabled={isCreating || !draft.proposalName.trim() || !draft.description.trim() || areaCount === 0}
+            type="button"
+            onClick={onSubmit}
+          >
+            {isCreating ? 'Creating...' : 'Create Proposal & Scene'}
+          </button>
+        </footer>
+      </section>
+    </div>
   );
 }
 

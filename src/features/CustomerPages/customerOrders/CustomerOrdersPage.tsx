@@ -11,8 +11,9 @@ import type { PaymentDetailDto } from '@/services/api/payments';
 import type { ProjectListItemDto } from '@/services/api/projects';
 import {
   useCreateOrderDepositPayment,
-  useCreateOrderRemainingPayment,
+  useConfirmOrderItemDelivery,
   useOrderDetail,
+  usePayments,
   useProjectList,
   useProjectOrders,
 } from '@/services/queries';
@@ -43,8 +44,12 @@ export function CustomerOrdersPage() {
   const orders = useMemo(() => ordersQuery.data?.items ?? [], [ordersQuery.data?.items]);
   const orderDetailQuery = useOrderDetail(selectedOrderId, { enabled: Boolean(selectedOrderId) });
   const order = orderDetailQuery.data ?? null;
+  const remainingPaymentsQuery = usePayments(
+    { orderId: selectedOrderId, paymentType: 'REMAINING_PAYMENT', status: 'PENDING' },
+    { enabled: Boolean(selectedOrderId) },
+  );
   const depositMutation = useCreateOrderDepositPayment();
-  const remainingMutation = useCreateOrderRemainingPayment();
+  const confirmDeliveryMutation = useConfirmOrderItemDelivery();
 
   useEffect(() => {
     if (!selectedProjectId && orderProjects.length > 0) {
@@ -63,19 +68,33 @@ export function CustomerOrdersPage() {
     }
   }, [orders, selectedOrderId]);
 
-  async function createPayment(kind: 'deposit' | 'remaining') {
+  async function createDepositPayment() {
     if (!order) return;
 
     setMessage(null);
 
     try {
-      const payment =
-        kind === 'deposit'
-          ? await depositMutation.mutateAsync({ orderId: order.orderId, note: 'Customer deposit payment.' })
-          : await remainingMutation.mutateAsync({ orderId: order.orderId, note: 'Customer remaining payment.' });
+      const payment = await depositMutation.mutateAsync({ orderId: order.orderId, note: 'Customer deposit payment.' });
 
       setActivePayment(payment);
-      setMessage({ tone: 'success', text: kind === 'deposit' ? 'Deposit payment is ready.' : 'Remaining payment is ready.' });
+      setMessage({ tone: 'success', text: 'Deposit payment is ready.' });
+    } catch (error) {
+      setMessage({ tone: 'error', text: getOrderServiceResultMessage(error) });
+    }
+  }
+
+  async function confirmDeliveryGroup(items: OrderItemDto[]) {
+    setMessage(null);
+
+    try {
+      const confirmableItems = items.filter((item) => canConfirmDelivery(order?.status, item));
+
+      for (const item of confirmableItems) {
+        await confirmDeliveryMutation.mutateAsync(item.orderItemId);
+      }
+
+      setMessage({ tone: 'success', text: 'Delivery confirmed.' });
+      void orderDetailQuery.refetch();
     } catch (error) {
       setMessage({ tone: 'error', text: getOrderServiceResultMessage(error) });
     }
@@ -140,9 +159,10 @@ export function CustomerOrdersPage() {
               <OrderDetailCard
                 depositPending={depositMutation.isPending}
                 order={order}
-                remainingPending={remainingMutation.isPending}
-                onCreateDeposit={() => void createPayment('deposit')}
-                onCreateRemaining={() => void createPayment('remaining')}
+                remainingPayment={remainingPaymentsQuery.data?.items?.[0] ?? null}
+                onConfirmDeliveryGroup={(items) => void confirmDeliveryGroup(items)}
+                onCreateDeposit={() => void createDepositPayment()}
+                onOpenRemainingPayment={(payment) => setActivePayment(payment)}
               />
             ) : null}
 
@@ -164,18 +184,22 @@ export function CustomerOrdersPage() {
 
 function OrderDetailCard({
   depositPending,
+  onConfirmDeliveryGroup,
   onCreateDeposit,
-  onCreateRemaining,
+  onOpenRemainingPayment,
   order,
-  remainingPending,
+  remainingPayment,
 }: {
   depositPending: boolean;
+  onConfirmDeliveryGroup: (items: OrderItemDto[]) => void;
   onCreateDeposit: () => void;
-  onCreateRemaining: () => void;
+  onOpenRemainingPayment: (payment: PaymentDetailDto) => void;
   order: OrderDetailDto;
-  remainingPending: boolean;
+  remainingPayment: PaymentDetailDto | null;
 }) {
   const orderItems = useMemo(() => aggregateDuplicateItems(order.items), [order.items]);
+  const deliveryActionItems = order.items.filter((item) => item.itemType === 'PRODUCT_ITEM');
+  const deliveryActionItemGroups = useMemo(() => groupOrderItemsByName(deliveryActionItems), [deliveryActionItems]);
 
   return (
     <section className="customer-orders-card customer-orders-detail">
@@ -197,8 +221,8 @@ function OrderDetailCard({
         <button disabled={order.status !== 'DEPOSIT_PENDING' || depositPending} type="button" onClick={onCreateDeposit}>
           {depositPending ? 'Preparing...' : 'Pay Deposit'}
         </button>
-        <button disabled={order.status !== 'FINAL_PAYMENT_PENDING' || remainingPending} type="button" onClick={onCreateRemaining}>
-          {remainingPending ? 'Preparing...' : 'Pay Remaining'}
+        <button disabled={order.status !== 'FINAL_PAYMENT_PENDING' || !remainingPayment} type="button" onClick={() => remainingPayment && onOpenRemainingPayment(remainingPayment)}>
+          Pay Remaining
         </button>
       </div>
 
@@ -211,6 +235,7 @@ function OrderDetailCard({
               <th>Unit</th>
               <th>Customization</th>
               <th>Subtotal</th>
+              <th>Delivery</th>
             </tr>
           </thead>
           <tbody>
@@ -221,11 +246,30 @@ function OrderDetailCard({
                 <td>{formatMoney(item.unitPrice)}</td>
                 <td>{formatMoney(item.customizationAdditionalCost)}</td>
                 <td>{formatMoney(item.subtotalAmount)}</td>
+                <td>{formatDeliveryState(item)}</td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
+
+      {order.status === 'DELIVERING' ? (
+        <div className="customer-orders-delivery-confirm-list">
+          {deliveryActionItemGroups.map((group) => (
+            <div key={group.key}>
+              <span>{group.name}: {group.deliveredQuantity}/{group.quantity} - {group.statusSummary}</span>
+              <button
+                className="customer-orders-table-action"
+                disabled={!canConfirmDeliveryGroup(order.status, group)}
+                type="button"
+                onClick={() => onConfirmDeliveryGroup(group.items)}
+              >
+                Confirm
+              </button>
+            </div>
+          ))}
+        </div>
+      ) : null}
     </section>
   );
 }
@@ -263,6 +307,70 @@ function formatMoney(value?: number | null) {
   if (typeof value !== 'number') return '-';
 
   return `${new Intl.NumberFormat('vi-VN').format(value)} VND`;
+}
+
+function canConfirmDelivery(orderStatus: OrderStatus | null | undefined, item: OrderItemDto) {
+  if (orderStatus !== 'DELIVERING') return false;
+  if (item.itemType !== 'PRODUCT_ITEM') return false;
+  if (item.status === 'DELIVERED' || item.status === 'UNAVAILABLE' || item.status === 'CANCELLED') return false;
+
+  const quantity = item.quantity ?? 0;
+
+  return quantity > 0 && (item.deliveredQuantity ?? 0) >= quantity;
+}
+
+function canConfirmDeliveryGroup(orderStatus: OrderStatus | null | undefined, group: OrderItemGroup) {
+  return group.items.some((item) => canConfirmDelivery(orderStatus, item))
+    && group.items.every((item) => item.status === 'DELIVERED' || canConfirmDelivery(orderStatus, item));
+}
+
+function formatDeliveryState(item: OrderItemDto) {
+  const delivered = item.deliveredQuantity ?? 0;
+  const quantity = item.quantity ?? 0;
+  const status = item.status ? formatEnumLabel(item.status) : 'Pending';
+
+  return `${delivered}/${quantity} - ${status}`;
+}
+
+type OrderItemGroup = {
+  deliveredQuantity: number;
+  items: OrderItemDto[];
+  key: string;
+  name: string;
+  quantity: number;
+  statusSummary: string;
+};
+
+function groupOrderItemsByName(items: OrderItemDto[]): OrderItemGroup[] {
+  const groupsByKey = new Map<string, OrderItemDto[]>();
+
+  for (const item of items) {
+    const key = `${item.itemType ?? 'UNKNOWN'}|${getOrderItemName(item)}`;
+    const groupItems = groupsByKey.get(key);
+
+    if (groupItems) {
+      groupItems.push(item);
+    } else {
+      groupsByKey.set(key, [item]);
+    }
+  }
+
+  return Array.from(groupsByKey.entries()).map(([key, groupItems]) => {
+    const statuses = Array.from(new Set(groupItems.map((item) => item.status ?? 'PENDING')));
+
+    return {
+      deliveredQuantity: sumItemNumbers(groupItems, 'deliveredQuantity'),
+      items: groupItems,
+      key,
+      name: getOrderItemName(groupItems[0] ?? {}),
+      quantity: sumItemNumbers(groupItems, 'quantity'),
+      statusSummary: statuses.map(formatEnumLabel).join(', '),
+    };
+  });
+}
+
+function sumItemNumbers(items: OrderItemDto[], field: 'deliveredQuantity' | 'quantity') {
+  return items.reduce((total, item) => total + (item[field] ?? 0), 0);
 }
 
 function formatOrderCode(value?: string | null) {

@@ -1,4 +1,4 @@
-import { IconFile, IconPaperclip, IconSend } from '@tabler/icons-react';
+import { IconFile, IconSend } from '@tabler/icons-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 
@@ -17,7 +17,6 @@ import {
   useProjectChatRealtime,
   useProjectChatUnreadCounts,
   useProjectChats,
-  useSendProjectChatFileMessage,
   useSendProjectChatTextMessage,
 } from '@/services/queries/useProjectChats';
 
@@ -33,9 +32,7 @@ export function ChatTab({ project }: ChatTabProps) {
   const customerQuery = useAccountDetail(project.customerId);
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
   const [draft, setDraft] = useState('');
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [message, setMessage] = useState<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const messagesListRef = useRef<HTMLDivElement | null>(null);
   const chatListQuery = useProjectChats({
     projectId: project.projectId,
@@ -57,7 +54,6 @@ export function ChatTab({ project }: ChatTabProps) {
     : undefined;
   const messagesQuery = useProjectChatMessages(messagesQueryParams);
   const sendTextMutation = useSendProjectChatTextMessage();
-  const sendFileMutation = useSendProjectChatFileMessage();
   const activeParticipant = getChatParticipant(activeChat, {
     viewerRole: 'SALES',
     customerName: customerQuery.data?.fullName,
@@ -118,7 +114,7 @@ export function ChatTab({ project }: ChatTabProps) {
   async function handleSendText() {
     const content = draft.trim();
 
-    if (!activeChat || (!content && !selectedFile) || sendTextMutation.isPending || sendFileMutation.isPending) {
+    if (!activeChat || !content || sendTextMutation.isPending) {
       return;
     }
 
@@ -126,21 +122,10 @@ export function ChatTab({ project }: ChatTabProps) {
     setDraft('');
 
     try {
-      const savedMessage = selectedFile
-        ? await sendFileMutation.mutateAsync({
-            chatId: activeChat.chatId,
-            file: selectedFile,
-            content,
-          })
-        : await sendTextMutation.mutateAsync({
-            chatId: activeChat.chatId,
-            content,
-          });
-
-      setSelectedFile(null);
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
-      }
+      const savedMessage = await sendTextMutation.mutateAsync({
+        chatId: activeChat.chatId,
+        content,
+      });
 
       if (messagesQueryParams) {
         queryClient.setQueryData(projectChatQueryKeys.messages(messagesQueryParams), (current: ProjectChatMessageListResponse | undefined) =>
@@ -153,12 +138,6 @@ export function ChatTab({ project }: ChatTabProps) {
       setMessage(getProjectChatServiceResultMessage(error));
       void chatListQuery.refetch();
       void messagesQuery.refetch();
-    }
-  }
-
-  function handleFileChange(file?: File) {
-    if (file) {
-      setSelectedFile(file);
     }
   }
 
@@ -210,31 +189,10 @@ export function ChatTab({ project }: ChatTabProps) {
           </div>
 
           <div className="project-detail-chat-input">
-            <input ref={fileInputRef} hidden type="file" onChange={(event) => handleFileChange(event.target.files?.[0])} />
-            <button className="project-detail-attach-button" disabled={!activeChat || sendFileMutation.isPending} type="button" onClick={() => fileInputRef.current?.click()}>
-              <IconPaperclip size={17} />
-            </button>
             <div className="project-detail-chat-composer-main">
-              {selectedFile ? (
-                <div className="project-detail-chat-selected-file">
-                  <IconFile size={15} />
-                  <span>{selectedFile.name}</span>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSelectedFile(null);
-                      if (fileInputRef.current) {
-                        fileInputRef.current.value = '';
-                      }
-                    }}
-                  >
-                    Remove
-                  </button>
-                </div>
-              ) : null}
               <input
-                disabled={!activeChat || sendTextMutation.isPending || sendFileMutation.isPending}
-                placeholder={selectedFile ? 'Add a message for this file...' : 'Type a message...'}
+                disabled={!activeChat || sendTextMutation.isPending}
+                placeholder="Type a message..."
                 value={draft}
                 onChange={(event) => setDraft(event.target.value)}
                 onKeyDown={(event) => {
@@ -245,8 +203,8 @@ export function ChatTab({ project }: ChatTabProps) {
                 }}
               />
             </div>
-            <button disabled={!activeChat || (!draft.trim() && !selectedFile) || sendTextMutation.isPending || sendFileMutation.isPending} type="button" onClick={() => void handleSendText()}>
-              <span>{sendTextMutation.isPending || sendFileMutation.isPending ? 'Sending...' : 'Send'}</span>
+            <button disabled={!activeChat || !draft.trim() || sendTextMutation.isPending} type="button" onClick={() => void handleSendText()}>
+              <span>{sendTextMutation.isPending ? 'Sending...' : 'Send'}</span>
               <IconSend size={17} />
             </button>
           </div>

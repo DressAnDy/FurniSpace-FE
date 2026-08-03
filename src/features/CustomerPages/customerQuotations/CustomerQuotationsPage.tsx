@@ -332,7 +332,7 @@ function QuotationDetail({
           </button>
           <form onSubmit={onRequestRevision}>
             <strong>Request Revision</strong>
-            <textarea value={revisionReason} rows={3} placeholder="What should Sales revise?" onChange={(event) => onRevisionReasonChange(event.target.value)} />
+            <textarea value={revisionReason} rows={2} placeholder="What should Sales revise?" onChange={(event) => onRevisionReasonChange(event.target.value)} />
             <button disabled={revisionPending} type="submit">
               <IconRefresh size={15} stroke={1.8} />
               {revisionPending ? 'Sending...' : 'Request Revision'}
@@ -340,7 +340,7 @@ function QuotationDetail({
           </form>
           <form onSubmit={onReject}>
             <strong>Reject Quotation</strong>
-            <textarea value={rejectReason} rows={3} placeholder="Reason for rejecting this quotation" onChange={(event) => onRejectReasonChange(event.target.value)} />
+            <textarea value={rejectReason} rows={2} placeholder="Reason for rejecting this quotation" onChange={(event) => onRejectReasonChange(event.target.value)} />
             <button disabled={rejectPending} type="submit">
               {rejectPending ? 'Rejecting...' : 'Reject Quotation'}
             </button>
