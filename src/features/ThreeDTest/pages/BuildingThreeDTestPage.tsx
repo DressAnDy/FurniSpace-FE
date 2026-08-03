@@ -1,11 +1,15 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQueries } from '@tanstack/react-query';
 import { IconBox, IconBuilding, IconCategory, IconPalette, IconRotateClockwise, IconSearch, IconTrash, IconX } from '@tabler/icons-react';
-import { Link as RouterLink } from 'react-router-dom';
+import { Link as RouterLink, useLocation, useParams } from 'react-router-dom';
 
 import { BuildingSceneCanvas, PRODUCT_DRAG_TYPE } from '@/features/ThreeDTest/components';
-import { useBuildingTestSceneState } from '@/features/ThreeDTest/hooks';
+import { useBuildingPlacedProductsDraft, useBuildingTestSceneState } from '@/features/ThreeDTest/hooks';
 import type { ProductPlacementMode } from '@/features/ThreeD/components/RoomPreview3D';
+import {
+  createBuildingRoomPlannerPayload,
+  hydrateBuildingRoomPlannerPayload,
+} from '@/features/ThreeDTest/utils/buildingRoomPlannerPayloadMapper';
 import type {
   BuildingLevel,
   BuildingLevelVisibility,
@@ -13,27 +17,58 @@ import type {
   PlacedBuildingProduct,
   Vector3State,
 } from '@/features/ThreeDTest/schemas/buildingScene.types';
-import { getLevelCenter } from '@/features/ThreeDTest/utils/buildingTestSceneFactory';
+import { createBuildingTestSceneFromProjectFloorAreas, getLevelCenter, type BuildingProjectFloorAreaSource } from '@/features/ThreeDTest/utils/buildingTestSceneFactory';
 import { getProductById, getProductServiceResultMessage, type CatalogFileDto, type ProductDetailDto, type ProductListItemDto, type ProductVersionDto } from '@/services/api';
-import { productQueryKeys, useCategoryList, useProductList } from '@/services/queries';
+import { getProposalServiceResultMessage, type ProposalItemDto } from '@/services/api/proposals';
+import { productQueryKeys, useCategoryList, useProductList, useProposalDetail, useRoomPlannerScene, useSaveRoomPlannerScene, useSyncProposalItemsFromScene } from '@/services/queries';
 
 import './BuildingThreeDTestPage.css';
 
 const EMPTY_THUMBNAIL = '';
 const API_PRODUCT_DEFAULT_SCALE = 2.6;
 const DETAIL_BATCH_SIZE = 12;
-type BuildingDesignPanel = 'products' | 'materials' | 'selection';
-const levelOptions: Array<{ label: string; value: BuildingLevelVisibility }> = [
-  { label: 'All', value: 'all' },
-  { label: 'Yard', value: 'site' },
-  { label: 'Floor 1', value: 'ground' },
-  { label: 'Floor 2', value: 'level-2' },
-];
+const ROOM_PLANNER_SAVE_STATUSES = ['DRAFT', 'REVISION_REQUESTED'] as const;
+type BuildingRoomPlannerRouteState = {
+  areas?: BuildingProjectFloorAreaSource[];
+  mode?: 'create-proposal';
+  projectAreaIds?: string[];
+  projectId?: string;
+  proposalId?: string;
+  returnTo?: string;
+  transientPlacedProducts?: PlacedBuildingProduct[];
+  transientSelectedProductId?: string | null;
+};
+type BuildingDesignPanel = 'products' | 'materials';
+type BuildingMaterialOption = {
+  fallbackColor: string;
+  id: string;
+  label: string;
+  textureUrl?: string;
+  type: 'floor' | 'wall' | 'wallpaper';
+};
 const placementModes: Array<{ label: string; value: ProductPlacementMode }> = [
   { label: 'Floor', value: 'FLOOR' },
   { label: 'On Object', value: 'ON_OBJECT' },
   { label: 'Wall Mounted', value: 'WALL_MOUNTED' },
   { label: 'Custom Height', value: 'CUSTOM_HEIGHT' },
+];
+
+const FLOOR_MATERIALS: BuildingMaterialOption[] = [
+  { fallbackColor: '#8B5A2B', id: 'wood-floor', label: 'Wood Floor', textureUrl: '/materials/flooring/woodfloor.jpg', type: 'floor' },
+  { fallbackColor: '#C8B79A', id: 'oak-floor', label: 'Natural Oak', textureUrl: '/materials/flooring/woodfloor.jpg', type: 'floor' },
+  { fallbackColor: '#6E4A32', id: 'walnut-floor', label: 'Walnut', textureUrl: '/materials/flooring/woodfloor.jpg', type: 'floor' },
+  { fallbackColor: '#A8ADA8', id: 'gray-tile', label: 'Soft Gray Tile', type: 'floor' },
+];
+
+const WALL_MATERIALS: BuildingMaterialOption[] = [
+  { fallbackColor: '#F3EFE7', id: 'wall-base', label: 'Gallery White Paint', textureUrl: '/materials/wall-paint/wallbase.jpg', type: 'wall' },
+  { fallbackColor: '#BFAE8A', id: 'wallpaper', label: 'Wallpaper', textureUrl: '/materials/wallpaper/wallpaper.jpg', type: 'wallpaper' },
+  { fallbackColor: '#EFE9DD', id: 'warm-white', label: 'Warm White', type: 'wall' },
+  { fallbackColor: '#B8B8B0', id: 'soft-gray', label: 'Soft Gray', type: 'wall' },
+  { fallbackColor: '#C8D6D4', id: 'mist-blue', label: 'Mist Blue', type: 'wall' },
+  { fallbackColor: '#596A5C', id: 'garden-green', label: 'Garden Green', type: 'wall' },
+  { fallbackColor: '#EEE2CF', id: 'linen', label: 'Linen', type: 'wall' },
+  { fallbackColor: '#8E8F88', id: 'stone-gray', label: 'Stone Gray', type: 'wall' },
 ];
 
 function getCatalogModelFile(files: CatalogFileDto[] | undefined) {
@@ -99,9 +134,25 @@ function rotateVectorY(rotation: Vector3State, radians: number) {
   };
 }
 
+function toDegrees(radians: number) {
+  return radians * (180 / Math.PI);
+}
+
+function toRadians(degrees: number) {
+  return degrees * (Math.PI / 180);
+}
+
+function normalizeDegrees(degrees: number) {
+  return Math.round(((degrees % 360) + 360) % 360);
+}
+
+function isSameVector(first: Vector3State, second: Vector3State) {
+  return first.x === second.x && first.y === second.y && first.z === second.z;
+}
+
 function getLevelFallbackSurface(sceneData: ReturnType<typeof useBuildingTestSceneState>['sceneData'], activeLevel: BuildingLevelVisibility) {
-  const preferredLevelId = activeLevel === 'level-2' ? 'level-2' : 'ground';
-  const level = sceneData.building.levels.find((candidate) => candidate.id === preferredLevelId) as BuildingLevel | undefined;
+  const level = sceneData.building.levels.find((candidate) => activeLevel !== 'all' && activeLevel !== 'site' && candidate.id === activeLevel) ??
+    sceneData.building.levels[0] as BuildingLevel | undefined;
 
   if (!level) {
     return null;
@@ -121,8 +172,38 @@ function getLevelFallbackSurface(sceneData: ReturnType<typeof useBuildingTestSce
   };
 }
 
+function applyProposalItemIds(products: PlacedBuildingProduct[], items: ProposalItemDto[]) {
+  const proposalItemIdsByObjectId = new Map(
+    items
+      .filter((item) => item.sceneObjectId)
+      .map((item) => [item.sceneObjectId as string, item.proposalItemId]),
+  );
+
+  return products.map((product) => ({
+    ...product,
+    proposalItemId: proposalItemIdsByObjectId.get(product.sceneObjectId) ?? product.proposalItemId ?? null,
+  }));
+}
+
 export function BuildingThreeDTestPage() {
-  const { resetSceneData, sceneData } = useBuildingTestSceneState();
+  const { sceneId } = useParams();
+  const location = useLocation();
+  const roomPlannerBasePath = sceneId
+    ? `/proposal-scenes/${sceneId}/room-planner`
+    : '/3d-building-test';
+  const routeState = location.state as BuildingRoomPlannerRouteState | null;
+  const { resetSceneData, sceneData, setRemoteSceneData, setSceneData, shouldKeepSceneDraft } = useBuildingTestSceneState(sceneId);
+  const {
+    clearDraft: clearPlacedProductsDraft,
+    draft: placedProductsDraft,
+    persistDraft: persistPlacedProductsDraft,
+    shouldKeepDraft: shouldKeepPlacedProductsDraft,
+  } = useBuildingPlacedProductsDraft(sceneId);
+  const roomPlannerSceneQuery = useRoomPlannerScene(sceneId, { enabled: Boolean(sceneId) });
+  const saveRoomPlannerSceneMutation = useSaveRoomPlannerScene();
+  const syncProposalItemsMutation = useSyncProposalItemsFromScene();
+  const currentProposalId = routeState?.proposalId ?? roomPlannerSceneQuery.data?.proposalId ?? null;
+  const proposalDetailQuery = useProposalDetail(currentProposalId ?? undefined, { enabled: Boolean(currentProposalId) });
   const categoriesQuery = useCategoryList({ page: 1, limit: 100 });
   const productListQuery = useProductList({ page: 1, limit: 48 });
   const [detailLimit, setDetailLimit] = useState(DETAIL_BATCH_SIZE);
@@ -142,9 +223,16 @@ export function BuildingThreeDTestPage() {
   const [designPanel, setDesignPanel] = useState<BuildingDesignPanel>('products');
   const [search, setSearch] = useState('');
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
-  const [placedProducts, setPlacedProducts] = useState<PlacedBuildingProduct[]>([]);
-  const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
+  const [selectedFloorMaterialId, setSelectedFloorMaterialId] = useState('wood-floor');
+  const [selectedWallMaterialId, setSelectedWallMaterialId] = useState('wall-base');
+  const [placedProducts, setPlacedProducts] = useState<PlacedBuildingProduct[]>(() => placedProductsDraft?.placedProducts ?? []);
+  const [selectedProductId, setSelectedProductId] = useState<string | null>(() => placedProductsDraft?.selectedProductId ?? null);
+  const [freeRotateProductId, setFreeRotateProductId] = useState<string | null>(null);
+  const [showProductInfo, setShowProductInfo] = useState(false);
   const [message, setMessage] = useState('');
+  const skipNextDraftPersistRef = useRef(false);
+  const appliedRemoteProductsKeyRef = useRef<string | null>(null);
+  const appliedRemoteSceneKeyRef = useRef<string | null>(null);
 
   const availableModels = useMemo(() => {
     const models = new Map<string, BuildingProductModel>();
@@ -172,6 +260,133 @@ export function BuildingThreeDTestPage() {
     () => new Map(availableModels.map((model) => [model.id, model])),
     [availableModels],
   );
+
+  const modelsByVersionId = useMemo(
+    () => new Map(availableModels.flatMap((model) => model.productVersionId ? [[model.productVersionId, model] as const] : [])),
+    [availableModels],
+  );
+
+  useEffect(() => {
+    if (sceneId || !routeState?.areas?.length) {
+      return;
+    }
+
+    setSceneData(createBuildingTestSceneFromProjectFloorAreas(routeState.areas));
+  }, [routeState?.areas, sceneId, setSceneData]);
+
+  useEffect(() => {
+    if (!routeState?.transientPlacedProducts) {
+      return;
+    }
+
+    appliedRemoteProductsKeyRef.current = `transient:${Date.now()}`;
+    skipNextDraftPersistRef.current = true;
+    setPlacedProducts(routeState.transientPlacedProducts);
+    setSelectedProductId(routeState.transientSelectedProductId ?? null);
+  }, [routeState?.transientPlacedProducts, routeState?.transientSelectedProductId]);
+
+  useEffect(() => {
+    if (!roomPlannerSceneQuery.data) {
+      return;
+    }
+
+    const remoteKey = `${sceneId ?? 'local'}:${roomPlannerSceneQuery.data.mongoSceneId ?? 'template'}:${roomPlannerSceneQuery.data.lastSavedAt ?? 'unsaved'}`;
+    const hydratedScene = hydrateBuildingRoomPlannerPayload(roomPlannerSceneQuery.data);
+
+    if (!hydratedScene.sceneData) {
+      return;
+    }
+
+    if (!shouldKeepSceneDraft(roomPlannerSceneQuery.data.lastSavedAt) && appliedRemoteSceneKeyRef.current !== remoteKey) {
+      appliedRemoteSceneKeyRef.current = remoteKey;
+      setRemoteSceneData(hydratedScene.sceneData, roomPlannerSceneQuery.data.lastSavedAt);
+    }
+
+    if (!shouldKeepPlacedProductsDraft(roomPlannerSceneQuery.data.lastSavedAt) && appliedRemoteProductsKeyRef.current !== remoteKey) {
+      const hasUnresolvedCatalogModel = hydratedScene.placedProducts.some((product) =>
+        !product.modelUrl && !modelsByVersionId.has(product.productVersionId ?? product.id),
+      );
+
+      if (!hasUnresolvedCatalogModel) {
+        const resolvedProducts = hydratedScene.placedProducts
+          .map((product) => {
+            const catalogModel = modelsByVersionId.get(product.productVersionId ?? product.id);
+
+            if (!catalogModel && !product.modelUrl) {
+              return null;
+            }
+
+            return {
+              ...(catalogModel ?? {}),
+              ...product,
+              fileId: product.fileId ?? catalogModel?.fileId,
+              modelSnapshot: product.modelSnapshot ?? (catalogModel
+                ? {
+                    format: catalogModel?.modelUrl.split('?')[0].split('.').pop()?.toUpperCase() ?? null,
+                    modelFileId: catalogModel?.fileId ?? null,
+                    modelUrlSnapshot: catalogModel?.modelUrl ?? product.modelUrl,
+                  }
+                : undefined),
+              modelUrl: product.modelUrl || catalogModel?.modelUrl || '',
+              name: product.name ?? catalogModel?.name ?? 'Furniture',
+              productId: product.productId ?? catalogModel?.productId,
+              thumbnailUrl: product.thumbnailUrl ?? catalogModel?.thumbnailUrl,
+            } as PlacedBuildingProduct;
+          })
+          .filter((product): product is PlacedBuildingProduct => Boolean(product?.modelUrl));
+
+        appliedRemoteProductsKeyRef.current = remoteKey;
+        skipNextDraftPersistRef.current = true;
+        setPlacedProducts(resolvedProducts);
+        setSelectedProductId(hydratedScene.selectedProductId ?? null);
+      }
+    }
+
+    if (hydratedScene.activeLevel && hydratedScene.activeLevel !== 'site' && sceneData.building.levels.some((level) => level.id === hydratedScene.activeLevel)) {
+      setActiveLevel(hydratedScene.activeLevel);
+    }
+  }, [modelsByVersionId, roomPlannerSceneQuery.data, sceneData.building.levels, setRemoteSceneData, shouldKeepSceneDraft, shouldKeepPlacedProductsDraft]);
+
+  useEffect(() => {
+    if (!placedProductsDraft?.placedProducts.length) {
+      return;
+    }
+
+    skipNextDraftPersistRef.current = true;
+    setPlacedProducts(placedProductsDraft.placedProducts);
+    setSelectedProductId(placedProductsDraft.selectedProductId);
+  }, [placedProductsDraft?.updatedAt]);
+
+  useEffect(() => {
+    if (skipNextDraftPersistRef.current) {
+      skipNextDraftPersistRef.current = false;
+      return;
+    }
+
+    persistPlacedProductsDraft(placedProducts, selectedProductId);
+  }, [persistPlacedProductsDraft, placedProducts, selectedProductId]);
+
+  const levelOptions = useMemo<Array<{ label: string; value: BuildingLevelVisibility }>>(
+    () => [
+      { label: 'All', value: 'all' },
+      { label: 'Yard', value: 'site' },
+      ...sceneData.building.levels.map((level) => ({
+        label: level.label,
+        value: level.id,
+      })),
+    ],
+    [sceneData.building.levels],
+  );
+
+  useEffect(() => {
+    if (activeLevel === 'all' || activeLevel === 'site') {
+      return;
+    }
+
+    if (!sceneData.building.levels.some((level) => level.id === activeLevel)) {
+      setActiveLevel('all');
+    }
+  }, [activeLevel, sceneData.building.levels]);
 
   const filteredModels = useMemo(() => {
     const normalizedSearch = search.trim().toLowerCase();
@@ -212,6 +427,10 @@ export function BuildingThreeDTestPage() {
     () => placedProducts.find((product) => product.sceneObjectId === selectedProductId) ?? null,
     [placedProducts, selectedProductId],
   );
+  const canSaveRoomPlannerStatus =
+    !proposalDetailQuery.data?.status ||
+    ROOM_PLANNER_SAVE_STATUSES.includes(proposalDetailQuery.data.status as (typeof ROOM_PLANNER_SAVE_STATUSES)[number]);
+  const isSavingRoomPlanner = saveRoomPlannerSceneMutation.isPending || syncProposalItemsMutation.isPending;
 
   function addProductToScene(
     model: BuildingProductModel,
@@ -224,7 +443,7 @@ export function BuildingThreeDTestPage() {
       dimensionsSnapshot: {
         depth: model.depth ?? null,
         height: model.height ?? null,
-        unit: 'm',
+        unit: 'cm',
         width: model.width ?? null,
       },
       heightOffset: position.y,
@@ -242,6 +461,7 @@ export function BuildingThreeDTestPage() {
         snapToSurface: true,
       },
       position,
+      proposalItemId: null,
       rotation: { x: 0, y: 0, z: 0 },
       scale: model.scale ?? { x: API_PRODUCT_DEFAULT_SCALE, y: API_PRODUCT_DEFAULT_SCALE, z: API_PRODUCT_DEFAULT_SCALE },
       sceneObjectId: createSceneObjectId(placedProducts),
@@ -263,7 +483,7 @@ export function BuildingThreeDTestPage() {
 
   function quickAddProduct(model: BuildingProductModel) {
     const targetSurface = sceneData.surfaces.find((surface) => activeLevel !== 'all' && surface.levelId === activeLevel) ??
-      sceneData.surfaces.find((surface) => surface.id === 'ground-floor-surface') ??
+      sceneData.surfaces.find((surface) => surface.levelId === sceneData.building.levels[0]?.id) ??
       getLevelFallbackSurface(sceneData, activeLevel);
 
     if (!targetSurface) {
@@ -288,18 +508,29 @@ export function BuildingThreeDTestPage() {
     surfaceId: string,
     levelId: BuildingLevelVisibility,
   ) {
-    setPlacedProducts((currentProducts) =>
-      currentProducts.map((product) =>
-        product.sceneObjectId === sceneObjectId
-          ? {
-              ...product,
-              levelId,
-              position,
-              surfaceId,
-            }
-          : product,
-      ),
-    );
+    setPlacedProducts((currentProducts) => {
+      let changed = false;
+      const nextProducts = currentProducts.map((product) => {
+        if (product.sceneObjectId !== sceneObjectId) {
+          return product;
+        }
+
+        if (product.levelId === levelId && product.surfaceId === surfaceId && isSameVector(product.position, position)) {
+          return product;
+        }
+
+        changed = true;
+
+        return {
+          ...product,
+          levelId,
+          position,
+          surfaceId,
+        };
+      });
+
+      return changed ? nextProducts : currentProducts;
+    });
   }
 
   function updateSelectedProduct(changes: Partial<PlacedBuildingProduct>) {
@@ -327,6 +558,25 @@ export function BuildingThreeDTestPage() {
     );
   }
 
+  function changeSelectedProductPlacement(placementMode: ProductPlacementMode) {
+    if (!selectedProduct) {
+      return;
+    }
+
+    const surface = sceneData.surfaces.find((candidate) => candidate.id === selectedProduct.surfaceId);
+
+    updateSelectedProduct({
+      heightOffset: placementMode === 'FLOOR' ? surface?.elevation ?? 0 : selectedProduct?.position.y ?? 0,
+      mountedWallId: placementMode === 'WALL_MOUNTED' ? selectedProduct?.mountedWallId ?? null : null,
+      placementMode,
+      position: {
+        ...selectedProduct.position,
+        y: placementMode === 'FLOOR' ? surface?.elevation ?? 0 : selectedProduct.position.y,
+      },
+      supportObjectId: placementMode === 'ON_OBJECT' ? selectedProduct?.supportObjectId ?? null : null,
+    });
+  }
+
   function rotateSelectedProduct() {
     if (!selectedProductId) {
       return;
@@ -341,6 +591,86 @@ export function BuildingThreeDTestPage() {
     );
   }
 
+  function setSelectedProductRotationY(degrees: number) {
+    updateSelectedProduct({
+      rotation: {
+        ...(selectedProduct?.rotation ?? { x: 0, y: 0, z: 0 }),
+        y: Number(toRadians(degrees).toFixed(4)),
+      },
+    });
+  }
+
+  function stepSelectedProductHeight(step: number) {
+    if (!selectedProduct) {
+      return;
+    }
+
+    const nextY = Math.max(0, Number((selectedProduct.position.y + step).toFixed(2)));
+
+    updateSelectedProduct({
+      heightOffset: nextY,
+      placementMode: selectedProduct.placementMode === 'FLOOR' && nextY > 0 ? 'CUSTOM_HEIGHT' : selectedProduct.placementMode ?? 'CUSTOM_HEIGHT',
+      position: {
+        ...selectedProduct.position,
+        y: nextY,
+      },
+    });
+  }
+
+  function resetSelectedProductToSurface() {
+    if (!selectedProduct) {
+      return;
+    }
+
+    const surface = sceneData.surfaces.find((candidate) => candidate.id === selectedProduct.surfaceId);
+    const nextY = surface?.elevation ?? 0;
+
+    updateSelectedProduct({
+      heightOffset: nextY,
+      mountedWallId: null,
+      placementMode: 'FLOOR',
+      position: {
+        ...selectedProduct.position,
+        y: nextY,
+      },
+      supportObjectId: null,
+    });
+  }
+
+  function stepSelectedProductScale(axis: keyof Vector3State, step: number) {
+    if (!selectedProduct) {
+      return;
+    }
+
+    const currentScale = selectedProduct.scale ?? { x: 1, y: 1, z: 1 };
+
+    updateSelectedProduct({
+      scale: {
+        ...currentScale,
+        [axis]: Number(Math.min(5, Math.max(0.1, currentScale[axis] + step)).toFixed(2)),
+      },
+    });
+  }
+
+  function duplicateSelectedProduct() {
+    if (!selectedProduct) {
+      return;
+    }
+
+    const duplicatedProduct: PlacedBuildingProduct = {
+      ...selectedProduct,
+      position: {
+        ...selectedProduct.position,
+        x: Number((selectedProduct.position.x + 0.45).toFixed(2)),
+        z: Number((selectedProduct.position.z + 0.45).toFixed(2)),
+      },
+      sceneObjectId: createSceneObjectId(placedProducts),
+    };
+
+    setPlacedProducts((currentProducts) => [...currentProducts, duplicatedProduct]);
+    setSelectedProductId(duplicatedProduct.sceneObjectId);
+  }
+
   function deleteSelectedProduct() {
     if (!selectedProductId) {
       return;
@@ -348,6 +678,7 @@ export function BuildingThreeDTestPage() {
 
     setPlacedProducts((currentProducts) => currentProducts.filter((product) => product.sceneObjectId !== selectedProductId));
     setSelectedProductId(null);
+    setFreeRotateProductId(null);
   }
 
   function resetScene() {
@@ -357,6 +688,70 @@ export function BuildingThreeDTestPage() {
     setMessage('Prototype scene reset.');
   }
 
+  async function saveScene() {
+    if (!sceneId) {
+      setMessage('Open this planner from a proposal scene before saving to backend.');
+      return;
+    }
+
+    if (!canSaveRoomPlannerStatus) {
+      setMessage(`Room Planner can be saved only when proposal is ${ROOM_PLANNER_SAVE_STATUSES.join(', ')}.`);
+      return;
+    }
+
+    setMessage('');
+
+    try {
+      const buildPayload = (products: PlacedBuildingProduct[]) => createBuildingRoomPlannerPayload({
+        activeLevel,
+        placedProducts: products,
+        sceneData,
+        sceneId,
+        selectedProductId,
+      });
+      const payload = buildPayload(placedProducts);
+      const result = await saveRoomPlannerSceneMutation.mutateAsync({
+        payload,
+        sceneId,
+      });
+
+      if (currentProposalId) {
+        const syncResult = await syncProposalItemsMutation.mutateAsync({
+          proposalId: currentProposalId,
+          sceneId,
+        });
+        const productsWithProposalItems = applyProposalItemIds(placedProducts, syncResult.items);
+
+        if (syncResult.items.length > 0) {
+          setPlacedProducts(productsWithProposalItems);
+
+          await saveRoomPlannerSceneMutation.mutateAsync({
+            payload: buildPayload(productsWithProposalItems),
+            sceneId,
+          });
+        }
+
+        clearPlacedProductsDraft();
+        setMessage(`Saved and synced ${syncResult.items.length} proposal item(s) at ${new Date(result.lastSavedAt).toLocaleString()}.`);
+        return;
+      }
+
+      clearPlacedProductsDraft();
+      setMessage(`Saved at ${new Date(result.lastSavedAt).toLocaleString()}. Open from a proposal to sync proposal items.`);
+    } catch (error) {
+      setMessage(getProposalServiceResultMessage(error));
+    }
+  }
+
+  function selectProduct(sceneObjectId: string | null) {
+    setSelectedProductId(sceneObjectId);
+    setFreeRotateProductId(null);
+    setShowProductInfo(false);
+  }
+
+  const selectedProductScale = selectedProduct?.scale ?? { x: 1, y: 1, z: 1 };
+  const selectedProductRotationDegrees = selectedProduct ? normalizeDegrees(toDegrees(selectedProduct.rotation?.y ?? 0)) : 0;
+
   return (
     <main className="building-test-page">
       <header className="building-test-header">
@@ -365,8 +760,25 @@ export function BuildingThreeDTestPage() {
           <h1>Two-floor campus prototype</h1>
         </div>
         <nav>
-          <RouterLink to="/3d-building-test/blueprint">2D Blueprint</RouterLink>
-          <RouterLink to="/3d-lab">Room Planner</RouterLink>
+          <RouterLink
+            state={{
+              ...routeState,
+              transientPlacedProducts: placedProducts,
+              transientSelectedProductId: selectedProductId,
+            }}
+            to={sceneId ? `${roomPlannerBasePath}/blueprint` : '/3d-building-test/blueprint'}
+          >
+            2D Blueprint
+          </RouterLink>
+          <RouterLink to={sceneId ? `/proposal-scenes/${sceneId}/legacy-room-planner` : '/3d-lab'}>Legacy Planner</RouterLink>
+          <button
+            disabled={isSavingRoomPlanner}
+            title={!sceneId ? 'Open this planner from a proposal scene to save to backend.' : undefined}
+            type="button"
+            onClick={() => void saveScene()}
+          >
+            {isSavingRoomPlanner ? 'Saving...' : 'Save'}
+          </button>
           <button type="button" onClick={resetScene}>Reset</button>
         </nav>
       </header>
@@ -392,23 +804,14 @@ export function BuildingThreeDTestPage() {
             </div>
           </section>
 
-          <section className="building-test-panel">
-            <div className="building-test-panel-heading">
-              <strong>Tools</strong>
-              <span>{designPanel}</span>
-            </div>
-            <div className="building-level-tabs">
-              <button className={designPanel === 'products' ? 'is-active' : ''} type="button" onClick={() => setDesignPanel('products')}>
-                <IconCategory size={15} /> Products
-              </button>
-              <button className={designPanel === 'materials' ? 'is-active' : ''} type="button" onClick={() => setDesignPanel('materials')}>
-                <IconPalette size={15} /> Materials
-              </button>
-              <button className={designPanel === 'selection' ? 'is-active' : ''} type="button" onClick={() => setDesignPanel('selection')}>
-                <IconBox size={15} /> Selection
-              </button>
-            </div>
-          </section>
+          <div className="building-content-tabs">
+            <button className={designPanel === 'products' ? 'is-active' : ''} type="button" onClick={() => setDesignPanel('products')}>
+              <IconCategory size={15} /> Products
+            </button>
+            <button className={designPanel === 'materials' ? 'is-active' : ''} type="button" onClick={() => setDesignPanel('materials')}>
+              <IconPalette size={15} /> Materials
+            </button>
+          </div>
 
           {designPanel === 'products' && (
           <section className="building-test-panel">
@@ -506,118 +909,40 @@ export function BuildingThreeDTestPage() {
             <section className="building-test-panel">
               <div className="building-test-panel-heading">
                 <strong>Materials</strong>
-                <span>Scene presets</span>
+                <span>Floor / wall presets</span>
               </div>
               <div className="building-material-grid">
-                <label>
-                  <span>Floor</span>
-                  <strong>Warm wood / concrete slabs</strong>
-                </label>
-                <label>
-                  <span>Wall</span>
-                  <strong>Gallery white facade</strong>
-                </label>
-                <label>
-                  <span>Glass</span>
-                  <strong>Soft blue transparent</strong>
-                </label>
-              </div>
-            </section>
-          )}
-
-          {designPanel === 'selection' && (
-            <section className="building-test-panel">
-              <div className="building-test-panel-heading">
-                <strong>Selection</strong>
-                <span>{selectedProduct ? 'Object' : 'None'}</span>
-              </div>
-              {!selectedProduct ? (
-                <div className="building-test-status">Select an object in the scene to edit placement rules.</div>
-              ) : (
-                <div className="building-selection-editor">
-                  <label>
-                    <span>Name</span>
-                    <strong>{selectedProduct.name}</strong>
-                  </label>
-                  <label>
-                    <span>Placement</span>
-                    <select
-                      value={selectedProduct.placementMode ?? 'FLOOR'}
-                      onChange={(event) => updateSelectedProduct({ placementMode: event.target.value as ProductPlacementMode })}
+                <div className="building-material-group">
+                  <h3>Flooring</h3>
+                  {FLOOR_MATERIALS.map((material) => (
+                    <button
+                      className={selectedFloorMaterialId === material.id ? 'building-material-option is-selected' : 'building-material-option'}
+                      key={material.id}
+                      type="button"
+                      onClick={() => setSelectedFloorMaterialId(material.id)}
                     >
-                      {placementModes.map((mode) => <option key={mode.value} value={mode.value}>{mode.label}</option>)}
-                    </select>
-                  </label>
-                  <label>
-                    <span>Scale</span>
-                    <input
-                      inputMode="decimal"
-                      value={selectedProduct.scale.x}
-                      onChange={(event) => {
-                        const scale = Number(event.target.value.replace(',', '.'));
-
-                        if (Number.isFinite(scale) && scale > 0) {
-                          updateSelectedProduct({ scale: { x: scale, y: scale, z: scale } });
-                        }
-                      }}
-                    />
-                  </label>
-                  <label className="building-rule-toggle">
-                    <input
-                      checked={selectedProduct.placementRules?.collisionEnabled ?? true}
-                      type="checkbox"
-                      onChange={(event) =>
-                        updateSelectedProduct({
-                          placementRules: {
-                            ...(selectedProduct.placementRules ?? {
-                              boundaryEnabled: true,
-                              collisionEnabled: true,
-                              snapToSurface: true,
-                            }),
-                            collisionEnabled: event.target.checked,
-                          },
-                        })
-                      }
-                    />
-                    Collision
-                  </label>
-                  <label className="building-rule-toggle">
-                    <input
-                      checked={selectedProduct.placementRules?.boundaryEnabled ?? true}
-                      type="checkbox"
-                      onChange={(event) =>
-                        updateSelectedProduct({
-                          placementRules: {
-                            ...(selectedProduct.placementRules ?? {
-                              boundaryEnabled: true,
-                              collisionEnabled: true,
-                              snapToSurface: true,
-                            }),
-                            boundaryEnabled: event.target.checked,
-                          },
-                        })
-                      }
-                    />
-                    Boundary
-                  </label>
-                  <label className="building-rule-toggle">
-                    <input
-                      checked={selectedProduct.visible ?? true}
-                      type="checkbox"
-                      onChange={(event) => updateSelectedProduct({ visible: event.target.checked })}
-                    />
-                    Visible
-                  </label>
-                  <label className="building-rule-toggle">
-                    <input
-                      checked={selectedProduct.locked ?? false}
-                      type="checkbox"
-                      onChange={(event) => updateSelectedProduct({ locked: event.target.checked })}
-                    />
-                    Locked
-                  </label>
+                      <span style={{ backgroundColor: material.fallbackColor }} />
+                      <strong>{material.label}</strong>
+                      {material.textureUrl ? <small>Texture asset</small> : <small>Color swatch</small>}
+                    </button>
+                  ))}
                 </div>
-              )}
+                <div className="building-material-group">
+                  <h3>Wall Paint / Wallpaper</h3>
+                  {WALL_MATERIALS.map((material) => (
+                    <button
+                      className={selectedWallMaterialId === material.id ? 'building-material-option is-selected' : 'building-material-option'}
+                      key={material.id}
+                      type="button"
+                      onClick={() => setSelectedWallMaterialId(material.id)}
+                    >
+                      <span style={{ backgroundColor: material.fallbackColor }} />
+                      <strong>{material.label}</strong>
+                      {material.textureUrl ? <small>Texture asset</small> : <small>Color swatch</small>}
+                    </button>
+                  ))}
+                </div>
+              </div>
             </section>
           )}
         </aside>
@@ -649,35 +974,89 @@ export function BuildingThreeDTestPage() {
             onProductDrop={addProductToScene}
             onProductLoadError={(productId, errorMessage) => setMessage(`${productId}: ${errorMessage}`)}
             onProductMove={moveProduct}
-            onProductSelect={setSelectedProductId}
+            onProductSelect={selectProduct}
           />
 
-          <aside className="building-object-panel">
-            <div className="building-test-panel-heading">
-              <strong>Scene Objects</strong>
-              <span>{selectedProduct ? 'Selected' : 'None selected'}</span>
-            </div>
-            {placedProducts.length === 0 ? (
-              <div className="building-test-status">Drop or add a product to start composing the building.</div>
-            ) : (
-              <div className="building-object-list">
-                {placedProducts.map((product) => (
-                  <button
-                    className={product.sceneObjectId === selectedProductId ? 'is-selected' : ''}
-                    key={product.sceneObjectId}
-                    type="button"
-                    onClick={() => setSelectedProductId(product.sceneObjectId)}
-                  >
-                    <IconBox size={15} />
-                    <span>
-                      <strong>{product.name}</strong>
-                      <small>{levelOptions.find((level) => level.value === product.levelId)?.label ?? product.levelId} / {product.surfaceId}</small>
-                    </span>
-                  </button>
+          {selectedProduct ? (
+            <div className="building-object-floating-menu">
+              <div className="building-object-floating-header">
+                <strong>{selectedProduct.name}</strong>
+                <button aria-label="Close object menu" title="Close" type="button" onClick={() => selectProduct(null)}>
+                  <IconX size={17} />
+                </button>
+              </div>
+
+              <div className="building-floating-actions">
+                <button type="button" onClick={rotateSelectedProduct}>Rotate 45</button>
+                <button type="button" onClick={() => setFreeRotateProductId(selectedProduct.sceneObjectId)}>Free Rotate</button>
+                <button type="button" onClick={() => setShowProductInfo((isOpen) => !isOpen)}>Info</button>
+                <button type="button" onClick={duplicateSelectedProduct}>Duplicate</button>
+                <button type="button" onClick={() => updateSelectedProduct({ locked: !(selectedProduct.locked ?? false) })}>
+                  {selectedProduct.locked ? 'Unlock' : 'Lock'}
+                </button>
+                <button type="button" onClick={() => updateSelectedProduct({ visible: !(selectedProduct.visible ?? true) })}>
+                  {selectedProduct.visible === false ? 'Show' : 'Hide'}
+                </button>
+                <button className="is-danger" type="button" onClick={deleteSelectedProduct}>Delete</button>
+              </div>
+
+              {showProductInfo ? (
+                <div className="building-object-info-box">
+                  <dl>
+                    <div><dt>Product name</dt><dd>{selectedProduct.name}</dd></div>
+                    <div><dt>Product ID</dt><dd>{selectedProduct.productId ?? selectedProduct.productVersionId ?? selectedProduct.sceneObjectId}</dd></div>
+                    <div><dt>Model URL</dt><dd>{selectedProduct.modelUrl}</dd></div>
+                    <div><dt>Level</dt><dd>{levelOptions.find((level) => level.value === selectedProduct.levelId)?.label ?? selectedProduct.levelId}</dd></div>
+                    <div><dt>Surface</dt><dd>{selectedProduct.surfaceId}</dd></div>
+                    <div><dt>Position</dt><dd>{selectedProduct.position.x}, {selectedProduct.position.y}, {selectedProduct.position.z}</dd></div>
+                    <div><dt>Rotation Y</dt><dd>{selectedProductRotationDegrees} deg</dd></div>
+                    <div><dt>Placement</dt><dd>{selectedProduct.placementMode ?? 'FLOOR'}</dd></div>
+                  </dl>
+                </div>
+              ) : null}
+
+              {freeRotateProductId === selectedProduct.sceneObjectId ? (
+                <div className="building-object-rotate-box">
+                  <label>
+                    <span>Rotation Y: {selectedProductRotationDegrees} deg</span>
+                    <input
+                      max="360"
+                      min="0"
+                      type="range"
+                      value={selectedProductRotationDegrees}
+                      onChange={(event) => setSelectedProductRotationY(Number(event.target.value))}
+                    />
+                  </label>
+                  <button type="button" onClick={() => setFreeRotateProductId(null)}>Done</button>
+                </div>
+              ) : null}
+
+              <div className="building-floating-placement">
+                <select
+                  value={selectedProduct.placementMode ?? 'FLOOR'}
+                  onChange={(event) => changeSelectedProductPlacement(event.target.value as ProductPlacementMode)}
+                >
+                  {placementModes.map((mode) => (
+                    <option key={mode.value} value={mode.value}>{mode.label}</option>
+                  ))}
+                </select>
+                <button type="button" onClick={() => stepSelectedProductHeight(0.1)}>Height +</button>
+                <button type="button" onClick={() => stepSelectedProductHeight(-0.1)}>Height -</button>
+                <button type="button" onClick={resetSelectedProductToSurface}>To Surface</button>
+              </div>
+
+              <div className="building-scale-controls">
+                {(['x', 'y', 'z'] as const).map((axis) => (
+                  <div key={axis}>
+                    <span>{axis.toUpperCase()}</span>
+                    <button aria-label={`Decrease scale ${axis}`} type="button" onClick={() => stepSelectedProductScale(axis, -0.1)}>-</button>
+                    <output>{selectedProductScale[axis].toFixed(2)}</output>
+                    <button aria-label={`Increase scale ${axis}`} type="button" onClick={() => stepSelectedProductScale(axis, 0.1)}>+</button>
+                  </div>
                 ))}
               </div>
-            )}
-          </aside>
+            </div>
+          ) : null}
 
           {message && <div className="building-test-message">{message}</div>}
         </section>

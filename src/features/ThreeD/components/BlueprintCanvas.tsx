@@ -109,6 +109,28 @@ function isBlueprintSurface(target: EventTarget | null) {
   );
 }
 
+function getDistanceToSegment(
+  point: Pick<BlueprintPoint, 'x' | 'y'>,
+  start: Pick<BlueprintPoint, 'x' | 'y'>,
+  end: Pick<BlueprintPoint, 'x' | 'y'>,
+) {
+  const dx = end.x - start.x;
+  const dy = end.y - start.y;
+  const lengthSquared = dx * dx + dy * dy;
+
+  if (!lengthSquared) {
+    return Math.hypot(point.x - start.x, point.y - start.y);
+  }
+
+  const t = clamp(((point.x - start.x) * dx + (point.y - start.y) * dy) / lengthSquared, 0, 1);
+  const projection = {
+    x: start.x + t * dx,
+    y: start.y + t * dy,
+  };
+
+  return Math.hypot(point.x - projection.x, point.y - projection.y);
+}
+
 export function BlueprintCanvas({
   activeTool,
   floorFillColor,
@@ -314,7 +336,41 @@ export function BlueprintCanvas({
     }
 
     if (activeTool === 'door' || activeTool === 'window' || activeTool === 'opening') {
-      onMessage?.('Please select a wall first.');
+      const clickedPoint = fromPointer(event);
+      const maxDistance = Math.max(0.28, 24 / activeTransform.scale);
+      const nearestWall = layout.walls
+        .map((wall) => {
+          const start = getPointById(layout.points, wall.startPointId);
+          const end = getPointById(layout.points, wall.endPointId);
+
+          return {
+            distance: getDistanceToSegment(clickedPoint, start, end),
+            wall,
+          };
+        })
+        .sort((left, right) => left.distance - right.distance)[0];
+
+      if (!nearestWall || nearestWall.distance > maxDistance) {
+        onMessage?.('Click closer to a wall to add this item.');
+        return;
+      }
+
+      const offset = getPointOffsetOnWall(nearestWall.wall, layout.points, clickedPoint);
+
+      if (activeTool === 'door') {
+        onLayoutChange(addDoorToWall(layout, nearestWall.wall.id, offset));
+        onMessage?.('Door added to wall.');
+        return;
+      }
+
+      if (activeTool === 'window') {
+        onLayoutChange(addWindowToWall(layout, nearestWall.wall.id, offset));
+        onMessage?.('Window added to wall.');
+        return;
+      }
+
+      onLayoutChange(addOpeningToWall(layout, nearestWall.wall.id, offset));
+      onMessage?.('Opening added to wall.');
       return;
     }
 
@@ -629,17 +685,16 @@ export function BlueprintCanvas({
                     }
 
                     if (event.button === 0) {
-                      const bounds = event.currentTarget.ownerSVGElement?.getBoundingClientRect();
-
-                      if (bounds) {
-                        setItemEditorMenu({
-                          itemId: openingItem.id,
-                          itemType,
-                          x: clamp(event.clientX - bounds.left, 12, Math.max(bounds.width - 310, 12)),
-                          y: clamp(event.clientY - bounds.top, 12, Math.max(bounds.height - 430, 12)),
-                        });
-                      }
-
+                      const snapshot = getDragSnapshot();
+                      event.currentTarget.setPointerCapture(event.pointerId);
+                      setItemEditorMenu(null);
+                      setDragOpening({
+                        itemId: openingItem.id,
+                        itemType,
+                        transform: snapshot.transform,
+                        viewOffset: snapshot.viewOffset,
+                        wallId: openingItem.wallId,
+                      });
                       return;
                     }
 

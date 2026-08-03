@@ -181,10 +181,15 @@ export default function App() {
             <Route path="/3d-lab" element={<ThreeDTestPage />} />
             <Route path="/3d-building-test" element={<BuildingThreeDTestPage />} />
             <Route path="/3d-building-test/blueprint" element={<BuildingBlueprintTestPage />} />
-            <Route path="/proposal-scenes/:sceneId/room-planner" element={<ThreeDTestPage />} />
+            <Route path="/proposal-scenes/:sceneId/building-room-planner" element={<BuildingThreeDTestPage />} />
+            <Route path="/proposal-scenes/:sceneId/building-room-planner/blueprint" element={<BuildingBlueprintTestPage />} />
+            <Route path="/proposal-scenes/:sceneId/room-planner" element={<BuildingThreeDTestPage />} />
+            <Route path="/proposal-scenes/:sceneId/room-planner/blueprint" element={<BuildingBlueprintTestPage />} />
+            <Route path="/proposal-scenes/:sceneId/legacy-room-planner" element={<ThreeDTestPage />} />
 
             <Route path="/designer" element={<Navigate to="/designer/assigned-projects" replace />} />
             <Route path="/designer/assigned-projects" element={<DesignerAssignedProjects />} />
+            <Route path="/designer/projects/:projectId/proposals/legacy-new" element={<DesignerProposalWorkspace />} />
             <Route path="/designer/projects/:projectId/proposals/new" element={<DesignerProposalWorkspace />} />
             <Route path="/designer/projects/:projectId/proposals/:proposalId" element={<DesignerProposalWorkspace />} />
 

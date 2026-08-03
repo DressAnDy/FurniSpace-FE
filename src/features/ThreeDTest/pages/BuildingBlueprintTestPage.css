@@ -152,6 +152,43 @@
   grid-template-columns: 1fr 1fr;
 }
 
+.blueprint-floor-card {
+  border: 1px solid var(--blueprint-border);
+  display: grid;
+  gap: 10px;
+  grid-column: 1 / -1;
+  grid-template-columns: 1fr 1fr;
+  padding: 10px;
+}
+
+.blueprint-floor-card-heading {
+  align-items: center;
+  display: flex;
+  grid-column: 1 / -1;
+  justify-content: space-between;
+}
+
+.blueprint-floor-card-heading strong {
+  color: var(--blueprint-text);
+  font-size: 13px;
+}
+
+.blueprint-floor-card-heading span {
+  color: var(--blueprint-muted);
+  font-size: 11px;
+}
+
+.blueprint-floor-actions {
+  display: grid;
+  gap: 8px;
+  grid-column: 1 / -1;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.blueprint-floor-actions button {
+  grid-column: auto;
+}
+
 .blueprint-align-button,
 .blueprint-add-button,
 .blueprint-remove-button {

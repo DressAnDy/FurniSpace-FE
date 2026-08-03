@@ -1,7 +1,8 @@
 import type { RoomLayoutState } from '@/features/ThreeD/types/roomLayout.types';
 import type { ProductPlacementMode } from '@/features/ThreeD/components/RoomPreview3D';
 
-export type BuildingLevelVisibility = 'all' | 'site' | 'ground' | 'level-2';
+export type BuildingLevelId = string;
+export type BuildingLevelVisibility = 'all' | 'site' | BuildingLevelId;
 
 export type Vector3State = {
   x: number;
@@ -10,11 +11,17 @@ export type Vector3State = {
 };
 
 export type BuildingPlacementSurface = {
+  bounds?: {
+    maxX: number;
+    maxZ: number;
+    minX: number;
+    minZ: number;
+  };
   depth: number;
   elevation: number;
   id: string;
   label: string;
-  levelId: BuildingLevelVisibility;
+  levelId: BuildingLevelId | 'site';
   position: Vector3State;
   type: 'YARD' | 'FLOOR' | 'BALCONY';
   width: number;
@@ -30,9 +37,10 @@ export type BuildingLevel = {
     z: number;
   };
   height: number;
-  id: Exclude<BuildingLevelVisibility, 'all' | 'site'>;
+  id: BuildingLevelId;
   label: string;
   layout?: RoomLayoutState | null;
+  projectAreaId?: string | null;
   wallHeight: number;
   width: number;
 };
@@ -95,6 +103,7 @@ export type PlacedBuildingProduct = BuildingProductModel & {
     snapToSurface: boolean;
   };
   position: Vector3State;
+  proposalItemId?: string | null;
   rotation: Vector3State;
   sceneObjectId: string;
   scale: Vector3State;

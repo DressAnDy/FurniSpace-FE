@@ -6,12 +6,13 @@ import {
   MeshBuilder,
   Scene,
   StandardMaterial,
+  Texture,
   Tools,
   Vector3,
   VertexData,
 } from 'babylonjs';
 
-import type { BlueprintWall, RoomLayoutState, RoomOpeningItem } from '@/features/ThreeD/types/roomLayout.types';
+import type { BlueprintWall, DoorOpening, RoomLayoutState, RoomOpeningItem, WindowOpening } from '@/features/ThreeD/types/roomLayout.types';
 import {
   getClosedRoomBoundary,
   getPointAtWallOffset,
@@ -19,17 +20,30 @@ import {
   getRoomBounds,
   getWallDirection,
   getWallLength,
+  getWallNormal,
 } from '@/features/ThreeD/utils/roomGeometry';
 import type {
   BuildingLevel,
+  BuildingLevelId,
   BuildingLevelVisibility,
   BuildingPlacementSurface,
   BuildingTestScene,
+  Vector3State,
 } from '@/features/ThreeDTest/schemas/buildingScene.types';
 
 const WALL_THICKNESS = 0.16;
 const SLAB_THICKNESS = 0.28;
 const FLOOR_SURFACE_OFFSET = 0.018;
+const DEFAULT_LEVEL_HEIGHT = 3.1;
+
+export type BuildingProjectFloorAreaSource = {
+  areaName: string;
+  floorNumber?: number | null;
+  height?: number | null;
+  length?: number | null;
+  projectAreaId: string;
+  width?: number | null;
+};
 
 export function createRectLevelLayout(
   idPrefix: string,
@@ -78,40 +92,18 @@ function material(scene: Scene, name: string, color: string, alpha = 1) {
 }
 
 export function createDefaultBuildingTestScene(): BuildingTestScene {
-  const buildingPosition = { x: 0, y: 0, z: 2.1 };
+  const buildingPosition = { x: 0, y: 0, z: 0 };
   const buildingWidth = 11;
   const buildingDepth = 8;
-  const levelHeight = 3.1;
-  const groundLayout = createRectLevelLayout('ground', buildingWidth, buildingDepth, buildingPosition.x, buildingPosition.z, 2.85);
-  const secondLayout = createRectLevelLayout('level-2', buildingWidth, buildingDepth, buildingPosition.x, buildingPosition.z, 2.65);
+  const levels = [
+    createBuildingLevel('ground', 0, buildingWidth, buildingDepth, buildingPosition),
+    createBuildingLevel('level-2', 1, buildingWidth, buildingDepth, buildingPosition),
+  ];
 
   return {
     building: {
       depth: buildingDepth,
-      levels: [
-        {
-          depth: buildingDepth,
-          elevation: 0.16,
-          footprintOffset: { x: 0, z: 0 },
-          height: levelHeight,
-          id: 'ground',
-          label: 'Floor 1',
-          layout: groundLayout,
-          wallHeight: 2.85,
-          width: buildingWidth,
-        },
-        {
-          depth: buildingDepth,
-          elevation: levelHeight + 0.3,
-          footprintOffset: { x: 0, z: 0 },
-          height: levelHeight,
-          id: 'level-2',
-          label: 'Floor 2',
-          layout: secondLayout,
-          wallHeight: 2.65,
-          width: buildingWidth,
-        },
-      ],
+      levels,
       position: buildingPosition,
       width: buildingWidth,
     },
@@ -122,36 +114,129 @@ export function createDefaultBuildingTestScene(): BuildingTestScene {
       depth: 18,
       width: 18,
     },
-    surfaces: [
-      {
-        depth: buildingDepth - 0.7,
-        elevation: 0.18,
-        id: 'ground-floor-surface',
-        label: 'Floor 1 Surface',
-        levelId: 'ground',
-        position: { x: buildingPosition.x, y: 0.18, z: buildingPosition.z },
-        type: 'FLOOR',
-        width: buildingWidth - 0.7,
+    surfaces: levels.map((level) => createLevelFloorSurface(level, buildingPosition)),
+  };
+}
+
+export function createBuildingLevel(
+  id: BuildingLevelId,
+  levelIndex: number,
+  width: number,
+  depth: number,
+  buildingPosition: Vector3State,
+  projectAreaId?: string | null,
+): BuildingLevel {
+  const elevation = levelIndex === 0 ? 0.16 : levelIndex * DEFAULT_LEVEL_HEIGHT + 0.3;
+  const wallHeight = levelIndex === 0 ? 2.85 : 2.65;
+  const layout = createRectLevelLayout(id, width, depth, buildingPosition.x, buildingPosition.z, wallHeight);
+
+  return {
+    depth,
+    elevation,
+    footprintOffset: { x: 0, z: 0 },
+    height: DEFAULT_LEVEL_HEIGHT,
+    id,
+    label: `Floor ${levelIndex + 1}`,
+    layout,
+    projectAreaId: projectAreaId ?? null,
+    wallHeight,
+    width,
+  };
+}
+
+export function createLevelFloorSurface(level: BuildingLevel, buildingPosition: Vector3State): BuildingPlacementSurface {
+  const levelCenter = {
+    x: buildingPosition.x + level.footprintOffset.x,
+    z: buildingPosition.z + level.footprintOffset.z,
+  };
+
+  return {
+    depth: Math.max(level.depth - 0.7, 1),
+    elevation: level.elevation + 0.02,
+    id: `${level.id}-floor-surface`,
+    label: `${level.label} Surface`,
+    levelId: level.id,
+    position: { x: levelCenter.x, y: level.elevation + 0.02, z: levelCenter.z },
+    type: 'FLOOR',
+    width: Math.max(level.width - 0.7, 1),
+  };
+}
+
+export function createBuildingTestSceneFromProjectFloorAreas(
+  areas: BuildingProjectFloorAreaSource[],
+): BuildingTestScene {
+  const baseScene = createDefaultBuildingTestScene();
+  const floorAreas = [...areas]
+    .filter((area) => area.projectAreaId)
+    .sort((first, second) =>
+      (first.floorNumber ?? Number.MAX_SAFE_INTEGER) - (second.floorNumber ?? Number.MAX_SAFE_INTEGER) ||
+      first.areaName.localeCompare(second.areaName),
+    );
+
+  if (!floorAreas.length) {
+    return baseScene;
+  }
+
+  const levels = floorAreas.map((area, index) => {
+    const width = Math.max(area.width ?? baseScene.building.width, 4);
+    const depth = Math.max(area.length ?? baseScene.building.depth, 4);
+    const levelId = `floor-area-${area.projectAreaId}`;
+    const wallHeight = Math.max((area.height ?? 3) - 0.25, 1.8);
+    const level = createBuildingLevel(
+      levelId,
+      index,
+      width,
+      depth,
+      baseScene.building.position,
+      area.projectAreaId,
+    );
+
+    return {
+      ...level,
+      height: Math.max(area.height ?? level.height, 2.4),
+      label: area.areaName || `Floor ${index + 1}`,
+      layout: level.layout
+        ? {
+            ...level.layout,
+            wallHeight,
+            walls: level.layout.walls.map((wall) => ({ ...wall, height: wallHeight })),
+          }
+        : level.layout,
+      wallHeight,
+    };
+  });
+  const maxWidth = Math.max(...levels.map((level) => level.width));
+  const maxDepth = Math.max(...levels.map((level) => level.depth));
+
+  return {
+    ...baseScene,
+    building: {
+      ...baseScene.building,
+      depth: maxDepth,
+      levels,
+      width: maxWidth,
+    },
+    camera: {
+      target: {
+        x: baseScene.building.position.x,
+        y: Math.max(...levels.map((level) => level.elevation + level.wallHeight)) / 2,
+        z: baseScene.building.position.z,
       },
-      {
-        depth: buildingDepth - 0.7,
-        elevation: levelHeight + 0.34,
-        id: 'level-2-floor-surface',
-        label: 'Floor 2 Surface',
-        levelId: 'level-2',
-        position: { x: buildingPosition.x, y: levelHeight + 0.34, z: buildingPosition.z },
-        type: 'FLOOR',
-        width: buildingWidth - 0.7,
-      },
-    ],
+    },
+    site: {
+      depth: Math.max(maxDepth + 10, baseScene.site.depth),
+      width: Math.max(maxWidth + 10, baseScene.site.width),
+    },
+    surfaces: levels.map((level) => createLevelFloorSurface(level, baseScene.building.position)),
   };
 }
 
 export function createBuildingTestCamera(scene: Scene, canvas: HTMLCanvasElement, sceneData: BuildingTestScene) {
   const camera = new ArcRotateCamera(
     'building-test-camera',
-    Tools.ToRadians(-52),
-    Tools.ToRadians(58),
+    // Match the 2D blueprint orientation: screen-right is world +X and screen-down is world +Z.
+    Tools.ToRadians(-90),
+    Tools.ToRadians(56),
     18,
     new Vector3(sceneData.camera.target.x, sceneData.camera.target.y, sceneData.camera.target.z),
     scene,
@@ -194,8 +279,9 @@ export function buildBuildingEnvironment(
   const slabMaterial = material(scene, 'building-test-slab-material', '#aeb7b8');
   const wallMaterial = material(scene, 'building-test-wall-material', '#f1eee7');
   const glassMaterial = material(scene, 'building-test-glass-material', '#85bdd0', 0.42);
+  const doorMaterial = createDoorMaterial(scene);
+  const windowFrameMaterial = material(scene, 'building-test-window-frame-material', '#d8e1e4');
   const railMaterial = material(scene, 'building-test-rail-material', '#51656b');
-  const pathMaterial = material(scene, 'building-test-path-material', '#9ea7a2');
 
   const site = MeshBuilder.CreateGround(
     'building-test-site',
@@ -204,11 +290,6 @@ export function buildBuildingEnvironment(
   );
   site.material = siteMaterial;
   site.metadata = { source: 'building-test-environment', kind: 'site' };
-
-  const path = MeshBuilder.CreateGround('building-test-walkway', { height: 7.2, width: 2.1 }, scene);
-  path.position = new Vector3(0, 0.018, -3.4);
-  path.material = pathMaterial;
-  path.metadata = { source: 'building-test-environment', kind: 'site-detail' };
 
   sceneData.surfaces
     .filter((surface) => {
@@ -263,10 +344,10 @@ export function buildBuildingEnvironment(
     slab.position = new Vector3(levelCenter.x, y - SLAB_THICKNESS / 2, levelCenter.z);
     slab.material = slabMaterial;
     slab.isPickable = false;
-    slab.metadata = { levelId: level.id, source: 'building-test-environment' };
+    slab.metadata = { kind: 'level-slab', levelId: level.id, source: 'building-test-environment' };
 
     if (levelLayout) {
-      createLevelLayoutMeshes(scene, level.id, y, facadeBaseY, facadeHeight, levelLayout, floorMaterial, wallMaterial, glassMaterial);
+      createLevelLayoutMeshes(scene, level.id, y, facadeBaseY, facadeHeight, levelLayout, floorMaterial, wallMaterial, glassMaterial, doorMaterial, windowFrameMaterial);
     } else {
       createLevelWalls(scene, levelCenter, level.id, y, facadeBaseY, level.width, level.depth, facadeHeight, wallMaterial, glassMaterial);
     }
@@ -281,7 +362,6 @@ export function buildBuildingEnvironment(
       });
   });
 
-  createStairs(scene, sceneData, slabMaterial);
   applyLevelVisibility(scene, activeLevel);
 }
 
@@ -343,6 +423,8 @@ function createLevelLayoutMeshes(
   floorMaterial: StandardMaterial,
   wallMaterial: StandardMaterial,
   glassMaterial: StandardMaterial,
+  doorMaterial: StandardMaterial,
+  windowFrameMaterial: StandardMaterial,
 ) {
   const boundary = getClosedRoomBoundary(layout);
 
@@ -354,7 +436,7 @@ function createLevelLayoutMeshes(
     const vertexData = new VertexData();
 
     vertexData.positions = boundary.flatMap((point) => [point.x, floorY + FLOOR_SURFACE_OFFSET, point.y]);
-    vertexData.indices = boundary.slice(1, -1).flatMap((_point, index) => [0, index + 1, index + 2]);
+    vertexData.indices = triangulateFloorBoundary(boundary);
     vertexData.normals = boundary.flatMap(() => [0, 1, 0]);
     vertexData.uvs = boundary.flatMap((point) => [
       (point.x - bounds.minX) / width,
@@ -384,8 +466,92 @@ function createLevelLayoutMeshes(
       wall,
       wallMaterial,
       glassMaterial,
+      doorMaterial,
+      windowFrameMaterial,
     );
   });
+}
+
+function getSignedPolygonArea(points: Array<{ x: number; y: number }>) {
+  return points.reduce((area, point, index) => {
+    const nextPoint = points[(index + 1) % points.length];
+
+    return area + point.x * nextPoint.y - nextPoint.x * point.y;
+  }, 0) / 2;
+}
+
+function isPointInsideTriangle(
+  point: { x: number; y: number },
+  a: { x: number; y: number },
+  b: { x: number; y: number },
+  c: { x: number; y: number },
+) {
+  const area = (first: { x: number; y: number }, second: { x: number; y: number }, third: { x: number; y: number }) =>
+    (first.x * (second.y - third.y) + second.x * (third.y - first.y) + third.x * (first.y - second.y)) / 2;
+  const triangleArea = Math.abs(area(a, b, c));
+  const summedArea = Math.abs(area(point, b, c)) + Math.abs(area(a, point, c)) + Math.abs(area(a, b, point));
+
+  return Math.abs(triangleArea - summedArea) < 0.0001;
+}
+
+function triangulateFloorBoundary(points: Array<{ x: number; y: number }>) {
+  if (points.length < 3) {
+    return [];
+  }
+
+  const fallbackFan = () => points.slice(1, -1).flatMap((_point, index) => [0, index + 1, index + 2]);
+  const clockwise = getSignedPolygonArea(points) < 0;
+  const remaining = points.map((_point, index) => index);
+  const indices: number[] = [];
+  let guard = 0;
+
+  while (remaining.length > 3 && guard < points.length * points.length) {
+    let clipped = false;
+
+    for (let index = 0; index < remaining.length; index += 1) {
+      const previousIndex = remaining[(index - 1 + remaining.length) % remaining.length];
+      const currentIndex = remaining[index];
+      const nextIndex = remaining[(index + 1) % remaining.length];
+      const previous = points[previousIndex];
+      const current = points[currentIndex];
+      const next = points[nextIndex];
+      const cross = (current.x - previous.x) * (next.y - current.y) - (current.y - previous.y) * (next.x - current.x);
+      const isConvex = clockwise ? cross < 0 : cross > 0;
+
+      if (!isConvex) {
+        continue;
+      }
+
+      const containsPoint = remaining.some((candidateIndex) => {
+        if (candidateIndex === previousIndex || candidateIndex === currentIndex || candidateIndex === nextIndex) {
+          return false;
+        }
+
+        return isPointInsideTriangle(points[candidateIndex], previous, current, next);
+      });
+
+      if (containsPoint) {
+        continue;
+      }
+
+      indices.push(previousIndex, currentIndex, nextIndex);
+      remaining.splice(index, 1);
+      clipped = true;
+      break;
+    }
+
+    if (!clipped) {
+      return fallbackFan();
+    }
+
+    guard += 1;
+  }
+
+  if (remaining.length === 3) {
+    indices.push(remaining[0], remaining[1], remaining[2]);
+  }
+
+  return indices.length ? indices : fallbackFan();
 }
 
 function getWallOpenings(layout: RoomLayoutState, wall: BlueprintWall) {
@@ -436,7 +602,12 @@ function createLayoutWallSegment(
   );
   mesh.rotation.y = -Math.atan2(direction.y, direction.x);
   mesh.material = material;
-  mesh.metadata = { levelId, source: 'building-test-environment', wallId: wall.id };
+  mesh.metadata = {
+    kind: 'wall-collision',
+    levelId,
+    source: 'building-test-environment',
+    wallId: wall.id,
+  };
 }
 
 function createLayoutWallWithOpenings(
@@ -449,6 +620,8 @@ function createLayoutWallWithOpenings(
   wall: BlueprintWall,
   wallMaterial: StandardMaterial,
   glassMaterial: StandardMaterial,
+  doorMaterial: StandardMaterial,
+  windowFrameMaterial: StandardMaterial,
 ) {
   const wallLength = getWallLength(wall, layout.points);
   const cutouts = getWallOpenings(layout, wall);
@@ -466,39 +639,176 @@ function createLayoutWallWithOpenings(
 
     createLayoutWallSegment(scene, levelId, wallBaseY, layout, wall, cutout.start, cutout.end, wallMaterial, `segment-${index}-below`, belowHeight);
     createLayoutWallSegment(scene, levelId, openingTopY, layout, wall, cutout.start, cutout.end, wallMaterial, `segment-${index}-above`, aboveHeight);
-    createOpeningMarker(scene, levelId, floorY, layout, wall, cutout.opening, glassMaterial);
     cursor = cutout.end;
   });
 
   createLayoutWallSegment(scene, levelId, wallBaseY, layout, wall, cursor, wallLength, wallMaterial, 'segment-end', facadeHeight);
+
+  layout.doors
+    .filter((door) => door.wallId === wall.id)
+    .forEach((door) => createDoorPanel(scene, levelId, floorY, layout, door, doorMaterial));
+
+  layout.windows
+    .filter((windowOpening) => windowOpening.wallId === wall.id)
+    .forEach((windowOpening) => createWindowAssembly(scene, levelId, floorY, layout, windowOpening, glassMaterial, windowFrameMaterial));
 }
 
-function createOpeningMarker(
+function createDoorMaterial(scene: Scene) {
+  const material = new StandardMaterial('building-test-door-wood-material', scene);
+  material.diffuseColor = Color3.FromHexString('#8B5A2B');
+  material.specularColor = Color3.Black();
+
+  const texture = new Texture(
+    '/materials/flooring/woodfloor.jpg',
+    scene,
+    false,
+    true,
+    Texture.TRILINEAR_SAMPLINGMODE,
+    undefined,
+    () => {
+      material.diffuseTexture = null;
+    },
+  );
+  texture.uScale = 1;
+  texture.vScale = 1;
+  material.diffuseTexture = texture;
+
+  return material;
+}
+
+function getEffectiveOpeningHeight(wall: BlueprintWall, opening: RoomOpeningItem) {
+  const openingBottom = opening.type === 'WINDOW' ? opening.sillHeight : 0;
+
+  return Number(Math.min(opening.height, Math.max(wall.height - openingBottom, 0)).toFixed(2));
+}
+
+function createDoorPanel(
   scene: Scene,
   levelId: string,
   floorY: number,
   layout: RoomLayoutState,
-  wall: BlueprintWall,
-  opening: RoomOpeningItem,
+  door: DoorOpening,
   material: StandardMaterial,
 ) {
-  if (opening.type === 'OPENING') {
+  const wall = layout.walls.find((candidate) => candidate.id === door.wallId);
+
+  if (!wall) {
     return;
   }
 
-  const center = getPointAtWallOffset(wall, layout.points, opening.offset);
+  const startPoint = getPointById(layout.points, wall.startPointId);
   const direction = getWallDirection(wall, layout.points);
-  const bottom = opening.type === 'WINDOW' ? opening.sillHeight : 0;
-  const marker = MeshBuilder.CreateBox(
-    `building-test-${levelId}-${opening.id}-marker`,
-    { depth: Math.max(wall.thickness + 0.03, 0.08), height: opening.height, width: opening.width },
+  const normal = getWallNormal(wall, layout.points);
+  const hingeOffset = door.swingDirection === 'IN_LEFT'
+    ? door.offset - door.width / 2
+    : door.offset + door.width / 2;
+  const hinge = {
+    x: startPoint.x + direction.x * hingeOffset,
+    y: startPoint.y + direction.y * hingeOffset,
+  };
+  const openAngle = Math.PI / 2.6;
+  const panelHeight = getEffectiveOpeningHeight(wall, door);
+  const panelDirection = door.swingDirection === 'IN_LEFT'
+    ? {
+        x: direction.x * Math.cos(openAngle) + normal.x * Math.sin(openAngle),
+        y: direction.y * Math.cos(openAngle) + normal.y * Math.sin(openAngle),
+      }
+    : {
+        x: -direction.x * Math.cos(openAngle) + normal.x * Math.sin(openAngle),
+        y: -direction.y * Math.cos(openAngle) + normal.y * Math.sin(openAngle),
+      };
+  const panel = MeshBuilder.CreateBox(
+    `building-test-${levelId}-${door.id}-panel`,
+    {
+      depth: 0.12,
+      height: panelHeight,
+      width: door.width,
+    },
     scene,
   );
 
-  marker.position = new Vector3(center.x, floorY + bottom + opening.height / 2, center.y);
-  marker.rotation.y = -Math.atan2(direction.y, direction.x);
-  marker.material = material;
-  marker.metadata = { levelId, openingId: opening.id, source: 'building-test-environment', wallId: wall.id };
+  panel.position = new Vector3(
+    hinge.x + panelDirection.x * door.width / 2,
+    floorY + panelHeight / 2,
+    hinge.y + panelDirection.y * door.width / 2,
+  );
+  panel.rotation.y = -Math.atan2(panelDirection.y, panelDirection.x);
+  panel.material = material;
+  panel.metadata = {
+    kind: 'door-panel',
+    levelId,
+    openingId: door.id,
+    source: 'building-test-environment',
+    wallId: wall.id,
+  };
+}
+
+function createWindowAssembly(
+  scene: Scene,
+  levelId: string,
+  floorY: number,
+  layout: RoomLayoutState,
+  windowOpening: WindowOpening,
+  glassMaterial: StandardMaterial,
+  frameMaterial: StandardMaterial,
+) {
+  const wall = layout.walls.find((candidate) => candidate.id === windowOpening.wallId);
+
+  if (!wall) {
+    return;
+  }
+
+  const wallPoint = getPointAtWallOffset(wall, layout.points, windowOpening.offset);
+  const direction = getWallDirection(wall, layout.points);
+  const normal = getWallNormal(wall, layout.points);
+  const centerY = floorY + windowOpening.sillHeight + windowOpening.height / 2;
+  const frameSize = Math.min(0.18, windowOpening.width / 4, windowOpening.height / 4);
+  const rotationY = -Math.atan2(direction.y, direction.x);
+  const metadata = {
+    kind: 'window-assembly',
+    levelId,
+    openingId: windowOpening.id,
+    source: 'building-test-environment',
+    wallId: windowOpening.wallId,
+  };
+
+  const createPart = (
+    suffix: string,
+    width: number,
+    height: number,
+    offsetAlongWall: number,
+    offsetY: number,
+    material: StandardMaterial,
+    depth: number,
+    offsetThroughWall = 0,
+  ) => {
+    const part = MeshBuilder.CreateBox(
+      `building-test-${levelId}-${windowOpening.id}-${suffix}`,
+      { depth, height, width },
+      scene,
+    );
+
+    part.position = new Vector3(
+      wallPoint.x + direction.x * offsetAlongWall + normal.x * offsetThroughWall,
+      centerY + offsetY,
+      wallPoint.y + direction.y * offsetAlongWall + normal.y * offsetThroughWall,
+    );
+    part.rotation.y = rotationY;
+    part.material = material;
+    part.metadata = metadata;
+  };
+
+  const innerWidth = Math.max(windowOpening.width - frameSize * 2, 0.05);
+  const innerHeight = Math.max(windowOpening.height - frameSize * 2, 0.05);
+  const paneDepth = Math.min(0.035, wall.thickness / 6);
+  const paneOffset = Math.max(wall.thickness * 0.28, paneDepth);
+
+  createPart('glass-front', innerWidth, innerHeight, 0, 0, glassMaterial, paneDepth, paneOffset);
+  createPart('glass-back', innerWidth, innerHeight, 0, 0, glassMaterial, paneDepth, -paneOffset);
+  createPart('frame-left', frameSize, windowOpening.height, -windowOpening.width / 2 + frameSize / 2, 0, frameMaterial, wall.thickness + 0.02);
+  createPart('frame-right', frameSize, windowOpening.height, windowOpening.width / 2 - frameSize / 2, 0, frameMaterial, wall.thickness + 0.02);
+  createPart('frame-top', innerWidth, frameSize, 0, windowOpening.height / 2 - frameSize / 2, frameMaterial, wall.thickness + 0.02);
+  createPart('frame-bottom', innerWidth, frameSize, 0, -windowOpening.height / 2 + frameSize / 2, frameMaterial, wall.thickness + 0.02);
 }
 
 export function clearBuildingEnvironment(scene: Scene) {
@@ -541,23 +851,23 @@ function createLevelWalls(
   const back = MeshBuilder.CreateBox(`building-test-${levelId}-back-wall`, { depth: WALL_THICKNESS, height: facadeHeight, width }, scene);
   back.position = new Vector3(center.x, wallY, center.z + depth / 2);
   back.material = wallMaterial;
-  back.metadata = { levelId, source: 'building-test-environment' };
+  back.metadata = { kind: 'wall-collision', levelId, source: 'building-test-environment' };
 
   const left = MeshBuilder.CreateBox(`building-test-${levelId}-left-wall`, { depth, height: facadeHeight, width: WALL_THICKNESS }, scene);
   left.position = new Vector3(center.x - width / 2, wallY, center.z);
   left.material = wallMaterial;
-  left.metadata = { levelId, source: 'building-test-environment' };
+  left.metadata = { kind: 'wall-collision', levelId, source: 'building-test-environment' };
 
   const right = MeshBuilder.CreateBox(`building-test-${levelId}-right-wall`, { depth, height: facadeHeight, width: WALL_THICKNESS }, scene);
   right.position = new Vector3(center.x + width / 2, wallY, center.z);
   right.material = wallMaterial;
-  right.metadata = { levelId, source: 'building-test-environment' };
+  right.metadata = { kind: 'wall-collision', levelId, source: 'building-test-environment' };
 
   const frontGlassHeight = Math.max(Math.min(facadeHeight - SLAB_THICKNESS, facadeHeight * 0.72), 0.5);
   const frontGlass = MeshBuilder.CreateBox(`building-test-${levelId}-front-glass`, { depth: 0.05, height: frontGlassHeight, width: width * 0.68 }, scene);
   frontGlass.position = new Vector3(center.x, floorY + frontGlassHeight * 0.52, center.z - depth / 2 - 0.03);
   frontGlass.material = glassMaterial;
-  frontGlass.metadata = { levelId, source: 'building-test-environment' };
+  frontGlass.metadata = { kind: 'wall-collision', levelId, source: 'building-test-environment' };
 }
 
 function createLevelRail(
@@ -576,39 +886,31 @@ function createLevelRail(
   frontRail.metadata = { levelId, source: 'building-test-environment' };
 }
 
-function createStairs(scene: Scene, sceneData: BuildingTestScene, stairMaterial: StandardMaterial) {
-  const groundLevel = sceneData.building.levels.find((level) => level.id === 'ground') ?? sceneData.building.levels[0];
-  const groundCenter = getLevelCenter(sceneData, groundLevel);
-  const startX = groundCenter.x - groundLevel.width / 2 + 1.8;
-  const startZ = groundCenter.z - groundLevel.depth / 2 + 1.1;
-
-  Array.from({ length: 12 }, (_, index) => {
-    const step = MeshBuilder.CreateBox(
-      `building-test-stair-${index}`,
-      { depth: 0.42, height: 0.12, width: 1.35 },
-      scene,
-    );
-    step.position = new Vector3(startX + index * 0.21, 0.26 + index * 0.25, startZ + index * 0.25);
-    step.rotation.y = Tools.ToRadians(-28);
-    step.material = stairMaterial;
-    step.metadata = { source: 'building-test-environment', levelId: 'ground' };
-    step.isPickable = false;
-  });
-}
-
 export function getSurfaceFromPickedMesh(mesh: Mesh | null | undefined, pickedY?: number): BuildingPlacementSurface | null {
   if (mesh?.metadata?.kind !== 'placement-surface') {
     return null;
   }
 
+  mesh.computeWorldMatrix(true);
+  const boundingBox = mesh.getBoundingInfo().boundingBox;
+  const center = boundingBox.centerWorld;
+  const min = boundingBox.minimumWorld;
+  const max = boundingBox.maximumWorld;
+
   return {
-    depth: mesh.getBoundingInfo().boundingBox.extendSizeWorld.z * 2,
+    bounds: {
+      maxX: max.x,
+      maxZ: max.z,
+      minX: min.x,
+      minZ: min.z,
+    },
+    depth: boundingBox.extendSizeWorld.z * 2,
     elevation: Number(mesh.metadata.elevation ?? pickedY ?? mesh.position.y),
     id: String(mesh.metadata.surfaceId),
     label: String(mesh.metadata.surfaceLabel),
     levelId: mesh.metadata.levelId,
-    position: { x: mesh.position.x, y: mesh.position.y, z: mesh.position.z },
+    position: { x: center.x, y: center.y, z: center.z },
     type: mesh.metadata.surfaceType,
-    width: mesh.getBoundingInfo().boundingBox.extendSizeWorld.x * 2,
+    width: boundingBox.extendSizeWorld.x * 2,
   };
 }

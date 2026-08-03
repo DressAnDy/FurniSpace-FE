@@ -8,6 +8,7 @@ import {
   IconMessageDots,
   IconPackage,
 } from '@tabler/icons-react';
+import { useQueries } from '@tanstack/react-query';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 
 import { CustomerNavbar } from '@/features/CustomerPages/customercomponents';
@@ -16,6 +17,12 @@ import { BlueprintCanvas } from '@/features/ThreeD/components/BlueprintCanvas';
 import { RoomPreview3D, type PlacedProduct3D } from '@/features/ThreeD/components/RoomPreview3D';
 import type { RoomMaterialSelection } from '@/features/ThreeD/types/roomLayout.types';
 import { hydrateRoomPlannerScenePayload } from '@/features/ThreeD/utils/roomPlannerSceneMapper';
+import { BuildingSceneCanvas } from '@/features/ThreeDTest/components/BuildingSceneCanvas';
+import {
+  createBuildingModelVersionMap,
+  resolvePlacedBuildingProducts,
+} from '@/features/ThreeDTest/utils/buildingProductCatalogMapper';
+import { hydrateBuildingRoomPlannerPayload } from '@/features/ThreeDTest/utils/buildingRoomPlannerPayloadMapper';
 import '@/features/ThreeD/pages/ThreeDTestPage.css';
 import './Customer3dPreviewPage.css';
 import {
@@ -24,9 +31,12 @@ import {
   type ProposalItemDto,
   type RoomPlannerSceneData,
 } from '@/services/api/proposals';
+import { getProductById } from '@/services/api/products';
 import {
+  productQueryKeys,
   useProjectList,
   useProjectProposals,
+  useProductList,
   useProposalItems,
   useProposalScenes,
   useRoomPlannerScene,
@@ -36,6 +46,7 @@ import { aggregateDuplicateItems } from '@/shared/utils/itemAggregation';
 
 type ViewMode = '2d' | '3d';
 type SidePanelMode = 'items' | 'chat' | null;
+const PREVIEW_PRODUCT_CATALOG_LIMIT = 100;
 
 export function Customer3dPreviewPage() {
   const navigate = useNavigate();
@@ -51,7 +62,7 @@ export function Customer3dPreviewPage() {
   const [selectedProjectId, setSelectedProjectId] = useState(() => projectIdFromUrl);
   const [selectedProposalId, setSelectedProposalId] = useState<string | null>(() => proposalIdFromUrl || null);
   const [selectedSceneId, setSelectedSceneId] = useState<string | null>(() => sceneIdFromUrl || null);
-  const selectFinalProposalMutation = useSelectFinalProposal()
+  const selectFinalProposalMutation = useSelectFinalProposal();
 
   const projectsQuery = useProjectList({ page: 1, limit: 50 });
   const projects = useMemo(() => projectsQuery.data?.items ?? [], [projectsQuery.data?.items]);
@@ -70,7 +81,6 @@ export function Customer3dPreviewPage() {
     selectedProposal
       ? {
           proposalId: selectedProposal.proposalId,
-          sceneType: 'THREE_D',
           isActive: true,
           page: 1,
           limit: 50,
@@ -78,7 +88,10 @@ export function Customer3dPreviewPage() {
       : undefined,
     { enabled: Boolean(selectedProposal) },
   );
-  const scenes = useMemo(() => scenesQuery.data?.items ?? [], [scenesQuery.data?.items]);
+  const scenes = useMemo(
+    () => (scenesQuery.data?.items ?? []).filter(isRoomPlannerPreviewScene),
+    [scenesQuery.data?.items],
+  );
   const selectedScene = scenes.find((scene) => scene.sceneId === selectedSceneId) ?? scenes[0] ?? null;
   const roomPlannerSceneQuery = useRoomPlannerScene(selectedScene?.sceneId, { enabled: Boolean(selectedScene?.sceneId) });
   const proposalItemsQuery = useProposalItems(
@@ -95,6 +108,34 @@ export function Customer3dPreviewPage() {
   const hydratedScene = useMemo(
     () => hydrateRoomPlannerScenePayload(roomPlannerSceneQuery.data),
     [roomPlannerSceneQuery.data],
+  );
+  const hydratedBuildingScene = useMemo(
+    () => hydrateBuildingRoomPlannerPayload(roomPlannerSceneQuery.data),
+    [roomPlannerSceneQuery.data],
+  );
+  const shouldResolveBuildingProducts = Boolean(selectedScene && hydratedBuildingScene.sceneData);
+  const productListQuery = useProductList(
+    { page: 1, limit: PREVIEW_PRODUCT_CATALOG_LIMIT },
+    shouldResolveBuildingProducts,
+  );
+  const productDetailQueries = useQueries({
+    queries: (productListQuery.data?.items ?? []).map((product) => ({
+      enabled: shouldResolveBuildingProducts,
+      queryFn: () => getProductById(product.productId),
+      queryKey: productQueryKeys.detail(product.productId),
+      staleTime: 5 * 60 * 1000,
+    })),
+  });
+  const buildingModelsByVersionId = useMemo(
+    () => createBuildingModelVersionMap([
+      ...(productListQuery.data?.items ?? []),
+      ...productDetailQueries.map((query) => query.data),
+    ]),
+    [productDetailQueries, productListQuery.data?.items],
+  );
+  const resolvedBuildingProducts = useMemo(
+    () => resolvePlacedBuildingProducts(hydratedBuildingScene.placedProducts, buildingModelsByVersionId),
+    [buildingModelsByVersionId, hydratedBuildingScene.placedProducts],
   );
   const floorMaterial = useMemo(
     () => getSceneFloorMaterial(roomPlannerSceneQuery.data),
@@ -343,9 +384,21 @@ export function Customer3dPreviewPage() {
                 <SceneState message={getProposalServiceResultMessage(roomPlannerSceneQuery.error)} />
               ) : !selectedScene ? (
                 <SceneState message="Select a proposal with a saved 3D scene." />
-              ) : !hydratedScene.layout ? (
+              ) : !hydratedScene.layout && !hydratedBuildingScene.sceneData ? (
                 <SceneState message="This scene has no saved room layout in MongoDB yet." />
-              ) : viewMode === '3d' ? (
+              ) : viewMode === '3d' && hydratedBuildingScene.sceneData ? (
+                <BuildingSceneCanvas
+                  activeLevel="all"
+                  modelsById={new Map()}
+                  placedProducts={resolvedBuildingProducts}
+                  sceneData={hydratedBuildingScene.sceneData}
+                  selectedProductId={selectedObjectId}
+                  onProductDrop={() => undefined}
+                  onProductLoadError={() => undefined}
+                  onProductMove={() => undefined}
+                  onProductSelect={(productId) => setSelectedObjectId(productId)}
+                />
+              ) : viewMode === '3d' && hydratedScene.layout ? (
                 <RoomPreview3D
                   floorMaterial={floorMaterial}
                   layout={hydratedScene.layout}
@@ -355,7 +408,7 @@ export function Customer3dPreviewPage() {
                   wallMaterial={wallMaterial}
                   onProductSelect={(productId) => setSelectedObjectId(productId)}
                 />
-              ) : (
+              ) : hydratedScene.layout ? (
                 <BlueprintCanvas
                   activeTool="select"
                   floorFillColor={floorMaterial.fallbackColor}
@@ -367,6 +420,8 @@ export function Customer3dPreviewPage() {
                   onLayoutChange={() => undefined}
                   onSelectItem={() => undefined}
                 />
+              ) : (
+                <SceneState message="2D preview for this multi-floor scene is not available yet." />
               )}
             </div>
 
@@ -520,6 +575,10 @@ function SceneState({ message }: { message: string }) {
 
 function PanelHeader({ title }: { title: string }) {
   return <header className="customer-3d-preview-panel-header"><h2>{title}</h2></header>;
+}
+
+function isRoomPlannerPreviewScene(scene: { sceneType?: string | null }) {
+  return scene.sceneType === 'ROOM_PLANNER' || scene.sceneType === 'THREE_D';
 }
 
 function formatDateTime(value: string) {

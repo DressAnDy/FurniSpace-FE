@@ -38,7 +38,7 @@ export type ProposalStatus =
   | 'REJECTED'
   | 'ARCHIVED';
 
-export type ProposalSceneType = 'TWO_D' | 'THREE_D';
+export type ProposalSceneType = 'TWO_D' | 'THREE_D' | 'ROOM_PLANNER';
 
 export type ServiceResult<T> = {
   status: number;
@@ -85,9 +85,10 @@ export type ProposalListParams = {
 export type ProposalSceneDto = {
   sceneId: string;
   proposalId: string;
-  projectAreaId: string | null;
-  sceneName: string;
-  sceneType: ProposalSceneType;
+  projectAreaId?: string | null;
+  areas?: ProposalSceneAreaDto[];
+  sceneName: string | null;
+  sceneType: ProposalSceneType | null;
   mongoSceneId: string | null;
   previewFileId: string | null;
   previewFileUrl: string | null;
@@ -95,6 +96,15 @@ export type ProposalSceneDto = {
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
+};
+
+export type ProposalSceneAreaDto = {
+  projectAreaId: string;
+  areaName: string;
+  areaType?: string | null;
+  floorNumber?: number | null;
+  sortOrder: number;
+  status?: string | null;
 };
 
 export type ProposalSceneListData = {
@@ -155,6 +165,7 @@ export type CreateProposalSceneInput = {
   proposalId: string;
   sceneName: string;
   sceneType: ProposalSceneType;
+  projectAreaIds?: string[];
   projectAreaId?: string | null;
   mongoSceneId?: string | null;
   previewFileId?: string | null;
@@ -163,9 +174,11 @@ export type CreateProposalSceneInput = {
 export type UpdateProposalSceneInput = {
   sceneId: string;
   sceneName?: string | null;
+  projectAreaIds?: string[] | null;
   projectAreaId?: string | null;
   mongoSceneId?: string | null;
   previewFileId?: string | null;
+  isActive?: boolean | null;
 };
 
 export type SaveRoomPlannerSceneInput = {
@@ -176,7 +189,7 @@ export type SaveRoomPlannerSceneInput = {
 export type SyncProposalItemsFromSceneInput = {
   proposalId: string;
   sceneId: string;
-  items: Array<{
+  items?: Array<{
     customizationNote?: string | null;
     productVersionId: string;
     quantity: number;
@@ -189,6 +202,8 @@ export type RoomPlannerSceneData = RoomPlannerScenePayload & {
   proposalId?: string | null;
   projectId?: string | null;
   projectAreaId?: string | null;
+  projectAreaIds?: string[];
+  areas?: ProposalSceneAreaDto[];
   mongoSceneId: string | null;
   lastSavedAt?: string | null;
 };
@@ -213,8 +228,13 @@ export type ProposalItemDto = {
   heightSnapshot: number | null;
   depthSnapshot: number | null;
   dimensionUnit: string | null;
+  projectAreaId?: string | null;
+  projectAreaName?: string | null;
+  floorNumber?: number | null;
+  floorId?: string | null;
   quantity: number;
   unitPriceSnapshot: number | null;
+  totalPriceSnapshot?: number | null;
   subtotalAmount: number | null;
   customizationNote: string | null;
 };
@@ -314,11 +334,13 @@ export async function requestProposalRevision(input: ProposalDecisionInput) {
 }
 
 export async function createProposalScene(input: CreateProposalSceneInput) {
+  const hasMultiAreaContract = Array.isArray(input.projectAreaIds);
   const response = await proposalApiClient.post<ServiceResult<ProposalSceneDto>>(`/proposals/${input.proposalId}/scenes`, {
     sceneName: input.sceneName.trim(),
     sceneType: input.sceneType,
-    projectAreaId: input.projectAreaId ?? null,
-    mongoSceneId: input.mongoSceneId ?? null,
+    projectAreaIds: hasMultiAreaContract ? input.projectAreaIds : undefined,
+    projectAreaId: hasMultiAreaContract ? undefined : input.projectAreaId ?? null,
+    mongoSceneId: hasMultiAreaContract ? undefined : input.mongoSceneId ?? null,
     previewFileId: input.previewFileId ?? null,
   });
 
@@ -326,11 +348,14 @@ export async function createProposalScene(input: CreateProposalSceneInput) {
 }
 
 export async function updateProposalScene(input: UpdateProposalSceneInput) {
+  const hasMultiAreaContract = Array.isArray(input.projectAreaIds) || input.projectAreaIds === null;
   const response = await proposalApiClient.patch<ServiceResult<ProposalSceneDto>>(`/proposal-scenes/${input.sceneId}`, {
     sceneName: input.sceneName?.trim() || undefined,
-    projectAreaId: input.projectAreaId ?? undefined,
-    mongoSceneId: input.mongoSceneId ?? undefined,
+    projectAreaIds: hasMultiAreaContract ? input.projectAreaIds : undefined,
+    projectAreaId: hasMultiAreaContract ? undefined : input.projectAreaId ?? undefined,
+    mongoSceneId: hasMultiAreaContract ? undefined : input.mongoSceneId ?? undefined,
     previewFileId: input.previewFileId ?? undefined,
+    isActive: input.isActive ?? undefined,
   });
 
   return response.data.data;
@@ -377,17 +402,22 @@ export async function getProposalItems(params: ProposalItemListParams) {
 }
 
 export async function syncProposalItemsFromScene(input: SyncProposalItemsFromSceneInput) {
+  const payload = input.items
+    ? {
+        sceneId: input.sceneId,
+        items: input.items.map((item) => ({
+          sceneObjectId: item.sceneObjectId,
+          productVersionId: item.productVersionId,
+          quantity: item.quantity,
+          customizationNote: item.customizationNote?.trim() || null,
+        })),
+      }
+    : {
+        sceneId: input.sceneId,
+      };
   const response = await proposalApiClient.post<ServiceResult<SyncProposalItemsFromSceneData>>(
     `/proposals/${input.proposalId}/items/sync-from-scene`,
-    {
-      sceneId: input.sceneId,
-      items: input.items.map((item) => ({
-        sceneObjectId: item.sceneObjectId,
-        productVersionId: item.productVersionId,
-        quantity: item.quantity,
-        customizationNote: item.customizationNote?.trim() || null,
-      })),
-    },
+    payload,
   );
 
   return response.data.data;

@@ -22,12 +22,18 @@ export type WallEditPanelProps = {
   selectedItem: SelectedRoomItem | null;
 };
 
+function formatNumberInput(value: number) {
+  return Number.isInteger(value) ? String(value) : String(Number(value.toFixed(3)));
+}
+
 function parseNumberInput(value: string, fallback: number) {
-  if (value.trim() === '') {
-    return 0;
+  const normalizedValue = value.trim().replace(',', '.');
+
+  if (!normalizedValue || normalizedValue === '-' || normalizedValue === '.' || normalizedValue === '-.') {
+    return fallback;
   }
 
-  const parsed = Number(value.replace(',', '.'));
+  const parsed = Number(normalizedValue);
 
   return Number.isFinite(parsed) ? parsed : fallback;
 }
@@ -41,11 +47,22 @@ type CommitNumberInputProps = {
 };
 
 function CommitNumberInput({ fallback, min, onCommit, step, value }: CommitNumberInputProps) {
-  const [draftValue, setDraftValue] = useState(String(value));
+  const [draftValue, setDraftValue] = useState(formatNumberInput(value));
 
   useEffect(() => {
-    setDraftValue(String(value));
+    setDraftValue(formatNumberInput(value));
   }, [value]);
+
+  function commitDraft() {
+    const nextValue = parseNumberInput(draftValue, fallback);
+    const clampedValue = min !== undefined ? Math.max(nextValue, min) : nextValue;
+
+    setDraftValue(formatNumberInput(clampedValue));
+
+    if (clampedValue !== value) {
+      onCommit(clampedValue);
+    }
+  }
 
   return (
     <input
@@ -55,14 +72,13 @@ function CommitNumberInput({ fallback, min, onCommit, step, value }: CommitNumbe
       type="text"
       value={draftValue}
       onChange={(event) => setDraftValue(event.target.value)}
+      onBlur={commitDraft}
       onKeyDown={(event) => {
         if (event.key !== 'Enter') {
           return;
         }
 
-        const nextValue = parseNumberInput(draftValue, fallback);
-        const shouldApplyMin = draftValue.trim() !== '' && min !== undefined;
-        onCommit(shouldApplyMin ? Math.max(nextValue, min) : nextValue);
+        event.currentTarget.blur();
       }}
     />
   );

@@ -10,6 +10,7 @@ import type {
 
 const COLLISION_GAP = 0.03;
 const COLLISION_SWEEP_STEP = 0.08;
+const WALL_COLLISION_GAP = 0.015;
 
 export type BuildingProductBounds = {
   maxX: number;
@@ -132,6 +133,61 @@ function areBoundsOverlapping(first: BuildingProductBounds, second: BuildingProd
     first.maxZ > second.minZ + COLLISION_GAP;
 }
 
+function areBoundsTouchingWall(first: BuildingProductBounds, second: BuildingProductBounds) {
+  return first.minX < second.maxX - WALL_COLLISION_GAP &&
+    first.maxX > second.minX + WALL_COLLISION_GAP &&
+    first.minY < second.maxY - WALL_COLLISION_GAP &&
+    first.maxY > second.minY + WALL_COLLISION_GAP &&
+    first.minZ < second.maxZ - WALL_COLLISION_GAP &&
+    first.maxZ > second.minZ + WALL_COLLISION_GAP;
+}
+
+function getWallCollisionBounds(scene: Scene, levelId: BuildingPlacementSurface['levelId']) {
+  return scene.meshes
+    .filter((mesh) =>
+      mesh instanceof Mesh &&
+      mesh.metadata?.source === 'building-test-environment' &&
+      mesh.metadata?.kind === 'wall-collision' &&
+      mesh.metadata?.levelId === levelId &&
+      mesh.isEnabled() &&
+      mesh.isVisible &&
+      mesh.getTotalVertices() > 0,
+    )
+    .map((mesh) => {
+      mesh.computeWorldMatrix(true);
+      const wallBounds = mesh.getBoundingInfo().boundingBox;
+
+      return {
+        maxX: wallBounds.maximumWorld.x,
+        maxY: wallBounds.maximumWorld.y,
+        maxZ: wallBounds.maximumWorld.z,
+        minX: wallBounds.minimumWorld.x,
+        minY: wallBounds.minimumWorld.y,
+        minZ: wallBounds.minimumWorld.z,
+      };
+    });
+}
+
+export function isCollidingWithBuildingWalls({
+  productRoot,
+  position,
+  scene,
+  surface,
+}: Omit<BuildingPlacementValidationInput, 'productId'>) {
+  if (!productRoot) {
+    return false;
+  }
+
+  const nextBounds = getProductBoundsAtPosition(productRoot, position);
+
+  if (!nextBounds) {
+    return false;
+  }
+
+  return getWallCollisionBounds(scene, surface.levelId)
+    .some((wallBounds) => areBoundsTouchingWall(nextBounds, wallBounds));
+}
+
 export function isPositionInsideSurface(
   bounds: BuildingProductBounds | null,
   position: Vector3State,
@@ -139,10 +195,10 @@ export function isPositionInsideSurface(
 ) {
   const halfWidth = surface.width / 2;
   const halfDepth = surface.depth / 2;
-  const minX = surface.position.x - halfWidth;
-  const maxX = surface.position.x + halfWidth;
-  const minZ = surface.position.z - halfDepth;
-  const maxZ = surface.position.z + halfDepth;
+  const minX = surface.bounds?.minX ?? surface.position.x - halfWidth;
+  const maxX = surface.bounds?.maxX ?? surface.position.x + halfWidth;
+  const minZ = surface.bounds?.minZ ?? surface.position.z - halfDepth;
+  const maxZ = surface.bounds?.maxZ ?? surface.position.z + halfDepth;
 
   if (!bounds) {
     return position.x >= minX && position.x <= maxX && position.z >= minZ && position.z <= maxZ;
@@ -189,6 +245,7 @@ export function isValidBuildingProductPosition(input: BuildingPlacementValidatio
   const collisionEnabled = input.collisionEnabled ?? true;
 
   return (!boundaryEnabled || isPositionInsideSurface(nextBounds, input.position, input.surface)) &&
+    (!boundaryEnabled || !isCollidingWithBuildingWalls(input)) &&
     (!collisionEnabled || !isCollidingWithOtherBuildingProducts(input));
 }
 

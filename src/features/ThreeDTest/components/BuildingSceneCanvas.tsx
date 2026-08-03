@@ -51,6 +51,7 @@ export type BuildingSceneCanvasProps = {
 };
 
 type DragState = {
+  hasMoved: boolean;
   lastValidPosition: Vector3State;
   levelId: BuildingLevelVisibility;
   sceneObjectId: string;
@@ -100,6 +101,21 @@ function getProductRoot(scene: Scene, sceneObjectId: string) {
   return scene.transformNodes.find((node) => node.metadata?.sceneObjectId === sceneObjectId) as TransformNode | undefined;
 }
 
+function getProductRoots(scene: Scene, sceneObjectId: string) {
+  return scene.transformNodes.filter((node) => node.metadata?.source === 'building-test-product' && node.metadata?.sceneObjectId === sceneObjectId) as TransformNode[];
+}
+
+function getSceneProductLoadLocks(scene: Scene) {
+  if (!scene.metadata?.buildingProductLoadLocks) {
+    scene.metadata = {
+      ...(scene.metadata ?? {}),
+      buildingProductLoadLocks: new Set<string>(),
+    };
+  }
+
+  return scene.metadata.buildingProductLoadLocks as Set<string>;
+}
+
 function setRootPosition(root: TransformNode, position: Vector3State) {
   const groundOffset = Number(root.metadata?.groundOffsetY ?? 0);
   root.position = new Vector3(position.x, position.y + groundOffset, position.z);
@@ -130,6 +146,10 @@ function calculateGroundOffset(scene: Scene, root: TransformNode, sceneObjectId:
   const minY = Math.min(...meshes.map((mesh) => mesh.getBoundingInfo().boundingBox.minimumWorld.y));
 
   return root.position.y - minY;
+}
+
+function arePositionsEqual(first: Vector3State, second: Vector3State) {
+  return first.x === second.x && first.y === second.y && first.z === second.z;
 }
 
 async function loadProduct(scene: Scene, product: PlacedBuildingProduct) {
@@ -191,6 +211,15 @@ function removeMissingProducts(scene: Scene, products: PlacedBuildingProduct[]) 
     .forEach((node) => node.dispose(false, true));
 }
 
+function removeDuplicateProductRoots(scene: Scene, sceneObjectId: string) {
+  const roots = getProductRoots(scene, sceneObjectId);
+  const primaryRoot = roots[0];
+
+  roots.slice(1).forEach((duplicateRoot) => duplicateRoot.dispose(false, true));
+
+  return primaryRoot;
+}
+
 function syncProducts(
   scene: Scene,
   products: PlacedBuildingProduct[],
@@ -199,8 +228,28 @@ function syncProducts(
   removeMissingProducts(scene, products);
 
   products.forEach((product) => {
+    const existingRoot = removeDuplicateProductRoots(scene, product.sceneObjectId);
+
+    if (existingRoot) {
+      void loadProduct(scene, product).catch((error) => {
+        onProductLoadError?.(product.sceneObjectId, getModelLoadErrorMessage(error, product.modelUrl));
+      });
+      return;
+    }
+
+    const loadLocks = getSceneProductLoadLocks(scene);
+
+    if (loadLocks.has(product.sceneObjectId)) {
+      return;
+    }
+
+    loadLocks.add(product.sceneObjectId);
+
     void loadProduct(scene, product).catch((error) => {
       onProductLoadError?.(product.sceneObjectId, getModelLoadErrorMessage(error, product.modelUrl));
+    }).finally(() => {
+      loadLocks.delete(product.sceneObjectId);
+      removeDuplicateProductRoots(scene, product.sceneObjectId);
     });
   });
 }
@@ -209,9 +258,10 @@ function setProductHighlight(scene: Scene, selectedProductId: string | null) {
   scene.meshes
     .filter((mesh) => mesh.metadata?.source === 'building-test-product')
     .forEach((mesh) => {
-      mesh.renderOverlay = mesh.metadata?.sceneObjectId === selectedProductId;
+      mesh.renderOverlay = false;
       mesh.overlayColor = Color3.FromHexString('#35d6ff');
-      mesh.overlayAlpha = 0.35;
+      mesh.overlayAlpha = 0;
+      mesh.showBoundingBox = mesh.metadata?.sceneObjectId === selectedProductId;
     });
 }
 
@@ -416,6 +466,7 @@ export function BuildingSceneCanvas({
               }
 
               dragRef.current = {
+                hasMoved: false,
                 lastValidPosition: getAnchorPosition(root),
                 levelId,
                 sceneObjectId,
@@ -476,6 +527,7 @@ export function BuildingSceneCanvas({
               setRootPosition(root, nextPosition);
               dragRef.current = {
                 ...drag,
+                hasMoved: drag.hasMoved || !arePositionsEqual(nextPosition, drag.lastValidPosition),
                 lastValidPosition: nextPosition,
                 surfaceId: surfacePick.surface.id,
               };
@@ -495,7 +547,7 @@ export function BuildingSceneCanvas({
               const drag = dragRef.current;
               const root = getProductRoot(scene, drag.sceneObjectId);
 
-              if (root) {
+              if (root && drag.hasMoved) {
                 const position = getAnchorPosition(root);
                 onProductMove(drag.sceneObjectId, position, drag.surfaceId, drag.levelId);
               }
