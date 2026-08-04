@@ -25,6 +25,17 @@
   padding: 0 12px;
 }
 
+.building-test-header-main {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+  min-width: 0;
+}
+
+.building-test-title {
+  min-width: 0;
+}
+
 .building-test-header h1 {
   font-size: 15px;
   line-height: 1.2;
@@ -63,6 +74,15 @@
   color: var(--building-accent-strong);
   padding: 9px 12px;
   text-decoration: none;
+}
+
+.building-test-header .building-test-back-link {
+  align-items: center;
+  border-right: 1px solid var(--building-border);
+  display: inline-flex;
+  gap: 6px;
+  padding-left: 0;
+  white-space: nowrap;
 }
 
 .building-test-header button {

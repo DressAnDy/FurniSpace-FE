@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQueries } from '@tanstack/react-query';
-import { IconBox, IconBuilding, IconCategory, IconPalette, IconRotateClockwise, IconSearch, IconTrash, IconX } from '@tabler/icons-react';
+import { IconArrowLeft, IconBox, IconBuilding, IconCategory, IconPalette, IconRotateClockwise, IconSearch, IconTrash, IconX } from '@tabler/icons-react';
 import { Link as RouterLink, useLocation, useParams } from 'react-router-dom';
 
 import { BuildingSceneCanvas, PRODUCT_DRAG_TYPE } from '@/features/ThreeDTest/components';
@@ -431,6 +431,12 @@ export function BuildingThreeDTestPage() {
     !proposalDetailQuery.data?.status ||
     ROOM_PLANNER_SAVE_STATUSES.includes(proposalDetailQuery.data.status as (typeof ROOM_PLANNER_SAVE_STATUSES)[number]);
   const isSavingRoomPlanner = saveRoomPlannerSceneMutation.isPending || syncProposalItemsMutation.isPending;
+  const returnProjectId = routeState?.projectId ?? roomPlannerSceneQuery.data?.projectId ?? proposalDetailQuery.data?.projectId;
+  const returnProposalId = routeState?.proposalId ?? roomPlannerSceneQuery.data?.proposalId ?? currentProposalId;
+  const proposalReturnPath = routeState?.returnTo ??
+    (returnProjectId && returnProposalId
+      ? `/designer/projects/${returnProjectId}/proposals/${returnProposalId}`
+      : '/designer/projects');
 
   function addProductToScene(
     model: BuildingProductModel,
@@ -755,9 +761,22 @@ export function BuildingThreeDTestPage() {
   return (
     <main className="building-test-page">
       <header className="building-test-header">
-        <div>
-          <span><IconBuilding size={16} /> Building 3D Test</span>
-          <h1>Two-floor campus prototype</h1>
+        <div className="building-test-header-main">
+          <RouterLink
+            className="building-test-back-link"
+            state={{
+              ...routeState,
+              transientPlacedProducts: placedProducts,
+              transientSelectedProductId: selectedProductId,
+            }}
+            to={proposalReturnPath}
+          >
+            <IconArrowLeft size={17} /> Back
+          </RouterLink>
+          <div className="building-test-title">
+            <span><IconBuilding size={16} /> Building 3D Test</span>
+            <h1>Two-floor campus prototype</h1>
+          </div>
         </div>
         <nav>
           <RouterLink
