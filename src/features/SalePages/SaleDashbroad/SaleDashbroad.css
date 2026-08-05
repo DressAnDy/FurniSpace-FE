@@ -140,6 +140,8 @@ body.sale-sidebar-collapsed .sale-sidebar-open-button {
   position: relative;
   display: flex;
   width: 576px;
+  max-width: 100%;
+  min-width: 0;
   height: 36px;
   align-items: center;
   gap: 10px;
@@ -166,6 +168,7 @@ body.sale-sidebar-collapsed .sale-sidebar-open-button {
 
 .sale-topbar-actions {
   display: flex;
+  min-width: 0;
   align-items: center;
   gap: 16px;
 }
@@ -395,6 +398,7 @@ body.sale-sidebar-collapsed .sale-sidebar-open-button {
   font-size: 30px;
   font-weight: 600;
   line-height: 36px;
+  overflow-wrap: anywhere;
 }
 
 .sale-metric-card-header p {
@@ -520,6 +524,7 @@ body.sale-sidebar-collapsed .sale-sidebar-open-button {
 
 .sale-activity-row {
   display: flex;
+  min-width: 0;
   min-height: 108px;
   align-items: center;
   justify-content: space-between;
@@ -610,6 +615,7 @@ body.sale-sidebar-collapsed .sale-sidebar-open-button {
 .sale-schedule-item {
   display: flex;
   width: 100%;
+  min-width: 0;
   min-height: 108px;
   align-items: center;
   justify-content: space-between;
@@ -811,6 +817,7 @@ body.sale-sidebar-collapsed .sale-sidebar-open-button {
   .sale-topbar {
     align-items: stretch;
     flex-direction: column;
+    gap: 12px;
   }
 
   .sale-topbar-search {
@@ -819,9 +826,23 @@ body.sale-sidebar-collapsed .sale-sidebar-open-button {
 
   .sale-topbar-actions {
     flex-wrap: wrap;
+    justify-content: flex-end;
   }
 
   .sale-metrics-grid {
     grid-template-columns: 1fr;
+  }
+
+  .sale-activity-row,
+  .sale-schedule-item {
+    align-items: stretch;
+    flex-direction: column;
+    padding: 16px 0;
+  }
+
+  .sale-activity-action,
+  .sale-schedule-time {
+    align-items: flex-start;
+    text-align: left;
   }
 }

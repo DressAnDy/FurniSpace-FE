@@ -1,4 +1,3 @@
-import { IconPlus } from '@tabler/icons-react';
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 
 import { SaleNavbar, SaleSidebar } from '@/features/SalePages/salecomponents';
@@ -6,7 +5,6 @@ import { getQuotationServiceResultMessage, type QuotationDto, type QuotationItem
 import type { ProjectListItemDto, ProjectStatus } from '@/services/api/projects';
 import {
   useCancelQuotation,
-  useCreateDraftQuotation,
   useCurrentUser,
   useProjectList,
   useProjectProposals,
@@ -73,7 +71,6 @@ export function SaleQuotations() {
     },
     { enabled: Boolean(selectedProjectId) },
   );
-  const createDraftMutation = useCreateDraftQuotation();
   const updateQuotationMutation = useUpdateQuotation();
   const sendQuotationMutation = useSendQuotation();
   const reviseQuotationMutation = useReviseQuotation();
@@ -106,7 +103,6 @@ export function SaleQuotations() {
     [projectProposalsQuery.data?.items],
   );
   const selectedProject = quotationProjects.find((project) => project.projectId === selectedProjectId);
-  const canCreateDraftForSelectedProject = selectedProject?.status === 'PROPOSAL_SELECTED';
   const selectedQuotation = quotationDetailQuery.data;
   const selectedProposalQuery = useProposalDetail(selectedQuotation?.proposalId, { enabled: Boolean(selectedQuotation?.proposalId) });
   const selectedProposalName = getProposalName(selectedQuotation?.proposalId, proposalNameById, selectedProposalQuery.data?.proposalName);
@@ -151,28 +147,6 @@ export function SaleQuotations() {
       setSalesNote(selectedQuotation.salesNote ?? '');
     }
   }, [selectedQuotation]);
-
-  async function createDraft() {
-    if (!selectedProjectId) {
-      setMessage({ tone: 'error', text: 'Choose a project before creating a quotation.' });
-      return;
-    }
-
-    if (!canCreateDraftForSelectedProject) {
-      setMessage({ tone: 'error', text: 'Draft quotations can only be created for projects waiting for quotation.' });
-      return;
-    }
-
-    setMessage(null);
-
-    try {
-      const quotation = await createDraftMutation.mutateAsync(selectedProjectId);
-      setSelectedQuotationId(quotation.quotationId);
-      setMessage({ tone: 'success', text: 'Draft quotation created from the selected proposal items.' });
-    } catch (error) {
-      setMessage({ tone: 'error', text: getQuotationServiceResultMessage(error) });
-    }
-  }
 
   async function updateHeader(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -228,12 +202,8 @@ export function SaleQuotations() {
           <section className="sale-quotations-heading">
             <div>
               <h2>Quotations</h2>
-              <p>Create quotations for assigned projects after the customer selects a final proposal</p>
+              <p>Draft quotations are created automatically after the customer selects a final proposal</p>
             </div>
-            <button disabled={!canCreateDraftForSelectedProject || createDraftMutation.isPending} type="button" onClick={() => void createDraft()}>
-              <IconPlus size={16} />
-              {createDraftMutation.isPending ? 'Creating...' : 'Create Draft'}
-            </button>
           </section>
 
           {message ? <section className={`sale-quotations-message sale-quotations-message-${message.tone}`}>{message.text}</section> : null}

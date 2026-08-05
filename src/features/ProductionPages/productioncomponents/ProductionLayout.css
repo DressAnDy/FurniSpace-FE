@@ -153,6 +153,8 @@ body.production-sidebar-collapsed .production-sidebar-open-button {
   position: relative;
   display: flex;
   width: 576px;
+  max-width: 100%;
+  min-width: 0;
   height: 36px;
   align-items: center;
   gap: 10px;
@@ -175,6 +177,7 @@ body.production-sidebar-collapsed .production-sidebar-open-button {
 
 .production-topbar-actions {
   display: flex;
+  min-width: 0;
   align-items: center;
   gap: 16px;
 }
@@ -316,9 +319,14 @@ body.production-sidebar-collapsed .production-sidebar-open-button {
   .production-topbar {
     align-items: stretch;
     flex-direction: column;
+    gap: 12px;
   }
 
   .production-topbar-search {
     width: 100%;
+  }
+
+  .production-topbar-actions {
+    justify-content: flex-end;
   }
 }

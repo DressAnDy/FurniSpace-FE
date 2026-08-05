@@ -5,7 +5,6 @@ import {
   IconClipboardList,
   IconHome,
   IconMenu2,
-  IconSettings,
   IconTruckDelivery,
   IconUserCheck,
   type Icon,
@@ -28,7 +27,6 @@ const productionSidebarItems: ProductionSidebarItem[] = [
   { label: 'My Tasks', icon: IconUserCheck, path: '/production/my-tasks' },
   { label: 'Blocked Issues', icon: IconAlertTriangle, path: '/production/blocked-issues' },
   { label: 'Ready for Delivery', icon: IconTruckDelivery, path: '/production/ready-for-delivery' },
-  { label: 'Settings', icon: IconSettings, path: '/production/settings' },
 ];
 
 type ProductionSidebarProps = {

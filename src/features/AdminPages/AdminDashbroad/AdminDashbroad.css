@@ -491,6 +491,7 @@ body.admin-sidebar-collapsed .admin-topbar {
   font-size: 18px;
   font-weight: 600;
   line-height: 26px;
+  overflow-wrap: anywhere;
 }
 
 .admin-stat-layer-heading p {
@@ -736,12 +737,29 @@ body.admin-sidebar-collapsed .admin-topbar {
 }
 
 .admin-table-wrap {
+  width: 100%;
   overflow-x: auto;
   margin-top: 24px;
+  scrollbar-width: thin;
+  scrollbar-color: #8b6f47 #f5f1ec;
+}
+
+.admin-table-wrap::-webkit-scrollbar {
+  height: 8px;
+}
+
+.admin-table-wrap::-webkit-scrollbar-track {
+  background: #f5f1ec;
+}
+
+.admin-table-wrap::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: #8b6f47;
 }
 
 .admin-table-wrap table {
   width: 100%;
+  min-width: 760px;
   border-collapse: collapse;
   text-align: left;
   font-size: 14px;
@@ -800,7 +818,6 @@ body.admin-sidebar-collapsed .admin-topbar {
   }
 
   .admin-topbar {
-    flex-wrap: wrap;
     grid-template-columns: 1fr;
     height: auto;
     min-height: 64px;
@@ -822,6 +839,10 @@ body.admin-sidebar-collapsed .admin-topbar {
     grid-column: 1;
   }
 
+  .admin-topbar-actions {
+    justify-content: flex-end;
+  }
+
   .admin-stat-layer-grid,
   .admin-two-column {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -834,7 +855,7 @@ body.admin-sidebar-collapsed .admin-topbar {
 
 @media (max-width: 760px) {
   .admin-content {
-    padding: 20px;
+    padding: 20px 16px;
   }
 
   .admin-nav,

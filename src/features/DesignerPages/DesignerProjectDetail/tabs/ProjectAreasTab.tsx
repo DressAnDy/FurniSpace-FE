@@ -1,7 +1,7 @@
 import { IconPlus, IconRulerMeasure } from '@tabler/icons-react';
 import { useState } from 'react';
 
-import { getProjectAreaServiceResultMessage, type ProjectAreaDto, type ProjectAreaType } from '@/services/api/projectAreas';
+import { getProjectAreaServiceResultMessage, type ProjectAreaDto } from '@/services/api/projectAreas';
 import type { ProjectDto } from '@/services/api/projects';
 import { useCreateProjectArea, useProjectAreas } from '@/services/queries';
 
@@ -11,7 +11,6 @@ type ProjectAreasTabProps = {
 
 type AreaDraft = {
   areaName: string;
-  areaType: ProjectAreaType;
   areaSqm: string;
   floorNumber: string;
   height: string;
@@ -22,7 +21,6 @@ type AreaDraft = {
 
 const DEFAULT_AREA_DRAFT: AreaDraft = {
   areaName: '',
-  areaType: 'ROOM',
   areaSqm: '',
   floorNumber: '',
   height: '',
@@ -30,8 +28,6 @@ const DEFAULT_AREA_DRAFT: AreaDraft = {
   requirementNote: '',
   width: '',
 };
-
-const AREA_TYPES: ProjectAreaType[] = ['STORE', 'FLOOR', 'ROOM', 'ZONE', 'OUTDOOR_AREA', 'OTHER'];
 
 export function ProjectAreasTab({ project }: ProjectAreasTabProps) {
   const [areaDraft, setAreaDraft] = useState<AreaDraft>(DEFAULT_AREA_DRAFT);
@@ -63,7 +59,7 @@ export function ProjectAreasTab({ project }: ProjectAreasTabProps) {
       const area = await createAreaMutation.mutateAsync({
         projectId: project.projectId,
         areaName,
-        areaType: areaDraft.areaType,
+        areaType: 'FLOOR',
         areaSqm: parseOptionalNumber(areaDraft.areaSqm),
         floorNumber: parseOptionalNumber(areaDraft.floorNumber),
         height: parseOptionalNumber(areaDraft.height),
@@ -111,12 +107,6 @@ export function ProjectAreasTab({ project }: ProjectAreasTabProps) {
             <label>
               <span>Area Name</span>
               <input value={areaDraft.areaName} onChange={(event) => updateDraft('areaName', event.target.value)} />
-            </label>
-            <label>
-              <span>Type</span>
-              <select value={areaDraft.areaType} onChange={(event) => updateDraft('areaType', event.target.value as ProjectAreaType)}>
-                {AREA_TYPES.map((type) => <option key={type} value={type}>{formatEnumLabel(type)}</option>)}
-              </select>
             </label>
             <label>
               <span>Floor</span>

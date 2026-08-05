@@ -22,6 +22,7 @@
 
 .customer-workspace-heading {
   display: flex;
+  min-width: 0;
   align-items: flex-end;
   justify-content: space-between;
   gap: 20px;
@@ -44,6 +45,7 @@
   font-size: 30px;
   font-weight: 800;
   line-height: 1.2;
+  overflow-wrap: anywhere;
 }
 
 .customer-workspace-heading p {
@@ -74,11 +76,13 @@
 
 .customer-workspace-card,
 .customer-workspace-summary-card {
+  min-width: 0;
   padding: 22px;
 }
 
 .customer-workspace-card header {
   display: flex;
+  min-width: 0;
   align-items: flex-start;
   justify-content: space-between;
   gap: 14px;
@@ -123,6 +127,8 @@
   margin-top: 7px;
   color: #2d2d2d;
   font-size: 24px;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
 }
 
 .customer-workspace-summary-card svg {
@@ -191,6 +197,7 @@
   color: #2d2d2d;
   font-size: 14px;
   line-height: 1.45;
+  overflow-wrap: anywhere;
 }
 
 .customer-workspace-list {
@@ -221,7 +228,23 @@
 }
 
 .customer-workspace-table-wrap {
+  width: 100%;
   overflow-x: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #8b6f47 #f5f1ec;
+}
+
+.customer-workspace-table-wrap::-webkit-scrollbar {
+  height: 8px;
+}
+
+.customer-workspace-table-wrap::-webkit-scrollbar-track {
+  background: #f5f1ec;
+}
+
+.customer-workspace-table-wrap::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: #8b6f47;
 }
 
 .customer-workspace-table {
@@ -374,5 +397,20 @@
   .customer-workspace-heading,
   .customer-workspace-card {
     padding: 20px;
+  }
+
+  .customer-workspace-heading,
+  .customer-workspace-card header,
+  .customer-workspace-summary-card {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .customer-workspace-button,
+  .customer-workspace-link,
+  .customer-workspace-row-actions button,
+  .customer-workspace-row-actions a {
+    width: 100%;
+    white-space: normal;
   }
 }

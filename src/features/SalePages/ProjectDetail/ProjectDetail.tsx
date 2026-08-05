@@ -7,10 +7,10 @@ import type { ProjectDto, ProjectStatus } from '@/services/api/projects';
 import { getProjectServiceResultMessage } from '@/services/api/projects';
 import { useAssignSalesToProject, useProjectDetail, useRequestProjectInformation, useUpdateProjectStatus } from '@/services/queries/useProjects';
 
-import { ChatTab, CustomerInfoTab, FilesAttachmentsTab, OrdersTab, OverviewTab, SchedulesTab } from './tabs';
+import { ChatTab, CustomerInfoTab, FilesAttachmentsTab, OverviewTab, SchedulesTab } from './tabs';
 import './ProjectDetail.css';
 
-type ProjectDetailTab = 'overview' | 'customer' | 'files' | 'chat' | 'schedules' | 'orders';
+type ProjectDetailTab = 'overview' | 'customer' | 'files' | 'chat' | 'schedules';
 
 export type ProjectDetailProject = ProjectDto;
 
@@ -28,7 +28,6 @@ const baseTabs: Array<{ id: ProjectDetailTab; label: string }> = [
 
 const assignedProjectTabs: Array<{ id: ProjectDetailTab; label: string }> = [
   ...baseTabs,
-  { id: 'orders', label: 'Orders' },
   { id: 'schedules', label: 'Schedules' },
 ];
 
@@ -141,7 +140,6 @@ export function ProjectDetail() {
     if (activeTab === 'overview') return <OverviewTab project={project} showAssignedTeam={isAssignedProjectRoute} />;
     if (activeTab === 'customer') return <CustomerInfoTab project={project} />;
     if (activeTab === 'files') return <FilesAttachmentsTab projectId={project.projectId} />;
-    if (activeTab === 'orders' && isAssignedProjectRoute) return <OrdersTab projectId={project.projectId} />;
     if (activeTab === 'schedules' && isAssignedProjectRoute) return <SchedulesTab project={project} />;
     return <ChatTab project={project} />;
   };

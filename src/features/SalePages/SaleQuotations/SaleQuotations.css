@@ -43,7 +43,6 @@
   line-height: 20px;
 }
 
-.sale-quotations-heading button,
 .sale-quotations-actions button:first-child {
   display: inline-flex;
   height: 36px;
@@ -59,7 +58,6 @@
   font-weight: 500;
 }
 
-.sale-quotations-heading button:disabled,
 .sale-quotations-actions button:disabled,
 .sale-quotations-edit-form button:disabled {
   cursor: not-allowed;
