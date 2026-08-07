@@ -8,7 +8,8 @@ import {
   IconUser,
 } from '@tabler/icons-react';
 import { useQueries } from '@tanstack/react-query';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 
 import { SaleNavbar, SaleSidebar } from '@/features/SalePages/salecomponents';
 import {
@@ -51,6 +52,7 @@ const scheduleStatusOptions: Array<ProjectScheduleStatus | ''> = [
 ];
 
 export function SaleSchedules() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [editingSchedule, setEditingSchedule] = useState<ProjectScheduleDto | null>(null);
   const [scheduleType, setScheduleType] = useState<ProjectScheduleType | ''>('');
@@ -62,7 +64,7 @@ export function SaleSchedules() {
     return new Date(now.getFullYear(), now.getMonth(), 1);
   });
   const [selectedDateKey, setSelectedDateKey] = useState(() => getDateKey(new Date()));
-  const [selectedScheduleId, setSelectedScheduleId] = useState<string | null>(null);
+  const [selectedScheduleId, setSelectedScheduleId] = useState<string | null>(searchParams.get('scheduleId'));
   const currentUserQuery = useCurrentUser();
   const currentUser = currentUserQuery.data;
   const projectsQuery = useProjectList(
@@ -128,6 +130,48 @@ export function SaleSchedules() {
       ?? null,
     [managedSchedules, schedulesByDate, selectedDateKey, selectedScheduleId],
   );
+
+  useEffect(() => {
+    const scheduleId = searchParams.get('scheduleId');
+
+    if (!scheduleId) {
+      return;
+    }
+
+    const matched = managedSchedules.find(({ schedule }) => schedule.scheduleId === scheduleId);
+
+    if (!matched) {
+      return;
+    }
+
+    setSelectedScheduleId(matched.schedule.scheduleId);
+    setSelectedDateKey(getDateKey(new Date(matched.schedule.scheduledStart)));
+    setCalendarMonth(new Date(
+      new Date(matched.schedule.scheduledStart).getFullYear(),
+      new Date(matched.schedule.scheduledStart).getMonth(),
+      1,
+    ));
+  }, [managedSchedules, searchParams]);
+
+  function selectSchedule(scheduleId: string, dateKey: string) {
+    setSelectedDateKey(dateKey);
+    setSelectedScheduleId(scheduleId);
+    setSearchParams({ scheduleId });
+  }
+
+  function selectCalendarDay(dateKey: string, daySchedules: ManagedSchedule[]) {
+    setSelectedDateKey(dateKey);
+
+    const firstScheduleId = daySchedules[0]?.schedule.scheduleId ?? null;
+
+    setSelectedScheduleId(firstScheduleId);
+
+    if (firstScheduleId) {
+      setSearchParams({ scheduleId: firstScheduleId });
+    } else {
+      setSearchParams({});
+    }
+  }
 
   async function updateScheduleStatus(
     schedule: ProjectScheduleDto,
@@ -237,10 +281,7 @@ export function SaleSchedules() {
                         <button
                           className="sale-schedules-calendar-day-summary"
                           type="button"
-                          onClick={() => {
-                            setSelectedDateKey(dateKey);
-                            setSelectedScheduleId(daySchedules[0]?.schedule.scheduleId ?? null);
-                          }}
+                          onClick={() => selectCalendarDay(dateKey, daySchedules)}
                         >
                           <span className="sale-schedules-calendar-day-number">{day}</span>
                           <span className="sale-schedules-calendar-day-meta">{scheduleCountLabel}</span>
@@ -256,8 +297,7 @@ export function SaleSchedules() {
                                 type="button"
                                 onClick={(event) => {
                                   event.stopPropagation();
-                                  setSelectedDateKey(dateKey);
-                                  setSelectedScheduleId(schedule.scheduleId);
+                                  selectSchedule(schedule.scheduleId, dateKey);
                                 }}
                               >
                                 <strong>{formatTime(schedule.scheduledStart)}</strong>

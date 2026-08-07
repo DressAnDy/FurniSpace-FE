@@ -8,8 +8,22 @@ import {
   IconShoppingCart,
   IconTruckDelivery,
 } from '@tabler/icons-react';
+import { useQueries } from '@tanstack/react-query';
+import { useMemo } from 'react';
+import { Link } from 'react-router-dom';
 
 import { SaleNavbar, SaleSidebar } from '@/features/SalePages/salecomponents';
+import {
+  getAccountById,
+  getProjectSchedules,
+  getProjectScheduleServiceResultMessage,
+  type AccountDto,
+  type ProjectScheduleDto,
+} from '@/services/api';
+import type { ProjectListItemDto } from '@/services/api/projects';
+import { useCurrentUser } from '@/services/queries/useAuth';
+import { useProjectList } from '@/services/queries/useProjects';
+import { projectScheduleQueryKeys } from '@/services/queries/useSchedules';
 
 import './SaleDashbroad.css';
 
@@ -26,20 +40,9 @@ type MetricCard = {
   }[];
 };
 
-type ActivityItem = {
-  code: string;
-  title: string;
-  customer: string;
-  status: string;
-  date: string;
-};
-
-type ScheduleItem = {
-  title: string;
-  code: string;
-  type: string;
-  date: string;
-  time: string;
+type UpcomingSchedule = {
+  project: ProjectListItemDto;
+  schedule: ProjectScheduleDto;
 };
 
 const metrics: MetricCard[] = [
@@ -72,20 +75,6 @@ const metrics: MetricCard[] = [
   },
 ];
 
-const activities: ActivityItem[] = [
-  { code: 'PRJ-2024-156', title: 'Luxury Cafe Interior', customer: 'Bean & Brew Co.', status: 'In Consultation', date: '2024-06-06' },
-  { code: 'PRJ-2024-155', title: 'Fashion Boutique Renovation', customer: 'Chic Style Ltd.', status: 'Quotation Sent', date: '2024-06-05' },
-  { code: 'PRJ-2024-154', title: 'Corporate Office Space', customer: 'Tech Innovations Inc.', status: 'Order Confirmed', date: '2024-06-05' },
-  { code: 'PRJ-2024-153', title: 'Retail Store Design', customer: 'Urban Trends', status: 'In Production', date: '2024-06-04' },
-  { code: 'PRJ-2024-152', title: 'Restaurant Interior', customer: 'Gourmet Bistro', status: 'Need Information', date: '2024-06-04' },
-];
-
-const schedules: ScheduleItem[] = [
-  { title: 'Site Measurement - Cafe Project', code: 'PRJ-2024-156', type: 'MEASUREMENT', date: '2024-06-07', time: '10:00 AM' },
-  { title: 'Design Review Meeting', code: 'PRJ-2024-150', type: 'DESIGN_REVIEW', date: '2024-06-08', time: '2:00 PM' },
-  { title: 'Client Consultation', code: 'PRJ-2024-149', type: 'CONSULTATION', date: '2024-06-09', time: '11:00 AM' },
-];
-
 const filters = [
   { label: 'Submitted', count: 24 },
   { label: 'In Consultation', count: 12 },
@@ -97,18 +86,130 @@ const filters = [
 ];
 
 function getStatusClass(status: string) {
-  if (status === 'Need Information') return 'sale-status-badge sale-status-muted';
+  if (status === 'NEED_BASIC_INFORMATION' || status === 'Need Information') {
+    return 'sale-status-badge sale-status-muted';
+  }
+
   return 'sale-status-badge';
 }
 
-function getScheduleTypeLabel(type: string) {
-  return type
+function formatEnumLabel(value: string) {
+  return value
+    .toLowerCase()
     .split('_')
-    .map((word) => word.charAt(0) + word.slice(1).toLowerCase())
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(' ');
 }
 
+function formatDate(value: string) {
+  return new Intl.DateTimeFormat('en-CA').format(new Date(value));
+}
+
+function formatTime(value: string) {
+  return new Intl.DateTimeFormat('en', {
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(new Date(value));
+}
+
+function startOfToday() {
+  const now = new Date();
+
+  return new Date(now.getFullYear(), now.getMonth(), now.getDate());
+}
+
 export function SaleDashbroad() {
+  const currentUserQuery = useCurrentUser();
+  const currentUser = currentUserQuery.data;
+  const projectsQuery = useProjectList(
+    {
+      assignedSalesId: currentUser?.accountId,
+      page: 1,
+      limit: 50,
+    },
+    { enabled: Boolean(currentUser?.accountId) },
+  );
+  const assignedProjects = useMemo(
+    () => (projectsQuery.data?.items ?? []).filter((project) => Boolean(project.projectId)),
+    [projectsQuery.data?.items],
+  );
+  const recentProjects = useMemo(
+    () =>
+      [...assignedProjects]
+        .filter((project) => project.status !== 'SUBMITTED')
+        .sort((left, right) => new Date(right.submittedAt).getTime() - new Date(left.submittedAt).getTime())
+        .slice(0, 5),
+    [assignedProjects],
+  );
+  const customerIds = useMemo(
+    () => Array.from(new Set(recentProjects.map((project) => project.customerId).filter(Boolean))),
+    [recentProjects],
+  );
+  const customerQueries = useQueries({
+    queries: customerIds.map((customerId) => ({
+      queryKey: ['accounts', 'detail', customerId],
+      queryFn: () => getAccountById(customerId),
+      enabled: Boolean(customerId),
+      staleTime: 5 * 60 * 1000,
+    })),
+  });
+  const customerById = useMemo(() => {
+    return customerQueries.reduce<Record<string, AccountDto>>((lookup, query, index) => {
+      const account = query.data;
+
+      if (account) {
+        lookup[customerIds[index]] = account;
+      }
+
+      return lookup;
+    }, {});
+  }, [customerIds, customerQueries]);
+  const scheduleQueries = useQueries({
+    queries: assignedProjects.map((project) => {
+      const params = {
+        projectId: project.projectId,
+        scheduleType: null,
+        status: null,
+        page: 1,
+        limit: 100,
+      };
+
+      return {
+        queryKey: projectScheduleQueryKeys.list(params),
+        queryFn: () => getProjectSchedules(params),
+        enabled: Boolean(project.projectId),
+      };
+    }),
+  });
+  const upcomingSchedules = useMemo<UpcomingSchedule[]>(() => {
+    const today = startOfToday().getTime();
+    const allSchedules = scheduleQueries
+      .flatMap((query, index) =>
+        (query.data?.items ?? []).map((schedule) => ({
+          project: assignedProjects[index],
+          schedule,
+        })),
+      )
+      .filter((item): item is UpcomingSchedule => Boolean(item.project))
+      .filter(({ schedule }) => schedule.status !== 'CANCELLED')
+      .sort(
+        (left, right) =>
+          new Date(left.schedule.scheduledStart).getTime() - new Date(right.schedule.scheduledStart).getTime(),
+      );
+    const upcoming = allSchedules.filter(
+      ({ schedule }) => new Date(schedule.scheduledStart).getTime() >= today,
+    );
+    const recentPast = allSchedules
+      .filter(({ schedule }) => new Date(schedule.scheduledStart).getTime() < today)
+      .reverse();
+
+    return [...upcoming, ...recentPast].slice(0, 5);
+  }, [assignedProjects, scheduleQueries]);
+  const isLoadingActivities = currentUserQuery.isLoading || projectsQuery.isLoading;
+  const hasActivityError = currentUserQuery.isError || projectsQuery.isError;
+  const isLoadingSchedules = isLoadingActivities || scheduleQueries.some((query) => query.isLoading);
+  const scheduleError = scheduleQueries.find((query) => query.isError)?.error;
+
   return (
     <div className="sale-dashboard-shell">
       <SaleSidebar activeLabel="Dashboard" />
@@ -181,27 +282,40 @@ export function SaleDashbroad() {
               </header>
 
               <div className="sale-activity-list">
-                {activities.map((activity) => (
-                  <div key={activity.code} className="sale-activity-row">
-                    <div className="sale-activity-main">
-                      <div className="sale-activity-meta">
-                        <span>{activity.code}</span>
-                        <span className={getStatusClass(activity.status)}>{activity.status}</span>
+                {isLoadingActivities ? <p className="sale-activity-state">Loading recent projects...</p> : null}
+                {hasActivityError ? <p className="sale-activity-state sale-activity-state-error">Could not load recent projects.</p> : null}
+                {!isLoadingActivities && !hasActivityError && recentProjects.length === 0 ? (
+                  <p className="sale-activity-state">No assigned projects yet.</p>
+                ) : null}
+                {recentProjects.map((project) => {
+                  const customer = customerById[project.customerId];
+
+                  return (
+                    <div key={project.projectId} className="sale-activity-row">
+                      <div className="sale-activity-main">
+                        <div className="sale-activity-meta">
+                          <span>{project.projectCode}</span>
+                          <span className={getStatusClass(project.status)}>{formatEnumLabel(project.status)}</span>
+                        </div>
+                        <h4>{project.projectName}</h4>
+                        <p>{customer?.fullName ?? customer?.email ?? 'Loading customer...'}</p>
                       </div>
-                      <h4>{activity.title}</h4>
-                      <p>{activity.customer}</p>
+                      <Link
+                        aria-label={`Open project ${project.projectName}`}
+                        className="sale-activity-action"
+                        to={`/sales/assigned-projects/${project.projectId}`}
+                      >
+                        <span>{project.submittedAt ? formatDate(project.submittedAt) : '-'}</span>
+                        <IconArrowRight size={16} />
+                      </Link>
                     </div>
-                    <div className="sale-activity-action">
-                      <span>{activity.date}</span>
-                      <IconArrowRight size={16} />
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
 
-              <button className="sale-outline-button" type="button">
+              <Link className="sale-outline-button" to="/sales/assigned-projects">
                 View All Projects
-              </button>
+              </Link>
             </article>
 
             <article className="sale-card sale-schedules-card">
@@ -211,29 +325,40 @@ export function SaleDashbroad() {
               </header>
 
               <div className="sale-schedule-list">
-                {schedules.map((schedule) => (
-                  <div key={`${schedule.code}-${schedule.type}`} className="sale-schedule-item">
+                {isLoadingSchedules ? <p className="sale-activity-state">Loading upcoming schedules...</p> : null}
+                {scheduleError ? (
+                  <p className="sale-activity-state sale-activity-state-error">
+                    {getProjectScheduleServiceResultMessage(scheduleError)}
+                  </p>
+                ) : null}
+                {!isLoadingSchedules && !scheduleError && upcomingSchedules.length === 0 ? (
+                  <p className="sale-activity-state">No upcoming schedules yet.</p>
+                ) : null}
+                {upcomingSchedules.map(({ project, schedule }) => (
+                  <div key={schedule.scheduleId} className="sale-schedule-item">
                     <div className="sale-schedule-main">
                       <div className="sale-schedule-meta">
-                        <span>{schedule.code}</span>
-                        <span className="sale-status-badge sale-status-muted">{getScheduleTypeLabel(schedule.type)}</span>
+                        <span>{project.projectCode}</span>
+                        <span className="sale-status-badge sale-status-muted">{formatEnumLabel(schedule.scheduleType)}</span>
                       </div>
-                      <h4>{schedule.title}</h4>
+                      <h4>{schedule.title ?? formatEnumLabel(schedule.scheduleType)}</h4>
                     </div>
-                    <div className="sale-schedule-time">
-                      <span>{schedule.date}</span>
-                      <div>
-                        <span>{schedule.time}</span>
-                        <IconArrowRight size={16} />
-                      </div>
-                    </div>
+                    <Link
+                      aria-label={`Open schedule ${schedule.title ?? formatEnumLabel(schedule.scheduleType)}`}
+                      className="sale-schedule-time"
+                      to={`/sales/schedules?scheduleId=${encodeURIComponent(schedule.scheduleId)}`}
+                    >
+                      <span>{formatDate(schedule.scheduledStart)}</span>
+                      <span>{formatTime(schedule.scheduledStart)}</span>
+                      <IconArrowRight size={16} />
+                    </Link>
                   </div>
                 ))}
               </div>
 
-              <button className="sale-outline-button" type="button">
+              <Link className="sale-outline-button" to="/sales/schedules">
                 View All Schedules
-              </button>
+              </Link>
             </article>
           </section>
 
