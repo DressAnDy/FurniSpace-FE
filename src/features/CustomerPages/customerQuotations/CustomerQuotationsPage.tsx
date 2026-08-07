@@ -272,7 +272,11 @@ function QuotationDetail({
         </div>
         <div>
           <span>Discount</span>
-          <strong>-{formatMoney(quotation.discountAmount)}</strong>
+          <strong>-{formatMoney(getQuotationDiscountTotal(quotation))}</strong>
+        </div>
+        <div>
+          <span>Taxable</span>
+          <strong>{formatMoney(quotation.taxableAmount)}</strong>
         </div>
         <div>
           <span>Tax</span>
@@ -293,8 +297,12 @@ function QuotationDetail({
               <th>Qty</th>
               <th>Unit</th>
               <th>Customization</th>
+              <th>Gross</th>
               <th>Discount</th>
-              <th>Subtotal</th>
+              <th>Taxable</th>
+              <th>Tax %</th>
+              <th>Tax</th>
+              <th>Total</th>
             </tr>
           </thead>
           <tbody>
@@ -307,9 +315,13 @@ function QuotationDetail({
                 <td>{formatEnumLabel(item.itemType ?? 'UNKNOWN')}</td>
                 <td>{item.quantity ?? '-'}</td>
                 <td>{formatMoney(item.unitPrice)}</td>
-                <td>{formatMoney(item.customizationAdditionalCost)}</td>
+                <td>{formatMoney(getCustomizationUnitAdditionalCost(item))}</td>
+                <td>{formatMoney(item.grossAmount ?? item.subtotalAmount)}</td>
                 <td>{formatMoney(item.discountAmount)}</td>
-                <td>{formatMoney(item.subtotalAmount)}</td>
+                <td>{formatMoney(item.taxableAmount)}</td>
+                <td>{formatPercent(item.taxRate)}</td>
+                <td>{formatMoney(item.taxAmount)}</td>
+                <td>{formatMoney(item.totalAmount ?? item.subtotalAmount)}</td>
               </tr>
             ))}
           </tbody>
@@ -387,6 +399,14 @@ function getQuotationItemName(item: Pick<QuotationItemDto, 'itemName' | 'product
   return item.itemName ?? item.productNameSnapshot ?? item.productVersionNameSnapshot ?? '-';
 }
 
+function getCustomizationUnitAdditionalCost(item: Pick<QuotationItemDto, 'customizationUnitAdditionalCost' | 'customizationAdditionalCost'>) {
+  return item.customizationUnitAdditionalCost ?? item.customizationAdditionalCost ?? null;
+}
+
+function getQuotationDiscountTotal(quotation: Pick<QuotationDto, 'totalDiscountAmount' | 'discountAmount'>) {
+  return quotation.totalDiscountAmount ?? quotation.discountAmount ?? null;
+}
+
 function statusClass(status?: QuotationStatus | null) {
   return (status ?? 'UNKNOWN').toLowerCase().replace(/_/g, '-');
 }
@@ -403,4 +423,10 @@ function formatMoney(value?: number | null) {
   if (typeof value !== 'number') return '-';
 
   return `${new Intl.NumberFormat('vi-VN').format(value)} VND`;
+}
+
+function formatPercent(value?: number | null) {
+  if (typeof value !== 'number') return '-';
+
+  return `${new Intl.NumberFormat('vi-VN').format(value)}%`;
 }

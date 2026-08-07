@@ -53,6 +53,7 @@ import { SaleDashbroad } from '@/features/SalePages/SaleDashbroad';
 import { SaleOrders } from '@/features/SalePages/SaleOrders';
 import { SaleQuotations } from '@/features/SalePages/SaleQuotations';
 import { SaleSchedules } from '@/features/SalePages/SaleSchedules';
+import { SaleTracking } from '@/features/SalePages/SaleTracking';
 import { ThreeDTestPage } from '@/features/ThreeD/pages/ThreeDTestPage';
 import { BuildingBlueprintTestPage, BuildingThreeDTestPage } from '@/features/ThreeDTest';
 import { ViewerDemoPage } from '@/features/viewer3d';
@@ -98,6 +99,7 @@ export default function App() {
                 <Route element={<ProtectedRoute allowedRoles={['ADMIN']} />}>
                   <Route path="/admin" element={<Navigate to="/admin/dashbroad" replace />} />
                   <Route path="/admin/dashbroad" element={<AdminDashbroad />} />
+                  <Route path="/admin/dashboard" element={<AdminDashbroad />} />
                   <Route path="/admin/users" element={<UserManagement />} />
                   <Route path="/admin/categories" element={<Categorymanagement />} />
                   <Route path="/admin/products" element={<Productmanagement />} />
@@ -155,6 +157,7 @@ export default function App() {
                   <Route path="/sales/schedules" element={<SaleSchedules />} />
                   <Route path="/sales/quotations" element={<SaleQuotations />} />
                   <Route path="/sales/orders" element={<SaleOrders />} />
+                  <Route path="/sales/tracking" element={<SaleTracking />} />
                   <Route path="/sales/project-requests/:projectId" element={<ProjectDetail />} />
                 </Route>
 

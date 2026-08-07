@@ -516,7 +516,7 @@
 
 .sale-quotations-edit-form {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr)) auto;
+  grid-template-columns: minmax(160px, 0.8fr) minmax(220px, 1fr) auto;
   align-items: end;
   gap: 12px;
   border-radius: 10px;
@@ -544,6 +544,60 @@
 
 .sale-quotations-items-table {
   margin-top: 16px;
+}
+
+.sale-quotations-item-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border-radius: 8px;
+  background: #faf9f7;
+  margin-top: 14px;
+  padding: 10px 12px;
+}
+
+.sale-quotations-item-toolbar span {
+  color: #6b6b6b;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 18px;
+}
+
+.sale-quotations-item-toolbar button {
+  min-height: 34px;
+  border: 1px solid #8b6f47;
+  border-radius: 6px;
+  background: #8b6f47;
+  color: #ffffff;
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 0 12px;
+  white-space: nowrap;
+}
+
+.sale-quotations-item-toolbar button:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
+}
+
+.sale-quotations-line-input {
+  width: 118px;
+  min-width: 0;
+  height: 34px;
+  border: 1px solid rgba(139, 111, 71, 0.2);
+  border-radius: 6px;
+  background: #ffffff;
+  color: #2d2d2d;
+  font: inherit;
+  font-size: 13px;
+  padding: 0 8px;
+}
+
+.sale-quotations-line-input-small {
+  width: 72px;
 }
 
 .sale-quotations-total-list {

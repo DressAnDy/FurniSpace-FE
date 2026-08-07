@@ -1,10 +1,9 @@
-import { IconCalendarPlus, IconCircleCheck, IconSettings, IconTruckDelivery, IconUserPlus } from '@tabler/icons-react';
+import { IconCircleCheck, IconSettings, IconUserPlus } from '@tabler/icons-react';
 import { type FormEvent, useEffect, useMemo, useState } from 'react';
 
 import { SaleNavbar, SaleSidebar } from '@/features/SalePages/salecomponents';
 import type { ProductionItem } from '@/features/ProductionPages/types';
 import { getOrderServiceResultMessage, type OrderDetailDto, type OrderItemDto, type OrderStatus } from '@/services/api/orders';
-import { getProjectScheduleServiceResultMessage } from '@/services/api/schedules';
 import { getProductionServiceResultMessage, type ProductionRequestQueueItemDto } from '@/services/api/production';
 import type { ProjectListItemDto } from '@/services/api/projects';
 import {
@@ -13,7 +12,6 @@ import {
   useCreateOrderAdjustment,
   useCreateOrderRemainingPayment,
   useCreateProductionRequest,
-  useCreateProjectSchedule,
   useCurrentUser,
   useOrderDetail,
   usePrepareOrderFinalPayment,
@@ -21,11 +19,7 @@ import {
   useProductionRequests,
   useProjectList,
   useProjectOrders,
-  useProjectScheduleList,
-  useStartOrderDelivery,
-  useUpdateOrderItemDeliveredQuantity,
   useUpdateOrderFinancialAdjustment,
-  useUpdateProjectScheduleStatus,
 } from '@/services/queries';
 import { aggregateDuplicateItems } from '@/shared/utils/itemAggregation';
 
@@ -74,22 +68,8 @@ export function SaleOrders() {
   );
   const productionRequestDetailQuery = useProductionRequestDetail(currentProductionRequest?.productionRequestId);
   const productionStaffQuery = useAvailableProductionStaff({ projectId: selectedProjectId }, { enabled: Boolean(selectedProjectId) });
-  const deliverySchedulesQuery = useProjectScheduleList(
-    selectedProjectId
-      ? {
-          limit: 20,
-          page: 1,
-          projectId: selectedProjectId,
-          scheduleType: 'DELIVERY',
-        }
-      : undefined,
-  );
   const createProductionRequestMutation = useCreateProductionRequest();
   const createAdjustmentMutation = useCreateOrderAdjustment();
-  const createScheduleMutation = useCreateProjectSchedule();
-  const updateScheduleStatusMutation = useUpdateProjectScheduleStatus();
-  const startDeliveryMutation = useStartOrderDelivery();
-  const deliveredQuantityMutation = useUpdateOrderItemDeliveredQuantity();
   const prepareFinalPaymentMutation = usePrepareOrderFinalPayment();
   const remainingPaymentMutation = useCreateOrderRemainingPayment();
   const completeOrderMutation = useCompleteOrder();
@@ -186,17 +166,12 @@ export function SaleOrders() {
               <section className="sale-orders-grid">
                 {order ? (
                   <OrderDetailPanel
-                    deliverySchedules={deliverySchedulesQuery.data?.items ?? []}
                     isCompleting={completeOrderMutation.isPending}
                     isCreatingAdjustment={createAdjustmentMutation.isPending}
                     isCreatingProduction={createProductionRequestMutation.isPending}
                     isCreatingRemainingPayment={remainingPaymentMutation.isPending}
-                    isCreatingSchedule={createScheduleMutation.isPending}
                     isPreparingFinalPayment={prepareFinalPaymentMutation.isPending}
-                    isStartingDelivery={startDeliveryMutation.isPending}
                     isAdjusting={financialAdjustmentMutation.isPending}
-                    isUpdatingDeliveredQuantity={deliveredQuantityMutation.isPending}
-                    isUpdatingSchedule={updateScheduleStatusMutation.isPending}
                     order={order}
                     productionRequest={productionRequestDetailQuery.data ?? currentProductionRequest}
                     productionStaff={productionStaffQuery.data ?? []}
@@ -215,16 +190,6 @@ export function SaleOrders() {
                         }
                       } catch (error) {
                         setMessage({ tone: 'error', text: getOrderServiceResultMessage(error) });
-                      }
-                    }}
-                    onConfirmSchedule={async (scheduleId) => {
-                      setMessage(null);
-                      try {
-                        await updateScheduleStatusMutation.mutateAsync({ scheduleId, status: 'CONFIRMED', note: 'Delivery schedule confirmed.' });
-                        setMessage({ tone: 'success', text: 'Delivery schedule confirmed.' });
-                        void deliverySchedulesQuery.refetch();
-                      } catch (error) {
-                        setMessage({ tone: 'error', text: getProjectScheduleServiceResultMessage(error) });
                       }
                     }}
                     onCreateAdjustment={async (reason) => {
@@ -246,21 +211,6 @@ export function SaleOrders() {
                         void orderDetailQuery.refetch();
                       } catch (error) {
                         setMessage({ tone: 'error', text: getProductionServiceResultMessage(error) });
-                      }
-                    }}
-                    onCreateSchedule={async (input) => {
-                      setMessage(null);
-                      try {
-                        await createScheduleMutation.mutateAsync({
-                          ...input,
-                          projectId: order.projectId,
-                          scheduleType: 'DELIVERY',
-                          title: input.title || 'Delivery schedule',
-                        });
-                        setMessage({ tone: 'success', text: 'Delivery schedule created.' });
-                        void deliverySchedulesQuery.refetch();
-                      } catch (error) {
-                        setMessage({ tone: 'error', text: getProjectScheduleServiceResultMessage(error) });
                       }
                     }}
                     onPrepareAndCreateRemainingPayment={async () => {
@@ -287,25 +237,6 @@ export function SaleOrders() {
                         setMessage({ tone: 'error', text: getOrderServiceResultMessage(error) });
                       }
                     }}
-                    onStartDelivery={async () => {
-                      setMessage(null);
-                      try {
-                        await startDeliveryMutation.mutateAsync(order.orderId);
-                        setMessage({ tone: 'success', text: 'Delivery started.' });
-                      } catch (error) {
-                        setMessage({ tone: 'error', text: getOrderServiceResultMessage(error) });
-                      }
-                    }}
-                    onUpdateDeliveredQuantity={async (orderItemId, deliveredQuantityIncrement) => {
-                      setMessage(null);
-                      try {
-                        await deliveredQuantityMutation.mutateAsync({ deliveredQuantityIncrement, orderItemId, deliveryNote: 'Delivered by staff.' });
-                        setMessage({ tone: 'success', text: 'Delivered quantity updated.' });
-                        void orderDetailQuery.refetch();
-                      } catch (error) {
-                        setMessage({ tone: 'error', text: getOrderServiceResultMessage(error) });
-                      }
-                    }}
                   />
                 ) : ordersQuery.isLoading ? (
                   <p className="sale-orders-muted">Loading orders...</p>
@@ -322,65 +253,42 @@ export function SaleOrders() {
 }
 
 function OrderDetailPanel({
-  deliverySchedules,
   isCompleting,
   isCreatingAdjustment,
   isCreatingProduction,
   isCreatingRemainingPayment,
-  isCreatingSchedule,
   isPreparingFinalPayment,
-  isStartingDelivery,
   isAdjusting,
-  isUpdatingDeliveredQuantity,
-  isUpdatingSchedule,
   onAdjustFinancial,
   onCompleteOrder,
-  onConfirmSchedule,
   onCreateAdjustment,
   onCreateProduction,
-  onCreateSchedule,
   onPrepareAndCreateRemainingPayment,
-  onStartDelivery,
-  onUpdateDeliveredQuantity,
   order,
   productionRequest,
   productionStaff,
 }: {
-  deliverySchedules: Array<{ scheduleId: string; scheduledStart: string; status: string; title: string | null }>;
   isCompleting: boolean;
   isCreatingAdjustment: boolean;
   isCreatingProduction: boolean;
   isCreatingRemainingPayment: boolean;
-  isCreatingSchedule: boolean;
   isPreparingFinalPayment: boolean;
-  isStartingDelivery: boolean;
   isAdjusting: boolean;
-  isUpdatingDeliveredQuantity: boolean;
   onAdjustFinancial: (input: { depositAmount: number; orderId: string }) => void;
   onCompleteOrder: () => void;
-  onConfirmSchedule: (scheduleId: string) => void;
   onCreateAdjustment: (reason: string) => void;
   onCreateProduction: (input: { assignedTo?: string | null; priority: 'LOW' | 'MEDIUM' | 'NORMAL' | 'HIGH' | 'URGENT'; estimatedStartDate?: string | null; estimatedCompletionDate?: string | null; note?: string | null }) => void;
-  onCreateSchedule: (input: { assignedStaffId?: string | null; title?: string | null; scheduledStart: string; scheduledEnd?: string | null; location?: string | null; customerNote?: string | null; internalNote?: string | null }) => void;
   onPrepareAndCreateRemainingPayment: () => void;
-  onStartDelivery: () => void;
-  onUpdateDeliveredQuantity: (orderItemId: string, deliveredQuantityIncrement: number) => void;
   order: OrderDetailDto;
   productionRequest: SalesProductionTrackingRequest | null | undefined;
   productionStaff: Array<{ accountId: string; fullName: string; activeRequestCount: number; isAvailable: boolean }>;
-  isUpdatingSchedule: boolean;
 }) {
   const [depositAmount, setDepositAmount] = useState(() => String(order.depositAmount ?? 0));
   const [assignedTo, setAssignedTo] = useState('');
   const [priority, setPriority] = useState<'LOW' | 'MEDIUM' | 'NORMAL' | 'HIGH' | 'URGENT'>('NORMAL');
   const [estimatedStartDate, setEstimatedStartDate] = useState('');
   const [estimatedCompletionDate, setEstimatedCompletionDate] = useState('');
-  const [scheduleStart, setScheduleStart] = useState('');
-  const [scheduleEnd, setScheduleEnd] = useState('');
-  const [scheduleLocation, setScheduleLocation] = useState('');
   const orderItems = useMemo(() => aggregateDuplicateItems(order.items), [order.items]);
-  const deliveryActionItems = order.items.filter((item) => item.itemType === 'PRODUCT_ITEM' && item.status !== 'UNAVAILABLE' && item.status !== 'CANCELLED');
-  const confirmedDeliverySchedule = deliverySchedules.some((schedule) => schedule.status === 'CONFIRMED');
   const hasCancelledItems = order.items.some((item) => item.status === 'CANCELLED' || item.status === 'UNAVAILABLE');
   const canCompleteOrder = order.status === 'DELIVERED' || order.status === 'FINAL_PAYMENT_PENDING';
   const isOrderCompleted = order.status === 'COMPLETED';
@@ -491,86 +399,6 @@ function OrderDetailPanel({
           </button>
         </div>
       ) : null}
-      {order.status === 'READY_FOR_DELIVERY' || order.status === 'DELIVERING' ? (
-        <form
-          className="sale-orders-flow-panel"
-          onSubmit={(event) => {
-            event.preventDefault();
-            onCreateSchedule({
-              assignedStaffId: assignedTo || null,
-              internalNote: 'Delivery schedule for production order flow.',
-              location: scheduleLocation,
-              scheduledEnd: scheduleEnd ? new Date(scheduleEnd).toISOString() : null,
-              scheduledStart: new Date(scheduleStart).toISOString(),
-              title: 'Delivery schedule',
-            });
-          }}
-        >
-          <header>
-            <h3>Delivery</h3>
-          </header>
-          <div className="sale-orders-form-grid">
-            <label>
-              <span>Staff</span>
-              <select value={assignedTo} onChange={(event) => setAssignedTo(event.target.value)}>
-                <option value="">Unassigned</option>
-                {productionStaff.map((staff) => (
-                  <option key={staff.accountId} value={staff.accountId}>{staff.fullName}</option>
-                ))}
-              </select>
-            </label>
-            <label>
-              <span>Start</span>
-              <input required type="datetime-local" value={scheduleStart} onChange={(event) => setScheduleStart(event.target.value)} />
-            </label>
-            <label>
-              <span>End</span>
-              <input type="datetime-local" value={scheduleEnd} onChange={(event) => setScheduleEnd(event.target.value)} />
-            </label>
-            <label>
-              <span>Location</span>
-              <input value={scheduleLocation} onChange={(event) => setScheduleLocation(event.target.value)} />
-            </label>
-          </div>
-          <div className="sale-orders-actions">
-            <button disabled={isCreatingSchedule || !scheduleStart} type="submit">
-              <IconCalendarPlus size={16} />
-              {isCreatingSchedule ? 'Creating...' : 'Create Schedule'}
-            </button>
-            <button disabled={order.status !== 'READY_FOR_DELIVERY' || !confirmedDeliverySchedule || isStartingDelivery} type="button" onClick={onStartDelivery}>
-              <IconTruckDelivery size={16} />
-              {isStartingDelivery ? 'Starting...' : 'Start Delivery'}
-            </button>
-          </div>
-          <div className="sale-orders-schedule-list">
-            {deliverySchedules.map((schedule) => (
-              <div key={schedule.scheduleId}>
-                <span>{schedule.title ?? 'Delivery'} - {formatDate(schedule.scheduledStart)} - {formatEnumLabel(schedule.status)}</span>
-                {schedule.status === 'PENDING_CONFIRMATION' ? (
-                  <button disabled={isUpdatingSchedule} type="button" onClick={() => onConfirmSchedule(schedule.scheduleId)}>Confirm</button>
-                ) : null}
-              </div>
-            ))}
-          </div>
-        </form>
-      ) : null}
-      {order.status === 'DELIVERING' ? (
-        <div className="sale-orders-flow-panel">
-          <header>
-            <h3>Delivered Quantity</h3>
-          </header>
-          <div className="sale-orders-delivery-list">
-            {deliveryActionItems.map((item) => (
-              <div key={item.orderItemId}>
-                <span>{getOrderItemName(item)}: {item.deliveredQuantity ?? 0}/{item.quantity ?? 0}</span>
-                <button disabled={isUpdatingDeliveredQuantity || (item.deliveredQuantity ?? 0) >= (item.quantity ?? 0)} type="button" onClick={() => onUpdateDeliveredQuantity(item.orderItemId, 1)}>
-                  Add 1
-                </button>
-              </div>
-            ))}
-          </div>
-        </div>
-      ) : null}
       {order.status === 'DELIVERED' || order.status === 'FINAL_PAYMENT_PENDING' || order.status === 'COMPLETED' ? (
         <div className="sale-orders-flow-panel">
           <header>
@@ -609,8 +437,12 @@ function OrderDetailPanel({
               <th>Qty</th>
               <th>Unit</th>
               <th>Customization</th>
+              <th>Gross</th>
               <th>Discount</th>
-              <th>Subtotal</th>
+              <th>Taxable</th>
+              <th>Tax %</th>
+              <th>Tax</th>
+              <th>Total</th>
               <th>Delivery</th>
             </tr>
           </thead>
@@ -621,9 +453,13 @@ function OrderDetailPanel({
                 <td>{formatEnumLabel(item.itemType ?? 'UNKNOWN')}</td>
                 <td>{item.quantity ?? '-'}</td>
                 <td>{formatMoney(item.unitPrice)}</td>
-                <td>{formatMoney(item.customizationAdditionalCost)}</td>
+                <td>{formatMoney(getCustomizationUnitAdditionalCost(item))}</td>
+                <td>{formatMoney(item.grossAmount ?? item.subtotalAmount)}</td>
                 <td>{formatMoney(item.discountAmount)}</td>
-                <td>{formatMoney(item.subtotalAmount)}</td>
+                <td>{formatMoney(item.taxableAmount)}</td>
+                <td>{formatPercent(item.taxRate)}</td>
+                <td>{formatMoney(item.taxAmount)}</td>
+                <td>{formatMoney(item.totalAmount ?? item.subtotalAmount)}</td>
                 <td>{formatDeliveryState(item)}</td>
               </tr>
             ))}
@@ -714,6 +550,10 @@ function getOrderItemName(item: Pick<OrderItemDto, 'itemName' | 'productNameSnap
   return item.itemName ?? item.productNameSnapshot ?? '-';
 }
 
+function getCustomizationUnitAdditionalCost(item: Pick<OrderItemDto, 'customizationUnitAdditionalCost' | 'customizationAdditionalCost'>) {
+  return item.customizationUnitAdditionalCost ?? item.customizationAdditionalCost ?? null;
+}
+
 function getOrderProjects(projects: ProjectListItemDto[]) {
   return projects.filter((project) => orderProjectStatuses.has(project.status));
 }
@@ -734,6 +574,12 @@ function formatMoney(value?: number | null) {
   if (typeof value !== 'number') return '-';
 
   return `${new Intl.NumberFormat('vi-VN').format(value)} VND`;
+}
+
+function formatPercent(value?: number | null) {
+  if (typeof value !== 'number') return '-';
+
+  return `${new Intl.NumberFormat('vi-VN').format(value)}%`;
 }
 
 function getOrderItemTrackingStatus(item: OrderItemDto, orderStatus?: OrderStatus | null) {
