@@ -805,6 +805,13 @@
   line-height: 16px;
 }
 
+.project-detail-start-fee-create label small {
+  color: #8a8177;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 15px;
+}
+
 .project-detail-start-fee-create input {
   width: 100%;
   height: 36px;
@@ -1263,6 +1270,11 @@
 .project-detail-chat-selector .project-detail-chat-channel-active {
   border-color: #8b6f47;
   background: #f5f1ec;
+}
+
+.project-detail-chat-selector .project-detail-chat-channel-unread {
+  border-color: rgba(220, 38, 38, 0.28);
+  box-shadow: inset 3px 0 0 #dc2626;
 }
 
 .project-detail-chat-unread-badge {

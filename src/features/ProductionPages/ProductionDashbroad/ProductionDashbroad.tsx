@@ -1,235 +1,173 @@
+import { useMemo, useState } from 'react';
 import {
   IconAlertTriangle,
+  IconArrowRight,
   IconBan,
-  IconCheck,
   IconClock,
   IconClockCog,
-  IconPackage,
+  IconRefresh,
+  IconTool,
+  IconUserCheck,
+  type Icon,
 } from '@tabler/icons-react';
 import { Link } from 'react-router-dom';
 
-import { mockCustomizationRequests, mockProductionRequests } from '@/features/ProductionPages/mock';
-import {
-  ProductionLayout,
-  ProductionStatusBadge,
-  ProductionSummaryCard,
-} from '@/features/ProductionPages/productioncomponents';
-import type { ProductionItem, ProductionRequest } from '@/features/ProductionPages/types';
-import { formatDate } from '@/features/ProductionPages/utils';
-import {
-  getCustomizationStatusLabel,
-  getProductionItemStatusLabel,
-  getProductionRequestStatusLabel,
-} from '@/features/ProductionPages/utils';
-import { useProductionCustomizationRequests } from '@/services/queries';
+import { ProductionLayout } from '@/features/ProductionPages/productioncomponents';
+import { useCurrentUser } from '@/services/queries';
 
 import './ProductionDashbroad.css';
 
-type ProductionItemReportRow = {
-  item: ProductionItem;
-  request: ProductionRequest;
+type KpiItem = {
+  description: string;
+  icon: Icon;
+  label: string;
+  note: string;
+  path: string;
+  tone: 'amber' | 'blue' | 'green' | 'red' | 'neutral';
+  value: string;
 };
 
+type QueueTab = 'All Queue' | 'Pending Review' | 'Assigned to Me' | 'In Production' | 'Blocked' | 'Ready to Complete' | 'Completed';
+
+type QueueItem = {
+  action: string;
+  assigned: string;
+  completed: number;
+  due: string;
+  path: string;
+  priority: 'High' | 'Medium' | 'Low';
+  project: string;
+  request: string;
+  risk: string;
+  start: string;
+  status: string;
+  total: number;
+  tabs: QueueTab[];
+};
+
+const queueTabs: QueueTab[] = ['All Queue', 'Pending Review', 'Assigned to Me', 'In Production', 'Blocked'];
+
+// Mocked until production dashboard aggregation endpoints are available.
+const kpis: KpiItem[] = [
+  { description: 'Requests waiting for production review', icon: IconClock, label: 'Pending Review', note: '4 older than SLA', path: '/production/requests', tone: 'amber', value: '12' },
+  { description: 'Requests primarily assigned to current staff', icon: IconUserCheck, label: 'Assigned to Me', note: '6 active', path: '/production/my-tasks', tone: 'blue', value: '9' },
+  { description: 'Production requests currently active', icon: IconClockCog, label: 'In Production', note: '+3 this week', path: '/production/requests', tone: 'neutral', value: '18' },
+  { description: 'Item-level execution currently active', icon: IconTool, label: 'Items In Progress', note: '42 units', path: '/production/requests', tone: 'blue', value: '27' },
+  { description: 'Items blocked by material or technical issue', icon: IconAlertTriangle, label: 'Blocked Items', note: '3 critical', path: '/production/blocked-issues', tone: 'red', value: '7' },
+  { description: 'Unavailable/cancelled item paths needing adjustment', icon: IconBan, label: 'Unavailable Items', note: '2 need Sales adjustment', path: '/production/blocked-issues', tone: 'red', value: '3' },
+];
+
+const productionQueue: QueueItem[] = [
+  { action: 'Review', assigned: 'Shared queue', completed: 0, due: 'Today 13:00', path: '/production/requests', priority: 'High', project: 'PRJ-2026-184 Bean & Brew', request: 'PROD-2026-090', risk: 'Review overdue', start: '-', status: 'PENDING_REVIEW', tabs: ['All Queue', 'Pending Review'], total: 12 },
+  { action: 'Start Production', assigned: 'Minh Tran', completed: 3, due: 'Aug 9', path: '/production/requests', priority: 'Medium', project: 'PRJ-2026-181 Luma Cafe', request: 'PROD-2026-088', risk: 'On track', start: 'Aug 5', status: 'ASSIGNED', tabs: ['All Queue', 'Assigned to Me'], total: 10 },
+  { action: 'View Items', assigned: 'Minh Tran', completed: 8, due: 'Tomorrow', path: '/production/requests', priority: 'High', project: 'PRJ-2026-176 Nova Work Lounge', request: 'PROD-2026-084', risk: '2 items due soon', start: 'Aug 3', status: 'IN_PRODUCTION', tabs: ['All Queue', 'Assigned to Me', 'In Production'], total: 16 },
+  { action: 'Resolve Blocker', assigned: 'Huy Pham', completed: 5, due: 'Overdue', path: '/production/blocked-issues', priority: 'High', project: 'PRJ-2026-166 Studio Nine', request: 'PROD-2026-080', risk: 'Material unavailable', start: 'Aug 1', status: 'BLOCKED', tabs: ['All Queue', 'Blocked'], total: 15 },
+  { action: 'Complete Request', assigned: 'Lan Ho', completed: 14, due: 'Today', path: '/production/requests', priority: 'Medium', project: 'PRJ-2026-160 Oak & Steel', request: 'PROD-2026-076', risk: 'Ready to complete', start: 'Jul 29', status: 'READY_TO_COMPLETE', tabs: ['All Queue', 'Ready to Complete'], total: 14 },
+  { action: 'View Delivery', assigned: 'Thanh Le', completed: 18, due: 'Done', path: '/production/ready-for-delivery', priority: 'Low', project: 'PRJ-2026-151 Northline Office', request: 'PROD-2026-070', risk: 'Awaiting delivery', start: 'Jul 24', status: 'COMPLETED', tabs: ['All Queue', 'Completed'], total: 18 },
+];
+
+function priorityClass(priority: QueueItem['priority']) {
+  return `production-ops-priority production-ops-priority-${priority.toLowerCase()}`;
+}
+
 export function ProductionDashbroad() {
-  const queueQuery = useProductionCustomizationRequests({ page: 1, pageSize: 50 });
-  const apiRequests = queueQuery.data?.items ?? [];
-  const customizationRequests = apiRequests.length > 0
-    ? apiRequests.map((request) => ({
-        customizationRequestId: request.customizationRequestId,
-        itemName: request.proposalItem?.itemName ?? request.proposalItemId,
-        projectCode: request.projectId,
-        projectName: request.project?.projectName ?? request.projectId,
-        requestTitle: request.requestTitle,
-        status: request.status ?? 'PRODUCTION_REVIEWING',
-        updatedAt: request.updatedAt ?? request.createdAt ?? '',
-      }))
-    : mockCustomizationRequests;
-  const itemRows = mockProductionRequests.flatMap((request) => request.items.map((item) => ({ item, request })));
-  const blockedItems = itemRows.filter(({ item }) => item.status === 'BLOCKED');
-  const readyRequests = mockProductionRequests.filter((request) => request.status === 'COMPLETED');
+  const [activeTab, setActiveTab] = useState<QueueTab>('All Queue');
+  const currentUserQuery = useCurrentUser();
+  const activeQueue = productionQueue.filter((item) => item.tabs.includes(activeTab));
+  const now = useMemo(() => new Date(), []);
+  const displayDate = new Intl.DateTimeFormat('en-US', { dateStyle: 'medium' }).format(now);
+  const refreshTime = new Intl.DateTimeFormat('en-US', { hour: '2-digit', minute: '2-digit' }).format(now);
+  const userName = currentUserQuery.data?.fullName ?? 'Production Staff';
 
   return (
-    <ProductionLayout activeLabel="Dashboard" searchPlaceholder="Search production item reports...">
-      <div className="production-workspace-page">
-        <section className="production-workspace-heading">
+    <ProductionLayout activeLabel="Dashboard" searchPlaceholder="Search production queue...">
+      <div className="production-workspace-page production-dashboard-page">
+        <section className="production-ops-header">
           <div>
             <span>Production Workspace</span>
             <h2>Production Dashboard</h2>
-            <p>Track production item workload, blocked/cancelled items, and ready-for-delivery requests.</p>
+            <p>Production queue, item execution, blockers, and delivery readiness</p>
           </div>
-          <Link className="production-workspace-action-link" to="/production/requests">
-            Open Requests
+          <aside>
+            <strong>{userName}</strong>
+            <p>{displayDate}</p>
+            <small><IconRefresh size={14} /> Refreshed {refreshTime}</small>
+          </aside>
+        </section>
+
+        <section className="production-ops-filter-bar" aria-label="Production dashboard filters">
+          <label>
+            <span>Date range</span>
+            <select defaultValue="this-week">
+              <option value="today">Today</option>
+              <option value="this-week">This week</option>
+              <option value="this-month">This month</option>
+            </select>
+          </label>
+          <label>
+            <span>Queue scope</span>
+            <select defaultValue="all">
+              <option value="all">All queue</option>
+              <option value="assigned">Assigned to me</option>
+            </select>
+          </label>
+          <Link className="production-ops-primary-action" to="/production/requests">
+            Open Production Queue <IconArrowRight size={16} />
           </Link>
         </section>
 
-        <section className="production-workspace-summary-grid production-dashboard-report-summary">
-          <ProductionSummaryCard icon={IconPackage} label="Total Production Items" value={itemRows.length} />
-          <ProductionSummaryCard icon={IconClock} label="Pending Items" value={countItems(itemRows, 'PENDING')} />
-          <ProductionSummaryCard icon={IconClockCog} label="In Production Items" value={countItems(itemRows, 'IN_PRODUCTION')} />
-          <ProductionSummaryCard icon={IconCheck} label="Completed Items" value={countItems(itemRows, 'COMPLETED')} />
-          <ProductionSummaryCard icon={IconAlertTriangle} label="Blocked Items" value={countItems(itemRows, 'BLOCKED')} />
-          <ProductionSummaryCard icon={IconBan} label="Cancelled Items" value={countItems(itemRows, 'CANCELLED')} />
+        <section className="production-ops-kpi-grid">
+          {kpis.map(({ description, icon: KpiIcon, label, note, path, tone, value }) => (
+            <Link className={`production-ops-kpi production-ops-kpi-${tone}`} key={label} title={description} to={path}>
+              <span><KpiIcon size={19} /></span>
+              <div>
+                <small>{label}</small>
+                <strong>{value}</strong>
+                <p>{note}</p>
+              </div>
+            </Link>
+          ))}
         </section>
 
-        {queueQuery.isError ? (
-          <section className="production-workspace-message production-workspace-message-error">
-            Customization API is unavailable, showing production mock queue.
-          </section>
-        ) : null}
-
-        <article className="production-workspace-card">
-          <header>
-            <div>
-              <h3>Production Item Report</h3>
-              <p>Grouped by production request and shown at production_items level. No partial quantity completion is reported in MVP.</p>
-            </div>
-          </header>
-          <div className="production-workspace-table-wrap">
-            <table className="production-workspace-table production-dashboard-report-table">
-              <thead>
-                <tr>
-                  <th>Production Code</th>
-                  <th>Project</th>
-                  <th>Order Code</th>
-                  <th>Product Name</th>
-                  <th>Product Version</th>
-                  <th>Quantity</th>
-                  <th>Item Status</th>
-                  <th>Estimated Completion</th>
-                  <th>Completed At</th>
-                  <th>Material Note</th>
-                  <th>Production Note</th>
-                  <th>Cancellation Reason</th>
-                </tr>
-              </thead>
-              <tbody>
-                {itemRows.map(({ item, request }) => (
-                  <tr key={item.productionItemId}>
-                    <td>
-                      <Link to={`/production/requests/${request.productionRequestId}`}>{request.productionCode}</Link>
-                    </td>
-                    <td>{request.projectName}</td>
-                    <td>{request.orderCode}</td>
-                    <td>{item.productNameSnapshot}</td>
-                    <td>{item.productVersionNameSnapshot ?? '-'}</td>
-                    <td>{item.quantity}</td>
-                    <td><ProductionStatusBadge label={getProductionItemStatusLabel(item.status)} status={item.status} /></td>
-                    <td>{formatDate(item.estimatedCompletionDate)}</td>
-                    <td>{formatDate(item.completedAt)}</td>
-                    <td>{item.materialNote ?? '-'}</td>
-                    <td>{item.productionNote ?? '-'}</td>
-                    <td>{item.cancellationReason ?? '-'}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </article>
-
-        <section className="production-workspace-grid">
-          <article className="production-workspace-card">
-            <header>
+        <section className="production-ops-main-grid production-ops-main-grid-single">
+          <article className="production-workspace-card production-ops-queue">
+            <header className="production-ops-section-header">
               <div>
-                <h3>Recent Customization Reviews</h3>
-                <p>Queue-first feasibility reviews before quotation/order confirmation.</p>
+                <h3>Production Queue</h3>
+                <p>Shared queue visibility with assignment as the responsible owner.</p>
               </div>
             </header>
-            <div className="production-workspace-list">
-              {customizationRequests.slice(0, 4).map((request) => (
-                <Link
-                  className="production-dashboard-list-item"
-                  key={request.customizationRequestId}
-                  to={`/production/customization-reviews?requestId=${request.customizationRequestId}`}
-                >
-                  <strong>{request.requestTitle}</strong>
-                  <ProductionStatusBadge label={getCustomizationStatusLabel(request.status)} status={request.status} />
-                  <small>{request.projectName} - {request.itemName}</small>
-                  <small>Updated {formatDate(request.updatedAt)}</small>
-                </Link>
+            <div className="production-ops-tabs" role="tablist" aria-label="Production queue filters">
+              {queueTabs.map((tab) => (
+                <button aria-selected={activeTab === tab} key={tab} role="tab" type="button" onClick={() => setActiveTab(tab)}>
+                  {tab}
+                </button>
+              ))}
+            </div>
+            <div className="production-ops-queue-table">
+              <div className="production-ops-queue-head">
+                <span>Priority</span><span>Request</span><span>Project</span><span>Items</span><span>Completed</span><span>Assigned</span><span>Status</span><span>Start</span><span>Due</span><span>Risk</span><span />
+              </div>
+              {activeQueue.map((item) => (
+                <div className="production-ops-queue-row" key={item.request}>
+                  <span className={priorityClass(item.priority)}>{item.priority}</span>
+                  <strong>{item.request}</strong>
+                  <span>{item.project}</span>
+                  <span>{item.total}</span>
+                  <span>{item.completed}/{item.total}</span>
+                  <span>{item.assigned}</span>
+                  <em>{item.status}</em>
+                  <span>{item.start}</span>
+                  <span>{item.due}</span>
+                  <span>{item.risk}</span>
+                  <Link to={item.path}>{item.action}</Link>
+                </div>
               ))}
             </div>
           </article>
 
-          <article className="production-workspace-card">
-            <header>
-              <div>
-                <h3>Blocked Items</h3>
-                <p>Material or technical blockers that need resolution.</p>
-              </div>
-              <Link className="production-workspace-action-link" to="/production/blocked-issues">View All</Link>
-            </header>
-            <div className="production-workspace-list">
-              {blockedItems.map(({ item, request }) => (
-                <Link className="production-dashboard-list-item" key={item.productionItemId} to={`/production/requests/${request.productionRequestId}`}>
-                  <strong>{item.productNameSnapshot}</strong>
-                  <ProductionStatusBadge label={getProductionItemStatusLabel(item.status)} status={item.status} />
-                  <small>{request.productionCode} - {request.projectName}</small>
-                  <p>{item.materialNote ?? item.productionNote ?? 'No blocker note provided.'}</p>
-                </Link>
-              ))}
-            </div>
-          </article>
-        </section>
-
-        <section className="production-workspace-grid">
-          <article className="production-workspace-card">
-            <header>
-              <div>
-                <h3>Production Requests Overview</h3>
-                <p>Request-level status remains a summary above item-level reporting.</p>
-              </div>
-            </header>
-            <div className="production-workspace-table-wrap">
-              <table className="production-workspace-table">
-                <thead>
-                  <tr>
-                    <th>Production Code</th>
-                    <th>Project</th>
-                    <th>Priority</th>
-                    <th>Status</th>
-                    <th>Estimated Completion</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {mockProductionRequests.map((request) => (
-                    <tr key={request.productionRequestId}>
-                      <td>{request.productionCode}</td>
-                      <td>{request.projectName}</td>
-                      <td>{request.priority}</td>
-                      <td><ProductionStatusBadge label={getProductionRequestStatusLabel(request.status)} status={request.status} /></td>
-                      <td>{formatDate(request.estimatedCompletionDate)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </article>
-
-          <article className="production-workspace-card">
-            <header>
-              <div>
-                <h3>Ready for Delivery</h3>
-                <p>Completed production requests waiting for Sales coordination.</p>
-              </div>
-              <Link className="production-workspace-action-link" to="/production/ready-for-delivery">Prepare</Link>
-            </header>
-            <div className="production-workspace-list">
-              {readyRequests.map((request) => (
-                <Link className="production-dashboard-list-item" key={request.productionRequestId} to={`/production/requests/${request.productionRequestId}`}>
-                  <strong>{request.projectName}</strong>
-                  <ProductionStatusBadge label={getProductionRequestStatusLabel(request.status)} status={request.status} />
-                  <small>{request.orderCode} - {request.productionCode}</small>
-                  <small>Completed {formatDate(request.actualCompletionDate)}</small>
-                </Link>
-              ))}
-            </div>
-          </article>
         </section>
       </div>
     </ProductionLayout>
   );
-}
-
-function countItems(rows: ProductionItemReportRow[], status: ProductionItem['status']) {
-  return rows.filter(({ item }) => item.status === status).length;
 }

@@ -1,11 +1,8 @@
 import {
   IconArrowLeft,
-  IconDotsVertical,
   IconFile,
-  IconPhone,
   IconSearch,
   IconSend,
-  IconVideo,
 } from '@tabler/icons-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
@@ -208,7 +205,7 @@ export function CustomerChatPage() {
               </label>
               <label className="customer-chat-search">
                 <IconSearch size={16} stroke={1.8} />
-                <input type="search" placeholder="Search chats..." value={searchKeyword} onChange={(event) => setSearchKeyword(event.target.value)} />
+                <input type="search" placeholder="Filter conversations..." value={searchKeyword} onChange={(event) => setSearchKeyword(event.target.value)} />
               </label>
             </div>
 
@@ -239,17 +236,6 @@ export function CustomerChatPage() {
                   <strong>{getChatParticipant(activeConversation, { viewerRole: 'CUSTOMER' }).name}</strong>
                   <span>{getChatParticipant(activeConversation, { viewerRole: 'CUSTOMER' }).role}</span>
                 </div>
-              </div>
-              <div className="customer-chat-conversation-actions">
-                <button type="button" aria-label="Voice call">
-                  <IconPhone size={20} stroke={1.8} />
-                </button>
-                <button type="button" aria-label="Video call">
-                  <IconVideo size={20} stroke={1.8} />
-                </button>
-                <button type="button" aria-label="More options">
-                  <IconDotsVertical size={20} stroke={1.8} />
-                </button>
               </div>
             </div>
 
@@ -309,7 +295,7 @@ function ConversationItem({
   const unreadBadge = formatUnreadBadge(unreadCount);
 
   return (
-    <li className={`customer-chat-list-item${isActive ? ' customer-chat-list-item-active' : ''}`}>
+    <li className={`customer-chat-list-item${isActive ? ' customer-chat-list-item-active' : ''}${unreadBadge ? ' customer-chat-list-item-unread' : ''}`}>
       <button type="button" onClick={onSelect}>
         <span className="customer-chat-avatar">{getInitials(participant.name, conversation.chatType)}</span>
 

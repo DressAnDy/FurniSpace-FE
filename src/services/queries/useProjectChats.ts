@@ -65,42 +65,34 @@ export function useProjectChatUnreadCounts(
   });
 
   useEffect(() => {
-    if (!activeChatId) {
-      return;
-    }
-
-    const activeChatIndex = chats.findIndex((chat) => chat.chatId === activeChatId);
-    const activeMessages = activeChatIndex >= 0 ? messageQueries[activeChatIndex]?.data?.items : undefined;
-
-    if (!activeMessages?.length) {
-      return;
-    }
-
-    const incomingMessages = activeMessages.filter(
-      (message) =>
-        message.messageType !== 'SYSTEM' &&
-        !message.deletedAt &&
-        Boolean(message.senderId && message.senderId !== currentUserId && message.createdAt),
-    );
-    const latestIncomingMessage = incomingMessages[incomingMessages.length - 1];
-
-    const latestIncomingCreatedAt = latestIncomingMessage?.createdAt;
-
-    if (!latestIncomingCreatedAt) {
-      return;
-    }
-
     setReadThroughByChatId((current) => {
-      const currentReadThrough = current[activeChatId];
+      let next = current;
 
-      if (currentReadThrough && new Date(currentReadThrough).getTime() >= new Date(latestIncomingCreatedAt).getTime()) {
-        return current;
-      }
+      chats.forEach((chat, index) => {
+        const messages = messageQueries[index]?.data?.items ?? [];
+        const latestIncomingCreatedAt = getLatestIncomingMessageCreatedAt(messages, currentUserId);
 
-      return {
-        ...current,
-        [activeChatId]: latestIncomingCreatedAt,
-      };
+        if (!latestIncomingCreatedAt) {
+          return;
+        }
+
+        const currentReadThrough = next[chat.chatId];
+        const shouldInitializeChat = !currentReadThrough;
+        const shouldReadActiveChat =
+          chat.chatId === activeChatId &&
+          (!currentReadThrough || new Date(currentReadThrough).getTime() < new Date(latestIncomingCreatedAt).getTime());
+
+        if (!shouldInitializeChat && !shouldReadActiveChat) {
+          return;
+        }
+
+        next = {
+          ...next,
+          [chat.chatId]: latestIncomingCreatedAt,
+        };
+      });
+
+      return next;
     });
   }, [activeChatId, chats, currentUserId, messageQueries]);
 
@@ -116,23 +108,41 @@ export function useProjectChatUnreadCounts(
         const readThrough = readThroughByChatId[chat.chatId];
         const readThroughTime = readThrough ? new Date(readThrough).getTime() : null;
 
-        lookup[chat.chatId] = messages.filter(
-          (message) =>
-            message.messageType !== 'SYSTEM' &&
-            !message.deletedAt &&
-            !message.readAt &&
-            Boolean(message.senderId && message.senderId !== currentUserId),
-        ).filter(
-          (message) =>
-            !readThroughTime ||
-            !message.createdAt ||
-            new Date(message.createdAt).getTime() > readThroughTime,
-        ).length;
+        if (!readThroughTime) {
+          lookup[chat.chatId] = 0;
+          return lookup;
+        }
+
+        lookup[chat.chatId] = messages
+          .filter(
+            (message) =>
+              message.messageType !== 'SYSTEM' &&
+              !message.deletedAt &&
+              Boolean(message.senderId && message.senderId !== currentUserId),
+          )
+          .filter((message) => {
+            if (!message.createdAt) {
+              return false;
+            }
+
+            return new Date(message.createdAt).getTime() > readThroughTime;
+          }).length;
 
         return lookup;
       }, {}),
     [activeChatId, chats, currentUserId, messageQueries, readThroughByChatId],
   );
+}
+
+function getLatestIncomingMessageCreatedAt(messages: ProjectChatMessage[], currentUserId?: string | null) {
+  const incomingMessages = messages.filter(
+    (message) =>
+      message.messageType !== 'SYSTEM' &&
+      !message.deletedAt &&
+      Boolean(message.senderId && message.senderId !== currentUserId && message.createdAt),
+  );
+
+  return incomingMessages[incomingMessages.length - 1]?.createdAt ?? null;
 }
 
 export function useSendProjectChatTextMessage() {

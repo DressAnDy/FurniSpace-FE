@@ -170,6 +170,7 @@ export {
 export {
   quotationQueryKeys,
   useAcceptQuotation,
+  useBulkUpdateQuotationItemFinancials,
   useCancelQuotation,
   useCreateDraftQuotation,
   useCreateManualQuotationItem,
@@ -182,6 +183,7 @@ export {
   useSendQuotation,
   useUpdateManualQuotationItem,
   useUpdateQuotation,
+  useUpdateQuotationItemFinancials,
 } from './useQuotations';
 export {
   authQueryKeys,

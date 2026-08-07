@@ -57,9 +57,12 @@ export type QuotationDto = {
   quotationCode: string;
   versionNo?: number | null;
   subtotalAmount?: number | null;
+  totalDiscountAmount?: number | null;
+  taxableAmount?: number | null;
   discountAmount?: number | null;
   taxAmount?: number | null;
   totalAmount?: number | null;
+  currency?: string | null;
   status?: QuotationStatus | null;
   validUntil?: string | null;
   customerNote?: string | null;
@@ -85,10 +88,17 @@ export type QuotationItemDto = {
   productVersionCodeSnapshot?: string | null;
   itemName?: string | null;
   description?: string | null;
+  displayOrder?: number | null;
   quantity?: number | null;
   unitPrice?: number | null;
+  customizationUnitAdditionalCost?: number | null;
   customizationAdditionalCost?: number | null;
+  grossAmount?: number | null;
   discountAmount?: number | null;
+  taxableAmount?: number | null;
+  taxRate?: number | null;
+  taxAmount?: number | null;
+  totalAmount?: number | null;
   subtotalAmount?: number | null;
   isCustomized?: boolean | null;
   customizationNote?: string | null;
@@ -111,8 +121,6 @@ export type QuotationListParams = {
 export type UpdateQuotationInput = {
   quotationId: string;
   validUntil?: string | null;
-  discountAmount?: number | null;
-  taxAmount?: number | null;
   customerNote?: string | null;
   salesNote?: string | null;
   revisionReason?: string | null;
@@ -122,14 +130,32 @@ export type CreateManualQuotationItemInput = {
   quotationId: string;
   itemName?: string | null;
   description?: string | null;
+  displayOrder?: number | null;
   quantity?: number | null;
   unitPrice?: number | null;
   discountAmount?: number | null;
+  taxRate?: number | null;
   note?: string | null;
 };
 
 export type UpdateManualQuotationItemInput = CreateManualQuotationItemInput & {
   quotationItemId: string;
+  customizationUnitAdditionalCost?: number | null;
+};
+
+export type UpdateQuotationItemFinancialsInput = {
+  quotationId: string;
+  quotationItemId: string;
+  quantity?: number | null;
+  unitPrice?: number | null;
+  customizationUnitAdditionalCost?: number | null;
+  discountAmount?: number | null;
+  taxRate?: number | null;
+};
+
+export type BulkUpdateQuotationItemFinancialsInput = {
+  quotationId: string;
+  items: Array<Omit<UpdateQuotationItemFinancialsInput, 'quotationId'>>;
 };
 
 export type RequestQuotationRevisionInput = {
@@ -195,8 +221,6 @@ export async function createDraftQuotation(projectId: string) {
 export async function updateQuotation(input: UpdateQuotationInput) {
   const response = await quotationApiClient.patch<ServiceResult<QuotationDto>>(`/quotations/${input.quotationId}`, {
     validUntil: input.validUntil || null,
-    discountAmount: input.discountAmount ?? null,
-    taxAmount: input.taxAmount ?? null,
     customerNote: input.customerNote?.trim() || null,
     salesNote: input.salesNote?.trim() || null,
     revisionReason: input.revisionReason?.trim() || null,
@@ -209,9 +233,11 @@ export async function createManualQuotationItem(input: CreateManualQuotationItem
   const response = await quotationApiClient.post<ServiceResult<QuotationItemDto>>(`/quotations/${input.quotationId}/items`, {
     itemName: input.itemName?.trim() || null,
     description: input.description?.trim() || null,
+    displayOrder: input.displayOrder ?? null,
     quantity: input.quantity ?? null,
     unitPrice: input.unitPrice ?? null,
     discountAmount: input.discountAmount ?? null,
+    taxRate: input.taxRate ?? null,
     note: input.note?.trim() || null,
   });
 
@@ -224,10 +250,36 @@ export async function updateManualQuotationItem(input: UpdateManualQuotationItem
     {
       itemName: input.itemName?.trim() || undefined,
       description: input.description?.trim() || undefined,
+      displayOrder: input.displayOrder ?? undefined,
       quantity: input.quantity ?? undefined,
       unitPrice: input.unitPrice ?? undefined,
+      customizationUnitAdditionalCost: input.customizationUnitAdditionalCost ?? undefined,
       discountAmount: input.discountAmount ?? undefined,
+      taxRate: input.taxRate ?? undefined,
       note: input.note?.trim() || undefined,
+    },
+  );
+
+  return response.data.data;
+}
+
+export async function updateQuotationItemFinancials(input: UpdateQuotationItemFinancialsInput) {
+  const response = await quotationApiClient.patch<ServiceResult<QuotationItemDto>>(
+    `/quotations/${input.quotationId}/items/${input.quotationItemId}/financials`,
+    getQuotationItemFinancialsPayload(input),
+  );
+
+  return response.data.data;
+}
+
+export async function bulkUpdateQuotationItemFinancials(input: BulkUpdateQuotationItemFinancialsInput) {
+  const response = await quotationApiClient.put<ServiceResult<QuotationDetailDto>>(
+    `/quotations/${input.quotationId}/items/financials`,
+    {
+      items: input.items.map((item) => ({
+        quotationItemId: item.quotationItemId,
+        ...getQuotationItemFinancialsPayload(item),
+      })),
     },
   );
 
@@ -285,4 +337,14 @@ function getQuotationApiBaseUrl() {
   const configuredApiUrl = import.meta.env.VITE_API_BASE_URL ?? import.meta.env.VITE_API_URL;
 
   return configuredApiUrl?.replace(/\/api\/?$/, '');
+}
+
+function getQuotationItemFinancialsPayload(input: Omit<UpdateQuotationItemFinancialsInput, 'quotationId'>) {
+  return {
+    quantity: input.quantity ?? null,
+    unitPrice: input.unitPrice ?? null,
+    customizationUnitAdditionalCost: input.customizationUnitAdditionalCost ?? null,
+    discountAmount: input.discountAmount ?? null,
+    taxRate: input.taxRate ?? null,
+  };
 }

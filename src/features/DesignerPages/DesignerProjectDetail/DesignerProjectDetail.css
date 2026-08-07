@@ -150,6 +150,11 @@
   background: #f8f3ea;
 }
 
+.designer-project-chat-selector button.has-unread {
+  border-color: rgba(220, 38, 38, 0.28);
+  box-shadow: inset 3px 0 0 #dc2626;
+}
+
 .designer-project-chat-selector strong,
 .designer-project-chat-selector small {
   overflow: hidden;

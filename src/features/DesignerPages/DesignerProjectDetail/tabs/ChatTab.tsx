@@ -230,7 +230,7 @@ function ChatSelectorItem({
   const unreadBadge = formatUnreadBadge(unreadCount);
 
   return (
-    <button className={isActive ? 'is-active' : ''} type="button" onClick={onSelect}>
+    <button className={`${isActive ? 'is-active' : ''}${unreadBadge ? ' has-unread' : ''}`.trim()} type="button" onClick={onSelect}>
       <strong>{participant.name}</strong>
       <small>
         {participant.role}

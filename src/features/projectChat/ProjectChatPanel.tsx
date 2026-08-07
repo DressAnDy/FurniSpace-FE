@@ -272,7 +272,7 @@ function ChatListButton({ chat, isActive, onClick, unreadCount }: { chat: Projec
   const unreadBadge = formatUnreadBadge(unreadCount);
 
   return (
-    <button className={isActive ? 'is-active' : ''} type="button" onClick={onClick}>
+    <button className={`${isActive ? 'is-active' : ''}${unreadBadge ? ' has-unread' : ''}`.trim()} type="button" onClick={onClick}>
       <span>
         <IconMessageCircle size={16} />
         <strong>{getChatTitle(chat)}</strong>
