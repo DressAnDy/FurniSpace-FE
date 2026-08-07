@@ -87,8 +87,14 @@ export type OrderItemDto = {
   itemName?: string | null;
   quantity?: number | null;
   unitPrice?: number | null;
+  customizationUnitAdditionalCost?: number | null;
   customizationAdditionalCost?: number | null;
+  grossAmount?: number | null;
   discountAmount?: number | null;
+  taxableAmount?: number | null;
+  taxRate?: number | null;
+  taxAmount?: number | null;
+  totalAmount?: number | null;
   subtotalAmount?: number | null;
   isCustomized?: boolean | null;
   status?: OrderItemStatus | null;

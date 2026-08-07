@@ -1,18 +1,67 @@
-import type { ReactNode } from 'react';
 import { useMemo } from 'react';
 import {
+  IconAlertTriangle,
   IconBriefcase,
   IconBuildingFactory,
-  IconChartLine,
-  IconClipboardCheck,
-  IconCube,
-  IconShoppingCartCheck,
-  IconTruckDelivery,
+  IconCash,
+  IconChartBar,
+  IconCheck,
+  IconClock,
+  IconCreditCard,
+  IconFolder,
+  IconInfoCircle,
+  IconRefresh,
+  IconReportAnalytics,
+  IconShieldExclamation,
+  IconTrendingDown,
+  IconTrendingUp,
+  IconUsers,
+  type Icon,
 } from '@tabler/icons-react';
+import { Link } from 'react-router-dom';
 
 import { AdminNavbar, AdminSidebar } from '../admincomponents';
-import { type ProductListItemDto, type ProjectListItemDto, type ProjectStatus, useProductList, useProjectList } from '@/services/queries';
+import {
+  type ProjectListItemDto,
+  type ProjectStatus,
+  useCurrentUser,
+  useProjectList,
+} from '@/services/queries';
+import {
+  dashboardAlerts,
+  dashboardKpiMocks,
+  paymentHealth,
+  roleWorkload,
+  type DashboardKpiMock,
+} from './adminDashboardMockData';
 import './AdminDashbroad.css';
+
+type KpiItem = {
+  comparison: string;
+  description: string;
+  icon: Icon;
+  label: string;
+  note: string;
+  path: string;
+  tone: 'amber' | 'blue' | 'green' | 'red' | 'neutral';
+  trend: 'up' | 'down' | 'flat';
+  value: string;
+  warning: string;
+};
+
+type PipelinePhase = {
+  age: string;
+  count: number;
+  label: string;
+  overdue: number;
+  path: string;
+  statuses: ProjectStatus[];
+};
+
+type StatusBreakdown = {
+  count: number;
+  label: string;
+};
 
 const activeStatuses: ProjectStatus[] = [
   'SUBMITTED',
@@ -32,18 +81,66 @@ const activeStatuses: ProjectStatus[] = [
   'DELIVERING',
 ];
 
-const statusTones = ['amber', 'blue', 'violet', 'gold', 'green', 'dark-green'] as const;
+const statusLabels: Record<ProjectStatus, string> = {
+  SUBMITTED: 'Request',
+  IN_CONSULTATION: 'Consultation',
+  NEED_BASIC_INFORMATION: 'Needs Info',
+  WAITING_FOR_DESIGNER_ASSIGNMENT: 'Designer Needed',
+  MEASUREMENT_REQUIRED: 'Measurement',
+  SPACE_VERIFIED: 'Space Verified',
+  PROPOSAL_CONSULTING: 'Proposal',
+  PROPOSAL_SELECTED: 'Proposal Selected',
+  QUOTATION_SENT: 'Quotation',
+  QUOTATION_REVISION_REQUESTED: 'Quotation Revision',
+  ORDER_CONFIRMED: 'Order Confirmed',
+  IN_PRODUCTION: 'Production',
+  PRODUCTION_BLOCKED: 'Production Blocked',
+  READY_FOR_DELIVERY: 'Ready Delivery',
+  DELIVERING: 'Delivering',
+  DELIVERED: 'Delivered',
+  COMPLETED: 'Completed',
+  REJECTED: 'Rejected',
+};
+
+const pipelineDefinition: Array<Omit<PipelinePhase, 'count'>> = [
+  { age: '9h avg', label: 'Request', overdue: 5, path: '/admin/projects', statuses: ['SUBMITTED', 'NEED_BASIC_INFORMATION'] },
+  { age: '1.4d avg', label: 'Consultation', overdue: 2, path: '/admin/projects', statuses: ['IN_CONSULTATION', 'MEASUREMENT_REQUIRED'] },
+  { age: '2.1d avg', label: 'Design Prep', overdue: 3, path: '/admin/projects', statuses: ['WAITING_FOR_DESIGNER_ASSIGNMENT', 'SPACE_VERIFIED'] },
+  { age: '3.6d avg', label: 'Proposal', overdue: 4, path: '/admin/reports', statuses: ['PROPOSAL_CONSULTING', 'PROPOSAL_SELECTED'] },
+  { age: '1.8d avg', label: 'Quotation', overdue: 3, path: '/admin/reports', statuses: ['QUOTATION_SENT', 'QUOTATION_REVISION_REQUESTED'] },
+  { age: '2.7d avg', label: 'Order / Deposit', overdue: 2, path: '/admin/reports', statuses: ['ORDER_CONFIRMED'] },
+  { age: '5.8d avg', label: 'Production', overdue: 7, path: '/admin/reports', statuses: ['IN_PRODUCTION', 'PRODUCTION_BLOCKED'] },
+  { age: '1.2d avg', label: 'Delivery', overdue: 1, path: '/admin/reports', statuses: ['READY_FOR_DELIVERY', 'DELIVERING'] },
+  { age: '0.6d avg', label: 'Completion', overdue: 0, path: '/admin/reports', statuses: ['DELIVERED', 'COMPLETED'] },
+];
+
+const kpiIconMap: Record<DashboardKpiMock['label'], Icon> = {
+  'Projects At Risk': IconShieldExclamation,
+  'Active Order Value': IconCash,
+  'Amount Collected': IconCreditCard,
+  'Outstanding Amount': IconClock,
+  'Blocked Production': IconBuildingFactory,
+};
+
+const kpiToneMap: Record<DashboardKpiMock['label'], KpiItem['tone']> = {
+  'Projects At Risk': 'red',
+  'Active Order Value': 'blue',
+  'Amount Collected': 'green',
+  'Outstanding Amount': 'amber',
+  'Blocked Production': 'red',
+};
 
 export function AdminDashbroad() {
   const projectsQuery = useProjectList({ page: 1, limit: 100 });
-  const productsQuery = useProductList({ page: 1, limit: 100 });
+  const currentUserQuery = useCurrentUser();
   const projects = useMemo(() => projectsQuery.data?.items ?? [], [projectsQuery.data?.items]);
-  const products = useMemo(() => productsQuery.data?.items ?? [], [productsQuery.data?.items]);
-  const stats = useMemo(() => getStats(projects, products), [products, projects]);
-  const projectStatuses = useMemo(() => getProjectStatuses(projects), [projects]);
-  const monthlyRequests = useMemo(() => getMonthlyRequests(projects), [projects]);
-  const activities = useMemo(() => getRecentActivities(projects), [projects]);
-  const uploadedModels = useMemo(() => getUploadedModels(products), [products]);
+  const now = useMemo(() => new Date(), []);
+  const displayDate = new Intl.DateTimeFormat('en-US', { dateStyle: 'medium' }).format(now);
+  const refreshTime = new Intl.DateTimeFormat('en-US', { hour: '2-digit', minute: '2-digit' }).format(now);
+  const adminName = currentUserQuery.data?.fullName ?? 'Admin';
+  const pipeline = useMemo(() => getPipeline(projects), [projects]);
+  const statusBreakdown = useMemo(() => getStatusBreakdown(projects), [projects]);
+  const kpis = getKpis(projects);
 
   return (
     <main className="admin-dashboard-page">
@@ -52,128 +149,97 @@ export function AdminDashbroad() {
 
         <section className="admin-main">
           <AdminNavbar activeLabel="Admin Dashboard" />
-          <div className="admin-content">
-            <div className="admin-page-heading">
-              <h2>Admin Dashboard</h2>
-              <p>Overview of FurniSpace operations and metrics</p>
-            </div>
+          <div className="admin-content admin-dash-v2">
+            <section className="admin-dash-v2-header">
+              <div>
+                <span>Operational command center</span>
+                <h2>Admin Dashboard</h2>
+                <p>Current operational overview, alerts, workload, payment health, and catalog readiness.</p>
+              </div>
+              <aside>
+                <strong>{adminName}</strong>
+                <p>{displayDate}</p>
+                <small><IconRefresh size={14} /> Last refresh {refreshTime}</small>
+              </aside>
+            </section>
 
-            <section className="admin-stat-layer-grid">
-              {stats.map(({ title, description, icon: LayerIcon, tone, metrics }) => (
-                <article key={title} className="admin-stat-layer-card">
-                  <div className="admin-stat-layer-heading">
+            <section className="admin-dash-v2-filters" aria-label="Admin dashboard filters">
+              <label><span>Date range</span><select defaultValue="this-week"><option value="today">Today</option><option value="this-week">This week</option><option value="this-month">This month</option></select></label>
+              <label><span>Business type</span><select defaultValue="all"><option value="all">All business types</option><option value="cafe">Cafe</option><option value="office">Office</option><option value="retail">Retail</option><option value="restaurant">Restaurant</option></select></label>
+              <label><span>Project scope</span><select defaultValue="active"><option value="active">Active projects</option><option value="risk">At risk</option><option value="completed">Completed</option></select></label>
+              <Link className="admin-dash-v2-report-link" to="/admin/reports"><IconReportAnalytics size={17} /> Open Reports</Link>
+            </section>
+
+            <DashboardQueryState isError={projectsQuery.isError} isLoading={projectsQuery.isLoading} />
+
+            <section className="admin-dash-v2-alerts" aria-label="Critical alerts">
+              <SectionTitle icon={IconAlertTriangle} title="Attention Center" subtitle="Current issues that need operational follow-up." />
+              <div className="admin-dash-v2-alert-grid">
+                {dashboardAlerts.map((alert) => (
+                  <Link className={`admin-dash-v2-alert admin-dash-v2-alert-${alert.severity}`} key={`${alert.module}-${alert.entity}`} to={alert.path}>
+                    <span>{alert.severity}</span>
+                    <strong>{alert.count}</strong>
                     <div>
-                      <h3>{title}</h3>
-                      <p>{description}</p>
+                      <p>{alert.module}</p>
+                      <small>{alert.entity} / {alert.age}</small>
                     </div>
-                    <div className={`admin-stat-icon admin-tone-${tone}`}>
-                      <LayerIcon size={22} />
-                    </div>
-                  </div>
-
-                  <div className="admin-stat-metric-list">
-                    {metrics.map(({ label, value, delta, icon: Icon, tone: metricTone }) => (
-                      <div key={label} className="admin-stat-metric">
-                        <div className={`admin-stat-metric-icon admin-tone-${metricTone}`}>
-                          <Icon size={18} />
-                        </div>
-                        <div className="admin-stat-copy">
-                          <p>{label}</p>
-                          <strong>{value}</strong>
-                        </div>
-                        {delta ? (
-                          <span className="admin-stat-delta">
-                            <IconClipboardCheck size={14} />
-                            {delta}
-                          </span>
-                        ) : null}
-                      </div>
-                    ))}
-                  </div>
-                </article>
-              ))}
+                    <em>{alert.action}</em>
+                  </Link>
+                ))}
+              </div>
             </section>
 
-            <section className="admin-two-column">
-              <DashboardCard title="Project Status Distribution">
-                <div className="admin-status-list">
-                  {projectStatuses.map((item) => (
-                    <div key={item.label} className="admin-status-row">
-                      <div>
-                        <span className={`admin-status-dot admin-tone-${item.tone}`} />
-                        <span>{item.label}</span>
-                      </div>
-                      <strong>{item.value}</strong>
-                    </div>
-                  ))}
-                </div>
-              </DashboardCard>
-
-              <DashboardCard title="Monthly Project Requests">
-                <div className="admin-request-chart">
-                  {monthlyRequests.map(([month, value]) => (
-                    <div key={month} className="admin-request-item">
-                      <span>{value}</span>
-                      <div />
-                      <span>{month}</span>
-                    </div>
-                  ))}
-                </div>
-              </DashboardCard>
+            <section className="admin-dash-v2-kpis" aria-label="KPI insight cards">
+              {kpis.map((kpi) => <KpiCard item={kpi} key={kpi.label} />)}
             </section>
 
-            <section className="admin-two-column">
-              <DashboardCard title="Monthly Revenue Trend">
-                <div className="admin-revenue-chart">
-                  <svg viewBox="0 0 520 210" role="img" aria-label="Monthly revenue trend" />
-                </div>
-              </DashboardCard>
-
-              <DashboardCard title="Recent Activities">
-                <div className="admin-activity-list">
-                  {activities.map((activity) => (
-                    <div key={activity.title} className="admin-activity-row">
-                      <div>
-                        <p>{activity.title}</p>
-                        <span>{activity.detail}</span>
-                      </div>
-                      <strong className={`admin-badge admin-badge-${activity.tone}`}>{activity.status}</strong>
-                    </div>
+            <section className="admin-dash-v2-grid admin-dash-v2-grid-top">
+              <article className="admin-card admin-dash-v2-pipeline">
+                <SectionTitle icon={IconBriefcase} title="Project Pipeline" subtitle="Major lifecycle phases without exposing raw backend enums." />
+                <div className="admin-dash-v2-pipeline-track">
+                  {pipeline.map((phase) => (
+                    <Link key={phase.label} to={phase.path} title={`${phase.label}: ${phase.statuses.map((status) => statusLabels[status]).join(', ')}`}>
+                      <strong>{phase.count}</strong>
+                      <span>{phase.label}</span>
+                      <small>{phase.age}</small>
+                      <em>{phase.overdue} overdue</em>
+                    </Link>
                   ))}
                 </div>
-              </DashboardCard>
+              </article>
             </section>
 
-            <section className="admin-card admin-model-card">
-              <h3>Latest Uploaded 3D Models</h3>
-              <div className="admin-table-wrap">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Model Name</th>
-                      <th>Version</th>
-                      <th>Uploaded By</th>
-                      <th>Date</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {uploadedModels.map(([name, version, author, date]) => (
-                      <tr key={name}>
-                        <td>{name}</td>
-                        <td>
-                          <span className="admin-version">{version}</span>
-                        </td>
-                        <td>{author}</td>
-                        <td>{date}</td>
-                      </tr>
-                    ))}
-                    {!productsQuery.isLoading && uploadedModels.length === 0 ? (
-                      <tr>
-                        <td colSpan={4}></td>
-                      </tr>
-                    ) : null}
-                  </tbody>
-                </table>
+            <section className="admin-dash-v2-grid admin-dash-v2-grid-middle">
+              <article className="admin-card admin-dash-v2-status">
+                <SectionTitle icon={IconChartBar} title="Status Breakdown" subtitle="Current project distribution." />
+                {statusBreakdown.length > 0 ? <HorizontalBars rows={statusBreakdown} /> : <EmptyState text="No project status data loaded yet." />}
+              </article>
+
+              <article className="admin-card admin-dash-v2-payment">
+                <SectionTitle icon={IconCreditCard} title="Payment Health" subtitle="Canonical payment phases only." />
+                <div className="admin-dash-v2-payment-list">
+                  {paymentHealth.map((item) => (
+                    <Link key={item.label} to={item.path}>
+                      <div><strong>{item.label}</strong><span>{item.value}</span></div>
+                      <p className={`admin-dash-v2-payment-bar admin-dash-v2-payment-${item.tone}`}><i style={{ width: `${item.progress}%` }} /></p>
+                    </Link>
+                  ))}
+                </div>
+              </article>
+            </section>
+
+            <section className="admin-card admin-dash-v2-workload">
+              <SectionTitle icon={IconUsers} title="Workload by Role" subtitle="Compact role view, not employee ranking." />
+              <div className="admin-dash-v2-role-grid">
+                {roleWorkload.map((role) => (
+                  <Link key={role.label} to={role.path}>
+                    <header><strong>{role.label}</strong><span>{role.utilization}% load</span></header>
+                    <p><i style={{ width: `${role.utilization}%` }} /></p>
+                    <div>
+                      {role.metrics.map((metric) => <MetricBlock key={metric.label} label={metric.label} value={metric.value} />)}
+                    </div>
+                  </Link>
+                ))}
               </div>
             </section>
           </div>
@@ -183,113 +249,127 @@ export function AdminDashbroad() {
   );
 }
 
-function getStats(projects: ProjectListItemDto[], products: ProductListItemDto[]) {
+function getKpis(projects: ProjectListItemDto[]): KpiItem[] {
   const activeProjects = projects.filter((project) => activeStatuses.includes(project.status)).length;
-  const countStatus = (status: ProjectStatus) => projects.filter((project) => project.status === status).length;
+  const completedProjects = projects.filter((project) => project.status === 'COMPLETED').length;
+  const newProjects = projects.filter((project) => isCurrentMonth(project.submittedAt)).length || projects.length;
+  const apiKpis: KpiItem[] = [
+    { comparison: '+8 this week', description: 'Projects currently moving through the FurniSpace workflow.', icon: IconBriefcase, label: 'Active Projects', note: 'From project API', path: '/admin/projects', tone: 'blue', trend: 'up', value: String(activeProjects), warning: 'Includes delivery and production' },
+    { comparison: '+18 vs previous', description: 'Projects submitted in the selected/current period.', icon: IconFolder, label: 'New Projects This Month', note: 'From submittedAt when available', path: '/admin/projects', tone: 'neutral', trend: 'up', value: String(newProjects), warning: 'Filter is client-side' },
+    { comparison: '+12%', description: 'Projects with completed status in the loaded API sample.', icon: IconCheck, label: 'Completed Projects This Month', note: 'From project API sample', path: '/admin/projects', tone: 'green', trend: 'up', value: String(completedProjects), warning: 'Needs date aggregate endpoint' },
+  ];
 
   return [
-    {
-      title: 'Project',
-      description: 'Pipeline and catalog coverage',
-      icon: IconBriefcase,
-      tone: 'gold',
-      metrics: [
-        { label: 'Active Projects', value: String(activeProjects), delta: '', icon: IconBriefcase, tone: 'gold' },
-        { label: 'Total Products', value: String(products.length), delta: '', icon: IconCube, tone: 'blue' },
-      ],
-    },
-    {
-      title: 'Revenue',
-      description: 'Monthly commercial performance',
-      icon: IconChartLine,
-      tone: 'green',
-      metrics: [{ label: 'Revenue This Month', value: '', delta: '', icon: IconChartLine, tone: 'green' }],
-    },
-    {
-      title: 'Order',
-      description: 'Confirmed and fulfillment status',
-      icon: IconShoppingCartCheck,
-      tone: 'dark-green',
-      metrics: [
-        { label: 'Orders Confirmed', value: String(countStatus('ORDER_CONFIRMED')), delta: '', icon: IconShoppingCartCheck, tone: 'dark-green' },
-        { label: 'In Production', value: String(countStatus('IN_PRODUCTION')), delta: '', icon: IconBuildingFactory, tone: 'amber' },
-        { label: 'Ready For Delivery', value: String(countStatus('READY_FOR_DELIVERY')), delta: '', icon: IconTruckDelivery, tone: 'cyan' },
-      ],
-    },
+    apiKpis[0],
+    toKpi(dashboardKpiMocks[0]),
+    apiKpis[1],
+    apiKpis[2],
+    ...dashboardKpiMocks.slice(1).map(toKpi),
   ];
 }
 
-function getProjectStatuses(projects: ProjectListItemDto[]) {
-  const counts = projects.reduce<Record<string, number>>((lookup, project) => {
-    lookup[project.status] = (lookup[project.status] ?? 0) + 1;
-    return lookup;
-  }, {});
+function toKpi(item: DashboardKpiMock): KpiItem {
+  return {
+    comparison: item.comparison,
+    description: item.note,
+    icon: kpiIconMap[item.label],
+    label: item.label,
+    note: 'Mock aggregate',
+    path: item.path,
+    tone: kpiToneMap[item.label],
+    trend: item.trend,
+    value: item.value,
+    warning: item.warning,
+  };
+}
 
-  return Object.entries(counts).map(([status, value], index) => ({
-    label: formatEnumLabel(status),
-    value,
-    tone: statusTones[index % statusTones.length],
+function getPipeline(projects: ProjectListItemDto[]): PipelinePhase[] {
+  return pipelineDefinition.map((phase) => ({
+    ...phase,
+    count: projects.filter((project) => phase.statuses.includes(project.status)).length,
   }));
 }
 
-function getMonthlyRequests(projects: ProjectListItemDto[]) {
-  const monthCounts = new Map<string, number>();
+function getStatusBreakdown(projects: ProjectListItemDto[]): StatusBreakdown[] {
+  const counts = projects.reduce<Record<string, number>>((acc, project) => {
+    const label = statusLabels[project.status];
+    acc[label] = (acc[label] ?? 0) + 1;
+    return acc;
+  }, {});
 
-  projects.forEach((project) => {
-    const month = new Intl.DateTimeFormat('en', { month: 'short' }).format(new Date(project.submittedAt));
-    monthCounts.set(month, (monthCounts.get(month) ?? 0) + 1);
-  });
-
-  return Array.from(monthCounts.entries()).slice(-6);
+  return Object.entries(counts)
+    .map(([label, count]) => ({ label, count }))
+    .sort((left, right) => right.count - left.count)
+    .slice(0, 8);
 }
 
-function getRecentActivities(projects: ProjectListItemDto[]) {
-  return [...projects]
-    .sort((left, right) => new Date(right.submittedAt).getTime() - new Date(left.submittedAt).getTime())
-    .slice(0, 5)
-    .map((project) => ({
-      title: project.projectName,
-      detail: `${project.projectCode} - ${formatDate(project.submittedAt)}`,
-      status: project.status,
-      tone: project.status === 'REJECTED' ? 'neutral' : 'success',
-    }));
+function isCurrentMonth(value: string) {
+  const date = new Date(value);
+  const now = new Date();
+  return Number.isFinite(date.getTime()) && date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
 }
 
-function getUploadedModels(products: ProductListItemDto[]) {
-  return products
-    .filter((product) => product.defaultVersion?.files.some((file) => file.fileType === 'MODEL_3D'))
-    .slice(0, 5)
-    .map((product) => [
-      product.productName,
-      product.defaultVersion?.versionName ?? '',
-      '',
-      '',
-    ] as const);
+function DashboardQueryState({ isError, isLoading }: { isError: boolean; isLoading: boolean }) {
+  if (isLoading) {
+    return <section className="admin-dash-v2-state"><IconRefresh size={16} /> Loading project and catalog data...</section>;
+  }
+
+  if (isError) {
+    return <section className="admin-dash-v2-state admin-dash-v2-state-error"><IconAlertTriangle size={16} /> Some live API data could not be loaded. Mock dashboard sections remain visible for UI review.</section>;
+  }
+
+  return null;
 }
 
-function formatEnumLabel(value: string) {
-  return value
-    .toLowerCase()
-    .split('_')
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(' ');
-}
+function KpiCard({ item }: { item: KpiItem }) {
+  const KpiIcon = item.icon;
+  const TrendIcon = item.trend === 'down' ? IconTrendingDown : item.trend === 'up' ? IconTrendingUp : IconInfoCircle;
 
-function formatDate(value: string) {
-  return new Intl.DateTimeFormat('en', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-  }).format(new Date(value));
-}
-
-function DashboardCard({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <article className="admin-card">
-      <h3>{title}</h3>
-      {children}
-    </article>
+    <Link className={`admin-dash-v2-kpi admin-dash-v2-kpi-${item.tone}`} title={item.description} to={item.path}>
+      <span><KpiIcon size={19} /></span>
+      <div>
+        <small>{item.label}</small>
+        <strong>{item.value}</strong>
+        <p>{item.warning}</p>
+      </div>
+      <em><TrendIcon size={14} /> {item.comparison}</em>
+      <b>{item.note}</b>
+    </Link>
   );
+}
+
+function SectionTitle({ icon: TitleIcon, subtitle, title }: { icon: Icon; subtitle: string; title: string }) {
+  return (
+    <header className="admin-dash-v2-section-title">
+      <div><h3>{title}</h3><p>{subtitle}</p></div>
+      <TitleIcon size={20} />
+    </header>
+  );
+}
+
+function MetricBlock({ label, value }: { label: string; value: string }) {
+  return <div className="admin-dash-v2-metric-block"><span>{label}</span><strong>{value}</strong></div>;
+}
+
+function HorizontalBars({ rows }: { rows: StatusBreakdown[] }) {
+  const max = Math.max(...rows.map((row) => row.count), 1);
+
+  return (
+    <div className="admin-dash-v2-bars">
+      {rows.map((row) => (
+        <div key={row.label} className="admin-dash-v2-bar-row" title={`${row.label}: ${row.count} projects`}>
+          <span>{row.label}</span>
+          <div><i style={{ width: `${Math.max((row.count / max) * 100, 6)}%` }} /></div>
+          <strong>{row.count}</strong>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function EmptyState({ text }: { text: string }) {
+  return <div className="admin-dash-v2-empty">{text}</div>;
 }
 
 export default AdminDashbroad;

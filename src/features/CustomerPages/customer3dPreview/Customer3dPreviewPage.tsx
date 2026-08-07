@@ -31,9 +31,11 @@ import {
   type ProposalItemDto,
   type RoomPlannerSceneData,
 } from '@/services/api/proposals';
+import { getQuotationServiceResultMessage } from '@/services/api/quotations';
 import { getProductById } from '@/services/api/products';
 import {
   productQueryKeys,
+  useCreateDraftQuotation,
   useProjectList,
   useProjectProposals,
   useProductList,
@@ -63,6 +65,7 @@ export function Customer3dPreviewPage() {
   const [selectedProposalId, setSelectedProposalId] = useState<string | null>(() => proposalIdFromUrl || null);
   const [selectedSceneId, setSelectedSceneId] = useState<string | null>(() => sceneIdFromUrl || null);
   const selectFinalProposalMutation = useSelectFinalProposal();
+  const createDraftQuotationMutation = useCreateDraftQuotation();
 
   const projectsQuery = useProjectList({ page: 1, limit: 50 });
   const projects = useMemo(() => projectsQuery.data?.items ?? [], [projectsQuery.data?.items]);
@@ -77,6 +80,7 @@ export function Customer3dPreviewPage() {
   const proposals = useMemo(() => proposalsQuery.data?.items ?? [], [proposalsQuery.data?.items]);
   const selectedProject = projects.find((project) => project.projectId === selectedProjectId) ?? null;
   const selectedProposal = proposals.find((proposal) => proposal.proposalId === selectedProposalId) ?? proposals[0] ?? null;
+  const canSelectProposal = selectedProposal?.status === 'PUBLISHED';
   const scenesQuery = useProposalScenes(
     selectedProposal
       ? {
@@ -238,8 +242,14 @@ export function Customer3dPreviewPage() {
     setDecisionMessage('');
 
     try {
-      await selectFinalProposalMutation.mutateAsync({ proposalId: selectedProposal.proposalId });
-      setDecisionMessage('Proposal selected successfully.');
+      const proposal = await selectFinalProposalMutation.mutateAsync({ proposalId: selectedProposal.proposalId });
+
+      try {
+        await createDraftQuotationMutation.mutateAsync(proposal.projectId);
+        setDecisionMessage('Proposal selected successfully. Draft quotation has been created for Sales.');
+      } catch (quotationError) {
+        setDecisionMessage(`Proposal selected successfully, but draft quotation could not be created: ${getQuotationServiceResultMessage(quotationError)}`);
+      }
     } catch (error) {
       setDecisionMessage(getProposalServiceResultMessage(error));
     }
@@ -474,11 +484,11 @@ export function Customer3dPreviewPage() {
                 {decisionMessage && <div className="customer-decision-message">{decisionMessage}</div>}
                 <div className="customer-3d-preview-decision">
                   <button
-                    disabled={!selectedProposal || selectFinalProposalMutation.isPending}
+                    disabled={!canSelectProposal || selectFinalProposalMutation.isPending || createDraftQuotationMutation.isPending}
                     type="button"
                     onClick={() => void selectProposal()}
                   >
-                    <IconCircleCheck size={18} stroke={1.8} /> Select Proposal
+                    <IconCircleCheck size={18} stroke={1.8} /> {selectFinalProposalMutation.isPending || createDraftQuotationMutation.isPending ? 'Selecting...' : selectedProposal?.status === 'SELECTED' ? 'Selected Proposal' : 'Select Proposal'}
                   </button>
                 </div>
               </>

@@ -10,7 +10,6 @@ import {
   normalizeOptionalText,
   normalizeRequiredText,
   type ProductVersionDto,
-  type ProductVersionType,
 } from '@/services/api';
 import { useCreateProductVersion, useProductDetail, useUpdateProductVersion, useUploadProductVersionFile } from '@/services/queries';
 
@@ -62,7 +61,7 @@ export function CreateProductVersionPage() {
             await updateVersionMutation.mutateAsync({
               productVersionId: productVersionId ?? '',
               versionName,
-              versionType: normalizeRequiredText(formData.get('version_type')) as ProductVersionType,
+              versionType: 'STANDARD',
               material: normalizeOptionalText(formData.get('material')),
               color: normalizeOptionalText(formData.get('color')),
               width: normalizeOptionalNumber(formData.get('width')),
@@ -71,7 +70,7 @@ export function CreateProductVersionPage() {
               estimatedPrice: normalizeOptionalNumber(formData.get('estimated_price')),
               isDefault: formData.get('is_default') === 'on',
               isPublic: formData.get('is_public') === 'on',
-              isProjectSpecific: formData.get('is_project_specific') === 'on',
+              isProjectSpecific: false,
             })
           ).productVersionId
         : createdVersionId ??
@@ -80,7 +79,7 @@ export function CreateProductVersionPage() {
               productId: effectiveProductId,
               versionCode: normalizeRequiredText(formData.get('version_code')),
               versionName,
-              versionType: normalizeRequiredText(formData.get('version_type')) as ProductVersionType,
+              versionType: 'STANDARD',
               material: normalizeOptionalText(formData.get('material')),
               color: normalizeOptionalText(formData.get('color')),
               width: normalizeOptionalNumber(formData.get('width')),
@@ -89,7 +88,7 @@ export function CreateProductVersionPage() {
               estimatedPrice: normalizeOptionalNumber(formData.get('estimated_price')),
               isDefault: formData.get('is_default') === 'on',
               isPublic: formData.get('is_public') === 'on',
-              isProjectSpecific: formData.get('is_project_specific') === 'on',
+              isProjectSpecific: false,
             })
           ).productVersionId;
 
@@ -177,7 +176,7 @@ export function CreateProductVersionPage() {
                   <strong>Note:</strong>{' '}
                   {isEditMode
                     ? 'Version code cannot be changed. You can update version details and upload missing replacement files here.'
-                    : 'Version type, public visibility, and project-specific settings can be adjusted before saving.'}
+                    : 'Version type is fixed as STANDARD. Public visibility can be adjusted before saving.'}
                 </div>
 
                 <div className="product-form-section">
@@ -230,15 +229,6 @@ export function CreateProductVersionPage() {
                         required
                         type="text"
                       />
-                    </label>
-
-                    <label className="product-form-field">
-                      <span>Version Type</span>
-                      <select className="admin-form-input" defaultValue={versionToEdit?.versionType ?? 'STANDARD'} name="version_type">
-                        <option value="STANDARD">STANDARD</option>
-                        <option value="CUSTOM">CUSTOM</option>
-                        <option value="PROJECT_SPECIFIC">PROJECT_SPECIFIC</option>
-                      </select>
                     </label>
 
                     <label className="product-form-field">
@@ -296,13 +286,6 @@ export function CreateProductVersionPage() {
                       <span>
                         <strong>Is Public</strong>
                         <small>Controls whether this version is visible in catalog responses.</small>
-                      </span>
-                    </label>
-                    <label>
-                      <input defaultChecked={versionToEdit?.isProjectSpecific ?? false} name="is_project_specific" type="checkbox" />
-                      <span>
-                        <strong>Is Project Specific</strong>
-                        <small>Marks this version as specific to one project.</small>
                       </span>
                     </label>
                   </div>

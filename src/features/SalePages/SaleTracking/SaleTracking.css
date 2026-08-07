@@ -1,0 +1,298 @@
+.sale-tracking-shell {
+  background: #faf9f7;
+  color: #2d2d2d;
+  display: flex;
+  font-family: Inter, "DM Sans", Arial, sans-serif;
+  min-height: 100vh;
+}
+
+.sale-tracking-content {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.sale-tracking-main {
+  flex: 1;
+  padding: 24px;
+}
+
+.sale-tracking-heading {
+  align-items: flex-start;
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 24px;
+}
+
+.sale-tracking-heading h2 {
+  color: #2d2d2d;
+  font-size: 24px;
+  font-weight: 500;
+  line-height: 32px;
+  margin: 0;
+}
+
+.sale-tracking-heading p,
+.sale-tracking-muted {
+  color: #6b6b6b;
+  font-size: 14px;
+  line-height: 20px;
+  margin: 4px 0 0;
+}
+
+.sale-tracking-message {
+  border-radius: 10px;
+  background: rgba(139, 111, 71, 0.1);
+  color: #6f5636;
+  font-size: 13px;
+  font-weight: 700;
+  margin-bottom: 14px;
+  padding: 11px 13px;
+}
+
+.sale-tracking-message-error {
+  background: #fff0f0;
+  color: #b42323;
+}
+
+.sale-tracking-layout {
+  align-items: start;
+  display: grid;
+  gap: 18px;
+  grid-template-columns: minmax(240px, 300px) minmax(0, 1fr);
+}
+
+.sale-tracking-project-panel,
+.sale-tracking-card {
+  background: #fff;
+  border: 1px solid rgba(139, 111, 71, 0.15);
+  border-radius: 12px;
+}
+
+.sale-tracking-project-panel {
+  padding: 16px;
+}
+
+.sale-tracking-project-panel h3,
+.sale-tracking-card h3 {
+  color: #2d2d2d;
+  font-size: 16px;
+  font-weight: 600;
+  margin: 0;
+}
+
+.sale-tracking-project-panel header p,
+.sale-tracking-card header p {
+  color: #6b6b6b;
+  font-size: 12px;
+  line-height: 18px;
+  margin: 4px 0 0;
+}
+
+.sale-tracking-project-list {
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.sale-tracking-project-list button {
+  background: #faf9f7;
+  border: 1px solid rgba(139, 111, 71, 0.15);
+  border-radius: 10px;
+  color: #2d2d2d;
+  cursor: pointer;
+  display: grid;
+  font: inherit;
+  gap: 4px;
+  padding: 12px;
+  text-align: left;
+}
+
+.sale-tracking-project-list button.is-active {
+  border-color: #8b6f47;
+  box-shadow: inset 0 0 0 1px #8b6f47;
+}
+
+.sale-tracking-project-list span,
+.sale-tracking-project-list em {
+  color: #6b6b6b;
+  font-size: 12px;
+  font-style: normal;
+}
+
+.sale-tracking-workspace {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+}
+
+.sale-tracking-grid {
+  align-items: start;
+  display: grid;
+  gap: 16px;
+  grid-template-columns: minmax(280px, 0.9fr) minmax(0, 1.1fr);
+}
+
+.sale-tracking-card {
+  padding: 18px;
+}
+
+.sale-tracking-card > header {
+  align-items: flex-start;
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.sale-tracking-card > header > span {
+  background: #f5f1ec;
+  border-radius: 999px;
+  color: #8b6f47;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 6px 10px;
+  white-space: nowrap;
+}
+
+.sale-tracking-overview-grid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.sale-tracking-overview-grid > div {
+  background: #faf9f7;
+  border-radius: 10px;
+  display: grid;
+  gap: 5px;
+  padding: 12px;
+}
+
+.sale-tracking-overview-grid span,
+.sale-tracking-form span {
+  color: #6b6b6b;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.sale-tracking-overview-grid strong {
+  color: #2d2d2d;
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.sale-tracking-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.sale-tracking-actions button,
+.sale-tracking-form button {
+  align-items: center;
+  background: #8b6f47;
+  border: 1px solid #8b6f47;
+  border-radius: 6px;
+  color: #fff;
+  cursor: pointer;
+  display: inline-flex;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  gap: 8px;
+  min-height: 36px;
+  padding: 0 16px;
+}
+
+.sale-tracking-actions button:disabled,
+.sale-tracking-form button:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
+}
+
+.sale-tracking-form {
+  display: grid;
+  gap: 12px;
+}
+
+.sale-tracking-form label {
+  display: grid;
+  gap: 6px;
+}
+
+.sale-tracking-form > div {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.sale-tracking-form input,
+.sale-tracking-form textarea {
+  border: 1px solid rgba(139, 111, 71, 0.2);
+  border-radius: 8px;
+  color: #2d2d2d;
+  font: inherit;
+  min-height: 38px;
+  padding: 8px 10px;
+  width: 100%;
+}
+
+.sale-tracking-form textarea {
+  min-height: 84px;
+  resize: vertical;
+}
+
+.sale-tracking-list {
+  display: grid;
+  gap: 10px;
+}
+
+.sale-tracking-list article {
+  background: #faf9f7;
+  border: 1px solid rgba(139, 111, 71, 0.12);
+  border-radius: 10px;
+  display: grid;
+  gap: 4px;
+  padding: 12px;
+}
+
+.sale-tracking-list span,
+.sale-tracking-list small {
+  color: #6b6b6b;
+  font-size: 12px;
+}
+
+.sale-tracking-table-wrap {
+  overflow: auto;
+}
+
+.sale-tracking-table-wrap table {
+  border-collapse: collapse;
+  min-width: 760px;
+  width: 100%;
+}
+
+.sale-tracking-table-wrap th,
+.sale-tracking-table-wrap td {
+  border-bottom: 1px solid rgba(139, 111, 71, 0.12);
+  font-size: 13px;
+  padding: 12px 10px;
+  text-align: left;
+}
+
+.sale-tracking-table-wrap th {
+  color: #6b6b6b;
+  font-size: 11px;
+  text-transform: uppercase;
+}
+
+@media (max-width: 1100px) {
+  .sale-tracking-layout,
+  .sale-tracking-grid,
+  .sale-tracking-overview-grid {
+    grid-template-columns: 1fr;
+  }
+}

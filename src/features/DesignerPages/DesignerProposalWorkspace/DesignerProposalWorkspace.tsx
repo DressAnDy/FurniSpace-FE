@@ -35,7 +35,7 @@ import { aggregateDuplicateItems } from '@/shared/utils/itemAggregation';
 
 import './DesignerProposalWorkspace.css';
 
-type WorkspaceTab = 'scenes' | 'items' | 'review' | 'chat';
+type WorkspaceTab = 'scenes' | 'items' | 'chat';
 type ProposalDraft = {
   description: string;
   proposalName: string;
@@ -138,16 +138,6 @@ export function DesignerProposalWorkspace() {
     [scenes, selectedAreaId],
   );
   const canPublishProposal = Boolean(activeProposalId && proposal?.status === 'DRAFT' && scenes.length > 0);
-  const publishChecklist = useMemo(
-    () => [
-      { label: 'Proposal is Draft', ready: proposal?.status === 'DRAFT' },
-      { label: 'At least one active scene exists', ready: scenes.length > 0 },
-      { label: 'Room Planner scene is saved', ready: scenes.some((scene) => Boolean(scene.mongoSceneId)) },
-      { label: 'Proposal items are synced if required', ready: items.length > 0 },
-    ],
-    [items.length, proposal?.status, scenes],
-  );
-
   useEffect(() => {
     if (!proposal) {
       return;
@@ -185,7 +175,6 @@ export function DesignerProposalWorkspace() {
 
     if (!canPublishProposal) {
       setMessage('Proposal must be Draft and have at least one active scene before publishing.');
-      setActiveTab('review');
       return;
     }
 
@@ -194,7 +183,6 @@ export function DesignerProposalWorkspace() {
         proposalId: activeProposalId,
         note: 'Published by designer from proposal workspace.',
       });
-      setActiveTab('review');
       setMessage('Proposal published successfully. It is now ready for customer review.');
     } catch (error) {
       setMessage(getProposalServiceResultMessage(error));
@@ -407,7 +395,6 @@ export function DesignerProposalWorkspace() {
       <nav className="designer-proposal-tabs" aria-label="Proposal workspace tabs">
         <button className={activeTab === 'scenes' ? 'is-active' : ''} type="button" onClick={() => setActiveTab('scenes')}><IconCube size={16} /> Scenes</button>
         <button className={activeTab === 'items' ? 'is-active' : ''} disabled={isProposalSetupMode} type="button" onClick={() => setActiveTab('items')}><IconPackage size={16} /> Proposal Items</button>
-        <button className={activeTab === 'review' ? 'is-active' : ''} disabled={isProposalSetupMode} type="button" onClick={() => setActiveTab('review')}><IconFileText size={16} /> Review & Publish</button>
         <button className={activeTab === 'chat' ? 'is-active' : ''} type="button" onClick={() => setActiveTab('chat')}><IconMessageCircle size={16} /> Chat</button>
       </nav>
 
@@ -512,46 +499,6 @@ export function DesignerProposalWorkspace() {
         </section>
       )}
 
-      {activeTab === 'review' && (
-        <section className="designer-review-section">
-          <header>
-            <div><IconFileText size={24} /><div><h2>Review & Publish</h2><p>Check proposal readiness before publishing it for customer review.</p></div></div>
-            <span>{proposal?.status ?? 'UNKNOWN'}</span>
-          </header>
-          <div className="designer-publish-checklist">
-            {publishChecklist.map((item) => (
-              <span className={item.ready ? 'is-ready' : ''} key={item.label}>
-                <IconCheck size={15} /> {item.label}
-              </span>
-            ))}
-          </div>
-          <div className="designer-publish-actions">
-            <div>
-              <strong>{canPublishProposal ? 'Ready for backend publish' : 'Publish is not available yet'}</strong>
-              <span>{canPublishProposal ? 'Backend will update proposal/project status after publish.' : 'Create at least one active scene while this proposal is still Draft.'}</span>
-            </div>
-            <button
-              disabled={!canPublishProposal || publishProposalMutation.isPending}
-              type="button"
-              onClick={() => void publishCurrentProposal()}
-            >
-              <IconFileText size={17} /> {publishProposalMutation.isPending ? 'Publishing...' : 'Publish Proposal'}
-            </button>
-          </div>
-          <div className="designer-review-empty">
-            {primaryScene ? (
-              <>
-                <strong>{getSceneDisplayName(primaryScene)}</strong>
-                <span>Open the Room Planner to preview the saved 3D scene from MongoDB.</span>
-                <button type="button" onClick={() => openRoomPlanner(primaryScene)}>Open Room Planner <IconChevronRight size={17} /></button>
-              </>
-            ) : (
-              <span>No backend scene is available for review.</span>
-            )}
-          </div>
-        </section>
-      )}
-
       {activeTab === 'chat' && (
         <section className="designer-chat-section">
           {project ? (
@@ -618,6 +565,14 @@ function ProposalSummarySection({
   );
 }
 
+function formatAreaMeasurement(value: number | null | undefined, unit: string) {
+  if (typeof value !== 'number') {
+    return '-';
+  }
+
+  return `${new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 2 }).format(value)} ${unit}`;
+}
+
 function ProjectAreasSection({
   areas,
   isLoading,
@@ -651,6 +606,7 @@ function ProjectAreasSection({
           <button
             className={selectedAreaId === area.projectAreaId ? 'is-selected' : ''}
             key={area.projectAreaId}
+            aria-pressed={selectedAreaId === area.projectAreaId}
             type="button"
             onClick={() => onSelectArea(area.projectAreaId)}
           >
@@ -659,6 +615,50 @@ function ProjectAreasSection({
           </button>
         ))}
       </div>
+
+      {selectedArea ? (
+        <div className="designer-selected-area-panel">
+          <header>
+            <div>
+              <strong>{selectedArea.areaName}</strong>
+              <span>{selectedArea.description?.trim() || 'No description provided.'}</span>
+            </div>
+            <small>{formatEnumLabel(selectedArea.status)}</small>
+          </header>
+          <dl>
+            <div>
+              <dt>Floor</dt>
+              <dd>{selectedArea.floorNumber ?? '-'}</dd>
+            </div>
+            <div>
+              <dt>Area</dt>
+              <dd>{formatAreaMeasurement(selectedArea.areaSqm, 'm2')}</dd>
+            </div>
+            <div>
+              <dt>Width</dt>
+              <dd>{formatAreaMeasurement(selectedArea.width, 'm')}</dd>
+            </div>
+            <div>
+              <dt>Length</dt>
+              <dd>{formatAreaMeasurement(selectedArea.length, 'm')}</dd>
+            </div>
+            <div>
+              <dt>Height</dt>
+              <dd>{formatAreaMeasurement(selectedArea.height, 'm')}</dd>
+            </div>
+          </dl>
+          {(selectedArea.currentCondition || selectedArea.requirementNote) ? (
+            <div className="designer-selected-area-notes">
+              {selectedArea.currentCondition ? (
+                <p><span>Condition</span>{selectedArea.currentCondition}</p>
+              ) : null}
+              {selectedArea.requirementNote ? (
+                <p><span>Requirement</span>{selectedArea.requirementNote}</p>
+              ) : null}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
 
     </section>
   );

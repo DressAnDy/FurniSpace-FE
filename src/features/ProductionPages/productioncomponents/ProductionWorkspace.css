@@ -5,6 +5,7 @@
 
 .production-workspace-heading {
   display: flex;
+  min-width: 0;
   align-items: flex-start;
   justify-content: space-between;
   gap: 20px;
@@ -24,6 +25,7 @@
   font-size: 28px;
   font-weight: 600;
   line-height: 36px;
+  overflow-wrap: anywhere;
 }
 
 .production-workspace-heading p {
@@ -129,6 +131,7 @@
   font-size: 30px;
   font-weight: 500;
   line-height: 36px;
+  overflow-wrap: anywhere;
 }
 
 .production-workspace-summary-card small {
@@ -161,6 +164,7 @@
 
 .production-workspace-card header {
   display: flex;
+  min-width: 0;
   align-items: flex-start;
   justify-content: space-between;
   gap: 16px;
@@ -323,7 +327,23 @@
 }
 
 .production-workspace-table-wrap {
+  width: 100%;
   overflow-x: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #8b6f47 #f5f1ec;
+}
+
+.production-workspace-table-wrap::-webkit-scrollbar {
+  height: 8px;
+}
+
+.production-workspace-table-wrap::-webkit-scrollbar-track {
+  background: #f5f1ec;
+}
+
+.production-workspace-table-wrap::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: #8b6f47;
 }
 
 .production-workspace-table {
@@ -478,5 +498,24 @@
 
   .production-workspace-heading {
     flex-direction: column;
+  }
+
+  .production-workspace-card header,
+  .production-workspace-summary-card {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .production-workspace-button,
+  .production-workspace-action-link,
+  .production-workspace-row-actions button,
+  .production-workspace-row-actions a {
+    width: 100%;
+    white-space: normal;
+  }
+
+  .production-workspace-tabs button,
+  .production-workspace-filter-bar button {
+    flex: 1 1 140px;
   }
 }

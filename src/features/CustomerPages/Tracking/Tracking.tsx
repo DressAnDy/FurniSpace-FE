@@ -1,14 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
   IconAlertTriangle,
-  IconCalendarEvent,
   IconCheck,
-  IconClipboardText,
-  IconCreditCard,
   IconMessageCircle,
   IconPackage,
-  IconReceipt,
-  IconTool,
+  IconTruckDelivery,
 } from '@tabler/icons-react';
 import { Link } from 'react-router-dom';
 
@@ -16,23 +12,17 @@ import {
   CustomerNavbar,
   CustomerStatusBadge,
   CustomerSummaryCard,
-  CustomerTimeline,
 } from '@/features/CustomerPages/customercomponents';
-import { getOrderServiceResultMessage, type OrderDetailDto, type OrderItemDto, type OrderItemStatus, type OrderStatus } from '@/services/api/orders';
-import type { PaymentDto } from '@/services/api/payments';
-import type { ProjectListItemDto, ProjectStatus } from '@/services/api/projects';
+import { getOrderServiceResultMessage, type OrderItemDto, type OrderItemStatus, type OrderStatus } from '@/services/api/orders';
+import type { ProjectStatus } from '@/services/api/projects';
 import {
+  useConfirmOrderItemDelivery,
   useOrderDetail,
-  usePayments,
   useProjectList,
   useProjectOrders,
 } from '@/services/queries';
 import {
-  formatCustomerDate,
-  formatCustomerMoney,
   getProjectStatusLabel,
-  paymentStatusLabels,
-  paymentTypeLabels,
 } from '@/features/CustomerPages/utils';
 
 import './Tracking.css';
@@ -61,6 +51,7 @@ const itemStatusLabels: Record<string, string> = {
 export function Tracking() {
   const [selectedProjectId, setSelectedProjectId] = useState('');
   const [selectedOrderId, setSelectedOrderId] = useState('');
+  const [message, setMessage] = useState<{ tone: 'error' | 'success'; text: string } | null>(null);
   const projectsQuery = useProjectList({ page: 1, limit: 50 });
   const projects = useMemo(
     () => (projectsQuery.data?.items ?? []).filter((project) => trackableProjectStatuses.has(project.status)),
@@ -72,13 +63,10 @@ export function Tracking() {
   const selectedOrder = orders.find((order) => order.orderId === selectedOrderId) ?? orders[0] ?? null;
   const orderDetailQuery = useOrderDetail(selectedOrderId, { enabled: Boolean(selectedOrderId) });
   const order = orderDetailQuery.data ?? null;
-  const paymentsQuery = usePayments(
-    selectedOrderId ? { orderId: selectedOrderId, paymentType: 'REMAINING_PAYMENT', status: 'PENDING' } : undefined,
-    { enabled: Boolean(selectedOrderId) },
-  );
-  const pendingPayment = paymentsQuery.data?.items?.[0] ?? null;
-  const productionItems = order?.items ?? [];
-  const blockedOrCancelledItems = productionItems.filter((item) => isBlockedOrUnavailable(item.status));
+  const confirmDeliveryMutation = useConfirmOrderItemDelivery();
+  const productionItems = useMemo(() => order?.items ?? [], [order?.items]);
+  const deliveryItemGroups = useMemo(() => groupOrderItemsByName(productionItems.filter((item) => item.itemType === 'PRODUCT_ITEM')), [productionItems]);
+  const attentionGroups = deliveryItemGroups.filter((group) => group.hasAttention);
 
   useEffect(() => {
     if (!selectedProjectId && projects.length > 0) {
@@ -97,6 +85,23 @@ export function Tracking() {
     }
   }, [orders, selectedOrderId]);
 
+  async function confirmDeliveryGroup(items: OrderItemDto[]) {
+    setMessage(null);
+
+    try {
+      const confirmableItems = items.filter((item) => canConfirmDelivery(order?.status, item));
+
+      for (const item of confirmableItems) {
+        await confirmDeliveryMutation.mutateAsync(item.orderItemId);
+      }
+
+      setMessage({ tone: 'success', text: 'Delivery confirmed.' });
+      void orderDetailQuery.refetch();
+    } catch (error) {
+      setMessage({ tone: 'error', text: getOrderServiceResultMessage(error) });
+    }
+  }
+
   return (
     <main className="customer-workspace-page customer-tracking-page">
       <CustomerNavbar activeLabel="Tracking" classPrefix="customer-tracking" />
@@ -104,22 +109,24 @@ export function Tracking() {
         <section className="customer-workspace-heading">
           <div>
             <p className="customer-workspace-eyebrow">Customer Workspace</p>
-            <h1>Project Tracking</h1>
-            <p>Track the current production, delivery, and payment state of your confirmed order items.</p>
+            <h1>Delivery Tracking</h1>
+            <p>Follow delivery progress and confirm received items from one focused place.</p>
           </div>
         </section>
 
         {projectsQuery.isError ? <section className="customer-tracking-message customer-tracking-message-error">Cannot load your projects.</section> : null}
         {ordersQuery.isError ? <section className="customer-tracking-message customer-tracking-message-error">{getOrderServiceResultMessage(ordersQuery.error)}</section> : null}
         {orderDetailQuery.isError ? <section className="customer-tracking-message customer-tracking-message-error">{getOrderServiceResultMessage(orderDetailQuery.error)}</section> : null}
+        {message ? <section className={`customer-tracking-message customer-tracking-message-${message.tone}`}>{message.text}</section> : null}
 
-        <section className="customer-workspace-grid">
-          <article className="customer-workspace-card">
-            <header>
-              <div>
-                <h2>Active Project / Current Order</h2>
-                <p>Switch between confirmed projects and follow the current production-facing order state.</p>
-              </div>
+        <article className="customer-workspace-card customer-tracking-control-panel">
+          <header>
+            <div>
+              <h2>{order?.orderCode ?? selectedOrder?.orderCode ?? 'No active order'}</h2>
+              <p>{selectedProject?.projectName ?? 'No project selected'}</p>
+            </div>
+            <div className="customer-tracking-controls">
+              <CustomerStatusBadge label={getProjectStatusLabel(order?.status ?? selectedProject?.status ?? 'ORDER_CONFIRMED')} status={order?.status ?? selectedProject?.status ?? 'ORDER_CONFIRMED'} />
               <select
                 className="customer-tracking-selector"
                 value={selectedProjectId}
@@ -132,177 +139,81 @@ export function Tracking() {
                   <option key={project.projectId} value={project.projectId}>{project.projectName}</option>
                 ))}
               </select>
-            </header>
-            {selectedProject && order ? <ProjectSummary order={order} project={selectedProject} /> : <p className="customer-workspace-muted">No production tracking is available yet.</p>}
-          </article>
-
-          <article className="customer-tracking-status-banner">
-            <CustomerStatusBadge label={getProjectStatusLabel(order?.status ?? selectedProject?.status ?? 'ORDER_CONFIRMED')} status={order?.status ?? selectedProject?.status ?? 'ORDER_CONFIRMED'} />
-            <h2>{order?.orderCode ?? selectedOrder?.orderCode ?? 'No active order'}</h2>
-            <p>{getTrackingMessage(order?.status ?? selectedProject?.status)}</p>
-            <strong>Current state: {formatEnumLabel(order?.status ?? selectedProject?.status ?? 'UNKNOWN')}</strong>
-            <Link className="customer-workspace-button" to="/customer/chat">Contact Team</Link>
-          </article>
-        </section>
-
-        <section className="customer-workspace-summary-grid">
-          <CustomerSummaryCard icon={IconPackage} label="Total Items" value={productionItems.length} />
-          <CustomerSummaryCard icon={IconTool} label="In Production" value={countItems(productionItems, 'IN_PRODUCTION')} />
-          <CustomerSummaryCard icon={IconCheck} label="Completed" value={countItems(productionItems, 'COMPLETED') + countItems(productionItems, 'DELIVERED')} />
-          <CustomerSummaryCard icon={IconAlertTriangle} label="Blocked / Unavailable" value={blockedOrCancelledItems.length} />
-        </section>
-
-        {blockedOrCancelledItems.length > 0 ? (
-          <article className="customer-tracking-warning-panel">
-            <header>
-              <IconAlertTriangle size={22} />
-              <div>
-                <h2>Item Attention Needed</h2>
-                <p>The team is reviewing these item-level production issues and will coordinate next steps if an adjustment is needed.</p>
-              </div>
-              <Link className="customer-workspace-link" to="/customer/chat">Contact Team</Link>
-            </header>
-            <div className="customer-workspace-list">
-              {blockedOrCancelledItems.map((item) => (
-                <ItemWarning item={item} key={item.orderItemId} />
-              ))}
-            </div>
-          </article>
-        ) : null}
-
-        <article className="customer-workspace-card">
-          <header>
-            <div>
-              <h2>Production Items Tracking</h2>
-              <p>Each physical item shows its latest status from the order and production flow.</p>
             </div>
           </header>
-          {orderDetailQuery.isLoading ? <p className="customer-workspace-muted">Loading order items...</p> : null}
-          {!orderDetailQuery.isLoading && productionItems.length === 0 ? <p className="customer-workspace-muted">No order items are available yet.</p> : null}
-          <div className="customer-tracking-item-grid">
-            {productionItems.map((item) => (
-              <ProductionItemCard item={item} key={item.orderItemId} orderStatus={order?.status} />
-            ))}
+          <p className="customer-tracking-current-message">{getTrackingMessage(order?.status ?? selectedProject?.status)}</p>
+          <div className="customer-tracking-meta-row">
+            <Field label="Project code" value={selectedProject?.projectCode ?? '-'} />
+            <Field label="Order status" value={formatEnumLabel(order?.status ?? selectedProject?.status ?? 'UNKNOWN')} />
           </div>
         </article>
 
-        <section className="customer-workspace-grid">
-          <article className="customer-workspace-card">
-            <header>
-              <div>
-                <h2>Delivery Readiness</h2>
-                <p>Delivery starts after production is complete and a delivery schedule is confirmed.</p>
-              </div>
-            </header>
-            <div className="customer-workspace-field-grid">
-              <Field label="Current order" value={order?.orderCode ?? '-'} />
-              <Field label="Completed items" value={`${countItems(productionItems, 'COMPLETED') + countItems(productionItems, 'DELIVERED')} item(s)`} />
-              <Field label="Delivered items" value={`${countItems(productionItems, 'DELIVERED')} item(s)`} />
-              <Field label="Remaining amount" value={formatCustomerMoney(order?.remainingAmount)} />
-            </div>
-          </article>
-
-          <article className="customer-workspace-card">
-            <header>
-              <div>
-                <h2>Related Information</h2>
-                <p>Production-oriented records connected to this order.</p>
-              </div>
-            </header>
-            <div className="customer-tracking-related-grid">
-              <RelatedCard icon={IconReceipt} title="Current Order" summary={order?.orderCode ?? '-'} status={order?.status ?? 'ORDER_CONFIRMED'} path="/customer/orders" />
-              <RelatedCard icon={IconClipboardText} title="Production State" summary={formatEnumLabel(order?.status ?? selectedProject?.status ?? 'UNKNOWN')} status={order?.status ?? selectedProject?.status ?? 'ORDER_CONFIRMED'} path="/customer/tracking" />
-              <RelatedCard
-                icon={IconCreditCard}
-                title="Pending Payment"
-                summary={pendingPayment ? `${paymentTypeLabels[pendingPayment.paymentType ?? 'OTHER']} - ${formatPaymentAmount(pendingPayment)}` : 'No pending payment'}
-                status={pendingPayment?.status ?? 'PAID'}
-                path="/customer/orders"
-              />
-              <RelatedCard icon={IconCalendarEvent} title="Schedules" summary="Delivery appointments and confirmations" status="READY_FOR_DELIVERY" path="/customer/schedules" />
-              <RelatedCard icon={IconMessageCircle} title="Project Chat" summary="Message Sales or support" status="IN_PRODUCTION" path="/customer/chat" />
-            </div>
-          </article>
+        <section className="customer-workspace-summary-grid">
+          <CustomerSummaryCard icon={IconPackage} label="Item Groups" value={deliveryItemGroups.length} />
+          <CustomerSummaryCard icon={IconTruckDelivery} label="Delivered" value={countItems(productionItems, 'DELIVERED')} />
+          <CustomerSummaryCard icon={IconCheck} label="Ready / Done" value={countItems(productionItems, 'COMPLETED') + countItems(productionItems, 'DELIVERED')} />
+          <CustomerSummaryCard icon={IconAlertTriangle} label="Need Attention" value={attentionGroups.length} />
         </section>
 
-        {selectedProject ? (
-          <article className="customer-workspace-card customer-tracking-project-overview">
-            <header>
-              <div>
-                <h2>Project Status Overview</h2>
-                <p>High-level project status remains secondary to item-level production tracking.</p>
-              </div>
-            </header>
-            <CustomerTimeline status={selectedProject.status} />
-          </article>
-        ) : null}
+        <article className="customer-workspace-card customer-tracking-items-panel">
+          <header>
+            <div>
+              <h2>Delivery Items</h2>
+              <p>Items are grouped by product name so the list stays compact.</p>
+            </div>
+            <Link className="customer-workspace-link" to="/customer/chat"><IconMessageCircle size={16} /> Contact team</Link>
+          </header>
+          {orderDetailQuery.isLoading ? <p className="customer-workspace-muted">Loading order items...</p> : null}
+          {!orderDetailQuery.isLoading && deliveryItemGroups.length === 0 ? <p className="customer-workspace-muted">No delivery items are available yet.</p> : null}
+          <div className="customer-tracking-delivery-list">
+            {deliveryItemGroups.map((group) => (
+              <DeliveryItemRow
+                confirmPending={confirmDeliveryMutation.isPending}
+                group={group}
+                key={group.key}
+                orderStatus={order?.status}
+                onConfirm={() => void confirmDeliveryGroup(group.items)}
+              />
+            ))}
+          </div>
+        </article>
       </div>
     </main>
   );
 }
 
-function ProjectSummary({ order, project }: { order: OrderDetailDto; project: ProjectListItemDto }) {
-  return (
-    <div className="customer-workspace-field-grid">
-      <Field label="Project name" value={project.projectName} />
-      <Field label="Project code" value={project.projectCode} />
-      <Field label="Current order" value={order.orderCode} />
-      <Field label="Business type" value={project.businessType} />
-      <div className="customer-workspace-field">
-        <span>Project status</span>
-        <strong><CustomerStatusBadge label={getProjectStatusLabel(project.status)} status={project.status} /></strong>
-      </div>
-      <div className="customer-workspace-field">
-        <span>Order status</span>
-        <strong><CustomerStatusBadge label={formatEnumLabel(order.status ?? 'UNKNOWN')} status={order.status ?? 'UNKNOWN'} /></strong>
-      </div>
-    </div>
-  );
-}
-
-function ProductionItemCard({ item, orderStatus }: { item: OrderItemDto; orderStatus?: OrderStatus | null }) {
-  const status = getCustomerItemStatus(item, orderStatus);
+function DeliveryItemRow({
+  confirmPending,
+  group,
+  onConfirm,
+  orderStatus,
+}: {
+  confirmPending: boolean;
+  group: OrderItemGroup;
+  onConfirm: () => void;
+  orderStatus?: OrderStatus | null;
+}) {
+  const status = getGroupStatus(group, orderStatus);
+  const canConfirm = canConfirmDeliveryGroup(orderStatus, group);
 
   return (
-    <article className={`customer-tracking-item-card customer-tracking-item-card-${status.toLowerCase()}`}>
-      <header>
-        <div>
-          <span>{item.orderItemId}</span>
-          <h3>{getOrderItemName(item)}</h3>
-          <p>{item.itemType ? formatEnumLabel(item.itemType) : '-'}</p>
-        </div>
-        <CustomerStatusBadge label={itemStatusLabels[status] ?? formatEnumLabel(status)} status={status} />
-      </header>
-      <div className="customer-workspace-field-grid">
-        <Field label="Quantity" value={String(item.quantity ?? '-')} />
-        <Field label="Production state" value={itemStatusLabels[status] ?? formatEnumLabel(status)} />
-        <Field label="Delivered" value={`${item.deliveredQuantity ?? 0}/${item.quantity ?? 0}`} />
-        <Field label="Confirmed at" value={formatCustomerDate(item.customerConfirmedAt)} />
-        <Field label="Delivery note" value={item.deliveryNote ?? '-'} />
-        <Field label="Subtotal" value={formatCustomerMoney(item.subtotalAmount)} />
+    <article className={`customer-tracking-delivery-row customer-tracking-delivery-row-${status.toLowerCase()}`}>
+      <div className="customer-tracking-delivery-main">
+        <strong>{group.name}</strong>
+        <span>{group.quantity} item(s) total</span>
       </div>
-      {isBlockedOrUnavailable(status) ? <ItemWarning item={item} /> : null}
+      <div className="customer-tracking-progress">
+        <span>{group.deliveredQuantity}/{group.quantity} delivered</span>
+        <div aria-hidden="true"><i style={{ width: `${getDeliveryPercent(group)}%` }} /></div>
+      </div>
+      <CustomerStatusBadge label={itemStatusLabels[status] ?? formatEnumLabel(status)} status={status} />
+      <button disabled={!canConfirm || confirmPending} type="button" onClick={onConfirm}>
+        {confirmPending ? 'Confirming...' : group.confirmedQuantity >= group.quantity ? 'Confirmed' : 'Confirm received'}
+      </button>
+      {group.hasAttention ? (
+        <p className="customer-tracking-row-note">This item needs team attention before delivery can continue.</p>
+      ) : null}
     </article>
-  );
-}
-
-function ItemWarning({ item }: { item: OrderItemDto }) {
-  const status = item.status ?? 'BLOCKED';
-
-  if (status === 'CANCELLED' || status === 'UNAVAILABLE') {
-    return (
-      <div className="customer-tracking-item-warning customer-tracking-item-warning-danger">
-        <strong>This item is unavailable.</strong>
-        <p>Sales will coordinate an adjustment or alternative option if this affects your final order.</p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="customer-tracking-item-warning">
-      <strong>Production issue reported.</strong>
-      <p>The team is resolving this item and will contact you if action is required.</p>
-    </div>
   );
 }
 
@@ -315,19 +226,68 @@ function Field({ label, value }: { label: string; value: string }) {
   );
 }
 
-function RelatedCard({ icon: IconComponent, path, status, summary, title }: { icon: typeof IconClipboardText; path: string; status: string; summary: string; title: string }) {
-  return (
-    <Link className="customer-tracking-related-card" to={path}>
-      <IconComponent size={22} />
-      <strong>{title}</strong>
-      <p>{summary}</p>
-      <CustomerStatusBadge label={paymentStatusLabels[status as keyof typeof paymentStatusLabels] ?? getProjectStatusLabel(status)} status={status} />
-    </Link>
-  );
-}
-
 function countItems(items: OrderItemDto[], status: OrderItemStatus) {
   return items.filter((item) => item.status === status).length;
+}
+
+function canConfirmDelivery(orderStatus: OrderStatus | null | undefined, item: OrderItemDto) {
+  if (orderStatus !== 'DELIVERING') return false;
+  if (item.itemType !== 'PRODUCT_ITEM') return false;
+  if (item.status === 'DELIVERED' || item.status === 'UNAVAILABLE' || item.status === 'CANCELLED') return false;
+
+  const quantity = item.quantity ?? 0;
+
+  return quantity > 0 && (item.deliveredQuantity ?? 0) >= quantity;
+}
+
+function canConfirmDeliveryGroup(orderStatus: OrderStatus | null | undefined, group: OrderItemGroup) {
+  return group.items.some((item) => canConfirmDelivery(orderStatus, item))
+    && group.items.every((item) => item.status === 'DELIVERED' || canConfirmDelivery(orderStatus, item));
+}
+
+type OrderItemGroup = {
+  confirmedQuantity: number;
+  deliveredQuantity: number;
+  hasAttention: boolean;
+  items: OrderItemDto[];
+  key: string;
+  name: string;
+  quantity: number;
+  statusSummary: string;
+};
+
+function groupOrderItemsByName(items: OrderItemDto[]): OrderItemGroup[] {
+  const groupsByKey = new Map<string, OrderItemDto[]>();
+
+  for (const item of items) {
+    const key = `${item.itemType ?? 'UNKNOWN'}|${getOrderItemName(item)}`;
+    const groupItems = groupsByKey.get(key);
+
+    if (groupItems) {
+      groupItems.push(item);
+    } else {
+      groupsByKey.set(key, [item]);
+    }
+  }
+
+  return Array.from(groupsByKey.entries()).map(([key, groupItems]) => {
+    const statuses = Array.from(new Set(groupItems.map((item) => item.status ?? 'PENDING')));
+
+    return {
+      confirmedQuantity: groupItems.reduce((total, item) => total + (item.status === 'DELIVERED' ? item.quantity ?? 0 : 0), 0),
+      deliveredQuantity: sumItemNumbers(groupItems, 'deliveredQuantity'),
+      hasAttention: groupItems.some((item) => isBlockedOrUnavailable(item.status)),
+      items: groupItems,
+      key,
+      name: getOrderItemName(groupItems[0] ?? {}),
+      quantity: sumItemNumbers(groupItems, 'quantity'),
+      statusSummary: statuses.map(formatEnumLabel).join(', '),
+    };
+  });
+}
+
+function sumItemNumbers(items: OrderItemDto[], field: 'deliveredQuantity' | 'quantity') {
+  return items.reduce((total, item) => total + (item[field] ?? 0), 0);
 }
 
 function isBlockedOrUnavailable(status?: string | null) {
@@ -344,6 +304,27 @@ function getCustomerItemStatus(item: OrderItemDto, orderStatus?: OrderStatus | n
   return 'PENDING';
 }
 
+function getGroupStatus(group: OrderItemGroup, orderStatus?: OrderStatus | null) {
+  if (group.hasAttention) return 'BLOCKED';
+  if (group.confirmedQuantity >= group.quantity && group.quantity > 0) return 'DELIVERED';
+  if (group.deliveredQuantity >= group.quantity && group.quantity > 0) return 'DELIVERING';
+
+  const statuses = new Set(group.items.map((item) => getCustomerItemStatus(item, orderStatus)));
+
+  if (statuses.has('IN_PRODUCTION')) return 'IN_PRODUCTION';
+  if (statuses.has('COMPLETED')) return 'COMPLETED';
+  if (statuses.has('DELIVERING')) return 'DELIVERING';
+  if (statuses.has('DELIVERED')) return 'DELIVERED';
+
+  return 'PENDING';
+}
+
+function getDeliveryPercent(group: OrderItemGroup) {
+  if (group.quantity <= 0) return 0;
+
+  return Math.min(100, Math.round((group.deliveredQuantity / group.quantity) * 100));
+}
+
 function getOrderItemName(item: Pick<OrderItemDto, 'itemName' | 'productNameSnapshot'>) {
   return item.itemName ?? item.productNameSnapshot ?? '-';
 }
@@ -357,10 +338,6 @@ function getTrackingMessage(status?: string | null) {
   if (status === 'COMPLETED') return 'This project has been completed.';
 
   return 'Production tracking will appear after your order enters the production flow.';
-}
-
-function formatPaymentAmount(payment: PaymentDto) {
-  return `${new Intl.NumberFormat('vi-VN').format(payment.amount)} ${payment.currency}`;
 }
 
 function formatEnumLabel(value: string) {

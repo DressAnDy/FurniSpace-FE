@@ -1,5 +1,10 @@
+.customer-tracking-page .customer-workspace-main {
+  gap: 18px;
+}
+
 .customer-tracking-selector {
   min-height: 40px;
+  min-width: min(280px, 100%);
   border: 1px solid rgba(139, 111, 71, 0.2);
   border-radius: 8px;
   background: #faf9f7;
@@ -9,11 +14,10 @@
 }
 
 .customer-tracking-message {
-  margin-bottom: 18px;
   border: 1px solid rgba(139, 111, 71, 0.15);
-  border-radius: 12px;
+  border-radius: 10px;
   background: #ffffff;
-  padding: 13px 15px;
+  padding: 12px 14px;
   font-size: 14px;
   font-weight: 700;
 }
@@ -23,191 +27,174 @@
   color: #b91c1c;
 }
 
-.customer-tracking-status-banner {
-  display: grid;
-  align-content: center;
-  gap: 12px;
-  min-height: 100%;
-  border: 1px solid rgba(139, 111, 71, 0.15);
-  border-radius: 12px;
-  background: linear-gradient(174deg, #2d2d2d 0%, #1e1e1e 100%);
-  color: #ffffff;
-  padding: 26px;
+.customer-tracking-message-success {
+  background: rgba(22, 163, 74, 0.1);
+  color: #15803d;
 }
 
-.customer-tracking-status-banner h2 {
+.customer-tracking-control-panel {
+  display: grid;
+  gap: 14px;
+}
+
+.customer-tracking-control-panel > header,
+.customer-tracking-items-panel > header {
+  align-items: flex-start;
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+}
+
+.customer-tracking-control-panel h2 {
   margin: 0;
-  font-size: 26px;
+  color: #2d2d2d;
+  font-size: 24px;
   line-height: 1.2;
 }
 
-.customer-tracking-status-banner p,
-.customer-tracking-status-banner strong {
-  color: rgba(255, 255, 255, 0.78);
-  font-size: 14px;
-  line-height: 1.55;
-}
-
-.customer-tracking-status-banner .customer-workspace-button {
-  width: fit-content;
-  margin-top: 4px;
-}
-
-.customer-tracking-warning-panel {
-  border: 1px solid rgba(184, 92, 80, 0.22);
-  border-radius: 12px;
-  background: #fff7f5;
-  padding: 20px;
-}
-
-.customer-tracking-warning-panel > header {
-  display: grid;
-  grid-template-columns: 24px minmax(0, 1fr) auto;
-  gap: 12px;
-  align-items: start;
-  margin-bottom: 14px;
-}
-
-.customer-tracking-warning-panel > header > svg {
-  color: #b85c50;
-}
-
-.customer-tracking-warning-panel h2 {
-  margin: 0;
-  color: #2d2d2d;
-  font-size: 18px;
-}
-
-.customer-tracking-warning-panel p {
-  margin: 5px 0 0;
+.customer-tracking-control-panel header p,
+.customer-tracking-current-message {
   color: #6b6b6b;
   font-size: 14px;
   line-height: 1.5;
+  margin: 5px 0 0;
 }
 
-.customer-tracking-item-grid {
+.customer-tracking-controls {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+.customer-tracking-meta-row {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 14px;
+  gap: 12px;
 }
 
-.customer-tracking-item-card {
+.customer-tracking-items-panel {
+  display: grid;
+  gap: 16px;
+}
+
+.customer-tracking-items-panel .customer-workspace-link {
+  align-items: center;
+  display: inline-flex;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.customer-tracking-delivery-list {
+  display: grid;
+  gap: 10px;
+}
+
+.customer-tracking-delivery-row {
+  align-items: center;
+  border: 1px solid rgba(139, 111, 71, 0.14);
+  border-radius: 10px;
+  background: #faf9f7;
   display: grid;
   gap: 14px;
-  border: 1px solid rgba(139, 111, 71, 0.14);
-  border-radius: 12px;
-  background: #faf9f7;
-  padding: 16px;
+  grid-template-columns: minmax(180px, 1.35fr) minmax(150px, 1fr) auto auto;
+  padding: 14px;
 }
 
-.customer-tracking-item-card-blocked {
-  border-color: rgba(245, 158, 11, 0.32);
-  background: #fffaf0;
-}
-
-.customer-tracking-item-card-cancelled {
-  border-color: rgba(184, 92, 80, 0.3);
+.customer-tracking-delivery-row-blocked {
+  border-color: rgba(184, 92, 80, 0.26);
   background: #fff7f5;
 }
 
-.customer-tracking-item-card header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
+.customer-tracking-delivery-main {
+  min-width: 0;
 }
 
-.customer-tracking-item-card header span:not(.customer-workspace-status) {
-  display: block;
-  color: #8b6f47;
-  font-size: 11px;
-  font-weight: 800;
-}
-
-.customer-tracking-item-card h3 {
-  margin: 5px 0 0;
+.customer-tracking-delivery-main strong {
   color: #2d2d2d;
-  font-size: 18px;
-  font-weight: 800;
-}
-
-.customer-tracking-item-card header p {
-  margin: 4px 0 0;
-  color: #6b6b6b;
-  font-size: 13px;
-}
-
-.customer-tracking-item-warning {
-  border: 1px solid rgba(245, 158, 11, 0.2);
-  border-radius: 10px;
-  background: rgba(245, 158, 11, 0.1);
-  padding: 12px;
-}
-
-.customer-tracking-item-warning-danger {
-  border-color: rgba(184, 92, 80, 0.22);
-  background: rgba(184, 92, 80, 0.1);
-}
-
-.customer-tracking-item-warning strong {
   display: block;
-  color: #2d2d2d;
-  font-size: 13px;
+  font-size: 15px;
+  line-height: 1.35;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.customer-tracking-item-warning p {
-  margin: 5px 0 0;
+.customer-tracking-delivery-main span,
+.customer-tracking-progress span,
+.customer-tracking-row-note {
   color: #6b6b6b;
-  font-size: 13px;
+  font-size: 12px;
   line-height: 1.45;
 }
 
-.customer-tracking-project-overview {
-  opacity: 0.88;
-}
-
-.customer-tracking-related-grid {
+.customer-tracking-progress {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
+  gap: 7px;
+  min-width: 0;
 }
 
-.customer-tracking-related-card {
-  display: grid;
-  gap: 8px;
-  border: 1px solid rgba(139, 111, 71, 0.14);
-  border-radius: 10px;
-  background: #faf9f7;
-  color: #2d2d2d;
-  padding: 14px;
-  text-decoration: none;
+.customer-tracking-progress > div {
+  height: 7px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(139, 111, 71, 0.14);
 }
 
-.customer-tracking-related-card svg {
-  color: #8b6f47;
+.customer-tracking-progress i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: #8b6f47;
 }
 
-.customer-tracking-related-card strong {
-  color: #2d2d2d;
-  font-size: 14px;
-}
-
-.customer-tracking-related-card p {
-  margin: 0;
-  color: #6b6b6b;
+.customer-tracking-delivery-row button {
+  min-height: 36px;
+  border: 1px solid #8b6f47;
+  border-radius: 8px;
+  background: #8b6f47;
+  color: #ffffff;
+  cursor: pointer;
+  font: inherit;
   font-size: 13px;
-  line-height: 1.45;
+  font-weight: 700;
+  padding: 0 12px;
+  white-space: nowrap;
 }
 
-@media (max-width: 760px) {
-  .customer-tracking-related-grid,
-  .customer-tracking-item-grid {
-    grid-template-columns: 1fr;
+.customer-tracking-delivery-row button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.customer-tracking-row-note {
+  grid-column: 1 / -1;
+  margin: -4px 0 0;
+}
+
+@media (max-width: 900px) {
+  .customer-tracking-control-panel > header,
+  .customer-tracking-items-panel > header {
+    flex-direction: column;
   }
 
-  .customer-tracking-warning-panel > header,
-  .customer-tracking-item-card header {
+  .customer-tracking-controls {
+    justify-content: flex-start;
+    width: 100%;
+  }
+
+  .customer-tracking-selector {
+    width: 100%;
+  }
+
+  .customer-tracking-delivery-row {
     grid-template-columns: 1fr;
-    flex-direction: column;
+  }
+}
+
+@media (max-width: 640px) {
+  .customer-tracking-meta-row {
+    grid-template-columns: 1fr;
   }
 }

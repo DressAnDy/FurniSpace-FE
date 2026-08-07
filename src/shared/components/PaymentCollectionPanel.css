@@ -9,6 +9,7 @@
 
 .payment-collection-panel header {
   display: flex;
+  min-width: 0;
   align-items: flex-start;
   justify-content: space-between;
   gap: 14px;
@@ -31,6 +32,9 @@
 }
 
 .payment-collection-status {
+  display: inline-flex;
+  width: fit-content;
+  align-items: center;
   border-radius: 999px;
   background: rgba(139, 111, 71, 0.14);
   color: #6f5636;
@@ -98,6 +102,7 @@
 }
 
 .payment-collection-actions button {
+  flex: 0 1 auto;
   min-height: 40px;
   border: 1px solid #8b6f47;
   border-radius: 10px;
@@ -168,6 +173,7 @@
 .payment-collection-transactions strong {
   color: #2f2a24;
   font-size: 13px;
+  overflow-wrap: anywhere;
 }
 
 @media (max-width: 820px) {
@@ -175,5 +181,14 @@
   .payment-collection-qr,
   .payment-collection-transactions article {
     grid-template-columns: 1fr;
+  }
+
+  .payment-collection-panel header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .payment-collection-actions button {
+    width: 100%;
   }
 }

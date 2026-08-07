@@ -110,6 +110,11 @@
   background: #f5f1ec;
 }
 
+.project-chat-panel-list button.has-unread {
+  border-color: rgba(220, 38, 38, 0.28);
+  box-shadow: inset 3px 0 0 #dc2626;
+}
+
 .project-chat-panel-list button > span {
   display: flex;
   min-width: 0;
@@ -382,7 +387,25 @@
 }
 
 .project-chat-panel-compact .project-chat-panel-layout {
-  min-height: 460px;
+  min-height: 420px;
+  grid-template-columns: 1fr;
+}
+
+.project-chat-panel-compact .project-chat-panel-list {
+  flex-direction: row;
+  overflow-x: auto;
+}
+
+.project-chat-panel-compact .project-chat-panel-list button {
+  min-width: min(220px, 74vw);
+}
+
+.project-chat-panel-compact .project-chat-panel-messages {
+  max-height: min(420px, 52vh);
+}
+
+.project-chat-panel-compact .project-chat-panel-bubble {
+  max-width: min(100%, calc(100vw - 96px));
 }
 
 @media (max-width: 820px) {
@@ -402,5 +425,15 @@
 
   .project-chat-panel-composer {
     grid-template-columns: 1fr;
+  }
+
+  .project-chat-panel-header,
+  .project-chat-panel-thread-header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .project-chat-panel-bubble {
+    max-width: min(100%, calc(100vw - 96px));
   }
 }
