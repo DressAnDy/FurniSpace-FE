@@ -1,16 +1,6 @@
-export type DashboardAlert = {
-  action: string;
-  age: string;
-  count: string;
-  entity: string;
-  module: string;
-  path: string;
-  severity: 'critical' | 'warning' | 'info';
-};
-
 export type DashboardKpiMock = {
   comparison: string;
-  label: 'Projects At Risk' | 'Active Order Value' | 'Amount Collected' | 'Outstanding Amount' | 'Blocked Production';
+  label: 'Active Order Value' | 'Amount Collected' | 'Outstanding Amount';
   note: string;
   path: string;
   trend: 'up' | 'down' | 'flat';
@@ -29,6 +19,14 @@ export type CommercialTrendDatum = {
   month: string;
   orderValue: number;
   outstanding: number;
+};
+
+export type RevenuePeriodDatum = {
+  completedOrders: number;
+  label: string;
+  profit: number;
+  retail: number;
+  wholesale: number;
 };
 
 export type PaymentHealthItem = {
@@ -74,21 +72,10 @@ export type AssetUploadItem = {
 };
 
 // Mocked until Admin operational dashboard aggregate endpoints are available.
-export const dashboardAlerts: DashboardAlert[] = [
-  { action: 'Review queue', age: '22h oldest', count: '7', entity: 'project requests', module: 'Project Intake', path: '/admin/projects', severity: 'critical' },
-  { action: 'Assign designer', age: '18h', count: '4', entity: 'paid start fees', module: 'Design Prep', path: '/admin/projects', severity: 'critical' },
-  { action: 'Send quotation', age: '1d', count: '3', entity: 'selected proposals', module: 'Quotation', path: '/admin/reports', severity: 'warning' },
-  { action: 'Create adjustment', age: '2d oldest', count: '2', entity: 'unavailable items', module: 'Production', path: '/admin/reports', severity: 'warning' },
-  { action: 'Verify payment', age: 'today', count: '3', entity: 'failed transactions', module: 'Payments', path: '/admin/reports', severity: 'critical' },
-  { action: 'Prepare remaining payment', age: '2d', count: '5', entity: 'delivered orders', module: 'Completion', path: '/admin/reports', severity: 'info' },
-];
-
 export const dashboardKpiMocks: DashboardKpiMock[] = [
-  { comparison: '+3 vs last week', label: 'Projects At Risk', note: 'Overdue, blocked, or missing owner', path: '/admin/projects', trend: 'up', value: '9', warning: '3 critical' },
   { comparison: '+8.4%', label: 'Active Order Value', note: 'Operational order value, not profit', path: '/admin/reports', trend: 'up', value: '$118.2k', warning: '$14.7k due soon' },
   { comparison: '+12.1%', label: 'Amount Collected', note: 'Verified start fee, deposit, remaining payment', path: '/admin/reports', trend: 'up', value: '$72.6k', warning: '3 failed transactions' },
   { comparison: '-4.2%', label: 'Outstanding Amount', note: 'Pending payment actions', path: '/admin/reports', trend: 'down', value: '$45.6k', warning: '5 remaining payments' },
-  { comparison: '+2 today', label: 'Blocked Production', note: 'Requests/items blocked or unavailable', path: '/admin/reports', trend: 'up', value: '7', warning: '2 need adjustment' },
 ];
 
 export const monthlyProjectRequests: MonthlyRequestDatum[] = [
@@ -107,6 +94,16 @@ export const commercialTrend: CommercialTrendDatum[] = [
   { collected: 57, month: 'Jun', orderValue: 92, outstanding: 35 },
   { collected: 68, month: 'Jul', orderValue: 108, outstanding: 40 },
   { collected: 73, month: 'Aug', orderValue: 118, outstanding: 46 },
+];
+
+/** Revenue figures are stored in triệu VNĐ (1 unit = 1,000,000 VND). */
+export const monthlyRevenue: RevenuePeriodDatum[] = [
+  { label: 'Mar', wholesale: 38, retail: 24, completedOrders: 16, profit: 18 },
+  { label: 'Apr', wholesale: 44, retail: 27, completedOrders: 19, profit: 21 },
+  { label: 'May', wholesale: 51, retail: 31, completedOrders: 22, profit: 25 },
+  { label: 'Jun', wholesale: 58, retail: 36, completedOrders: 26, profit: 29 },
+  { label: 'Jul', wholesale: 64, retail: 41, completedOrders: 30, profit: 33 },
+  { label: 'Aug', wholesale: 72, retail: 45, completedOrders: 34, profit: 38 },
 ];
 
 export const paymentHealth: PaymentHealthItem[] = [
