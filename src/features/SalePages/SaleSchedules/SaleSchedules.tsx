@@ -123,8 +123,10 @@ export function SaleSchedules() {
     return groups;
   }, [managedSchedules]);
   const selectedItem = useMemo(
-    () => managedSchedules.find(({ schedule }) => schedule.scheduleId === selectedScheduleId) ?? null,
-    [managedSchedules, selectedScheduleId],
+    () => managedSchedules.find(({ schedule }) => schedule.scheduleId === selectedScheduleId)
+      ?? schedulesByDate.get(selectedDateKey)?.[0]
+      ?? null,
+    [managedSchedules, schedulesByDate, selectedDateKey, selectedScheduleId],
   );
 
   async function updateScheduleStatus(
@@ -248,7 +250,7 @@ export function SaleSchedules() {
                           <span className="sale-schedules-calendar-events">
                             {daySchedules.slice(0, 2).map(({ project, schedule }) => (
                               <button
-                                className={`sale-schedules-calendar-event sale-schedules-calendar-event-${schedule.status.toLowerCase().replace(/_/g, '-')}${selectedScheduleId === schedule.scheduleId ? ' sale-schedules-calendar-event-active' : ''}`}
+                                className={`sale-schedules-calendar-event sale-schedules-calendar-event-${schedule.status.toLowerCase().replace(/_/g, '-')}${selectedItem?.schedule.scheduleId === schedule.scheduleId ? ' sale-schedules-calendar-event-active' : ''}`}
                                 key={schedule.scheduleId}
                                 title={`${schedule.title ?? formatEnumLabel(schedule.scheduleType)} - ${project.projectName}`}
                                 type="button"

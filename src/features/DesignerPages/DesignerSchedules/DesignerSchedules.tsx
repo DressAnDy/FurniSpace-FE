@@ -51,10 +51,6 @@ export function DesignerSchedules() {
       return lookup;
     }, {});
   }, [projectIds, projectQueries]);
-  const selectedSchedule = useMemo(
-    () => schedules.find((schedule) => schedule.scheduleId === selectedScheduleId) ?? null,
-    [schedules, selectedScheduleId],
-  );
   const schedulesByDate = useMemo(() => {
     const groups = new Map<string, ProjectScheduleDto[]>();
 
@@ -67,6 +63,12 @@ export function DesignerSchedules() {
 
     return groups;
   }, [schedules]);
+  const selectedSchedule = useMemo(
+    () => schedules.find((schedule) => schedule.scheduleId === selectedScheduleId)
+      ?? schedulesByDate.get(selectedDateKey)?.[0]
+      ?? null,
+    [schedules, schedulesByDate, selectedDateKey, selectedScheduleId],
+  );
 
   async function handleCompleteSchedule(scheduleId: string) {
     setStatusMessage('');
@@ -143,50 +145,45 @@ export function DesignerSchedules() {
               ].filter(Boolean).join(' ');
 
               return (
-                <button
+                <div
                   className={dayClassName}
                   key={dateKey}
                   style={gridColumnStart ? { gridColumnStart } : undefined}
-                  type="button"
-                  onClick={() => {
-                    setSelectedDateKey(dateKey);
-                    setSelectedScheduleId(daySchedules[0]?.scheduleId ?? null);
-                  }}
                 >
-                  <span className="designer-schedules-calendar-day-number">{day}</span>
-                  <span className="designer-schedules-calendar-day-meta">
-                    {daySchedules.length > 0 ? `${daySchedules.length} schedule${daySchedules.length > 1 ? 's' : ''}` : 'No schedule'}
-                  </span>
+                  <button
+                    className="designer-schedules-calendar-day-summary"
+                    type="button"
+                    onClick={() => {
+                      setSelectedDateKey(dateKey);
+                      setSelectedScheduleId(daySchedules[0]?.scheduleId ?? null);
+                    }}
+                  >
+                    <span className="designer-schedules-calendar-day-number">{day}</span>
+                    <span className="designer-schedules-calendar-day-meta">
+                      {daySchedules.length > 0 ? `${daySchedules.length} schedule${daySchedules.length > 1 ? 's' : ''}` : 'No schedule'}
+                    </span>
+                  </button>
                   {daySchedules.length > 0 ? (
                     <span className="designer-schedules-calendar-events">
                       {daySchedules.slice(0, 2).map((schedule) => (
-                        <span
-                          className={`designer-schedules-calendar-event designer-schedules-calendar-event-${schedule.status.toLowerCase().replace(/_/g, '-')}${selectedScheduleId === schedule.scheduleId ? ' designer-schedules-calendar-event-active' : ''}`}
+                        <button
+                          className={`designer-schedules-calendar-event designer-schedules-calendar-event-${schedule.status.toLowerCase().replace(/_/g, '-')}${selectedSchedule?.scheduleId === schedule.scheduleId ? ' designer-schedules-calendar-event-active' : ''}`}
                           key={schedule.scheduleId}
-                          role="button"
-                          tabIndex={0}
+                          type="button"
                           onClick={(event) => {
                             event.stopPropagation();
                             setSelectedDateKey(dateKey);
                             setSelectedScheduleId(schedule.scheduleId);
                           }}
-                          onKeyDown={(event) => {
-                            if (event.key === 'Enter' || event.key === ' ') {
-                              event.preventDefault();
-                              event.stopPropagation();
-                              setSelectedDateKey(dateKey);
-                              setSelectedScheduleId(schedule.scheduleId);
-                            }
-                          }}
                         >
                           <strong>{formatTime(schedule.scheduledStart)}</strong>
                           <em>{schedule.title ?? formatEnumLabel(schedule.scheduleType)}</em>
-                        </span>
+                        </button>
                       ))}
                       {daySchedules.length > 2 ? <span className="designer-schedules-calendar-more">+{daySchedules.length - 2} more</span> : null}
                     </span>
                   ) : null}
-                </button>
+                </div>
               );
             })}
           </div>
