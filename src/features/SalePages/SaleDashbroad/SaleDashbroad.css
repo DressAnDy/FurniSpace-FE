@@ -651,11 +651,37 @@ body.sale-sidebar-collapsed .sale-sidebar-open-button {
 }
 
 .sale-activity-action {
-  display: flex;
+  display: inline-flex;
+  flex-shrink: 0;
   align-items: center;
   gap: 16px;
+  border-radius: 6px;
   color: #6b6b6b;
   font-size: 14px;
+  padding: 8px;
+  text-decoration: none;
+  transition: color 0.15s ease, background-color 0.15s ease;
+}
+
+.sale-activity-action:hover {
+  background: rgba(139, 111, 71, 0.08);
+  color: #2d2d2d;
+}
+
+.sale-activity-action:focus-visible {
+  outline: 2px solid #8b6f47;
+  outline-offset: 2px;
+}
+
+.sale-activity-state {
+  margin: 0;
+  padding: 24px;
+  color: #6b6b6b;
+  font-size: 14px;
+}
+
+.sale-activity-state-error {
+  color: #b91c1c;
 }
 
 .sale-outline-button {
@@ -671,6 +697,7 @@ body.sale-sidebar-collapsed .sale-sidebar-open-button {
   color: #2d2d2d;
   font-size: 14px;
   font-weight: 500;
+  text-decoration: none;
 }
 
 .sale-schedules-card {
@@ -681,7 +708,9 @@ body.sale-sidebar-collapsed .sale-sidebar-open-button {
 
 .sale-schedule-list {
   display: flex;
+  width: 100%;
   flex-direction: column;
+  box-sizing: border-box;
   gap: 0;
   padding: 0 24px;
 }
@@ -689,12 +718,12 @@ body.sale-sidebar-collapsed .sale-sidebar-open-button {
 .sale-schedule-item {
   display: flex;
   width: 100%;
-  min-width: 0;
-  min-height: 108px;
+  min-height: 88px;
+  box-sizing: border-box;
   align-items: center;
   justify-content: space-between;
   border-bottom: 1px solid rgba(139, 111, 71, 0.15);
-  gap: 20px;
+  gap: 16px;
 }
 
 .sale-schedule-item:last-child {
@@ -702,12 +731,13 @@ body.sale-sidebar-collapsed .sale-sidebar-open-button {
 }
 
 .sale-schedule-main {
+  flex: 1 1 auto;
   min-width: 0;
-  flex: 1;
 }
 
 .sale-schedule-meta {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 4px;
   color: #6b6b6b;
@@ -716,29 +746,39 @@ body.sale-sidebar-collapsed .sale-sidebar-open-button {
 }
 
 .sale-schedule-main h4 {
+  overflow: hidden;
   margin: 8px 0 0;
   color: #2d2d2d;
   font-size: 16px;
   font-weight: 400;
   line-height: 24px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .sale-schedule-time {
-  display: flex;
-  min-width: 132px;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 8px;
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 12px;
+  margin-left: auto;
+  border-radius: 6px;
   color: #6b6b6b;
   font-size: 14px;
   line-height: 20px;
-  text-align: right;
+  padding: 0;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: color 0.15s ease;
 }
 
-.sale-schedule-time > div {
-  display: flex;
-  align-items: center;
-  gap: 16px;
+.sale-schedule-time:hover {
+  color: #2d2d2d;
+}
+
+.sale-schedule-time:focus-visible {
+  outline: 2px solid #8b6f47;
+  outline-offset: 2px;
 }
 
 .sale-schedules-card .sale-outline-button {

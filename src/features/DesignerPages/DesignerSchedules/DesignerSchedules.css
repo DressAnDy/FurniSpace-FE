@@ -147,18 +147,15 @@
   min-height: 118px;
   flex-direction: column;
   gap: 8px;
-  border: 0;
   border-right: 1px solid rgba(24, 24, 27, 0.08);
   border-bottom: 1px solid rgba(24, 24, 27, 0.08);
   background: #ffffff;
   color: #18181b;
-  cursor: pointer;
-  font: inherit;
   padding: 14px 12px;
   text-align: left;
 }
 
-.designer-schedules-calendar-day:hover,
+.designer-schedules-calendar-day:has(.designer-schedules-calendar-day-summary:hover),
 .designer-schedules-calendar-day-has-events {
   background: #fffdf9;
 }
@@ -166,6 +163,20 @@
 .designer-schedules-calendar-day-selected {
   background: #f7efe1;
   box-shadow: inset 0 0 0 2px #9a713b;
+}
+
+.designer-schedules-calendar-day-summary {
+  display: grid;
+  width: 100%;
+  justify-items: start;
+  gap: 8px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  padding: 0;
+  text-align: left;
 }
 
 .designer-schedules-calendar-day-today .designer-schedules-calendar-day-number {
@@ -205,11 +216,15 @@
   grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
   gap: 6px;
+  border: 0;
   border-left: 3px solid #9a713b;
   border-radius: 6px;
   background: #f4ead8;
   color: #27272a;
+  cursor: pointer;
+  font: inherit;
   padding: 6px 7px;
+  text-align: left;
 }
 
 .designer-schedules-calendar-event-confirmed {

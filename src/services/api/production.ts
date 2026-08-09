@@ -72,6 +72,49 @@ export type AvailableProductionStaffParams = {
   productionRequestId?: string | null;
 };
 
+export type ProductionCapacityState = 'AVAILABLE' | 'FULL' | 'OVER';
+
+export type ProductionWorkloadDto = {
+  accountId: string;
+  fullName: string;
+  email: string;
+  openRequestCount: number;
+  blockedCount: number;
+  overdueCount: number;
+  maxActiveRequests: number;
+  availableSlot: number;
+  capacityState: ProductionCapacityState;
+};
+
+export type ProductionWorkloadListData = {
+  items: ProductionWorkloadDto[];
+  page: number;
+  pageSize: number;
+  totalItems: number;
+  totalPages: number;
+  hasPreviousPage: boolean;
+  hasNextPage: boolean;
+};
+
+export type ProductionWorkloadListParams = {
+  page?: number;
+  pageSize?: number;
+  search?: string | null;
+  capacityState?: ProductionCapacityState | null;
+  sortBy?: 'OpenRequestCountDesc' | 'AvailableSlotDesc' | null;
+};
+
+export type ProductionWorkloadSummaryDto = {
+  totalActiveStaff: number;
+  availableCount: number;
+  fullCount: number;
+  overCount: number;
+  totalOpenRequests: number;
+  blockedCount: number;
+  overdueCount: number;
+  maxActiveRequests: number;
+};
+
 export type CreateProductionRequestInput = {
   orderId: string;
   assignedTo?: string | null;
@@ -167,6 +210,28 @@ export async function getAvailableProductionStaff(params: AvailableProductionSta
       productionRequestId: normalizeOptionalText(params.productionRequestId) ?? undefined,
     },
   });
+
+  return response.data.data;
+}
+
+export async function getProductionWorkload(params: ProductionWorkloadListParams = {}) {
+  const response = await productionApiClient.get<ServiceResult<ProductionWorkloadListData>>('/admin/production/workload', {
+    params: {
+      page: params.page ?? 1,
+      pageSize: params.pageSize ?? 20,
+      search: params.search?.trim() || undefined,
+      capacityState: params.capacityState ?? undefined,
+      sortBy: params.sortBy ?? undefined,
+    },
+  });
+
+  return response.data.data;
+}
+
+export async function getProductionWorkloadSummary() {
+  const response = await productionApiClient.get<ServiceResult<ProductionWorkloadSummaryDto>>(
+    '/admin/production/workload/summary',
+  );
 
   return response.data.data;
 }
