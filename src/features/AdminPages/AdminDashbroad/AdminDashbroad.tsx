@@ -11,7 +11,6 @@ import {
   IconRefresh,
   IconTrendingDown,
   IconTrendingUp,
-  IconUsers,
   type Icon,
 } from '@tabler/icons-react';
 import { Link } from 'react-router-dom';
@@ -26,7 +25,6 @@ import {
 import {
   dashboardKpiMocks,
   monthlyRevenue,
-  roleWorkload,
   type DashboardKpiMock,
   type RevenuePeriodDatum,
 } from './adminDashboardMockData';
@@ -276,10 +274,6 @@ function SectionTitle({ icon: TitleIcon, subtitle, title }: { icon: Icon; subtit
       <TitleIcon size={20} />
     </header>
   );
-}
-
-function MetricBlock({ label, value }: { label: string; value: string }) {
-  return <div className="admin-dash-v2-metric-block"><span>{label}</span><strong>{value}</strong></div>;
 }
 
 function StatusDonutChart({ rows }: { rows: StatusBreakdown[] }) {

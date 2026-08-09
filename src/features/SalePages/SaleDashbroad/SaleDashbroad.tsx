@@ -73,23 +73,6 @@ function getPriorityClass(priority: QueueItem['priority']) {
   return `sales-ops-priority sales-ops-priority-${priority.toLowerCase()}`;
 }
 
-function formatDate(value: string) {
-  return new Intl.DateTimeFormat('en-CA').format(new Date(value));
-}
-
-function formatTime(value: string) {
-  return new Intl.DateTimeFormat('en', {
-    hour: '2-digit',
-    minute: '2-digit',
-  }).format(new Date(value));
-}
-
-function startOfToday() {
-  const now = new Date();
-
-  return new Date(now.getFullYear(), now.getMonth(), now.getDate());
-}
-
 export function SaleDashbroad() {
   const [activeGroup, setActiveGroup] = useState<QueueGroup>('Intake');
   const currentUserQuery = useCurrentUser();
