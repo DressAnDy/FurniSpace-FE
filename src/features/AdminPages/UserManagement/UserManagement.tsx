@@ -1,4 +1,5 @@
 import { type FormEvent, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { IconBriefcase, IconEdit, IconEye, IconPlus, IconSearch, IconTrash, IconUser, IconUsers, IconX } from '@tabler/icons-react';
 
 import {
@@ -28,19 +29,38 @@ type AccountFormMode = 'create' | 'edit';
 type UserManagementTab = 'accounts' | 'designer-workload' | 'sales-workload';
 
 const EMPTY_ACCOUNTS: AccountDto[] = [];
+const VALID_TABS: UserManagementTab[] = ['accounts', 'designer-workload', 'sales-workload'];
+
+function resolveUserManagementTab(value: string | null): UserManagementTab {
+  if (value && VALID_TABS.includes(value as UserManagementTab)) {
+    return value as UserManagementTab;
+  }
+  return 'accounts';
+}
 
 export function UserManagement() {
-  const [activeTab, setActiveTab] = useState<UserManagementTab>('accounts');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activeTab = resolveUserManagementTab(searchParams.get('tab'));
+  const setActiveTab = (tab: UserManagementTab) => {
+    const next = new URLSearchParams(searchParams);
+    if (tab === 'accounts') {
+      next.delete('tab');
+    } else {
+      next.set('tab', tab);
+    }
+    setSearchParams(next, { replace: true });
+  };
   const [searchValue, setSearchValue] = useState('');
   const [statusFilter, setStatusFilter] = useState<AccountStatus | ''>('');
+  const [accountPage, setAccountPage] = useState(1);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [editingAccount, setEditingAccount] = useState<AccountDto | null>(null);
   const [viewingAccountId, setViewingAccountId] = useState<string | null>(null);
   const [deletingAccount, setDeletingAccount] = useState<AccountDto | null>(null);
 
   const accountListQuery = useAccountList({
-    page: 1,
-    pageSize: 100,
+    page: accountPage,
+    pageSize: 5,
     search: searchValue,
     status: statusFilter || null,
     includeDeleted: false,
@@ -52,6 +72,9 @@ export function UserManagement() {
 
   const accounts = accountListQuery.data?.items ?? EMPTY_ACCOUNTS;
   const totalAccounts = accountListQuery.data?.totalItems ?? accounts.length;
+  const accountTotalPages = accountListQuery.data?.totalPages ?? 1;
+  const hasPreviousAccountPage = accountListQuery.data?.hasPreviousPage ?? accountPage > 1;
+  const hasNextAccountPage = accountListQuery.data?.hasNextPage ?? accountPage < accountTotalPages;
   const roleStats = useMemo(() => {
     const countRole = (roleName: string) =>
       accounts.filter((account) => getAccountRoleName(account.roleId).toUpperCase() === roleName).length;
@@ -225,7 +248,10 @@ export function UserManagement() {
                   <IconSearch size={18} />
                   <input
                     value={searchValue}
-                    onChange={(event) => setSearchValue(event.target.value)}
+                    onChange={(event) => {
+                      setSearchValue(event.target.value);
+                      setAccountPage(1);
+                    }}
                     placeholder="Search by email, name, or phone..."
                     type="search"
                   />
@@ -233,7 +259,13 @@ export function UserManagement() {
 
                 <label className="user-management-filter">
                   <span>Status</span>
-                  <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as AccountStatus | '')}>
+                  <select
+                    value={statusFilter}
+                    onChange={(event) => {
+                      setStatusFilter(event.target.value as AccountStatus | '');
+                      setAccountPage(1);
+                    }}
+                  >
                     <option value="">All statuses</option>
                     {ACCOUNT_STATUS_OPTIONS.map((status) => (
                       <option key={status} value={status}>
@@ -268,74 +300,100 @@ export function UserManagement() {
               ) : null}
 
               {!accountListQuery.isLoading && !accountListQuery.isError && accounts.length > 0 ? (
-                <div className="admin-table-wrap">
-                  <table className="user-management-table">
-                    <thead>
-                      <tr>
-                        <th>Account ID</th>
-                        <th>Full Name</th>
-                        <th>Email</th>
-                        <th>Phone</th>
-                        <th>Role</th>
-                        <th>Status</th>
-                        <th>Created At</th>
-                        <th>Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {accounts.map((account) => (
-                        <tr key={account.accountId}>
-                          <td className="user-management-id" title={account.accountId}>
-                            {shortenId(account.accountId)}
-                          </td>
-                          <td>
-                            <div className="user-management-user">
-                              <div className="user-management-avatar">
-                                {account.avatarUrl ? <img src={account.avatarUrl} alt="" /> : <IconUser size={16} />}
-                              </div>
-                              <span>{account.fullName}</span>
-                            </div>
-                          </td>
-                          <td>{account.email}</td>
-                          <td>{account.phone ?? '-'}</td>
-                          <td>
-                            <span className="user-management-role">{getAccountRoleName(account.roleId)}</span>
-                          </td>
-                          <td>
-                            <span className={`user-management-status user-management-status-${(account.status ?? 'inactive').toLowerCase()}`}>
-                              {account.status ?? 'INACTIVE'}
-                            </span>
-                          </td>
-                          <td>{formatDate(account.createdAt)}</td>
-                          <td>
-                            <div className="user-management-actions">
-                              <button type="button" aria-label={`Edit ${account.fullName}`} title="Edit account" onClick={() => openEditModal(account)}>
-                                <IconEdit size={16} />
-                              </button>
-                              <button
-                                type="button"
-                                aria-label={`View ${account.fullName}`}
-                                title="View admin detail"
-                                onClick={() => setViewingAccountId(account.accountId)}
-                              >
-                                <IconEye size={16} />
-                              </button>
-                              <button
-                                type="button"
-                                aria-label={`Delete ${account.fullName}`}
-                                title="Soft delete account"
-                                disabled={deleteAccountMutation.isPending}
-                                onClick={() => setDeletingAccount(account)}
-                              >
-                                <IconTrash size={16} />
-                              </button>
-                            </div>
-                          </td>
+                <>
+                  <div className="admin-table-wrap">
+                    <table className="user-management-table">
+                      <thead>
+                        <tr>
+                          <th>Account ID</th>
+                          <th>Full Name</th>
+                          <th>Email</th>
+                          <th>Phone</th>
+                          <th>Role</th>
+                          <th>Status</th>
+                          <th>Created At</th>
+                          <th>Actions</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                      </thead>
+                      <tbody>
+                        {accounts.map((account) => (
+                          <tr key={account.accountId}>
+                            <td className="user-management-id" title={account.accountId}>
+                              {shortenId(account.accountId)}
+                            </td>
+                            <td>
+                              <div className="user-management-user">
+                                <div className="user-management-avatar">
+                                  {account.avatarUrl ? <img src={account.avatarUrl} alt="" /> : <IconUser size={16} />}
+                                </div>
+                                <span>{account.fullName}</span>
+                              </div>
+                            </td>
+                            <td>{account.email}</td>
+                            <td>{account.phone ?? '-'}</td>
+                            <td>
+                              <span className="user-management-role">{getAccountRoleName(account.roleId)}</span>
+                            </td>
+                            <td>
+                              <span className={`user-management-status user-management-status-${(account.status ?? 'inactive').toLowerCase()}`}>
+                                {account.status ?? 'INACTIVE'}
+                              </span>
+                            </td>
+                            <td>{formatDate(account.createdAt)}</td>
+                            <td>
+                              <div className="user-management-actions">
+                                <button type="button" aria-label={`Edit ${account.fullName}`} title="Edit account" onClick={() => openEditModal(account)}>
+                                  <IconEdit size={16} />
+                                </button>
+                                <button
+                                  type="button"
+                                  aria-label={`View ${account.fullName}`}
+                                  title="View admin detail"
+                                  onClick={() => setViewingAccountId(account.accountId)}
+                                >
+                                  <IconEye size={16} />
+                                </button>
+                                <button
+                                  type="button"
+                                  aria-label={`Delete ${account.fullName}`}
+                                  title="Soft delete account"
+                                  disabled={deleteAccountMutation.isPending}
+                                  onClick={() => setDeletingAccount(account)}
+                                >
+                                  <IconTrash size={16} />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {accountTotalPages > 1 ? (
+                    <div className="workload-pagination">
+                      <button
+                        type="button"
+                        className="admin-button admin-button-secondary"
+                        disabled={!hasPreviousAccountPage || accountListQuery.isFetching}
+                        onClick={() => setAccountPage((current) => Math.max(1, current - 1))}
+                      >
+                        Previous
+                      </button>
+                      <span>
+                        Page {accountListQuery.data?.page ?? accountPage} / {accountTotalPages}
+                      </span>
+                      <button
+                        type="button"
+                        className="admin-button admin-button-secondary"
+                        disabled={!hasNextAccountPage || accountListQuery.isFetching}
+                        onClick={() => setAccountPage((current) => current + 1)}
+                      >
+                        Next
+                      </button>
+                    </div>
+                  ) : null}
+                </>
               ) : null}
             </section>
               </>
