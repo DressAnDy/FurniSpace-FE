@@ -20,13 +20,17 @@ import {
 } from '@/services/queries';
 
 import { AdminNavbar, AdminSidebar } from '../admincomponents';
+import { DesignerWorkloadPanel } from './DesignerWorkloadPanel';
+import { SalesWorkloadPanel } from './SalesWorkloadPanel';
 import './UserManagement.css';
 
 type AccountFormMode = 'create' | 'edit';
+type UserManagementTab = 'accounts' | 'designer-workload' | 'sales-workload';
 
 const EMPTY_ACCOUNTS: AccountDto[] = [];
 
 export function UserManagement() {
+  const [activeTab, setActiveTab] = useState<UserManagementTab>('accounts');
   const [searchValue, setSearchValue] = useState('');
   const [statusFilter, setStatusFilter] = useState<AccountStatus | ''>('');
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -158,14 +162,48 @@ export function UserManagement() {
             <div className="admin-page-heading user-management-heading">
               <div>
                 <h2>User & Role Management</h2>
-                <p>Manage user accounts, roles, and account status from backend API.</p>
+                <p>Manage accounts, designer capacity, and sales workload from backend APIs.</p>
               </div>
-              <button className="admin-button admin-button-primary" type="button" onClick={openCreateModal}>
-                <IconPlus size={16} />
-                Create Staff Account
+              {activeTab === 'accounts' ? (
+                <button className="admin-button admin-button-primary" type="button" onClick={openCreateModal}>
+                  <IconPlus size={16} />
+                  Create Staff Account
+                </button>
+              ) : null}
+            </div>
+
+            <div className="user-management-tabs" role="tablist" aria-label="User management sections">
+              <button
+                type="button"
+                role="tab"
+                aria-selected={activeTab === 'accounts'}
+                className={`user-management-tab${activeTab === 'accounts' ? ' is-active' : ''}`}
+                onClick={() => setActiveTab('accounts')}
+              >
+                Accounts
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={activeTab === 'designer-workload'}
+                className={`user-management-tab${activeTab === 'designer-workload' ? ' is-active' : ''}`}
+                onClick={() => setActiveTab('designer-workload')}
+              >
+                Designer Workload
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={activeTab === 'sales-workload'}
+                className={`user-management-tab${activeTab === 'sales-workload' ? ' is-active' : ''}`}
+                onClick={() => setActiveTab('sales-workload')}
+              >
+                Sales Workload
               </button>
             </div>
 
+            {activeTab === 'accounts' ? (
+              <>
             <section className="user-role-stat-grid" aria-label="Role overview">
               {roleStats.map(({ label, value, icon: Icon, tone }) => (
                 <article key={label} className="user-role-stat-card">
@@ -300,6 +338,11 @@ export function UserManagement() {
                 </div>
               ) : null}
             </section>
+              </>
+            ) : null}
+
+            {activeTab === 'designer-workload' ? <DesignerWorkloadPanel /> : null}
+            {activeTab === 'sales-workload' ? <SalesWorkloadPanel /> : null}
           </div>
         </section>
       </div>
