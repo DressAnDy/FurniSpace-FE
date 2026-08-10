@@ -33,6 +33,14 @@ function formatPrice(value: number | null) {
   return `${new Intl.NumberFormat('vi-VN').format(value)} VND`;
 }
 
+function formatPercent(value?: number | null) {
+  if (typeof value !== 'number') {
+    return '0%';
+  }
+
+  return `${new Intl.NumberFormat('vi-VN').format(value)}%`;
+}
+
 function getVersionModelFile(version: ProductVersionDto | null | undefined) {
   return version?.files?.find((file) => file.fileType === 'MODEL_3D') ?? null;
 }
@@ -151,12 +159,16 @@ export function ProductVersionManagement() {
                         <strong>{formatPrice(version.estimatedPrice)}</strong>
                       </div>
                       <div>
-                        <span>Type</span>
-                        <strong>{version.versionType}</strong>
+                        <span>Tax</span>
+                        <strong>{formatPercent(version.defaultTaxRate)}</strong>
                       </div>
                     </div>
 
                     <div className="product-version-details">
+                      <div>
+                        <span>Type</span>
+                        <strong>{version.versionType}</strong>
+                      </div>
                       <div>
                         <span>Material</span>
                         <strong>{version.material ?? 'Not set'}</strong>

@@ -207,7 +207,7 @@ function SummaryItem({ label, value }: { label: string; value: string }) {
 const paymentStatusByNumber: Record<number, string> = {
   0: 'PENDING',
   1: 'PROCESSING',
-  2: 'PARTIALLY_PAID',
+  2: 'LEGACY_PARTIALLY_PAID',
   3: 'PAID',
   4: 'FAILED',
   5: 'CANCELLED',
@@ -219,21 +219,30 @@ const paymentTypeByNumber: Record<number, string> = {
   0: 'PROJECT_START_FEE',
   1: 'DEPOSIT',
   2: 'REMAINING_PAYMENT',
-  3: 'FULL_PAYMENT',
-  4: 'REFUND',
-  5: 'OTHER',
+  3: 'LEGACY_FULL_PAYMENT',
+  4: 'LEGACY_REFUND',
+  5: 'LEGACY_OTHER',
 };
 
 function isCollectablePaymentStatus(status?: string | null) {
-  return status === 'PENDING' || status === 'PROCESSING' || status === 'PARTIALLY_PAID';
+  return status === 'PENDING' || status === 'PROCESSING';
 }
 
 function normalizePaymentStatus(value: unknown) {
-  return normalizeEnumValue(value, paymentStatusByNumber, 'PENDING');
+  return normalizeLegacyPaymentEnum(normalizeEnumValue(value, paymentStatusByNumber, 'PENDING'));
 }
 
 function normalizePaymentType(value: unknown) {
-  return normalizeEnumValue(value, paymentTypeByNumber, 'OTHER');
+  return normalizeLegacyPaymentEnum(normalizeEnumValue(value, paymentTypeByNumber, 'UNKNOWN_PAYMENT_TYPE'));
+}
+
+function normalizeLegacyPaymentEnum(value: string) {
+  if (value === 'PARTIALLY_PAID') return 'LEGACY_PARTIALLY_PAID';
+  if (value === 'FULL_PAYMENT') return 'LEGACY_FULL_PAYMENT';
+  if (value === 'REFUND') return 'LEGACY_REFUND';
+  if (value === 'OTHER') return 'LEGACY_OTHER';
+
+  return value;
 }
 
 function normalizeEnumValue(value: unknown, numberMap: Record<number, string>, fallback: string) {

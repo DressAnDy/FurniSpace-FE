@@ -203,6 +203,7 @@ export type DeleteFileData = {
 export type ProductVersionDto = {
   productVersionId: string;
   productId: string;
+  projectId?: string | null;
   versionCode: string;
   versionName: string;
   versionType: ProductVersionType;
@@ -212,10 +213,12 @@ export type ProductVersionDto = {
   height: number | null;
   depth: number | null;
   estimatedPrice: number | null;
+  defaultTaxRate?: number | null;
   isDefault: boolean;
   isPublic: boolean;
   isProjectSpecific: boolean;
   status: ProductStatus;
+  dimensionUnit?: string | null;
   thumbnail: CatalogFileDto | null;
   files: CatalogFileDto[];
 };
@@ -302,6 +305,7 @@ export type CreateProductVersionInput = {
   height?: number | null;
   depth?: number | null;
   estimatedPrice?: number | null;
+  defaultTaxRate?: number | null;
   isDefault?: boolean;
   isPublic?: boolean;
   isProjectSpecific?: boolean;
@@ -315,6 +319,123 @@ export type SetDefaultProductVersionData = {
   productVersionId: string;
   productId: string;
   isDefault: boolean;
+};
+
+export type ProjectCatalogQueryDto = {
+  keyword?: string | null;
+  categoryId?: string | null;
+  businessTypeId?: number | null;
+  versionType?: ProductVersionType | null;
+  page?: number;
+  pageSize?: number;
+};
+
+export type ProjectCatalogVersionSummaryDto = {
+  productVersionId: string;
+  versionCode: string;
+  versionName: string;
+  versionType?: ProductVersionType | null;
+  material?: string | null;
+  color?: string | null;
+  width?: number | null;
+  height?: number | null;
+  depth?: number | null;
+  dimensionUnit?: string | null;
+  estimatedPrice?: number | null;
+  defaultTaxRate?: number | null;
+  isProjectSpecific?: boolean | null;
+};
+
+export type ProjectCatalogProductItemDto = {
+  productId: string;
+  productCode?: string | null;
+  productName: string;
+  categoryId?: string | null;
+  categoryName?: string | null;
+  businessTypeIds?: number[] | null;
+  thumbnail?: CatalogFileDto | null;
+  eligibleVersionCount: number;
+  eligibleVersions: ProjectCatalogVersionSummaryDto[];
+};
+
+export type ProjectCatalogListResponseDto = {
+  items: ProjectCatalogProductItemDto[];
+  page: number;
+  pageSize: number;
+  totalCount: number;
+};
+
+export type ProjectCatalogProductVersionDetailDto = ProjectCatalogVersionSummaryDto & {
+  productId: string;
+  projectId?: string | null;
+  files: CatalogFileDto[];
+};
+
+export type AdminCatalogQueryDto = {
+  keyword?: string | null;
+  categoryId?: string | null;
+  businessTypeId?: number | null;
+  productStatus?: ProductStatus | null;
+  versionStatus?: ProductStatus | null;
+  versionType?: ProductVersionType | null;
+  hasActiveVersion?: boolean | null;
+  has3DModel?: boolean | null;
+  createdFrom?: string | null;
+  createdTo?: string | null;
+  page?: number;
+  pageSize?: number;
+  sortBy?: 'createdAt' | 'updatedAt' | 'productName' | 'productCode' | null;
+  sortDirection?: 'asc' | 'desc' | null;
+};
+
+export type AdminCatalogDefaultVersionSummaryDto = {
+  productVersionId: string;
+  versionCode?: string | null;
+  versionName?: string | null;
+  estimatedPrice?: number | null;
+  defaultTaxRate?: number | null;
+};
+
+export type AdminCatalogProductItemDto = {
+  productId: string;
+  productCode?: string | null;
+  productName: string;
+  categoryId?: string | null;
+  categoryName?: string | null;
+  businessTypeIds?: number[] | null;
+  status?: ProductStatus | null;
+  totalVersionCount: number;
+  activeVersionCount: number;
+  inactiveVersionCount: number;
+  archivedVersionCount: number;
+  defaultVersionSummary?: AdminCatalogDefaultVersionSummaryDto | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+};
+
+export type AdminCatalogListResponseDto = {
+  items: AdminCatalogProductItemDto[];
+  page: number;
+  pageSize: number;
+  totalCount: number;
+};
+
+export type ProductVersionListQueryDto = {
+  status?: ProductStatus | null;
+  versionType?: ProductVersionType | null;
+  isDefault?: boolean | null;
+  isPublic?: boolean | null;
+  isProjectSpecific?: boolean | null;
+  projectId?: string | null;
+  page?: number;
+  pageSize?: number;
+};
+
+export type ProductVersionListData = {
+  items: ProductVersionDto[];
+  page: number;
+  pageSize: number;
+  totalCount: number;
 };
 
 const PRODUCT_PREVIEW_ERROR_MESSAGES: Record<string, string> = {
@@ -460,6 +581,52 @@ export async function getProductById(productId: string) {
   return response.data.data;
 }
 
+export async function getProjectCatalogProducts(input: { params?: ProjectCatalogQueryDto; projectId: string }) {
+  const response = await productApiClient.get<ServiceResult<ProjectCatalogListResponseDto>>(
+    `/projects/${input.projectId}/catalog/products`,
+    {
+      params: getCatalogSearchParams(input.params),
+    },
+  );
+
+  return response.data.data;
+}
+
+export async function getProjectCatalogProduct(productId: string, projectId: string) {
+  const response = await productApiClient.get<ServiceResult<ProjectCatalogProductItemDto>>(
+    `/projects/${projectId}/catalog/products/${productId}`,
+  );
+
+  return response.data.data;
+}
+
+export async function getProjectCatalogProductVersion(input: { productVersionId: string; projectId: string }) {
+  const response = await productApiClient.get<ServiceResult<ProjectCatalogProductVersionDetailDto>>(
+    `/projects/${input.projectId}/catalog/product-versions/${input.productVersionId}`,
+  );
+
+  return response.data.data;
+}
+
+export async function getAdminCatalogProducts(params?: AdminCatalogQueryDto) {
+  const response = await productApiClient.get<ServiceResult<AdminCatalogListResponseDto>>('/admin/catalog/products', {
+    params: getCatalogSearchParams(params),
+  });
+
+  return response.data.data;
+}
+
+export async function getProductVersionsByProduct(input: { productId: string; params?: ProductVersionListQueryDto }) {
+  const response = await productApiClient.get<ServiceResult<ProductVersionListData>>(
+    `/api/ProductVersions/products/${input.productId}/versions`,
+    {
+      params: getCatalogSearchParams(input.params),
+    },
+  );
+
+  return response.data.data;
+}
+
 export async function createProduct(input: CreateProductInput) {
   const response = await productApiClient.post<ServiceResult<ProductDto>>('/products', {
     categoryId: input.categoryId,
@@ -494,6 +661,7 @@ export async function createProductVersion(input: CreateProductVersionInput) {
     height: input.height ?? null,
     depth: input.depth ?? null,
     estimatedPrice: input.estimatedPrice ?? null,
+    defaultTaxRate: input.defaultTaxRate ?? null,
     isDefault: input.isDefault ?? false,
     isPublic: input.isPublic ?? true,
     isProjectSpecific: input.isProjectSpecific ?? false,
@@ -512,6 +680,7 @@ export async function updateProductVersion(input: UpdateProductVersionInput) {
     height: input.height ?? null,
     depth: input.depth ?? null,
     estimatedPrice: input.estimatedPrice ?? null,
+    defaultTaxRate: input.defaultTaxRate ?? null,
     isDefault: input.isDefault ?? false,
     isPublic: input.isPublic ?? true,
     isProjectSpecific: input.isProjectSpecific ?? false,
@@ -522,6 +691,54 @@ export async function updateProductVersion(input: UpdateProductVersionInput) {
 
 export async function setDefaultProductVersion(productVersionId: string) {
   const response = await productApiClient.patch<ServiceResult<SetDefaultProductVersionData>>(`/api/ProductVersions/product-versions/${productVersionId}/set-default`);
+
+  return response.data.data;
+}
+
+export async function activateProduct(productId: string) {
+  const response = await productApiClient.patch<ServiceResult<ProductDto>>(`/products/${productId}/activate`);
+
+  return response.data.data;
+}
+
+export async function deactivateProduct(productId: string) {
+  const response = await productApiClient.patch<ServiceResult<ProductDto>>(`/products/${productId}/deactivate`);
+
+  return response.data.data;
+}
+
+export async function archiveProduct(productId: string) {
+  const response = await productApiClient.patch<ServiceResult<ProductDto>>(`/products/${productId}/archive`);
+
+  return response.data.data;
+}
+
+export async function restoreProduct(productId: string) {
+  const response = await productApiClient.patch<ServiceResult<ProductDto>>(`/products/${productId}/restore`);
+
+  return response.data.data;
+}
+
+export async function activateProductVersion(productVersionId: string) {
+  const response = await productApiClient.patch<ServiceResult<ProductVersionDto>>(`/api/ProductVersions/product-versions/${productVersionId}/activate`);
+
+  return response.data.data;
+}
+
+export async function deactivateProductVersion(productVersionId: string) {
+  const response = await productApiClient.patch<ServiceResult<ProductVersionDto>>(`/api/ProductVersions/product-versions/${productVersionId}/deactivate`);
+
+  return response.data.data;
+}
+
+export async function archiveProductVersion(productVersionId: string) {
+  const response = await productApiClient.patch<ServiceResult<ProductVersionDto>>(`/api/ProductVersions/product-versions/${productVersionId}/archive`);
+
+  return response.data.data;
+}
+
+export async function restoreProductVersion(productVersionId: string) {
+  const response = await productApiClient.patch<ServiceResult<ProductVersionDto>>(`/api/ProductVersions/product-versions/${productVersionId}/restore`);
 
   return response.data.data;
 }
@@ -692,6 +909,16 @@ function getProductListSearchParams(params: ProductListParams) {
   });
 
   return searchParams;
+}
+
+function getCatalogSearchParams(params: Record<string, unknown> | null | undefined) {
+  if (!params) {
+    return undefined;
+  }
+
+  return Object.fromEntries(
+    Object.entries(params).filter(([, value]) => value !== null && value !== undefined && value !== ''),
+  );
 }
 
 export function normalizeBusinessTypeIds(ids: number[] | null | undefined) {

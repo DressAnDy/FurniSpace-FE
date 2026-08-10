@@ -280,7 +280,7 @@ function formatDate(value: string) {
 const paymentStatusByNumber: Record<number, string> = {
   0: 'PENDING',
   1: 'PROCESSING',
-  2: 'PARTIALLY_PAID',
+  2: 'LEGACY_PARTIALLY_PAID',
   3: 'PAID',
   4: 'FAILED',
   5: 'CANCELLED',
@@ -289,7 +289,7 @@ const paymentStatusByNumber: Record<number, string> = {
 };
 
 function isCollectablePaymentStatus(status?: string | null) {
-  return status === 'PENDING' || status === 'PROCESSING' || status === 'PARTIALLY_PAID';
+  return status === 'PENDING' || status === 'PROCESSING';
 }
 
 function normalizePaymentStatus(value: unknown) {
@@ -301,7 +301,7 @@ function normalizePaymentStatus(value: unknown) {
       return paymentStatusByNumber[numeric];
     }
 
-    return trimmed ? trimmed.toUpperCase() : null;
+    return trimmed ? normalizeLegacyPaymentStatus(trimmed.toUpperCase()) : null;
   }
 
   if (typeof value === 'number' && Number.isInteger(value) && value in paymentStatusByNumber) {
@@ -315,6 +315,12 @@ function normalizePaymentStatus(value: unknown) {
   }
 
   return null;
+}
+
+function normalizeLegacyPaymentStatus(status: string) {
+  if (status === 'PARTIALLY_PAID') return 'LEGACY_PARTIALLY_PAID';
+
+  return status;
 }
 
 function formatPaymentStatus(status?: string | null) {

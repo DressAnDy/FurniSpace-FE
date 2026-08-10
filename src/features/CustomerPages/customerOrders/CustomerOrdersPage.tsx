@@ -10,6 +10,7 @@ import { getOrderServiceResultMessage, type OrderDetailDto, type OrderItemDto, t
 import type { PaymentDetailDto } from '@/services/api/payments';
 import type { ProjectListItemDto } from '@/services/api/projects';
 import {
+  useConfirmOrderItemDelivery,
   useCreateOrderDepositPayment,
   useOrderDetail,
   usePayments,
@@ -17,7 +18,6 @@ import {
   useProjectOrders,
 } from '@/services/queries';
 import { PaymentCollectionModal } from '@/features/payments/PaymentCollectionModal';
-import { aggregateDuplicateItems } from '@/shared/utils/itemAggregation';
 
 import './CustomerOrdersPage.css';
 
@@ -48,6 +48,7 @@ export function CustomerOrdersPage() {
     { enabled: Boolean(selectedOrderId) },
   );
   const depositMutation = useCreateOrderDepositPayment();
+  const confirmDeliveryMutation = useConfirmOrderItemDelivery();
 
   useEffect(() => {
     if (!selectedProjectId && orderProjects.length > 0) {
@@ -138,9 +139,23 @@ export function CustomerOrdersPage() {
           <section className="customer-orders-workspace">
             {order ? (
               <OrderDetailCard
+                confirmingDeliveryItemId={confirmDeliveryMutation.variables ?? null}
                 depositPending={depositMutation.isPending}
                 order={order}
                 remainingPayment={remainingPaymentsQuery.data?.items?.[0] ?? null}
+                onConfirmDelivery={async (orderItemId) => {
+                  setMessage(null);
+
+                  try {
+                    await confirmDeliveryMutation.mutateAsync(orderItemId);
+                    setMessage({ tone: 'success', text: 'Delivery confirmed for this item.' });
+                    void orderDetailQuery.refetch();
+                    void ordersQuery.refetch();
+                    void projectsQuery.refetch();
+                  } catch (error) {
+                    setMessage({ tone: 'error', text: getOrderServiceResultMessage(error) });
+                  }
+                }}
                 onCreateDeposit={() => void createDepositPayment()}
                 onOpenRemainingPayment={(payment) => setActivePayment(payment)}
               />
@@ -163,19 +178,23 @@ export function CustomerOrdersPage() {
 }
 
 function OrderDetailCard({
+  confirmingDeliveryItemId,
   depositPending,
+  onConfirmDelivery,
   onCreateDeposit,
   onOpenRemainingPayment,
   order,
   remainingPayment,
 }: {
+  confirmingDeliveryItemId: string | null;
   depositPending: boolean;
+  onConfirmDelivery: (orderItemId: string) => Promise<void>;
   onCreateDeposit: () => void;
   onOpenRemainingPayment: (payment: PaymentDetailDto) => void;
   order: OrderDetailDto;
   remainingPayment: PaymentDetailDto | null;
 }) {
-  const orderItems = useMemo(() => aggregateDuplicateItems(order.items), [order.items]);
+  const orderItems = order.items;
 
   return (
     <section className="customer-orders-card customer-orders-detail">
@@ -215,6 +234,7 @@ function OrderDetailCard({
               <th>Tax</th>
               <th>Total</th>
               <th>Delivery</th>
+              <th>Confirmation</th>
             </tr>
           </thead>
           <tbody>
@@ -229,6 +249,19 @@ function OrderDetailCard({
                 <td>{formatMoney(item.taxAmount)}</td>
                 <td>{formatMoney(item.totalAmount ?? item.subtotalAmount)}</td>
                 <td>{formatDeliveryState(item)}</td>
+                <td>
+                  {canConfirmDelivery(item) ? (
+                    <button
+                      disabled={confirmingDeliveryItemId === item.orderItemId}
+                      type="button"
+                      onClick={() => void onConfirmDelivery(item.orderItemId)}
+                    >
+                      {confirmingDeliveryItemId === item.orderItemId ? 'Confirming...' : 'Confirm Delivery'}
+                    </button>
+                  ) : (
+                    getDeliveryConfirmationLabel(item)
+                  )}
+                </td>
               </tr>
             ))}
           </tbody>
@@ -284,6 +317,25 @@ function formatDeliveryState(item: OrderItemDto) {
   const status = item.status ? formatEnumLabel(item.status) : 'Pending';
 
   return `${delivered}/${quantity} - ${status}`;
+}
+
+function canConfirmDelivery(item: OrderItemDto) {
+  if (item.itemType !== 'PRODUCT_ITEM') return false;
+  if (item.status === 'CANCELLED' || item.status === 'UNAVAILABLE') return false;
+  if (item.customerConfirmedAt) return false;
+
+  const delivered = item.deliveredQuantity ?? 0;
+  const quantity = item.quantity ?? 0;
+
+  return quantity > 0 && delivered >= quantity;
+}
+
+function getDeliveryConfirmationLabel(item: OrderItemDto) {
+  if (item.itemType === 'MANUAL_ITEM') return 'Not deliverable';
+  if (item.status === 'CANCELLED' || item.status === 'UNAVAILABLE') return 'Not deliverable';
+  if (item.customerConfirmedAt) return 'Confirmed';
+
+  return 'Pending delivery';
 }
 
 function formatOrderCode(value?: string | null) {

@@ -6,6 +6,7 @@ import type { ProjectListItemDto, ProjectStatus } from '@/services/api/projects'
 import {
   useCancelQuotation,
   useBulkUpdateQuotationItemFinancials,
+  useCreateDraftQuotation,
   useCurrentUser,
   useProjectList,
   useProjectProposals,
@@ -79,6 +80,7 @@ export function SaleQuotations() {
     { enabled: Boolean(selectedProjectId) },
   );
   const updateQuotationMutation = useUpdateQuotation();
+  const createDraftQuotationMutation = useCreateDraftQuotation();
   const bulkFinancialsMutation = useBulkUpdateQuotationItemFinancials();
   const sendQuotationMutation = useSendQuotation();
   const reviseQuotationMutation = useReviseQuotation();
@@ -187,6 +189,22 @@ export function SaleQuotations() {
     }
   }
 
+  async function createDraftQuotationForSelectedProject() {
+    if (!selectedProject || selectedProject.status !== 'PROPOSAL_SELECTED') return;
+
+    setMessage(null);
+
+    try {
+      const quotation = await createDraftQuotationMutation.mutateAsync(selectedProject.projectId);
+      setSelectedQuotationId(quotation.quotationId);
+      setSelectedStatus(null);
+      setProjectView('finalized');
+      setMessage({ tone: 'success', text: 'Draft quotation created from the selected proposal.' });
+    } catch (error) {
+      setMessage({ tone: 'error', text: getQuotationServiceResultMessage(error) });
+    }
+  }
+
   async function saveFinancials() {
     if (!selectedQuotation || !canEditFinancials(selectedQuotation.status)) return;
 
@@ -253,7 +271,7 @@ export function SaleQuotations() {
           <section className="sale-quotations-heading">
             <div>
               <h2>Quotations</h2>
-              <p>Draft quotations are created automatically after the customer selects a final proposal</p>
+              <p>Create official quotations from customer-selected proposals, then review pricing before sending.</p>
             </div>
           </section>
 
@@ -331,6 +349,20 @@ export function SaleQuotations() {
                   <span>Selected Project</span>
                   <strong>{selectedProject ? `${selectedProject.projectCode} - ${formatEnumLabel(selectedProject.status)}` : 'No project selected'}</strong>
                 </div>
+                <button
+                  disabled={
+                    !selectedProject
+                    || selectedProject.status !== 'PROPOSAL_SELECTED'
+                    || quotations.length > 0
+                    || createDraftQuotationMutation.isPending
+                    || quotationsQuery.isLoading
+                  }
+                  title={getCreateDraftBlockedReason(selectedProject, quotations.length, quotationsQuery.isLoading)}
+                  type="button"
+                  onClick={() => void createDraftQuotationForSelectedProject()}
+                >
+                  {createDraftQuotationMutation.isPending ? 'Creating...' : 'Create Draft Quotation'}
+                </button>
               </section>
 
               <section className="sale-quotations-card">
@@ -616,6 +648,15 @@ function canCancel(status?: QuotationStatus | null) {
 
 function canSend(quotation: QuotationDto & { items?: unknown[] }) {
   return !getSendBlockedReason(quotation);
+}
+
+function getCreateDraftBlockedReason(project: ProjectListItemDto | undefined, quotationCount: number, isLoading: boolean) {
+  if (isLoading) return 'Loading existing quotations for this project.';
+  if (!project) return 'Select a project waiting for quotation.';
+  if (project.status !== 'PROPOSAL_SELECTED') return 'Draft quotation can only be created after the customer selects a final proposal.';
+  if (quotationCount > 0) return 'This project already has a quotation.';
+
+  return 'Create a Sales-owned draft quotation from the selected proposal.';
 }
 
 function getSendBlockedReason(quotation: QuotationDto & { items?: unknown[] }) {

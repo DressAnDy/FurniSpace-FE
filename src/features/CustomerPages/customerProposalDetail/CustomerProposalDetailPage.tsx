@@ -6,10 +6,10 @@ import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 
 import { CustomerNavbar } from '@/features/CustomerPages/customercomponents';
-import { getCustomizationRequestServiceResultMessage } from '@/services/api/customizationRequests';
+import { getCustomizationRequestServiceResultMessage, type CustomizationRequestDto, type CustomizationRequestVersionDto } from '@/services/api/customizationRequests';
 import { getProposalServiceResultMessage, type ProposalDto, type ProposalItemDto, type ProposalSceneDto } from '@/services/api/proposals';
 import {
-  useCustomerDecisionCustomizationRequest,
+  useAcceptCustomizationRequestVersion,
   useProjectCustomizationRequests,
   useProjectList,
   useProjectProposals,
@@ -40,7 +40,6 @@ export function CustomerProposalDetailPage() {
   const [customizationWidth, setCustomizationWidth] = useState('');
   const [customizationHeight, setCustomizationHeight] = useState('');
   const [customizationDepth, setCustomizationDepth] = useState('');
-  const [customizationRejectReasonById, setCustomizationRejectReasonById] = useState<Record<string, string>>({});
 
   const projectsQuery = useProjectList({ page: 1, limit: 50 });
   const projectProposalsQuery = useProjectProposals(
@@ -70,7 +69,7 @@ export function CustomerProposalDetailPage() {
     { enabled: Boolean(selectedProposalId) },
   );
   const submitCustomizationMutation = useSubmitCustomizationRequest();
-  const customizationDecisionMutation = useCustomerDecisionCustomizationRequest();
+  const acceptCustomizationMutation = useAcceptCustomizationRequestVersion();
   const backendProposal = proposalQuery.data;
   const proposals = useMemo(
     () => (projectProposalsQuery.data?.items ?? []).filter((proposal) => isCustomerVisibleProposal(proposal.status)),
@@ -88,7 +87,7 @@ export function CustomerProposalDetailPage() {
     { enabled: Boolean(backendProposal?.projectId) },
   );
   const customizationRequests = customizationRequestsQuery.data?.items ?? [];
-  const customerApprovalRequests = customizationRequests.filter((request) => request.status === 'WAITING_FOR_CUSTOMER_FINAL_APPROVAL');
+  const customerApprovalItems = getCustomerApprovalItems(customizationRequests);
 
   useEffect(() => {
     if (proposalId && proposalId !== selectedProposalId) {
@@ -183,23 +182,15 @@ export function CustomerProposalDetailPage() {
     }
   }
 
-  async function decideCustomization(customizationRequestId: string, decision: 'ACCEPT' | 'REJECT') {
+  async function acceptCustomization(request: CustomizationRequestDto, version: CustomizationRequestVersionDto) {
     setCustomizationMessage('');
-    const rejectReason = customizationRejectReasonById[customizationRequestId] ?? '';
-
-    if (decision === 'REJECT' && !rejectReason.trim()) {
-      setCustomizationMessage('Reject reason is required.');
-      return;
-    }
 
     try {
-      await customizationDecisionMutation.mutateAsync({
-        customizationRequestId,
-        decision,
-        rejectReason: decision === 'REJECT' ? rejectReason : null,
+      await acceptCustomizationMutation.mutateAsync({
+        customizationRequestId: request.customizationRequestId,
+        customizationRequestVersionId: version.customizationRequestVersionId,
       });
-      setCustomizationRejectReasonById((current) => ({ ...current, [customizationRequestId]: '' }));
-      setCustomizationMessage(decision === 'ACCEPT' ? 'Customization accepted and proposal item price updated.' : 'Customization rejected.');
+      setCustomizationMessage('Customization version accepted. Proposal pricing will refresh with the approved version.');
     } catch (error) {
       setCustomizationMessage(getCustomizationRequestServiceResultMessage(error));
     }
@@ -334,30 +325,16 @@ export function CustomerProposalDetailPage() {
                 ) : null}
               </section>
 
-              {customerApprovalRequests.length > 0 ? (
+              {customerApprovalItems.length > 0 ? (
                 <section className="customer-proposal-detail-card customer-proposal-detail-customization-approval">
                   <h2>Customization Approval</h2>
-                  {customerApprovalRequests.map((request) => (
-                    <article key={request.customizationRequestId}>
+                  {customerApprovalItems.map(({ request, version }) => (
+                    <article key={version.customizationRequestVersionId}>
                       <strong>{request.requestTitle}</strong>
-                      <span>{formatMoney(request.estimatedAdditionalCost)} - {request.estimatedProductionDays ?? '-'} days</span>
-                      <p>{request.feasibilityNote ?? request.additionalCostReason ?? 'Production confirmed this customization.'}</p>
-                      <textarea
-                        rows={2}
-                        value={customizationRejectReasonById[request.customizationRequestId] ?? ''}
-                        placeholder="Reject reason"
-                        onChange={(event) =>
-                          setCustomizationRejectReasonById((current) => ({
-                            ...current,
-                            [request.customizationRequestId]: event.target.value,
-                          }))
-                        }
-                      />
+                      <span>{formatMoney(version.estimatedAdditionalCost)} - {version.estimatedProductionDays ?? '-'} days</span>
+                      <p>{version.feasibilityNote ?? version.additionalCostReason ?? version.designerNote ?? 'Production confirmed this customization version.'}</p>
                       <div>
-                        <button disabled={customizationDecisionMutation.isPending} type="button" onClick={() => void decideCustomization(request.customizationRequestId, 'REJECT')}>
-                          Reject
-                        </button>
-                        <button disabled={customizationDecisionMutation.isPending} type="button" onClick={() => void decideCustomization(request.customizationRequestId, 'ACCEPT')}>
+                        <button disabled={acceptCustomizationMutation.isPending} type="button" onClick={() => void acceptCustomization(request, version)}>
                           Accept
                         </button>
                       </div>
@@ -397,6 +374,14 @@ function ProposalItemRow({ item, onCustomize, proposalStatus }: { item: Proposal
 
 function isCustomerVisibleProposal(status: ProposalDto['status']) {
   return ['PUBLISHED', 'REVISION_REQUESTED', 'SELECTED', 'REJECTED'].includes(status);
+}
+
+function getCustomerApprovalItems(requests: CustomizationRequestDto[]) {
+  return requests.flatMap((request) =>
+    (request.versions ?? [])
+      .filter((version) => request.status === 'REVIEWING' && version.status === 'REVIEWING' && version.feasibilityStatus === 'FEASIBLE')
+      .map((version) => ({ request, version })),
+  );
 }
 
 function normalizeNumber(value: string) {

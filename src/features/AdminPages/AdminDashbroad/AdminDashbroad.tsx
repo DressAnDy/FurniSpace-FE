@@ -1,6 +1,5 @@
 import { useMemo } from 'react';
 import {
-  IconAlertTriangle,
   IconBriefcase,
   IconBuildingFactory,
   IconCash,
@@ -28,7 +27,6 @@ import {
   useProjectList,
 } from '@/services/queries';
 import {
-  dashboardAlerts,
   dashboardKpiMocks,
   paymentHealth,
   roleWorkload,
@@ -172,23 +170,6 @@ export function AdminDashbroad() {
 
             <DashboardQueryState isError={projectsQuery.isError} isLoading={projectsQuery.isLoading} />
 
-            <section className="admin-dash-v2-alerts" aria-label="Critical alerts">
-              <SectionTitle icon={IconAlertTriangle} title="Attention Center" subtitle="Current issues that need operational follow-up." />
-              <div className="admin-dash-v2-alert-grid">
-                {dashboardAlerts.map((alert) => (
-                  <Link className={`admin-dash-v2-alert admin-dash-v2-alert-${alert.severity}`} key={`${alert.module}-${alert.entity}`} to={alert.path}>
-                    <span>{alert.severity}</span>
-                    <strong>{alert.count}</strong>
-                    <div>
-                      <p>{alert.module}</p>
-                      <small>{alert.entity} / {alert.age}</small>
-                    </div>
-                    <em>{alert.action}</em>
-                  </Link>
-                ))}
-              </div>
-            </section>
-
             <section className="admin-dash-v2-kpis" aria-label="KPI insight cards">
               {kpis.map((kpi) => <KpiCard item={kpi} key={kpi.label} />)}
             </section>
@@ -315,7 +296,7 @@ function DashboardQueryState({ isError, isLoading }: { isError: boolean; isLoadi
   }
 
   if (isError) {
-    return <section className="admin-dash-v2-state admin-dash-v2-state-error"><IconAlertTriangle size={16} /> Some live API data could not be loaded. Mock dashboard sections remain visible for UI review.</section>;
+    return <section className="admin-dash-v2-state admin-dash-v2-state-error"><IconInfoCircle size={16} /> Some live API data could not be loaded. Mock dashboard sections remain visible for UI review.</section>;
   }
 
   return null;
