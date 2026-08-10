@@ -1,8 +1,12 @@
 import {
   IconAdjustments,
+  IconAlertTriangle,
   IconChevronLeft,
+  IconClipboardList,
   IconHome,
   IconMenu2,
+  IconTruckDelivery,
+  IconUserCheck,
   type Icon,
 } from '@tabler/icons-react';
 import { NavLink } from 'react-router-dom';
@@ -17,8 +21,12 @@ type ProductionSidebarItem = {
 };
 
 const productionSidebarItems: ProductionSidebarItem[] = [
-  { label: 'Customization Requests', icon: IconAdjustments, path: '/production/customization-requests' },
   { label: 'Dashboard', icon: IconHome, path: '/production/dashbroad' },
+  { label: 'Customization Reviews', icon: IconAdjustments, path: '/production/customization-reviews' },
+  { label: 'Production Requests', icon: IconClipboardList, path: '/production/requests' },
+  { label: 'My Tasks', icon: IconUserCheck, path: '/production/my-tasks' },
+  { label: 'Blocked Issues', icon: IconAlertTriangle, path: '/production/blocked-issues' },
+  { label: 'Ready for Delivery', icon: IconTruckDelivery, path: '/production/ready-for-delivery' },
 ];
 
 type ProductionSidebarProps = {

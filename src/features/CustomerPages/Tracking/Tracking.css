@@ -1,0 +1,200 @@
+.customer-tracking-page .customer-workspace-main {
+  gap: 18px;
+}
+
+.customer-tracking-selector {
+  min-height: 40px;
+  min-width: min(280px, 100%);
+  border: 1px solid rgba(139, 111, 71, 0.2);
+  border-radius: 8px;
+  background: #faf9f7;
+  color: #2d2d2d;
+  font: inherit;
+  padding: 0 12px;
+}
+
+.customer-tracking-message {
+  border: 1px solid rgba(139, 111, 71, 0.15);
+  border-radius: 10px;
+  background: #ffffff;
+  padding: 12px 14px;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.customer-tracking-message-error {
+  background: rgba(220, 38, 38, 0.1);
+  color: #b91c1c;
+}
+
+.customer-tracking-message-success {
+  background: rgba(22, 163, 74, 0.1);
+  color: #15803d;
+}
+
+.customer-tracking-control-panel {
+  display: grid;
+  gap: 14px;
+}
+
+.customer-tracking-control-panel > header,
+.customer-tracking-items-panel > header {
+  align-items: flex-start;
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+}
+
+.customer-tracking-control-panel h2 {
+  margin: 0;
+  color: #2d2d2d;
+  font-size: 24px;
+  line-height: 1.2;
+}
+
+.customer-tracking-control-panel header p,
+.customer-tracking-current-message {
+  color: #6b6b6b;
+  font-size: 14px;
+  line-height: 1.5;
+  margin: 5px 0 0;
+}
+
+.customer-tracking-controls {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+.customer-tracking-meta-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.customer-tracking-items-panel {
+  display: grid;
+  gap: 16px;
+}
+
+.customer-tracking-items-panel .customer-workspace-link {
+  align-items: center;
+  display: inline-flex;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.customer-tracking-delivery-list {
+  display: grid;
+  gap: 10px;
+}
+
+.customer-tracking-delivery-row {
+  align-items: center;
+  border: 1px solid rgba(139, 111, 71, 0.14);
+  border-radius: 10px;
+  background: #faf9f7;
+  display: grid;
+  gap: 14px;
+  grid-template-columns: minmax(180px, 1.35fr) minmax(150px, 1fr) auto auto;
+  padding: 14px;
+}
+
+.customer-tracking-delivery-row-blocked {
+  border-color: rgba(184, 92, 80, 0.26);
+  background: #fff7f5;
+}
+
+.customer-tracking-delivery-main {
+  min-width: 0;
+}
+
+.customer-tracking-delivery-main strong {
+  color: #2d2d2d;
+  display: block;
+  font-size: 15px;
+  line-height: 1.35;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.customer-tracking-delivery-main span,
+.customer-tracking-progress span,
+.customer-tracking-row-note {
+  color: #6b6b6b;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.customer-tracking-progress {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+}
+
+.customer-tracking-progress > div {
+  height: 7px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(139, 111, 71, 0.14);
+}
+
+.customer-tracking-progress i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: #8b6f47;
+}
+
+.customer-tracking-delivery-row button {
+  min-height: 36px;
+  border: 1px solid #8b6f47;
+  border-radius: 8px;
+  background: #8b6f47;
+  color: #ffffff;
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 0 12px;
+  white-space: nowrap;
+}
+
+.customer-tracking-delivery-row button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.customer-tracking-row-note {
+  grid-column: 1 / -1;
+  margin: -4px 0 0;
+}
+
+@media (max-width: 900px) {
+  .customer-tracking-control-panel > header,
+  .customer-tracking-items-panel > header {
+    flex-direction: column;
+  }
+
+  .customer-tracking-controls {
+    justify-content: flex-start;
+    width: 100%;
+  }
+
+  .customer-tracking-selector {
+    width: 100%;
+  }
+
+  .customer-tracking-delivery-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .customer-tracking-meta-row {
+    grid-template-columns: 1fr;
+  }
+}

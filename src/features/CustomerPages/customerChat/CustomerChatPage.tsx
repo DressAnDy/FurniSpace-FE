@@ -1,12 +1,8 @@
 import {
   IconArrowLeft,
-  IconDotsVertical,
   IconFile,
-  IconPaperclip,
-  IconPhone,
   IconSearch,
   IconSend,
-  IconVideo,
 } from '@tabler/icons-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
@@ -27,7 +23,6 @@ import {
   useProjectChatRealtime,
   useProjectChatUnreadCounts,
   useProjectChats,
-  useSendProjectChatFileMessage,
   useSendProjectChatTextMessage,
 } from '@/services/queries/useProjectChats';
 
@@ -40,9 +35,7 @@ export function CustomerChatPage() {
   const [activeProjectId, setActiveProjectId] = useState('');
   const [activeChatId, setActiveChatId] = useState('');
   const [draft, setDraft] = useState('');
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [errorMessage, setErrorMessage] = useState('');
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const messagesListRef = useRef<HTMLDivElement | null>(null);
   const projectsQuery = useProjectList({ page: 1, limit: 50 });
   const projects = useMemo(() => projectsQuery.data?.items ?? [], [projectsQuery.data?.items]);
@@ -92,7 +85,6 @@ export function CustomerChatPage() {
     : undefined;
   const messagesQuery = useProjectChatMessages(messagesQueryParams);
   const sendTextMutation = useSendProjectChatTextMessage();
-  const sendFileMutation = useSendProjectChatFileMessage();
 
   useEffect(() => {
     if (!activeProjectId && projects.length > 0) {
@@ -152,7 +144,7 @@ export function CustomerChatPage() {
   async function handleSendText() {
     const content = draft.trim();
 
-    if (!activeConversation || (!content && !selectedFile) || sendTextMutation.isPending || sendFileMutation.isPending) {
+    if (!activeConversation || !content || sendTextMutation.isPending) {
       return;
     }
 
@@ -160,21 +152,10 @@ export function CustomerChatPage() {
     setErrorMessage('');
 
     try {
-      const savedMessage = selectedFile
-        ? await sendFileMutation.mutateAsync({
-            chatId: activeConversation.chatId,
-            file: selectedFile,
-            content,
-          })
-        : await sendTextMutation.mutateAsync({
-            chatId: activeConversation.chatId,
-            content,
-          });
-
-      setSelectedFile(null);
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
-      }
+      const savedMessage = await sendTextMutation.mutateAsync({
+        chatId: activeConversation.chatId,
+        content,
+      });
 
       if (messagesQueryParams) {
         queryClient.setQueryData(projectChatQueryKeys.messages(messagesQueryParams), (current: ProjectChatMessageListResponse | undefined) =>
@@ -187,12 +168,6 @@ export function CustomerChatPage() {
       setErrorMessage(getProjectChatServiceResultMessage(error));
       void messagesQuery.refetch();
       void chatListQuery.refetch();
-    }
-  }
-
-  function handleFileChange(file?: File) {
-    if (file) {
-      setSelectedFile(file);
     }
   }
 
@@ -230,7 +205,7 @@ export function CustomerChatPage() {
               </label>
               <label className="customer-chat-search">
                 <IconSearch size={16} stroke={1.8} />
-                <input type="search" placeholder="Search chats..." value={searchKeyword} onChange={(event) => setSearchKeyword(event.target.value)} />
+                <input type="search" placeholder="Filter conversations..." value={searchKeyword} onChange={(event) => setSearchKeyword(event.target.value)} />
               </label>
             </div>
 
@@ -262,17 +237,6 @@ export function CustomerChatPage() {
                   <span>{getChatParticipant(activeConversation, { viewerRole: 'CUSTOMER' }).role}</span>
                 </div>
               </div>
-              <div className="customer-chat-conversation-actions">
-                <button type="button" aria-label="Voice call">
-                  <IconPhone size={20} stroke={1.8} />
-                </button>
-                <button type="button" aria-label="Video call">
-                  <IconVideo size={20} stroke={1.8} />
-                </button>
-                <button type="button" aria-label="More options">
-                  <IconDotsVertical size={20} stroke={1.8} />
-                </button>
-              </div>
             </div>
 
             <div className="customer-chat-messages" aria-live="polite" ref={messagesListRef}>
@@ -289,32 +253,11 @@ export function CustomerChatPage() {
               ))}
             </div>
             <div className="customer-chat-input-area">
-              <input ref={fileInputRef} hidden type="file" onChange={(event) => handleFileChange(event.target.files?.[0])} />
-              <button className="customer-chat-attach" disabled={!activeConversation || sendFileMutation.isPending} type="button" aria-label="Attach file" onClick={() => fileInputRef.current?.click()}>
-                <IconPaperclip size={20} stroke={1.8} />
-              </button>
               <div className="customer-chat-composer-main">
-                {selectedFile ? (
-                  <div className="customer-chat-selected-file">
-                    <IconFile size={15} />
-                    <span>{selectedFile.name}</span>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSelectedFile(null);
-                        if (fileInputRef.current) {
-                          fileInputRef.current.value = '';
-                        }
-                      }}
-                    >
-                      Remove
-                    </button>
-                  </div>
-                ) : null}
                 <textarea
                   className="customer-chat-textarea"
-                  disabled={!activeConversation || sendTextMutation.isPending || sendFileMutation.isPending}
-                  placeholder={selectedFile ? 'Add a message for this file...' : 'Type your message...'}
+                  disabled={!activeConversation || sendTextMutation.isPending}
+                  placeholder="Type your message..."
                   rows={2}
                   value={draft}
                   onChange={(event) => setDraft(event.target.value)}
@@ -326,7 +269,7 @@ export function CustomerChatPage() {
                   }}
                 />
               </div>
-              <button className="customer-chat-send" disabled={!activeConversation || (!draft.trim() && !selectedFile) || sendTextMutation.isPending || sendFileMutation.isPending} type="button" aria-label="Send message" onClick={() => void handleSendText()}>
+              <button className="customer-chat-send" disabled={!activeConversation || !draft.trim() || sendTextMutation.isPending} type="button" aria-label="Send message" onClick={() => void handleSendText()}>
                 <IconSend size={20} stroke={1.8} />
               </button>
             </div>
@@ -352,7 +295,7 @@ function ConversationItem({
   const unreadBadge = formatUnreadBadge(unreadCount);
 
   return (
-    <li className={`customer-chat-list-item${isActive ? ' customer-chat-list-item-active' : ''}`}>
+    <li className={`customer-chat-list-item${isActive ? ' customer-chat-list-item-active' : ''}${unreadBadge ? ' customer-chat-list-item-unread' : ''}`}>
       <button type="button" onClick={onSelect}>
         <span className="customer-chat-avatar">{getInitials(participant.name, conversation.chatType)}</span>
 

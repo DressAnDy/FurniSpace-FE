@@ -1,8 +1,11 @@
 type AggregatableItem = {
   colorSnapshot?: string | null;
+  customizationUnitAdditionalCost?: number | null;
   customizationAdditionalCost?: number | null;
   customizationNote?: string | null;
   depthSnapshot?: number | null;
+  deliveredQuantity?: number | null;
+  deliveryNote?: string | null;
   dimensionUnit?: string | null;
   discountAmount?: number | null;
   heightSnapshot?: number | null;
@@ -15,7 +18,11 @@ type AggregatableItem = {
   productVersionId?: string | null;
   productVersionNameSnapshot?: string | null;
   quantity?: number | null;
+  grossAmount?: number | null;
   subtotalAmount?: number | null;
+  taxableAmount?: number | null;
+  taxAmount?: number | null;
+  totalAmount?: number | null;
   unitPrice?: number | null;
   unitPriceSnapshot?: number | null;
   versionNameSnapshot?: string | null;
@@ -36,8 +43,14 @@ export function aggregateDuplicateItems<T extends AggregatableItem>(items: T[]) 
 
     existingItem.quantity = sumOptionalNumbers(existingItem.quantity, item.quantity);
     existingItem.discountAmount = sumOptionalNumbers(existingItem.discountAmount, item.discountAmount);
+    existingItem.deliveredQuantity = sumOptionalNumbers(existingItem.deliveredQuantity, item.deliveredQuantity);
+    existingItem.grossAmount = sumOptionalNumbers(existingItem.grossAmount, item.grossAmount);
     existingItem.subtotalAmount = sumOptionalNumbers(existingItem.subtotalAmount, item.subtotalAmount);
+    existingItem.taxableAmount = sumOptionalNumbers(existingItem.taxableAmount, item.taxableAmount);
+    existingItem.taxAmount = sumOptionalNumbers(existingItem.taxAmount, item.taxAmount);
+    existingItem.totalAmount = sumOptionalNumbers(existingItem.totalAmount, item.totalAmount);
     existingItem.customizationNote = mergeTextValues(existingItem.customizationNote, item.customizationNote);
+    existingItem.deliveryNote = mergeTextValues(existingItem.deliveryNote, item.deliveryNote);
     existingItem.note = mergeTextValues(existingItem.note, item.note);
   }
 
@@ -64,7 +77,7 @@ function getItemAggregateKey(item: AggregatableItem) {
     item.depthSnapshot ?? 'NO_DEPTH',
     item.dimensionUnit ?? 'NO_DIMENSION_UNIT',
     item.unitPrice ?? item.unitPriceSnapshot ?? 'NO_UNIT_PRICE',
-    item.customizationAdditionalCost ?? 'NO_CUSTOMIZATION_COST',
+    item.customizationUnitAdditionalCost ?? item.customizationAdditionalCost ?? 'NO_CUSTOMIZATION_COST',
     item.customizationNote ?? 'NO_CUSTOMIZATION_NOTE',
     item.note ?? 'NO_NOTE',
   ].join('|');

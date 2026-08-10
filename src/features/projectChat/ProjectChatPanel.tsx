@@ -1,7 +1,6 @@
 import {
   IconFile,
   IconMessageCircle,
-  IconPaperclip,
   IconSend,
   IconX,
 } from '@tabler/icons-react';
@@ -26,7 +25,6 @@ import {
   useProjectChats,
   useProjectChatRealtime,
   useProjectChatUnreadCounts,
-  useSendProjectChatFileMessage,
   useSendProjectChatTextMessage,
 } from '@/services/queries/useProjectChats';
 
@@ -57,9 +55,7 @@ export function ProjectChatPanel({
   const currentUserQuery = useCurrentUser();
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
   const [draft, setDraft] = useState('');
-  const [caption, setCaption] = useState('');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const messageListRef = useRef<HTMLDivElement | null>(null);
   const chatListQuery = useProjectChats({
     projectId,
@@ -86,7 +82,6 @@ export function ProjectChatPanel({
   const messagesQuery = useProjectChatMessages(messagesQueryParams);
   const messages = (messagesQuery.data?.items ?? []) as PendingMessage[];
   const sendTextMutation = useSendProjectChatTextMessage();
-  const sendFileMutation = useSendProjectChatFileMessage();
   const closeChatMutation = useCloseProjectChat();
   const isReadonly = !activeChat || activeChat.status !== 'OPEN';
   const currentUserId = currentUserQuery.data?.accountId;
@@ -174,37 +169,6 @@ export function ProjectChatPanel({
     }
   };
 
-  const handleFileChange = async (file: File | undefined) => {
-    if (!file || !activeChat || sendFileMutation.isPending) {
-      return;
-    }
-
-    setErrorMessage(null);
-
-    try {
-      const savedMessage = await sendFileMutation.mutateAsync({
-        chatId: activeChat.chatId,
-        file,
-        content: caption,
-      });
-
-      setCaption('');
-      if (messagesQueryParams) {
-        queryClient.setQueryData(projectChatQueryKeys.messages(messagesQueryParams), (current: ProjectChatMessageListResponse | undefined) =>
-          upsertProjectChatMessage(current, savedMessage),
-        );
-      }
-      void chatListQuery.refetch();
-    } catch (error) {
-      setErrorMessage(getProjectChatServiceResultMessage(error));
-      void chatListQuery.refetch();
-    } finally {
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
-      }
-    }
-  };
-
   const handleCloseChat = async () => {
     if (!activeChat || closeChatMutation.isPending) {
       return;
@@ -281,22 +245,6 @@ export function ProjectChatPanel({
 
           <div className="project-chat-panel-composer">
             <input
-              ref={fileInputRef}
-              disabled={isReadonly}
-              hidden
-              type="file"
-              onChange={(event) => void handleFileChange(event.target.files?.[0])}
-            />
-            <button
-              aria-label="Attach file"
-              disabled={isReadonly || sendFileMutation.isPending}
-              title="Attach file"
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-            >
-              <IconPaperclip size={18} />
-            </button>
-            <input
               disabled={isReadonly || sendTextMutation.isPending}
               maxLength={4000}
               placeholder={isReadonly ? 'This chat is read-only' : 'Write a message...'}
@@ -324,7 +272,7 @@ function ChatListButton({ chat, isActive, onClick, unreadCount }: { chat: Projec
   const unreadBadge = formatUnreadBadge(unreadCount);
 
   return (
-    <button className={isActive ? 'is-active' : ''} type="button" onClick={onClick}>
+    <button className={`${isActive ? 'is-active' : ''}${unreadBadge ? ' has-unread' : ''}`.trim()} type="button" onClick={onClick}>
       <span>
         <IconMessageCircle size={16} />
         <strong>{getChatTitle(chat)}</strong>

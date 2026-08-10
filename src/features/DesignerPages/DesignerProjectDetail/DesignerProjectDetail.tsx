@@ -20,10 +20,10 @@ import { getAccountById } from '@/services/api';
 import { getProjectServiceResultMessage, type ProjectDto, type ProjectStatus } from '@/services/api/projects';
 import { useProjectDetail, useUpdateProjectStatus } from '@/services/queries';
 
-import { ChatTab, CustomizationTab, FeedbackTab, OverviewTab, ProjectAreasTab, ProposalsTab, SchedulesTab, SpaceFilesTab } from './tabs';
+import { ChatTab, CustomizationTab, OverviewTab, ProjectAreasTab, ProposalsTab, SchedulesTab, SpaceFilesTab } from './tabs';
 import './DesignerProjectDetail.css';
 
-type DesignerProjectDetailTab = 'overview' | 'space-files' | 'project-areas' | 'proposals' | 'feedback' | 'customization' | 'schedules' | 'chat';
+type DesignerProjectDetailTab = 'overview' | 'space-files' | 'project-areas' | 'proposals' | 'customization' | 'schedules' | 'chat';
 
 type DesignerProjectTabProps = {
   project: ProjectDto;
@@ -40,7 +40,6 @@ const detailTabs: DesignerProjectTabConfig[] = [
   { id: 'space-files', label: 'Space Files', component: SpaceFilesTab },
   { id: 'project-areas', label: 'Project Areas', component: ProjectAreasTab },
   { id: 'proposals', label: 'Proposals', component: ProposalsTab },
-  { id: 'feedback', label: 'Feedback', component: FeedbackTab },
   { id: 'customization', label: 'Customization', component: CustomizationTab },
   { id: 'schedules', label: 'Schedules', component: SchedulesTab },
   { id: 'chat', label: 'Chat', component: ChatTab },

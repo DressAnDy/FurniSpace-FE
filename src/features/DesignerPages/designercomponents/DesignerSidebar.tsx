@@ -1,6 +1,7 @@
 import {
   IconCalendarEvent,
   IconChevronLeft,
+  IconFileText,
   IconHome,
   IconMenu2,
   IconPackage,
@@ -22,6 +23,7 @@ type DesignerSidebarItem = {
 const designerSidebarItems: DesignerSidebarItem[] = [
   { label: 'Dashboard', icon: IconHome, path: '/designer/dashbroad' },
   { label: 'Assigned Projects', icon: IconTable, path: '/designer/assigned-projects' },
+  { label: 'Proposals', icon: IconFileText },
   { label: 'Product Library', icon: IconPackage, path: '/designer/product-library' },
   { label: 'My Schedule', icon: IconCalendarEvent, path: '/designer/schedules' },
   { label: 'Settings', icon: IconSettings },

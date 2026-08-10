@@ -25,7 +25,7 @@ export function OverviewTab({ project, showAssignedTeam = false }: OverviewTabPr
   const [selectedDesignerId, setSelectedDesignerId] = useState(project.assignedDesignerId ?? '');
   const [startFeeMessage, setStartFeeMessage] = useState('');
   const [startFeeAmount, setStartFeeAmount] = useState('');
-  const [startFeeExpiredAt, setStartFeeExpiredAt] = useState('');
+  const [startFeeDueDate, setStartFeeDueDate] = useState('');
   const teamAccountIds = [project.assignedSalesId, project.assignedDesignerId].filter((accountId): accountId is string => Boolean(accountId));
   const teamQueries = useQueries({
     queries: teamAccountIds.map((accountId) => ({
@@ -136,12 +136,12 @@ export function OverviewTab({ project, showAssignedTeam = false }: OverviewTabPr
       const payment = await createStartFeePaymentMutation.mutateAsync({
         projectId: project.projectId,
         amount,
-        expiredAt: toApiDateTime(startFeeExpiredAt),
+        expiredAt: toApiDateTimeAtEndOfDay(startFeeDueDate),
         note: 'Project start fee created before designer assignment.',
       });
       setStartFeeMessage(`Start fee request ${payment.paymentCode} was created and sent to the customer.`);
       setStartFeeAmount('');
-      setStartFeeExpiredAt('');
+      setStartFeeDueDate('');
       void startFeeStatusQuery.refetch();
     } catch (error) {
       setStartFeeMessage(getPaymentServiceResultMessage(error));
@@ -233,15 +233,16 @@ export function OverviewTab({ project, showAssignedTeam = false }: OverviewTabPr
                       <label>
                         <span>Due date</span>
                         <input
-                          type="datetime-local"
-                          value={startFeeExpiredAt}
+                          type="date"
+                          value={startFeeDueDate}
                           disabled={createStartFeePaymentMutation.isPending}
-                          onChange={(event) => setStartFeeExpiredAt(event.currentTarget.value)}
+                          onChange={(event) => setStartFeeDueDate(event.currentTarget.value)}
                         />
+                        <small>Expires at 23:00 on the selected date.</small>
                       </label>
                       <button
                         type="button"
-                        disabled={createStartFeePaymentMutation.isPending || !normalizePositiveAmount(startFeeAmount) || !startFeeExpiredAt}
+                        disabled={createStartFeePaymentMutation.isPending || !normalizePositiveAmount(startFeeAmount) || !startFeeDueDate}
                         onClick={() => void handleCreateStartFeePayment()}
                       >
                         {createStartFeePaymentMutation.isPending ? 'Creating...' : 'Create Start Fee'}
@@ -438,10 +439,10 @@ function normalizePositiveAmount(value: string) {
   return Number.isFinite(amount) && amount > 0 ? amount : null;
 }
 
-function toApiDateTime(value: string) {
+function toApiDateTimeAtEndOfDay(value: string) {
   if (!value) return null;
 
-  const date = new Date(value);
+  const date = new Date(`${value}T23:00`);
 
   return Number.isNaN(date.getTime()) ? null : date.toISOString();
 }

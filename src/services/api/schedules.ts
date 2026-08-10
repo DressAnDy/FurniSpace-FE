@@ -158,7 +158,7 @@ export function getProjectScheduleServiceResultFromError(error: unknown) {
 }
 
 export async function createProjectSchedule(input: CreateProjectScheduleInput) {
-  const response = await scheduleApiClient.post<ServiceResult<ProjectScheduleDto>>(`/project-schedules/${input.projectId}`, {
+  const response = await scheduleApiClient.post<ServiceResult<ProjectScheduleDto>>(`/projects/${input.projectId}/schedules`, {
     scheduleType: input.scheduleType ?? undefined,
     title: normalizeScheduleOptionalText(input.title),
     description: normalizeScheduleOptionalText(input.description),

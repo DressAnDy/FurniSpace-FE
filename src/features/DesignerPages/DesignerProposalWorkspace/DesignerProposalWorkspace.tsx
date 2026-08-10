@@ -35,7 +35,7 @@ import { aggregateDuplicateItems } from '@/shared/utils/itemAggregation';
 
 import './DesignerProposalWorkspace.css';
 
-type WorkspaceTab = 'scenes' | 'items' | 'review' | 'chat';
+type WorkspaceTab = 'scenes' | 'items' | 'chat';
 type ProposalDraft = {
   description: string;
   proposalName: string;
@@ -56,13 +56,33 @@ const DEFAULT_SCENE_EDIT_DRAFT: SceneEditDraft = {
   sceneName: '',
 };
 
+function getSceneAreaIds(scene: ProposalSceneDto) {
+  const areaIds = scene.areas?.map((area) => area.projectAreaId).filter(Boolean) ?? [];
+
+  if (areaIds.length > 0) {
+    return areaIds;
+  }
+
+  return scene.projectAreaId ? [scene.projectAreaId] : [];
+}
+
+function getActiveAreaIds(areas: ProjectAreaDto[]) {
+  return areas
+    .filter((area) => area.status !== 'CANCELLED')
+    .map((area) => area.projectAreaId);
+}
+
+function getSceneDisplayName(scene: ProposalSceneDto) {
+  return scene.sceneName?.trim() || 'Untitled Room Planner Scene';
+}
+
 export function DesignerProposalWorkspace() {
   const navigate = useNavigate();
   const location = useLocation();
   const { projectId, proposalId } = useParams();
   const isProposalSetupMode = !proposalId || proposalId === 'new';
   const activeProposalId = isProposalSetupMode ? undefined : proposalId;
-  const routeState = location.state as { selectedAreaId?: string } | null;
+  const routeState = location.state as { createdSceneId?: string; selectedAreaId?: string } | null;
   const [activeTab, setActiveTab] = useState<WorkspaceTab>('scenes');
   const [message, setMessage] = useState('');
   const [selectedAreaId, setSelectedAreaId] = useState(routeState?.selectedAreaId ?? '');
@@ -111,24 +131,13 @@ export function DesignerProposalWorkspace() {
     () => displayItems.reduce((sum, item) => sum + (item.subtotalAmount ?? 0), 0),
     [displayItems],
   );
-  const primaryScene = scenes.find((scene) => scene.sceneType === 'THREE_D') ?? scenes[0] ?? null;
+  const primaryScene = scenes.find((scene) => scene.sceneType === 'ROOM_PLANNER') ?? scenes.find((scene) => scene.sceneType === 'THREE_D') ?? scenes[0] ?? null;
   const selectedScene = scenes.find((scene) => scene.sceneId === selectedSceneId) ?? primaryScene;
-  const selectedArea = areas.find((area) => area.projectAreaId === selectedAreaId) ?? null;
   const selectedAreaScenes = useMemo(
-    () => (selectedAreaId ? scenes.filter((scene) => scene.projectAreaId === selectedAreaId) : []),
+    () => (selectedAreaId ? scenes.filter((scene) => getSceneAreaIds(scene).includes(selectedAreaId)) : []),
     [scenes, selectedAreaId],
   );
   const canPublishProposal = Boolean(activeProposalId && proposal?.status === 'DRAFT' && scenes.length > 0);
-  const publishChecklist = useMemo(
-    () => [
-      { label: 'Proposal is Draft', ready: proposal?.status === 'DRAFT' },
-      { label: 'At least one active scene exists', ready: scenes.length > 0 },
-      { label: 'Room Planner scene is saved', ready: scenes.some((scene) => Boolean(scene.mongoSceneId)) },
-      { label: 'Proposal items are synced if required', ready: items.length > 0 },
-    ],
-    [items.length, proposal?.status, scenes],
-  );
-
   useEffect(() => {
     if (!proposal) {
       return;
@@ -145,15 +154,15 @@ export function DesignerProposalWorkspace() {
       return;
     }
 
-    setSelectedSceneId(scenes[0].sceneId);
-  }, [scenes, selectedSceneId]);
+    setSelectedSceneId(routeState?.createdSceneId && scenes.some((scene) => scene.sceneId === routeState.createdSceneId) ? routeState.createdSceneId : scenes[0].sceneId);
+  }, [routeState?.createdSceneId, scenes, selectedSceneId]);
 
   useEffect(() => {
     if (selectedAreaId || isProposalSetupMode || areas.length === 0) {
       return;
     }
 
-    const areaWithScene = areas.find((area) => scenes.some((scene) => scene.projectAreaId === area.projectAreaId));
+    const areaWithScene = areas.find((area) => scenes.some((scene) => getSceneAreaIds(scene).includes(area.projectAreaId)));
     setSelectedAreaId((areaWithScene ?? areas[0]).projectAreaId);
   }, [areas, isProposalSetupMode, scenes, selectedAreaId]);
 
@@ -166,7 +175,6 @@ export function DesignerProposalWorkspace() {
 
     if (!canPublishProposal) {
       setMessage('Proposal must be Draft and have at least one active scene before publishing.');
-      setActiveTab('review');
       return;
     }
 
@@ -175,7 +183,6 @@ export function DesignerProposalWorkspace() {
         proposalId: activeProposalId,
         note: 'Published by designer from proposal workspace.',
       });
-      setActiveTab('review');
       setMessage('Proposal published successfully. It is now ready for customer review.');
     } catch (error) {
       setMessage(getProposalServiceResultMessage(error));
@@ -189,17 +196,19 @@ export function DesignerProposalWorkspace() {
 
     setMessage('');
 
-    if (!selectedAreaId) {
-      setMessage('Select or create a project area before creating a 3D proposal scene.');
+    const projectAreaIds = getActiveAreaIds(areas);
+
+    if (projectAreaIds.length === 0) {
+      setMessage('Create project areas before creating a room planner scene. Each area will become a floor.');
       return;
     }
 
     try {
       const scene = await createSceneMutation.mutateAsync({
         proposalId: activeProposalId,
-        sceneName: `${selectedArea?.areaName ?? project.projectName} 3D Scene`,
-        sceneType: 'THREE_D',
-        projectAreaId: selectedAreaId,
+        sceneName: `${project.projectName} Room Planner`,
+        sceneType: 'ROOM_PLANNER',
+        projectAreaIds,
       });
 
       openRoomPlanner(scene);
@@ -249,7 +258,8 @@ export function DesignerProposalWorkspace() {
     navigate(`/proposal-scenes/${scene.sceneId}/room-planner`, {
       state: {
         mode: 'create-proposal',
-        projectAreaId: scene.projectAreaId,
+        projectAreaIds: getSceneAreaIds(scene),
+        areas: scene.areas ?? areas,
         projectId,
         proposalId: activeProposalId,
         returnTo: `/designer/projects/${projectId}/proposals/${activeProposalId}`,
@@ -310,8 +320,8 @@ export function DesignerProposalWorkspace() {
   function openSceneEditModal(scene: ProposalSceneDto) {
     setEditingScene(scene);
     setSceneEditDraft({
-      projectAreaId: scene.projectAreaId ?? '',
-      sceneName: scene.sceneName,
+      projectAreaId: getSceneAreaIds(scene)[0] ?? '',
+      sceneName: getSceneDisplayName(scene),
     });
   }
 
@@ -338,7 +348,7 @@ export function DesignerProposalWorkspace() {
       await updateProposalSceneMutation.mutateAsync({
         sceneId: editingScene.sceneId,
         sceneName,
-        projectAreaId: sceneEditDraft.projectAreaId || null,
+        projectAreaIds: sceneEditDraft.projectAreaId ? [sceneEditDraft.projectAreaId] : getSceneAreaIds(editingScene),
       });
       setMessage('Scene information updated.');
       closeSceneEditModal();
@@ -385,7 +395,6 @@ export function DesignerProposalWorkspace() {
       <nav className="designer-proposal-tabs" aria-label="Proposal workspace tabs">
         <button className={activeTab === 'scenes' ? 'is-active' : ''} type="button" onClick={() => setActiveTab('scenes')}><IconCube size={16} /> Scenes</button>
         <button className={activeTab === 'items' ? 'is-active' : ''} disabled={isProposalSetupMode} type="button" onClick={() => setActiveTab('items')}><IconPackage size={16} /> Proposal Items</button>
-        <button className={activeTab === 'review' ? 'is-active' : ''} disabled={isProposalSetupMode} type="button" onClick={() => setActiveTab('review')}><IconFileText size={16} /> Review & Publish</button>
         <button className={activeTab === 'chat' ? 'is-active' : ''} type="button" onClick={() => setActiveTab('chat')}><IconMessageCircle size={16} /> Chat</button>
       </nav>
 
@@ -444,8 +453,8 @@ export function DesignerProposalWorkspace() {
           <section className="designer-scenes-section">
             <header>
               <div><h2>Proposal Scenes</h2></div>
-              <button disabled={!activeProposalId || proposal?.status !== 'DRAFT' || !selectedAreaId || createSceneMutation.isPending} type="button" onClick={() => void createScene()}>
-                <IconPlus size={17} /> {createSceneMutation.isPending ? 'Creating...' : selectedArea ? `Create Scene for ${selectedArea.areaName}` : 'Create Scene'}
+              <button disabled={!activeProposalId || proposal?.status !== 'DRAFT' || areas.length === 0 || createSceneMutation.isPending} type="button" onClick={() => void createScene()}>
+                <IconPlus size={17} /> {createSceneMutation.isPending ? 'Creating...' : 'Create Room Planner Scene'}
               </button>
             </header>
             <div className="designer-scenes-list">
@@ -453,7 +462,7 @@ export function DesignerProposalWorkspace() {
               {!selectedAreaId ? <EmptyState message="Select a project area first." /> : null}
               {selectedAreaId && !scenesQuery.isLoading && selectedAreaScenes.length === 0 ? <EmptyState message="No scene has been created for the selected project area in this proposal." /> : null}
               {selectedAreaScenes.map((scene) => (
-                <SceneRow key={scene.sceneId} area={selectedArea} scene={scene} onEdit={() => openSceneEditModal(scene)} onOpen={() => openRoomPlanner(scene)} />
+                <SceneRow key={scene.sceneId} areas={areas} scene={scene} onEdit={() => openSceneEditModal(scene)} onOpen={() => openRoomPlanner(scene)} />
               ))}
             </div>
           </section>
@@ -476,7 +485,7 @@ export function DesignerProposalWorkspace() {
                 type="button"
                 onClick={() => setSelectedSceneId(scene.sceneId)}
               >
-                {scene.sceneName}
+                {getSceneDisplayName(scene)}
               </button>
             ))}
           </div>
@@ -487,46 +496,6 @@ export function DesignerProposalWorkspace() {
           ) : (
             <EmptyState message="No proposal items returned by backend. Open a scene, add catalog products, then Save Project to sync." />
           )}
-        </section>
-      )}
-
-      {activeTab === 'review' && (
-        <section className="designer-review-section">
-          <header>
-            <div><IconFileText size={24} /><div><h2>Review & Publish</h2><p>Check proposal readiness before publishing it for customer review.</p></div></div>
-            <span>{proposal?.status ?? 'UNKNOWN'}</span>
-          </header>
-          <div className="designer-publish-checklist">
-            {publishChecklist.map((item) => (
-              <span className={item.ready ? 'is-ready' : ''} key={item.label}>
-                <IconCheck size={15} /> {item.label}
-              </span>
-            ))}
-          </div>
-          <div className="designer-publish-actions">
-            <div>
-              <strong>{canPublishProposal ? 'Ready for backend publish' : 'Publish is not available yet'}</strong>
-              <span>{canPublishProposal ? 'Backend will update proposal/project status after publish.' : 'Create at least one active scene while this proposal is still Draft.'}</span>
-            </div>
-            <button
-              disabled={!canPublishProposal || publishProposalMutation.isPending}
-              type="button"
-              onClick={() => void publishCurrentProposal()}
-            >
-              <IconFileText size={17} /> {publishProposalMutation.isPending ? 'Publishing...' : 'Publish Proposal'}
-            </button>
-          </div>
-          <div className="designer-review-empty">
-            {primaryScene ? (
-              <>
-                <strong>{primaryScene.sceneName}</strong>
-                <span>Open the Room Planner to preview the saved 3D scene from MongoDB.</span>
-                <button type="button" onClick={() => openRoomPlanner(primaryScene)}>Open Room Planner <IconChevronRight size={17} /></button>
-              </>
-            ) : (
-              <span>No backend scene is available for review.</span>
-            )}
-          </div>
         </section>
       )}
 
@@ -596,6 +565,14 @@ function ProposalSummarySection({
   );
 }
 
+function formatAreaMeasurement(value: number | null | undefined, unit: string) {
+  if (typeof value !== 'number') {
+    return '-';
+  }
+
+  return `${new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 2 }).format(value)} ${unit}`;
+}
+
 function ProjectAreasSection({
   areas,
   isLoading,
@@ -629,6 +606,7 @@ function ProjectAreasSection({
           <button
             className={selectedAreaId === area.projectAreaId ? 'is-selected' : ''}
             key={area.projectAreaId}
+            aria-pressed={selectedAreaId === area.projectAreaId}
             type="button"
             onClick={() => onSelectArea(area.projectAreaId)}
           >
@@ -637,6 +615,50 @@ function ProjectAreasSection({
           </button>
         ))}
       </div>
+
+      {selectedArea ? (
+        <div className="designer-selected-area-panel">
+          <header>
+            <div>
+              <strong>{selectedArea.areaName}</strong>
+              <span>{selectedArea.description?.trim() || 'No description provided.'}</span>
+            </div>
+            <small>{formatEnumLabel(selectedArea.status)}</small>
+          </header>
+          <dl>
+            <div>
+              <dt>Floor</dt>
+              <dd>{selectedArea.floorNumber ?? '-'}</dd>
+            </div>
+            <div>
+              <dt>Area</dt>
+              <dd>{formatAreaMeasurement(selectedArea.areaSqm, 'm2')}</dd>
+            </div>
+            <div>
+              <dt>Width</dt>
+              <dd>{formatAreaMeasurement(selectedArea.width, 'm')}</dd>
+            </div>
+            <div>
+              <dt>Length</dt>
+              <dd>{formatAreaMeasurement(selectedArea.length, 'm')}</dd>
+            </div>
+            <div>
+              <dt>Height</dt>
+              <dd>{formatAreaMeasurement(selectedArea.height, 'm')}</dd>
+            </div>
+          </dl>
+          {(selectedArea.currentCondition || selectedArea.requirementNote) ? (
+            <div className="designer-selected-area-notes">
+              {selectedArea.currentCondition ? (
+                <p><span>Condition</span>{selectedArea.currentCondition}</p>
+              ) : null}
+              {selectedArea.requirementNote ? (
+                <p><span>Requirement</span>{selectedArea.requirementNote}</p>
+              ) : null}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
 
     </section>
   );
@@ -812,13 +834,19 @@ function ProposalSetupSection({
   );
 }
 
-function SceneRow({ area, scene, onEdit, onOpen }: { area: ProjectAreaDto | null; scene: ProposalSceneDto; onEdit: () => void; onOpen: () => void }) {
+function SceneRow({ areas, scene, onEdit, onOpen }: { areas: ProjectAreaDto[]; scene: ProposalSceneDto; onEdit: () => void; onOpen: () => void }) {
+  const sceneAreaIds = getSceneAreaIds(scene);
+  const sceneAreaNames = sceneAreaIds
+    .map((areaId) => areas.find((area) => area.projectAreaId === areaId)?.areaName ?? scene.areas?.find((area) => area.projectAreaId === areaId)?.areaName ?? areaId)
+    .filter(Boolean);
+  const areaLabel = sceneAreaNames.length > 0 ? `Floors: ${sceneAreaNames.join(', ')}` : 'No floors linked';
+
   return (
     <article className="designer-scene-row">
       <div>
-        <span>{scene.sceneType}</span>
-        <h3>{scene.sceneName}</h3>
-        <p>{area ? `Area: ${area.areaName}` : scene.projectAreaId ? `Area ID: ${scene.projectAreaId}` : 'No project area linked'}</p>
+        <span>{scene.sceneType ?? 'ROOM_PLANNER'}</span>
+        <h3>{getSceneDisplayName(scene)}</h3>
+        <p>{areaLabel}</p>
         <p>{scene.mongoSceneId ? `Mongo scene ${scene.mongoSceneId}` : 'No Mongo scene saved yet'}</p>
         <small>Version {scene.versionNo} · Updated {formatDateTime(scene.updatedAt)}</small>
       </div>

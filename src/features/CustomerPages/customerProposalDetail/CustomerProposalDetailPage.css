@@ -534,20 +534,21 @@
 }
 
 .customer-proposal-detail-scene-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min-content, max-content));
+  display: flex;
   gap: 14px;
-  justify-content: start;
   margin-top: 18px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  scroll-snap-type: x proximity;
 }
 
 .customer-proposal-detail-scene-grid article {
+  flex: 0 0 clamp(220px, 26vw, 320px);
   overflow: hidden;
   border: 1px solid #e8e5e0;
   border-radius: 12px;
   background: #faf9f7;
-  width: max-content;
-  max-width: 100%;
+  scroll-snap-align: start;
 }
 
 .customer-proposal-detail-scene-grid img,
@@ -922,8 +923,8 @@
     padding-left: 0;
   }
 
-  .customer-proposal-detail-scene-grid {
-    grid-template-columns: repeat(auto-fit, minmax(min-content, max-content));
+  .customer-proposal-detail-scene-grid article {
+    flex-basis: clamp(220px, 38vw, 300px);
   }
 }
 
@@ -965,12 +966,12 @@
   }
 
   .customer-proposal-detail-scene-grid {
-    grid-template-columns: 1fr;
-    justify-content: stretch;
+    margin-right: -24px;
+    padding-right: 24px;
   }
 
   .customer-proposal-detail-scene-grid article {
-    width: 100%;
+    flex-basis: min(78vw, 300px);
   }
 
   .customer-proposal-detail-snapshot-strip {

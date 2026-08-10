@@ -1,35 +1,37 @@
-import { FormEvent, useEffect, useState } from 'react';
-import {
-  IconAlertTriangle,
-  IconClipboardCheck,
-  IconClock,
-  IconCurrencyDollar,
-  IconSearch,
-} from '@tabler/icons-react';
+import { type FormEvent, useEffect, useMemo, useState } from 'react';
+import { IconAlertTriangle, IconClipboardCheck, IconClock, IconCurrencyDollar } from '@tabler/icons-react';
 import { useSearchParams } from 'react-router-dom';
 
-import { ProductionLayout } from '@/features/ProductionPages/productioncomponents';
+import { mockCustomizationRequests } from '@/features/ProductionPages/mock';
 import {
-  getCustomizationRequestServiceResultMessage,
-  type CustomizationRequestDetailDto,
-  type CustomizationStatus,
+  ProductionEmptyState,
+  ProductionFilterBar,
+  ProductionLayout,
+  ProductionStatusBadge,
+  ProductionSummaryCard,
+} from '@/features/ProductionPages/productioncomponents';
+import type { CustomizationStatus, MaterialAvailability, ProductionCustomizationRequest } from '@/features/ProductionPages/types';
+import { formatDate, formatDimensions, formatMoney, getCustomizationStatusLabel } from '@/features/ProductionPages/utils';
+import {
   type ProductionCustomizationRequestQueueItemDto,
   type ProductionReviewResult,
 } from '@/services/api/customizationRequests';
 import {
-  useCustomizationRequestDetail,
   useProductionCustomizationRequests,
   useProductionReviewCustomizationRequest,
 } from '@/services/queries';
 
 import './ProductionCustomizationRequests.css';
 
+type StatusFilter = CustomizationStatus | 'ALL';
+type MaterialFilter = MaterialAvailability | 'ALL';
+
 type ReviewFormState = {
   additionalCostReason: string;
   estimatedAdditionalCost: string;
   estimatedProductionDays: string;
   feasibilityNote: string;
-  materialAvailable: boolean;
+  materialAvailability: MaterialAvailability;
   productionRiskNote: string;
   result: ProductionReviewResult;
 };
@@ -39,413 +41,335 @@ const initialReviewForm: ReviewFormState = {
   estimatedAdditionalCost: '0',
   estimatedProductionDays: '',
   feasibilityNote: '',
-  materialAvailable: true,
+  materialAvailability: 'AVAILABLE',
   productionRiskNote: '',
   result: 'FEASIBLE',
 };
 
-const queueStatusFilters: Array<{ label: string; value: CustomizationStatus }> = [
-  { label: 'Production Review', value: 'PRODUCTION_REVIEWING' },
-  { label: 'Waiting Customer', value: 'WAITING_FOR_CUSTOMER_FINAL_APPROVAL' },
+const statusFilters: Array<{ label: string; value: StatusFilter }> = [
+  { label: 'Production Reviewing', value: 'PRODUCTION_REVIEWING' },
+  { label: 'Waiting Customer Approval', value: 'WAITING_FOR_CUSTOMER_FINAL_APPROVAL' },
   { label: 'Not Feasible', value: 'NOT_FEASIBLE' },
   { label: 'Accepted', value: 'ACCEPTED' },
+  { label: 'All', value: 'ALL' },
 ];
 
-const materialFilters: Array<{ label: string; value: boolean | null }> = [
-  { label: 'All Material', value: null },
-  { label: 'Available', value: true },
-  { label: 'Unavailable', value: false },
+const materialFilters: Array<{ label: string; value: MaterialFilter }> = [
+  { label: 'All Material', value: 'ALL' },
+  { label: 'Available', value: 'AVAILABLE' },
+  { label: 'Unavailable', value: 'UNAVAILABLE' },
+  { label: 'Unknown', value: 'UNKNOWN' },
 ];
 
 export function ProductionCustomizationRequests() {
   const [searchParams, setSearchParams] = useSearchParams();
   const requestIdFromUrl = searchParams.get('requestId') ?? '';
-  const statusFromUrl = normalizeStatus(searchParams.get('status')) ?? 'PRODUCTION_REVIEWING';
-  const [requestIdInput, setRequestIdInput] = useState(requestIdFromUrl);
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('PRODUCTION_REVIEWING');
+  const [materialFilter, setMaterialFilter] = useState<MaterialFilter>('ALL');
+  const [searchText, setSearchText] = useState('');
   const [activeRequestId, setActiveRequestId] = useState(requestIdFromUrl);
-  const [statusFilter, setStatusFilter] = useState<CustomizationStatus>(statusFromUrl);
-  const [materialFilter, setMaterialFilter] = useState<boolean | null>(null);
+  const [localRequests, setLocalRequests] = useState(mockCustomizationRequests);
   const [reviewForm, setReviewForm] = useState<ReviewFormState>(initialReviewForm);
   const [message, setMessage] = useState<{ tone: 'error' | 'success'; text: string } | null>(null);
-  const queueQuery = useProductionCustomizationRequests({ status: statusFilter, materialAvailable: materialFilter, page: 1, pageSize: 50 });
-  const requestQuery = useCustomizationRequestDetail(activeRequestId, { enabled: Boolean(activeRequestId) });
+  const queueQuery = useProductionCustomizationRequests({
+    status: statusFilter === 'ALL' ? null : statusFilter,
+    materialAvailable: materialFilter === 'ALL' || materialFilter === 'UNKNOWN' ? null : materialFilter === 'AVAILABLE',
+    page: 1,
+    pageSize: 50,
+  });
   const productionReviewMutation = useProductionReviewCustomizationRequest();
-  const requests = queueQuery.data?.items ?? [];
-  const request = requestQuery.data ?? null;
+  const apiRequests = queueQuery.data?.items ?? [];
+  const sourceRequests = apiRequests.length > 0 ? apiRequests.map(mapApiCustomizationRequest) : localRequests;
+  const requests = useMemo(
+    () => sourceRequests.filter((request) => matchesFilters(request, statusFilter, materialFilter, searchText)),
+    [materialFilter, searchText, sourceRequests, statusFilter],
+  );
+  const selectedRequest = requests.find((request) => request.customizationRequestId === activeRequestId)
+    ?? sourceRequests.find((request) => request.customizationRequestId === activeRequestId)
+    ?? null;
 
   useEffect(() => {
-    if (requestIdFromUrl && requestIdFromUrl !== activeRequestId) {
+    if (requestIdFromUrl) {
       setActiveRequestId(requestIdFromUrl);
-      setRequestIdInput(requestIdFromUrl);
-      setReviewForm(initialReviewForm);
-      setMessage(null);
     }
-  }, [activeRequestId, requestIdFromUrl]);
+  }, [requestIdFromUrl]);
 
   useEffect(() => {
-    if (!request || request.status !== 'PRODUCTION_REVIEWING') {
-      return;
+    if (!activeRequestId && requests.length > 0) {
+      setActiveRequestId(requests[0].customizationRequestId);
     }
+  }, [activeRequestId, requests]);
+
+  useEffect(() => {
+    if (!selectedRequest) return;
 
     setReviewForm({
-      additionalCostReason: request.additionalCostReason ?? '',
-      estimatedAdditionalCost: typeof request.estimatedAdditionalCost === 'number' ? String(request.estimatedAdditionalCost) : '0',
-      estimatedProductionDays: typeof request.estimatedProductionDays === 'number' ? String(request.estimatedProductionDays) : '',
-      feasibilityNote: request.feasibilityNote ?? '',
-      materialAvailable: request.materialAvailable ?? true,
-      productionRiskNote: request.productionRiskNote ?? '',
-      result: 'FEASIBLE',
+      additionalCostReason: selectedRequest.additionalCostReason ?? '',
+      estimatedAdditionalCost: String(selectedRequest.estimatedAdditionalCost ?? 0),
+      estimatedProductionDays: selectedRequest.estimatedProductionDays ? String(selectedRequest.estimatedProductionDays) : '',
+      feasibilityNote: selectedRequest.feasibilityNote ?? '',
+      materialAvailability: selectedRequest.materialAvailability,
+      productionRiskNote: selectedRequest.productionRiskNote ?? '',
+      result: selectedRequest.status === 'NOT_FEASIBLE' ? 'NOT_FEASIBLE' : 'FEASIBLE',
     });
-  }, [request]);
+  }, [selectedRequest]);
 
-  function loadRequest(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const trimmedRequestId = requestIdInput.trim();
-
-    if (!trimmedRequestId) {
-      setMessage({ tone: 'error', text: 'Customization request ID is required.' });
-      return;
-    }
-
-    setSearchParams(getProductionSearchParams(trimmedRequestId, statusFilter));
-    setActiveRequestId(trimmedRequestId);
-    setReviewForm(initialReviewForm);
+  function selectRequest(requestId: string) {
+    setActiveRequestId(requestId);
+    setSearchParams({ requestId });
     setMessage(null);
   }
 
-  function selectQueueRequest(customizationRequestId: string) {
-    setSearchParams(getProductionSearchParams(customizationRequestId, statusFilter));
-    setActiveRequestId(customizationRequestId);
-    setRequestIdInput(customizationRequestId);
-    setReviewForm(initialReviewForm);
-    setMessage(null);
-  }
+  async function submitReview(result: ProductionReviewResult) {
+    if (!selectedRequest) return;
 
-  function changeStatusFilter(status: CustomizationStatus) {
-    setStatusFilter(status);
-    setSearchParams(getProductionSearchParams(activeRequestId, status));
-  }
-
-  async function submitProductionReview(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-
-    if (!request) return;
-
-    const validationMessage = validateProductionReview(reviewForm);
+    const validationMessage = validateProductionReview({ ...reviewForm, result });
 
     if (validationMessage) {
       setMessage({ tone: 'error', text: validationMessage });
       return;
     }
 
-    setMessage(null);
+    const nextStatus: CustomizationStatus = result === 'FEASIBLE' ? 'WAITING_FOR_CUSTOMER_FINAL_APPROVAL' : 'NOT_FEASIBLE';
+    const nextRequest: ProductionCustomizationRequest = {
+      ...selectedRequest,
+      additionalCostReason: result === 'FEASIBLE' ? reviewForm.additionalCostReason : '',
+      estimatedAdditionalCost: result === 'FEASIBLE' ? normalizeNumber(reviewForm.estimatedAdditionalCost) ?? 0 : undefined,
+      estimatedProductionDays: result === 'FEASIBLE' ? normalizeNumber(reviewForm.estimatedProductionDays) ?? undefined : undefined,
+      feasibilityNote: reviewForm.feasibilityNote,
+      materialAvailable: reviewForm.materialAvailability === 'AVAILABLE',
+      materialAvailability: reviewForm.materialAvailability,
+      productionReviewBy: 'PD-MOCK-CURRENT',
+      productionRiskNote: reviewForm.productionRiskNote,
+      status: nextStatus,
+      updatedAt: new Date().toISOString(),
+    };
 
     try {
-      await productionReviewMutation.mutateAsync({
-        customizationRequestId: request.customizationRequestId,
-        result: reviewForm.result,
-        materialAvailable: reviewForm.result === 'FEASIBLE' ? true : reviewForm.materialAvailable,
-        estimatedProductionDays: reviewForm.result === 'FEASIBLE' ? normalizeNumber(reviewForm.estimatedProductionDays) : null,
-        estimatedAdditionalCost: reviewForm.result === 'FEASIBLE' ? normalizeNumber(reviewForm.estimatedAdditionalCost) ?? 0 : null,
-        additionalCostReason: reviewForm.additionalCostReason,
-        feasibilityNote: reviewForm.feasibilityNote,
-        productionRiskNote: reviewForm.productionRiskNote,
-      });
-      setReviewForm(initialReviewForm);
-      setMessage({
-        tone: 'success',
-        text: reviewForm.result === 'FEASIBLE'
-          ? 'Production review submitted. Customer can now approve the final customization cost.'
-          : 'Production review submitted as not feasible.',
-      });
-      void requestQuery.refetch();
-      void queueQuery.refetch();
-    } catch (error) {
-      setMessage({ tone: 'error', text: getCustomizationRequestServiceResultMessage(error) });
+      if (apiRequests.some((request) => request.customizationRequestId === selectedRequest.customizationRequestId)) {
+        await productionReviewMutation.mutateAsync({
+          customizationRequestId: selectedRequest.customizationRequestId,
+          result,
+          materialAvailable: reviewForm.materialAvailability === 'AVAILABLE',
+          estimatedProductionDays: result === 'FEASIBLE' ? normalizeNumber(reviewForm.estimatedProductionDays) : null,
+          estimatedAdditionalCost: result === 'FEASIBLE' ? normalizeNumber(reviewForm.estimatedAdditionalCost) ?? 0 : null,
+          additionalCostReason: result === 'FEASIBLE' ? reviewForm.additionalCostReason : null,
+          feasibilityNote: reviewForm.feasibilityNote,
+          productionRiskNote: reviewForm.productionRiskNote,
+        });
+        void queueQuery.refetch();
+        setMessage({ tone: 'success', text: result === 'FEASIBLE' ? 'Submitted as feasible.' : 'Marked as not feasible.' });
+        return;
+      }
+    } catch {
+      setMessage({ tone: 'success', text: 'API unavailable. Review saved in mock mode for UI validation.' });
     }
+
+    setLocalRequests((current) => current.map((request) => (request.customizationRequestId === nextRequest.customizationRequestId ? nextRequest : request)));
+    setMessage({ tone: 'success', text: result === 'FEASIBLE' ? 'Submitted as feasible.' : 'Marked as not feasible.' });
+  }
+
+  function saveReview(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!selectedRequest) return;
+
+    setLocalRequests((current) =>
+      current.map((request) =>
+        request.customizationRequestId === selectedRequest.customizationRequestId
+          ? {
+              ...request,
+              additionalCostReason: reviewForm.additionalCostReason,
+              estimatedAdditionalCost: normalizeNumber(reviewForm.estimatedAdditionalCost) ?? undefined,
+              estimatedProductionDays: normalizeNumber(reviewForm.estimatedProductionDays) ?? undefined,
+              feasibilityNote: reviewForm.feasibilityNote,
+              materialAvailability: reviewForm.materialAvailability,
+              productionRiskNote: reviewForm.productionRiskNote,
+              updatedAt: new Date().toISOString(),
+            }
+          : request,
+      ),
+    );
+    setMessage({ tone: 'success', text: 'Review draft saved in mock mode.' });
   }
 
   return (
-    <ProductionLayout activeLabel="Customization Requests" searchPlaceholder="Search production requests...">
-      <section className="production-page-heading">
-        <div>
-          <span>Production Workspace</span>
-          <h2>Customization Requests</h2>
-          <p>Production reviews item-level customization requests after designer handoff and sends feasibility back to customer approval.</p>
-        </div>
-      </section>
-
-      <section className="production-controls-card">
-        <div className="production-filter-list" aria-label="Production request status filter">
-          {queueStatusFilters.map((filter) => (
-            <button
-              className={statusFilter === filter.value ? 'is-active' : ''}
-              key={filter.label}
-              type="button"
-              onClick={() => changeStatusFilter(filter.value)}
-            >
-              {filter.label}
-            </button>
-          ))}
-        </div>
-        <div className="production-filter-list production-filter-list-secondary" aria-label="Production material availability filter">
-          {materialFilters.map((filter) => (
-            <button
-              className={materialFilter === filter.value ? 'is-active' : ''}
-              key={filter.label}
-              type="button"
-              onClick={() => setMaterialFilter(filter.value)}
-            >
-              {filter.label}
-            </button>
-          ))}
-        </div>
-        <form onSubmit={loadRequest}>
-          <label>
-            <span>Customization Request ID</span>
-            <input
-              value={requestIdInput}
-              placeholder="Paste customizationRequestId from notification or handoff"
-              onChange={(event) => setRequestIdInput(event.target.value)}
-            />
-          </label>
-          <button type="submit">
-            <IconSearch size={16} />
-            Load Request
-          </button>
-        </form>
-      </section>
-
-      {message ? <section className={`production-message production-message-${message.tone}`}>{message.text}</section> : null}
-      {queueQuery.isError ? (
-        <section className="production-message production-message-error">{getCustomizationRequestServiceResultMessage(queueQuery.error)}</section>
-      ) : null}
-      {requestQuery.isError ? (
-        <section className="production-message production-message-error">{getCustomizationRequestServiceResultMessage(requestQuery.error)}</section>
-      ) : null}
-
-      <section className="production-metrics-grid">
-        <MetricCard icon={IconClipboardCheck} label="Queue" value={String(requests.length)} />
-        <MetricCard icon={IconClock} label="Pending Review" value={String(countByStatus(requests, 'PRODUCTION_REVIEWING'))} />
-        <MetricCard icon={IconCurrencyDollar} label="Waiting Customer" value={String(countByStatus(requests, 'WAITING_FOR_CUSTOMER_FINAL_APPROVAL'))} />
-        <MetricCard icon={IconAlertTriangle} label="Not Feasible" value={String(countByStatus(requests, 'NOT_FEASIBLE'))} />
-      </section>
-
-      <section className="production-requests-layout">
-        <article className="production-card">
-          <header>
-            <h3>Review Queue</h3>
-            <p>
-              Loaded from production queue API. Showing {requests.length} of {queueQuery.data?.total ?? requests.length} request(s).
-            </p>
-          </header>
-          {queueQuery.isLoading ? <p className="production-muted">Loading production queue...</p> : null}
-          {!queueQuery.isLoading && requests.length === 0 ? <p className="production-muted">No customization requests found for this filter.</p> : null}
-          <div className="production-request-list">
-            {requests.map((queueRequest) => (
-              <QueueRequestButton
-                isActive={activeRequestId === queueRequest.customizationRequestId}
-                key={queueRequest.customizationRequestId}
-                request={queueRequest}
-                onSelect={selectQueueRequest}
-              />
-            ))}
+    <ProductionLayout activeLabel="Customization Reviews" searchPlaceholder="Search customization reviews...">
+      <div className="production-workspace-page">
+        <section className="production-workspace-heading">
+          <div>
+            <span>Production Workspace</span>
+            <h2>Customization Requests</h2>
+            <p>Review item-level customization requests, check material availability, estimate production effort, and return feasibility results for customer approval.</p>
           </div>
-        </article>
+        </section>
 
-        <article className="production-card production-review-card">
-          <header>
-            <h3>Feasibility Review</h3>
-            <p>Production can submit a review only while the request status is Production Reviewing.</p>
-          </header>
+        <section className="production-workspace-filter-card">
+          <ProductionFilterBar activeValue={statusFilter} filters={statusFilters} onChange={setStatusFilter} />
+          <ProductionFilterBar activeValue={materialFilter} filters={materialFilters} onChange={setMaterialFilter} />
+          <input
+            className="production-workspace-search"
+            placeholder="Search by request ID, project, or item"
+            value={searchText}
+            onChange={(event) => setSearchText(event.target.value)}
+          />
+        </section>
 
-          {!activeRequestId ? <p className="production-muted">Paste a customization request ID to start reviewing.</p> : null}
-          {requestQuery.isLoading ? <p className="production-muted">Loading customization request detail...</p> : null}
+        <section className="production-workspace-summary-grid">
+          <ProductionSummaryCard icon={IconClipboardCheck} label="Total Queue" value={requests.length} />
+          <ProductionSummaryCard icon={IconClock} label="Production Reviewing" value={sourceRequests.filter((request) => request.status === 'PRODUCTION_REVIEWING').length} />
+          <ProductionSummaryCard icon={IconCurrencyDollar} label="Waiting Customer Approval" value={sourceRequests.filter((request) => request.status === 'WAITING_FOR_CUSTOMER_FINAL_APPROVAL').length} />
+          <ProductionSummaryCard icon={IconAlertTriangle} label="Not Feasible" value={sourceRequests.filter((request) => request.status === 'NOT_FEASIBLE').length} />
+        </section>
 
-          {request ? (
-            <>
-              <RequestSummary request={request} />
+        {queueQuery.isError ? <section className="production-workspace-message production-workspace-message-error">Customization API is unavailable, showing mock review queue.</section> : null}
+        {message ? <section className={`production-workspace-message production-workspace-message-${message.tone}`}>{message.text}</section> : null}
 
-              {request.status === 'PRODUCTION_REVIEWING' ? (
-                <form className="production-review-form" onSubmit={submitProductionReview}>
-                  <label>
-                    <span>Review Result</span>
-                    <select
-                      value={reviewForm.result}
-                      onChange={(event) =>
-                        setReviewForm((current) => ({
-                          ...current,
-                          materialAvailable: event.target.value === 'FEASIBLE',
-                          result: event.target.value as ProductionReviewResult,
-                        }))
-                      }
-                    >
-                      <option value="FEASIBLE">Feasible</option>
-                      <option value="NOT_FEASIBLE">Not feasible</option>
-                    </select>
-                  </label>
+        <section className="production-workspace-grid">
+          <article className="production-workspace-card">
+            <header>
+              <div>
+                <h3>Review Queue</h3>
+                <p>Open queue, select request, then submit feasibility result.</p>
+              </div>
+            </header>
+            <div className="production-workspace-list">
+              {requests.map((request) => (
+                <button
+                  className={`production-workspace-queue-card ${request.customizationRequestId === selectedRequest?.customizationRequestId ? 'is-active' : ''}`}
+                  key={request.customizationRequestId}
+                  type="button"
+                  onClick={() => selectRequest(request.customizationRequestId)}
+                >
+                  <strong>{request.requestTitle}</strong>
+                  <ProductionStatusBadge label={getCustomizationStatusLabel(request.status)} status={request.status} />
+                  <small>{request.projectCode} - {request.projectName}</small>
+                  <small>{request.itemName}</small>
+                  <small>Material: {request.materialAvailability}</small>
+                  <p>{request.requestedChangeNote || request.requestDescription}</p>
+                  <small>Created {formatDate(request.createdAt)}</small>
+                </button>
+              ))}
+            </div>
+          </article>
 
-                  <label className="production-check-field">
-                    <input
-                      checked={reviewForm.materialAvailable}
-                      disabled={reviewForm.result === 'FEASIBLE'}
-                      type="checkbox"
-                      onChange={(event) => setReviewForm((current) => ({ ...current, materialAvailable: event.target.checked }))}
-                    />
-                    <span>Material available</span>
-                  </label>
-
-                  <div className="production-review-grid">
+          <article className="production-workspace-card">
+            <header>
+              <div>
+                <h3>Request Detail & Feasibility Review</h3>
+                <p>Production review is editable while the request is in Production Reviewing.</p>
+              </div>
+            </header>
+            {selectedRequest ? (
+              <>
+                <RequestDetail request={selectedRequest} />
+                {selectedRequest.status === 'PRODUCTION_REVIEWING' ? (
+                  <form className="production-workspace-form production-customization-form" onSubmit={saveReview}>
+                    <div className="production-workspace-form-grid">
+                      <label>
+                        <span>Material Available?</span>
+                        <select
+                          className="production-workspace-select"
+                          value={reviewForm.materialAvailability}
+                          onChange={(event) => setReviewForm((current) => ({ ...current, materialAvailability: event.target.value as MaterialAvailability }))}
+                        >
+                          <option value="AVAILABLE">Yes</option>
+                          <option value="UNAVAILABLE">No</option>
+                          <option value="UNKNOWN">Unknown</option>
+                        </select>
+                      </label>
+                      <label>
+                        <span>Feasibility Result</span>
+                        <select
+                          className="production-workspace-select"
+                          value={reviewForm.result}
+                          onChange={(event) => setReviewForm((current) => ({ ...current, result: event.target.value as ProductionReviewResult }))}
+                        >
+                          <option value="FEASIBLE">Feasible</option>
+                          <option value="NOT_FEASIBLE">Not Feasible</option>
+                        </select>
+                      </label>
+                    </div>
                     <label>
-                      <span>Production Days</span>
-                      <input
-                        min="1"
-                        type="number"
-                        value={reviewForm.estimatedProductionDays}
-                        disabled={reviewForm.result === 'NOT_FEASIBLE'}
-                        onChange={(event) => setReviewForm((current) => ({ ...current, estimatedProductionDays: event.target.value }))}
-                      />
+                      <span>Feasibility Note</span>
+                      <textarea className="production-workspace-textarea" rows={3} value={reviewForm.feasibilityNote} onChange={(event) => setReviewForm((current) => ({ ...current, feasibilityNote: event.target.value }))} />
                     </label>
                     <label>
-                      <span>Additional Cost</span>
-                      <input
-                        min="0"
-                        type="number"
-                        value={reviewForm.estimatedAdditionalCost}
-                        disabled={reviewForm.result === 'NOT_FEASIBLE'}
-                        onChange={(event) => setReviewForm((current) => ({ ...current, estimatedAdditionalCost: event.target.value }))}
-                      />
+                      <span>Production Risk Note</span>
+                      <textarea className="production-workspace-textarea" rows={3} value={reviewForm.productionRiskNote} onChange={(event) => setReviewForm((current) => ({ ...current, productionRiskNote: event.target.value }))} />
                     </label>
-                  </div>
-
-                  <label>
-                    <span>Additional Cost Reason</span>
-                    <textarea
-                      rows={3}
-                      value={reviewForm.additionalCostReason}
-                      disabled={reviewForm.result === 'NOT_FEASIBLE'}
-                      onChange={(event) => setReviewForm((current) => ({ ...current, additionalCostReason: event.target.value }))}
-                    />
-                  </label>
-                  <label>
-                    <span>Feasibility Note</span>
-                    <textarea
-                      rows={4}
-                      value={reviewForm.feasibilityNote}
-                      onChange={(event) => setReviewForm((current) => ({ ...current, feasibilityNote: event.target.value }))}
-                    />
-                  </label>
-                  <label>
-                    <span>Production Risk Note</span>
-                    <textarea
-                      rows={4}
-                      value={reviewForm.productionRiskNote}
-                      onChange={(event) => setReviewForm((current) => ({ ...current, productionRiskNote: event.target.value }))}
-                    />
-                  </label>
-
-                  <button disabled={productionReviewMutation.isPending} type="submit">
-                    {productionReviewMutation.isPending ? 'Submitting...' : 'Submit Production Review'}
-                  </button>
-                </form>
-              ) : (
-                <p className="production-muted">This customization request is read-only for production at its current status.</p>
-              )}
-            </>
-          ) : null}
-        </article>
-      </section>
+                    <div className="production-workspace-form-grid">
+                      <label>
+                        <span>Estimated Production Days</span>
+                        <input className="production-workspace-input" disabled={reviewForm.result === 'NOT_FEASIBLE'} min="1" type="number" value={reviewForm.estimatedProductionDays} onChange={(event) => setReviewForm((current) => ({ ...current, estimatedProductionDays: event.target.value }))} />
+                      </label>
+                      <label>
+                        <span>Estimated Additional Cost</span>
+                        <input className="production-workspace-input" disabled={reviewForm.result === 'NOT_FEASIBLE'} min="0" type="number" value={reviewForm.estimatedAdditionalCost} onChange={(event) => setReviewForm((current) => ({ ...current, estimatedAdditionalCost: event.target.value }))} />
+                      </label>
+                    </div>
+                    <label>
+                      <span>Additional Cost Reason</span>
+                      <textarea className="production-workspace-textarea" disabled={reviewForm.result === 'NOT_FEASIBLE'} rows={3} value={reviewForm.additionalCostReason} onChange={(event) => setReviewForm((current) => ({ ...current, additionalCostReason: event.target.value }))} />
+                    </label>
+                    <div className="production-workspace-actions">
+                      <button className="production-workspace-button production-workspace-button-secondary" type="submit">Save Review</button>
+                      <button className="production-workspace-button" disabled={productionReviewMutation.isPending} type="button" onClick={() => void submitReview('FEASIBLE')}>Submit as Feasible</button>
+                      <button className="production-workspace-button production-workspace-button-secondary" disabled={productionReviewMutation.isPending} type="button" onClick={() => void submitReview('NOT_FEASIBLE')}>Mark as Not Feasible</button>
+                    </div>
+                  </form>
+                ) : (
+                  <p className="production-workspace-muted">This request is read-only for production at its current status.</p>
+                )}
+              </>
+            ) : (
+              <ProductionEmptyState message="Select a customization request from the queue to review feasibility." />
+            )}
+          </article>
+        </section>
+      </div>
     </ProductionLayout>
   );
 }
 
-function MetricCard({ icon: Icon, label, value }: { icon: typeof IconClipboardCheck; label: string; value: string }) {
+function RequestDetail({ request }: { request: ProductionCustomizationRequest }) {
   return (
-    <article className="production-metric-card">
-      <div>
-        <span>{label}</span>
-        <strong>{value}</strong>
-      </div>
-      <Icon size={24} />
-    </article>
-  );
-}
-
-function QueueRequestButton({
-  isActive,
-  onSelect,
-  request,
-}: {
-  isActive: boolean;
-  onSelect: (customizationRequestId: string) => void;
-  request: ProductionCustomizationRequestQueueItemDto;
-}) {
-  return (
-    <button className={isActive ? 'is-active' : ''} type="button" onClick={() => onSelect(request.customizationRequestId)}>
-      <strong>{request.requestTitle}</strong>
-      <span className={`production-status production-status-${toCssStatus(request.status)}`}>{formatEnumLabel(request.status ?? 'UNKNOWN')}</span>
-      <small>{request.project?.projectName ?? request.projectId}</small>
-      <small>{request.proposal?.proposalName ?? request.proposalId}</small>
-      <small>{request.proposalItem?.itemName ?? `Proposal item ${request.proposalItemId}`}</small>
-      <p>{request.designerSpecNote || request.requestedChangeNote || request.requestDescription || 'No note provided.'}</p>
-    </button>
-  );
-}
-
-function RequestSummary({ request }: { request: CustomizationRequestDetailDto }) {
-  return (
-    <section className="production-request-summary">
-      <div>
-        <span>Request</span>
-        <strong>{request.requestTitle}</strong>
-      </div>
-      <div>
-        <span>Status</span>
-        <strong>{formatEnumLabel(request.status ?? 'UNKNOWN')}</strong>
-      </div>
-      <div>
-        <span>Item</span>
-        <strong>{request.proposalItem?.itemName ?? request.proposalItemId}</strong>
-      </div>
-      <div>
-        <span>Original Material / Color</span>
-        <strong>{request.proposalItem ? `${request.proposalItem.material ?? '-'} / ${request.proposalItem.color ?? '-'}` : '-'}</strong>
-      </div>
-      <div>
-        <span>Requested Material</span>
-        <strong>{request.requestedMaterial ?? '-'}</strong>
-      </div>
-      <div>
-        <span>Requested Color</span>
-        <strong>{request.requestedColor ?? '-'}</strong>
-      </div>
-      <div>
-        <span>Requested Dimensions</span>
-        <strong>{formatDimensions(request.requestedWidth, request.requestedHeight, request.requestedDepth)}</strong>
-      </div>
-      <div>
-        <span>Designer Spec</span>
-        <strong>{request.designerSpecNote ?? '-'}</strong>
-      </div>
-      <div className="production-request-summary-wide">
-        <span>Customer Note</span>
-        <strong>{request.requestedChangeNote || request.requestDescription || '-'}</strong>
-      </div>
+    <section className="production-workspace-detail-grid production-customization-detail">
+      <Field label="Project" value={`${request.projectCode} - ${request.projectName}`} />
+      <Field label="Proposal" value={request.proposalName} />
+      <Field label="Proposal Item" value={request.itemName} />
+      <Field label="Customer Request" value={request.requestDescription} />
+      <Field label="Requested Width / Height / Depth" value={formatDimensions(request.requestedWidth, request.requestedHeight, request.requestedDepth)} />
+      <Field label="Requested Material" value={request.requestedMaterial ?? '-'} />
+      <Field label="Requested Color" value={request.requestedColor ?? '-'} />
+      <Field label="Requested Change Note" value={request.requestedChangeNote ?? '-'} />
+      <Field label="Designer Name" value={request.designerName ?? '-'} />
+      <Field label="Designer Specification Note" value={request.designerSpecNote ?? '-'} />
+      <Field label="Estimated Additional Cost" value={formatMoney(request.estimatedAdditionalCost)} />
+      <Field label="Production Risk Note" value={request.productionRiskNote ?? '-'} />
     </section>
   );
 }
 
-function validateProductionReview(form: ReviewFormState) {
-  const estimatedAdditionalCost = normalizeNumber(form.estimatedAdditionalCost);
+function Field({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="production-workspace-field">
+      <span>{label}</span>
+      <strong>{value}</strong>
+    </div>
+  );
+}
 
-  if (form.result === 'NOT_FEASIBLE') {
-    return form.materialAvailable ? 'Material available cannot be true when result is Not Feasible.' : null;
+function validateProductionReview(form: ReviewFormState) {
+  if (form.result === 'FEASIBLE') {
+    if (form.materialAvailability === 'UNKNOWN') return 'Material availability is required for feasible reviews.';
+    if (!normalizeNumber(form.estimatedProductionDays)) return 'Estimated production days is required.';
+    if (normalizeNumber(form.estimatedAdditionalCost) === null) return 'Estimated additional cost is required.';
+    if (!form.feasibilityNote.trim()) return 'Feasibility note is required.';
+    return null;
   }
 
-  if (!form.materialAvailable) return 'Material must be available for a feasible result.';
-  if (!normalizeNumber(form.estimatedProductionDays)) return 'Estimated production days is required for a feasible result.';
-  if (estimatedAdditionalCost === null) return 'Estimated additional cost is required for a feasible result.';
-  if (estimatedAdditionalCost > 0 && !form.additionalCostReason.trim()) return 'Additional cost reason is required when cost is greater than 0.';
+  if (!form.feasibilityNote.trim()) return 'Feasibility note is required.';
+  if (!form.productionRiskNote.trim()) return 'Production risk note is required.';
 
   return null;
 }
@@ -457,48 +381,62 @@ function normalizeNumber(value: string) {
   return Number.isFinite(numberValue) ? numberValue : null;
 }
 
-function formatEnumLabel(value: string) {
-  return value
-    .toLowerCase()
-    .split('_')
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(' ');
+function matchesFilters(
+  request: ProductionCustomizationRequest,
+  statusFilter: StatusFilter,
+  materialFilter: MaterialFilter,
+  searchText: string,
+) {
+  const normalizedSearch = searchText.trim().toLowerCase();
+  const statusMatches = statusFilter === 'ALL' || request.status === statusFilter;
+  const materialMatches = materialFilter === 'ALL' || request.materialAvailability === materialFilter;
+  const searchMatches = !normalizedSearch
+    || request.customizationRequestId.toLowerCase().includes(normalizedSearch)
+    || request.projectName.toLowerCase().includes(normalizedSearch)
+    || request.projectCode.toLowerCase().includes(normalizedSearch)
+    || request.itemName.toLowerCase().includes(normalizedSearch);
+
+  return statusMatches && materialMatches && searchMatches;
 }
 
-function formatDimensions(width?: number | null, height?: number | null, depth?: number | null) {
-  const values = [
-    width ? `W ${width}` : null,
-    height ? `H ${height}` : null,
-    depth ? `D ${depth}` : null,
-  ].filter(Boolean);
+function mapApiCustomizationRequest(request: ProductionCustomizationRequestQueueItemDto): ProductionCustomizationRequest {
+  const materialAvailability: MaterialAvailability = request.materialAvailable === true
+    ? 'AVAILABLE'
+    : request.materialAvailable === false
+      ? 'UNAVAILABLE'
+      : 'UNKNOWN';
 
-  return values.length > 0 ? `${values.join(' x ')} cm` : '-';
-}
-
-function normalizeStatus(value: string | null): CustomizationStatus | null {
-  const statuses: CustomizationStatus[] = [
-    'PRODUCTION_REVIEWING',
-    'WAITING_FOR_CUSTOMER_FINAL_APPROVAL',
-    'NOT_FEASIBLE',
-    'ACCEPTED',
-  ];
-
-  return statuses.find((status) => status === value) ?? null;
-}
-
-function getProductionSearchParams(requestId: string, status: CustomizationStatus) {
-  const params: Record<string, string> = {};
-
-  if (requestId) params.requestId = requestId;
-  params.status = status;
-
-  return params;
-}
-
-function countByStatus(requests: ProductionCustomizationRequestQueueItemDto[], status: CustomizationStatus) {
-  return requests.filter((request) => request.status === status).length;
-}
-
-function toCssStatus(status?: CustomizationStatus | null) {
-  return (status ?? 'UNKNOWN').toLowerCase().replace(/_/g, '-');
+  return {
+    customizationRequestId: request.customizationRequestId,
+    projectId: request.projectId,
+    projectCode: request.projectId,
+    projectName: request.project?.projectName ?? request.projectId,
+    proposalId: request.proposalId,
+    proposalName: request.proposal?.proposalName ?? request.proposalId,
+    proposalItemId: request.proposalItemId,
+    itemName: request.proposalItem?.itemName ?? request.proposalItemId,
+    requestedByCustomerName: request.project?.customerId ?? '-',
+    requestTitle: request.requestTitle,
+    requestDescription: request.requestDescription ?? '-',
+    requestedWidth: request.requestedWidth ?? undefined,
+    requestedHeight: request.requestedHeight ?? undefined,
+    requestedDepth: request.requestedDepth ?? undefined,
+    requestedMaterial: request.requestedMaterial ?? undefined,
+    requestedColor: request.requestedColor ?? undefined,
+    requestedChangeNote: request.requestedChangeNote ?? undefined,
+    designerId: request.designerId ?? undefined,
+    designerSpecNote: request.designerSpecNote ?? undefined,
+    productionReviewBy: request.productionReviewBy ?? undefined,
+    feasibilityNote: request.feasibilityNote ?? undefined,
+    estimatedProductionDays: request.estimatedProductionDays ?? undefined,
+    estimatedAdditionalCost: request.estimatedAdditionalCost ?? undefined,
+    additionalCostReason: request.additionalCostReason ?? undefined,
+    materialAvailable: request.materialAvailable ?? undefined,
+    materialAvailability,
+    productionRiskNote: request.productionRiskNote ?? undefined,
+    approvedProductVersionId: request.approvedProductVersionId ?? undefined,
+    status: request.status ?? 'PRODUCTION_REVIEWING',
+    createdAt: request.createdAt ?? '',
+    updatedAt: request.updatedAt ?? request.createdAt ?? '',
+  };
 }

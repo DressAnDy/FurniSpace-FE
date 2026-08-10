@@ -41,6 +41,10 @@ export type BlueprintCanvasProps = {
   onSelectItem: (item: SelectedRoomItem | null) => void;
   readOnly?: boolean;
   selectedItem: SelectedRoomItem | null;
+  underlay?: {
+    label: string;
+    layout: RoomLayoutState | null;
+  } | null;
   wallFillColor: string;
 };
 
@@ -105,6 +109,28 @@ function isBlueprintSurface(target: EventTarget | null) {
   );
 }
 
+function getDistanceToSegment(
+  point: Pick<BlueprintPoint, 'x' | 'y'>,
+  start: Pick<BlueprintPoint, 'x' | 'y'>,
+  end: Pick<BlueprintPoint, 'x' | 'y'>,
+) {
+  const dx = end.x - start.x;
+  const dy = end.y - start.y;
+  const lengthSquared = dx * dx + dy * dy;
+
+  if (!lengthSquared) {
+    return Math.hypot(point.x - start.x, point.y - start.y);
+  }
+
+  const t = clamp(((point.x - start.x) * dx + (point.y - start.y) * dy) / lengthSquared, 0, 1);
+  const projection = {
+    x: start.x + t * dx,
+    y: start.y + t * dy,
+  };
+
+  return Math.hypot(point.x - projection.x, point.y - projection.y);
+}
+
 export function BlueprintCanvas({
   activeTool,
   floorFillColor,
@@ -115,6 +141,7 @@ export function BlueprintCanvas({
   onSelectItem,
   readOnly = false,
   selectedItem,
+  underlay,
   wallFillColor,
 }: BlueprintCanvasProps) {
   const [dragPoint, setDragPoint] = useState<DragPointState | null>(null);
@@ -309,7 +336,41 @@ export function BlueprintCanvas({
     }
 
     if (activeTool === 'door' || activeTool === 'window' || activeTool === 'opening') {
-      onMessage?.('Please select a wall first.');
+      const clickedPoint = fromPointer(event);
+      const maxDistance = Math.max(0.28, 24 / activeTransform.scale);
+      const nearestWall = layout.walls
+        .map((wall) => {
+          const start = getPointById(layout.points, wall.startPointId);
+          const end = getPointById(layout.points, wall.endPointId);
+
+          return {
+            distance: getDistanceToSegment(clickedPoint, start, end),
+            wall,
+          };
+        })
+        .sort((left, right) => left.distance - right.distance)[0];
+
+      if (!nearestWall || nearestWall.distance > maxDistance) {
+        onMessage?.('Click closer to a wall to add this item.');
+        return;
+      }
+
+      const offset = getPointOffsetOnWall(nearestWall.wall, layout.points, clickedPoint);
+
+      if (activeTool === 'door') {
+        onLayoutChange(addDoorToWall(layout, nearestWall.wall.id, offset));
+        onMessage?.('Door added to wall.');
+        return;
+      }
+
+      if (activeTool === 'window') {
+        onLayoutChange(addWindowToWall(layout, nearestWall.wall.id, offset));
+        onMessage?.('Window added to wall.');
+        return;
+      }
+
+      onLayoutChange(addOpeningToWall(layout, nearestWall.wall.id, offset));
+      onMessage?.('Opening added to wall.');
       return;
     }
 
@@ -407,8 +468,17 @@ export function BlueprintCanvas({
   }
 
   const closedBoundary = layout ? getClosedRoomBoundary(layout) : [];
+  const underlayBoundary = underlay?.layout ? getClosedRoomBoundary(underlay.layout) : [];
   const polygonPoints = closedBoundary.length
     ? closedBoundary
+        .map((point) => {
+          const svgPoint = toSvgPoint(point);
+          return `${svgPoint.x},${svgPoint.y}`;
+        })
+        .join(' ')
+    : '';
+  const underlayPolygonPoints = underlayBoundary.length
+    ? underlayBoundary
         .map((point) => {
           const svgPoint = toSvgPoint(point);
           return `${svgPoint.x},${svgPoint.y}`;
@@ -516,6 +586,30 @@ export function BlueprintCanvas({
 
         {layout && (
           <>
+            {underlay?.layout && underlayBoundary.length >= 3 && (
+              <g className="blueprint-underlay-layer">
+                <polygon className="blueprint-underlay-fill" points={underlayPolygonPoints} />
+                {underlay.layout.walls.map((wall) => {
+                  const start = toSvgPoint(getPointById(underlay.layout?.points ?? [], wall.startPointId));
+                  const end = toSvgPoint(getPointById(underlay.layout?.points ?? [], wall.endPointId));
+
+                  return (
+                    <line
+                      className="blueprint-underlay-wall"
+                      key={wall.id}
+                      strokeWidth={Math.max(wall.thickness * activeTransform.scale, 6)}
+                      x1={start.x}
+                      x2={end.x}
+                      y1={start.y}
+                      y2={end.y}
+                    />
+                  );
+                })}
+                <text className="blueprint-underlay-layer-label" x={VIEWBOX_WIDTH - 150} y="42">
+                  {underlay.label}
+                </text>
+              </g>
+            )}
             {closedBoundary.length >= 3 && (
               <polygon className="blueprint-room-fill blueprint-click-surface" fill={floorFillColor} points={polygonPoints} />
             )}
@@ -591,17 +685,16 @@ export function BlueprintCanvas({
                     }
 
                     if (event.button === 0) {
-                      const bounds = event.currentTarget.ownerSVGElement?.getBoundingClientRect();
-
-                      if (bounds) {
-                        setItemEditorMenu({
-                          itemId: openingItem.id,
-                          itemType,
-                          x: clamp(event.clientX - bounds.left, 12, Math.max(bounds.width - 310, 12)),
-                          y: clamp(event.clientY - bounds.top, 12, Math.max(bounds.height - 430, 12)),
-                        });
-                      }
-
+                      const snapshot = getDragSnapshot();
+                      event.currentTarget.setPointerCapture(event.pointerId);
+                      setItemEditorMenu(null);
+                      setDragOpening({
+                        itemId: openingItem.id,
+                        itemType,
+                        transform: snapshot.transform,
+                        viewOffset: snapshot.viewOffset,
+                        wallId: openingItem.wallId,
+                      });
                       return;
                     }
 

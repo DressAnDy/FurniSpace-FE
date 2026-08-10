@@ -11,8 +11,8 @@ import type { PaymentDetailDto } from '@/services/api/payments';
 import type { ProjectListItemDto } from '@/services/api/projects';
 import {
   useCreateOrderDepositPayment,
-  useCreateOrderRemainingPayment,
   useOrderDetail,
+  usePayments,
   useProjectList,
   useProjectOrders,
 } from '@/services/queries';
@@ -43,8 +43,11 @@ export function CustomerOrdersPage() {
   const orders = useMemo(() => ordersQuery.data?.items ?? [], [ordersQuery.data?.items]);
   const orderDetailQuery = useOrderDetail(selectedOrderId, { enabled: Boolean(selectedOrderId) });
   const order = orderDetailQuery.data ?? null;
+  const remainingPaymentsQuery = usePayments(
+    { orderId: selectedOrderId, paymentType: 'REMAINING_PAYMENT', status: 'PENDING' },
+    { enabled: Boolean(selectedOrderId) },
+  );
   const depositMutation = useCreateOrderDepositPayment();
-  const remainingMutation = useCreateOrderRemainingPayment();
 
   useEffect(() => {
     if (!selectedProjectId && orderProjects.length > 0) {
@@ -63,19 +66,16 @@ export function CustomerOrdersPage() {
     }
   }, [orders, selectedOrderId]);
 
-  async function createPayment(kind: 'deposit' | 'remaining') {
+  async function createDepositPayment() {
     if (!order) return;
 
     setMessage(null);
 
     try {
-      const payment =
-        kind === 'deposit'
-          ? await depositMutation.mutateAsync({ orderId: order.orderId, note: 'Customer deposit payment.' })
-          : await remainingMutation.mutateAsync({ orderId: order.orderId, note: 'Customer remaining payment.' });
+      const payment = await depositMutation.mutateAsync({ orderId: order.orderId, note: 'Customer deposit payment.' });
 
       setActivePayment(payment);
-      setMessage({ tone: 'success', text: kind === 'deposit' ? 'Deposit payment is ready.' : 'Remaining payment is ready.' });
+      setMessage({ tone: 'success', text: 'Deposit payment is ready.' });
     } catch (error) {
       setMessage({ tone: 'error', text: getOrderServiceResultMessage(error) });
     }
@@ -140,9 +140,9 @@ export function CustomerOrdersPage() {
               <OrderDetailCard
                 depositPending={depositMutation.isPending}
                 order={order}
-                remainingPending={remainingMutation.isPending}
-                onCreateDeposit={() => void createPayment('deposit')}
-                onCreateRemaining={() => void createPayment('remaining')}
+                remainingPayment={remainingPaymentsQuery.data?.items?.[0] ?? null}
+                onCreateDeposit={() => void createDepositPayment()}
+                onOpenRemainingPayment={(payment) => setActivePayment(payment)}
               />
             ) : null}
 
@@ -165,15 +165,15 @@ export function CustomerOrdersPage() {
 function OrderDetailCard({
   depositPending,
   onCreateDeposit,
-  onCreateRemaining,
+  onOpenRemainingPayment,
   order,
-  remainingPending,
+  remainingPayment,
 }: {
   depositPending: boolean;
   onCreateDeposit: () => void;
-  onCreateRemaining: () => void;
+  onOpenRemainingPayment: (payment: PaymentDetailDto) => void;
   order: OrderDetailDto;
-  remainingPending: boolean;
+  remainingPayment: PaymentDetailDto | null;
 }) {
   const orderItems = useMemo(() => aggregateDuplicateItems(order.items), [order.items]);
 
@@ -197,8 +197,8 @@ function OrderDetailCard({
         <button disabled={order.status !== 'DEPOSIT_PENDING' || depositPending} type="button" onClick={onCreateDeposit}>
           {depositPending ? 'Preparing...' : 'Pay Deposit'}
         </button>
-        <button disabled={order.status !== 'FINAL_PAYMENT_PENDING' || remainingPending} type="button" onClick={onCreateRemaining}>
-          {remainingPending ? 'Preparing...' : 'Pay Remaining'}
+        <button disabled={order.status !== 'FINAL_PAYMENT_PENDING' || !remainingPayment} type="button" onClick={() => remainingPayment && onOpenRemainingPayment(remainingPayment)}>
+          Pay Remaining
         </button>
       </div>
 
@@ -210,7 +210,11 @@ function OrderDetailCard({
               <th>Quantity</th>
               <th>Unit</th>
               <th>Customization</th>
-              <th>Subtotal</th>
+              <th>Gross</th>
+              <th>Discount</th>
+              <th>Tax</th>
+              <th>Total</th>
+              <th>Delivery</th>
             </tr>
           </thead>
           <tbody>
@@ -219,13 +223,18 @@ function OrderDetailCard({
                 <td>{getOrderItemName(item)}</td>
                 <td>{item.quantity ?? '-'}</td>
                 <td>{formatMoney(item.unitPrice)}</td>
-                <td>{formatMoney(item.customizationAdditionalCost)}</td>
-                <td>{formatMoney(item.subtotalAmount)}</td>
+                <td>{formatMoney(getCustomizationUnitAdditionalCost(item))}</td>
+                <td>{formatMoney(item.grossAmount ?? item.subtotalAmount)}</td>
+                <td>{formatMoney(item.discountAmount)}</td>
+                <td>{formatMoney(item.taxAmount)}</td>
+                <td>{formatMoney(item.totalAmount ?? item.subtotalAmount)}</td>
+                <td>{formatDeliveryState(item)}</td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
+
     </section>
   );
 }
@@ -241,6 +250,10 @@ function MoneyValue({ label, value }: { label: string; value: string }) {
 
 function getOrderItemName(item: Pick<OrderItemDto, 'itemName' | 'productNameSnapshot'>) {
   return item.itemName ?? item.productNameSnapshot ?? '-';
+}
+
+function getCustomizationUnitAdditionalCost(item: Pick<OrderItemDto, 'customizationUnitAdditionalCost' | 'customizationAdditionalCost'>) {
+  return item.customizationUnitAdditionalCost ?? item.customizationAdditionalCost ?? null;
 }
 
 function getOrderProjects(projects: ProjectListItemDto[]) {
@@ -263,6 +276,14 @@ function formatMoney(value?: number | null) {
   if (typeof value !== 'number') return '-';
 
   return `${new Intl.NumberFormat('vi-VN').format(value)} VND`;
+}
+
+function formatDeliveryState(item: OrderItemDto) {
+  const delivered = item.deliveredQuantity ?? 0;
+  const quantity = item.quantity ?? 0;
+  const status = item.status ? formatEnumLabel(item.status) : 'Pending';
+
+  return `${delivered}/${quantity} - ${status}`;
 }
 
 function formatOrderCode(value?: string | null) {

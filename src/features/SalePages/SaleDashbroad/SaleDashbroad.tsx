@@ -1,114 +1,107 @@
+import { useState } from 'react';
 import {
-  IconAdjustmentsHorizontal,
   IconArrowRight,
-  IconChartLine,
-  IconChecks,
-  IconCube,
-  IconFileText,
-  IconShoppingCart,
-  IconTruckDelivery,
+  IconChevronRight,
+  IconCreditCard,
+  IconFileInvoice,
+  IconFilter,
+  IconFolderOpen,
+  IconMessageCircle,
+  IconProgressCheck,
+  IconRefresh,
+  IconShieldExclamation,
+  IconUserCheck,
+  type Icon,
 } from '@tabler/icons-react';
+import { Link } from 'react-router-dom';
 
 import { SaleNavbar, SaleSidebar } from '@/features/SalePages/salecomponents';
+import { useCurrentUser } from '@/services/queries';
 
 import './SaleDashbroad.css';
 
-type MetricCard = {
-  title: string;
-  subtitle: string;
-  icon: typeof IconFileText;
-  items: {
-    label: string;
-    value: string;
-    delta: string;
-    icon: typeof IconFileText;
-    tone: 'neutral' | 'accent';
-  }[];
+type KpiItem = {
+  change: string;
+  description: string;
+  icon: Icon;
+  label: string;
+  path: string;
+  tone: 'amber' | 'blue' | 'green' | 'red' | 'neutral';
+  value: string;
 };
 
-type ActivityItem = {
-  code: string;
-  title: string;
+type QueueGroup = 'Intake' | 'Proposal and Quotation' | 'Payment and Production' | 'Delivery and Completion';
+
+type QueueItem = {
+  action: string;
+  assignee: string;
   customer: string;
+  due: string;
+  group: QueueGroup;
+  path: string;
+  phase: string;
+  priority: 'High' | 'Medium' | 'Low';
+  project: string;
   status: string;
-  date: string;
 };
 
-type ScheduleItem = {
-  title: string;
-  code: string;
-  type: string;
-  date: string;
-  time: string;
-};
+const queueGroups: QueueGroup[] = ['Intake', 'Proposal and Quotation', 'Payment and Production', 'Delivery and Completion'];
 
-const metrics: MetricCard[] = [
-  {
-    title: 'Project',
-    subtitle: 'Pipeline and catalog coverage',
-    icon: IconCube,
-    items: [
-      { label: 'Active Projects', value: '75', delta: '+8%', icon: IconFileText, tone: 'neutral' },
-      { label: 'Total Products', value: '342', delta: '+18', icon: IconCube, tone: 'neutral' },
-    ],
-  },
-  {
-    title: 'Revenue',
-    subtitle: 'Monthly commercial performance',
-    icon: IconChartLine,
-    items: [
-      { label: 'Revenue This Month', value: '$245K', delta: '+23%', icon: IconChartLine, tone: 'neutral' },
-    ],
-  },
-  {
-    title: 'Order',
-    subtitle: 'Confirmed and fulfillment status',
-    icon: IconShoppingCart,
-    items: [
-      { label: 'Orders Confirmed', value: '52', delta: '+11%', icon: IconChecks, tone: 'neutral' },
-      { label: 'In Production', value: '15', delta: '+4', icon: IconCube, tone: 'neutral' },
-      { label: 'Ready For Delivery', value: '8', delta: '+2', icon: IconTruckDelivery, tone: 'accent' },
-    ],
-  },
+// Mocked until sales dashboard aggregation endpoints are available.
+const kpis: KpiItem[] = [
+  { change: '5 overdue', description: 'Requests not reviewed within SLA', icon: IconFolderOpen, label: 'New Project Requests', path: '/sales/project-requests', tone: 'amber', value: '24' },
+  { change: '+8 this week', description: 'Assigned projects in active coordination', icon: IconProgressCheck, label: 'Active Projects', path: '/sales/assigned-projects', tone: 'blue', value: '75' },
+  { change: '12 need reply', description: 'Information, schedule, or payment waiting on customer', icon: IconMessageCircle, label: 'Waiting for Customer', path: '/sales/assigned-projects', tone: 'neutral', value: '18' },
+  { change: '7 designer tasks', description: 'Designer or production action needed', icon: IconUserCheck, label: 'Waiting for Internal Team', path: '/sales/assigned-projects', tone: 'neutral', value: '21' },
+  { change: '$48.2k sent', description: 'Quotations sent but not accepted/rejected', icon: IconFileInvoice, label: 'Quotations Pending Decision', path: '/sales/quotations', tone: 'amber', value: '14' },
+  { change: '6 due soon', description: 'Start fee, deposit, or remaining payment follow-up', icon: IconCreditCard, label: 'Payments Requiring Follow-up', path: '/sales/orders', tone: 'red', value: '11' },
+  { change: '3 critical', description: 'Overdue, blocked, or missing required action', icon: IconShieldExclamation, label: 'At-Risk Projects', path: '/sales/assigned-projects', tone: 'red', value: '9' },
 ];
 
-const activities: ActivityItem[] = [
-  { code: 'PRJ-2024-156', title: 'Luxury Cafe Interior', customer: 'Bean & Brew Co.', status: 'In Consultation', date: '2024-06-06' },
-  { code: 'PRJ-2024-155', title: 'Fashion Boutique Renovation', customer: 'Chic Style Ltd.', status: 'Quotation Sent', date: '2024-06-05' },
-  { code: 'PRJ-2024-154', title: 'Corporate Office Space', customer: 'Tech Innovations Inc.', status: 'Order Confirmed', date: '2024-06-05' },
-  { code: 'PRJ-2024-153', title: 'Retail Store Design', customer: 'Urban Trends', status: 'In Production', date: '2024-06-04' },
-  { code: 'PRJ-2024-152', title: 'Restaurant Interior', customer: 'Gourmet Bistro', status: 'Need Information', date: '2024-06-04' },
+const actionQueue: QueueItem[] = [
+  { action: 'Review request', assignee: 'Mai Nguyen', customer: 'Bean & Brew Co.', due: '2h overdue', group: 'Intake', path: '/sales/project-requests', phase: 'Request intake', priority: 'High', project: 'PRJ-2026-184 Bean & Brew', status: 'SUBMITTED' },
+  { action: 'Request missing business hours', assignee: 'Mai Nguyen', customer: 'Luma Cafe', due: 'Today 15:00', group: 'Intake', path: '/sales/project-requests', phase: 'Information check', priority: 'Medium', project: 'PRJ-2026-181 Luma Cafe', status: 'NEED_BASIC_INFORMATION' },
+  { action: 'Create start fee', assignee: 'Quang Vo', customer: 'Atelier Home', due: 'Today', group: 'Intake', path: '/sales/assigned-projects', phase: 'Consultation', priority: 'High', project: 'PRJ-2026-180 Atelier Home', status: 'SPACE_VERIFIED' },
+  { action: 'Send quotation', assignee: 'Nhi Pham', customer: 'Nova Works', due: 'Tomorrow', group: 'Proposal and Quotation', path: '/sales/quotations', phase: 'Quotation draft', priority: 'High', project: 'PRJ-2026-176 Nova Work Lounge', status: 'DRAFT' },
+  { action: 'Follow proposal revision', assignee: 'Mai Nguyen', customer: 'Urban Threads', due: 'Today 17:30', group: 'Proposal and Quotation', path: '/sales/assigned-projects', phase: 'Proposal consulting', priority: 'Medium', project: 'PRJ-2026-174 Urban Threads', status: 'REVISION_REQUESTED' },
+  { action: 'Create production request', assignee: 'Khoa Le', customer: 'Green Bowl', due: '1 day overdue', group: 'Payment and Production', path: '/sales/orders', phase: 'Deposit paid', priority: 'High', project: 'PRJ-2026-169 Green Bowl', status: 'DEPOSIT_PAID' },
+  { action: 'Coordinate adjustment', assignee: 'Nhi Pham', customer: 'Studio Nine', due: 'Today', group: 'Payment and Production', path: '/sales/orders', phase: 'Production blocked', priority: 'High', project: 'PRJ-2026-166 Studio Nine', status: 'UNAVAILABLE_ITEM' },
+  { action: 'Create delivery schedule', assignee: 'Mai Nguyen', customer: 'Oak & Steel', due: 'Tomorrow', group: 'Delivery and Completion', path: '/sales/tracking', phase: 'Ready for delivery', priority: 'Medium', project: 'PRJ-2026-160 Oak & Steel', status: 'READY_FOR_DELIVERY' },
+  { action: 'Prepare remaining payment', assignee: 'Quang Vo', customer: 'Northline Office', due: '2 days overdue', group: 'Delivery and Completion', path: '/sales/orders', phase: 'Delivered', priority: 'High', project: 'PRJ-2026-151 Northline Office', status: 'DELIVERED' },
 ];
 
-const schedules: ScheduleItem[] = [
-  { title: 'Site Measurement - Cafe Project', code: 'PRJ-2024-156', type: 'MEASUREMENT', date: '2024-06-07', time: '10:00 AM' },
-  { title: 'Design Review Meeting', code: 'PRJ-2024-150', type: 'DESIGN_REVIEW', date: '2024-06-08', time: '2:00 PM' },
-  { title: 'Client Consultation', code: 'PRJ-2024-149', type: 'CONSULTATION', date: '2024-06-09', time: '11:00 AM' },
-];
-
-const filters = [
-  { label: 'Submitted', count: 24 },
-  { label: 'In Consultation', count: 12 },
-  { label: 'Need Information', count: 5 },
-  { label: 'Awaiting Designer', count: 7 },
-  { label: 'Quotation Sent', count: 18 },
-  { label: 'Order Confirmed', count: 9 },
-  { label: 'In Production', count: 6 },
-];
-
-function getStatusClass(status: string) {
-  if (status === 'Need Information') return 'sale-status-badge sale-status-muted';
-  return 'sale-status-badge';
+function getPriorityClass(priority: QueueItem['priority']) {
+  return `sales-ops-priority sales-ops-priority-${priority.toLowerCase()}`;
 }
 
-function getScheduleTypeLabel(type: string) {
-  return type
+function formatStatusLabel(value: string) {
+  return value
+    .toLowerCase()
     .split('_')
-    .map((word) => word.charAt(0) + word.slice(1).toLowerCase())
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(' ');
 }
 
 export function SaleDashbroad() {
+  const [activeGroup, setActiveGroup] = useState<QueueGroup>('Intake');
+  const [lastRefreshAt, setLastRefreshAt] = useState(() => new Date());
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const currentUserQuery = useCurrentUser();
+  const refreshTime = new Intl.DateTimeFormat('en-US', { hour: '2-digit', minute: '2-digit' }).format(lastRefreshAt);
+  const activeQueue = actionQueue.filter((item) => item.group === activeGroup);
+
+  async function handleRefresh() {
+    if (isRefreshing) return;
+
+    setIsRefreshing(true);
+    try {
+      await currentUserQuery.refetch();
+      setLastRefreshAt(new Date());
+    } finally {
+      setIsRefreshing(false);
+    }
+  }
+
   return (
     <div className="sale-dashboard-shell">
       <SaleSidebar activeLabel="Dashboard" />
@@ -117,126 +110,110 @@ export function SaleDashbroad() {
         <SaleNavbar />
 
         <main className="sale-dashboard-main sale-dashboard-scrollbar">
-          <section className="sale-dashboard-title">
-            <h2>Sales Dashboard</h2>
-            <p>Welcome back! Here's an overview of your projects and activities.</p>
+          <section className="sales-ops-header">
+            <div>
+              <span>Sales Workspace</span>
+              <h2>Sales Dashboard</h2>
+              <p>Project coordination, commercial follow-up, and operational priorities</p>
+            </div>
+            <div className="sales-ops-header-side">
+              <button
+                className="sales-ops-refresh-button"
+                disabled={isRefreshing}
+                type="button"
+                onClick={() => void handleRefresh()}
+              >
+                <IconRefresh className={isRefreshing ? 'is-spinning' : undefined} size={14} />
+                {isRefreshing ? 'Refreshing...' : `Refresh · ${refreshTime}`}
+              </button>
+            </div>
           </section>
 
-          <section className="sale-metrics-grid">
-            <article className="sale-card sale-status-filter-card">
-              <header className="sale-status-filter-header">
-                <span className="sale-status-filter-icon">
-                  <IconAdjustmentsHorizontal size={20} />
-                </span>
+          <section className="sales-ops-filter-bar" aria-label="Sales dashboard filters">
+            <label>
+              <span>Date range</span>
+              <select defaultValue="this-week">
+                <option value="today">Today</option>
+                <option value="this-week">This week</option>
+                <option value="this-month">This month</option>
+              </select>
+            </label>
+            <label>
+              <span>Scope</span>
+              <select defaultValue="my-projects">
+                <option value="my-projects">My assigned projects</option>
+                <option value="team">Team overview</option>
+              </select>
+            </label>
+            <Link className="sales-ops-primary-action" to="/sales/project-requests">
+              Review Project Requests
+              <IconArrowRight size={16} />
+            </Link>
+          </section>
+
+          <section className="sales-ops-kpi-grid">
+            {kpis.map(({ change, description, icon: KpiIcon, label, path, tone, value }) => (
+              <Link className={`sales-ops-kpi sales-ops-kpi-${tone}`} key={label} title={description} to={path}>
+                <span><KpiIcon size={19} /></span>
                 <div>
-                  <h3>Quick Status Filters</h3>
-                  <p>Jump directly to projects by their current status</p>
+                  <small>{label}</small>
+                  <strong>{value}</strong>
+                  <p>{change}</p>
                 </div>
-              </header>
-              <div className="sale-filter-list">
-                {filters.map(({ label, count }) => (
-                  <button key={label} type="button">
-                    <span>{label}</span>
-                    <strong>{count}</strong>
-                  </button>
-                ))}
-              </div>
-            </article>
-
-            {metrics.map(({ title, subtitle, icon: MetricIcon, items }) => (
-              <article key={title} className="sale-metric-card">
-                <header className="sale-metric-card-header">
-                  <div>
-                    <h3>{title}</h3>
-                    <p>{subtitle}</p>
-                  </div>
-                  <span className="sale-metric-card-icon">
-                    <MetricIcon size={18} />
-                  </span>
-                </header>
-
-                <div className="sale-metric-list">
-                  {items.map(({ label, value, delta, icon: ItemIcon, tone }) => (
-                    <div key={label} className="sale-metric-item">
-                      <span className={`sale-metric-item-icon sale-metric-item-icon-${tone}`}>
-                        <ItemIcon size={16} />
-                      </span>
-                      <div className="sale-metric-item-copy">
-                        <p>{label}</p>
-                        <strong>{value}</strong>
-                      </div>
-                      <span className="sale-metric-item-delta">{delta}</span>
-                    </div>
-                  ))}
-                </div>
-              </article>
+              </Link>
             ))}
           </section>
 
-          <section className="sale-dashboard-lower">
-            <article className="sale-card sale-activity-card">
-              <header className="sale-card-header">
-                <h3>Recent Project Activity</h3>
-                <p>Latest updates from your active projects</p>
+          <section className="sales-ops-main-grid sales-ops-main-grid-single">
+            <article className="sale-card sales-ops-action-queue">
+              <header className="sales-ops-section-header">
+                <div>
+                  <h3>Main Action Queue</h3>
+                  <p>Prioritized work grouped by business phase.</p>
+                </div>
+                <IconFilter size={20} />
               </header>
-
-              <div className="sale-activity-list">
-                {activities.map((activity) => (
-                  <div key={activity.code} className="sale-activity-row">
-                    <div className="sale-activity-main">
-                      <div className="sale-activity-meta">
-                        <span>{activity.code}</span>
-                        <span className={getStatusClass(activity.status)}>{activity.status}</span>
-                      </div>
-                      <h4>{activity.title}</h4>
-                      <p>{activity.customer}</p>
-                    </div>
-                    <div className="sale-activity-action">
-                      <span>{activity.date}</span>
-                      <IconArrowRight size={16} />
-                    </div>
+              <div className="sales-ops-tabs" role="tablist" aria-label="Action queue groups">
+                {queueGroups.map((group) => (
+                  <button
+                    aria-selected={activeGroup === group}
+                    key={group}
+                    role="tab"
+                    type="button"
+                    onClick={() => setActiveGroup(group)}
+                  >
+                    {group}
+                  </button>
+                ))}
+              </div>
+              <div className="sales-ops-queue-table">
+                <div className="sales-ops-queue-head">
+                  <span>Project</span>
+                  <span>Customer</span>
+                  <span>Phase</span>
+                  <span className="sales-ops-queue-col-center">Priority</span>
+                  <span>Action</span>
+                  <span>Due</span>
+                  <span className="sales-ops-queue-col-center">Status</span>
+                  <span />
+                </div>
+                {activeQueue.map((item) => (
+                  <div className="sales-ops-queue-row" key={`${item.project}-${item.action}`}>
+                    <strong>{item.project}</strong>
+                    <span>{item.customer}</span>
+                    <span>{item.phase}</span>
+                    <span className={getPriorityClass(item.priority)}>{item.priority}</span>
+                    <span>{item.action}</span>
+                    <span>{item.due}</span>
+                    <em title={item.status}>{formatStatusLabel(item.status)}</em>
+                    <Link aria-label={`Open ${item.project}`} className="sales-ops-queue-open" title="Open" to={item.path}>
+                      <IconChevronRight size={18} stroke={2} />
+                    </Link>
                   </div>
                 ))}
               </div>
-
-              <button className="sale-outline-button" type="button">
-                View All Projects
-              </button>
-            </article>
-
-            <article className="sale-card sale-schedules-card">
-              <header className="sale-card-header">
-                <h3>Upcoming Schedules</h3>
-                <p>Your appointments this week</p>
-              </header>
-
-              <div className="sale-schedule-list">
-                {schedules.map((schedule) => (
-                  <div key={`${schedule.code}-${schedule.type}`} className="sale-schedule-item">
-                    <div className="sale-schedule-main">
-                      <div className="sale-schedule-meta">
-                        <span>{schedule.code}</span>
-                        <span className="sale-status-badge sale-status-muted">{getScheduleTypeLabel(schedule.type)}</span>
-                      </div>
-                      <h4>{schedule.title}</h4>
-                    </div>
-                    <div className="sale-schedule-time">
-                      <span>{schedule.date}</span>
-                      <div>
-                        <span>{schedule.time}</span>
-                        <IconArrowRight size={16} />
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              <button className="sale-outline-button" type="button">
-                View All Schedules
-              </button>
             </article>
           </section>
-
         </main>
       </div>
     </div>

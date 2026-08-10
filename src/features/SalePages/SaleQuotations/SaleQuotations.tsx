@@ -1,12 +1,11 @@
-import { IconPlus } from '@tabler/icons-react';
-import { FormEvent, useEffect, useMemo, useState } from 'react';
+import { type Dispatch, FormEvent, type SetStateAction, useEffect, useMemo, useState } from 'react';
 
 import { SaleNavbar, SaleSidebar } from '@/features/SalePages/salecomponents';
 import { getQuotationServiceResultMessage, type QuotationDto, type QuotationItemDto, type QuotationStatus } from '@/services/api/quotations';
 import type { ProjectListItemDto, ProjectStatus } from '@/services/api/projects';
 import {
   useCancelQuotation,
-  useCreateDraftQuotation,
+  useBulkUpdateQuotationItemFinancials,
   useCurrentUser,
   useProjectList,
   useProjectProposals,
@@ -17,7 +16,6 @@ import {
   useSendQuotation,
   useUpdateQuotation,
 } from '@/services/queries';
-import { aggregateDuplicateItems } from '@/shared/utils/itemAggregation';
 
 import './SaleQuotations.css';
 
@@ -46,14 +44,21 @@ const finalizedQuotationProjectStatuses = new Set<ProjectStatus>([
 
 type QuotationProjectView = 'pending' | 'finalized';
 
+type FinancialDraft = {
+  quantity: string;
+  unitPrice: string;
+  customizationUnitAdditionalCost: string;
+  discountAmount: string;
+  taxRate: string;
+};
+
 export function SaleQuotations() {
   const [selectedProjectId, setSelectedProjectId] = useState('');
   const [selectedStatus, setSelectedStatus] = useState<QuotationStatus | null>(null);
   const [selectedQuotationId, setSelectedQuotationId] = useState('');
   const [validUntil, setValidUntil] = useState('');
-  const [discountAmount, setDiscountAmount] = useState('0');
-  const [taxAmount, setTaxAmount] = useState('0');
   const [salesNote, setSalesNote] = useState('');
+  const [financialDrafts, setFinancialDrafts] = useState<Record<string, FinancialDraft>>({});
   const [message, setMessage] = useState<{ tone: 'error' | 'success'; text: string } | null>(null);
   const [projectView, setProjectView] = useState<QuotationProjectView>('pending');
   const currentUserQuery = useCurrentUser();
@@ -73,8 +78,8 @@ export function SaleQuotations() {
     },
     { enabled: Boolean(selectedProjectId) },
   );
-  const createDraftMutation = useCreateDraftQuotation();
   const updateQuotationMutation = useUpdateQuotation();
+  const bulkFinancialsMutation = useBulkUpdateQuotationItemFinancials();
   const sendQuotationMutation = useSendQuotation();
   const reviseQuotationMutation = useReviseQuotation();
   const cancelQuotationMutation = useCancelQuotation();
@@ -106,11 +111,18 @@ export function SaleQuotations() {
     [projectProposalsQuery.data?.items],
   );
   const selectedProject = quotationProjects.find((project) => project.projectId === selectedProjectId);
-  const canCreateDraftForSelectedProject = selectedProject?.status === 'PROPOSAL_SELECTED';
   const selectedQuotation = quotationDetailQuery.data;
   const selectedProposalQuery = useProposalDetail(selectedQuotation?.proposalId, { enabled: Boolean(selectedQuotation?.proposalId) });
   const selectedProposalName = getProposalName(selectedQuotation?.proposalId, proposalNameById, selectedProposalQuery.data?.proposalName);
-  const selectedQuotationItems = useMemo(() => aggregateDuplicateItems(selectedQuotation?.items ?? []), [selectedQuotation?.items]);
+  const selectedQuotationItems = useMemo(
+    () =>
+      [...(selectedQuotation?.items ?? [])].sort(
+        (first, second) =>
+          (first.displayOrder ?? Number.MAX_SAFE_INTEGER) - (second.displayOrder ?? Number.MAX_SAFE_INTEGER)
+          || first.quotationItemId.localeCompare(second.quotationItemId),
+      ),
+    [selectedQuotation?.items],
+  );
 
   useEffect(() => {
     if (!selectedProjectId && quotationProjects.length > 0) {
@@ -146,33 +158,13 @@ export function SaleQuotations() {
   useEffect(() => {
     if (selectedQuotation) {
       setValidUntil(selectedQuotation.validUntil ?? '');
-      setDiscountAmount(String(selectedQuotation.discountAmount ?? 0));
-      setTaxAmount(String(selectedQuotation.taxAmount ?? 0));
       setSalesNote(selectedQuotation.salesNote ?? '');
     }
   }, [selectedQuotation]);
 
-  async function createDraft() {
-    if (!selectedProjectId) {
-      setMessage({ tone: 'error', text: 'Choose a project before creating a quotation.' });
-      return;
-    }
-
-    if (!canCreateDraftForSelectedProject) {
-      setMessage({ tone: 'error', text: 'Draft quotations can only be created for projects waiting for quotation.' });
-      return;
-    }
-
-    setMessage(null);
-
-    try {
-      const quotation = await createDraftMutation.mutateAsync(selectedProjectId);
-      setSelectedQuotationId(quotation.quotationId);
-      setMessage({ tone: 'success', text: 'Draft quotation created from the selected proposal items.' });
-    } catch (error) {
-      setMessage({ tone: 'error', text: getQuotationServiceResultMessage(error) });
-    }
-  }
+  useEffect(() => {
+    setFinancialDrafts(getFinancialDrafts(selectedQuotation?.items ?? []));
+  }, [selectedQuotation?.items, selectedQuotation?.quotationId]);
 
   async function updateHeader(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -185,13 +177,46 @@ export function SaleQuotations() {
       await updateQuotationMutation.mutateAsync({
         quotationId: selectedQuotation.quotationId,
         validUntil,
-        discountAmount: normalizeNumber(discountAmount),
-        taxAmount: normalizeNumber(taxAmount),
         customerNote: selectedQuotation.customerNote ?? null,
         salesNote,
         revisionReason: selectedQuotation.revisionReason ?? null,
       });
       setMessage({ tone: 'success', text: 'Quotation header updated.' });
+    } catch (error) {
+      setMessage({ tone: 'error', text: getQuotationServiceResultMessage(error) });
+    }
+  }
+
+  async function saveFinancials() {
+    if (!selectedQuotation || !canEditFinancials(selectedQuotation.status)) return;
+
+    const validationMessage = validateFinancialDrafts(selectedQuotation.items ?? [], financialDrafts);
+
+    if (validationMessage) {
+      setMessage({ tone: 'error', text: validationMessage });
+      return;
+    }
+
+    setMessage(null);
+
+    try {
+      await bulkFinancialsMutation.mutateAsync({
+        quotationId: selectedQuotation.quotationId,
+        items: (selectedQuotation.items ?? []).map((item) => {
+          const draft = financialDrafts[item.quotationItemId];
+
+          return {
+            quotationItemId: item.quotationItemId,
+            quantity: normalizeNumber(draft?.quantity),
+            unitPrice: normalizeNumber(draft?.unitPrice),
+            customizationUnitAdditionalCost:
+              item.itemType === 'MANUAL_ITEM' ? 0 : normalizeNumber(draft?.customizationUnitAdditionalCost),
+            discountAmount: normalizeNumber(draft?.discountAmount),
+            taxRate: normalizeNumber(draft?.taxRate),
+          };
+        }),
+      });
+      setMessage({ tone: 'success', text: 'Quotation item financials updated.' });
     } catch (error) {
       setMessage({ tone: 'error', text: getQuotationServiceResultMessage(error) });
     }
@@ -228,12 +253,8 @@ export function SaleQuotations() {
           <section className="sale-quotations-heading">
             <div>
               <h2>Quotations</h2>
-              <p>Create quotations for assigned projects after the customer selects a final proposal</p>
+              <p>Draft quotations are created automatically after the customer selects a final proposal</p>
             </div>
-            <button disabled={!canCreateDraftForSelectedProject || createDraftMutation.isPending} type="button" onClick={() => void createDraft()}>
-              <IconPlus size={16} />
-              {createDraftMutation.isPending ? 'Creating...' : 'Create Draft'}
-            </button>
           </section>
 
           {message ? <section className={`sale-quotations-message sale-quotations-message-${message.tone}`}>{message.text}</section> : null}
@@ -398,14 +419,6 @@ export function SaleQuotations() {
                     <input type="date" value={validUntil} onChange={(event) => setValidUntil(event.target.value)} />
                   </label>
                   <label>
-                    <span>Discount</span>
-                    <input min="0" type="number" value={discountAmount} onChange={(event) => setDiscountAmount(event.target.value)} />
-                  </label>
-                  <label>
-                    <span>Tax</span>
-                    <input min="0" type="number" value={taxAmount} onChange={(event) => setTaxAmount(event.target.value)} />
-                  </label>
-                  <label>
                     <span>Sales Note</span>
                     <input type="text" value={salesNote} onChange={(event) => setSalesNote(event.target.value)} />
                   </label>
@@ -418,31 +431,62 @@ export function SaleQuotations() {
               <div className="sale-quotations-divider" />
 
               <h4>Quotation Items</h4>
+              {canEditFinancials(selectedQuotation.status) ? (
+                <div className="sale-quotations-item-toolbar">
+                  <span>Financial inputs are editable; calculated amounts are read-only from backend.</span>
+                  <button disabled={bulkFinancialsMutation.isPending} type="button" onClick={() => void saveFinancials()}>
+                    {bulkFinancialsMutation.isPending ? 'Saving...' : 'Save Item Financials'}
+                  </button>
+                </div>
+              ) : null}
               <div className="sale-quotations-table-scroll">
                 <table className="sale-quotations-items-table">
                   <thead>
                     <tr>
+                      <th>Order</th>
                       <th>Item</th>
                       <th>Type</th>
                       <th>Quantity</th>
                       <th>Unit Price</th>
                       <th>Customization</th>
+                      <th>Gross</th>
                       <th>Discount</th>
-                      <th>Subtotal</th>
+                      <th>Taxable</th>
+                      <th>Tax %</th>
+                      <th>Tax</th>
+                      <th>Total</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {selectedQuotationItems.map((item) => (
+                    {selectedQuotationItems.map((item) => {
+                      const draft = financialDrafts[item.quotationItemId] ?? getFinancialDraft(item);
+                      const editable = canEditFinancials(selectedQuotation.status);
+
+                      return (
                       <tr key={item.quotationItemId}>
+                        <td>
+                          {item.displayOrder ?? '-'}
+                        </td>
                         <td className="sale-quotations-item-name" title={getQuotationItemName(item)}>{getQuotationItemName(item)}</td>
                         <td>{formatEnumLabel(item.itemType ?? 'UNKNOWN')}</td>
-                        <td>{item.quantity ?? '-'}</td>
-                        <td>{formatMoney(item.unitPrice)}</td>
-                        <td>{formatMoney(item.customizationAdditionalCost)}</td>
-                        <td>{formatMoney(item.discountAmount)}</td>
-                        <td>{formatMoney(item.subtotalAmount)}</td>
+                        <td>{editable ? <LineInput itemId={item.quotationItemId} name="quantity" value={draft.quantity} onChange={setFinancialDrafts} /> : item.quantity ?? '-'}</td>
+                        <td>{editable ? <LineInput itemId={item.quotationItemId} name="unitPrice" value={draft.unitPrice} onChange={setFinancialDrafts} /> : formatMoney(item.unitPrice)}</td>
+                        <td>
+                          {editable && item.itemType !== 'MANUAL_ITEM' ? (
+                            <LineInput itemId={item.quotationItemId} name="customizationUnitAdditionalCost" value={draft.customizationUnitAdditionalCost} onChange={setFinancialDrafts} />
+                          ) : (
+                            formatMoney(getCustomizationUnitAdditionalCost(item))
+                          )}
+                        </td>
+                        <td>{formatMoney(item.grossAmount ?? item.subtotalAmount)}</td>
+                        <td>{editable ? <LineInput itemId={item.quotationItemId} name="discountAmount" value={draft.discountAmount} onChange={setFinancialDrafts} /> : formatMoney(item.discountAmount)}</td>
+                        <td>{formatMoney(item.taxableAmount)}</td>
+                        <td>{editable ? <LineInput itemId={item.quotationItemId} name="taxRate" value={draft.taxRate} onChange={setFinancialDrafts} small /> : formatPercent(item.taxRate)}</td>
+                        <td>{formatMoney(item.taxAmount)}</td>
+                        <td>{formatMoney(item.totalAmount ?? item.subtotalAmount)}</td>
                       </tr>
-                    ))}
+                    );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -454,7 +498,11 @@ export function SaleQuotations() {
                 </div>
                 <div>
                   <span>Discount</span>
-                  <strong className="sale-quotations-discount">-{formatMoney(selectedQuotation.discountAmount)}</strong>
+                  <strong className="sale-quotations-discount">-{formatMoney(getQuotationDiscountTotal(selectedQuotation))}</strong>
+                </div>
+                <div>
+                  <span>Taxable</span>
+                  <strong>{formatMoney(selectedQuotation.taxableAmount)}</strong>
                 </div>
                 <div>
                   <span>Tax</span>
@@ -535,6 +583,33 @@ function canEditHeader(status?: QuotationStatus | null) {
   return status === 'DRAFT' || status === 'REVISION_REQUESTED' || status === 'REVISED';
 }
 
+function canEditFinancials(status?: QuotationStatus | null) {
+  return canEditHeader(status);
+}
+
+function LineInput({
+  itemId,
+  name,
+  onChange,
+  small,
+  value,
+}: {
+  itemId: string;
+  name: keyof FinancialDraft;
+  onChange: Dispatch<SetStateAction<Record<string, FinancialDraft>>>;
+  small?: boolean;
+  value: string;
+}) {
+  return (
+    <input
+      className={`sale-quotations-line-input${small ? ' sale-quotations-line-input-small' : ''}`}
+      inputMode="decimal"
+      value={value}
+      onChange={(event) => setFinancialDraft(itemId, name, event.target.value, onChange)}
+    />
+  );
+}
+
 function canCancel(status?: QuotationStatus | null) {
   return status === 'DRAFT' || status === 'REVISION_REQUESTED' || status === 'REVISED';
 }
@@ -571,6 +646,78 @@ function normalizeNumber(value: string) {
   const numberValue = Number(value);
 
   return Number.isFinite(numberValue) ? numberValue : 0;
+}
+
+function getFinancialDrafts(items: QuotationItemDto[]) {
+  return Object.fromEntries(items.map((item) => [item.quotationItemId, getFinancialDraft(item)]));
+}
+
+function getFinancialDraft(item: QuotationItemDto): FinancialDraft {
+  return {
+    quantity: String(item.quantity ?? 0),
+    unitPrice: String(item.unitPrice ?? 0),
+    customizationUnitAdditionalCost: String(getCustomizationUnitAdditionalCost(item) ?? 0),
+    discountAmount: String(item.discountAmount ?? 0),
+    taxRate: String(item.taxRate ?? 0),
+  };
+}
+
+function setFinancialDraft(
+  quotationItemId: string,
+  name: keyof FinancialDraft,
+  value: string,
+  setFinancialDrafts: Dispatch<SetStateAction<Record<string, FinancialDraft>>>,
+) {
+  setFinancialDrafts((current) => ({
+    ...current,
+    [quotationItemId]: {
+      ...(current[quotationItemId] ?? {
+        quantity: '0',
+        unitPrice: '0',
+        customizationUnitAdditionalCost: '0',
+        discountAmount: '0',
+        taxRate: '0',
+      }),
+      [name]: value,
+    },
+  }));
+}
+
+function validateFinancialDrafts(items: QuotationItemDto[], drafts: Record<string, FinancialDraft>) {
+  const seenIds = new Set<string>();
+
+  for (const item of items) {
+    if (seenIds.has(item.quotationItemId)) {
+      return 'Duplicate quotation item detected. Please reload before saving.';
+    }
+
+    seenIds.add(item.quotationItemId);
+    const draft = drafts[item.quotationItemId] ?? getFinancialDraft(item);
+    const quantity = normalizeNumber(draft.quantity);
+    const unitPrice = normalizeNumber(draft.unitPrice);
+    const customizationUnitAdditionalCost = item.itemType === 'MANUAL_ITEM' ? 0 : normalizeNumber(draft.customizationUnitAdditionalCost);
+    const discountAmount = normalizeNumber(draft.discountAmount);
+    const taxRate = normalizeNumber(draft.taxRate);
+    const grossAmount = quantity * (unitPrice + customizationUnitAdditionalCost);
+    const itemName = getQuotationItemName(item);
+
+    if (quantity <= 0) return `${itemName}: quantity must be greater than 0.`;
+    if (unitPrice < 0) return `${itemName}: unit price cannot be negative.`;
+    if (customizationUnitAdditionalCost < 0) return `${itemName}: customization cost cannot be negative.`;
+    if (discountAmount < 0) return `${itemName}: discount cannot be negative.`;
+    if (discountAmount > grossAmount) return `${itemName}: discount cannot exceed gross amount.`;
+    if (taxRate < 0 || taxRate > 100) return `${itemName}: tax rate must be between 0 and 100.`;
+  }
+
+  return null;
+}
+
+function getCustomizationUnitAdditionalCost(item: Pick<QuotationItemDto, 'customizationUnitAdditionalCost' | 'customizationAdditionalCost'>) {
+  return item.customizationUnitAdditionalCost ?? item.customizationAdditionalCost ?? null;
+}
+
+function getQuotationDiscountTotal(quotation: Pick<QuotationDto, 'totalDiscountAmount' | 'discountAmount'>) {
+  return quotation.totalDiscountAmount ?? quotation.discountAmount ?? null;
 }
 
 function formatQuotationCode(value?: string | null) {
@@ -614,4 +761,10 @@ function formatMoney(value?: number | null) {
   if (typeof value !== 'number') return '-';
 
   return `${new Intl.NumberFormat('vi-VN').format(value)} VND`;
+}
+
+function formatPercent(value?: number | null) {
+  if (typeof value !== 'number') return '-';
+
+  return `${new Intl.NumberFormat('vi-VN').format(value)}%`;
 }

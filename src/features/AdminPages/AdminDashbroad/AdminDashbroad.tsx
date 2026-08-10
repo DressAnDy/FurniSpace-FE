@@ -1,18 +1,72 @@
-import type { ReactNode } from 'react';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import {
+  IconAlertTriangle,
   IconBriefcase,
-  IconBuildingFactory,
-  IconChartLine,
-  IconClipboardCheck,
-  IconCube,
-  IconShoppingCartCheck,
-  IconTruckDelivery,
+  IconCash,
+  IconChartBar,
+  IconCheck,
+  IconClock,
+  IconCreditCard,
+  IconInfoCircle,
+  IconRefresh,
+  IconTrendingDown,
+  IconTrendingUp,
+  type Icon,
 } from '@tabler/icons-react';
+import { Link } from 'react-router-dom';
 
 import { AdminNavbar, AdminSidebar } from '../admincomponents';
-import { type ProductListItemDto, type ProjectListItemDto, type ProjectStatus, useProductList, useProjectList } from '@/services/queries';
+import {
+  type ProjectListItemDto,
+  type ProjectStatus,
+  useCurrentUser,
+  useProjectList,
+} from '@/services/queries';
+import {
+  dashboardKpiMocks,
+  monthlyRevenue,
+  type DashboardKpiMock,
+  type RevenuePeriodDatum,
+} from './adminDashboardMockData';
 import './AdminDashbroad.css';
+
+type KpiItem = {
+  comparison: string;
+  description: string;
+  icon: Icon;
+  label: string;
+  path: string;
+  tone: 'amber' | 'blue' | 'green' | 'red' | 'neutral';
+  trend: 'up' | 'down' | 'flat';
+  value: string;
+  warning: string;
+};
+
+type StatusBreakdown = {
+  color: string;
+  count: number;
+  label: string;
+};
+
+type RevenueViewMode = 'month' | 'quarter';
+
+const MILLION_VND = 1_000_000;
+
+const revenueSeries = [
+  { key: 'wholesale' as const, color: '#22c55e', label: 'Wholesale' },
+  { key: 'retail' as const, color: '#f97316', label: 'Retail' },
+  { key: 'completedOrders' as const, color: '#ef4444', label: 'Completed orders' },
+];
+
+const revenueYTicks = [0, 50, 100, 150, 200];
+const revenueYMax = revenueYTicks[revenueYTicks.length - 1];
+
+const quarterMonthGroups = [
+  { label: 'Q1', months: ['Jan', 'Feb', 'Mar'] },
+  { label: 'Q2', months: ['Apr', 'May', 'Jun'] },
+  { label: 'Q3', months: ['Jul', 'Aug', 'Sep'] },
+  { label: 'Q4', months: ['Oct', 'Nov', 'Dec'] },
+];
 
 const activeStatuses: ProjectStatus[] = [
   'SUBMITTED',
@@ -32,18 +86,53 @@ const activeStatuses: ProjectStatus[] = [
   'DELIVERING',
 ];
 
-const statusTones = ['amber', 'blue', 'violet', 'gold', 'green', 'dark-green'] as const;
+const overviewPhases: Array<{ color: string; label: string; statuses: ProjectStatus[] }> = [
+  { color: '#5c4030', label: 'Request', statuses: ['SUBMITTED', 'NEED_BASIC_INFORMATION'] },
+  { color: '#c4a574', label: 'Design', statuses: ['IN_CONSULTATION', 'WAITING_FOR_DESIGNER_ASSIGNMENT', 'MEASUREMENT_REQUIRED', 'SPACE_VERIFIED', 'PROPOSAL_CONSULTING', 'PROPOSAL_SELECTED'] },
+  { color: '#a67c52', label: 'Quotation', statuses: ['QUOTATION_SENT', 'QUOTATION_REVISION_REQUESTED', 'ORDER_CONFIRMED'] },
+  { color: '#e8d5b7', label: 'Production', statuses: ['IN_PRODUCTION', 'PRODUCTION_BLOCKED'] },
+  { color: '#1f1a17', label: 'Delivery', statuses: ['READY_FOR_DELIVERY', 'DELIVERING', 'DELIVERED'] },
+  { color: '#b8956c', label: 'Complete', statuses: ['COMPLETED'] },
+];
+
+const kpiIconMap: Record<DashboardKpiMock['label'], Icon> = {
+  'Active Order Value': IconCash,
+  'Amount Collected': IconCreditCard,
+  'Outstanding Amount': IconClock,
+};
+
+const kpiToneMap: Record<DashboardKpiMock['label'], KpiItem['tone']> = {
+  'Active Order Value': 'blue',
+  'Amount Collected': 'green',
+  'Outstanding Amount': 'amber',
+};
 
 export function AdminDashbroad() {
+  const [revenueView, setRevenueView] = useState<RevenueViewMode>('month');
+  const [lastRefreshAt, setLastRefreshAt] = useState(() => new Date());
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const projectsQuery = useProjectList({ page: 1, limit: 100 });
-  const productsQuery = useProductList({ page: 1, limit: 100 });
+  const currentUserQuery = useCurrentUser();
   const projects = useMemo(() => projectsQuery.data?.items ?? [], [projectsQuery.data?.items]);
-  const products = useMemo(() => productsQuery.data?.items ?? [], [productsQuery.data?.items]);
-  const stats = useMemo(() => getStats(projects, products), [products, projects]);
-  const projectStatuses = useMemo(() => getProjectStatuses(projects), [projects]);
-  const monthlyRequests = useMemo(() => getMonthlyRequests(projects), [projects]);
-  const activities = useMemo(() => getRecentActivities(projects), [projects]);
-  const uploadedModels = useMemo(() => getUploadedModels(products), [products]);
+  const refreshTime = new Intl.DateTimeFormat('en-US', { hour: '2-digit', minute: '2-digit' }).format(lastRefreshAt);
+  const statusBreakdown = useMemo(() => getStatusBreakdown(projects), [projects]);
+  const revenueData = useMemo(() => getRevenueSeries(revenueView), [revenueView]);
+  const kpis = getKpis(projects);
+
+  async function handleRefresh() {
+    if (isRefreshing) {
+      return;
+    }
+
+    setIsRefreshing(true);
+
+    try {
+      await Promise.all([projectsQuery.refetch(), currentUserQuery.refetch()]);
+      setLastRefreshAt(new Date());
+    } finally {
+      setIsRefreshing(false);
+    }
+  }
 
   return (
     <main className="admin-dashboard-page">
@@ -52,129 +141,60 @@ export function AdminDashbroad() {
 
         <section className="admin-main">
           <AdminNavbar activeLabel="Admin Dashboard" />
-          <div className="admin-content">
-            <div className="admin-page-heading">
-              <h2>Admin Dashboard</h2>
-              <p>Overview of FurniSpace operations and metrics</p>
-            </div>
-
-            <section className="admin-stat-layer-grid">
-              {stats.map(({ title, description, icon: LayerIcon, tone, metrics }) => (
-                <article key={title} className="admin-stat-layer-card">
-                  <div className="admin-stat-layer-heading">
-                    <div>
-                      <h3>{title}</h3>
-                      <p>{description}</p>
-                    </div>
-                    <div className={`admin-stat-icon admin-tone-${tone}`}>
-                      <LayerIcon size={22} />
-                    </div>
-                  </div>
-
-                  <div className="admin-stat-metric-list">
-                    {metrics.map(({ label, value, delta, icon: Icon, tone: metricTone }) => (
-                      <div key={label} className="admin-stat-metric">
-                        <div className={`admin-stat-metric-icon admin-tone-${metricTone}`}>
-                          <Icon size={18} />
-                        </div>
-                        <div className="admin-stat-copy">
-                          <p>{label}</p>
-                          <strong>{value}</strong>
-                        </div>
-                        {delta ? (
-                          <span className="admin-stat-delta">
-                            <IconClipboardCheck size={14} />
-                            {delta}
-                          </span>
-                        ) : null}
-                      </div>
-                    ))}
-                  </div>
-                </article>
-              ))}
-            </section>
-
-            <section className="admin-two-column">
-              <DashboardCard title="Project Status Distribution">
-                <div className="admin-status-list">
-                  {projectStatuses.map((item) => (
-                    <div key={item.label} className="admin-status-row">
-                      <div>
-                        <span className={`admin-status-dot admin-tone-${item.tone}`} />
-                        <span>{item.label}</span>
-                      </div>
-                      <strong>{item.value}</strong>
-                    </div>
-                  ))}
-                </div>
-              </DashboardCard>
-
-              <DashboardCard title="Monthly Project Requests">
-                <div className="admin-request-chart">
-                  {monthlyRequests.map(([month, value]) => (
-                    <div key={month} className="admin-request-item">
-                      <span>{value}</span>
-                      <div />
-                      <span>{month}</span>
-                    </div>
-                  ))}
-                </div>
-              </DashboardCard>
-            </section>
-
-            <section className="admin-two-column">
-              <DashboardCard title="Monthly Revenue Trend">
-                <div className="admin-revenue-chart">
-                  <svg viewBox="0 0 520 210" role="img" aria-label="Monthly revenue trend" />
-                </div>
-              </DashboardCard>
-
-              <DashboardCard title="Recent Activities">
-                <div className="admin-activity-list">
-                  {activities.map((activity) => (
-                    <div key={activity.title} className="admin-activity-row">
-                      <div>
-                        <p>{activity.title}</p>
-                        <span>{activity.detail}</span>
-                      </div>
-                      <strong className={`admin-badge admin-badge-${activity.tone}`}>{activity.status}</strong>
-                    </div>
-                  ))}
-                </div>
-              </DashboardCard>
-            </section>
-
-            <section className="admin-card admin-model-card">
-              <h3>Latest Uploaded 3D Models</h3>
-              <div className="admin-table-wrap">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Model Name</th>
-                      <th>Version</th>
-                      <th>Uploaded By</th>
-                      <th>Date</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {uploadedModels.map(([name, version, author, date]) => (
-                      <tr key={name}>
-                        <td>{name}</td>
-                        <td>
-                          <span className="admin-version">{version}</span>
-                        </td>
-                        <td>{author}</td>
-                        <td>{date}</td>
-                      </tr>
-                    ))}
-                    {!productsQuery.isLoading && uploadedModels.length === 0 ? (
-                      <tr>
-                        <td colSpan={4}></td>
-                      </tr>
-                    ) : null}
-                  </tbody>
-                </table>
+          <div className="admin-content admin-dash-v2">
+            <section className="admin-dash-v2-header">
+              <div>
+                <span>Operational command center</span>
+                <h2>Admin Dashboard</h2>
+                <p>Current operational overview, workload, revenue, and catalog readiness.</p>
               </div>
+              <button
+                className="admin-dash-v2-refresh-button"
+                disabled={isRefreshing}
+                type="button"
+                onClick={() => void handleRefresh()}
+              >
+                <IconRefresh className={isRefreshing ? 'is-spinning' : undefined} size={14} />
+                {isRefreshing ? 'Refreshing...' : `Refresh · ${refreshTime}`}
+              </button>
+            </section>
+
+            <DashboardQueryState isError={projectsQuery.isError} isLoading={projectsQuery.isLoading} />
+
+            <section className="admin-dash-v2-kpis" aria-label="KPI insight cards">
+              {kpis.map((kpi) => <KpiCard item={kpi} key={kpi.label} />)}
+            </section>
+
+            <section className="admin-dash-v2-grid admin-dash-v2-grid-middle">
+              <article className="admin-card admin-dash-v2-status">
+                <SectionTitle icon={IconChartBar} title="Overview distribution" subtitle="Current project distribution across lifecycle phases." />
+                {statusBreakdown.length > 0 ? <StatusDonutChart rows={statusBreakdown} /> : <EmptyState text="No project status data loaded yet." />}
+              </article>
+
+              <article className="admin-card admin-dash-v2-revenue">
+                <SectionTitle
+                  icon={IconCash}
+                  title="Revenue"
+                  subtitle={`Stacked sales by period. Unit: triệu VNĐ (${MILLION_VND.toLocaleString('vi-VN')}).`}
+                />
+                <div className="admin-dash-v2-revenue-controls" role="group" aria-label="Revenue period">
+                  <button
+                    className={revenueView === 'month' ? 'is-active' : undefined}
+                    type="button"
+                    onClick={() => setRevenueView('month')}
+                  >
+                    Month
+                  </button>
+                  <button
+                    className={revenueView === 'quarter' ? 'is-active' : undefined}
+                    type="button"
+                    onClick={() => setRevenueView('quarter')}
+                  >
+                    Quarter
+                  </button>
+                </div>
+                <RevenueChart data={revenueData} />
+              </article>
             </section>
           </div>
         </section>
@@ -183,113 +203,206 @@ export function AdminDashbroad() {
   );
 }
 
-function getStats(projects: ProjectListItemDto[], products: ProductListItemDto[]) {
+function getKpis(projects: ProjectListItemDto[]): KpiItem[] {
   const activeProjects = projects.filter((project) => activeStatuses.includes(project.status)).length;
-  const countStatus = (status: ProjectStatus) => projects.filter((project) => project.status === status).length;
+  const completedProjects = projects.filter((project) => project.status === 'COMPLETED').length;
 
   return [
-    {
-      title: 'Project',
-      description: 'Pipeline and catalog coverage',
-      icon: IconBriefcase,
-      tone: 'gold',
-      metrics: [
-        { label: 'Active Projects', value: String(activeProjects), delta: '', icon: IconBriefcase, tone: 'gold' },
-        { label: 'Total Products', value: String(products.length), delta: '', icon: IconCube, tone: 'blue' },
-      ],
-    },
-    {
-      title: 'Revenue',
-      description: 'Monthly commercial performance',
-      icon: IconChartLine,
-      tone: 'green',
-      metrics: [{ label: 'Revenue This Month', value: '', delta: '', icon: IconChartLine, tone: 'green' }],
-    },
-    {
-      title: 'Order',
-      description: 'Confirmed and fulfillment status',
-      icon: IconShoppingCartCheck,
-      tone: 'dark-green',
-      metrics: [
-        { label: 'Orders Confirmed', value: String(countStatus('ORDER_CONFIRMED')), delta: '', icon: IconShoppingCartCheck, tone: 'dark-green' },
-        { label: 'In Production', value: String(countStatus('IN_PRODUCTION')), delta: '', icon: IconBuildingFactory, tone: 'amber' },
-        { label: 'Ready For Delivery', value: String(countStatus('READY_FOR_DELIVERY')), delta: '', icon: IconTruckDelivery, tone: 'cyan' },
-      ],
-    },
+    { comparison: '+8 this week', description: 'Projects currently moving through the FurniSpace workflow.', icon: IconBriefcase, label: 'Active Projects', path: '/admin/projects', tone: 'blue', trend: 'up', value: String(activeProjects), warning: 'Includes delivery and production' },
+    { comparison: '+12%', description: 'Projects with completed status in the loaded API sample.', icon: IconCheck, label: 'Completed Projects This Month', path: '/admin/projects', tone: 'green', trend: 'up', value: String(completedProjects), warning: 'Needs date aggregate endpoint' },
+    ...dashboardKpiMocks.map(toKpi),
   ];
 }
 
-function getProjectStatuses(projects: ProjectListItemDto[]) {
-  const counts = projects.reduce<Record<string, number>>((lookup, project) => {
-    lookup[project.status] = (lookup[project.status] ?? 0) + 1;
-    return lookup;
-  }, {});
-
-  return Object.entries(counts).map(([status, value], index) => ({
-    label: formatEnumLabel(status),
-    value,
-    tone: statusTones[index % statusTones.length],
-  }));
+function toKpi(item: DashboardKpiMock): KpiItem {
+  return {
+    comparison: item.comparison,
+    description: item.note,
+    icon: kpiIconMap[item.label],
+    label: item.label,
+    path: item.path,
+    tone: kpiToneMap[item.label],
+    trend: item.trend,
+    value: item.value,
+    warning: item.warning,
+  };
 }
 
-function getMonthlyRequests(projects: ProjectListItemDto[]) {
-  const monthCounts = new Map<string, number>();
+function getStatusBreakdown(projects: ProjectListItemDto[]): StatusBreakdown[] {
+  return overviewPhases
+    .map((phase) => ({
+      color: phase.color,
+      count: projects.filter((project) => phase.statuses.includes(project.status)).length,
+      label: phase.label,
+    }))
+    .filter((row) => row.count > 0);
+}
 
-  projects.forEach((project) => {
-    const month = new Intl.DateTimeFormat('en', { month: 'short' }).format(new Date(project.submittedAt));
-    monthCounts.set(month, (monthCounts.get(month) ?? 0) + 1);
+function DashboardQueryState({ isError, isLoading }: { isError: boolean; isLoading: boolean }) {
+  if (isLoading) {
+    return <section className="admin-dash-v2-state"><IconRefresh size={16} /> Loading project and catalog data...</section>;
+  }
+
+  if (isError) {
+    return <section className="admin-dash-v2-state admin-dash-v2-state-error"><IconAlertTriangle size={16} /> Some live API data could not be loaded. Mock dashboard sections remain visible for UI review.</section>;
+  }
+
+  return null;
+}
+
+function KpiCard({ item }: { item: KpiItem }) {
+  const KpiIcon = item.icon;
+  const TrendIcon = item.trend === 'down' ? IconTrendingDown : item.trend === 'up' ? IconTrendingUp : IconInfoCircle;
+
+  return (
+    <Link className={`admin-dash-v2-kpi admin-dash-v2-kpi-${item.tone}`} title={item.description} to={item.path}>
+      <span><KpiIcon size={19} /></span>
+      <div>
+        <small>{item.label}</small>
+        <strong>{item.value}</strong>
+        <p>{item.warning}</p>
+      </div>
+      <em><TrendIcon size={14} /> {item.comparison}</em>
+    </Link>
+  );
+}
+
+function SectionTitle({ icon: TitleIcon, subtitle, title }: { icon: Icon; subtitle: string; title: string }) {
+  return (
+    <header className="admin-dash-v2-section-title">
+      <div><h3>{title}</h3><p>{subtitle}</p></div>
+      <TitleIcon size={20} />
+    </header>
+  );
+}
+
+function StatusDonutChart({ rows }: { rows: StatusBreakdown[] }) {
+  const total = rows.reduce((sum, row) => sum + row.count, 0);
+  const gradient = buildConicGradient(rows, total);
+
+  return (
+    <div className="admin-dash-v2-donut">
+      <div className="admin-dash-v2-donut-chart" aria-hidden="true" style={{ background: gradient }}>
+        <div className="admin-dash-v2-donut-center">
+          <strong>{total}</strong>
+          <span>Total</span>
+        </div>
+      </div>
+
+      <ul className="admin-dash-v2-donut-legend">
+        {rows.map((row) => (
+          <li key={row.label}>
+            <i style={{ background: row.color }} />
+            <span>{row.label}</span>
+            <strong>{row.count}</strong>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function buildConicGradient(rows: StatusBreakdown[], total: number) {
+  if (total <= 0) {
+    return '#f0ece6';
+  }
+
+  let cursor = 0;
+  const stops = rows.map((row) => {
+    const start = (cursor / total) * 360;
+    cursor += row.count;
+    const end = (cursor / total) * 360;
+
+    return `${row.color} ${start}deg ${end}deg`;
   });
 
-  return Array.from(monthCounts.entries()).slice(-6);
+  return `conic-gradient(from -90deg, ${stops.join(', ')})`;
 }
 
-function getRecentActivities(projects: ProjectListItemDto[]) {
-  return [...projects]
-    .sort((left, right) => new Date(right.submittedAt).getTime() - new Date(left.submittedAt).getTime())
-    .slice(0, 5)
-    .map((project) => ({
-      title: project.projectName,
-      detail: `${project.projectCode} - ${formatDate(project.submittedAt)}`,
-      status: project.status,
-      tone: project.status === 'REJECTED' ? 'neutral' : 'success',
-    }));
+function getRevenueSeries(view: RevenueViewMode): RevenuePeriodDatum[] {
+  if (view === 'month') {
+    return monthlyRevenue;
+  }
+
+  return quarterMonthGroups
+    .map((quarter) => {
+      const months = monthlyRevenue.filter((item) => quarter.months.includes(item.label));
+
+      if (months.length === 0) {
+        return null;
+      }
+
+      return {
+        label: quarter.label,
+        wholesale: sumField(months, 'wholesale'),
+        retail: sumField(months, 'retail'),
+        completedOrders: sumField(months, 'completedOrders'),
+        profit: sumField(months, 'profit'),
+      };
+    })
+    .filter((item): item is RevenuePeriodDatum => Boolean(item));
 }
 
-function getUploadedModels(products: ProductListItemDto[]) {
-  return products
-    .filter((product) => product.defaultVersion?.files.some((file) => file.fileType === 'MODEL_3D'))
-    .slice(0, 5)
-    .map((product) => [
-      product.productName,
-      product.defaultVersion?.versionName ?? '',
-      '',
-      '',
-    ] as const);
+function sumField(rows: RevenuePeriodDatum[], key: Exclude<keyof RevenuePeriodDatum, 'label'>) {
+  return rows.reduce((sum, row) => sum + row[key], 0);
 }
 
-function formatEnumLabel(value: string) {
-  return value
-    .toLowerCase()
-    .split('_')
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(' ');
-}
-
-function formatDate(value: string) {
-  return new Intl.DateTimeFormat('en', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-  }).format(new Date(value));
-}
-
-function DashboardCard({ title, children }: { title: string; children: ReactNode }) {
+function RevenueChart({ data }: { data: RevenuePeriodDatum[] }) {
   return (
-    <article className="admin-card">
-      <h3>{title}</h3>
-      {children}
-    </article>
+    <div className="admin-dash-v2-revenue-chart">
+      <div className="admin-dash-v2-revenue-plot">
+        <div className="admin-dash-v2-revenue-yaxis" aria-hidden="true">
+          {[...revenueYTicks].reverse().map((tick) => (
+            <span key={tick}>{formatTrieu(tick)}</span>
+          ))}
+        </div>
+
+        <div className="admin-dash-v2-revenue-canvas">
+          <div className="admin-dash-v2-revenue-grid" aria-hidden="true">
+            {revenueYTicks.map((tick) => (
+              <span key={tick} />
+            ))}
+          </div>
+
+          <div className="admin-dash-v2-revenue-bars">
+            {data.map((item) => {
+              const stacked = item.wholesale + item.retail + item.completedOrders;
+
+              return (
+                <div className="admin-dash-v2-revenue-col" key={item.label} title={`${item.label}: ${formatTrieu(stacked)} triệu`}>
+                  <div className="admin-dash-v2-revenue-stack" style={{ height: `${Math.min((stacked / revenueYMax) * 100, 100)}%` }}>
+                    <span style={{ background: '#ef4444', flexGrow: item.completedOrders }} title={`Completed orders: ${formatTrieu(item.completedOrders)}`} />
+                    <span style={{ background: '#f97316', flexGrow: item.retail }} title={`Retail: ${formatTrieu(item.retail)}`} />
+                    <span style={{ background: '#22c55e', flexGrow: item.wholesale }} title={`Wholesale: ${formatTrieu(item.wholesale)}`} />
+                  </div>
+                  <em>{item.label}</em>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      <ul className="admin-dash-v2-revenue-legend">
+        {revenueSeries.map((series) => (
+          <li key={series.key}>
+            <i style={{ background: series.color }} />
+            <span>{series.label}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
   );
+}
+
+function formatTrieu(value: number) {
+  return new Intl.NumberFormat('vi-VN', {
+    maximumFractionDigits: value % 1 === 0 ? 0 : 1,
+  }).format(value);
+}
+
+function EmptyState({ text }: { text: string }) {
+  return <div className="admin-dash-v2-empty">{text}</div>;
 }
 
 export default AdminDashbroad;

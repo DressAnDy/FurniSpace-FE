@@ -41,7 +41,7 @@ export function CustomerSchedulesPage() {
   const [scheduleType, setScheduleType] = useState<ProjectScheduleType | ''>('');
   const [status, setStatus] = useState<ProjectScheduleStatus | ''>('');
   const [selectedScheduleId, setSelectedScheduleId] = useState(searchParams.get('scheduleId') ?? '');
-  const [selectedDateKey, setSelectedDateKey] = useState('');
+  const [selectedDateKey, setSelectedDateKey] = useState(() => getDateKey(new Date()));
   const [calendarMonth, setCalendarMonth] = useState(() => {
     const now = new Date();
 
@@ -103,7 +103,24 @@ export function CustomerSchedulesPage() {
       return searchableFields.some((value) => value.toLowerCase().includes(normalizedKeyword));
     });
   }, [keyword, schedules]);
-  const selectedItem = visibleSchedules.find((item) => item.schedule.scheduleId === selectedScheduleId) ?? visibleSchedules[0] ?? null;
+  const schedulesByDate = useMemo(() => {
+    const groups = new Map<string, CustomerScheduleItem[]>();
+
+    visibleSchedules.forEach((item) => {
+      const dateKey = getDateKey(new Date(item.schedule.scheduledStart));
+      const daySchedules = groups.get(dateKey) ?? [];
+
+      groups.set(dateKey, [...daySchedules, item]);
+    });
+
+    return groups;
+  }, [visibleSchedules]);
+  const selectedItem = useMemo(
+    () => visibleSchedules.find((item) => item.schedule.scheduleId === selectedScheduleId)
+      ?? schedulesByDate.get(selectedDateKey)?.[0]
+      ?? null,
+    [schedulesByDate, selectedDateKey, selectedScheduleId, visibleSchedules],
+  );
   const isLoading = projectsQuery.isLoading || scheduleQueries.some((query) => query.isLoading);
   const scheduleError = scheduleQueries.find((query) => query.isError)?.error;
 
@@ -115,8 +132,13 @@ export function CustomerSchedulesPage() {
     }
   }, [searchParams]);
 
-  function handleSelectSchedule(scheduleId: string) {
+  function handleSelectSchedule(scheduleId: string, dateKey?: string) {
     setSelectedScheduleId(scheduleId);
+
+    if (dateKey) {
+      setSelectedDateKey(dateKey);
+    }
+
     setSearchParams({ scheduleId });
     setMessage('');
   }
@@ -125,7 +147,7 @@ export function CustomerSchedulesPage() {
     setSelectedDateKey(dateKey);
 
     if (daySchedules[0]) {
-      handleSelectSchedule(daySchedules[0].schedule.scheduleId);
+      handleSelectSchedule(daySchedules[0].schedule.scheduleId, dateKey);
     }
   }
 
@@ -235,7 +257,7 @@ type MonthlyScheduleCalendarProps = {
   selectedScheduleId: string;
   onMoveMonth: (offset: number) => void;
   onSelectDay: (dateKey: string, daySchedules: CustomerScheduleItem[]) => void;
-  onSelectSchedule: (scheduleId: string) => void;
+  onSelectSchedule: (scheduleId: string, dateKey: string) => void;
 };
 
 function MonthlyScheduleCalendar({
@@ -305,49 +327,45 @@ function MonthlyScheduleCalendar({
             .join(' ');
 
           return (
-            <button
+            <div
               key={dateKey}
               className={className}
               style={day === 1 ? { gridColumnStart: firstWeekday + 1 } : undefined}
-              type="button"
-              onClick={() => onSelectDay(dateKey, daySchedules)}
             >
-              <span className="customer-schedules-calendar-day-number">{day}</span>
-              <span className="customer-schedules-calendar-day-meta">
-                {daySchedules.length > 0 ? `${daySchedules.length} schedule${daySchedules.length > 1 ? 's' : ''}` : 'No schedule'}
-              </span>
+              <button
+                className="customer-schedules-calendar-day-summary"
+                type="button"
+                onClick={() => onSelectDay(dateKey, daySchedules)}
+              >
+                <span className="customer-schedules-calendar-day-number">{day}</span>
+                <span className="customer-schedules-calendar-day-meta">
+                  {daySchedules.length > 0 ? `${daySchedules.length} schedule${daySchedules.length > 1 ? 's' : ''}` : 'No schedule'}
+                </span>
+              </button>
 
               {daySchedules.length > 0 ? (
                 <span className="customer-schedules-calendar-events">
                   {daySchedules.slice(0, 2).map(({ project, schedule }) => (
-                    <span
+                    <button
                       className={`customer-schedules-calendar-event customer-schedules-calendar-event-${schedule.status.toLowerCase().replace(/_/g, '-')}${
                         selectedScheduleId === schedule.scheduleId ? ' customer-schedules-calendar-event-active' : ''
                       }`}
                       key={schedule.scheduleId}
-                      role="button"
-                      tabIndex={0}
                       title={`${schedule.title ?? formatEnumLabel(schedule.scheduleType)} - ${project.projectName}`}
+                      type="button"
                       onClick={(event) => {
                         event.stopPropagation();
-                        onSelectSchedule(schedule.scheduleId);
-                      }}
-                      onKeyDown={(event) => {
-                        if (event.key === 'Enter' || event.key === ' ') {
-                          event.preventDefault();
-                          event.stopPropagation();
-                          onSelectSchedule(schedule.scheduleId);
-                        }
+                        onSelectSchedule(schedule.scheduleId, dateKey);
                       }}
                     >
                       <strong>{formatTime(schedule.scheduledStart)}</strong>
                       <em>{schedule.title ?? formatEnumLabel(schedule.scheduleType)}</em>
-                    </span>
+                    </button>
                   ))}
                   {daySchedules.length > 2 ? <span className="customer-schedules-calendar-more">+{daySchedules.length - 2} more</span> : null}
                 </span>
               ) : null}
-            </button>
+            </div>
           );
         })}
       </div>
