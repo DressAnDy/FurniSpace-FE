@@ -21,14 +21,15 @@
 .sale-tracking-heading {
   align-items: flex-start;
   display: flex;
+  gap: 16px;
   justify-content: space-between;
-  margin-bottom: 24px;
+  margin-bottom: 20px;
 }
 
 .sale-tracking-heading h2 {
   color: #2d2d2d;
   font-size: 24px;
-  font-weight: 500;
+  font-weight: 600;
   line-height: 32px;
   margin: 0;
 }
@@ -41,12 +42,105 @@
   margin: 4px 0 0;
 }
 
+.sale-tracking-refresh {
+  align-items: center;
+  background: #fff;
+  border: 1px solid rgba(139, 111, 71, 0.22);
+  border-radius: 8px;
+  color: #6f5636;
+  cursor: pointer;
+  display: inline-flex;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  gap: 8px;
+  min-height: 38px;
+  padding: 0 14px;
+}
+
+.sale-tracking-refresh:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.sale-tracking-refresh .is-spinning {
+  animation: sale-tracking-spin 0.8s linear infinite;
+}
+
+@keyframes sale-tracking-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.sale-tracking-summary {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin-bottom: 18px;
+}
+
+.sale-tracking-summary-card {
+  align-items: center;
+  background: #fff;
+  border: 1px solid rgba(139, 111, 71, 0.14);
+  border-radius: 12px;
+  display: flex;
+  gap: 12px;
+  padding: 14px 16px;
+}
+
+.sale-tracking-summary-icon {
+  align-items: center;
+  border-radius: 10px;
+  display: flex;
+  height: 40px;
+  justify-content: center;
+  width: 40px;
+}
+
+.sale-tracking-summary-active .sale-tracking-summary-icon {
+  background: #eff6ff;
+  color: #2563eb;
+}
+
+.sale-tracking-summary-ready .sale-tracking-summary-icon {
+  background: #fff7ed;
+  color: #c2410c;
+}
+
+.sale-tracking-summary-done .sale-tracking-summary-icon {
+  background: #ecfdf5;
+  color: #059669;
+}
+
+.sale-tracking-summary-neutral .sale-tracking-summary-icon {
+  background: #f5f1ec;
+  color: #8b6f47;
+}
+
+.sale-tracking-summary-card span {
+  color: #6b6b6b;
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.sale-tracking-summary-card strong {
+  color: #2d2d2d;
+  display: block;
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 28px;
+  margin-top: 2px;
+}
+
 .sale-tracking-message {
   border-radius: 10px;
   background: rgba(139, 111, 71, 0.1);
   color: #6f5636;
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 600;
   margin-bottom: 14px;
   padding: 11px 13px;
 }
@@ -60,7 +154,7 @@
   align-items: start;
   display: grid;
   gap: 18px;
-  grid-template-columns: minmax(240px, 300px) minmax(0, 1fr);
+  grid-template-columns: minmax(260px, 300px) minmax(0, 1fr);
 }
 
 .sale-tracking-project-panel,
@@ -72,6 +166,8 @@
 
 .sale-tracking-project-panel {
   padding: 16px;
+  position: sticky;
+  top: 0;
 }
 
 .sale-tracking-project-panel h3,
@@ -90,35 +186,75 @@
   margin: 4px 0 0;
 }
 
+.sale-tracking-search {
+  align-items: center;
+  background: #faf9f7;
+  border: 1px solid rgba(139, 111, 71, 0.16);
+  border-radius: 8px;
+  color: #6b6b6b;
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+  padding: 0 10px;
+}
+
+.sale-tracking-search input {
+  background: transparent;
+  border: 0;
+  color: #2d2d2d;
+  flex: 1;
+  font: inherit;
+  min-height: 36px;
+  outline: 0;
+}
+
 .sale-tracking-project-list {
   display: grid;
-  gap: 10px;
-  margin-top: 14px;
+  gap: 8px;
+  margin-top: 12px;
+  max-height: calc(100vh - 320px);
+  overflow-y: auto;
 }
 
 .sale-tracking-project-list button {
   background: #faf9f7;
-  border: 1px solid rgba(139, 111, 71, 0.15);
+  border: 1px solid rgba(139, 111, 71, 0.12);
   border-radius: 10px;
   color: #2d2d2d;
   cursor: pointer;
   display: grid;
   font: inherit;
-  gap: 4px;
+  gap: 6px;
   padding: 12px;
   text-align: left;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.sale-tracking-project-list button:hover {
+  border-color: rgba(139, 111, 71, 0.35);
 }
 
 .sale-tracking-project-list button.is-active {
+  background: #fff;
   border-color: #8b6f47;
-  box-shadow: inset 0 0 0 1px #8b6f47;
+  box-shadow: 0 0 0 1px #8b6f47;
 }
 
-.sale-tracking-project-list span,
-.sale-tracking-project-list em {
+.sale-tracking-project-top {
+  align-items: flex-start;
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+}
+
+.sale-tracking-project-top strong {
+  font-size: 14px;
+  line-height: 18px;
+}
+
+.sale-tracking-project-list span {
   color: #6b6b6b;
   font-size: 12px;
-  font-style: normal;
 }
 
 .sale-tracking-workspace {
@@ -131,14 +267,16 @@
   align-items: start;
   display: grid;
   gap: 16px;
-  grid-template-columns: minmax(280px, 0.9fr) minmax(0, 1.1fr);
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
 }
 
 .sale-tracking-card {
+  min-width: 0;
+  overflow: hidden;
   padding: 18px;
 }
 
-.sale-tracking-card > header {
+.sale-tracking-overview-card > header {
   align-items: flex-start;
   display: flex;
   gap: 16px;
@@ -146,14 +284,95 @@
   margin-bottom: 16px;
 }
 
-.sale-tracking-card > header > span {
-  background: #f5f1ec;
+.sale-tracking-steps {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  list-style: none;
+  margin: 0 0 16px;
+  padding: 0;
+}
+
+.sale-tracking-steps li {
+  align-items: center;
+  background: #faf9f7;
+  border: 1px solid rgba(139, 111, 71, 0.1);
+  border-radius: 10px;
+  display: flex;
+  gap: 8px;
+  min-height: 44px;
+  padding: 8px 10px;
+}
+
+.sale-tracking-steps li i {
+  align-items: center;
+  background: #e5e7eb;
   border-radius: 999px;
-  color: #8b6f47;
-  font-size: 12px;
+  color: #6b7280;
+  display: flex;
+  flex: 0 0 22px;
+  font-size: 11px;
+  font-style: normal;
   font-weight: 700;
-  padding: 6px 10px;
-  white-space: nowrap;
+  height: 22px;
+  justify-content: center;
+  width: 22px;
+}
+
+.sale-tracking-steps li span {
+  color: #6b7280;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 14px;
+}
+
+.sale-tracking-steps li.is-done {
+  background: #ecfdf5;
+  border-color: rgba(5, 150, 105, 0.2);
+}
+
+.sale-tracking-steps li.is-done i {
+  background: #059669;
+  color: #fff;
+}
+
+.sale-tracking-steps li.is-done span {
+  color: #047857;
+}
+
+.sale-tracking-steps li.is-current {
+  background: #fff7ed;
+  border-color: rgba(194, 65, 12, 0.25);
+}
+
+.sale-tracking-steps li.is-current i {
+  background: #c2410c;
+  color: #fff;
+}
+
+.sale-tracking-order-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.sale-tracking-order-tabs button {
+  background: #faf9f7;
+  border: 1px solid rgba(139, 111, 71, 0.16);
+  border-radius: 999px;
+  color: #6b6b6b;
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 6px 12px;
+}
+
+.sale-tracking-order-tabs button.is-active {
+  background: #8b6f47;
+  border-color: #8b6f47;
+  color: #fff;
 }
 
 .sale-tracking-overview-grid {
@@ -162,7 +381,7 @@
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
-.sale-tracking-overview-grid > div {
+.sale-tracking-field {
   background: #faf9f7;
   border-radius: 10px;
   display: grid;
@@ -170,78 +389,150 @@
   padding: 12px;
 }
 
-.sale-tracking-overview-grid span,
+.sale-tracking-field span,
 .sale-tracking-form span {
   color: #6b6b6b;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
 }
 
-.sale-tracking-overview-grid strong {
+.sale-tracking-field strong {
   color: #2d2d2d;
   font-size: 13px;
+  line-height: 18px;
   overflow-wrap: anywhere;
 }
 
-.sale-tracking-actions {
+.sale-tracking-progress-block {
+  background: #faf9f7;
+  border-radius: 10px;
+  margin-top: 14px;
+  padding: 14px;
+}
+
+.sale-tracking-progress-head {
+  align-items: baseline;
   display: flex;
-  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.sale-tracking-progress-head span {
+  color: #6b6b6b;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.sale-tracking-progress-head strong {
+  color: #2d2d2d;
+  font-size: 13px;
+}
+
+.sale-tracking-progress-block small {
+  color: #9ca3af;
+  display: block;
+  font-size: 11px;
+  margin-top: 8px;
+}
+
+.sale-tracking-progress-track {
+  background: #ece7df;
+  border-radius: 999px;
+  height: 8px;
+  overflow: hidden;
+}
+
+.sale-tracking-progress-track i {
+  background: linear-gradient(90deg, #8b6f47, #c0954b);
+  border-radius: inherit;
+  display: block;
+  height: 100%;
+  min-width: 0;
+  transition: width 0.25s ease;
+}
+
+.sale-tracking-progress-track-sm {
+  flex: 1;
+  height: 6px;
+}
+
+.sale-tracking-actions {
+  display: grid;
   gap: 8px;
   margin-top: 16px;
 }
 
-.sale-tracking-actions button,
-.sale-tracking-form button {
+.sale-tracking-action-hint {
+  color: #9ca3af;
+  font-size: 12px;
+  margin: 0;
+}
+
+.sale-tracking-primary-btn {
   align-items: center;
   background: #8b6f47;
   border: 1px solid #8b6f47;
-  border-radius: 6px;
+  border-radius: 8px;
   color: #fff;
   cursor: pointer;
   display: inline-flex;
   font: inherit;
   font-size: 14px;
-  font-weight: 500;
+  font-weight: 600;
   gap: 8px;
-  min-height: 36px;
+  justify-content: center;
+  min-height: 38px;
   padding: 0 16px;
+  width: fit-content;
 }
 
-.sale-tracking-actions button:disabled,
-.sale-tracking-form button:disabled {
+.sale-tracking-primary-btn:disabled {
   cursor: not-allowed;
-  opacity: 0.58;
+  opacity: 0.55;
 }
 
 .sale-tracking-form {
   display: grid;
   gap: 12px;
+  min-width: 0;
 }
 
 .sale-tracking-form label {
   display: grid;
   gap: 6px;
+  min-width: 0;
 }
 
-.sale-tracking-form > div {
+.sale-tracking-form-row {
   display: grid;
   gap: 10px;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: 1fr;
+  min-width: 0;
 }
 
 .sale-tracking-form input,
 .sale-tracking-form textarea {
+  box-sizing: border-box;
   border: 1px solid rgba(139, 111, 71, 0.2);
   border-radius: 8px;
   color: #2d2d2d;
   font: inherit;
+  max-width: 100%;
   min-height: 38px;
+  min-width: 0;
   padding: 8px 10px;
   width: 100%;
 }
 
+.sale-tracking-form input[type='datetime-local'] {
+  display: block;
+}
+
 .sale-tracking-form textarea {
-  min-height: 84px;
+  min-height: 72px;
   resize: vertical;
 }
 
@@ -259,10 +550,62 @@
   padding: 12px;
 }
 
+.sale-tracking-list article.is-confirmed {
+  background: #f0fdf4;
+  border-color: rgba(5, 150, 105, 0.22);
+}
+
+.sale-tracking-schedule-top {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+}
+
 .sale-tracking-list span,
 .sale-tracking-list small {
   color: #6b6b6b;
   font-size: 12px;
+}
+
+.sale-tracking-badge {
+  border-radius: 999px;
+  display: inline-flex;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  padding: 5px 8px;
+  white-space: nowrap;
+}
+
+.sale-tracking-badge-active {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.sale-tracking-badge-ready {
+  background: #ffedd5;
+  color: #c2410c;
+}
+
+.sale-tracking-badge-success {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.sale-tracking-badge-warn {
+  background: #fef3c7;
+  color: #b45309;
+}
+
+.sale-tracking-badge-neutral {
+  background: #f3f4f6;
+  color: #4b5563;
+}
+
+.sale-tracking-badge-muted {
+  background: #f3f4f6;
+  color: #9ca3af;
 }
 
 .sale-tracking-table-wrap {
@@ -271,28 +614,114 @@
 
 .sale-tracking-table-wrap table {
   border-collapse: collapse;
-  min-width: 760px;
+  min-width: 820px;
   width: 100%;
 }
 
 .sale-tracking-table-wrap th,
 .sale-tracking-table-wrap td {
-  border-bottom: 1px solid rgba(139, 111, 71, 0.12);
+  border-bottom: 1px solid rgba(139, 111, 71, 0.1);
   font-size: 13px;
   padding: 12px 10px;
   text-align: left;
+  vertical-align: middle;
 }
 
 .sale-tracking-table-wrap th {
   color: #6b6b6b;
   font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
   text-transform: uppercase;
 }
 
+.sale-tracking-item-name {
+  font-weight: 600;
+  max-width: 200px;
+}
+
+.sale-tracking-item-progress {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  min-width: 120px;
+}
+
+.sale-tracking-item-progress span {
+  color: #6b6b6b;
+  font-size: 11px;
+  font-weight: 700;
+  min-width: 32px;
+}
+
+.sale-tracking-empty {
+  align-items: center;
+  color: #6b6b6b;
+  display: grid;
+  gap: 8px;
+  justify-items: center;
+  padding: 24px 12px;
+  text-align: center;
+}
+
+.sale-tracking-empty p {
+  font-size: 13px;
+  line-height: 18px;
+  margin: 0;
+}
+
+.sale-tracking-empty-workspace {
+  background: #fff;
+  border: 1px dashed rgba(139, 111, 71, 0.25);
+  border-radius: 12px;
+  min-height: 280px;
+  place-content: center;
+}
+
+.sale-tracking-empty-workspace h3 {
+  color: #2d2d2d;
+  font-size: 18px;
+  margin: 0;
+}
+
 @media (max-width: 1100px) {
+  .sale-tracking-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .sale-tracking-layout,
   .sale-tracking-grid,
-  .sale-tracking-overview-grid {
+  .sale-tracking-overview-grid,
+  .sale-tracking-steps {
     grid-template-columns: 1fr;
+  }
+
+  .sale-tracking-project-panel {
+    position: static;
+  }
+
+  .sale-tracking-project-list {
+    max-height: none;
+  }
+}
+
+@media (min-width: 1280px) {
+  .sale-tracking-form-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .sale-tracking-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .sale-tracking-heading {
+    flex-direction: column;
+  }
+
+  .sale-tracking-refresh {
+    width: 100%;
+    justify-content: center;
   }
 }
