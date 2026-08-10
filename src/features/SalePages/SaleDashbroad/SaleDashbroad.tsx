@@ -1,6 +1,7 @@
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import {
   IconArrowRight,
+  IconChevronRight,
   IconCreditCard,
   IconFileInvoice,
   IconFilter,
@@ -73,14 +74,33 @@ function getPriorityClass(priority: QueueItem['priority']) {
   return `sales-ops-priority sales-ops-priority-${priority.toLowerCase()}`;
 }
 
+function formatStatusLabel(value: string) {
+  return value
+    .toLowerCase()
+    .split('_')
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
+}
+
 export function SaleDashbroad() {
   const [activeGroup, setActiveGroup] = useState<QueueGroup>('Intake');
+  const [lastRefreshAt, setLastRefreshAt] = useState(() => new Date());
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const currentUserQuery = useCurrentUser();
-  const now = useMemo(() => new Date(), []);
-  const displayedDate = new Intl.DateTimeFormat('en-US', { dateStyle: 'medium' }).format(now);
-  const refreshTime = new Intl.DateTimeFormat('en-US', { hour: '2-digit', minute: '2-digit' }).format(now);
+  const refreshTime = new Intl.DateTimeFormat('en-US', { hour: '2-digit', minute: '2-digit' }).format(lastRefreshAt);
   const activeQueue = actionQueue.filter((item) => item.group === activeGroup);
-  const userName = currentUserQuery.data?.fullName ?? 'Sales Staff';
+
+  async function handleRefresh() {
+    if (isRefreshing) return;
+
+    setIsRefreshing(true);
+    try {
+      await currentUserQuery.refetch();
+      setLastRefreshAt(new Date());
+    } finally {
+      setIsRefreshing(false);
+    }
+  }
 
   return (
     <div className="sale-dashboard-shell">
@@ -97,9 +117,15 @@ export function SaleDashbroad() {
               <p>Project coordination, commercial follow-up, and operational priorities</p>
             </div>
             <div className="sales-ops-header-side">
-              <p>{userName}</p>
-              <strong>{displayedDate}</strong>
-              <small><IconRefresh size={14} /> Refreshed {refreshTime}</small>
+              <button
+                className="sales-ops-refresh-button"
+                disabled={isRefreshing}
+                type="button"
+                onClick={() => void handleRefresh()}
+              >
+                <IconRefresh className={isRefreshing ? 'is-spinning' : undefined} size={14} />
+                {isRefreshing ? 'Refreshing...' : `Refresh · ${refreshTime}`}
+              </button>
             </div>
           </section>
 
@@ -162,25 +188,27 @@ export function SaleDashbroad() {
               </div>
               <div className="sales-ops-queue-table">
                 <div className="sales-ops-queue-head">
-                  <span>Priority</span>
                   <span>Project</span>
                   <span>Customer</span>
                   <span>Phase</span>
+                  <span className="sales-ops-queue-col-center">Priority</span>
                   <span>Action</span>
                   <span>Due</span>
-                  <span>Status</span>
+                  <span className="sales-ops-queue-col-center">Status</span>
                   <span />
                 </div>
                 {activeQueue.map((item) => (
                   <div className="sales-ops-queue-row" key={`${item.project}-${item.action}`}>
-                    <span className={getPriorityClass(item.priority)}>{item.priority}</span>
                     <strong>{item.project}</strong>
                     <span>{item.customer}</span>
                     <span>{item.phase}</span>
+                    <span className={getPriorityClass(item.priority)}>{item.priority}</span>
                     <span>{item.action}</span>
                     <span>{item.due}</span>
-                    <em>{item.status}</em>
-                    <Link to={item.path}>Open</Link>
+                    <em title={item.status}>{formatStatusLabel(item.status)}</em>
+                    <Link aria-label={`Open ${item.project}`} className="sales-ops-queue-open" title="Open" to={item.path}>
+                      <IconChevronRight size={18} stroke={2} />
+                    </Link>
                   </div>
                 ))}
               </div>

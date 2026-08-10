@@ -44,6 +44,8 @@ export function SaleTracking() {
   const [selectedOrderId, setSelectedOrderId] = useState('');
   const [projectSearch, setProjectSearch] = useState('');
   const [message, setMessage] = useState<{ tone: 'error' | 'success'; text: string } | null>(null);
+  const [lastRefreshAt, setLastRefreshAt] = useState(() => new Date());
+  const [isManualRefreshing, setIsManualRefreshing] = useState(false);
 
   const currentUserQuery = useCurrentUser();
   const currentUser = currentUserQuery.data;
@@ -98,10 +100,12 @@ export function SaleTracking() {
   const itemProgress = useMemo(() => getItemDeliveryProgress(order?.items ?? []), [order?.items]);
 
   const isRefreshing =
+    isManualRefreshing ||
     projectsQuery.isFetching ||
     ordersQuery.isFetching ||
     orderDetailQuery.isFetching ||
     deliverySchedulesQuery.isFetching;
+  const refreshTime = new Intl.DateTimeFormat('en-US', { hour: '2-digit', minute: '2-digit' }).format(lastRefreshAt);
 
   const startDeliveryBlockedReason = useMemo(() => {
     if (!order) return 'Select a project with an order.';
@@ -127,13 +131,21 @@ export function SaleTracking() {
   }, [orders, selectedOrderId]);
 
   async function handleRefresh() {
+    if (isManualRefreshing) return;
+
     setMessage(null);
-    await Promise.all([
-      projectsQuery.refetch(),
-      selectedProjectId ? ordersQuery.refetch() : Promise.resolve(),
-      selectedOrderId ? orderDetailQuery.refetch() : Promise.resolve(),
-      selectedProjectId ? deliverySchedulesQuery.refetch() : Promise.resolve(),
-    ]);
+    setIsManualRefreshing(true);
+    try {
+      await Promise.all([
+        projectsQuery.refetch(),
+        selectedProjectId ? ordersQuery.refetch() : Promise.resolve(),
+        selectedOrderId ? orderDetailQuery.refetch() : Promise.resolve(),
+        selectedProjectId ? deliverySchedulesQuery.refetch() : Promise.resolve(),
+      ]);
+      setLastRefreshAt(new Date());
+    } finally {
+      setIsManualRefreshing(false);
+    }
   }
 
   async function createDeliverySchedule(event: FormEvent<HTMLFormElement>) {
@@ -217,8 +229,8 @@ export function SaleTracking() {
               type="button"
               onClick={() => void handleRefresh()}
             >
-              <IconRefresh size={16} className={isRefreshing ? 'is-spinning' : undefined} />
-              {isRefreshing ? 'Refreshing...' : 'Refresh'}
+              <IconRefresh size={14} className={isRefreshing ? 'is-spinning' : undefined} />
+              {isRefreshing ? 'Refreshing...' : `Refresh · ${refreshTime}`}
             </button>
           </section>
 
