@@ -206,6 +206,8 @@ function OrderDetailCard({
       </header>
 
       <div className="customer-orders-money-grid">
+        <MoneyValue label="Original Total" value={formatMoney(order.originalTotalAmount)} />
+        <MoneyValue label={`VAT ${formatPercentRate(order.vatRate)}`} value={formatMoney(order.vatAmount)} />
         <MoneyValue label="Final Total" value={formatMoney(order.finalTotalAmount)} />
         <MoneyValue label="Deposit" value={formatMoney(order.depositAmount)} />
         <MoneyValue label="Paid" value={formatMoney(order.paidAmount)} />
@@ -228,11 +230,9 @@ function OrderDetailCard({
               <th>Item</th>
               <th>Quantity</th>
               <th>Unit</th>
-              <th>Customization</th>
-              <th>Gross</th>
               <th>Discount</th>
-              <th>Tax</th>
-              <th>Total</th>
+              <th>Pre-VAT Subtotal</th>
+              <th>Adjustment</th>
               <th>Delivery</th>
               <th>Confirmation</th>
             </tr>
@@ -243,11 +243,9 @@ function OrderDetailCard({
                 <td>{getOrderItemName(item)}</td>
                 <td>{item.quantity ?? '-'}</td>
                 <td>{formatMoney(item.unitPrice)}</td>
-                <td>{formatMoney(getCustomizationUnitAdditionalCost(item))}</td>
-                <td>{formatMoney(item.grossAmount ?? item.subtotalAmount)}</td>
                 <td>{formatMoney(item.discountAmount)}</td>
-                <td>{formatMoney(item.taxAmount)}</td>
-                <td>{formatMoney(item.totalAmount ?? item.subtotalAmount)}</td>
+                <td>{formatMoney(item.subtotalAmount)}</td>
+                <td>{formatMoney(item.adjustmentAmount)}</td>
                 <td>{formatDeliveryState(item)}</td>
                 <td>
                   {canConfirmDelivery(item) ? (
@@ -285,10 +283,6 @@ function getOrderItemName(item: Pick<OrderItemDto, 'itemName' | 'productNameSnap
   return item.itemName ?? item.productNameSnapshot ?? '-';
 }
 
-function getCustomizationUnitAdditionalCost(item: Pick<OrderItemDto, 'customizationUnitAdditionalCost' | 'customizationAdditionalCost'>) {
-  return item.customizationUnitAdditionalCost ?? item.customizationAdditionalCost ?? null;
-}
-
 function getOrderProjects(projects: ProjectListItemDto[]) {
   return projects.filter((project) => orderProjectStatuses.has(project.status));
 }
@@ -311,6 +305,12 @@ function formatMoney(value?: number | null) {
   return `${new Intl.NumberFormat('vi-VN').format(value)} VND`;
 }
 
+function formatPercentRate(value?: number | null) {
+  if (typeof value !== 'number') return '-';
+
+  return `${new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 2 }).format(value * 100)}%`;
+}
+
 function formatDeliveryState(item: OrderItemDto) {
   const delivered = item.deliveredQuantity ?? 0;
   const quantity = item.quantity ?? 0;
@@ -320,7 +320,6 @@ function formatDeliveryState(item: OrderItemDto) {
 }
 
 function canConfirmDelivery(item: OrderItemDto) {
-  if (item.itemType !== 'PRODUCT_ITEM') return false;
   if (item.status === 'CANCELLED' || item.status === 'UNAVAILABLE') return false;
   if (item.customerConfirmedAt) return false;
 
@@ -331,7 +330,6 @@ function canConfirmDelivery(item: OrderItemDto) {
 }
 
 function getDeliveryConfirmationLabel(item: OrderItemDto) {
-  if (item.itemType === 'MANUAL_ITEM') return 'Not deliverable';
   if (item.status === 'CANCELLED' || item.status === 'UNAVAILABLE') return 'Not deliverable';
   if (item.customerConfirmedAt) return 'Confirmed';
 

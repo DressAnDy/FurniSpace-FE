@@ -65,7 +65,10 @@ export function Tracking() {
   const order = orderDetailQuery.data ?? null;
   const confirmDeliveryMutation = useConfirmOrderItemDelivery();
   const productionItems = useMemo(() => order?.items ?? [], [order?.items]);
-  const deliveryItemGroups = useMemo(() => groupOrderItemsByName(productionItems.filter((item) => item.itemType === 'PRODUCT_ITEM')), [productionItems]);
+  const deliveryItemGroups = useMemo(
+    () => groupOrderItemsByName(productionItems.filter((item) => (item.quantity ?? 0) > 0 && item.status !== 'UNAVAILABLE' && item.status !== 'CANCELLED')),
+    [productionItems],
+  );
   const attentionGroups = deliveryItemGroups.filter((group) => group.hasAttention);
 
   useEffect(() => {
@@ -232,7 +235,6 @@ function countItems(items: OrderItemDto[], status: OrderItemStatus) {
 
 function canConfirmDelivery(orderStatus: OrderStatus | null | undefined, item: OrderItemDto) {
   if (orderStatus !== 'DELIVERING') return false;
-  if (item.itemType !== 'PRODUCT_ITEM') return false;
   if (item.status === 'DELIVERED' || item.status === 'UNAVAILABLE' || item.status === 'CANCELLED') return false;
 
   const quantity = item.quantity ?? 0;
@@ -260,7 +262,7 @@ function groupOrderItemsByName(items: OrderItemDto[]): OrderItemGroup[] {
   const groupsByKey = new Map<string, OrderItemDto[]>();
 
   for (const item of items) {
-    const key = `${item.itemType ?? 'UNKNOWN'}|${getOrderItemName(item)}`;
+    const key = getOrderItemName(item);
     const groupItems = groupsByKey.get(key);
 
     if (groupItems) {

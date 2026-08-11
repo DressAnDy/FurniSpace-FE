@@ -18,7 +18,6 @@ import {
   useProjectOrders,
   useUpdateOrderFinancialAdjustment,
 } from '@/services/queries';
-import { aggregateDuplicateItems } from '@/shared/utils/itemAggregation';
 
 import './SaleOrders.css';
 
@@ -81,9 +80,13 @@ export function SaleOrders() {
   async function updateFinancialAdjustment(input: { depositAmount: number; orderId: string }) {
     setMessage(null);
 
+    if (input.depositAmount < 0) {
+      setMessage({ tone: 'error', text: 'Deposit amount cannot be negative.' });
+      return;
+    }
+
     try {
       await financialAdjustmentMutation.mutateAsync({
-        additionalDiscountAmount: 0,
         adjustmentNote: null,
         depositAmount: input.depositAmount,
         orderId: input.orderId,
@@ -272,7 +275,10 @@ function OrderDetailPanel({
   const [priority, setPriority] = useState<'LOW' | 'MEDIUM' | 'NORMAL' | 'HIGH' | 'URGENT'>('NORMAL');
   const [estimatedStartDate, setEstimatedStartDate] = useState('');
   const [estimatedCompletionDate, setEstimatedCompletionDate] = useState('');
-  const orderItems = useMemo(() => aggregateDuplicateItems(order.items), [order.items]);
+  const orderItems = useMemo(
+    () => [...order.items].sort((first, second) => getOrderItemName(first).localeCompare(getOrderItemName(second))),
+    [order.items],
+  );
   const hasCancelledItems = order.items.some((item) => item.status === 'CANCELLED' || item.status === 'UNAVAILABLE');
   const canCompleteOrder = order.status === 'DELIVERED' || order.status === 'FINAL_PAYMENT_PENDING';
   const isOrderCompleted = order.status === 'COMPLETED';
@@ -302,6 +308,8 @@ function OrderDetailPanel({
         <span className={`sale-orders-status sale-orders-status-${statusClass(order.status)}`}>{formatEnumLabel(order.status ?? 'UNKNOWN')}</span>
       </header>
       <div className="sale-orders-money-grid">
+        <MoneyValue label="Original Total" value={formatMoney(order.originalTotalAmount)} />
+        <MoneyValue label={`VAT ${formatPercentRate(order.vatRate)}`} value={formatMoney(order.vatAmount)} />
         <MoneyValue label="Final Total" value={formatMoney(order.finalTotalAmount)} />
         <MoneyValue label="Deposit" value={formatMoney(order.depositAmount)} />
         <MoneyValue label="Paid" value={formatMoney(order.paidAmount)} />
@@ -416,16 +424,11 @@ function OrderDetailPanel({
           <thead>
             <tr>
               <th>Item</th>
-              <th>Type</th>
               <th>Qty</th>
               <th>Unit</th>
-              <th>Customization</th>
-              <th>Gross</th>
               <th>Discount</th>
-              <th>Taxable</th>
-              <th>Tax %</th>
-              <th>Tax</th>
-              <th>Total</th>
+              <th>Pre-VAT Subtotal</th>
+              <th>Adjustment</th>
               <th>Delivery</th>
             </tr>
           </thead>
@@ -433,16 +436,11 @@ function OrderDetailPanel({
             {orderItems.map((item) => (
               <tr key={item.orderItemId}>
                 <td>{getOrderItemName(item)}</td>
-                <td>{formatEnumLabel(item.itemType ?? 'UNKNOWN')}</td>
                 <td>{item.quantity ?? '-'}</td>
                 <td>{formatMoney(item.unitPrice)}</td>
-                <td>{formatMoney(getCustomizationUnitAdditionalCost(item))}</td>
-                <td>{formatMoney(item.grossAmount ?? item.subtotalAmount)}</td>
                 <td>{formatMoney(item.discountAmount)}</td>
-                <td>{formatMoney(item.taxableAmount)}</td>
-                <td>{formatPercent(item.taxRate)}</td>
-                <td>{formatMoney(item.taxAmount)}</td>
-                <td>{formatMoney(item.totalAmount ?? item.subtotalAmount)}</td>
+                <td>{formatMoney(item.subtotalAmount)}</td>
+                <td>{formatMoney(item.adjustmentAmount)}</td>
                 <td>{formatDeliveryState(item)}</td>
               </tr>
             ))}
@@ -464,10 +462,6 @@ function MoneyValue({ label, value }: { label: string; value: string }) {
 
 function getOrderItemName(item: Pick<OrderItemDto, 'itemName' | 'productNameSnapshot'>) {
   return item.itemName ?? item.productNameSnapshot ?? '-';
-}
-
-function getCustomizationUnitAdditionalCost(item: Pick<OrderItemDto, 'customizationUnitAdditionalCost' | 'customizationAdditionalCost'>) {
-  return item.customizationUnitAdditionalCost ?? item.customizationAdditionalCost ?? null;
 }
 
 function getOrderProjects(projects: ProjectListItemDto[]) {
@@ -492,10 +486,10 @@ function formatMoney(value?: number | null) {
   return `${new Intl.NumberFormat('vi-VN').format(value)} VND`;
 }
 
-function formatPercent(value?: number | null) {
+function formatPercentRate(value?: number | null) {
   if (typeof value !== 'number') return '-';
 
-  return `${new Intl.NumberFormat('vi-VN').format(value)}%`;
+  return `${new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 2 }).format(value * 100)}%`;
 }
 
 function formatDeliveryState(item: OrderItemDto) {
@@ -526,7 +520,7 @@ function getCompleteOrderBlocker(order: OrderDetailDto) {
 }
 
 function isDeliverableOrderItem(item: OrderItemDto) {
-  return item.itemType === 'PRODUCT_ITEM' && item.status !== 'CANCELLED' && item.status !== 'UNAVAILABLE';
+  return (item.quantity ?? 0) > 0 && item.status !== 'CANCELLED' && item.status !== 'UNAVAILABLE';
 }
 
 function normalizeMoneyInput(value: string) {

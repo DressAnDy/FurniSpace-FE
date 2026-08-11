@@ -8,7 +8,6 @@ import {
   IconMessageDots,
   IconPackage,
 } from '@tabler/icons-react';
-import { useQueries } from '@tanstack/react-query';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 
 import { CustomerNavbar } from '@/features/CustomerPages/customercomponents';
@@ -19,7 +18,7 @@ import type { RoomMaterialSelection } from '@/features/ThreeD/types/roomLayout.t
 import { hydrateRoomPlannerScenePayload } from '@/features/ThreeD/utils/roomPlannerSceneMapper';
 import { BuildingSceneCanvas } from '@/features/ThreeDTest/components/BuildingSceneCanvas';
 import {
-  createProjectCatalogBuildingModelVersionMap,
+  createResolvedRoomPlannerBuildingModelVersionMap,
   resolvePlacedBuildingProducts,
 } from '@/features/ThreeDTest/utils/buildingProductCatalogMapper';
 import { hydrateBuildingRoomPlannerPayload } from '@/features/ThreeDTest/utils/buildingRoomPlannerPayloadMapper';
@@ -31,15 +30,13 @@ import {
   type ProposalItemDto,
   type RoomPlannerSceneData,
 } from '@/services/api/proposals';
-import { getProjectCatalogProductVersion } from '@/services/api/products';
 import {
-  productQueryKeys,
   useProjectCustomizationRequests,
   useProjectList,
-  useProjectCatalogProducts,
   useProjectProposals,
   useProposalItems,
   useProposalScenes,
+  useRoomPlannerResolvedProducts,
   useRoomPlannerScene,
   useSelectFinalProposal,
 } from '@/services/queries';
@@ -47,7 +44,7 @@ import { aggregateDuplicateItems } from '@/shared/utils/itemAggregation';
 
 type ViewMode = '2d' | '3d';
 type SidePanelMode = 'items' | 'chat' | null;
-const PREVIEW_PRODUCT_CATALOG_LIMIT = 100;
+const EMPTY_GUID = '00000000-0000-0000-0000-000000000000';
 
 export function Customer3dPreviewPage() {
   const navigate = useNavigate();
@@ -106,6 +103,19 @@ export function Customer3dPreviewPage() {
   );
   const selectedScene = scenes.find((scene) => scene.sceneId === selectedSceneId) ?? scenes[0] ?? null;
   const roomPlannerSceneQuery = useRoomPlannerScene(selectedScene?.sceneId, { enabled: Boolean(selectedScene?.sceneId) });
+  const sceneProductVersionIds = useMemo(
+    () => collectSceneProductVersionIds(roomPlannerSceneQuery.data),
+    [roomPlannerSceneQuery.data],
+  );
+  const resolvedProductsQuery = useRoomPlannerResolvedProducts(
+    selectedScene?.sceneId,
+    sceneProductVersionIds,
+    { enabled: Boolean(selectedScene?.sceneId && roomPlannerSceneQuery.data) },
+  );
+  const resolvedProductsByVersionId = useMemo(
+    () => new Map((resolvedProductsQuery.data?.items ?? []).map((item) => [item.productVersionId, item])),
+    [resolvedProductsQuery.data?.items],
+  );
   const proposalItemsQuery = useProposalItems(
     selectedProposal
       ? {
@@ -118,41 +128,23 @@ export function Customer3dPreviewPage() {
     { enabled: Boolean(selectedProposal) },
   );
   const hydratedScene = useMemo(
-    () => hydrateRoomPlannerScenePayload(roomPlannerSceneQuery.data),
-    [roomPlannerSceneQuery.data],
+    () => hydrateRoomPlannerScenePayload(roomPlannerSceneQuery.data, {
+      resolveModelUrl: (object) => {
+        const productVersionId = object.productVersionId;
+        const product = productVersionId ? resolvedProductsByVersionId.get(productVersionId) : null;
+
+        return product?.files?.find((file) => file.fileType === 'MODEL_3D')?.fileUrl ?? null;
+      },
+    }),
+    [resolvedProductsByVersionId, roomPlannerSceneQuery.data],
   );
   const hydratedBuildingScene = useMemo(
     () => hydrateBuildingRoomPlannerPayload(roomPlannerSceneQuery.data),
     [roomPlannerSceneQuery.data],
   );
-  const shouldResolveBuildingProducts = Boolean(selectedScene && hydratedBuildingScene.sceneData);
-  const projectCatalogQuery = useProjectCatalogProducts(
-    selectedProjectId,
-    { page: 1, pageSize: PREVIEW_PRODUCT_CATALOG_LIMIT },
-    shouldResolveBuildingProducts,
-  );
-  const projectCatalogVersions = useMemo(
-    () => (projectCatalogQuery.data?.items ?? []).flatMap((product) => product.eligibleVersions.map((version) => ({ product, version }))),
-    [projectCatalogQuery.data?.items],
-  );
-  const projectCatalogVersionDetailQueries = useQueries({
-    queries: projectCatalogVersions.map(({ product, version }) => ({
-      enabled: shouldResolveBuildingProducts && Boolean(selectedProjectId && version.productVersionId),
-      queryFn: async () => {
-        const response = await getProjectCatalogProductVersion({
-          productVersionId: version.productVersionId,
-          projectId: selectedProjectId,
-        });
-
-        return { product, version: response };
-      },
-      queryKey: productQueryKeys.projectCatalogVersion(selectedProjectId, version.productVersionId),
-      staleTime: 5 * 60 * 1000,
-    })),
-  });
   const buildingModelsByVersionId = useMemo(
-    () => createProjectCatalogBuildingModelVersionMap(projectCatalogVersionDetailQueries.map((query) => query.data)),
-    [projectCatalogVersionDetailQueries],
+    () => createResolvedRoomPlannerBuildingModelVersionMap(resolvedProductsQuery.data?.items ?? []),
+    [resolvedProductsQuery.data?.items],
   );
   const resolvedBuildingProducts = useMemo(
     () => resolvePlacedBuildingProducts(hydratedBuildingScene.placedProducts, buildingModelsByVersionId),
@@ -401,6 +393,8 @@ export function Customer3dPreviewPage() {
             <div className="customer-scene-renderer">
               {roomPlannerSceneQuery.isLoading ? (
                 <SceneState message="Loading saved Room Planner scene..." />
+              ) : resolvedProductsQuery.isError ? (
+                <SceneState message={getProposalServiceResultMessage(resolvedProductsQuery.error)} />
               ) : roomPlannerSceneQuery.isError ? (
                 <SceneState message={getProposalServiceResultMessage(roomPlannerSceneQuery.error)} />
               ) : !selectedScene ? (
@@ -601,6 +595,15 @@ function PanelHeader({ title }: { title: string }) {
 
 function isRoomPlannerPreviewScene(scene: { sceneType?: string | null }) {
   return scene.sceneType === 'ROOM_PLANNER' || scene.sceneType === 'THREE_D';
+}
+
+function collectSceneProductVersionIds(scene: RoomPlannerSceneData | null | undefined) {
+  const ids = (scene?.objects ?? [])
+    .filter((object) => object.objectType === 'FURNITURE')
+    .map((object) => object.productVersionId)
+    .filter((value): value is string => Boolean(value && value !== EMPTY_GUID));
+
+  return Array.from(new Set(ids)).sort();
 }
 
 function getProposalSelectionCustomizationBlocker(

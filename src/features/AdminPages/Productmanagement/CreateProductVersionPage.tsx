@@ -68,7 +68,6 @@ export function CreateProductVersionPage() {
               height: normalizeOptionalNumber(formData.get('height')),
               depth: normalizeOptionalNumber(formData.get('depth')),
               estimatedPrice: normalizeOptionalNumber(formData.get('estimated_price')),
-              defaultTaxRate: normalizeOptionalNumber(formData.get('default_tax_rate')),
               isDefault: formData.get('is_default') === 'on',
               isPublic: formData.get('is_public') === 'on',
               isProjectSpecific: false,
@@ -87,7 +86,6 @@ export function CreateProductVersionPage() {
               height: normalizeOptionalNumber(formData.get('height')),
               depth: normalizeOptionalNumber(formData.get('depth')),
               estimatedPrice: normalizeOptionalNumber(formData.get('estimated_price')),
-              defaultTaxRate: normalizeOptionalNumber(formData.get('default_tax_rate')),
               isDefault: formData.get('is_default') === 'on',
               isPublic: formData.get('is_public') === 'on',
               isProjectSpecific: false,
@@ -272,21 +270,8 @@ export function CreateProductVersionPage() {
                       <span>Estimated Price</span>
                       <input className="admin-form-input" defaultValue={versionToEdit?.estimatedPrice ?? ''} min="0" name="estimated_price" placeholder="0.00" type="number" />
                     </label>
-                    <label className="product-form-field">
-                      <span>Default Tax Rate (%)</span>
-                      <input
-                        className="admin-form-input"
-                        defaultValue={versionToEdit?.defaultTaxRate ?? ''}
-                        max="100"
-                        min="0"
-                        name="default_tax_rate"
-                        placeholder="0"
-                        step="0.01"
-                        type="number"
-                      />
-                    </label>
                   </div>
-                  <p className="product-form-helper">Quotation product items snapshot this rate when Sales creates a draft quotation.</p>
+                  <p className="product-form-helper">VAT is calculated from the quotation header, not from product versions.</p>
                 </div>
 
                 <div className="product-form-section">

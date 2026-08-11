@@ -334,7 +334,7 @@ export function CustomerProposalDetailPage() {
                       <span>{formatMoney(version.estimatedAdditionalCost)} - {version.estimatedProductionDays ?? '-'} days</span>
                       <p>{version.feasibilityNote ?? version.additionalCostReason ?? version.designerNote ?? 'Production confirmed this customization version.'}</p>
                       <div>
-                        <button disabled={acceptCustomizationMutation.isPending} type="button" onClick={() => void acceptCustomization(request, version)}>
+                        <button disabled={acceptCustomizationMutation.isPending || !canAcceptCustomizationVersion(request, version)} type="button" onClick={() => void acceptCustomization(request, version)}>
                           Accept
                         </button>
                       </div>
@@ -382,6 +382,16 @@ function getCustomerApprovalItems(requests: CustomizationRequestDto[]) {
       .filter((version) => request.status === 'REVIEWING' && version.status === 'REVIEWING' && version.feasibilityStatus === 'FEASIBLE')
       .map((version) => ({ request, version })),
   );
+}
+
+function canAcceptCustomizationVersion(request: CustomizationRequestDto, version: CustomizationRequestVersionDto) {
+  const sourcePrice = request.sourceProductVersion?.estimatedPrice ?? request.sourceProductVersion?.price;
+
+  return request.status === 'REVIEWING' &&
+    version.status === 'REVIEWING' &&
+    version.feasibilityStatus === 'FEASIBLE' &&
+    typeof version.estimatedAdditionalCost === 'number' &&
+    typeof sourcePrice === 'number';
 }
 
 function normalizeNumber(value: string) {

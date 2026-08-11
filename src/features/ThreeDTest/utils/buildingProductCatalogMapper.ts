@@ -1,4 +1,5 @@
 import type { BuildingProductModel, PlacedBuildingProduct } from '@/features/ThreeDTest/schemas/buildingScene.types';
+import type { RoomPlannerResolvedProductDto } from '@/services/api/proposals';
 import type {
   CatalogFileDto,
   ProductDetailDto,
@@ -128,6 +129,55 @@ export function createProjectCatalogBuildingModelVersionMap(
   });
 
   return modelsByVersionId;
+}
+
+export function createResolvedRoomPlannerBuildingModelVersionMap(
+  products: Array<RoomPlannerResolvedProductDto | null | undefined>,
+) {
+  const modelsByVersionId = new Map<string, BuildingProductModel>();
+
+  products.forEach((product) => {
+    const model = mapResolvedRoomPlannerProductToBuildingModel(product);
+
+    if (model?.productVersionId) {
+      modelsByVersionId.set(model.productVersionId, model);
+    }
+  });
+
+  return modelsByVersionId;
+}
+
+export function mapResolvedRoomPlannerProductToBuildingModel(
+  product: RoomPlannerResolvedProductDto | null | undefined,
+): BuildingProductModel | null {
+  if (!product) {
+    return null;
+  }
+
+  const files = product.files ?? [];
+  const modelFile = getCatalogModelFile(files);
+
+  if (!modelFile?.fileUrl) {
+    return null;
+  }
+
+  const thumbnailFile = files.find((file) => file.fileType === 'PRODUCT_PREVIEW');
+
+  return {
+    color: product.color ?? null,
+    depth: product.depth ?? null,
+    fileId: modelFile.fileId,
+    height: product.height ?? null,
+    id: `room-planner-${product.productVersionId}`,
+    material: product.material ?? null,
+    modelUrl: modelFile.fileUrl,
+    name: [product.productName, product.versionName].filter(Boolean).join(' - ') || product.versionCode || 'Furniture',
+    productId: product.productId,
+    productVersionId: product.productVersionId,
+    scale: { x: API_PRODUCT_DEFAULT_SCALE, y: API_PRODUCT_DEFAULT_SCALE, z: API_PRODUCT_DEFAULT_SCALE },
+    thumbnailUrl: thumbnailFile?.fileUrl ?? EMPTY_THUMBNAIL,
+    width: product.width ?? null,
+  };
 }
 
 export function resolvePlacedBuildingProducts(

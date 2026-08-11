@@ -213,7 +213,6 @@ export type ProductVersionDto = {
   height: number | null;
   depth: number | null;
   estimatedPrice: number | null;
-  defaultTaxRate?: number | null;
   isDefault: boolean;
   isPublic: boolean;
   isProjectSpecific: boolean;
@@ -305,7 +304,6 @@ export type CreateProductVersionInput = {
   height?: number | null;
   depth?: number | null;
   estimatedPrice?: number | null;
-  defaultTaxRate?: number | null;
   isDefault?: boolean;
   isPublic?: boolean;
   isProjectSpecific?: boolean;
@@ -342,7 +340,6 @@ export type ProjectCatalogVersionSummaryDto = {
   depth?: number | null;
   dimensionUnit?: string | null;
   estimatedPrice?: number | null;
-  defaultTaxRate?: number | null;
   isProjectSpecific?: boolean | null;
 };
 
@@ -393,7 +390,6 @@ export type AdminCatalogDefaultVersionSummaryDto = {
   versionCode?: string | null;
   versionName?: string | null;
   estimatedPrice?: number | null;
-  defaultTaxRate?: number | null;
 };
 
 export type AdminCatalogProductItemDto = {
@@ -661,7 +657,6 @@ export async function createProductVersion(input: CreateProductVersionInput) {
     height: input.height ?? null,
     depth: input.depth ?? null,
     estimatedPrice: input.estimatedPrice ?? null,
-    defaultTaxRate: input.defaultTaxRate ?? null,
     isDefault: input.isDefault ?? false,
     isPublic: input.isPublic ?? true,
     isProjectSpecific: input.isProjectSpecific ?? false,
@@ -680,7 +675,6 @@ export async function updateProductVersion(input: UpdateProductVersionInput) {
     height: input.height ?? null,
     depth: input.depth ?? null,
     estimatedPrice: input.estimatedPrice ?? null,
-    defaultTaxRate: input.defaultTaxRate ?? null,
     isDefault: input.isDefault ?? false,
     isPublic: input.isPublic ?? true,
     isProjectSpecific: input.isProjectSpecific ?? false,

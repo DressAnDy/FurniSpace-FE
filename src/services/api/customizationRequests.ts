@@ -55,6 +55,7 @@ export type ApprovedProductVersionSummaryDto = {
   height?: number | null;
   depth?: number | null;
   dimensionUnit?: string | null;
+  estimatedPrice?: number | null;
   price?: number | null;
   thumbnailUrl?: string | null;
   modelFileUrl?: string | null;
@@ -274,8 +275,26 @@ export function getCustomizationRequestServiceResultMessage(error: unknown) {
     return result.errors.join('\n');
   }
 
+  if (result.errorCode && result.errorCode in customizationRequestErrorMessages) {
+    return customizationRequestErrorMessages[result.errorCode];
+  }
+
   return result.message || 'Request failed. Please try again.';
 }
+
+const customizationRequestErrorMessages: Record<string, string> = {
+  VERSION_CODE_ALREADY_EXISTS: 'This customization version code already exists.',
+  CUSTOMIZATION_VERSION_NUMBER_CONFLICT: 'This customization version number conflicts with another version. Please reload and try again.',
+  PRODUCT_VERSION_FILE_LINK_CONFLICT: 'One or more selected files are already linked in a conflicting way.',
+  SOURCE_PRODUCT_VERSION_NOT_FOUND: 'The source product version for this customization could not be found.',
+  SOURCE_PRODUCT_VERSION_PRICE_REQUIRED: 'The source product version needs an estimated price before this version can be accepted.',
+  APPROVED_PRODUCT_VERSION_NOT_FOUND: 'The approved custom product version could not be found.',
+  APPROVED_PRODUCT_VERSION_INVALID_TYPE: 'The approved version is not a valid project-specific customization version.',
+  ESTIMATED_ADDITIONAL_COST_REQUIRED: 'Production must provide an estimated additional cost before the customer can accept.',
+  CUSTOMIZATION_VERSION_NOT_REVIEWING: 'Only customization versions in review can be accepted.',
+  CUSTOMIZATION_VERSION_NOT_FEASIBLE: 'Only feasible customization versions can be accepted.',
+  CUSTOMIZATION_NOT_IN_REVIEWING: 'Only customization requests in reviewing status can be accepted.',
+};
 
 export function getCustomizationRequestServiceResultFromError(error: unknown) {
   if (!(error instanceof AxiosError)) {

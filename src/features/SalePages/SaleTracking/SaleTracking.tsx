@@ -292,7 +292,6 @@ export function SaleTracking() {
                     <thead>
                       <tr>
                         <th>Item</th>
-                        <th>Type</th>
                         <th>Quantity</th>
                         <th>Delivered</th>
                         <th>Status</th>
@@ -305,7 +304,6 @@ export function SaleTracking() {
                       {order?.items.map((item) => (
                         <tr key={item.orderItemId}>
                           <td>{getOrderItemName(item)}</td>
-                          <td>{formatEnumLabel(item.itemType ?? 'UNKNOWN')}</td>
                           <td>{item.quantity ?? '-'}</td>
                           <td>{item.deliveredQuantity ?? 0}</td>
                           <td>{formatEnumLabel(item.status ?? 'PENDING')}</td>

@@ -54,7 +54,6 @@ export type OrderStatus =
   | 'COMPLETED'
   | 'CANCELLED';
 
-export type OrderQuotationItemType = 'PRODUCT_ITEM' | 'MANUAL_ITEM';
 export type OrderItemStatus =
   | 'PENDING'
   | 'IN_PRODUCTION'
@@ -82,20 +81,19 @@ export type OrderListItemDto = {
 
 export type OrderItemDto = {
   orderItemId: string;
-  itemType?: OrderQuotationItemType | null;
+  orderId?: string | null;
+  quotationItemId?: string | null;
+  productVersionId?: string | null;
   productNameSnapshot?: string | null;
+  productVersionNameSnapshot?: string | null;
+  productVersionCodeSnapshot?: string | null;
   itemName?: string | null;
   quantity?: number | null;
   unitPrice?: number | null;
-  customizationUnitAdditionalCost?: number | null;
-  customizationAdditionalCost?: number | null;
-  grossAmount?: number | null;
   discountAmount?: number | null;
-  taxableAmount?: number | null;
-  taxRate?: number | null;
-  taxAmount?: number | null;
-  totalAmount?: number | null;
   subtotalAmount?: number | null;
+  adjustmentAmount?: number | null;
+  unavailableReason?: string | null;
   isCustomized?: boolean | null;
   status?: OrderItemStatus | null;
   deliveredQuantity?: number | null;
@@ -114,6 +112,8 @@ export type OrderDetailDto = {
   customerId: string;
   salesId?: string | null;
   originalTotalAmount: number;
+  vatRate?: number | null;
+  vatAmount?: number | null;
   itemAdjustmentAmount?: number | null;
   additionalDiscountAmount?: number | null;
   finalTotalAmount: number;
@@ -136,7 +136,6 @@ export type CreateOrderPaymentInput = {
 
 export type UpdateOrderFinancialAdjustmentInput = {
   orderId: string;
-  additionalDiscountAmount: number;
   depositAmount: number;
   adjustmentNote?: string | null;
 };
@@ -268,7 +267,6 @@ export async function getOrderById(orderId: string) {
 
 export async function updateOrderFinancialAdjustment(input: UpdateOrderFinancialAdjustmentInput) {
   const response = await orderApiClient.patch<ServiceResult<OrderDetailDto>>(`/orders/${input.orderId}/financial-adjustment`, {
-    additionalDiscountAmount: input.additionalDiscountAmount,
     depositAmount: input.depositAmount,
     adjustmentNote: input.adjustmentNote?.trim() || null,
   });

@@ -36,7 +36,7 @@ export function ReadyForDelivery() {
   const startDeliveryMutation = useStartOrderDelivery();
   const deliveredQuantityMutation = useUpdateOrderItemDeliveredQuantity();
   const deliverableItems = useMemo(
-    () => (order?.items ?? []).filter((item) => item.itemType === 'PRODUCT_ITEM' && item.status !== 'UNAVAILABLE' && item.status !== 'CANCELLED'),
+    () => (order?.items ?? []).filter((item) => (item.quantity ?? 0) > 0 && item.status !== 'UNAVAILABLE' && item.status !== 'CANCELLED'),
     [order?.items],
   );
   const deliverableItemGroups = useMemo(() => groupOrderItemsByName(deliverableItems), [deliverableItems]);
@@ -206,7 +206,6 @@ export function ReadyForDelivery() {
               <thead>
                 <tr>
                   <th>Item</th>
-                  <th>Type</th>
                   <th>Ordered</th>
                   <th>Delivered</th>
                   <th>Status</th>
@@ -217,18 +216,17 @@ export function ReadyForDelivery() {
               <tbody>
                 {orderDetailQuery.isLoading ? (
                   <tr>
-                    <td colSpan={7}>Loading order items...</td>
+                    <td colSpan={6}>Loading order items...</td>
                   </tr>
                 ) : null}
                 {!orderDetailQuery.isLoading && deliverableItemGroups.length === 0 ? (
                   <tr>
-                    <td colSpan={7}>No deliverable product item is available.</td>
+                    <td colSpan={6}>No deliverable product item is available.</td>
                   </tr>
                 ) : null}
                 {deliverableItemGroups.map((group) => (
                   <tr key={group.key}>
                     <td>{group.name}</td>
-                    <td>{formatEnumLabel(group.itemType)}</td>
                     <td>{group.quantity}</td>
                     <td>{group.deliveredQuantity}</td>
                     <td>{group.statusSummary}</td>
@@ -272,7 +270,6 @@ export function ReadyForDelivery() {
 
 type OrderItemGroup = {
   deliveredQuantity: number;
-  itemType: string;
   items: OrderItemDto[];
   key: string;
   lastDeliveredAt?: string | null;
@@ -299,7 +296,7 @@ function groupOrderItemsByName(items: OrderItemDto[]): OrderItemGroup[] {
   const groupsByKey = new Map<string, OrderItemDto[]>();
 
   for (const item of items) {
-    const key = `${item.itemType ?? 'UNKNOWN'}|${getOrderItemName(item)}`;
+    const key = getOrderItemName(item);
     const groupItems = groupsByKey.get(key);
 
     if (groupItems) {
@@ -321,7 +318,6 @@ function groupOrderItemsByName(items: OrderItemDto[]): OrderItemGroup[] {
 
     return {
       deliveredQuantity,
-      itemType: groupItems[0]?.itemType ?? 'UNKNOWN',
       items: groupItems,
       key,
       lastDeliveredAt: latestDeliveredAt,
