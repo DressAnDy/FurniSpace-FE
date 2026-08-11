@@ -105,7 +105,7 @@ export function AdminProjects() {
     assignedSalesId: salesId || null,
     assignedDesignerId: designerId || null,
     page,
-    limit: 20,
+    limit: 5,
   });
   const accountsQuery = useAccountList({ page: 1, pageSize: 100, includeDeleted: false });
   const accounts = accountsQuery.data?.items ?? EMPTY_ACCOUNTS;
@@ -114,7 +114,7 @@ export function AdminProjects() {
   const designerAccounts = useMemo(() => accounts.filter((account) => getAccountRoleName(account.roleId) === 'DESIGNER'), [accounts]);
   const projects = projectsQuery.data?.items ?? EMPTY_PROJECTS;
   const stats = useMemo(() => getProjectStats(projects), [projects]);
-  const totalPages = Math.max(Math.ceil((projectsQuery.data?.total ?? 0) / (projectsQuery.data?.limit ?? 20)), 1);
+  const totalPages = Math.max(Math.ceil((projectsQuery.data?.total ?? 0) / (projectsQuery.data?.limit ?? 5)), 1);
 
   function handleSearchSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -147,7 +147,7 @@ export function AdminProjects() {
             </div>
 
             <section className="admin-projects-summary-grid" aria-label="Project summary">
-              <SummaryCard icon={IconFolderOpen} label="Projects in View" value={projectsQuery.data?.total ?? projects.length} note="Current API result" />
+              <SummaryCard icon={IconFolderOpen} label="Projects in View" value={projectsQuery.data?.total ?? projects.length} note="" />
               <SummaryCard icon={IconBriefcase} label="Active Projects" value={stats.active} note="Not completed/rejected" />
               <SummaryCard icon={IconUsers} label="Needs Owner" value={stats.unassignedSales + stats.unassignedDesigner} note="Sales or designer missing" />
               <SummaryCard icon={IconCalendarDue} label="Attention Needed" value={stats.attention} note="Missing info, blocked, rejected" />

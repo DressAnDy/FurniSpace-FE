@@ -352,18 +352,15 @@
   min-height: 96px;
   flex-direction: column;
   gap: 6px;
-  border: 0;
   border-right: 1px solid rgba(139, 111, 71, 0.1);
   border-bottom: 1px solid rgba(139, 111, 71, 0.1);
   background: #ffffff;
   color: #2d2d2d;
-  cursor: pointer;
-  font: inherit;
   padding: 9px;
   text-align: left;
 }
 
-.customer-schedules-calendar-day:hover {
+.customer-schedules-calendar-day:has(.customer-schedules-calendar-day-summary:hover) {
   background: #fffaf4;
 }
 
@@ -379,6 +376,20 @@
 
 .customer-schedules-calendar-day-has-events {
   background: #fffdf9;
+}
+
+.customer-schedules-calendar-day-summary {
+  display: grid;
+  width: 100%;
+  justify-items: start;
+  gap: 6px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  padding: 0;
+  text-align: left;
 }
 
 .customer-schedules-calendar-day-number {
@@ -414,11 +425,15 @@
   grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
   gap: 6px;
+  border: 0;
   border-left: 3px solid #8b6f47;
   border-radius: 6px;
   background: #f5f1ec;
   color: #2d2d2d;
+  cursor: pointer;
+  font: inherit;
   padding: 6px 7px;
+  text-align: left;
 }
 
 .customer-schedules-calendar-event:focus {

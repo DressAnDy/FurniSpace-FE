@@ -1,6 +1,6 @@
 import { IconEye, IconSearch, IconUserCheck } from '@tabler/icons-react';
 import { useQueries } from '@tanstack/react-query';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 import { ProjectStatusBadge, SaleNavbar, SaleSidebar } from '@/features/SalePages/salecomponents';
@@ -10,11 +10,14 @@ import { useProjectList } from '@/services/queries/useProjects';
 
 import './AssignedProjects.css';
 
+const PAGE_SIZE = 5;
+
 export function AssignedProjects() {
   const navigate = useNavigate();
   const [keyword, setKeyword] = useState('');
   const [status, setStatus] = useState('All Status');
   const [businessType, setBusinessType] = useState('All Business Types');
+  const [page, setPage] = useState(1);
   const currentUserQuery = useCurrentUser();
   const currentUser = currentUserQuery.data;
   const assignedProjectsQuery = useProjectList(
@@ -89,6 +92,23 @@ export function AssignedProjects() {
     });
   }, [accountById, assignedProjects, businessType, keyword, status]);
 
+  const totalPages = Math.max(1, Math.ceil(filteredProjects.length / PAGE_SIZE));
+  const currentPage = Math.min(page, totalPages);
+  const pagedProjects = useMemo(
+    () => filteredProjects.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE),
+    [currentPage, filteredProjects],
+  );
+
+  useEffect(() => {
+    setPage(1);
+  }, [keyword, status, businessType]);
+
+  useEffect(() => {
+    if (page > totalPages) {
+      setPage(totalPages);
+    }
+  }, [page, totalPages]);
+
   return (
     <div className="assigned-projects-shell">
       <SaleSidebar activeLabel="Assigned Projects" />
@@ -111,7 +131,12 @@ export function AssignedProjects() {
             <div className="assigned-projects-filter-grid">
               <label className="assigned-projects-search">
                 <IconSearch size={17} />
-                <input type="search" placeholder="Search projects..." value={keyword} onChange={(event) => setKeyword(event.target.value)} />
+                <input
+                  type="search"
+                  placeholder="Search projects..."
+                  value={keyword}
+                  onChange={(event) => setKeyword(event.target.value)}
+                />
               </label>
               <select value={status} onChange={(event) => setStatus(event.target.value)}>
                 <option>All Status</option>
@@ -151,7 +176,7 @@ export function AssignedProjects() {
                       <td colSpan={7}>Could not load assigned projects.</td>
                     </tr>
                   ) : null}
-                  {filteredProjects.map((project) => {
+                  {pagedProjects.map((project) => {
                     const customer = accountById[project.customerId];
                     const designer = project.assignedDesignerId ? accountById[project.assignedDesignerId] : null;
 
@@ -185,7 +210,11 @@ export function AssignedProjects() {
                       </tr>
                     );
                   })}
-                  {!currentUserQuery.isLoading && !assignedProjectsQuery.isLoading && !currentUserQuery.isError && !assignedProjectsQuery.isError && filteredProjects.length === 0 ? (
+                  {!currentUserQuery.isLoading &&
+                  !assignedProjectsQuery.isLoading &&
+                  !currentUserQuery.isError &&
+                  !assignedProjectsQuery.isError &&
+                  filteredProjects.length === 0 ? (
                     <tr>
                       <td colSpan={7}>No projects have moved into the sales workspace yet.</td>
                     </tr>
@@ -193,6 +222,24 @@ export function AssignedProjects() {
                 </tbody>
               </table>
             </div>
+
+            {filteredProjects.length > 0 ? (
+              <div className="assigned-projects-pagination">
+                <button type="button" disabled={currentPage <= 1} onClick={() => setPage((current) => Math.max(1, current - 1))}>
+                  Previous
+                </button>
+                <span>
+                  Page {currentPage} / {totalPages}
+                </span>
+                <button
+                  type="button"
+                  disabled={currentPage >= totalPages}
+                  onClick={() => setPage((current) => Math.min(totalPages, current + 1))}
+                >
+                  Next
+                </button>
+              </div>
+            ) : null}
           </section>
         </main>
       </div>

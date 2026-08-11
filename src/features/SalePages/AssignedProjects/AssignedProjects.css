@@ -226,6 +226,47 @@
   background: #f5f1ec;
 }
 
+.assigned-projects-pagination {
+  align-items: center;
+  border-top: 1px solid rgba(139, 111, 71, 0.12);
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+  margin-top: 0;
+  padding: 14px 16px;
+}
+
+.assigned-projects-pagination span {
+  color: #6b6b6b;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.assigned-projects-pagination button {
+  background: #ffffff;
+  border: 1px solid rgba(139, 111, 71, 0.2);
+  border-radius: 8px;
+  color: #6f5636;
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  min-height: 34px;
+  min-width: auto;
+  padding: 0 12px;
+}
+
+.assigned-projects-pagination button:hover:not(:disabled) {
+  background: #8b6f47;
+  border-color: #8b6f47;
+  color: #ffffff;
+}
+
+.assigned-projects-pagination button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
 @media (max-width: 980px) {
   .assigned-projects-filter-grid {
     grid-template-columns: 1fr;
