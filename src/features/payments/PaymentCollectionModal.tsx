@@ -123,8 +123,6 @@ export function PaymentCollectionModal({
             <aside className="payment-info-column">
               <div className="payment-summary-stack">
                 <SummaryItem label="Amount" value={formatMoney(currentPayment.amount, currentPayment.currency)} />
-                <SummaryItem label="Paid" value={formatMoney(currentPayment.paidAmount, currentPayment.currency)} />
-                <SummaryItem label="Remaining" value={formatMoney(currentPayment.remainingAmount, currentPayment.currency)} />
                 <SummaryItem label="Type" value={formatStatusLabel(normalizePaymentType(currentPayment.paymentType))} />
               </div>
 
@@ -166,8 +164,6 @@ export function PaymentCollectionModal({
         ) : (
           <div className="payment-summary-grid">
             <SummaryItem label="Amount" value={formatMoney(currentPayment.amount, currentPayment.currency)} />
-            <SummaryItem label="Paid" value={formatMoney(currentPayment.paidAmount, currentPayment.currency)} />
-            <SummaryItem label="Remaining" value={formatMoney(currentPayment.remainingAmount, currentPayment.currency)} />
             <SummaryItem label="Type" value={formatStatusLabel(normalizePaymentType(currentPayment.paymentType))} />
           </div>
         )}

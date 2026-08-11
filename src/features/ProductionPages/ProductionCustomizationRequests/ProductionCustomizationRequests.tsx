@@ -90,7 +90,7 @@ export function ProductionCustomizationRequests() {
     pageSize: 50,
   });
   const productionReviewMutation = useProductionReviewCustomizationVersion();
-  const sourceItems = queueQuery.data?.items ?? [];
+  const sourceItems = useMemo(() => queueQuery.data?.items ?? [], [queueQuery.data?.items]);
   const items = useMemo(
     () => sourceItems.filter((item) => matchesFilters(item, materialFilter, searchText)),
     [materialFilter, searchText, sourceItems],

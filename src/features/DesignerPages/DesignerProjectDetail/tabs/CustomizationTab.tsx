@@ -1,5 +1,8 @@
-import { FormEvent, useEffect, useMemo, useState } from 'react';
+import { FormEvent, type ReactNode, useEffect, useMemo, useState } from 'react';
+import { IconCube, IconUpload } from '@tabler/icons-react';
 
+import { SelectedImagePreview } from '@/features/AdminPages/Productmanagement/SelectedImagePreview';
+import { ModelViewer, type ModelViewerStatus } from '@/features/ThreeD/components';
 import {
   getCustomizationRequestServiceResultMessage,
   type CustomizationRequestDto,
@@ -8,7 +11,12 @@ import {
   type SubmitCustomizationRequestInput,
   type UpdateCustomizationRequestVersionDto,
 } from '@/services/api/customizationRequests';
-import type { ProjectDto } from '@/services/api/projects';
+import {
+  getProjectServiceResultMessage,
+  type FileType,
+  type ProjectDto,
+  type ProjectFileUploadResponseDto,
+} from '@/services/api/projects';
 import type { ProposalDto, ProposalItemDto } from '@/services/api/proposals';
 import {
   useCancelCustomizationRequest,
@@ -19,6 +27,7 @@ import {
   useSubmitCustomizationRequest,
   useSubmitCustomizationRequestVersionForReview,
   useUpdateCustomizationRequestVersion,
+  useUploadProjectFile,
   useWithdrawCustomizationRequestVersion,
 } from '@/services/queries';
 
@@ -96,6 +105,14 @@ export function CustomizationTab({ project }: CustomizationTabProps) {
   const [statusFilter, setStatusFilter] = useState<CustomizationStatus | null>(null);
   const [activeRequestId, setActiveRequestId] = useState<string | null>(null);
   const [editingVersionId, setEditingVersionId] = useState<string | null>(null);
+  const [requestModalOpen, setRequestModalOpen] = useState(false);
+  const [versionModalOpen, setVersionModalOpen] = useState(false);
+  const [cancelModalOpen, setCancelModalOpen] = useState(false);
+  const [modelPreviewOpen, setModelPreviewOpen] = useState(false);
+  const [viewerStatus, setViewerStatus] = useState<ModelViewerStatus>('idle');
+  const [viewerError, setViewerError] = useState<string | null>(null);
+  const [previewFile, setPreviewFile] = useState<File | null>(null);
+  const [modelFile, setModelFile] = useState<File | null>(null);
   const [requestForm, setRequestForm] = useState<RequestFormState>(emptyRequestForm);
   const [versionForm, setVersionForm] = useState<VersionFormState>(emptyVersionForm);
   const [cancelReason, setCancelReason] = useState('');
@@ -117,6 +134,7 @@ export function CustomizationTab({ project }: CustomizationTabProps) {
     status: statusFilter,
   });
   const submitRequestMutation = useSubmitCustomizationRequest();
+  const uploadProjectFileMutation = useUploadProjectFile();
   const createVersionMutation = useCreateCustomizationRequestVersion();
   const updateVersionMutation = useUpdateCustomizationRequestVersion();
   const submitVersionMutation = useSubmitCustomizationRequestVersionForReview();
@@ -181,7 +199,8 @@ export function CustomizationTab({ project }: CustomizationTabProps) {
       }));
       setStatusFilter(null);
       setActiveRequestId(request.customizationRequestId);
-      setMessage({ tone: 'success', text: 'Customization request created for the selected proposal item.' });
+      setRequestModalOpen(false);
+      setMessage({ tone: 'success', text: 'Customization request created for the customer.' });
     } catch (error) {
       setMessage({ tone: 'error', text: getCustomizationRequestServiceResultMessage(error) });
     }
@@ -199,30 +218,73 @@ export function CustomizationTab({ project }: CustomizationTabProps) {
     }
 
     const body = getVersionBody(versionForm);
+    const selectedFileValidationMessage = validateSelectedCustomizationFiles({ modelFile, previewFile });
+
+    if (selectedFileValidationMessage) {
+      setMessage({ tone: 'error', text: selectedFileValidationMessage });
+      return;
+    }
 
     try {
+      const uploadedPreviewFile = previewFile
+        ? await uploadProjectFileMutation.mutateAsync({
+          file: previewFile,
+          fileType: 'PRODUCT_PREVIEW',
+          note: `Customization preview for ${versionForm.versionName}`,
+          projectId: project.projectId,
+          visibility: 'CUSTOMER_VISIBLE',
+        })
+        : null;
+      const uploadedModelFile = modelFile
+        ? await uploadProjectFileMutation.mutateAsync({
+          file: modelFile,
+          fileType: 'MODEL_3D',
+          note: `Customization 3D model for ${versionForm.versionName}`,
+          projectId: project.projectId,
+          visibility: 'CUSTOMER_VISIBLE',
+        })
+        : null;
+      const uploadedFileValidationMessage = validateUploadedCustomizationFiles({
+        modelFile: uploadedModelFile,
+        previewFile: uploadedPreviewFile,
+        projectId: project.projectId,
+      });
+
+      if (uploadedFileValidationMessage) {
+        setMessage({ tone: 'error', text: uploadedFileValidationMessage });
+        return;
+      }
+
+      const versionBody = {
+        ...body,
+        modelFileId: uploadedModelFile?.fileId ?? body.modelFileId ?? null,
+        previewFileIds: uploadedPreviewFile?.fileId
+          ? [uploadedPreviewFile.fileId]
+          : body.previewFileIds ?? [],
+      };
+
       if (editingVersion) {
         await updateVersionMutation.mutateAsync({
           customizationRequestId: activeRequest.customizationRequestId,
           customizationRequestVersionId: editingVersion.customizationRequestVersionId,
-          body,
+          body: versionBody,
         });
         setMessage({ tone: 'success', text: 'Customization version updated.' });
       } else {
         await createVersionMutation.mutateAsync({
           customizationRequestId: activeRequest.customizationRequestId,
-          body: {
-            ...body,
-            previewFileIds: getPreviewFileIds(versionForm.previewFileIds),
-          },
+          body: versionBody,
         });
         setMessage({ tone: 'success', text: 'Customization version draft created.' });
       }
 
       setEditingVersionId(null);
       setVersionForm(emptyVersionForm);
+      setPreviewFile(null);
+      setModelFile(null);
+      setVersionModalOpen(false);
     } catch (error) {
-      setMessage({ tone: 'error', text: getCustomizationRequestServiceResultMessage(error) });
+      setMessage({ tone: 'error', text: getProjectServiceResultMessage(error) || getCustomizationRequestServiceResultMessage(error) });
     }
   }
 
@@ -272,6 +334,7 @@ export function CustomizationTab({ project }: CustomizationTabProps) {
         cancelReason,
       });
       setCancelReason('');
+      setCancelModalOpen(false);
       setMessage({ tone: 'success', text: 'Customization request cancelled.' });
     } catch (error) {
       setMessage({ tone: 'error', text: getCustomizationRequestServiceResultMessage(error) });
@@ -283,7 +346,7 @@ export function CustomizationTab({ project }: CustomizationTabProps) {
       <div className="designer-project-section-toolbar">
         <div>
           <h3>Customization</h3>
-          <p>Requests now create custom versions for production review and customer acceptance.</p>
+          <p>Manage customer requests or create assisted requests when the customer needs help describing a product change.</p>
         </div>
         <div className="designer-project-filter-list">
           {statusFilters.map((filter) => (
@@ -308,15 +371,11 @@ export function CustomizationTab({ project }: CustomizationTabProps) {
         </p>
       ) : null}
 
-      <DesignerRequestForm
-        form={requestForm}
-        items={proposalItems}
-        itemsLoading={proposalItemsQuery.isLoading}
-        mutationPending={submitRequestMutation.isPending}
-        proposals={proposals}
+      <DesignerRequestPrompt
+        itemsCount={proposalItems.length}
+        proposalsCount={proposals.length}
         proposalsLoading={proposalsQuery.isLoading}
-        onChange={setRequestForm}
-        onSubmit={(event) => void submitRequestOnBehalf(event)}
+        onOpen={() => setRequestModalOpen(true)}
       />
 
       {requestsQuery.isLoading ? <p className="designer-project-empty-text">Loading customization requests...</p> : null}
@@ -376,24 +435,22 @@ export function CustomizationTab({ project }: CustomizationTabProps) {
               <RequestVersionPanel
                 activeRequest={activeRequest}
                 cancelMutationPending={cancelMutation.isPending}
-                cancelReason={cancelReason}
-                editingVersion={editingVersion}
-                form={versionForm}
                 mutationPending={
                   createVersionMutation.isPending ||
                   updateVersionMutation.isPending ||
                   submitVersionMutation.isPending ||
                   withdrawVersionMutation.isPending
                 }
-                onCancelReasonChange={setCancelReason}
-                onCancelRequest={(event) => void cancelRequest(event)}
-                onEditVersion={setEditingVersionId}
-                onFormChange={setVersionForm}
+                onCancelRequest={() => setCancelModalOpen(true)}
+                onEditVersion={(versionId) => {
+                  setEditingVersionId(versionId);
+                  setVersionModalOpen(true);
+                }}
                 onNewVersion={() => {
                   setEditingVersionId(null);
                   setVersionForm(emptyVersionForm);
+                  setVersionModalOpen(true);
                 }}
-                onSaveVersion={(event) => void saveVersion(event)}
                 onSubmitVersion={(version) => void submitVersion(version)}
                 onWithdrawVersion={(version) => void withdrawVersion(version)}
               />
@@ -407,7 +464,163 @@ export function CustomizationTab({ project }: CustomizationTabProps) {
           </aside>
         </div>
       ) : null}
+
+      {requestModalOpen ? (
+        <DesignerModal
+          description="Create a customer customization request from a published proposal item."
+          title="Designer Assisted Request"
+          onClose={() => setRequestModalOpen(false)}
+        >
+          <DesignerRequestForm
+            form={requestForm}
+            items={proposalItems}
+            itemsLoading={proposalItemsQuery.isLoading}
+            mutationPending={submitRequestMutation.isPending}
+            proposals={proposals}
+            proposalsLoading={proposalsQuery.isLoading}
+            onChange={setRequestForm}
+            onSubmit={(event) => void submitRequestOnBehalf(event)}
+          />
+        </DesignerModal>
+      ) : null}
+
+      {versionModalOpen && activeRequest ? (
+        <DesignerModal
+          description={editingVersion ? 'Update the selected draft before production review.' : 'Create a draft custom product version for this request.'}
+          title={editingVersion ? 'Edit Custom Version' : 'Create Custom Version'}
+          onClose={() => {
+            setVersionModalOpen(false);
+            setEditingVersionId(null);
+            setPreviewFile(null);
+            setModelFile(null);
+            setViewerStatus('idle');
+            setViewerError(null);
+          }}
+        >
+          <VersionForm
+            editingVersion={editingVersion}
+            form={versionForm}
+            modelFile={modelFile}
+            mutationPending={createVersionMutation.isPending || updateVersionMutation.isPending || uploadProjectFileMutation.isPending}
+            previewFile={previewFile}
+            viewerError={viewerError}
+            viewerStatus={viewerStatus}
+            onChange={setVersionForm}
+            onModelFileChange={setModelFile}
+            onPreviewFileChange={setPreviewFile}
+            onPreviewModel={() => {
+              setModelPreviewOpen(true);
+              setViewerStatus('idle');
+              setViewerError(null);
+            }}
+            onSubmit={(event) => void saveVersion(event)}
+          />
+        </DesignerModal>
+      ) : null}
+
+      {modelPreviewOpen ? (
+        <DesignerModal
+          description={viewerStatus === 'error' ? viewerError ?? 'Could not load model.' : modelFile ? 'Drag to rotate, scroll to zoom.' : 'No local MODEL_3D file is selected yet.'}
+          title={modelFile?.name ?? editingVersion?.productVersion?.versionName ?? '3D Model Preview'}
+          onClose={() => {
+            setModelPreviewOpen(false);
+            setViewerStatus('idle');
+            setViewerError(null);
+          }}
+        >
+          <ModelPreviewCanvas
+            modelFile={modelFile}
+            onStatusChange={(status, error) => {
+              setViewerStatus(status);
+              setViewerError(error);
+            }}
+          />
+        </DesignerModal>
+      ) : null}
+
+      {cancelModalOpen && activeRequest ? (
+        <DesignerModal
+          description={`Cancel "${activeRequest.requestTitle}" and withdraw active versions.`}
+          title="Cancel Customization Request"
+          onClose={() => setCancelModalOpen(false)}
+        >
+          <form className="designer-project-modal-form" onSubmit={(event) => void cancelRequest(event)}>
+            <label>
+              <span>Cancel reason</span>
+              <textarea required rows={4} value={cancelReason} placeholder="Explain why this request is being cancelled" onChange={(event) => setCancelReason(event.target.value)} />
+            </label>
+            <footer>
+              <button className="designer-project-detail-button" disabled={cancelMutation.isPending} type="button" onClick={() => setCancelModalOpen(false)}>
+                Keep Request
+              </button>
+              <button className="designer-project-detail-button designer-project-detail-button-primary" disabled={cancelMutation.isPending} type="submit">
+                {cancelMutation.isPending ? 'Cancelling...' : 'Cancel Request'}
+              </button>
+            </footer>
+          </form>
+        </DesignerModal>
+      ) : null}
     </section>
+  );
+}
+
+function DesignerRequestPrompt({
+  itemsCount,
+  onOpen,
+  proposalsCount,
+  proposalsLoading,
+}: {
+  itemsCount: number;
+  onOpen: () => void;
+  proposalsCount: number;
+  proposalsLoading: boolean;
+}) {
+  return (
+    <section className="designer-project-custom-assist-card">
+      <div>
+        <span>Designer Assisted Request</span>
+        <h4>Create a request for the customer</h4>
+        <p>Use this when the customer explains a change in chat or during review and needs the designer to submit it from a published proposal item.</p>
+      </div>
+      <div className="designer-project-custom-assist-meta">
+        <strong>{proposalsCount}</strong>
+        <span>Published proposals</span>
+        <strong>{itemsCount}</strong>
+        <span>Items loaded</span>
+      </div>
+      <button className="designer-project-detail-button designer-project-detail-button-primary" disabled={proposalsLoading || proposalsCount === 0} type="button" onClick={onOpen}>
+        Create Request
+      </button>
+    </section>
+  );
+}
+
+function DesignerModal({
+  children,
+  description,
+  onClose,
+  title,
+}: {
+  children: ReactNode;
+  description: string;
+  onClose: () => void;
+  title: string;
+}) {
+  return (
+    <div className="designer-project-modal-backdrop" role="presentation" onMouseDown={onClose}>
+      <section className="designer-project-modal designer-project-custom-modal" role="dialog" aria-modal="true" aria-label={title} onMouseDown={(event) => event.stopPropagation()}>
+        <header>
+          <div>
+            <h3>{title}</h3>
+            <p>{description}</p>
+          </div>
+          <button className="designer-project-modal-close" type="button" onClick={onClose}>
+            x
+          </button>
+        </header>
+        {children}
+      </section>
+    </div>
   );
 }
 
@@ -438,16 +651,19 @@ function DesignerRequestForm({
     <form className="designer-project-custom-action-form" onSubmit={onSubmit}>
       <div className="designer-project-custom-review-header">
         <div>
-          <span>Create Request On Behalf</span>
-          <h4>Submit a customer customization request</h4>
+          <span>Designer Assisted Request</span>
+          <h4>Create a customization request for the customer</h4>
         </div>
         <button className="designer-project-detail-button designer-project-detail-button-primary" disabled={!hasPublishedProposal || !form.proposalItemId || mutationPending} type="submit">
-          {mutationPending ? 'Submitting...' : 'Create Request'}
+          {mutationPending ? 'Submitting...' : 'Create for Customer'}
         </button>
       </div>
 
       {!hasPublishedProposal && !proposalsLoading ? (
-        <p className="designer-project-empty-text">No published proposal is available for designer-created customization requests.</p>
+        <p className="designer-project-empty-text">No published proposal is available for assisted customization requests.</p>
+      ) : null}
+      {hasPublishedProposal && !itemsLoading && items.length === 0 ? (
+        <p className="designer-project-empty-text">No proposal items are available for assisted customization requests.</p>
       ) : null}
 
       <div className="designer-project-custom-detail-grid">
@@ -493,7 +709,7 @@ function DesignerRequestForm({
 
       <label>
         <span>Request title</span>
-        <input required value={form.requestTitle} placeholder="Request title" onChange={(event) => setField('requestTitle', event.target.value)} />
+        <input required value={form.requestTitle} placeholder="Customer request title" onChange={(event) => setField('requestTitle', event.target.value)} />
       </label>
       <label>
         <span>Description</span>
@@ -523,7 +739,7 @@ function DesignerRequestForm({
       </div>
       <label>
         <span>Change note</span>
-        <textarea rows={2} value={form.requestedChangeNote} placeholder="Internal/customer-facing note" onChange={(event) => setField('requestedChangeNote', event.target.value)} />
+        <textarea rows={2} value={form.requestedChangeNote} placeholder="Customer-facing change note" onChange={(event) => setField('requestedChangeNote', event.target.value)} />
       </label>
     </form>
   );
@@ -532,31 +748,19 @@ function DesignerRequestForm({
 function RequestVersionPanel({
   activeRequest,
   cancelMutationPending,
-  cancelReason,
-  editingVersion,
-  form,
   mutationPending,
-  onCancelReasonChange,
   onCancelRequest,
   onEditVersion,
-  onFormChange,
   onNewVersion,
-  onSaveVersion,
   onSubmitVersion,
   onWithdrawVersion,
 }: {
   activeRequest: CustomizationRequestDto;
   cancelMutationPending: boolean;
-  cancelReason: string;
-  editingVersion: CustomizationRequestVersionDto | null;
-  form: VersionFormState;
   mutationPending: boolean;
-  onCancelReasonChange: (value: string) => void;
-  onCancelRequest: (event: FormEvent<HTMLFormElement>) => void;
+  onCancelRequest: () => void;
   onEditVersion: (versionId: string | null) => void;
-  onFormChange: (form: VersionFormState) => void;
   onNewVersion: () => void;
-  onSaveVersion: (event: FormEvent<HTMLFormElement>) => void;
   onSubmitVersion: (version: CustomizationRequestVersionDto) => void;
   onWithdrawVersion: (version: CustomizationRequestVersionDto) => void;
 }) {
@@ -571,7 +775,7 @@ function RequestVersionPanel({
           <span>Selected Request</span>
           <h4>{activeRequest.requestTitle}</h4>
         </div>
-        <button className="designer-project-detail-button" disabled={!canCreateVersion || readOnlyRequest} type="button" onClick={onNewVersion}>
+        <button className="designer-project-detail-button designer-project-detail-button-primary" disabled={!canCreateVersion || readOnlyRequest} type="button" onClick={onNewVersion}>
           New Version
         </button>
       </div>
@@ -596,26 +800,10 @@ function RequestVersionPanel({
         ))}
       </div>
 
-      {canCreateVersion && !readOnlyRequest ? (
-        <VersionForm
-          editingVersion={editingVersion}
-          form={form}
-          mutationPending={mutationPending}
-          onChange={onFormChange}
-          onSubmit={onSaveVersion}
-        />
-      ) : null}
-
       {!readOnlyRequest ? (
-        <form className="designer-project-custom-action-form" onSubmit={onCancelRequest}>
-          <label>
-            <span>Cancel request reason</span>
-            <textarea required rows={3} value={cancelReason} placeholder="Cancel reason" onChange={(event) => onCancelReasonChange(event.target.value)} />
-          </label>
-          <button className="designer-project-detail-button" disabled={cancelMutationPending} type="submit">
-            {cancelMutationPending ? 'Cancelling...' : 'Cancel Request'}
-          </button>
-        </form>
+        <button className="designer-project-detail-button" disabled={cancelMutationPending} type="button" onClick={onCancelRequest}>
+          {cancelMutationPending ? 'Cancelling...' : 'Cancel Request'}
+        </button>
       ) : null}
     </>
   );
@@ -689,17 +877,33 @@ function VersionCard({
 function VersionForm({
   editingVersion,
   form,
+  modelFile,
   mutationPending,
   onChange,
+  onModelFileChange,
+  onPreviewFileChange,
+  onPreviewModel,
   onSubmit,
+  previewFile,
+  viewerError,
+  viewerStatus,
 }: {
   editingVersion: CustomizationRequestVersionDto | null;
   form: VersionFormState;
+  modelFile: File | null;
   mutationPending: boolean;
   onChange: (form: VersionFormState) => void;
+  onModelFileChange: (file: File | null) => void;
+  onPreviewFileChange: (file: File | null) => void;
+  onPreviewModel: () => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  previewFile: File | null;
+  viewerError: string | null;
+  viewerStatus: ModelViewerStatus;
 }) {
   const setField = (name: keyof VersionFormState, value: string) => onChange({ ...form, [name]: value });
+  const currentPreviewFile = editingVersion?.productVersion?.previewFiles?.[0] ?? null;
+  const canPreviewModel = Boolean(modelFile);
 
   return (
     <form className="designer-project-custom-action-form" onSubmit={onSubmit}>
@@ -755,18 +959,103 @@ function VersionForm({
           </select>
         </label>
       </div>
-      <label>
-        <span>Model file id</span>
-        <input value={form.modelFileId} placeholder="Existing MODEL_3D file id" onChange={(event) => setField('modelFileId', event.target.value)} />
-      </label>
-      <label>
-        <span>Preview file ids</span>
-        <input value={form.previewFileIds} placeholder="Comma-separated PRODUCT_PREVIEW file ids" onChange={(event) => setField('previewFileIds', event.target.value)} />
-      </label>
+      <div className="designer-project-custom-upload-section">
+        <div>
+          <span>Version Files</span>
+          <p>Files are uploaded to Project Files first, then linked to this custom ProductVersion.</p>
+        </div>
+        <label className="designer-project-custom-upload-card">
+          <span>{editingVersion ? 'Replace / Add Preview Image' : 'Preview Image'}</span>
+          <div className="designer-project-custom-upload-shell">
+            {previewFile ? (
+              <button className="designer-project-custom-file-remove" type="button" aria-label="Remove selected preview image" onClick={() => onPreviewFileChange(null)}>
+                x
+              </button>
+            ) : null}
+            <input
+              accept="image/jpeg,image/png,image/webp,image/gif,image/svg+xml"
+              className="designer-project-custom-upload-input"
+              type="file"
+              onChange={(event) => onPreviewFileChange(event.target.files?.[0] ?? null)}
+            />
+            <div className="designer-project-custom-upload-main">
+              {previewFile ? (
+                <SelectedImagePreview className="designer-project-custom-upload-preview" file={previewFile} />
+              ) : currentPreviewFile?.fileUrl ? (
+                <img className="designer-project-custom-upload-preview" src={currentPreviewFile.fileUrl} alt="Current customization preview" />
+              ) : (
+                <IconUpload size={42} />
+              )}
+              <strong>{previewFile?.name ?? currentPreviewFile?.fileId ?? 'Select PRODUCT_PREVIEW image'}</strong>
+              <small>Visible in customization review and customer approval.</small>
+            </div>
+          </div>
+        </label>
+        <label className="designer-project-custom-upload-card">
+          <span>{editingVersion ? 'Replace / Add 3D Model' : '3D Model File'}</span>
+          <div className="designer-project-custom-upload-shell">
+            {modelFile ? (
+              <button className="designer-project-custom-file-remove" type="button" aria-label="Remove selected 3D model" onClick={() => onModelFileChange(null)}>
+                x
+              </button>
+            ) : null}
+            <input
+              accept=".glb,.gltf,model/gltf-binary,model/gltf+json"
+              className="designer-project-custom-upload-input"
+              type="file"
+              onChange={(event) => onModelFileChange(event.target.files?.[0] ?? null)}
+            />
+            <div className="designer-project-custom-upload-main designer-project-custom-upload-model">
+              <IconCube size={42} />
+              <strong>{(modelFile?.name ?? form.modelFileId) || 'Select GLB/glTF model'}</strong>
+              <small>Uploaded as MODEL_3D before this custom version is saved.</small>
+            </div>
+          </div>
+        </label>
+        <div className="designer-project-custom-file-actions">
+          <button className="designer-project-detail-button" disabled={!canPreviewModel} type="button" onClick={onPreviewModel}>
+            <IconCube size={16} />
+            Preview 3D
+          </button>
+          <small>{viewerStatus === 'error' ? viewerError : modelFile ? 'Local model ready to preview.' : 'Choose a model file to preview it.'}</small>
+        </div>
+      </div>
       <button className="designer-project-detail-button designer-project-detail-button-primary" disabled={mutationPending} type="submit">
         {mutationPending ? 'Saving...' : editingVersion ? 'Update Draft' : 'Create Draft'}
       </button>
     </form>
+  );
+}
+
+function ModelPreviewCanvas({
+  modelFile,
+  onStatusChange,
+}: {
+  modelFile: File | null;
+  onStatusChange: (status: ModelViewerStatus, error: string | null) => void;
+}) {
+  const [modelUrl, setModelUrl] = useState('');
+
+  useEffect(() => {
+    if (!modelFile) {
+      setModelUrl('');
+      return;
+    }
+
+    const objectUrl = URL.createObjectURL(modelFile);
+    setModelUrl(objectUrl);
+
+    return () => URL.revokeObjectURL(objectUrl);
+  }, [modelFile]);
+
+  if (!modelFile || !modelUrl) {
+    return <p className="designer-project-empty-text">Choose a GLB/glTF model file before opening preview.</p>;
+  }
+
+  return (
+    <div className="designer-project-custom-model-preview">
+      <ModelViewer height="100%" modelUrl={modelUrl} showGrid={false} onStatusChange={onStatusChange} />
+    </div>
   );
 }
 
@@ -832,6 +1121,91 @@ function getVersionBody(form: VersionFormState): UpdateCustomizationRequestVersi
     modelFileId: form.modelFileId,
     previewFileIds: getPreviewFileIds(form.previewFileIds),
   };
+}
+
+function validateSelectedCustomizationFiles({
+  modelFile,
+  previewFile,
+}: {
+  modelFile: File | null;
+  previewFile: File | null;
+}) {
+  if (modelFile && !isModel3dFileName(modelFile.name)) {
+    return 'MODEL_3D file must use .glb or .gltf extension.';
+  }
+
+  if (previewFile && !previewFile.type.startsWith('image/')) {
+    return 'PRODUCT_PREVIEW file must be an image file.';
+  }
+
+  return null;
+}
+
+function validateUploadedCustomizationFiles({
+  modelFile,
+  previewFile,
+  projectId,
+}: {
+  modelFile: ProjectFileUploadResponseDto | null;
+  previewFile: ProjectFileUploadResponseDto | null;
+  projectId: string;
+}) {
+  const modelValidationMessage = modelFile ? validateUploadedCustomizationFile({
+    expectedFileType: 'MODEL_3D',
+    file: modelFile,
+    projectId,
+    requireModelExtension: true,
+  }) : null;
+
+  if (modelValidationMessage) {
+    return modelValidationMessage;
+  }
+
+  const previewValidationMessage = previewFile ? validateUploadedCustomizationFile({
+    expectedFileType: 'PRODUCT_PREVIEW',
+    file: previewFile,
+    projectId,
+  }) : null;
+
+  if (previewValidationMessage) {
+    return previewValidationMessage;
+  }
+
+  return null;
+}
+
+function validateUploadedCustomizationFile({
+  expectedFileType,
+  file,
+  projectId,
+  requireModelExtension = false,
+}: {
+  expectedFileType: FileType;
+  file: ProjectFileUploadResponseDto & { status?: string | null };
+  projectId: string;
+  requireModelExtension?: boolean;
+}) {
+  if (file.projectId !== projectId) {
+    return `${expectedFileType} upload belongs to another project. Please upload the file from this project.`;
+  }
+
+  if (file.fileType !== expectedFileType) {
+    return `Uploaded file ${file.originalFileName} has fileType ${file.fileType}, expected ${expectedFileType}. Please remove it and upload again.`;
+  }
+
+  if (file.status && file.status !== 'ACTIVE') {
+    return `Uploaded file ${file.originalFileName} is ${file.status}, expected ACTIVE.`;
+  }
+
+  if (requireModelExtension && !isModel3dFileName(file.originalFileName || file.fileName)) {
+    return `Uploaded MODEL_3D file ${file.originalFileName || file.fileName} must be .glb or .gltf.`;
+  }
+
+  return null;
+}
+
+function isModel3dFileName(fileName: string) {
+  return /\.(glb|gltf)$/i.test(fileName.trim());
 }
 
 function formFromVersion(version: CustomizationRequestVersionDto): VersionFormState {
