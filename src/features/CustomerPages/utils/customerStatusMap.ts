@@ -38,9 +38,6 @@ export const paymentTypeLabels: Record<PaymentType, string> = {
   PROJECT_START_FEE: 'Project Start Fee',
   DEPOSIT: 'Deposit',
   REMAINING_PAYMENT: 'Remaining Payment',
-  FULL_PAYMENT: 'Full Payment',
-  REFUND: 'Refund',
-  OTHER: 'Other',
 };
 
 export const paymentStatusLabels: Record<PaymentStatus, string> = {

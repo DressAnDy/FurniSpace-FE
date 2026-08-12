@@ -265,10 +265,13 @@ export function CreateProductVersionPage() {
 
                 <div className="product-form-section">
                   <h3>Pricing</h3>
-                  <label className="product-form-field product-form-field-half">
-                    <span>Estimated Price</span>
-                    <input className="admin-form-input" defaultValue={versionToEdit?.estimatedPrice ?? ''} name="estimated_price" placeholder="0.00" type="number" />
-                  </label>
+                  <div className="product-form-grid">
+                    <label className="product-form-field">
+                      <span>Estimated Price</span>
+                      <input className="admin-form-input" defaultValue={versionToEdit?.estimatedPrice ?? ''} min="0" name="estimated_price" placeholder="0.00" type="number" />
+                    </label>
+                  </div>
+                  <p className="product-form-helper">VAT is calculated from the quotation header, not from product versions.</p>
                 </div>
 
                 <div className="product-form-section">

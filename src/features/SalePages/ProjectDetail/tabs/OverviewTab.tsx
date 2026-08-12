@@ -238,7 +238,6 @@ export function OverviewTab({ project, showAssignedTeam = false }: OverviewTabPr
                           disabled={createStartFeePaymentMutation.isPending}
                           onChange={(event) => setStartFeeDueDate(event.currentTarget.value)}
                         />
-                        <small>Expires at 23:00 on the selected date.</small>
                       </label>
                       <button
                         type="button"

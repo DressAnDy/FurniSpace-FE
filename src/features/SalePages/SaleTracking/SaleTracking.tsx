@@ -467,7 +467,6 @@ export function SaleTracking() {
                         <thead>
                           <tr>
                             <th>Item</th>
-                            <th>Type</th>
                             <th>Qty</th>
                             <th>Delivered</th>
                             <th>Progress</th>
@@ -478,12 +477,12 @@ export function SaleTracking() {
                         <tbody>
                           {orderDetailQuery.isLoading ? (
                             <tr>
-                              <td colSpan={7}>Loading order items...</td>
+                              <td colSpan={6}>Loading order items...</td>
                             </tr>
                           ) : null}
                           {!orderDetailQuery.isLoading && !order ? (
                             <tr>
-                              <td colSpan={7}>No order items to display.</td>
+                              <td colSpan={6}>No order items to display.</td>
                             </tr>
                           ) : null}
                           {order?.items.map((item) => {
@@ -493,7 +492,6 @@ export function SaleTracking() {
                             return (
                               <tr key={item.orderItemId}>
                                 <td className="sale-tracking-item-name">{getOrderItemName(item)}</td>
-                                <td>{formatEnumLabel(item.itemType ?? 'UNKNOWN')}</td>
                                 <td>{qty || '-'}</td>
                                 <td>{delivered}</td>
                                 <td>
