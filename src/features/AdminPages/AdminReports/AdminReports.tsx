@@ -122,7 +122,11 @@ export function AdminReports() {
                   aria-label="Report start date"
                   type="date"
                   value={fromDate}
-                  onChange={(event) => setFromDate(event.target.value)}
+                  onChange={(event) => {
+                    const nextFrom = event.target.value;
+                    setFromDate(nextFrom);
+                    setToDate((current) => current && nextFrom && current < nextFrom ? nextFrom : current);
+                  }}
                 />
               </label>
               <label className="admin-report-filter admin-report-date-filter">
@@ -130,6 +134,7 @@ export function AdminReports() {
                 <input
                   aria-label="Report end date"
                   type="date"
+                  min={fromDate}
                   value={toDate}
                   onChange={(event) => setToDate(event.target.value)}
                 />

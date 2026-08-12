@@ -6,6 +6,7 @@ import {
 } from '@/services/queries';
 import { getProjectScheduleServiceResultMessage } from '@/services/api/schedules';
 import type { ProjectScheduleStatus, ProjectScheduleType } from '@/services/api/schedules';
+import { getLocalDateTimeInputValue, getMinimumEndDateTimeInputValue, validateScheduleDateRange } from '@/shared/utils/dateValidation';
 
 import type { ProjectDetailProject } from '../ProjectDetail';
 
@@ -18,6 +19,8 @@ const scheduleStatusOptions: ProjectScheduleStatus[] = ['PENDING_CONFIRMATION', 
 
 export function SchedulesTab({ project }: SchedulesTabProps) {
   const [message, setMessage] = useState('');
+  const [scheduleStartInput, setScheduleStartInput] = useState('');
+  const [scheduleEndInput, setScheduleEndInput] = useState('');
   const [statusFilter, setStatusFilter] = useState<ProjectScheduleStatus | ''>('');
   const schedulesQuery = useProjectScheduleList({
     projectId: project.projectId,
@@ -43,8 +46,9 @@ export function SchedulesTab({ project }: SchedulesTabProps) {
       return;
     }
 
-    if (!scheduledStart) {
-      setMessage('Please choose a schedule start time.');
+    const dateRange = validateScheduleDateRange(scheduledStart, scheduledEnd);
+    if (!dateRange.ok) {
+      setMessage(dateRange.message);
       return;
     }
 
@@ -53,8 +57,8 @@ export function SchedulesTab({ project }: SchedulesTabProps) {
       form,
       assignedStaffId,
       scheduleType,
-      scheduledStart,
-      scheduledEnd,
+      scheduledStart: dateRange.startIso,
+      scheduledEnd: dateRange.endIso,
       title: String(formData.get('title') ?? '').trim() || defaultTitle,
       description: String(formData.get('description') ?? '').trim() || null,
       location: String(formData.get('location') ?? '').trim() || project.projectAddress,
@@ -66,7 +70,7 @@ export function SchedulesTab({ project }: SchedulesTabProps) {
     assignedStaffId: string;
     scheduleType: ProjectScheduleType;
     scheduledStart: string;
-    scheduledEnd: string;
+    scheduledEnd: string | null;
     title: string;
     description: string | null;
     location: string | null;
@@ -79,8 +83,8 @@ export function SchedulesTab({ project }: SchedulesTabProps) {
           title: input.title,
           description: input.description,
           assignedStaffId: input.assignedStaffId,
-          scheduledStart: toIsoString(input.scheduledStart),
-          scheduledEnd: input.scheduledEnd ? toIsoString(input.scheduledEnd) : null,
+          scheduledStart: input.scheduledStart,
+          scheduledEnd: input.scheduledEnd,
           location: input.location,
           customerNote: null,
           internalNote: null,
@@ -92,6 +96,8 @@ export function SchedulesTab({ project }: SchedulesTabProps) {
 
       setMessage('Schedule created successfully.');
       input.form.reset();
+      setScheduleStartInput('');
+      setScheduleEndInput('');
       void schedulesQuery.refetch();
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Could not create this schedule. Please try again.');
@@ -141,11 +147,35 @@ export function SchedulesTab({ project }: SchedulesTabProps) {
           <div className="project-detail-schedule-form-grid">
             <label>
               <span>Start</span>
-              <input name="scheduledStart" type="datetime-local" disabled={createScheduleMutation.isPending} />
+              <input
+                disabled={createScheduleMutation.isPending}
+                min={getLocalDateTimeInputValue()}
+                name="scheduledStart"
+                required
+                type="datetime-local"
+                value={scheduleStartInput}
+                onChange={(event) => {
+                  const nextStart = event.target.value;
+                  const minimumEnd = getMinimumEndDateTimeInputValue(nextStart);
+                  setScheduleStartInput(nextStart);
+                  setScheduleEndInput((current) => current && minimumEnd && current < minimumEnd ? '' : current);
+                }}
+              />
             </label>
             <label>
               <span>End</span>
-              <input name="scheduledEnd" type="datetime-local" disabled={createScheduleMutation.isPending} />
+              <input
+                disabled={createScheduleMutation.isPending || !scheduleStartInput}
+                min={getMinimumEndDateTimeInputValue(scheduleStartInput)}
+                name="scheduledEnd"
+                type="datetime-local"
+                value={scheduleEndInput}
+                onChange={(event) => {
+                  const nextEnd = event.target.value;
+                  const minimumEnd = getMinimumEndDateTimeInputValue(scheduleStartInput);
+                  setScheduleEndInput(nextEnd && minimumEnd && nextEnd < minimumEnd ? '' : nextEnd);
+                }}
+              />
             </label>
           </div>
 
@@ -211,10 +241,6 @@ export function SchedulesTab({ project }: SchedulesTabProps) {
 
 function getDefaultScheduleTitle(project: ProjectDetailProject) {
   return `${project.projectName} - designer schedule`;
-}
-
-function toIsoString(value: string) {
-  return new Date(value).toISOString();
 }
 
 function formatEnumLabel(value: string) {
