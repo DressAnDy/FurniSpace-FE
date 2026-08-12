@@ -1,5 +1,6 @@
 import {
   IconChevronRight,
+  IconCircleCheck,
   IconHome,
 } from '@tabler/icons-react';
 import { FormEvent, useEffect, useMemo, useState } from 'react';
@@ -16,6 +17,7 @@ import {
   useProposalDetail,
   useProposalItems,
   useProposalScenes,
+  useSelectFinalProposal,
   useSubmitCustomizationRequest,
 } from '@/services/queries';
 import { aggregateDuplicateItems } from '@/shared/utils/itemAggregation';
@@ -40,6 +42,8 @@ export function CustomerProposalDetailPage() {
   const [customizationWidth, setCustomizationWidth] = useState('');
   const [customizationHeight, setCustomizationHeight] = useState('');
   const [customizationDepth, setCustomizationDepth] = useState('');
+  const [selectionMessage, setSelectionMessage] = useState('');
+  const selectFinalProposalMutation = useSelectFinalProposal();
 
   const projectsQuery = useProjectList({ page: 1, limit: 50 });
   const projectProposalsQuery = useProjectProposals(
@@ -88,6 +92,8 @@ export function CustomerProposalDetailPage() {
   );
   const customizationRequests = customizationRequestsQuery.data?.items ?? [];
   const customerApprovalItems = getCustomerApprovalItems(customizationRequests);
+  const customizationBlocker = getProposalSelectionCustomizationBlocker(customizationRequests);
+  const canSelectProposal = backendProposal?.status === 'PUBLISHED' && !customizationBlocker;
 
   useEffect(() => {
     if (proposalId && proposalId !== selectedProposalId) {
@@ -131,6 +137,19 @@ export function CustomerProposalDetailPage() {
     });
 
     navigate(`/customer/3d-preview?${params.toString()}`);
+  }
+
+  async function selectProposal() {
+    if (!backendProposal) return;
+
+    setSelectionMessage('');
+
+    try {
+      await selectFinalProposalMutation.mutateAsync({ proposalId: backendProposal.proposalId });
+      setSelectionMessage('Proposal selected successfully. Sales can now create the official quotation.');
+    } catch (error) {
+      setSelectionMessage(getProposalServiceResultMessage(error));
+    }
   }
 
   function resetCustomizationForm() {
@@ -245,6 +264,24 @@ export function CustomerProposalDetailPage() {
           <div className="customer-proposal-detail-primary">
             {backendProposal ? (
               <>
+              <section className="customer-proposal-detail-card customer-proposal-detail-decision">
+                <div>
+                  <h2>{backendProposal.proposalName}</h2>
+                  <p>Version {backendProposal.versionNo} · {formatEnumLabel(backendProposal.status)}</p>
+                </div>
+                <button
+                  className="customer-proposal-detail-select-button"
+                  disabled={!canSelectProposal || selectFinalProposalMutation.isPending || backendProposal.status === 'SELECTED'}
+                  type="button"
+                  onClick={() => void selectProposal()}
+                >
+                  <IconCircleCheck size={18} stroke={1.8} />
+                  {selectFinalProposalMutation.isPending ? 'Selecting...' : backendProposal.status === 'SELECTED' ? 'Selected Proposal' : 'Select This Proposal'}
+                </button>
+                {selectionMessage ? <p className="customer-proposal-detail-message">{selectionMessage}</p> : null}
+                {customizationBlocker ? <p className="customer-proposal-detail-message">{customizationBlocker}</p> : null}
+              </section>
+
               <section className="customer-proposal-detail-card customer-proposal-detail-scenes">
                 <div className="customer-proposal-detail-section-heading">
                   <div>
@@ -370,6 +407,16 @@ function ProposalItemRow({ item, onCustomize, proposalStatus }: { item: Proposal
       </td>
     </tr>
   );
+}
+
+function getProposalSelectionCustomizationBlocker(requests: CustomizationRequestDto[]) {
+  const activeRequests = requests.filter((request) => request.status === 'SUBMITTED' || request.status === 'REVIEWING');
+
+  if (activeRequests.length > 0) {
+    return `${activeRequests.length} customization request${activeRequests.length === 1 ? '' : 's'} must be resolved before selecting this proposal.`;
+  }
+
+  return null;
 }
 
 function isCustomerVisibleProposal(status: ProposalDto['status']) {

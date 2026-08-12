@@ -354,6 +354,7 @@ function ProjectDetailDrawer({
   const sales = project?.assignedSalesId ? accountById[project.assignedSalesId] : null;
   const designer = project?.assignedDesignerId ? accountById[project.assignedDesignerId] : null;
   const isMutating = assignSalesMutation.isPending || markReadyForDesignerMutation.isPending || assignDesignerMutation.isPending;
+  const selectedStage = stages.find((stage) => stage.key === selectedStageKey) ?? null;
 
   return (
     <div className="admin-projects-drawer-overlay">

@@ -887,7 +887,6 @@ export function BuildingThreeDTestPage() {
           >
             2D Blueprint
           </RouterLink>
-          <RouterLink to={sceneId ? `/proposal-scenes/${sceneId}/legacy-room-planner` : '/3d-lab'}>Legacy Planner</RouterLink>
           <button
             disabled={isSavingRoomPlanner}
             title={!sceneId ? 'Open this planner from a proposal scene to save to backend.' : undefined}

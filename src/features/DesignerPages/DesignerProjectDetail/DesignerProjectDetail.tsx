@@ -3,13 +3,10 @@ import {
   IconBox,
   IconCalendarEvent,
   IconClipboardList,
-  IconCube,
   IconFileText,
   IconMessage,
-  IconPalette,
   IconPlus,
   IconRefresh,
-  IconRulerMeasure,
 } from '@tabler/icons-react';
 import { useQueries } from '@tanstack/react-query';
 import { useMemo, useState, type ComponentType } from 'react';
@@ -187,14 +184,6 @@ export function DesignerProjectDetail() {
                     <IconPlus size={17} />
                     Set Up Proposal
                   </button>
-                  <button className="designer-project-detail-button" type="button">
-                    <IconCube size={17} />
-                    Scenes
-                  </button>
-                  <button className="designer-project-detail-button" type="button">
-                    <IconRulerMeasure size={17} />
-                    Requirements
-                  </button>
                 </div>
               </div>
             </section>
@@ -234,10 +223,6 @@ export function DesignerProjectDetail() {
               )}
             </section>
 
-            <aside className="designer-project-floating-note">
-              <IconPalette size={18} />
-              <span>Project information is loaded from your assigned designer workspace.</span>
-            </aside>
           </>
         ) : null}
       </section>

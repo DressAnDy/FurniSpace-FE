@@ -1095,3 +1095,48 @@
     height: 160px;
   }
 }
+
+.customer-3d-preview-select-button {
+  align-items: center;
+  background: #166534;
+  border: 0;
+  border-radius: 999px;
+  color: #ffffff;
+  cursor: pointer;
+  display: inline-flex;
+  font: inherit;
+  font-weight: 700;
+  gap: 8px;
+  min-height: 38px;
+  padding: 0 14px;
+}
+
+.customer-3d-preview-select-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.customer-3d-preview-floor-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.customer-3d-preview-floor-tabs button {
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  border-radius: 999px;
+  color: #ffffff;
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  min-height: 30px;
+  padding: 0 12px;
+}
+
+.customer-3d-preview-floor-tabs button.is-active {
+  background: #ffffff;
+  color: #1f2937;
+}

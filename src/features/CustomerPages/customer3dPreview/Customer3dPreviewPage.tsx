@@ -17,6 +17,7 @@ import { RoomPreview3D, type PlacedProduct3D } from '@/features/ThreeD/component
 import type { RoomMaterialSelection } from '@/features/ThreeD/types/roomLayout.types';
 import { hydrateRoomPlannerScenePayload } from '@/features/ThreeD/utils/roomPlannerSceneMapper';
 import { BuildingSceneCanvas } from '@/features/ThreeDTest/components/BuildingSceneCanvas';
+import type { BuildingLevelVisibility } from '@/features/ThreeDTest/schemas/buildingScene.types';
 import {
   createResolvedRoomPlannerBuildingModelVersionMap,
   resolvePlacedBuildingProducts,
@@ -54,6 +55,7 @@ export function Customer3dPreviewPage() {
   const sceneIdFromUrl = searchParams.get('sceneId') ?? '';
   const stageRef = useRef<HTMLDivElement>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('3d');
+  const [activeLevel, setActiveLevel] = useState<BuildingLevelVisibility>('all');
   const [sidePanelMode, setSidePanelMode] = useState<SidePanelMode>(null);
   const [selectedObjectId, setSelectedObjectId] = useState<string | null>(null);
   const [decisionMessage, setDecisionMessage] = useState('');
@@ -166,6 +168,27 @@ export function Customer3dPreviewPage() {
     () => sceneProducts.find((object) => object.id === selectedObjectId) ?? null,
     [sceneProducts, selectedObjectId],
   );
+  const levelOptions = useMemo<Array<{ label: string; value: BuildingLevelVisibility }>>(() => {
+    const levels = hydratedBuildingScene.sceneData?.building.levels ?? [];
+
+    if (levels.length === 0) {
+      return [{ label: 'All', value: 'all' }];
+    }
+
+    return [
+      { label: 'All Floors', value: 'all' },
+      ...levels.map((level) => ({ label: level.label, value: level.id })),
+    ];
+  }, [hydratedBuildingScene.sceneData?.building.levels]);
+
+  useEffect(() => {
+    if (activeLevel === 'all') return;
+
+    const levels = hydratedBuildingScene.sceneData?.building.levels ?? [];
+    if (!levels.some((level) => level.id === activeLevel)) {
+      setActiveLevel('all');
+    }
+  }, [activeLevel, hydratedBuildingScene.sceneData?.building.levels]);
 
   useEffect(() => {
     if (selectedProjectId || projects.length === 0) {
@@ -318,6 +341,15 @@ export function Customer3dPreviewPage() {
             </div>
             <span className="customer-3d-preview-status">{selectedProposal?.status ?? 'No proposal'}</span>
             <button
+              className="customer-3d-preview-select-button"
+              disabled={!canSelectProposal || selectFinalProposalMutation.isPending || selectedProposal?.status === 'SELECTED'}
+              type="button"
+              onClick={() => void selectProposal()}
+            >
+              <IconCircleCheck size={16} stroke={1.8} />
+              {selectFinalProposalMutation.isPending ? 'Selecting...' : selectedProposal?.status === 'SELECTED' ? 'Selected' : 'Select Proposal'}
+            </button>
+            <button
               className="customer-3d-preview-icon-button"
               type="button"
               aria-label="Fullscreen preview"
@@ -403,7 +435,7 @@ export function Customer3dPreviewPage() {
                 <SceneState message="This scene has no saved room layout in MongoDB yet." />
               ) : viewMode === '3d' && hydratedBuildingScene.sceneData ? (
                 <BuildingSceneCanvas
-                  activeLevel="all"
+                  activeLevel={activeLevel}
                   modelsById={new Map()}
                   placedProducts={resolvedBuildingProducts}
                   sceneData={hydratedBuildingScene.sceneData}
@@ -443,6 +475,22 @@ export function Customer3dPreviewPage() {
             <div className="customer-3d-preview-scene-card">
               <strong>{selectedScene?.sceneName ?? selectedProposal?.proposalName ?? 'Room Planner Scene'}</strong>
               <p>{selectedScene ? `Scene version ${selectedScene.versionNo}` : selectedProposal ? `Proposal version ${selectedProposal.versionNo}` : 'No scene selected'}</p>
+              {levelOptions.length > 1 ? (
+                <div className="customer-3d-preview-floor-tabs" role="tablist" aria-label="Floor view">
+                  {levelOptions.map((level) => (
+                    <button
+                      key={level.value}
+                      className={activeLevel === level.value ? 'is-active' : ''}
+                      type="button"
+                      role="tab"
+                      aria-selected={activeLevel === level.value}
+                      onClick={() => setActiveLevel(level.value)}
+                    >
+                      {level.label}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
             </div>
 
             <div className="customer-readonly-notice">Saved scene - editing disabled</div>
@@ -613,12 +661,6 @@ function getProposalSelectionCustomizationBlocker(
 
   if (activeRequests.length > 0) {
     return `${activeRequests.length} customization request${activeRequests.length === 1 ? '' : 's'} must be resolved before selecting this proposal.`;
-  }
-
-  const acceptedRequests = requests.filter((request) => request.status === 'ACCEPTED' || request.acceptedRequestVersionId);
-
-  if (acceptedRequests.length > 0) {
-    return 'This proposal has accepted customization. FE needs backend applied-version status before it can safely allow final selection.';
   }
 
   return null;

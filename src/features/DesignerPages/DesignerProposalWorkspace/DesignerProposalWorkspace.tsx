@@ -21,7 +21,6 @@ import { getProjectServiceResultMessage } from '@/services/api/projects';
 import { getProposalServiceResultMessage, type ProposalDetailDto, type ProposalItemDto, type ProposalSceneDto } from '@/services/api/proposals';
 import {
   useCreateProposal,
-  useCreateProposalScene,
   useProjectDetail,
   useProjectAreas,
   useProposalDetail,
@@ -111,7 +110,6 @@ export function DesignerProposalWorkspace() {
     limit: 100,
   });
   const createProposalMutation = useCreateProposal();
-  const createSceneMutation = useCreateProposalScene();
   const publishProposalMutation = usePublishProposal();
   const updateProposalMutation = useUpdateProposal();
   const updateProposalSceneMutation = useUpdateProposalScene();
@@ -184,34 +182,6 @@ export function DesignerProposalWorkspace() {
         note: 'Published by designer from proposal workspace.',
       });
       setMessage('Proposal published successfully. It is now ready for customer review.');
-    } catch (error) {
-      setMessage(getProposalServiceResultMessage(error));
-    }
-  }
-
-  async function createScene() {
-    if (!activeProposalId || !project) {
-      return;
-    }
-
-    setMessage('');
-
-    const projectAreaIds = getActiveAreaIds(areas);
-
-    if (projectAreaIds.length === 0) {
-      setMessage('Create project areas before creating a room planner scene. Each area will become a floor.');
-      return;
-    }
-
-    try {
-      const scene = await createSceneMutation.mutateAsync({
-        proposalId: activeProposalId,
-        sceneName: `${project.projectName} Room Planner`,
-        sceneType: 'ROOM_PLANNER',
-        projectAreaIds,
-      });
-
-      openRoomPlanner(scene);
     } catch (error) {
       setMessage(getProposalServiceResultMessage(error));
     }
@@ -452,10 +422,7 @@ export function DesignerProposalWorkspace() {
           ) : (
           <section className="designer-scenes-section">
             <header>
-              <div><h2>Proposal Scenes</h2></div>
-              <button disabled={!activeProposalId || proposal?.status !== 'DRAFT' || areas.length === 0 || createSceneMutation.isPending} type="button" onClick={() => void createScene()}>
-                <IconPlus size={17} /> {createSceneMutation.isPending ? 'Creating...' : 'Create Room Planner Scene'}
-              </button>
+              <div><h2>Proposal Scenes</h2><p>One proposal maps to one Room Planner scene per area.</p></div>
             </header>
             <div className="designer-scenes-list">
               {scenesQuery.isLoading ? <EmptyState message="Loading proposal scenes from backend..." /> : null}

@@ -1,6 +1,9 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import {
+  IconArrowLeft,
   IconBox,
+  IconChevronLeft,
+  IconChevronRight,
   IconCube,
   IconPackage,
   IconPencil,
@@ -80,27 +83,50 @@ export function ProductDetailPage() {
         <section className="product-detail-shell">
           <aside className="product-detail-panel product-detail-left-panel" aria-label="Product information">
             <Link className="product-detail-back-link" to="/products">
+              <IconArrowLeft size={16} stroke={1.8} />
               Back to Products
             </Link>
-            <p className="product-detail-eyebrow">{product.categoryName}</p>
-            <div className="product-detail-left-copy">
-              <h2>{product.productName}</h2>
-              <p>{product.description ?? 'FurniSpace catalog furniture piece with production-ready version metadata.'}</p>
+
+            <div className="product-detail-left-card">
+              <span className="product-detail-category-chip">{product.categoryName}</span>
+              <div className="product-detail-left-copy">
+                <h2>{product.productName}</h2>
+                <p>{product.description ?? 'FurniSpace catalog furniture piece with production-ready version metadata.'}</p>
+              </div>
+
+              <section className="product-detail-version-meta" aria-label="Selected version metadata">
+                <div>
+                  <span>Version Code</span>
+                  <strong>{selectedVersion.versionCode}</strong>
+                </div>
+                <div>
+                  <span>Version Name</span>
+                  <strong>{selectedVersion.versionName}</strong>
+                </div>
+                <div>
+                  <span>Type</span>
+                  <strong>{formatEnumLabel(selectedVersion.versionType)}</strong>
+                </div>
+              </section>
+
+              <div className="product-detail-spec-grid">
+                <ProductOption
+                  icon={<IconRulerMeasure size={21} stroke={1.6} />}
+                  label="Size"
+                  value={formatVersionSize(selectedVersion)}
+                />
+                <ProductOption
+                  icon={<IconTools size={23} stroke={1.6} />}
+                  label="Material"
+                  value={selectedVersion.material ?? 'Not set'}
+                />
+                <ProductOption
+                  icon={<IconPencil size={21} stroke={1.6} />}
+                  label="Color"
+                  value={selectedVersion.color ?? 'Not set'}
+                />
+              </div>
             </div>
-            <section className="product-detail-version-meta">
-              <div>
-                <span>Version Code</span>
-                <strong>{selectedVersion.versionCode}</strong>
-              </div>
-              <div>
-                <span>Version Name</span>
-                <strong>{selectedVersion.versionName}</strong>
-              </div>
-              <div>
-                <span>Type</span>
-                <strong>{selectedVersion.versionType}</strong>
-              </div>
-            </section>
           </aside>
 
           <StickyProductGallery
@@ -113,65 +139,57 @@ export function ProductDetailPage() {
           />
 
           <aside className="product-detail-panel product-detail-right-panel" aria-label="Product information and options">
-            <div className="product-detail-title">
-              <h1>{product.productName}</h1>
-              <p>{product.description ?? product.categoryName}</p>
-            </div>
-
-            <section className="product-detail-options" aria-label="Choose your design">
-              <h2>Choose your version</h2>
-              <div className="product-detail-version-list">
-                {versions.map((version) => (
-                  <button
-                    className={version.productVersionId === selectedVersion.productVersionId ? 'is-active' : ''}
-                    key={version.productVersionId}
-                    type="button"
-                    onClick={() => {
-                      setSelectedVersionId(version.productVersionId);
-                      setVersionNavigationToken((token) => token + 1);
-                      setPreviewOpen(false);
-                    }}
-                  >
-                    <span>{version.versionName}</span>
-                  </button>
-                ))}
+            <div className="product-detail-right-card">
+              <div className="product-detail-title">
+                <span className="product-detail-kicker">Catalog Piece</span>
+                <h1>{product.productName}</h1>
+                <p>{product.description ?? product.categoryName}</p>
               </div>
 
-              <ProductOption
-                icon={<IconRulerMeasure size={21} stroke={1.6} />}
-                label="Size"
-                value={formatVersionSize(selectedVersion)}
-              />
-              <ProductOption
-                icon={<IconTools size={23} stroke={1.6} />}
-                label="Material"
-                value={selectedVersion.material ?? 'Not set'}
-              />
-              <ProductOption
-                icon={<IconPencil size={21} stroke={1.6} />}
-                label="Color"
-                value={selectedVersion.color ?? 'Not set'}
-              />
-            </section>
+              <section className="product-detail-options" aria-label="Choose your design">
+                <div className="product-detail-section-heading">
+                  <h2>Choose your version</h2>
+                  <span>{versions.length} option{versions.length === 1 ? '' : 's'}</span>
+                </div>
+                <div className="product-detail-version-list">
+                  {versions.map((version) => (
+                    <button
+                      className={version.productVersionId === selectedVersion.productVersionId ? 'is-active' : ''}
+                      key={version.productVersionId}
+                      type="button"
+                      onClick={() => {
+                        setSelectedVersionId(version.productVersionId);
+                        setVersionNavigationToken((token) => token + 1);
+                        setPreviewOpen(false);
+                      }}
+                    >
+                      <strong>{version.versionName}</strong>
+                      <small>{version.versionCode}</small>
+                    </button>
+                  ))}
+                </div>
+              </section>
 
-            <section className="product-detail-price">
-              <p>Rec. retail price</p>
-              <strong>{formatCatalogPrice(selectedVersion.estimatedPrice)}</strong>
-            </section>
+              <section className="product-detail-price">
+                <p>Recommended retail price</p>
+                <strong>{formatCatalogPrice(selectedVersion.estimatedPrice)}</strong>
+                <span>Price shown for the selected version only.</span>
+              </section>
 
-            <button
-              className="product-detail-model-button"
-              disabled={!modelFile}
-              type="button"
-              onClick={() => {
-                setPreviewOpen(true);
-                setViewerStatus('idle');
-                setViewerError(null);
-              }}
-            >
-              <IconCube size={17} stroke={1.7} />
-              View 3D Asset
-            </button>
+              <button
+                className="product-detail-model-button"
+                disabled={!modelFile}
+                type="button"
+                onClick={() => {
+                  setPreviewOpen(true);
+                  setViewerStatus('idle');
+                  setViewerError(null);
+                }}
+              >
+                <IconCube size={17} stroke={1.7} />
+                View 3D Asset
+              </button>
+            </div>
           </aside>
         </section>
       ) : null}
@@ -237,199 +255,111 @@ function StickyProductGallery({ fallbackImageUrl, onVersionSelect, product, sele
     [fallbackImageUrl, product, versions],
   );
   const [activeIndex, setActiveIndex] = useState(0);
-  const galleryRef = useRef<HTMLDivElement>(null);
-  const activeIndexRef = useRef(activeIndex);
-  const scrollingToVersionRef = useRef(false);
-  const previousNavigationTokenRef = useRef(versionNavigationToken);
-
-  useEffect(() => {
-    activeIndexRef.current = activeIndex;
-  }, [activeIndex]);
 
   useEffect(() => {
     setActiveIndex(0);
   }, [product.productId]);
 
   useEffect(() => {
-    if (versionNavigationToken === previousNavigationTokenRef.current) {
-      return;
-    }
-
-    previousNavigationTokenRef.current = versionNavigationToken;
-
     const targetIndex = galleryImages.findIndex((image) => image.versionId === selectedVersion.productVersionId);
 
-    if (targetIndex < 0) {
-      return;
+    if (targetIndex >= 0) {
+      setActiveIndex(targetIndex);
     }
-
-    setActiveIndex(targetIndex);
-
-    if (targetIndex === activeIndexRef.current) {
-      return;
-    }
-
-    const gallery = galleryRef.current;
-    const desktopQuery = window.matchMedia('(min-width: 1101px)');
-
-    if (!gallery || galleryImages.length <= 1 || !desktopQuery.matches) {
-      return;
-    }
-
-    const topOffset = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--product-detail-navbar-offset')) || 88;
-    const scrollRange = Math.max(gallery.offsetHeight - window.innerHeight, 1);
-    const progress = targetIndex / Math.max(galleryImages.length - 1, 1);
-    const galleryTop = gallery.getBoundingClientRect().top + window.scrollY;
-
-    scrollingToVersionRef.current = true;
-    window.scrollTo({
-      top: galleryTop - topOffset + progress * scrollRange,
-      behavior: 'smooth',
-    });
-    window.setTimeout(() => {
-      scrollingToVersionRef.current = false;
-    }, 700);
   }, [galleryImages, selectedVersion.productVersionId, versionNavigationToken]);
 
-  useEffect(() => {
-    if (galleryImages.length <= 1) {
-      return undefined;
+  function selectImage(index: number) {
+    setActiveIndex(index);
+
+    const image = galleryImages[index];
+
+    if (image?.versionId) {
+      onVersionSelect(image.versionId);
     }
+  }
 
-    const desktopQuery = window.matchMedia('(min-width: 1101px)');
-    let animationFrame: number | undefined;
+  function showPreviousImage() {
+    selectImage(activeIndex <= 0 ? galleryImages.length - 1 : activeIndex - 1);
+  }
 
-    function updateActiveImage() {
-      const gallery = galleryRef.current;
-
-      if (!gallery || !desktopQuery.matches) {
-        return;
-      }
-
-      const scrollRange = Math.max(gallery.offsetHeight - window.innerHeight, 1);
-      const topOffset = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--product-detail-navbar-offset')) || 88;
-      const progress = clamp((topOffset - gallery.getBoundingClientRect().top) / scrollRange, 0, 1);
-      const nextIndex = Math.round(progress * (galleryImages.length - 1));
-
-      setActiveIndex((currentIndex) => {
-        if (currentIndex === nextIndex) {
-          return currentIndex;
-        }
-
-        const nextVersionId = galleryImages[nextIndex]?.versionId;
-
-        if (nextVersionId && nextVersionId !== selectedVersion.productVersionId && !scrollingToVersionRef.current) {
-          onVersionSelect(nextVersionId);
-        }
-
-        return nextIndex;
-      });
-    }
-
-    function handleScroll() {
-      if (animationFrame !== undefined) {
-        return;
-      }
-
-      animationFrame = window.requestAnimationFrame(() => {
-        animationFrame = undefined;
-        updateActiveImage();
-      });
-    }
-
-    function handleViewportChange() {
-      if (desktopQuery.matches) {
-        handleScroll();
-      }
-    }
-
-    updateActiveImage();
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    window.addEventListener('resize', handleScroll);
-    desktopQuery.addEventListener('change', handleViewportChange);
-
-    return () => {
-      if (animationFrame !== undefined) {
-        window.cancelAnimationFrame(animationFrame);
-      }
-
-      window.removeEventListener('scroll', handleScroll);
-      window.removeEventListener('resize', handleScroll);
-      desktopQuery.removeEventListener('change', handleViewportChange);
-    };
-  }, [galleryImages, onVersionSelect, selectedVersion.productVersionId]);
+  function showNextImage() {
+    selectImage(activeIndex >= galleryImages.length - 1 ? 0 : activeIndex + 1);
+  }
 
   if (galleryImages.length === 0) {
     return (
       <div className="product-detail-gallery product-detail-gallery-static">
-        <div className="product-detail-image-placeholder">
-          <IconBox size={58} stroke={1.4} />
-          <span>No product image</span>
-        </div>
-      </div>
-    );
-  }
-
-  if (galleryImages.length === 1) {
-    return (
-      <div className="product-detail-gallery product-detail-gallery-static">
-        <figure className="product-detail-hero-image">
-          <ProductDetailImage src={galleryImages[0].src} alt={galleryImages[0].alt} />
-        </figure>
-      </div>
-    );
-  }
-
-  return (
-    <div
-      className="product-detail-gallery product-detail-gallery-scroll"
-      ref={galleryRef}
-      style={{ '--product-detail-gallery-count': galleryImages.length } as CSSProperties}
-    >
-      <div className="product-detail-gallery-sticky">
-        <div className="product-detail-gallery-stage" aria-live="polite">
-          {galleryImages.map((image, index) => (
-            <img
-              alt={image.alt}
-              className={[
-                'product-detail-gallery-image',
-                index === activeIndex ? 'is-active' : '',
-                index < activeIndex ? 'is-before' : '',
-                index > activeIndex ? 'is-after' : '',
-              ].filter(Boolean).join(' ')}
-              decoding="async"
-              key={image.id}
-              loading={index <= activeIndex + 1 ? 'eager' : 'lazy'}
-              src={image.src}
-            />
-          ))}
-        </div>
-
-        <div className="product-detail-gallery-progress" aria-label={`Image ${activeIndex + 1} of ${galleryImages.length}`}>
-          <div className="product-detail-gallery-progress-track">
-            <span style={{ height: `${((activeIndex + 1) / galleryImages.length) * 100}%` }} />
+        <div className="product-detail-gallery-frame">
+          <div className="product-detail-image-placeholder">
+            <IconBox size={58} stroke={1.4} />
+            <span>No product image</span>
           </div>
         </div>
+      </div>
+    );
+  }
 
-        <div className="product-detail-mobile-thumbnail-list" aria-label="Product images">
+  const activeImage = galleryImages[activeIndex] ?? galleryImages[0];
+
+  return (
+    <div className="product-detail-gallery product-detail-gallery-static">
+      <div className="product-detail-gallery-frame">
+        <div className="product-detail-gallery-stage" aria-live="polite">
+          {galleryImages.length === 1 ? (
+            <ProductDetailImage alt={activeImage.alt} src={activeImage.src} />
+          ) : (
+            galleryImages.map((image, index) => (
+              <img
+                alt={image.alt}
+                className={[
+                  'product-detail-gallery-image',
+                  index === activeIndex ? 'is-active' : '',
+                ].filter(Boolean).join(' ')}
+                decoding="async"
+                key={image.id}
+                loading={index <= activeIndex + 1 ? 'eager' : 'lazy'}
+                src={image.src}
+              />
+            ))
+          )}
+        </div>
+
+        {galleryImages.length > 1 ? (
+          <>
+            <div className="product-detail-gallery-nav">
+              <button aria-label="Previous image" type="button" onClick={showPreviousImage}>
+                <IconChevronLeft size={18} />
+              </button>
+              <button aria-label="Next image" type="button" onClick={showNextImage}>
+                <IconChevronRight size={18} />
+              </button>
+            </div>
+
+            <div className="product-detail-gallery-counter" aria-hidden="true">
+              {String(activeIndex + 1).padStart(2, '0')}
+              <span>/</span>
+              {String(galleryImages.length).padStart(2, '0')}
+            </div>
+          </>
+        ) : null}
+      </div>
+
+      {galleryImages.length > 1 ? (
+        <div className="product-detail-gallery-thumbnail-list" aria-label="Product images">
           {galleryImages.map((image, index) => (
             <button
               className={index === activeIndex ? 'is-active' : ''}
               key={image.id}
-              onClick={() => {
-                setActiveIndex(index);
-                if (image.versionId) {
-                  onVersionSelect(image.versionId);
-                }
-              }}
               type="button"
               title={image.ownerLabel}
+              onClick={() => selectImage(index)}
             >
-              <img alt="" src={image.src} loading="lazy" decoding="async" />
+              <img alt="" decoding="async" loading="lazy" src={image.src} />
+              <span>{image.ownerLabel}</span>
             </button>
           ))}
         </div>
-      </div>
+      ) : null}
     </div>
   );
 }
@@ -495,6 +425,14 @@ function formatVersionSize(version: ProductVersionDto) {
   const depth = version.depth ?? '-';
 
   return `${width} x ${height} x ${depth}`;
+}
+
+function formatEnumLabel(value: string) {
+  return value
+    .toLowerCase()
+    .split('_')
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
 }
 
 function getGalleryImages(product: ProductDetailDto, versions: ProductVersionDto[], fallbackImageUrl: string | null): ProductGalleryImage[] {
@@ -568,8 +506,4 @@ function getGalleryImageFromFile(
     src,
     versionId: owner.versionId,
   };
-}
-
-function clamp(value: number, min: number, max: number) {
-  return Math.min(Math.max(value, min), max);
 }

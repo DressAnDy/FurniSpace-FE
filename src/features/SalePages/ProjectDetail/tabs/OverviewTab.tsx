@@ -98,7 +98,6 @@ export function OverviewTab({ project, showAssignedTeam = false }: OverviewTabPr
     const formData = new FormData(event.currentTarget);
     const designerId = String(formData.get('designerId') ?? selectedDesignerId).trim();
     const spaceDataStatus = String(formData.get('spaceDataStatus') ?? 'INSUFFICIENT') as ProjectSpaceDataStatus;
-    const note = String(formData.get('note') ?? '').trim();
 
     if (!designerId) {
       setAssignmentMessage('Please select an available designer.');
@@ -115,7 +114,7 @@ export function OverviewTab({ project, showAssignedTeam = false }: OverviewTabPr
         projectId: project.projectId,
         designerId,
         spaceDataStatus,
-        note: note || 'Designer assigned from project overview.',
+        note: 'Designer assigned from project overview.',
       });
       setAssignmentMessage('Designer assigned successfully.');
     } catch (error) {
@@ -286,11 +285,6 @@ export function OverviewTab({ project, showAssignedTeam = false }: OverviewTabPr
                   <option value="INSUFFICIENT">Insufficient - needs measurement</option>
                   <option value="SUFFICIENT">Sufficient - ready for design review</option>
                 </select>
-              </label>
-
-              <label>
-                <span>Assignment Note</span>
-                <textarea name="note" placeholder="Add context for the designer" disabled={assignDesignerMutation.isPending} />
               </label>
 
               {assignmentMessage ? (

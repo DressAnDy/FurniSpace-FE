@@ -19,6 +19,7 @@ import { Customer3dPreviewPage } from '@/features/CustomerPages/customer3dPrevie
 import { CustomerChatPage } from '@/features/CustomerPages/customerChat';
 import { CustomerDashboardPage } from '@/features/CustomerPages/customerDashboard';
 import { CustomerOrdersPage } from '@/features/CustomerPages/customerOrders';
+import { CustomerProjectDetailPage } from '@/features/CustomerPages/customerProjectDetail';
 import { CustomerProjectInformationPage } from '@/features/CustomerPages/customerProjectInformation/CustomerProjectInformationPage';
 import { CustomerProjectListPage } from '@/features/CustomerPages/customerProjectList';
 import { CustomerProjectRequestPage } from '@/features/CustomerPages/customerProjectRequest';
@@ -123,6 +124,7 @@ export default function App() {
                   <Route path="/customer" element={<Navigate to="/customer/dashboard" replace />} />
                   <Route path="/customer/dashboard" element={<CustomerDashboardPage />} />
                   <Route path="/customer/projects" element={<CustomerProjectListPage />} />
+                  <Route path="/customer/projects/:projectId" element={<CustomerProjectDetailPage />} />
                   <Route path="/customer/projects/:projectId/edit" element={<CustomerProjectInformationPage />} />
                   <Route path="/customer/project-request" element={<CustomerProjectRequestPage />} />
                   <Route path="/customer/tracking" element={<Tracking />} />
