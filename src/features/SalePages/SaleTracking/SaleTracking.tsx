@@ -24,7 +24,7 @@ import {
 } from '@/services/queries';
 
 import './SaleTracking.css';
-import { getLocalDateTimeInputValue, validateScheduleDateRange } from '@/shared/utils/dateValidation';
+import { getLocalDateTimeInputValue, getMinimumEndDateTimeInputValue, validateScheduleDateRange } from '@/shared/utils/dateValidation';
 
 const TRACKING_PROJECT_STATUSES = new Set([
   'READY_FOR_DELIVERY',
@@ -41,6 +41,8 @@ const STATUS_PRIORITY: Record<string, number> = {
 };
 
 export function SaleTracking() {
+  const [scheduleStartInput, setScheduleStartInput] = useState('');
+  const [scheduleEndInput, setScheduleEndInput] = useState('');
   const [selectedProjectId, setSelectedProjectId] = useState('');
   const [selectedOrderId, setSelectedOrderId] = useState('');
   const [projectSearch, setProjectSearch] = useState('');
@@ -183,6 +185,8 @@ export function SaleTracking() {
       });
       setMessage({ tone: 'success', text: 'Delivery schedule created and sent for customer confirmation.' });
       form.reset();
+      setScheduleStartInput('');
+      setScheduleEndInput('');
       void deliverySchedulesQuery.refetch();
     } catch (error) {
       setMessage({ tone: 'error', text: getProjectScheduleServiceResultMessage(error) });
@@ -398,11 +402,23 @@ export function SaleTracking() {
                       <div className="sale-tracking-form-row">
                         <label>
                           <span>Start</span>
-                          <input min={getLocalDateTimeInputValue()} name="scheduledStart" required type="datetime-local" />
+                          <input
+                            min={getLocalDateTimeInputValue()}
+                            name="scheduledStart"
+                            required
+                            type="datetime-local"
+                            value={scheduleStartInput}
+                            onChange={(event) => {
+                              const nextStart = event.target.value;
+                              const minimumEnd = getMinimumEndDateTimeInputValue(nextStart);
+                              setScheduleStartInput(nextStart);
+                              setScheduleEndInput((current) => current && minimumEnd && current < minimumEnd ? '' : current);
+                            }}
+                          />
                         </label>
                         <label>
                           <span>End</span>
-                          <input name="scheduledEnd" type="datetime-local" />
+                          <input disabled={!scheduleStartInput} min={getMinimumEndDateTimeInputValue(scheduleStartInput)} name="scheduledEnd" type="datetime-local" value={scheduleEndInput} onChange={(event) => setScheduleEndInput(event.target.value)} />
                         </label>
                       </div>
                       <label>

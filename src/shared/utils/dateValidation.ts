@@ -23,6 +23,13 @@ export function getLocalDateTimeInputValue(value = new Date()) {
   return `${getLocalDateInputValue(value)}T${String(value.getHours()).padStart(2, '0')}:${String(value.getMinutes()).padStart(2, '0')}`;
 }
 
+export function getMinimumEndDateTimeInputValue(startValue: string, minimumGapMinutes = 1) {
+  const start = parseLocalDateTime(startValue);
+  if (!start) return '';
+
+  return getLocalDateTimeInputValue(new Date(start.getTime() + minimumGapMinutes * 60_000));
+}
+
 export function isValidDateOnly(value: string) {
   const match = DATE_ONLY_PATTERN.exec(value.trim());
   if (!match) return false;
