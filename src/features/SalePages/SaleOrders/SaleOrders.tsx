@@ -18,7 +18,7 @@ import {
   useProjectOrders,
   useUpdateOrderFinancialAdjustment,
 } from '@/services/queries';
-import { getLocalDateInputValue, validateOptionalFutureDateRange } from '@/shared/utils/dateValidation';
+import { getLocalDateInputValue, getMinimumEndDateInputValue, validateOptionalFutureDateRange } from '@/shared/utils/dateValidation';
 
 import './SaleOrders.css';
 
@@ -383,15 +383,27 @@ function OrderDetailPanel({
                 value={estimatedStartDate}
                 onChange={(event) => {
                   const nextStart = event.target.value;
+                  const minimumCompletionDate = getMinimumEndDateInputValue(nextStart);
                   setEstimatedStartDate(nextStart);
-                  setEstimatedCompletionDate((current) => current && nextStart && current < nextStart ? '' : current);
+                  setEstimatedCompletionDate((current) => current && minimumCompletionDate && current < minimumCompletionDate ? '' : current);
                   setProductionDateMessage('');
                 }}
               />
             </label>
             <label>
               <span>Complete</span>
-              <input disabled={!estimatedStartDate} min={estimatedStartDate || getLocalDateInputValue()} type="date" value={estimatedCompletionDate} onChange={(event) => { setEstimatedCompletionDate(event.target.value); setProductionDateMessage(''); }} />
+              <input
+                disabled={!estimatedStartDate}
+                min={getMinimumEndDateInputValue(estimatedStartDate) || getLocalDateInputValue()}
+                type="date"
+                value={estimatedCompletionDate}
+                onChange={(event) => {
+                  const nextCompletionDate = event.target.value;
+                  const minimumCompletionDate = getMinimumEndDateInputValue(estimatedStartDate);
+                  setEstimatedCompletionDate(nextCompletionDate && minimumCompletionDate && nextCompletionDate < minimumCompletionDate ? '' : nextCompletionDate);
+                  setProductionDateMessage('');
+                }}
+              />
             </label>
           </div>
           {productionDateMessage ? <p className="sale-orders-action-note">{productionDateMessage}</p> : null}

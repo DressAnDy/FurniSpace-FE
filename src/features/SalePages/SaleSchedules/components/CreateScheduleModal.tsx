@@ -229,7 +229,18 @@ export function CreateScheduleModal({ editingSchedule, isOpen, projects, onClose
             </label>
             <label>
               <span>End Date & Time</span>
-              <input disabled={!scheduledStart} min={getMinimumEndDateTimeInputValue(scheduledStart)} name="scheduledEnd" type="datetime-local" value={scheduledEnd} onChange={(event) => setScheduledEnd(event.target.value)} />
+              <input
+                disabled={!scheduledStart}
+                min={getMinimumEndDateTimeInputValue(scheduledStart)}
+                name="scheduledEnd"
+                type="datetime-local"
+                value={scheduledEnd}
+                onChange={(event) => {
+                  const nextEnd = event.target.value;
+                  const minimumEnd = getMinimumEndDateTimeInputValue(scheduledStart);
+                  setScheduledEnd(nextEnd && minimumEnd && nextEnd < minimumEnd ? '' : nextEnd);
+                }}
+              />
             </label>
           </div>
 

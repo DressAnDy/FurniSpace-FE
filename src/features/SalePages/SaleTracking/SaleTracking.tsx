@@ -418,7 +418,18 @@ export function SaleTracking() {
                         </label>
                         <label>
                           <span>End</span>
-                          <input disabled={!scheduleStartInput} min={getMinimumEndDateTimeInputValue(scheduleStartInput)} name="scheduledEnd" type="datetime-local" value={scheduleEndInput} onChange={(event) => setScheduleEndInput(event.target.value)} />
+                          <input
+                            disabled={!scheduleStartInput}
+                            min={getMinimumEndDateTimeInputValue(scheduleStartInput)}
+                            name="scheduledEnd"
+                            type="datetime-local"
+                            value={scheduleEndInput}
+                            onChange={(event) => {
+                              const nextEnd = event.target.value;
+                              const minimumEnd = getMinimumEndDateTimeInputValue(scheduleStartInput);
+                              setScheduleEndInput(nextEnd && minimumEnd && nextEnd < minimumEnd ? '' : nextEnd);
+                            }}
+                          />
                         </label>
                       </div>
                       <label>
