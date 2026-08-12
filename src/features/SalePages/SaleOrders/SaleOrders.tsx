@@ -18,6 +18,7 @@ import {
   useProjectOrders,
   useUpdateOrderFinancialAdjustment,
 } from '@/services/queries';
+import { getLocalDateInputValue, validateOptionalFutureDateRange } from '@/shared/utils/dateValidation';
 
 import './SaleOrders.css';
 
@@ -275,6 +276,7 @@ function OrderDetailPanel({
   const [priority, setPriority] = useState<'LOW' | 'MEDIUM' | 'NORMAL' | 'HIGH' | 'URGENT'>('NORMAL');
   const [estimatedStartDate, setEstimatedStartDate] = useState('');
   const [estimatedCompletionDate, setEstimatedCompletionDate] = useState('');
+  const [productionDateMessage, setProductionDateMessage] = useState('');
   const orderItems = useMemo(
     () => [...order.items].sort((first, second) => getOrderItemName(first).localeCompare(getOrderItemName(second))),
     [order.items],
