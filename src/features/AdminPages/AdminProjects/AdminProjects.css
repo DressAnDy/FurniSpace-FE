@@ -508,21 +508,250 @@
 
 .admin-projects-flow-step {
   display: flex;
+  width: 100%;
   align-items: center;
   justify-content: space-between;
+  gap: 12px;
   border: 1px solid #e5e7eb;
   border-radius: 8px;
   background: #f8f7f5;
   color: #6b7280;
+  font: inherit;
   font-size: 13px;
   font-weight: 700;
   padding: 10px 12px;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
 }
 
-.admin-projects-flow-step-active {
+.admin-projects-flow-step:hover {
+  border-color: #d1d5db;
+  background: #f3f4f6;
+}
+
+.admin-projects-flow-step-main {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.admin-projects-flow-step-label {
+  color: inherit;
+}
+
+.admin-projects-flow-step-state {
+  color: #9ca3af;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.admin-projects-flow-step-active,
+.admin-projects-flow-step-blocked {
   border-color: #c0954b;
   background: #f5f1eb;
   color: #6f5636;
+}
+
+.admin-projects-flow-step-blocked {
+  border-color: #d97706;
+  background: #fff7ed;
+  color: #9a3412;
+}
+
+.admin-projects-flow-step-completed {
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+  color: #166534;
+}
+
+.admin-projects-flow-step-not_started {
+  opacity: 0.78;
+}
+
+.admin-projects-flow-step-selected {
+  box-shadow: inset 0 0 0 1px currentColor;
+}
+
+.admin-projects-workflow-banner {
+  border-radius: 8px;
+  font-size: 13px;
+  line-height: 18px;
+  margin-bottom: 12px;
+  padding: 10px 12px;
+}
+
+.admin-projects-workflow-banner-rejected {
+  border: 1px solid #fecaca;
+  background: #fef2f2;
+  color: #991b1b;
+}
+
+.admin-projects-workflow-panel {
+  display: grid;
+  gap: 14px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #ffffff;
+  margin-top: 14px;
+  padding: 14px;
+}
+
+.admin-projects-workflow-panel-blocked {
+  border-color: #fdba74;
+  background: #fffaf5;
+}
+
+.admin-projects-workflow-panel-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.admin-projects-workflow-panel-eyebrow {
+  display: block;
+  color: #9ca3af;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.admin-projects-workflow-panel-header h4 {
+  margin: 4px 0 6px;
+  color: #111827;
+  font-size: 16px;
+  font-weight: 800;
+  line-height: 22px;
+}
+
+.admin-projects-workflow-panel-header p {
+  margin: 0;
+  color: #6b7280;
+  font-size: 13px;
+  line-height: 18px;
+}
+
+.admin-projects-workflow-panel-meta {
+  display: grid;
+  gap: 4px;
+  color: #6b7280;
+  font-size: 12px;
+  font-weight: 600;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.admin-projects-workflow-blocker {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  border: 1px solid #fdba74;
+  border-radius: 8px;
+  background: #fff7ed;
+  color: #9a3412;
+  padding: 10px 12px;
+}
+
+.admin-projects-workflow-blocker strong,
+.admin-projects-workflow-blocker p {
+  display: block;
+  margin: 0;
+}
+
+.admin-projects-workflow-blocker p {
+  margin-top: 2px;
+  font-size: 13px;
+  line-height: 18px;
+}
+
+.admin-projects-workflow-metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 10px;
+}
+
+.admin-projects-workflow-metrics article {
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #f8f7f5;
+  padding: 10px 12px;
+}
+
+.admin-projects-workflow-metrics span {
+  display: block;
+  color: #6b7280;
+  font-size: 12px;
+  line-height: 16px;
+}
+
+.admin-projects-workflow-metrics strong {
+  display: block;
+  margin-top: 6px;
+  color: #111827;
+  font-size: 18px;
+  font-weight: 800;
+  line-height: 24px;
+}
+
+.admin-projects-workflow-facts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.admin-projects-workflow-facts > div {
+  display: grid;
+  gap: 4px;
+}
+
+.admin-projects-workflow-facts span {
+  color: #9ca3af;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.admin-projects-workflow-facts strong {
+  color: #111827;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 18px;
+  word-break: break-word;
+}
+
+.admin-projects-workflow-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.admin-projects-workflow-link {
+  display: grid;
+  gap: 2px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #f8f7f5;
+  min-width: 140px;
+  padding: 8px 10px;
+}
+
+.admin-projects-workflow-link span {
+  color: #9ca3af;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.admin-projects-workflow-link strong {
+  color: #111827;
+  font-size: 13px;
+  font-weight: 700;
 }
 
 .admin-projects-action-panel {
@@ -604,8 +833,17 @@
   .admin-projects-filters,
   .admin-projects-stage-grid,
   .admin-projects-detail-grid,
-  .admin-projects-designer-form {
+  .admin-projects-designer-form,
+  .admin-projects-workflow-facts {
     grid-template-columns: 1fr;
+  }
+
+  .admin-projects-workflow-panel-header {
+    flex-direction: column;
+  }
+
+  .admin-projects-workflow-panel-meta {
+    text-align: left;
   }
 
   .admin-projects-drawer {

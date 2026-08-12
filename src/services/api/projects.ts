@@ -229,6 +229,75 @@ export type UpdateProjectStatusData = {
   updatedAt: string;
 };
 
+export type ProjectWorkflowStageKey =
+  | 'INTAKE'
+  | 'DESIGNER_ASSIGNMENT'
+  | 'DESIGN_REVIEW'
+  | 'QUOTATION_ORDER'
+  | 'PRODUCTION'
+  | 'DELIVERY';
+
+export type ProjectWorkflowStageState = 'NOT_STARTED' | 'ACTIVE' | 'BLOCKED' | 'COMPLETED';
+
+export type ProjectWorkflowLinkType =
+  | 'SALES'
+  | 'DESIGNER'
+  | 'PROPOSAL'
+  | 'QUOTATION'
+  | 'ORDER'
+  | 'PRODUCTION_REQUEST'
+  | 'SCHEDULE'
+  | 'PAYMENT';
+
+export type ProjectWorkflowMetricUnit = 'days' | 'count' | 'money' | 'percent' | null;
+
+export type ProjectWorkflowMetricDto = {
+  key: string;
+  label: string;
+  value: number | string | null;
+  unit: ProjectWorkflowMetricUnit;
+};
+
+export type ProjectWorkflowLinkDto = {
+  type: ProjectWorkflowLinkType;
+  id: string;
+  label: string;
+};
+
+export type ProjectWorkflowStageDto = {
+  key: ProjectWorkflowStageKey;
+  label: string;
+  state: ProjectWorkflowStageState;
+  statusInStage: string | null;
+  summary: {
+    title: string;
+    description: string;
+    blockerCount: number;
+    primaryOwnerName: string | null;
+  };
+  metrics: ProjectWorkflowMetricDto[];
+  links: ProjectWorkflowLinkDto[];
+  facts: Record<string, string | number | null>;
+};
+
+export type ProjectWorkflowDto = {
+  projectId: string;
+  projectCode: string | null;
+  projectName: string;
+  currentStatus: string | null;
+  currentStage: ProjectWorkflowStageKey | null;
+  isRejected: boolean;
+  owners: {
+    customerId: string | null;
+    customerName: string | null;
+    assignedSalesId: string | null;
+    salesName: string | null;
+    assignedDesignerId: string | null;
+    designerName: string | null;
+  };
+  stages: ProjectWorkflowStageDto[];
+};
+
 export function getProjectServiceResultMessage(error: unknown) {
   const result = getProjectServiceResultFromError(error);
 
@@ -274,6 +343,14 @@ export async function getProjects(params: ProjectListParams = {}) {
 
 export async function getProjectById(projectId: string) {
   const response = await projectApiClient.get<ServiceResult<ProjectDto>>(`/projects/${projectId}`);
+
+  return response.data.data;
+}
+
+export async function getAdminProjectWorkflow(projectId: string) {
+  const response = await projectApiClient.get<ServiceResult<ProjectWorkflowDto>>(
+    `/admin/projects/${projectId}/workflow`,
+  );
 
   return response.data.data;
 }
