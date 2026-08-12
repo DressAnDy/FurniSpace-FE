@@ -11,8 +11,16 @@ export type ScheduleDateValidationResult =
   | { ok: true; startIso: string; endIso: string | null }
   | { ok: false; message: string };
 
+export type FutureDateRangeValidationResult =
+  | { ok: true; start: string | null; end: string | null }
+  | { ok: false; message: string };
+
 export function getLocalDateInputValue(value = new Date()) {
   return formatLocalDateParts(value.getFullYear(), value.getMonth() + 1, value.getDate());
+}
+
+export function getLocalDateTimeInputValue(value = new Date()) {
+  return `${getLocalDateInputValue(value)}T${String(value.getHours()).padStart(2, '0')}:${String(value.getMinutes()).padStart(2, '0')}`;
 }
 
 export function isValidDateOnly(value: string) {
@@ -56,6 +64,23 @@ export function validateRequiredFutureDate(
   if (!result.ok) return result;
 
   return { ok: true, value: normalized };
+}
+
+export function validateOptionalFutureDateRange(
+  startValue: string | null | undefined,
+  endValue: string | null | undefined,
+  options: { startLabel?: string; endLabel?: string; now?: Date } = {},
+): FutureDateRangeValidationResult {
+  const startLabel = options.startLabel ?? 'Start date';
+  const endLabel = options.endLabel ?? 'End date';
+  const start = validateOptionalFutureDate(startValue, startLabel, options.now);
+  if (!start.ok) return start;
+  const end = validateOptionalFutureDate(endValue, endLabel, options.now);
+  if (!end.ok) return end;
+  if (start.value && end.value && end.value < start.value) {
+    return { ok: false, message: `${endLabel} cannot be before ${startLabel.toLowerCase()}.` };
+  }
+  return { ok: true, start: start.value, end: end.value };
 }
 
 export function validateScheduleDateRange(

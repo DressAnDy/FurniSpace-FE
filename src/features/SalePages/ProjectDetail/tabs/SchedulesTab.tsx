@@ -6,7 +6,7 @@ import {
 } from '@/services/queries';
 import { getProjectScheduleServiceResultMessage } from '@/services/api/schedules';
 import type { ProjectScheduleStatus, ProjectScheduleType } from '@/services/api/schedules';
-import { validateScheduleDateRange } from '@/shared/utils/dateValidation';
+import { getLocalDateTimeInputValue, validateScheduleDateRange } from '@/shared/utils/dateValidation';
 
 import type { ProjectDetailProject } from '../ProjectDetail';
 
@@ -143,7 +143,7 @@ export function SchedulesTab({ project }: SchedulesTabProps) {
           <div className="project-detail-schedule-form-grid">
             <label>
               <span>Start</span>
-              <input name="scheduledStart" required type="datetime-local" disabled={createScheduleMutation.isPending} />
+              <input min={getLocalDateTimeInputValue()} name="scheduledStart" required type="datetime-local" disabled={createScheduleMutation.isPending} />
             </label>
             <label>
               <span>End</span>

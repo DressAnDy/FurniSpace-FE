@@ -19,6 +19,7 @@ import {
 } from '@/services/queries';
 
 import './SaleQuotations.css';
+import { getLocalDateInputValue, validateRequiredFutureDate } from '@/shared/utils/dateValidation';
 
 const statusOptions: Array<{ label: string; value: QuotationStatus | null }> = [
   { label: 'All', value: null },
@@ -173,10 +174,16 @@ export function SaleQuotations() {
 
     setMessage(null);
 
+    const validUntilResult = validateRequiredFutureDate(validUntil, 'Quotation valid-until date');
+    if (!validUntilResult.ok) {
+      setMessage({ tone: 'error', text: validUntilResult.message });
+      return;
+    }
+
     try {
       await updateQuotationMutation.mutateAsync({
         quotationId: selectedQuotation.quotationId,
-        validUntil,
+        validUntil: validUntilResult.value,
         customerNote: selectedQuotation.customerNote ?? null,
         salesNote,
         revisionReason: selectedQuotation.revisionReason ?? null,
@@ -242,6 +249,11 @@ export function SaleQuotations() {
 
     try {
       if (action === 'send') {
+        const validUntilResult = validateRequiredFutureDate(selectedQuotation.validUntil, 'Quotation valid-until date');
+        if (!validUntilResult.ok) {
+          setMessage({ tone: 'error', text: validUntilResult.message });
+          return;
+        }
         await sendQuotationMutation.mutateAsync(selectedQuotation.quotationId);
         setMessage({ tone: 'success', text: 'Quotation sent to customer.' });
       } else if (action === 'revise') {
@@ -443,7 +455,7 @@ export function SaleQuotations() {
                 <form className="sale-quotations-edit-form" onSubmit={updateHeader}>
                   <label>
                     <span>Valid Until</span>
-                    <input type="date" value={validUntil} onChange={(event) => setValidUntil(event.target.value)} />
+                    <input min={getLocalDateInputValue()} required type="date" value={validUntil} onChange={(event) => setValidUntil(event.target.value)} />
                   </label>
                   <label>
                     <span>Sales Note</span>

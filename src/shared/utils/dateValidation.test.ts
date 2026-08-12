@@ -2,8 +2,10 @@ import { describe, expect, it } from 'vitest';
 
 import {
   getLocalDateInputValue,
+  getLocalDateTimeInputValue,
   isValidDateOnly,
   validateOptionalFutureDate,
+  validateOptionalFutureDateRange,
   validateRequiredFutureDate,
   validateScheduleDateRange,
 } from './dateValidation';
@@ -21,6 +23,13 @@ describe('dateValidation', () => {
 
   it('uses the local calendar date rather than UTC', () => {
     expect(getLocalDateInputValue(now)).toBe('2026-08-12');
+    expect(getLocalDateTimeInputValue(now)).toBe('2026-08-12T10:00');
+  });
+
+  it('validates optional future date-only ranges', () => {
+    expect(validateOptionalFutureDateRange('', '', { now })).toEqual({ ok: true, start: null, end: null });
+    expect(validateOptionalFutureDateRange('2026-08-13', '2026-08-12', { now }).ok).toBe(false);
+    expect(validateOptionalFutureDateRange('2026-08-13', '2026-08-14', { now })).toEqual({ ok: true, start: '2026-08-13', end: '2026-08-14' });
   });
 
   it('accepts an empty optional date and rejects past or impossible dates', () => {

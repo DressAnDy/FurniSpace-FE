@@ -24,7 +24,7 @@ import {
 } from '@/services/queries';
 
 import './SaleTracking.css';
-import { validateScheduleDateRange } from '@/shared/utils/dateValidation';
+import { getLocalDateTimeInputValue, validateScheduleDateRange } from '@/shared/utils/dateValidation';
 
 const TRACKING_PROJECT_STATUSES = new Set([
   'READY_FOR_DELIVERY',
@@ -398,7 +398,7 @@ export function SaleTracking() {
                       <div className="sale-tracking-form-row">
                         <label>
                           <span>Start</span>
-                          <input name="scheduledStart" required type="datetime-local" />
+                          <input min={getLocalDateTimeInputValue()} name="scheduledStart" required type="datetime-local" />
                         </label>
                         <label>
                           <span>End</span>
