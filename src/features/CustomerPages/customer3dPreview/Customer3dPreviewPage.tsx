@@ -1,9 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
+  IconChevronDown,
   IconChevronLeft,
   IconCircleCheck,
-  IconCube,
-  IconLayoutDashboard,
   IconMaximize,
   IconMessageDots,
   IconPackage,
@@ -12,7 +11,6 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 
 import { CustomerNavbar } from '@/features/CustomerPages/customercomponents';
 import { ProjectChatPanel } from '@/features/projectChat/ProjectChatPanel';
-import { BlueprintCanvas } from '@/features/ThreeD/components/BlueprintCanvas';
 import { RoomPreview3D, type PlacedProduct3D } from '@/features/ThreeD/components/RoomPreview3D';
 import type { RoomMaterialSelection } from '@/features/ThreeD/types/roomLayout.types';
 import { hydrateRoomPlannerScenePayload } from '@/features/ThreeD/utils/roomPlannerSceneMapper';
@@ -35,6 +33,7 @@ import {
   useProjectCustomizationRequests,
   useProjectList,
   useProjectProposals,
+  useProposalDetail,
   useProposalItems,
   useProposalScenes,
   useRoomPlannerResolvedProducts,
@@ -43,7 +42,6 @@ import {
 } from '@/services/queries';
 import { aggregateDuplicateItems } from '@/shared/utils/itemAggregation';
 
-type ViewMode = '2d' | '3d';
 type SidePanelMode = 'items' | 'chat' | null;
 const EMPTY_GUID = '00000000-0000-0000-0000-000000000000';
 
@@ -54,9 +52,10 @@ export function Customer3dPreviewPage() {
   const proposalIdFromUrl = searchParams.get('proposalId') ?? '';
   const sceneIdFromUrl = searchParams.get('sceneId') ?? '';
   const stageRef = useRef<HTMLDivElement>(null);
-  const [viewMode, setViewMode] = useState<ViewMode>('3d');
   const [activeLevel, setActiveLevel] = useState<BuildingLevelVisibility>('all');
   const [sidePanelMode, setSidePanelMode] = useState<SidePanelMode>(null);
+  const [isProposalsMenuOpen, setIsProposalsMenuOpen] = useState(false);
+  const [isSceneLevelsMenuOpen, setIsSceneLevelsMenuOpen] = useState(false);
   const [selectedObjectId, setSelectedObjectId] = useState<string | null>(null);
   const [decisionMessage, setDecisionMessage] = useState('');
   const [selectedProjectId, setSelectedProjectId] = useState(() => projectIdFromUrl);
@@ -74,7 +73,10 @@ export function Customer3dPreviewPage() {
     },
     { enabled: Boolean(selectedProjectId) },
   );
-  const proposals = useMemo(() => proposalsQuery.data?.items ?? [], [proposalsQuery.data?.items]);
+  const proposals = useMemo(
+    () => (proposalsQuery.data?.items ?? []).filter((proposal) => isCustomerVisibleProposal(proposal.status)),
+    [proposalsQuery.data?.items],
+  );
   const selectedProject = projects.find((project) => project.projectId === selectedProjectId) ?? null;
   const selectedProposal = proposals.find((proposal) => proposal.proposalId === selectedProposalId) ?? proposals[0] ?? null;
   const customizationRequestsQuery = useProjectCustomizationRequests(
@@ -104,7 +106,17 @@ export function Customer3dPreviewPage() {
     [scenesQuery.data?.items],
   );
   const selectedScene = scenes.find((scene) => scene.sceneId === selectedSceneId) ?? scenes[0] ?? null;
-  const roomPlannerSceneQuery = useRoomPlannerScene(selectedScene?.sceneId, { enabled: Boolean(selectedScene?.sceneId) });
+  const isSelectedSceneReady = Boolean(
+    selectedScene?.sceneId && scenes.some((scene) => scene.sceneId === selectedScene.sceneId),
+  );
+  const proposalDetailQuery = useProposalDetail(selectedProposal?.proposalId, {
+    enabled: Boolean(selectedProposal?.proposalId),
+    retry: 1,
+  });
+  const roomPlannerSceneQuery = useRoomPlannerScene(selectedScene?.sceneId, {
+    enabled: isSelectedSceneReady,
+    retry: 1,
+  });
   const sceneProductVersionIds = useMemo(
     () => collectSceneProductVersionIds(roomPlannerSceneQuery.data),
     [roomPlannerSceneQuery.data],
@@ -122,12 +134,11 @@ export function Customer3dPreviewPage() {
     selectedProposal
       ? {
           proposalId: selectedProposal.proposalId,
-          sceneId: selectedScene?.sceneId ?? null,
           page: 1,
           limit: 100,
         }
       : undefined,
-    { enabled: Boolean(selectedProposal) },
+    { enabled: Boolean(selectedProposal?.proposalId), retry: 1 },
   );
   const hydratedScene = useMemo(
     () => hydrateRoomPlannerScenePayload(roomPlannerSceneQuery.data, {
@@ -160,7 +171,17 @@ export function Customer3dPreviewPage() {
     () => getSceneWallMaterial(roomPlannerSceneQuery.data),
     [roomPlannerSceneQuery.data],
   );
-  const proposalItems = useMemo(() => proposalItemsQuery.data?.items ?? [], [proposalItemsQuery.data?.items]);
+  const proposalItems = useMemo(() => {
+    const allItems = proposalItemsQuery.data?.items ?? proposalDetailQuery.data?.items ?? [];
+
+    if (!selectedScene?.sceneId) {
+      return allItems;
+    }
+
+    const sceneItems = allItems.filter((item) => item.sceneId === selectedScene.sceneId);
+
+    return sceneItems.length > 0 ? sceneItems : allItems;
+  }, [proposalDetailQuery.data?.items, proposalItemsQuery.data?.items, selectedScene?.sceneId]);
   const sceneProducts = hydratedScene.placedProducts;
   const displayProposalItems = useMemo(() => aggregateDuplicateItems(proposalItems), [proposalItems]);
   const displaySceneProducts = useMemo(() => aggregateSceneProducts(sceneProducts), [sceneProducts]);
@@ -176,10 +197,14 @@ export function Customer3dPreviewPage() {
     }
 
     return [
-      { label: 'All Floors', value: 'all' },
+      { label: 'All', value: 'all' },
       ...levels.map((level) => ({ label: level.label, value: level.id })),
     ];
   }, [hydratedBuildingScene.sceneData?.building.levels]);
+  const sceneObjectCount = hydratedBuildingScene.sceneData
+    ? resolvedBuildingProducts.length
+    : sceneProducts.length;
+  const activeLevelLabel = levelOptions.find((level) => level.value === activeLevel)?.label ?? 'All';
 
   useEffect(() => {
     if (activeLevel === 'all') return;
@@ -266,6 +291,51 @@ export function Customer3dPreviewPage() {
     setSelectedObjectId(null);
   }, [selectedScene?.sceneId]);
 
+  useEffect(() => {
+    if (!isProposalsMenuOpen && !isSceneLevelsMenuOpen) {
+      return undefined;
+    }
+
+    function handlePointerDown(event: MouseEvent) {
+      const target = event.target as HTMLElement | null;
+
+      if (target?.closest('.customer-3d-preview-proposals-menu') || target?.closest('.customer-3d-preview-levels-menu')) {
+        return;
+      }
+
+      setIsProposalsMenuOpen(false);
+      setIsSceneLevelsMenuOpen(false);
+    }
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        setIsProposalsMenuOpen(false);
+        setIsSceneLevelsMenuOpen(false);
+      }
+    }
+
+    document.addEventListener('mousedown', handlePointerDown);
+    document.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      document.removeEventListener('mousedown', handlePointerDown);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isProposalsMenuOpen, isSceneLevelsMenuOpen]);
+
+  function selectProposalFromMenu(proposal: ProposalDto) {
+    setSelectedProposalId(proposal.proposalId);
+    setSelectedSceneId(null);
+    setSearchParams((currentParams) => {
+      const nextParams = new URLSearchParams(currentParams);
+      nextParams.set('projectId', proposal.projectId);
+      nextParams.set('proposalId', proposal.proposalId);
+      nextParams.delete('sceneId');
+      return nextParams;
+    }, { replace: true });
+    setIsProposalsMenuOpen(false);
+  }
+
   async function selectProposal() {
     if (!selectedProposal) {
       return;
@@ -283,12 +353,31 @@ export function Customer3dPreviewPage() {
 
   return (
     <main className="customer-3d-preview-page">
-      <CustomerNavbar activeLabel="Design Proposals" classPrefix="customer-3d-preview" />
+      <CustomerNavbar activeLabel="My Projects" classPrefix="customer-3d-preview" />
 
       <section className="customer-3d-preview-viewer" aria-label="Customer proposal scene review">
         <div className="customer-3d-preview-toolbar">
           <div className="customer-3d-preview-titlebar">
-            <button type="button" aria-label="Back to proposal detail" onClick={() => navigate('/customer/proposals')}>
+            <button
+              type="button"
+              aria-label="Back to project detail"
+              onClick={() => {
+                const projectId = selectedProjectId || projectIdFromUrl;
+                const proposalId = selectedProposalId || proposalIdFromUrl;
+
+                if (projectId && proposalId) {
+                  navigate(`/customer/projects/${projectId}?proposalId=${proposalId}`);
+                  return;
+                }
+
+                if (projectId) {
+                  navigate(`/customer/projects/${projectId}`);
+                  return;
+                }
+
+                navigate('/customer/projects');
+              }}
+            >
               <IconChevronLeft size={20} stroke={1.8} />
             </button>
             <span />
@@ -299,26 +388,47 @@ export function Customer3dPreviewPage() {
           </div>
 
           <div className="customer-3d-preview-actions">
-            <div className="customer-3d-preview-view-switch" role="tablist" aria-label="Preview mode">
+            <div className="customer-3d-preview-levels-menu">
               <button
-                className={viewMode === '2d' ? 'customer-3d-preview-view-active' : ''}
+                aria-expanded={isSceneLevelsMenuOpen}
+                aria-haspopup="menu"
+                className={`customer-3d-preview-levels-trigger${isSceneLevelsMenuOpen ? ' is-open' : ''}`}
                 type="button"
-                role="tab"
-                aria-selected={viewMode === '2d'}
-                onClick={() => setViewMode('2d')}
+                onClick={() => {
+                  setIsSceneLevelsMenuOpen((current) => !current);
+                  setIsProposalsMenuOpen(false);
+                }}
               >
-                <IconLayoutDashboard size={16} stroke={1.8} /> 2D Floor Plan
+                <span>Scene Levels</span>
+                <small>{activeLevelLabel}</small>
+                <IconChevronDown size={16} stroke={1.8} />
               </button>
-              <button
-                className={viewMode === '3d' ? 'customer-3d-preview-view-active' : ''}
-                type="button"
-                role="tab"
-                aria-selected={viewMode === '3d'}
-                onClick={() => setViewMode('3d')}
-              >
-                <IconCube size={16} stroke={1.8} /> 3D View
-              </button>
+
+              {isSceneLevelsMenuOpen ? (
+                <div className="customer-3d-preview-levels-dropdown" role="menu">
+                  <div className="customer-3d-preview-levels-heading">
+                    <strong>Scene Levels</strong>
+                    <span>{sceneObjectCount} object(s)</span>
+                  </div>
+                  <div className="customer-3d-preview-level-tabs">
+                    {levelOptions.map((level) => (
+                      <button
+                        className={activeLevel === level.value ? 'is-active' : ''}
+                        key={level.value}
+                        type="button"
+                        onClick={() => {
+                          setActiveLevel(level.value);
+                          setIsSceneLevelsMenuOpen(false);
+                        }}
+                      >
+                        {level.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
             </div>
+
             <div className="customer-3d-preview-panel-switch" role="tablist" aria-label="Preview side panel">
               <button
                 className={sidePanelMode === 'chat' ? 'customer-3d-preview-view-active' : ''}
@@ -339,16 +449,53 @@ export function Customer3dPreviewPage() {
                 <IconPackage size={16} stroke={1.8} /> Scene Items
               </button>
             </div>
-            <span className="customer-3d-preview-status">{selectedProposal?.status ?? 'No proposal'}</span>
-            <button
-              className="customer-3d-preview-select-button"
-              disabled={!canSelectProposal || selectFinalProposalMutation.isPending || selectedProposal?.status === 'SELECTED'}
-              type="button"
-              onClick={() => void selectProposal()}
-            >
-              <IconCircleCheck size={16} stroke={1.8} />
-              {selectFinalProposalMutation.isPending ? 'Selecting...' : selectedProposal?.status === 'SELECTED' ? 'Selected' : 'Select Proposal'}
-            </button>
+            <div className="customer-3d-preview-proposals-menu">
+              <button
+                aria-expanded={isProposalsMenuOpen}
+                aria-haspopup="menu"
+                className={`customer-3d-preview-proposals-trigger${isProposalsMenuOpen ? ' is-open' : ''}`}
+                type="button"
+                onClick={() => {
+                  setIsProposalsMenuOpen((current) => !current);
+                  setIsSceneLevelsMenuOpen(false);
+                }}
+              >
+                Proposals
+                <IconChevronDown size={16} stroke={1.8} />
+              </button>
+
+              {isProposalsMenuOpen ? (
+                <div className="customer-3d-preview-proposals-dropdown" role="menu">
+                  <section>
+                    <header>
+                      <h3>Proposals</h3>
+                    </header>
+                    <div className="customer-proposal-list">
+                      {projectsQuery.isLoading || proposalsQuery.isLoading ? <p>Loading proposals...</p> : null}
+                      {proposalsQuery.isError ? <p>{getProposalServiceResultMessage(proposalsQuery.error)}</p> : null}
+                      {!proposalsQuery.isLoading && !proposalsQuery.isError && proposals.length === 0 ? (
+                        <p>No proposals returned for this project yet.</p>
+                      ) : null}
+                      {proposals.map((proposal) => (
+                        <ProposalButton
+                          isActive={proposal.proposalId === selectedProposal?.proposalId}
+                          key={proposal.proposalId}
+                          proposal={proposal}
+                          onSelect={() => selectProposalFromMenu(proposal)}
+                        />
+                      ))}
+                    </div>
+                  </section>
+                </div>
+              ) : null}
+            </div>
+
+            <ProposalStatusAction
+              canSelect={canSelectProposal}
+              isSelecting={selectFinalProposalMutation.isPending}
+              status={selectedProposal?.status}
+              onSelect={() => void selectProposal()}
+            />
             <button
               className="customer-3d-preview-icon-button"
               type="button"
@@ -361,66 +508,6 @@ export function Customer3dPreviewPage() {
         </div>
 
         <div className={`customer-3d-preview-workspace${sidePanelMode ? '' : ' customer-3d-preview-workspace-no-side'}`}>
-          <aside className="customer-3d-preview-left-panel" aria-label="Project proposals">
-            <PanelHeader title="Proposals" />
-            <div className="customer-proposal-list">
-              {projectsQuery.isLoading && <p>Loading projects...</p>}
-              {!projectsQuery.isLoading && projects.length === 0 && <p>No customer projects returned yet.</p>}
-              {proposalsQuery.isLoading && <p>Loading proposals...</p>}
-              {proposalsQuery.isError && <p>{getProposalServiceResultMessage(proposalsQuery.error)}</p>}
-              {!proposalsQuery.isLoading && !proposalsQuery.isError && selectedProjectId && proposals.length === 0 && (
-                <p>No proposals returned for this project yet.</p>
-              )}
-              {proposals.map((proposal) => (
-                <ProposalButton
-                  isActive={proposal.proposalId === selectedProposal?.proposalId}
-                  key={proposal.proposalId}
-                  proposal={proposal}
-                  onSelect={() => {
-                    setSelectedProposalId(proposal.proposalId);
-                    setSelectedSceneId(null);
-                    setSearchParams((currentParams) => {
-                      const nextParams = new URLSearchParams(currentParams);
-                      nextParams.set('projectId', proposal.projectId);
-                      nextParams.set('proposalId', proposal.proposalId);
-                      nextParams.delete('sceneId');
-                      return nextParams;
-                    }, { replace: true });
-                  }}
-                />
-              ))}
-            </div>
-
-            <PanelHeader title="Scenes" />
-            <div className="customer-scene-list is-compact">
-              {scenesQuery.isLoading && <p className="customer-scene-state">Loading scenes...</p>}
-              {scenesQuery.isError && <p className="customer-scene-state">{getProposalServiceResultMessage(scenesQuery.error)}</p>}
-              {!scenesQuery.isLoading && !scenesQuery.isError && selectedProposal && scenes.length === 0 && (
-                <p className="customer-scene-state">No saved 3D scenes returned for this proposal yet.</p>
-              )}
-              {scenes.map((scene, index) => (
-                <button
-                  className={scene.sceneId === selectedScene?.sceneId ? 'is-active' : ''}
-                  key={scene.sceneId}
-                  type="button"
-                  onClick={() => {
-                    setSelectedSceneId(scene.sceneId);
-                    setSearchParams((currentParams) => {
-                      const nextParams = new URLSearchParams(currentParams);
-                      nextParams.set('projectId', selectedProjectId);
-                      nextParams.set('proposalId', scene.proposalId);
-                      nextParams.set('sceneId', scene.sceneId);
-                      return nextParams;
-                    }, { replace: true });
-                  }}
-                >
-                  <span>{String(index + 1).padStart(2, '0')}</span>
-                  <div><strong>{scene.sceneName}</strong><small>Version {scene.versionNo}</small></div>
-                </button>
-              ))}
-            </div>
-          </aside>
-
           <div className="customer-3d-preview-stage" ref={stageRef}>
             <div className="customer-scene-renderer">
               {roomPlannerSceneQuery.isLoading ? (
@@ -428,12 +515,12 @@ export function Customer3dPreviewPage() {
               ) : resolvedProductsQuery.isError ? (
                 <SceneState message={getProposalServiceResultMessage(resolvedProductsQuery.error)} />
               ) : roomPlannerSceneQuery.isError ? (
-                <SceneState message={getProposalServiceResultMessage(roomPlannerSceneQuery.error)} />
+                <SceneState message={`Unable to load this scene. ${getProposalServiceResultMessage(roomPlannerSceneQuery.error)}`} />
               ) : !selectedScene ? (
                 <SceneState message="Select a proposal with a saved 3D scene." />
               ) : !hydratedScene.layout && !hydratedBuildingScene.sceneData ? (
                 <SceneState message="This scene has no saved room layout in MongoDB yet." />
-              ) : viewMode === '3d' && hydratedBuildingScene.sceneData ? (
+              ) : hydratedBuildingScene.sceneData ? (
                 <BuildingSceneCanvas
                   activeLevel={activeLevel}
                   modelsById={new Map()}
@@ -445,7 +532,7 @@ export function Customer3dPreviewPage() {
                   onProductMove={() => undefined}
                   onProductSelect={(productId) => setSelectedObjectId(productId)}
                 />
-              ) : viewMode === '3d' && hydratedScene.layout ? (
+              ) : hydratedScene.layout ? (
                 <RoomPreview3D
                   floorMaterial={floorMaterial}
                   layout={hydratedScene.layout}
@@ -455,42 +542,9 @@ export function Customer3dPreviewPage() {
                   wallMaterial={wallMaterial}
                   onProductSelect={(productId) => setSelectedObjectId(productId)}
                 />
-              ) : hydratedScene.layout ? (
-                <BlueprintCanvas
-                  activeTool="select"
-                  floorFillColor={floorMaterial.fallbackColor}
-                  hideLabels={false}
-                  layout={hydratedScene.layout}
-                  readOnly
-                  selectedItem={null}
-                  wallFillColor={wallMaterial.fallbackColor}
-                  onLayoutChange={() => undefined}
-                  onSelectItem={() => undefined}
-                />
               ) : (
-                <SceneState message="2D preview for this multi-floor scene is not available yet." />
+                <SceneState message="This scene has no saved room layout in MongoDB yet." />
               )}
-            </div>
-
-            <div className="customer-3d-preview-scene-card">
-              <strong>{selectedScene?.sceneName ?? selectedProposal?.proposalName ?? 'Room Planner Scene'}</strong>
-              <p>{selectedScene ? `Scene version ${selectedScene.versionNo}` : selectedProposal ? `Proposal version ${selectedProposal.versionNo}` : 'No scene selected'}</p>
-              {levelOptions.length > 1 ? (
-                <div className="customer-3d-preview-floor-tabs" role="tablist" aria-label="Floor view">
-                  {levelOptions.map((level) => (
-                    <button
-                      key={level.value}
-                      className={activeLevel === level.value ? 'is-active' : ''}
-                      type="button"
-                      role="tab"
-                      aria-selected={activeLevel === level.value}
-                      onClick={() => setActiveLevel(level.value)}
-                    >
-                      {level.label}
-                    </button>
-                  ))}
-                </div>
-              ) : null}
             </div>
 
             <div className="customer-readonly-notice">Saved scene - editing disabled</div>
@@ -524,11 +578,16 @@ export function Customer3dPreviewPage() {
                     </div>
                   )}
                   <div className="customer-3d-preview-item-list">
-                    {proposalItemsQuery.isLoading && <p className="customer-scene-state">Loading proposal items...</p>}
+                    {(proposalItemsQuery.isLoading || proposalDetailQuery.isLoading) && proposalItems.length === 0 ? (
+                      <p className="customer-scene-state">Loading proposal items...</p>
+                    ) : null}
+                    {proposalItemsQuery.isError && proposalItems.length === 0 ? (
+                      <p className="customer-scene-state">{getProposalServiceResultMessage(proposalItemsQuery.error)}</p>
+                    ) : null}
                     {displayProposalItems.length > 0
                       ? displayProposalItems.map((item) => <ProposalItemCard item={item} key={item.proposalItemId} />)
                       : displaySceneProducts.map((product) => <SceneProductCard product={product} key={product.id} />)}
-                    {!proposalItemsQuery.isLoading && displayProposalItems.length === 0 && displaySceneProducts.length === 0 && (
+                    {!proposalItemsQuery.isLoading && !proposalDetailQuery.isLoading && displayProposalItems.length === 0 && displaySceneProducts.length === 0 && (
                       <p className="customer-scene-state">No furniture objects are saved in this scene yet.</p>
                     )}
                   </div>
@@ -537,13 +596,12 @@ export function Customer3dPreviewPage() {
                 {decisionMessage && <div className="customer-decision-message">{decisionMessage}</div>}
                 {customizationBlocker ? <div className="customer-decision-message">{customizationBlocker}</div> : null}
                 <div className="customer-3d-preview-decision">
-                  <button
-                    disabled={!canSelectProposal || selectFinalProposalMutation.isPending}
-                    type="button"
-                    onClick={() => void selectProposal()}
-                  >
-                    <IconCircleCheck size={18} stroke={1.8} /> {selectFinalProposalMutation.isPending ? 'Selecting...' : selectedProposal?.status === 'SELECTED' ? 'Selected Proposal' : 'Select Proposal'}
-                  </button>
+                  <ProposalStatusAction
+                    canSelect={canSelectProposal}
+                    isSelecting={selectFinalProposalMutation.isPending}
+                    status={selectedProposal?.status}
+                    onSelect={() => void selectProposal()}
+                  />
                 </div>
               </>
             )}
@@ -555,6 +613,68 @@ export function Customer3dPreviewPage() {
   );
 }
 
+function ProposalStatusAction({
+  canSelect,
+  isSelecting,
+  onSelect,
+  status,
+}: {
+  canSelect: boolean;
+  isSelecting: boolean;
+  onSelect: () => void;
+  status?: ProposalDto['status'] | null;
+}) {
+  const displayStatus = getCustomerProposalDisplayStatus(status);
+
+  if (!displayStatus) {
+    return (
+      <span className="customer-3d-preview-status-action is-empty">
+        No proposal
+      </span>
+    );
+  }
+
+  const isPublished = displayStatus === 'PUBLISHED';
+  const isSelected = displayStatus === 'SELECTED';
+  const isRejected = displayStatus === 'REJECTED';
+  const isClickable = isPublished && canSelect && !isSelecting;
+
+  return (
+    <button
+      aria-label={isPublished ? 'Select this published proposal' : `Proposal status ${displayStatus}`}
+      className={[
+        'customer-3d-preview-status-action',
+        isPublished ? 'is-published' : '',
+        isSelected ? 'is-selected' : '',
+        isRejected ? 'is-rejected' : '',
+        isClickable ? 'is-clickable' : '',
+      ].filter(Boolean).join(' ')}
+      disabled={!isClickable}
+      type="button"
+      onClick={() => {
+        if (isClickable) {
+          onSelect();
+        }
+      }}
+    >
+      {isSelected || isSelecting ? <IconCircleCheck size={16} stroke={1.8} /> : null}
+      {isSelecting ? 'Selecting...' : displayStatus}
+    </button>
+  );
+}
+
+function getCustomerProposalDisplayStatus(status?: ProposalDto['status'] | null) {
+  if (status === 'PUBLISHED' || status === 'SELECTED' || status === 'REJECTED') {
+    return status;
+  }
+
+  return null;
+}
+
+function isCustomerVisibleProposal(status: ProposalDto['status']) {
+  return ['PUBLISHED', 'REVISION_REQUESTED', 'SELECTED', 'REJECTED'].includes(status);
+}
+
 function ProposalButton({
   isActive,
   onSelect,
@@ -564,6 +684,8 @@ function ProposalButton({
   onSelect: () => void;
   proposal: ProposalDto;
 }) {
+  const displayStatus = getCustomerProposalDisplayStatus(proposal.status) ?? proposal.status;
+
   return (
     <button
       className={isActive ? 'customer-proposal-button is-active' : 'customer-proposal-button'}
@@ -572,7 +694,9 @@ function ProposalButton({
     >
       <div>
         <strong>{proposal.proposalName}</strong>
-        <span>{proposal.status}</span>
+        <span className={`customer-proposal-status-chip customer-proposal-status-chip-${displayStatus.toLowerCase()}`}>
+          {displayStatus}
+        </span>
       </div>
       <small>Version {proposal.versionNo} - Updated {formatDateTime(proposal.updatedAt)}</small>
     </button>
