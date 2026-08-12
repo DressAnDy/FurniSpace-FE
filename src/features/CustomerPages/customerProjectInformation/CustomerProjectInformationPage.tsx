@@ -10,6 +10,7 @@ import {
   normalizeRequiredText,
 } from '@/services/api/projects';
 import { useProjectDetail, useUpdateProjectBasicInformation, useUploadProjectFile } from '@/services/queries/useProjects';
+import { getLocalDateInputValue, validateOptionalFutureDate } from '@/shared/utils/dateValidation';
 
 import '../customerProjectRequest/CustomerProjectRequestPage.css';
 
@@ -65,6 +66,14 @@ export function CustomerProjectInformationPage() {
     }
 
     const formData = new FormData(event.currentTarget);
+    const targetDate = validateOptionalFutureDate(
+      normalizeOptionalText(formData.get('targetCompletionDate')),
+      'Target completion date',
+    );
+    if (!targetDate.ok) {
+      setFormMessage(targetDate.message);
+      return;
+    }
 
     try {
       const uploads = await Promise.allSettled(
@@ -95,7 +104,7 @@ export function CustomerProjectInformationPage() {
         numberOfFloors: normalizeOptionalNumber(formData.get('numberOfFloors')),
         budgetMin: normalizeOptionalNumber(formData.get('budgetMin')),
         budgetMax: normalizeOptionalNumber(formData.get('budgetMax')),
-        targetCompletionDate: normalizeOptionalText(formData.get('targetCompletionDate')),
+        targetCompletionDate: targetDate.value,
       });
 
       setSelectedFiles([]);
@@ -183,7 +192,7 @@ export function CustomerProjectInformationPage() {
                 </div>
 
                 <Field label="Target Completion Date">
-                  <input defaultValue={toDateInputValue(project.targetCompletionDate)} disabled={!canEdit || isSubmitting} name="targetCompletionDate" type="date" />
+                  <input defaultValue={toDateInputValue(project.targetCompletionDate)} disabled={!canEdit || isSubmitting} min={getLocalDateInputValue()} name="targetCompletionDate" type="date" />
                 </Field>
               </FormSection>
 
