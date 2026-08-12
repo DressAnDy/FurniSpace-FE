@@ -6,7 +6,7 @@ import {
 } from '@/services/queries';
 import { getProjectScheduleServiceResultMessage } from '@/services/api/schedules';
 import type { ProjectScheduleStatus, ProjectScheduleType } from '@/services/api/schedules';
-import { getLocalDateTimeInputValue, validateScheduleDateRange } from '@/shared/utils/dateValidation';
+import { getLocalDateTimeInputValue, getMinimumEndDateTimeInputValue, validateScheduleDateRange } from '@/shared/utils/dateValidation';
 
 import type { ProjectDetailProject } from '../ProjectDetail';
 
@@ -19,6 +19,8 @@ const scheduleStatusOptions: ProjectScheduleStatus[] = ['PENDING_CONFIRMATION', 
 
 export function SchedulesTab({ project }: SchedulesTabProps) {
   const [message, setMessage] = useState('');
+  const [scheduleStartInput, setScheduleStartInput] = useState('');
+  const [scheduleEndInput, setScheduleEndInput] = useState('');
   const [statusFilter, setStatusFilter] = useState<ProjectScheduleStatus | ''>('');
   const schedulesQuery = useProjectScheduleList({
     projectId: project.projectId,
@@ -94,6 +96,8 @@ export function SchedulesTab({ project }: SchedulesTabProps) {
 
       setMessage('Schedule created successfully.');
       input.form.reset();
+      setScheduleStartInput('');
+      setScheduleEndInput('');
       void schedulesQuery.refetch();
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Could not create this schedule. Please try again.');
@@ -143,11 +147,24 @@ export function SchedulesTab({ project }: SchedulesTabProps) {
           <div className="project-detail-schedule-form-grid">
             <label>
               <span>Start</span>
-              <input min={getLocalDateTimeInputValue()} name="scheduledStart" required type="datetime-local" disabled={createScheduleMutation.isPending} />
+              <input
+                disabled={createScheduleMutation.isPending}
+                min={getLocalDateTimeInputValue()}
+                name="scheduledStart"
+                required
+                type="datetime-local"
+                value={scheduleStartInput}
+                onChange={(event) => {
+                  const nextStart = event.target.value;
+                  const minimumEnd = getMinimumEndDateTimeInputValue(nextStart);
+                  setScheduleStartInput(nextStart);
+                  setScheduleEndInput((current) => current && minimumEnd && current < minimumEnd ? '' : current);
+                }}
+              />
             </label>
             <label>
               <span>End</span>
-              <input name="scheduledEnd" type="datetime-local" disabled={createScheduleMutation.isPending} />
+              <input disabled={createScheduleMutation.isPending || !scheduleStartInput} min={getMinimumEndDateTimeInputValue(scheduleStartInput)} name="scheduledEnd" type="datetime-local" value={scheduleEndInput} onChange={(event) => setScheduleEndInput(event.target.value)} />
             </label>
           </div>
 

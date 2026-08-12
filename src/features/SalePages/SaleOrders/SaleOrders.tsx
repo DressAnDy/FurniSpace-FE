@@ -377,11 +377,21 @@ function OrderDetailPanel({
             </label>
             <label>
               <span>Start</span>
-              <input min={getLocalDateInputValue()} type="date" value={estimatedStartDate} onChange={(event) => setEstimatedStartDate(event.target.value)} />
+              <input
+                min={getLocalDateInputValue()}
+                type="date"
+                value={estimatedStartDate}
+                onChange={(event) => {
+                  const nextStart = event.target.value;
+                  setEstimatedStartDate(nextStart);
+                  setEstimatedCompletionDate((current) => current && nextStart && current < nextStart ? '' : current);
+                  setProductionDateMessage('');
+                }}
+              />
             </label>
             <label>
               <span>Complete</span>
-              <input min={estimatedStartDate || getLocalDateInputValue()} type="date" value={estimatedCompletionDate} onChange={(event) => setEstimatedCompletionDate(event.target.value)} />
+              <input disabled={!estimatedStartDate} min={estimatedStartDate || getLocalDateInputValue()} type="date" value={estimatedCompletionDate} onChange={(event) => { setEstimatedCompletionDate(event.target.value); setProductionDateMessage(''); }} />
             </label>
           </div>
           {productionDateMessage ? <p className="sale-orders-action-note">{productionDateMessage}</p> : null}
