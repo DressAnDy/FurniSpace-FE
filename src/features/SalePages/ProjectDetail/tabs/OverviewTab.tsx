@@ -12,6 +12,7 @@ import {
   usePaymentDetail,
   useProjectStartFeeStatus,
 } from '@/services/queries';
+import { getLocalDateInputValue, validateRequiredFutureDate } from '@/shared/utils/dateValidation';
 
 import type { ProjectDetailProject } from '../ProjectDetail';
 
@@ -132,11 +133,23 @@ export function OverviewTab({ project, showAssignedTeam = false }: OverviewTabPr
       return;
     }
 
+    const dueDate = validateRequiredFutureDate(startFeeDueDate, 'Payment due date');
+    if (!dueDate.ok) {
+      setStartFeeMessage(dueDate.message);
+      return;
+    }
+
+    const expiredAt = toApiDateTimeAtEndOfDay(dueDate.value);
+    if (!expiredAt) {
+      setStartFeeMessage('Payment due date could not be converted to a valid time.');
+      return;
+    }
+
     try {
       const payment = await createStartFeePaymentMutation.mutateAsync({
         projectId: project.projectId,
         amount,
-        expiredAt: toApiDateTimeAtEndOfDay(startFeeDueDate),
+        expiredAt,
         note: 'Project start fee created before designer assignment.',
       });
       setStartFeeMessage(`Start fee request ${payment.paymentCode} was created and sent to the customer.`);
@@ -234,11 +247,11 @@ export function OverviewTab({ project, showAssignedTeam = false }: OverviewTabPr
                         <span>Due date</span>
                         <input
                           type="date"
+                          min={getLocalDateInputValue()}
                           value={startFeeDueDate}
                           disabled={createStartFeePaymentMutation.isPending}
                           onChange={(event) => setStartFeeDueDate(event.currentTarget.value)}
                         />
-                        <small>Expires at 23:00 on the selected date.</small>
                       </label>
                       <button
                         type="button"

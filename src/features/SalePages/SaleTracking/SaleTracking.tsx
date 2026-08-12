@@ -24,6 +24,7 @@ import {
 } from '@/services/queries';
 
 import './SaleTracking.css';
+import { getLocalDateTimeInputValue, getMinimumEndDateTimeInputValue, validateScheduleDateRange } from '@/shared/utils/dateValidation';
 
 const TRACKING_PROJECT_STATUSES = new Set([
   'READY_FOR_DELIVERY',
@@ -40,6 +41,8 @@ const STATUS_PRIORITY: Record<string, number> = {
 };
 
 export function SaleTracking() {
+  const [scheduleStartInput, setScheduleStartInput] = useState('');
+  const [scheduleEndInput, setScheduleEndInput] = useState('');
   const [selectedProjectId, setSelectedProjectId] = useState('');
   const [selectedOrderId, setSelectedOrderId] = useState('');
   const [projectSearch, setProjectSearch] = useState('');
@@ -161,12 +164,9 @@ export function SaleTracking() {
     const scheduledEnd = String(formData.get('scheduledEnd') ?? '').trim();
     const location = String(formData.get('location') ?? '').trim() || projectDetail?.projectAddress || null;
 
-    if (!scheduledStart) {
-      setMessage({ tone: 'error', text: 'Please choose a delivery start time.' });
-      return;
-    }
-    if (scheduledEnd && new Date(scheduledEnd) <= new Date(scheduledStart)) {
-      setMessage({ tone: 'error', text: 'Delivery end time must be after the start time.' });
+    const dateRange = validateScheduleDateRange(scheduledStart, scheduledEnd);
+    if (!dateRange.ok) {
+      setMessage({ tone: 'error', text: dateRange.message });
       return;
     }
 
@@ -177,14 +177,16 @@ export function SaleTracking() {
         scheduleType: 'DELIVERY',
         title: String(formData.get('title') ?? '').trim() || `${selectedProject.projectName} - delivery`,
         description: String(formData.get('description') ?? '').trim() || null,
-        scheduledStart: toIsoString(scheduledStart),
-        scheduledEnd: scheduledEnd ? toIsoString(scheduledEnd) : null,
+        scheduledStart: dateRange.startIso,
+        scheduledEnd: dateRange.endIso,
         location,
         customerNote: null,
         internalNote: 'Created by Sales from delivery tracking.',
       });
       setMessage({ tone: 'success', text: 'Delivery schedule created and sent for customer confirmation.' });
       form.reset();
+      setScheduleStartInput('');
+      setScheduleEndInput('');
       void deliverySchedulesQuery.refetch();
     } catch (error) {
       setMessage({ tone: 'error', text: getProjectScheduleServiceResultMessage(error) });
@@ -400,11 +402,34 @@ export function SaleTracking() {
                       <div className="sale-tracking-form-row">
                         <label>
                           <span>Start</span>
-                          <input name="scheduledStart" required type="datetime-local" />
+                          <input
+                            min={getLocalDateTimeInputValue()}
+                            name="scheduledStart"
+                            required
+                            type="datetime-local"
+                            value={scheduleStartInput}
+                            onChange={(event) => {
+                              const nextStart = event.target.value;
+                              const minimumEnd = getMinimumEndDateTimeInputValue(nextStart);
+                              setScheduleStartInput(nextStart);
+                              setScheduleEndInput((current) => current && minimumEnd && current < minimumEnd ? '' : current);
+                            }}
+                          />
                         </label>
                         <label>
                           <span>End</span>
-                          <input name="scheduledEnd" type="datetime-local" />
+                          <input
+                            disabled={!scheduleStartInput}
+                            min={getMinimumEndDateTimeInputValue(scheduleStartInput)}
+                            name="scheduledEnd"
+                            type="datetime-local"
+                            value={scheduleEndInput}
+                            onChange={(event) => {
+                              const nextEnd = event.target.value;
+                              const minimumEnd = getMinimumEndDateTimeInputValue(scheduleStartInput);
+                              setScheduleEndInput(nextEnd && minimumEnd && nextEnd < minimumEnd ? '' : nextEnd);
+                            }}
+                          />
                         </label>
                       </div>
                       <label>
@@ -467,7 +492,6 @@ export function SaleTracking() {
                         <thead>
                           <tr>
                             <th>Item</th>
-                            <th>Type</th>
                             <th>Qty</th>
                             <th>Delivered</th>
                             <th>Progress</th>
@@ -478,12 +502,12 @@ export function SaleTracking() {
                         <tbody>
                           {orderDetailQuery.isLoading ? (
                             <tr>
-                              <td colSpan={7}>Loading order items...</td>
+                              <td colSpan={6}>Loading order items...</td>
                             </tr>
                           ) : null}
                           {!orderDetailQuery.isLoading && !order ? (
                             <tr>
-                              <td colSpan={7}>No order items to display.</td>
+                              <td colSpan={6}>No order items to display.</td>
                             </tr>
                           ) : null}
                           {order?.items.map((item) => {
@@ -493,7 +517,6 @@ export function SaleTracking() {
                             return (
                               <tr key={item.orderItemId}>
                                 <td className="sale-tracking-item-name">{getOrderItemName(item)}</td>
-                                <td>{formatEnumLabel(item.itemType ?? 'UNKNOWN')}</td>
                                 <td>{qty || '-'}</td>
                                 <td>{delivered}</td>
                                 <td>
@@ -632,10 +655,6 @@ function getStatusTone(kind: string, value: string) {
 
 function getOrderItemName(item: Pick<OrderItemDto, 'itemName' | 'productNameSnapshot'>) {
   return item.itemName ?? item.productNameSnapshot ?? '-';
-}
-
-function toIsoString(value: string) {
-  return new Date(value).toISOString();
 }
 
 function formatEnumLabel(value: string) {

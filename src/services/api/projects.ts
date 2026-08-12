@@ -158,6 +158,7 @@ export type ProjectFileUploadResponseDto = {
   fileSize: number;
   storagePath: string;
   publicUrl: string;
+  status?: string | null;
   visibility: FileVisibility;
   uploadedBy: string;
   uploadedAt: string;
@@ -171,6 +172,7 @@ export type ProjectFileListItemDto = {
   mimeType: string;
   fileSize: number;
   publicUrl: string;
+  status?: string | null;
   visibility: FileVisibility;
   uploadedBy: string;
   uploadedAt: string;

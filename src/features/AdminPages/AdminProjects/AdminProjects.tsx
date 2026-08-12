@@ -32,10 +32,10 @@ import {
   useAdminProjectWorkflow,
   useAssignDesignerToProject,
   useAssignSalesToProject,
+  useMarkReadyForDesignerAssignment,
   useProjectDetail,
   useProjectFiles,
   useProjectList,
-  useUpdateProjectStatus,
 } from '@/services/queries';
 
 import { AdminNavbar, AdminSidebar } from '../admincomponents';
@@ -277,7 +277,7 @@ function ProjectDetailDrawer({
   const workflowQuery = useAdminProjectWorkflow(projectId ?? undefined);
   const filesQuery = useProjectFiles(projectId ? { projectId, page: 1, limit: 8 } : undefined);
   const assignSalesMutation = useAssignSalesToProject();
-  const updateStatusMutation = useUpdateProjectStatus();
+  const markReadyForDesignerMutation = useMarkReadyForDesignerAssignment();
   const assignDesignerMutation = useAssignDesignerToProject();
   const project = projectQuery.data;
   const workflow = workflowQuery.data;
@@ -321,9 +321,8 @@ function ProjectDetailDrawer({
 
     try {
       setActionMessage('');
-      await updateStatusMutation.mutateAsync({
+      await markReadyForDesignerMutation.mutateAsync({
         projectId: project.projectId,
-        status: 'WAITING_FOR_DESIGNER_ASSIGNMENT',
         note: 'Admin marked project information as ready for designer assignment.',
       });
       setActionMessage('Project is ready for designer assignment.');
@@ -354,8 +353,7 @@ function ProjectDetailDrawer({
   const customer = project ? accountById[project.customerId] : null;
   const sales = project?.assignedSalesId ? accountById[project.assignedSalesId] : null;
   const designer = project?.assignedDesignerId ? accountById[project.assignedDesignerId] : null;
-  const isMutating = assignSalesMutation.isPending || updateStatusMutation.isPending || assignDesignerMutation.isPending;
-  const selectedStage = stages.find((stage) => stage.key === selectedStageKey) ?? null;
+  const isMutating = assignSalesMutation.isPending || markReadyForDesignerMutation.isPending || assignDesignerMutation.isPending;
 
   return (
     <div className="admin-projects-drawer-overlay">

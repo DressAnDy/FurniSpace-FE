@@ -5,24 +5,19 @@ import {
   bulkUpdateQuotationItemFinancials,
   cancelQuotation,
   createDraftQuotation,
-  createManualQuotationItem,
-  deleteManualQuotationItem,
   getProjectQuotations,
   getQuotationById,
   rejectQuotation,
   requestQuotationRevision,
   reviseQuotation,
   sendQuotation,
-  updateManualQuotationItem,
   updateQuotation,
   updateQuotationItemFinancials,
   type BulkUpdateQuotationItemFinancialsInput,
-  type CreateManualQuotationItemInput,
   type QuotationDto,
   type QuotationListParams,
   type RejectQuotationInput,
   type RequestQuotationRevisionInput,
-  type UpdateManualQuotationItemInput,
   type UpdateQuotationInput,
   type UpdateQuotationItemFinancialsInput,
 } from '@/services/api/quotations';
@@ -72,31 +67,6 @@ export function useUpdateQuotation() {
   });
 }
 
-export function useCreateManualQuotationItem() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: (input: CreateManualQuotationItemInput) => createManualQuotationItem(input),
-    onSuccess: (item, input) => {
-      void queryClient.invalidateQueries({ queryKey: quotationQueryKeys.all });
-      void queryClient.invalidateQueries({ queryKey: quotationQueryKeys.detail(input.quotationId) });
-      void queryClient.invalidateQueries({ queryKey: ['notifications'] });
-    },
-  });
-}
-
-export function useUpdateManualQuotationItem() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: (input: UpdateManualQuotationItemInput) => updateManualQuotationItem(input),
-    onSuccess: (item, input) => {
-      void queryClient.invalidateQueries({ queryKey: quotationQueryKeys.all });
-      void queryClient.invalidateQueries({ queryKey: quotationQueryKeys.detail(input.quotationId) });
-    },
-  });
-}
-
 export function useUpdateQuotationItemFinancials() {
   const queryClient = useQueryClient();
 
@@ -121,19 +91,6 @@ export function useBulkUpdateQuotationItemFinancials() {
         void queryClient.invalidateQueries({ queryKey: ['projects', 'detail', quotation.projectId] });
         void queryClient.invalidateQueries({ queryKey: ['projects'] });
       }
-    },
-  });
-}
-
-export function useDeleteManualQuotationItem() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: (input: { quotationId: string; quotationItemId: string }) =>
-      deleteManualQuotationItem(input.quotationId, input.quotationItemId),
-    onSuccess: (_data, input) => {
-      void queryClient.invalidateQueries({ queryKey: quotationQueryKeys.all });
-      void queryClient.invalidateQueries({ queryKey: quotationQueryKeys.detail(input.quotationId) });
     },
   });
 }

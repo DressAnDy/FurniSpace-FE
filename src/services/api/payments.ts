@@ -41,7 +41,6 @@ export type ServiceResult<T> = {
 export type PaymentStatus =
   | 'PENDING'
   | 'PROCESSING'
-  | 'PARTIALLY_PAID'
   | 'PAID'
   | 'FAILED'
   | 'CANCELLED'
@@ -51,10 +50,7 @@ export type PaymentStatus =
 export type PaymentType =
   | 'PROJECT_START_FEE'
   | 'DEPOSIT'
-  | 'REMAINING_PAYMENT'
-  | 'FULL_PAYMENT'
-  | 'REFUND'
-  | 'OTHER';
+  | 'REMAINING_PAYMENT';
 
 export type PaymentProvider = 'PAYOS' | 'SEPAY' | 'CASH' | 'MANUAL_BANK_TRANSFER' | 'OTHER';
 export type PaymentMethod = 'PAYMENT_LINK' | 'QR_CODE' | 'BANK_TRANSFER' | 'CASH' | 'OTHER';

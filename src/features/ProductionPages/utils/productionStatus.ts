@@ -1,12 +1,13 @@
 export const getCustomizationStatusLabel = (status: string) => {
   const labels: Record<string, string> = {
     SUBMITTED: 'Submitted',
-    DESIGN_REVIEWING: 'Design Reviewing',
-    PRODUCTION_REVIEWING: 'Production Reviewing',
-    WAITING_FOR_CUSTOMER_FINAL_APPROVAL: 'Waiting Customer Approval',
-    NOT_FEASIBLE: 'Not Feasible',
+    REVIEWING: 'Reviewing',
+    REVIEWING_PENDING: 'Pending Production Review',
+    REVIEWING_FEASIBLE: 'Feasible - Waiting Customer',
+    PRODUCTION_REJECTED_NOT_FEASIBLE: 'Production Rejected',
+    DRAFT_PENDING: 'Draft',
     ACCEPTED: 'Accepted',
-    REJECTED_BY_CUSTOMER: 'Rejected by Customer',
+    WITHDRAWN: 'Withdrawn',
     CANCELLED: 'Cancelled',
   };
 
@@ -43,12 +44,11 @@ export const getProductionStatusTone = (status: string) => {
     return 'success';
   }
 
-  if (status === 'BLOCKED' || status === 'CANCELLED' || status === 'NOT_FEASIBLE' || status === 'UNAVAILABLE') {
+  if (status === 'BLOCKED' || status === 'CANCELLED' || status === 'NOT_FEASIBLE' || status === 'UNAVAILABLE' || status === 'PRODUCTION_REJECTED') {
     return 'danger';
   }
 
   if (
-    status === 'WAITING_FOR_CUSTOMER_FINAL_APPROVAL' ||
     status === 'PENDING_REVIEW' ||
     status === 'PENDING' ||
     status === 'UNKNOWN'

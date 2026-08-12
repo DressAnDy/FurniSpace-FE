@@ -8,6 +8,7 @@ import {
 } from '@/services/api';
 import type { ProjectListItemDto } from '@/services/api/projects';
 import { useCreateProjectSchedule, useProjectDetail, useUpdateProjectSchedule } from '@/services/queries';
+import { getLocalDateTimeInputValue, getMinimumEndDateTimeInputValue, validateScheduleDateRange } from '@/shared/utils/dateValidation';
 
 type CreateScheduleModalProps = {
   editingSchedule: ProjectScheduleDto | null;
@@ -30,6 +31,8 @@ export function CreateScheduleModal({ editingSchedule, isOpen, projects, onClose
   const [selectedProjectId, setSelectedProjectId] = useState('');
   const [scheduleTitle, setScheduleTitle] = useState('');
   const [scheduleLocation, setScheduleLocation] = useState('');
+  const [scheduledStart, setScheduledStart] = useState('');
+  const [scheduledEnd, setScheduledEnd] = useState('');
   const [hasEditedLocation, setHasEditedLocation] = useState(false);
   const createMutation = useCreateProjectSchedule();
   const updateMutation = useUpdateProjectSchedule();
@@ -47,6 +50,8 @@ export function CreateScheduleModal({ editingSchedule, isOpen, projects, onClose
       setSelectedProjectId('');
       setScheduleTitle('');
       setScheduleLocation('');
+      setScheduledStart('');
+      setScheduledEnd('');
       setHasEditedLocation(false);
       return;
     }
@@ -55,6 +60,8 @@ export function CreateScheduleModal({ editingSchedule, isOpen, projects, onClose
       setSelectedProjectId(editingSchedule.projectId);
       setScheduleTitle(editingSchedule.title ?? '');
       setScheduleLocation(editingSchedule.location ?? '');
+      setScheduledStart(toDateTimeLocal(editingSchedule.scheduledStart));
+      setScheduledEnd(toDateTimeLocal(editingSchedule.scheduledEnd));
       setHasEditedLocation(Boolean(editingSchedule.location));
       return;
     }
@@ -62,6 +69,8 @@ export function CreateScheduleModal({ editingSchedule, isOpen, projects, onClose
     setSelectedProjectId('');
     setScheduleTitle('');
     setScheduleLocation('');
+    setScheduledStart('');
+    setScheduledEnd('');
     setHasEditedLocation(false);
   }, [editingSchedule, isOpen]);
 
@@ -84,8 +93,6 @@ export function CreateScheduleModal({ editingSchedule, isOpen, projects, onClose
     const formData = new FormData(event.currentTarget);
     const projectId = editingSchedule?.projectId ?? selectedProjectId;
     const project = projects.find((item) => item.projectId === projectId);
-    const scheduledStart = String(formData.get('scheduledStart') ?? '');
-    const scheduledEnd = String(formData.get('scheduledEnd') ?? '');
 
     if (!projectId || !project) {
       setMessage('Please select a project assigned to your sales workspace.');
@@ -97,13 +104,11 @@ export function CreateScheduleModal({ editingSchedule, isOpen, projects, onClose
       return;
     }
 
-    if (!scheduledStart) {
-      setMessage('Please choose a schedule start time.');
-      return;
-    }
-
-    if (scheduledEnd && new Date(scheduledEnd) <= new Date(scheduledStart)) {
-      setMessage('Schedule end time must be after the start time.');
+    const dateRange = validateScheduleDateRange(scheduledStart, scheduledEnd, {
+      allowPastStart: Boolean(editingSchedule),
+    });
+    if (!dateRange.ok) {
+      setMessage(dateRange.message);
       return;
     }
 
@@ -114,8 +119,8 @@ export function CreateScheduleModal({ editingSchedule, isOpen, projects, onClose
           title: scheduleTitle,
           description: String(formData.get('description') ?? ''),
           assignedStaffId: project.assignedDesignerId,
-          scheduledStart: toIsoString(scheduledStart),
-          scheduledEnd: scheduledEnd ? toIsoString(scheduledEnd) : null,
+          scheduledStart: dateRange.startIso,
+          scheduledEnd: dateRange.endIso,
           location: scheduleLocation,
         });
       } else {
@@ -125,8 +130,8 @@ export function CreateScheduleModal({ editingSchedule, isOpen, projects, onClose
           title: scheduleTitle,
           description: String(formData.get('description') ?? ''),
           assignedStaffId: project.assignedDesignerId,
-          scheduledStart: toIsoString(scheduledStart),
-          scheduledEnd: scheduledEnd ? toIsoString(scheduledEnd) : null,
+          scheduledStart: dateRange.startIso,
+          scheduledEnd: dateRange.endIso,
           location: scheduleLocation,
         });
       }
@@ -208,11 +213,34 @@ export function CreateScheduleModal({ editingSchedule, isOpen, projects, onClose
           <div className="sale-schedules-modal-grid">
             <label>
               <span>Start Date & Time</span>
-              <input defaultValue={toDateTimeLocal(editingSchedule?.scheduledStart)} name="scheduledStart" required type="datetime-local" />
+              <input
+                min={editingSchedule ? undefined : getLocalDateTimeInputValue()}
+                name="scheduledStart"
+                required
+                type="datetime-local"
+                value={scheduledStart}
+                onChange={(event) => {
+                  const nextStart = event.target.value;
+                  const minimumEnd = getMinimumEndDateTimeInputValue(nextStart);
+                  setScheduledStart(nextStart);
+                  setScheduledEnd((current) => current && minimumEnd && current < minimumEnd ? '' : current);
+                }}
+              />
             </label>
             <label>
               <span>End Date & Time</span>
-              <input defaultValue={toDateTimeLocal(editingSchedule?.scheduledEnd)} name="scheduledEnd" type="datetime-local" />
+              <input
+                disabled={!scheduledStart}
+                min={getMinimumEndDateTimeInputValue(scheduledStart)}
+                name="scheduledEnd"
+                type="datetime-local"
+                value={scheduledEnd}
+                onChange={(event) => {
+                  const nextEnd = event.target.value;
+                  const minimumEnd = getMinimumEndDateTimeInputValue(scheduledStart);
+                  setScheduledEnd(nextEnd && minimumEnd && nextEnd < minimumEnd ? '' : nextEnd);
+                }}
+              />
             </label>
           </div>
 
@@ -250,10 +278,6 @@ export function CreateScheduleModal({ editingSchedule, isOpen, projects, onClose
       </section>
     </div>
   );
-}
-
-function toIsoString(value: string) {
-  return new Date(value).toISOString();
 }
 
 function getDefaultScheduleTitle(project: ProjectListItemDto) {

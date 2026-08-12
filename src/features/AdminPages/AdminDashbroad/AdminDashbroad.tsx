@@ -1,6 +1,5 @@
 import { useMemo, useState } from 'react';
 import {
-  IconAlertTriangle,
   IconBriefcase,
   IconCash,
   IconChartBar,
@@ -244,7 +243,7 @@ function DashboardQueryState({ isError, isLoading }: { isError: boolean; isLoadi
   }
 
   if (isError) {
-    return <section className="admin-dash-v2-state admin-dash-v2-state-error"><IconAlertTriangle size={16} /> Some live API data could not be loaded. Mock dashboard sections remain visible for UI review.</section>;
+    return <section className="admin-dash-v2-state admin-dash-v2-state-error"><IconInfoCircle size={16} /> Some live API data could not be loaded. Mock dashboard sections remain visible for UI review.</section>;
   }
 
   return null;

@@ -25,12 +25,12 @@ import type { RoomMaterialSelection } from '@/features/ThreeD/types/roomLayout.t
 import { hydrateRoomPlannerScenePayload } from '@/features/ThreeD/utils/roomPlannerSceneMapper';
 import { BuildingSceneCanvas } from '@/features/ThreeDTest/components/BuildingSceneCanvas';
 import {
-  createBuildingModelVersionMap,
+  createProjectCatalogBuildingModelVersionMap,
   resolvePlacedBuildingProducts,
 } from '@/features/ThreeDTest/utils/buildingProductCatalogMapper';
 import { hydrateBuildingRoomPlannerPayload } from '@/features/ThreeDTest/utils/buildingRoomPlannerPayloadMapper';
-import { getProductById } from '@/services/api/products';
-import { productQueryKeys, proposalQueryKeys, useProductList, useProjectDetail, useProjectList, useProjectProposals, useProposalScenes, useRoomPlannerScene } from '@/services/queries';
+import { getProjectCatalogProductVersion } from '@/services/api/products';
+import { productQueryKeys, proposalQueryKeys, useProjectCatalogProducts, useProjectDetail, useProjectList, useProjectProposals, useProposalScenes, useRoomPlannerScene } from '@/services/queries';
 
 import '@/features/AdminPages/AdminDashbroad/AdminDashbroad.css';
 import './AdminThreeDLabPage.css';
@@ -422,24 +422,33 @@ function ScenePreviewModal({
     [roomPlannerSceneQuery.data],
   );
   const shouldResolveBuildingProducts = Boolean(hydratedBuildingScene.sceneData);
-  const productListQuery = useProductList(
-    { page: 1, limit: PREVIEW_PRODUCT_CATALOG_LIMIT },
+  const projectCatalogQuery = useProjectCatalogProducts(
+    preview.projectId,
+    { page: 1, pageSize: PREVIEW_PRODUCT_CATALOG_LIMIT },
     shouldResolveBuildingProducts,
   );
-  const productDetailQueries = useQueries({
-    queries: (productListQuery.data?.items ?? []).map((product) => ({
-      enabled: shouldResolveBuildingProducts,
-      queryFn: () => getProductById(product.productId),
-      queryKey: productQueryKeys.detail(product.productId),
+  const projectCatalogVersions = useMemo(
+    () => (projectCatalogQuery.data?.items ?? []).flatMap((product) => product.eligibleVersions.map((version) => ({ product, version }))),
+    [projectCatalogQuery.data?.items],
+  );
+  const projectCatalogVersionDetailQueries = useQueries({
+    queries: projectCatalogVersions.map(({ product, version }) => ({
+      enabled: shouldResolveBuildingProducts && Boolean(version.productVersionId),
+      queryFn: async () => {
+        const response = await getProjectCatalogProductVersion({
+          productVersionId: version.productVersionId,
+          projectId: preview.projectId,
+        });
+
+        return { product, version: response };
+      },
+      queryKey: productQueryKeys.projectCatalogVersion(preview.projectId, version.productVersionId),
       staleTime: 5 * 60 * 1000,
     })),
   });
   const buildingModelsByVersionId = useMemo(
-    () => createBuildingModelVersionMap([
-      ...(productListQuery.data?.items ?? []),
-      ...productDetailQueries.map((query) => query.data),
-    ]),
-    [productDetailQueries, productListQuery.data?.items],
+    () => createProjectCatalogBuildingModelVersionMap(projectCatalogVersionDetailQueries.map((query) => query.data)),
+    [projectCatalogVersionDetailQueries],
   );
   const resolvedBuildingProducts = useMemo(
     () => resolvePlacedBuildingProducts(hydratedBuildingScene.placedProducts, buildingModelsByVersionId),

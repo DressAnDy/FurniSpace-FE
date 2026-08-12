@@ -177,8 +177,25 @@ export function useUpdateProjectStatus() {
       void queryClient.invalidateQueries({ queryKey: projectQueryKeys.detail(data.projectId) });
       void queryClient.invalidateQueries({ queryKey: projectQueryKeys.workflow(data.projectId) });
       void queryClient.invalidateQueries({ queryKey: projectChatQueryKeys.all });
+      invalidateProjectCaches(queryClient, data.projectId);
     },
   });
+}
+
+export function useRejectProject() {
+  return useProjectStatusAction('REJECTED', 'Project rejected through controlled project review action.');
+}
+
+export function useMarkReadyForDesignerAssignment() {
+  return useProjectStatusAction('WAITING_FOR_DESIGNER_ASSIGNMENT', 'Project information is ready for designer assignment.');
+}
+
+export function useMarkSpaceVerified() {
+  return useProjectStatusAction('SPACE_VERIFIED', 'Designer verified project space information.');
+}
+
+export function useStartProposalConsulting() {
+  return useProjectStatusAction('PROPOSAL_CONSULTING', 'Designer started proposal consulting.');
 }
 
 export function useStaffProjectQueue(params?: Pick<ProjectListParams, 'search' | 'page' | 'limit'>) {
@@ -204,4 +221,31 @@ export function useStaffProjectQueue(params?: Pick<ProjectListParams, 'search' |
 
 function sortProjectsBySubmittedDate(items: ProjectListItemDto[]) {
   return [...items].sort((left, right) => new Date(right.submittedAt).getTime() - new Date(left.submittedAt).getTime());
+}
+
+type ProjectStatusActionInput = {
+  projectId: string;
+  note?: string | null;
+};
+
+function useProjectStatusAction(status: UpdateProjectStatusInput['status'], defaultNote: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (input: ProjectStatusActionInput) =>
+      updateProjectStatus({
+        projectId: input.projectId,
+        status,
+        note: input.note?.trim() || defaultNote,
+      }),
+    onSuccess: (data) => {
+      invalidateProjectCaches(queryClient, data.projectId);
+    },
+  });
+}
+
+function invalidateProjectCaches(queryClient: ReturnType<typeof useQueryClient>, projectId: string) {
+  void queryClient.invalidateQueries({ queryKey: projectQueryKeys.all });
+  void queryClient.invalidateQueries({ queryKey: projectQueryKeys.detail(projectId) });
+  void queryClient.invalidateQueries({ queryKey: projectChatQueryKeys.all });
 }

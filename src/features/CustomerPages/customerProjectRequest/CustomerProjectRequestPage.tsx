@@ -18,6 +18,7 @@ import {
   normalizeRequiredText,
 } from '@/services/api/projects';
 import { useCreateProject, useUploadProjectFile } from '@/services/queries/useProjects';
+import { getLocalDateInputValue, validateOptionalFutureDate } from '@/shared/utils/dateValidation';
 
 export function CustomerProjectRequestPage() {
   const navigate = useNavigate();
@@ -55,6 +56,14 @@ export function CustomerProjectRequestPage() {
     setFormMessage(null);
 
     const formData = new FormData(event.currentTarget);
+    const targetDate = validateOptionalFutureDate(
+      normalizeOptionalText(formData.get('targetCompletionDate')),
+      'Target completion date',
+    );
+    if (!targetDate.ok) {
+      setFormMessage(targetDate.message);
+      return;
+    }
 
     try {
       const project = await createProjectMutation.mutateAsync({
@@ -68,7 +77,7 @@ export function CustomerProjectRequestPage() {
         numberOfFloors: normalizeOptionalNumber(formData.get('numberOfFloors')),
         budgetMin: normalizeOptionalNumber(formData.get('budgetMin')),
         budgetMax: normalizeOptionalNumber(formData.get('budgetMax')),
-        targetCompletionDate: normalizeOptionalText(formData.get('targetCompletionDate')),
+        targetCompletionDate: targetDate.value,
       });
 
       const uploads = await Promise.allSettled(
@@ -166,7 +175,7 @@ export function CustomerProjectRequestPage() {
               </div>
 
               <Field label="Target Completion Date">
-                <input name="targetCompletionDate" type="date" />
+                <input min={getLocalDateInputValue()} name="targetCompletionDate" type="date" />
               </Field>
             </FormSection>
 
