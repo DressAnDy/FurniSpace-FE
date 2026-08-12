@@ -8,6 +8,7 @@ import {
 } from '@/services/api';
 import type { ProjectListItemDto } from '@/services/api/projects';
 import { useCreateProjectSchedule, useProjectDetail, useUpdateProjectSchedule } from '@/services/queries';
+import { validateScheduleDateRange } from '@/shared/utils/dateValidation';
 
 type CreateScheduleModalProps = {
   editingSchedule: ProjectScheduleDto | null;
@@ -97,13 +98,11 @@ export function CreateScheduleModal({ editingSchedule, isOpen, projects, onClose
       return;
     }
 
-    if (!scheduledStart) {
-      setMessage('Please choose a schedule start time.');
-      return;
-    }
-
-    if (scheduledEnd && new Date(scheduledEnd) <= new Date(scheduledStart)) {
-      setMessage('Schedule end time must be after the start time.');
+    const dateRange = validateScheduleDateRange(scheduledStart, scheduledEnd, {
+      allowPastStart: Boolean(editingSchedule),
+    });
+    if (!dateRange.ok) {
+      setMessage(dateRange.message);
       return;
     }
 
@@ -114,8 +113,8 @@ export function CreateScheduleModal({ editingSchedule, isOpen, projects, onClose
           title: scheduleTitle,
           description: String(formData.get('description') ?? ''),
           assignedStaffId: project.assignedDesignerId,
-          scheduledStart: toIsoString(scheduledStart),
-          scheduledEnd: scheduledEnd ? toIsoString(scheduledEnd) : null,
+          scheduledStart: dateRange.startIso,
+          scheduledEnd: dateRange.endIso,
           location: scheduleLocation,
         });
       } else {
@@ -125,8 +124,8 @@ export function CreateScheduleModal({ editingSchedule, isOpen, projects, onClose
           title: scheduleTitle,
           description: String(formData.get('description') ?? ''),
           assignedStaffId: project.assignedDesignerId,
-          scheduledStart: toIsoString(scheduledStart),
-          scheduledEnd: scheduledEnd ? toIsoString(scheduledEnd) : null,
+          scheduledStart: dateRange.startIso,
+          scheduledEnd: dateRange.endIso,
           location: scheduleLocation,
         });
       }
@@ -250,10 +249,6 @@ export function CreateScheduleModal({ editingSchedule, isOpen, projects, onClose
       </section>
     </div>
   );
-}
-
-function toIsoString(value: string) {
-  return new Date(value).toISOString();
 }
 
 function getDefaultScheduleTitle(project: ProjectListItemDto) {

@@ -6,6 +6,7 @@ import {
 } from '@/services/queries';
 import { getProjectScheduleServiceResultMessage } from '@/services/api/schedules';
 import type { ProjectScheduleStatus, ProjectScheduleType } from '@/services/api/schedules';
+import { validateScheduleDateRange } from '@/shared/utils/dateValidation';
 
 import type { ProjectDetailProject } from '../ProjectDetail';
 
@@ -43,8 +44,9 @@ export function SchedulesTab({ project }: SchedulesTabProps) {
       return;
     }
 
-    if (!scheduledStart) {
-      setMessage('Please choose a schedule start time.');
+    const dateRange = validateScheduleDateRange(scheduledStart, scheduledEnd);
+    if (!dateRange.ok) {
+      setMessage(dateRange.message);
       return;
     }
 
@@ -53,8 +55,8 @@ export function SchedulesTab({ project }: SchedulesTabProps) {
       form,
       assignedStaffId,
       scheduleType,
-      scheduledStart,
-      scheduledEnd,
+      scheduledStart: dateRange.startIso,
+      scheduledEnd: dateRange.endIso,
       title: String(formData.get('title') ?? '').trim() || defaultTitle,
       description: String(formData.get('description') ?? '').trim() || null,
       location: String(formData.get('location') ?? '').trim() || project.projectAddress,
@@ -66,7 +68,7 @@ export function SchedulesTab({ project }: SchedulesTabProps) {
     assignedStaffId: string;
     scheduleType: ProjectScheduleType;
     scheduledStart: string;
-    scheduledEnd: string;
+    scheduledEnd: string | null;
     title: string;
     description: string | null;
     location: string | null;
@@ -79,8 +81,8 @@ export function SchedulesTab({ project }: SchedulesTabProps) {
           title: input.title,
           description: input.description,
           assignedStaffId: input.assignedStaffId,
-          scheduledStart: toIsoString(input.scheduledStart),
-          scheduledEnd: input.scheduledEnd ? toIsoString(input.scheduledEnd) : null,
+          scheduledStart: input.scheduledStart,
+          scheduledEnd: input.scheduledEnd,
           location: input.location,
           customerNote: null,
           internalNote: null,
@@ -141,7 +143,7 @@ export function SchedulesTab({ project }: SchedulesTabProps) {
           <div className="project-detail-schedule-form-grid">
             <label>
               <span>Start</span>
-              <input name="scheduledStart" type="datetime-local" disabled={createScheduleMutation.isPending} />
+              <input name="scheduledStart" required type="datetime-local" disabled={createScheduleMutation.isPending} />
             </label>
             <label>
               <span>End</span>
@@ -211,10 +213,6 @@ export function SchedulesTab({ project }: SchedulesTabProps) {
 
 function getDefaultScheduleTitle(project: ProjectDetailProject) {
   return `${project.projectName} - designer schedule`;
-}
-
-function toIsoString(value: string) {
-  return new Date(value).toISOString();
 }
 
 function formatEnumLabel(value: string) {

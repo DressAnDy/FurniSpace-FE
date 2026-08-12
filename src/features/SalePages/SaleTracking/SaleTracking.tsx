@@ -24,6 +24,7 @@ import {
 } from '@/services/queries';
 
 import './SaleTracking.css';
+import { validateScheduleDateRange } from '@/shared/utils/dateValidation';
 
 const TRACKING_PROJECT_STATUSES = new Set([
   'READY_FOR_DELIVERY',
@@ -161,12 +162,9 @@ export function SaleTracking() {
     const scheduledEnd = String(formData.get('scheduledEnd') ?? '').trim();
     const location = String(formData.get('location') ?? '').trim() || projectDetail?.projectAddress || null;
 
-    if (!scheduledStart) {
-      setMessage({ tone: 'error', text: 'Please choose a delivery start time.' });
-      return;
-    }
-    if (scheduledEnd && new Date(scheduledEnd) <= new Date(scheduledStart)) {
-      setMessage({ tone: 'error', text: 'Delivery end time must be after the start time.' });
+    const dateRange = validateScheduleDateRange(scheduledStart, scheduledEnd);
+    if (!dateRange.ok) {
+      setMessage({ tone: 'error', text: dateRange.message });
       return;
     }
 
@@ -177,8 +175,8 @@ export function SaleTracking() {
         scheduleType: 'DELIVERY',
         title: String(formData.get('title') ?? '').trim() || `${selectedProject.projectName} - delivery`,
         description: String(formData.get('description') ?? '').trim() || null,
-        scheduledStart: toIsoString(scheduledStart),
-        scheduledEnd: scheduledEnd ? toIsoString(scheduledEnd) : null,
+        scheduledStart: dateRange.startIso,
+        scheduledEnd: dateRange.endIso,
         location,
         customerNote: null,
         internalNote: 'Created by Sales from delivery tracking.',
@@ -632,10 +630,6 @@ function getStatusTone(kind: string, value: string) {
 
 function getOrderItemName(item: Pick<OrderItemDto, 'itemName' | 'productNameSnapshot'>) {
   return item.itemName ?? item.productNameSnapshot ?? '-';
-}
-
-function toIsoString(value: string) {
-  return new Date(value).toISOString();
 }
 
 function formatEnumLabel(value: string) {
