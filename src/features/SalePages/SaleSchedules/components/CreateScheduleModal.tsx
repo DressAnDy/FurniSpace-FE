@@ -8,7 +8,7 @@ import {
 } from '@/services/api';
 import type { ProjectListItemDto } from '@/services/api/projects';
 import { useCreateProjectSchedule, useProjectDetail, useUpdateProjectSchedule } from '@/services/queries';
-import { validateScheduleDateRange } from '@/shared/utils/dateValidation';
+import { getLocalDateTimeInputValue, validateScheduleDateRange } from '@/shared/utils/dateValidation';
 
 type CreateScheduleModalProps = {
   editingSchedule: ProjectScheduleDto | null;
@@ -207,7 +207,7 @@ export function CreateScheduleModal({ editingSchedule, isOpen, projects, onClose
           <div className="sale-schedules-modal-grid">
             <label>
               <span>Start Date & Time</span>
-              <input defaultValue={toDateTimeLocal(editingSchedule?.scheduledStart)} name="scheduledStart" required type="datetime-local" />
+              <input defaultValue={toDateTimeLocal(editingSchedule?.scheduledStart)} min={editingSchedule ? undefined : getLocalDateTimeInputValue()} name="scheduledStart" required type="datetime-local" />
             </label>
             <label>
               <span>End Date & Time</span>

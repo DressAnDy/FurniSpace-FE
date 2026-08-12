@@ -22,6 +22,7 @@ import {
   useUpdateOrderFinancialAdjustment,
 } from '@/services/queries';
 import { aggregateDuplicateItems } from '@/shared/utils/itemAggregation';
+import { getLocalDateInputValue, validateOptionalFutureDateRange } from '@/shared/utils/dateValidation';
 
 import './SaleOrders.css';
 
@@ -288,6 +289,7 @@ function OrderDetailPanel({
   const [priority, setPriority] = useState<'LOW' | 'MEDIUM' | 'NORMAL' | 'HIGH' | 'URGENT'>('NORMAL');
   const [estimatedStartDate, setEstimatedStartDate] = useState('');
   const [estimatedCompletionDate, setEstimatedCompletionDate] = useState('');
+  const [productionDateMessage, setProductionDateMessage] = useState('');
   const orderItems = useMemo(() => aggregateDuplicateItems(order.items), [order.items]);
   const hasCancelledItems = order.items.some((item) => item.status === 'CANCELLED' || item.status === 'UNAVAILABLE');
   const canCompleteOrder = order.status === 'DELIVERED' || order.status === 'FINAL_PAYMENT_PENDING';
@@ -341,10 +343,19 @@ function OrderDetailPanel({
           className="sale-orders-flow-panel"
           onSubmit={(event) => {
             event.preventDefault();
+            setProductionDateMessage('');
+            const dateRange = validateOptionalFutureDateRange(estimatedStartDate, estimatedCompletionDate, {
+              startLabel: 'Estimated start date',
+              endLabel: 'Estimated completion date',
+            });
+            if (!dateRange.ok) {
+              setProductionDateMessage(dateRange.message);
+              return;
+            }
             onCreateProduction({
               assignedTo: assignedTo || null,
-              estimatedCompletionDate,
-              estimatedStartDate,
+              estimatedCompletionDate: dateRange.end,
+              estimatedStartDate: dateRange.start,
               note: 'Created from Sales order flow.',
               priority,
             });
@@ -375,13 +386,14 @@ function OrderDetailPanel({
             </label>
             <label>
               <span>Start</span>
-              <input type="date" value={estimatedStartDate} onChange={(event) => setEstimatedStartDate(event.target.value)} />
+              <input min={getLocalDateInputValue()} type="date" value={estimatedStartDate} onChange={(event) => setEstimatedStartDate(event.target.value)} />
             </label>
             <label>
               <span>Complete</span>
-              <input type="date" value={estimatedCompletionDate} onChange={(event) => setEstimatedCompletionDate(event.target.value)} />
+              <input min={estimatedStartDate || getLocalDateInputValue()} type="date" value={estimatedCompletionDate} onChange={(event) => setEstimatedCompletionDate(event.target.value)} />
             </label>
           </div>
+          {productionDateMessage ? <p className="sale-orders-action-note">{productionDateMessage}</p> : null}
           <button disabled={isCreatingProduction} type="submit">
             <IconUserPlus size={16} />
             {isCreatingProduction ? 'Assigning...' : 'Create Production Request'}
