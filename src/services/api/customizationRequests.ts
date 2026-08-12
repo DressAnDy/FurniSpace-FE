@@ -327,7 +327,7 @@ export async function getProjectCustomizationRequests(params: CustomizationReque
 
 export async function getProductionCustomizationVersions(params: ProductionCustomizationVersionListParams = {}) {
   const response = await customizationRequestApiClient.get<ServiceResult<ProductionCustomizationVersionListData>>(
-    '/api/production/customization-versions',
+    '/production/customization-versions',
     {
       params: {
         Status: params.status ?? undefined,
@@ -408,7 +408,7 @@ export async function withdrawCustomizationRequestVersion(input: WithdrawCustomi
 
 export async function productionReviewCustomizationVersion(input: ProductionReviewCustomizationVersionInput) {
   const response = await customizationRequestApiClient.patch<ServiceResult<CustomizationRequestVersionDto>>(
-    `/api/production/customization-versions/${input.customizationRequestVersionId}/review`,
+    `/production/customization-versions/${input.customizationRequestVersionId}/review`,
     {
       result: input.result,
       materialAvailable: input.materialAvailable ?? null,

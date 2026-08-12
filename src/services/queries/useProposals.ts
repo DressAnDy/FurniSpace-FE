@@ -60,11 +60,12 @@ export function useProjectProposals(params?: ProposalListParams, options?: { ena
   });
 }
 
-export function useProposalDetail(proposalId?: string, options?: { enabled?: boolean }) {
+export function useProposalDetail(proposalId?: string, options?: { enabled?: boolean; retry?: number | boolean }) {
   return useQuery({
     queryKey: proposalQueryKeys.detail(proposalId ?? ''),
     queryFn: () => getProposalById(proposalId ?? ''),
     enabled: Boolean(proposalId) && (options?.enabled ?? true),
+    retry: options?.retry,
   });
 }
 
@@ -156,19 +157,21 @@ export function useProposalScenes(params?: ProposalSceneListParams, options?: { 
   });
 }
 
-export function useProposalItems(params?: ProposalItemListParams, options?: { enabled?: boolean }) {
+export function useProposalItems(params?: ProposalItemListParams, options?: { enabled?: boolean; retry?: number | boolean }) {
   return useQuery({
     queryKey: proposalQueryKeys.items(params ?? { proposalId: '' }),
     queryFn: () => getProposalItems(params as ProposalItemListParams),
     enabled: Boolean(params?.proposalId) && (options?.enabled ?? true),
+    retry: options?.retry,
   });
 }
 
-export function useRoomPlannerScene(sceneId?: string, options?: { enabled?: boolean }) {
+export function useRoomPlannerScene(sceneId?: string, options?: { enabled?: boolean; retry?: number | boolean }) {
   return useQuery({
     queryKey: proposalQueryKeys.roomPlanner(sceneId ?? ''),
     queryFn: () => getRoomPlannerScene(sceneId ?? ''),
     enabled: Boolean(sceneId) && (options?.enabled ?? true),
+    retry: options?.retry,
   });
 }
 

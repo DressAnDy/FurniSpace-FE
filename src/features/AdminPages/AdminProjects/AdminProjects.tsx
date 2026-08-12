@@ -1,5 +1,6 @@
-import { useMemo, useState, type FormEvent, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react';
 import {
+  IconAlertTriangle,
   IconArrowRight,
   IconBriefcase,
   IconCalendarDue,
@@ -20,9 +21,15 @@ import {
   type ProjectListItemDto,
   type ProjectStatus,
   type ProjectSpaceDataStatus,
+  type ProjectWorkflowDto,
+  type ProjectWorkflowLinkDto,
+  type ProjectWorkflowMetricDto,
+  type ProjectWorkflowStageDto,
+  type ProjectWorkflowStageKey,
 } from '@/services/api/projects';
 import {
   useAccountList,
+  useAdminProjectWorkflow,
   useAssignDesignerToProject,
   useAssignSalesToProject,
   useMarkReadyForDesignerAssignment,
@@ -55,41 +62,15 @@ const PROJECT_STATUSES: ProjectStatus[] = [
   'REJECTED',
 ];
 
-type ProjectStage = {
-  label: string;
-  statuses: ProjectStatus[];
-};
-
-const PROJECT_STAGES: ProjectStage[] = [
-  {
-    label: 'Intake',
-    statuses: ['SUBMITTED', 'IN_CONSULTATION', 'NEED_BASIC_INFORMATION'],
-  },
-  {
-    label: 'Designer Assignment',
-    statuses: ['WAITING_FOR_DESIGNER_ASSIGNMENT', 'MEASUREMENT_REQUIRED', 'SPACE_VERIFIED'],
-  },
-  {
-    label: 'Design Review',
-    statuses: ['PROPOSAL_CONSULTING', 'PROPOSAL_SELECTED'],
-  },
-  {
-    label: 'Quotation & Order',
-    statuses: ['QUOTATION_SENT', 'QUOTATION_REVISION_REQUESTED', 'ORDER_CONFIRMED'],
-  },
-  {
-    label: 'Production',
-    statuses: ['IN_PRODUCTION', 'PRODUCTION_BLOCKED', 'READY_FOR_DELIVERY'],
-  },
-  {
-    label: 'Delivery',
-    statuses: ['DELIVERING', 'DELIVERED', 'COMPLETED', 'REJECTED'],
-  },
-];
-
 const ACTIVE_PROJECT_STATUSES: ProjectStatus[] = PROJECT_STATUSES.filter((status) => status !== 'COMPLETED' && status !== 'REJECTED');
 const EMPTY_ACCOUNTS: AccountDto[] = [];
 const EMPTY_PROJECTS: ProjectListItemDto[] = [];
+const EMPTY_STAGES: ProjectWorkflowStageDto[] = [];
+const MONEY_FORMATTER = new Intl.NumberFormat('vi-VN', {
+  style: 'currency',
+  currency: 'VND',
+  maximumFractionDigits: 0,
+});
 
 export function AdminProjects() {
   const [search, setSearch] = useState('');
@@ -291,12 +272,30 @@ function ProjectDetailDrawer({
   const [designerId, setDesignerId] = useState('');
   const [spaceDataStatus, setSpaceDataStatus] = useState<ProjectSpaceDataStatus>('SUFFICIENT');
   const [actionMessage, setActionMessage] = useState('');
+  const [selectedStageKey, setSelectedStageKey] = useState<ProjectWorkflowStageKey | null>(null);
   const projectQuery = useProjectDetail(projectId ?? undefined);
+  const workflowQuery = useAdminProjectWorkflow(projectId ?? undefined);
   const filesQuery = useProjectFiles(projectId ? { projectId, page: 1, limit: 8 } : undefined);
   const assignSalesMutation = useAssignSalesToProject();
   const markReadyForDesignerMutation = useMarkReadyForDesignerAssignment();
   const assignDesignerMutation = useAssignDesignerToProject();
   const project = projectQuery.data;
+  const workflow = workflowQuery.data;
+  const stages = workflow?.stages ?? EMPTY_STAGES;
+
+  useEffect(() => {
+    setSelectedStageKey(null);
+    setActionMessage('');
+    setDesignerId('');
+    setSpaceDataStatus('SUFFICIENT');
+  }, [projectId]);
+
+  useEffect(() => {
+    if (!workflow) return;
+    if (selectedStageKey && workflow.stages.some((stage) => stage.key === selectedStageKey)) return;
+
+    setSelectedStageKey(resolveDefaultStageKey(workflow));
+  }, [workflow, selectedStageKey]);
 
   if (!projectId) {
     return null;
@@ -355,6 +354,7 @@ function ProjectDetailDrawer({
   const sales = project?.assignedSalesId ? accountById[project.assignedSalesId] : null;
   const designer = project?.assignedDesignerId ? accountById[project.assignedDesignerId] : null;
   const isMutating = assignSalesMutation.isPending || markReadyForDesignerMutation.isPending || assignDesignerMutation.isPending;
+  const selectedStage = stages.find((stage) => stage.key === selectedStageKey) ?? null;
 
   return (
     <div className="admin-projects-drawer-overlay">
@@ -397,15 +397,64 @@ function ProjectDetailDrawer({
             </section>
 
             <section className="admin-projects-detail-section">
-              <h3>Workflow Tracker</h3>
-              <div className="admin-projects-flow">
-                {PROJECT_STAGES.map((stage) => (
-                  <div className={stage.statuses.includes(project.status) ? 'admin-projects-flow-step admin-projects-flow-step-active' : 'admin-projects-flow-step'} key={stage.label}>
-                    <span>{stage.label}</span>
-                    <IconArrowRight size={14} />
-                  </div>
-                ))}
+              <div className="admin-projects-section-title">
+                <h3>Workflow Tracker</h3>
+                <button
+                  className="admin-button admin-button-secondary"
+                  type="button"
+                  disabled={workflowQuery.isFetching}
+                  onClick={() => void workflowQuery.refetch()}
+                >
+                  <IconRefresh size={16} />
+                  Refresh
+                </button>
               </div>
+
+              {workflowQuery.isLoading ? <div className="admin-projects-state">Loading workflow...</div> : null}
+              {workflowQuery.isError ? (
+                <div className="admin-projects-state admin-projects-state-error">{getProjectServiceResultMessage(workflowQuery.error)}</div>
+              ) : null}
+
+              {workflow ? (
+                <>
+                  {workflow.isRejected ? (
+                    <div className="admin-projects-workflow-banner admin-projects-workflow-banner-rejected">
+                      Project rejected. Workflow shows completed stages only; no active stage.
+                    </div>
+                  ) : null}
+
+                  <div className="admin-projects-flow">
+                    {stages.map((stage, index) => {
+                      const isSelected = stage.key === selectedStageKey;
+                      const className = [
+                        'admin-projects-flow-step',
+                        `admin-projects-flow-step-${stage.state.toLowerCase()}`,
+                        isSelected ? 'admin-projects-flow-step-selected' : '',
+                      ]
+                        .filter(Boolean)
+                        .join(' ');
+
+                      return (
+                        <button
+                          key={stage.key}
+                          className={className}
+                          type="button"
+                          aria-pressed={isSelected}
+                          onClick={() => setSelectedStageKey(stage.key)}
+                        >
+                          <span className="admin-projects-flow-step-main">
+                            <span className="admin-projects-flow-step-label">{stage.label}</span>
+                            <span className="admin-projects-flow-step-state">{formatEnumLabel(stage.state)}</span>
+                          </span>
+                          {index < stages.length - 1 ? <IconArrowRight size={14} /> : null}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {selectedStage ? <WorkflowStagePanel stage={selectedStage} /> : null}
+                </>
+              ) : null}
             </section>
 
             <section className="admin-projects-detail-section">
@@ -464,6 +513,76 @@ function ProjectDetailDrawer({
   );
 }
 
+function WorkflowStagePanel({ stage }: { stage: ProjectWorkflowStageDto }) {
+  const factEntries = Object.entries(stage.facts);
+  const hasBlocker = stage.summary.blockerCount > 0;
+
+  return (
+    <div className={`admin-projects-workflow-panel admin-projects-workflow-panel-${stage.state.toLowerCase()}`}>
+      <div className="admin-projects-workflow-panel-header">
+        <div>
+          <span className="admin-projects-workflow-panel-eyebrow">{formatEnumLabel(stage.state)}</span>
+          <h4>{stage.summary.title}</h4>
+          <p>{stage.summary.description}</p>
+        </div>
+        <div className="admin-projects-workflow-panel-meta">
+          <span>{stage.statusInStage ? formatEnumLabel(stage.statusInStage) : 'Not started'}</span>
+          <span>{stage.summary.primaryOwnerName ?? 'No owner'}</span>
+        </div>
+      </div>
+
+      {hasBlocker ? (
+        <div className="admin-projects-workflow-blocker">
+          <IconAlertTriangle size={16} />
+          <div>
+            <strong>Blocker</strong>
+            <p>{stage.summary.description}</p>
+          </div>
+        </div>
+      ) : null}
+
+      {stage.metrics.length > 0 ? (
+        <div className="admin-projects-workflow-metrics" aria-label={`${stage.label} metrics`}>
+          {stage.metrics.map((metric) => (
+            <article key={metric.key}>
+              <span>{metric.label}</span>
+              <strong>{formatMetricValue(metric)}</strong>
+            </article>
+          ))}
+        </div>
+      ) : null}
+
+      {factEntries.length > 0 ? (
+        <div className="admin-projects-workflow-facts" aria-label={`${stage.label} facts`}>
+          {factEntries.map(([key, value]) => (
+            <div key={key}>
+              <span>{formatEnumLabel(key)}</span>
+              <strong>{formatFactValue(key, value)}</strong>
+            </div>
+          ))}
+        </div>
+      ) : null}
+
+      {stage.links.length > 0 ? (
+        <div className="admin-projects-workflow-links" aria-label={`${stage.label} links`}>
+          {stage.links.map((link) => (
+            <WorkflowLinkChip key={`${link.type}-${link.id}`} link={link} />
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function WorkflowLinkChip({ link }: { link: ProjectWorkflowLinkDto }) {
+  return (
+    <div className="admin-projects-workflow-link" title={link.id}>
+      <span>{formatEnumLabel(link.type)}</span>
+      <strong>{link.label}</strong>
+    </div>
+  );
+}
+
 function SummaryCard({ icon: IconComponent, label, value, note }: { icon: Icon; label: string; value: number; note: string }) {
   return (
     <article className="admin-projects-summary-card">
@@ -510,6 +629,82 @@ function createAccountLookup(accounts: AccountDto[]) {
     lookup[account.accountId] = account;
     return lookup;
   }, {});
+}
+
+function resolveDefaultStageKey(workflow: ProjectWorkflowDto): ProjectWorkflowStageKey | null {
+  if (workflow.currentStage) {
+    return workflow.currentStage;
+  }
+
+  const activeOrBlocked = workflow.stages.find(
+    (stage) => stage.state === 'ACTIVE' || stage.state === 'BLOCKED',
+  );
+
+  if (activeOrBlocked) {
+    return activeOrBlocked.key;
+  }
+
+  const completed = [...workflow.stages].reverse().find((stage) => stage.state === 'COMPLETED');
+
+  return completed?.key ?? workflow.stages[0]?.key ?? null;
+}
+
+function formatMetricValue(metric: ProjectWorkflowMetricDto) {
+  if (metric.value == null) return '-';
+
+  if (metric.unit === 'money' && typeof metric.value === 'number') {
+    return MONEY_FORMATTER.format(metric.value);
+  }
+
+  if (metric.unit === 'percent' && typeof metric.value === 'number') {
+    return `${metric.value}%`;
+  }
+
+  if (metric.unit === 'days' && typeof metric.value === 'number') {
+    return `${metric.value}d`;
+  }
+
+  return String(metric.value);
+}
+
+function formatFactValue(key: string, value: string | number | null) {
+  if (value == null) return '-';
+
+  if (typeof value === 'number') {
+    if (key.toLowerCase().includes('amount') || key.toLowerCase().includes('total')) {
+      return MONEY_FORMATTER.format(value);
+    }
+
+    if (key.toLowerCase().includes('percent')) {
+      return `${value}%`;
+    }
+
+    return String(value);
+  }
+
+  if (key.toLowerCase().endsWith('at') || looksLikeIsoDate(value)) {
+    return formatDateTime(value);
+  }
+
+  if (/^[A-Z0-9_]+$/.test(value)) {
+    return formatEnumLabel(value);
+  }
+
+  return value;
+}
+
+function looksLikeIsoDate(value: string) {
+  return /^\d{4}-\d{2}-\d{2}T/.test(value);
+}
+
+function formatDateTime(value: string) {
+  return new Intl.DateTimeFormat('en-US', {
+    year: 'numeric',
+    month: 'short',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(new Date(value));
 }
 
 function getProjectStats(projects: ProjectListItemDto[]) {

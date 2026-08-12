@@ -211,7 +211,13 @@ function ProjectCard({ onOpenChat, onPaymentCompleted, project }: ProjectCardPro
                 return;
               }
 
-              navigate(project.status === 'COMPLETED' ? `/customer/projects/${project.projectId}/feedback` : needsInformationUpdate ? `/customer/projects/${project.projectId}/edit` : `/customer/proposals?projectId=${project.projectId}`);
+              navigate(
+                project.status === 'COMPLETED'
+                  ? `/customer/projects/${project.projectId}/feedback`
+                  : needsInformationUpdate
+                    ? `/customer/projects/${project.projectId}/edit`
+                    : `/customer/projects/${project.projectId}`,
+              );
             }}
           >
             {canPayStartFee ? 'Pay Start Fee' : project.status === 'COMPLETED' ? 'Submit Feedback' : needsInformationUpdate ? 'Update Information' : 'Open Project'}

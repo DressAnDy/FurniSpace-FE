@@ -230,8 +230,8 @@ export function SaleQuotations() {
 
           return {
             quotationItemId: item.quotationItemId,
-            quantity: normalizeNumber(draft?.quantity),
-            unitPrice: normalizeNumber(draft?.unitPrice),
+            quantity: item.quantity ?? normalizeNumber(draft?.quantity),
+            unitPrice: item.unitPrice ?? normalizeNumber(draft?.unitPrice),
             discountAmount: normalizeNumber(draft?.discountAmount),
           };
         }),
@@ -451,30 +451,14 @@ export function SaleQuotations() {
                 </div>
               </div>
 
-              {canEditHeader(selectedQuotation.status) ? (
-                <form className="sale-quotations-edit-form" onSubmit={updateHeader}>
-                  <label>
-                    <span>Valid Until</span>
-                    <input min={getLocalDateInputValue()} required type="date" value={validUntil} onChange={(event) => setValidUntil(event.target.value)} />
-                  </label>
-                  <label>
-                    <span>Sales Note</span>
-                    <input type="text" value={salesNote} onChange={(event) => setSalesNote(event.target.value)} />
-                  </label>
-                  <button disabled={updateQuotationMutation.isPending} type="submit">
-                    {updateQuotationMutation.isPending ? 'Saving...' : 'Save Header'}
-                  </button>
-                </form>
-              ) : null}
-
               <div className="sale-quotations-divider" />
 
               <h4>Quotation Items</h4>
               {canEditFinancials(selectedQuotation.status) ? (
                 <div className="sale-quotations-item-toolbar">
-                  <span>Financial inputs are editable; calculated amounts are read-only from backend.</span>
+                  <span>Only discount can be edited. Quantity and unit price stay locked from the proposal.</span>
                   <button disabled={bulkFinancialsMutation.isPending} type="button" onClick={() => void saveFinancials()}>
-                    {bulkFinancialsMutation.isPending ? 'Saving...' : 'Save Item Financials'}
+                    {bulkFinancialsMutation.isPending ? 'Saving...' : 'Save Discounts'}
                   </button>
                 </div>
               ) : null}
@@ -502,8 +486,8 @@ export function SaleQuotations() {
                           {item.displayOrder ?? '-'}
                         </td>
                         <td className="sale-quotations-item-name" title={getQuotationItemName(item)}>{getQuotationItemName(item)}</td>
-                        <td>{editable ? <LineInput itemId={item.quotationItemId} name="quantity" value={draft.quantity} onChange={setFinancialDrafts} /> : item.quantity ?? '-'}</td>
-                        <td>{editable ? <LineInput itemId={item.quotationItemId} name="unitPrice" value={draft.unitPrice} onChange={setFinancialDrafts} /> : formatMoney(item.unitPrice)}</td>
+                        <td>{item.quantity ?? '-'}</td>
+                        <td>{formatMoney(item.unitPrice)}</td>
                         <td>{formatMoney(item.grossAmount)}</td>
                         <td>{editable ? <LineInput itemId={item.quotationItemId} name="discountAmount" value={draft.discountAmount} onChange={setFinancialDrafts} /> : formatMoney(item.discountAmount)}</td>
                         <td>{formatMoney(item.totalAmount)}</td>
@@ -536,6 +520,22 @@ export function SaleQuotations() {
                   <strong>{formatMoney(selectedQuotation.totalAmount)}</strong>
                 </div>
               </div>
+
+              {canEditHeader(selectedQuotation.status) ? (
+                <form className="sale-quotations-edit-form" onSubmit={updateHeader}>
+                  <label>
+                    <span>Quotation Valid Until</span>
+                    <input min={getLocalDateInputValue()} required type="date" value={validUntil} onChange={(event) => setValidUntil(event.target.value)} />
+                  </label>
+                  <label>
+                    <span>Customer Note</span>
+                    <input type="text" value={salesNote} onChange={(event) => setSalesNote(event.target.value)} placeholder="Note shown with the quotation" />
+                  </label>
+                  <button disabled={updateQuotationMutation.isPending} type="submit">
+                    {updateQuotationMutation.isPending ? 'Saving...' : 'Save Quotation Details'}
+                  </button>
+                </form>
+              ) : null}
 
               <div className="sale-quotations-actions">
                 <button

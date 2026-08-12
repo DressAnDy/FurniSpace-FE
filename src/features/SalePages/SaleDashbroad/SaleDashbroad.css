@@ -1174,22 +1174,52 @@ body.sale-sidebar-collapsed .sale-sidebar-open-button {
 }
 
 .sales-ops-tabs button {
+  align-items: center;
   background: #faf9f7;
   border: 1px solid rgba(139, 111, 71, 0.15);
   border-radius: 999px;
   color: #6b6b6b;
   cursor: pointer;
+  display: inline-flex;
   font: inherit;
   font-size: 12px;
   font-weight: 800;
+  gap: 8px;
   min-height: 34px;
   padding: 0 12px;
   white-space: nowrap;
 }
 
+.sales-ops-tabs button em {
+  background: rgba(139, 111, 71, 0.12);
+  border-radius: 999px;
+  font-size: 11px;
+  font-style: normal;
+  min-width: 18px;
+  padding: 1px 6px;
+  text-align: center;
+}
+
 .sales-ops-tabs button[aria-selected="true"] {
   background: #17110a;
   color: #ffffff;
+}
+
+.sales-ops-tabs button[aria-selected="true"] em {
+  background: rgba(255, 255, 255, 0.16);
+  color: #ffffff;
+}
+
+.sales-ops-queue-empty {
+  color: #6b6b6b;
+  font-size: 13px;
+  grid-column: 1 / -1;
+  padding: 24px 12px;
+  text-align: center;
+}
+
+.sales-ops-queue-empty-error {
+  color: #b42318;
 }
 
 .sales-ops-queue-table {

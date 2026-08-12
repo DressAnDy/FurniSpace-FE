@@ -198,12 +198,11 @@ function getNotificationTargetPath(notification: NotificationDto, role?: string)
       return notification.projectId ? `/sales/assigned-projects/${notification.projectId}` : '/sales/assigned-projects';
     }
 
-    if (notification.referenceId) {
-      const params = notification.projectId ? `?projectId=${encodeURIComponent(notification.projectId)}` : '';
-      return `/customer/proposals/${notification.referenceId}${params}`;
+    if (notification.referenceId && notification.projectId) {
+      return `/customer/projects/${notification.projectId}?proposalId=${encodeURIComponent(notification.referenceId)}`;
     }
 
-    return notification.projectId ? `/customer/proposals?projectId=${encodeURIComponent(notification.projectId)}` : '/customer/proposals';
+    return notification.projectId ? `/customer/projects/${notification.projectId}` : '/customer/projects';
   }
 
   const projectId = notification.referenceType === 'PROJECT' ? notification.referenceId : notification.projectId;

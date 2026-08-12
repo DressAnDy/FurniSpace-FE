@@ -46,7 +46,7 @@ import './BuildingThreeDTestPage.css';
 
 const EMPTY_THUMBNAIL = '';
 const API_PRODUCT_DEFAULT_SCALE = 2.6;
-const DETAIL_BATCH_SIZE = 12;
+const DETAIL_BATCH_SIZE = 8;
 const ROOM_PLANNER_SAVE_STATUSES = ['DRAFT', 'REVISION_REQUESTED'] as const;
 type BuildingRoomPlannerRouteState = {
   areas?: BuildingProjectFloorAreaSource[];
@@ -261,14 +261,26 @@ export function BuildingThreeDTestPage() {
   const projectCatalogQuery = useProjectCatalogProducts(currentProjectId ?? undefined, { page: 1, pageSize: 48 }, Boolean(currentProjectId));
   const productListQuery = useProductList({ page: 1, limit: 48 }, !currentProjectId);
   const [detailLimit, setDetailLimit] = useState(DETAIL_BATCH_SIZE);
-  const projectCatalogVersions = useMemo(
-    () => (projectCatalogQuery.data?.items ?? []).flatMap((product) => product.eligibleVersions.map((version) => ({ product, version }))).slice(0, detailLimit),
-    [detailLimit, projectCatalogQuery.data?.items],
-  );
-  const detailProducts = useMemo(
-    () => (productListQuery.data?.items ?? []).slice(0, detailLimit),
-    [detailLimit, productListQuery.data?.items],
-  );
+  const [search, setSearch] = useState('');
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
+  const projectCatalogVersions = useMemo(() => {
+    const keyword = search.trim().toLowerCase();
+
+    return (projectCatalogQuery.data?.items ?? [])
+      .filter((product) => !selectedCategoryId || product.categoryId === selectedCategoryId)
+      .filter((product) => !keyword || product.productName.toLowerCase().includes(keyword))
+      .flatMap((product) => product.eligibleVersions.map((version) => ({ product, version })))
+      .slice(0, detailLimit);
+  }, [detailLimit, projectCatalogQuery.data?.items, search, selectedCategoryId]);
+  const detailProducts = useMemo(() => {
+    const keyword = search.trim().toLowerCase();
+
+    return (productListQuery.data?.items ?? [])
+      .filter((product) => !selectedCategoryId || product.categoryId === selectedCategoryId)
+      .filter((product) => !keyword || product.productName.toLowerCase().includes(keyword))
+      .filter((product) => mapProductToModels(product).length === 0)
+      .slice(0, detailLimit);
+  }, [detailLimit, productListQuery.data?.items, search, selectedCategoryId]);
   const projectCatalogVersionDetailQueries = useQueries({
     queries: projectCatalogVersions.map(({ product, version }) => ({
       enabled: Boolean(currentProjectId && version.productVersionId),
@@ -281,7 +293,8 @@ export function BuildingThreeDTestPage() {
         return { product, version: response };
       },
       queryKey: productQueryKeys.projectCatalogVersion(currentProjectId ?? '', version.productVersionId),
-      staleTime: 5 * 60 * 1000,
+      staleTime: 10 * 60 * 1000,
+      gcTime: 30 * 60 * 1000,
     })),
   });
   const productDetailQueries = useQueries({
@@ -289,13 +302,12 @@ export function BuildingThreeDTestPage() {
       enabled: Boolean(product.productId) && !currentProjectId,
       queryFn: () => getProductById(product.productId),
       queryKey: productQueryKeys.detail(product.productId),
-      staleTime: 5 * 60 * 1000,
+      staleTime: 10 * 60 * 1000,
+      gcTime: 30 * 60 * 1000,
     })),
   });
   const [activeLevel, setActiveLevel] = useState<BuildingLevelVisibility>('all');
   const [designPanel, setDesignPanel] = useState<BuildingDesignPanel>('products');
-  const [search, setSearch] = useState('');
-  const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   const [selectedFloorMaterialId, setSelectedFloorMaterialId] = useState('wood-floor');
   const [selectedWallMaterialId, setSelectedWallMaterialId] = useState('wall-base');
   const [placedProducts, setPlacedProducts] = useState<PlacedBuildingProduct[]>(() => placedProductsDraft?.placedProducts ?? []);
@@ -327,6 +339,14 @@ export function BuildingThreeDTestPage() {
     }
 
     (productListQuery.data?.items ?? []).forEach((product) => {
+      if (selectedCategoryId && product.categoryId !== selectedCategoryId) {
+        return;
+      }
+
+      if (search.trim() && !product.productName.toLowerCase().includes(search.trim().toLowerCase())) {
+        return;
+      }
+
       mapProductToModels(product).forEach((model) => {
         models.set(model.id, model);
       });
@@ -343,7 +363,14 @@ export function BuildingThreeDTestPage() {
     });
 
     return [...models.values()];
-  }, [currentProjectId, productDetailQueries, productListQuery.data?.items, projectCatalogVersionDetailQueries]);
+  }, [
+    currentProjectId,
+    productDetailQueries,
+    productListQuery.data?.items,
+    projectCatalogVersionDetailQueries,
+    search,
+    selectedCategoryId,
+  ]);
 
   const modelsById = useMemo(
     () => new Map(availableModels.map((model) => [model.id, model])),
@@ -355,13 +382,13 @@ export function BuildingThreeDTestPage() {
     [availableModels],
   );
   const isCatalogLoading = currentProjectId
-    ? projectCatalogQuery.isLoading || projectCatalogVersionDetailQueries.some((query) => query.isLoading)
-    : productListQuery.isLoading || productDetailQueries.some((query) => query.isLoading);
+    ? projectCatalogQuery.isLoading || (projectCatalogVersionDetailQueries.some((query) => query.isLoading) && availableModels.length === 0)
+    : productListQuery.isLoading || (productDetailQueries.some((query) => query.isLoading) && availableModels.length === 0);
   const catalogError = currentProjectId
     ? projectCatalogQuery.error ?? projectCatalogVersionDetailQueries.find((query) => query.isError)?.error
     : productListQuery.error ?? productDetailQueries.find((query) => query.isError)?.error;
   const hasMoreCatalogModels = currentProjectId
-    ? detailLimit < (projectCatalogQuery.data?.totalCount ?? 0)
+    ? detailLimit < (projectCatalogQuery.data?.items ?? []).flatMap((product) => product.eligibleVersions).length
     : detailLimit < (productListQuery.data?.items.length ?? 0);
 
   useEffect(() => {
@@ -475,6 +502,10 @@ export function BuildingThreeDTestPage() {
     ],
     [sceneData.building.levels],
   );
+
+  useEffect(() => {
+    setDetailLimit(DETAIL_BATCH_SIZE);
+  }, [search, selectedCategoryId]);
 
   useEffect(() => {
     if (activeLevel === 'all' || activeLevel === 'site') {
@@ -887,7 +918,6 @@ export function BuildingThreeDTestPage() {
           >
             2D Blueprint
           </RouterLink>
-          <RouterLink to={sceneId ? `/proposal-scenes/${sceneId}/legacy-room-planner` : '/3d-lab'}>Legacy Planner</RouterLink>
           <button
             disabled={isSavingRoomPlanner}
             title={!sceneId ? 'Open this planner from a proposal scene to save to backend.' : undefined}

@@ -82,7 +82,15 @@
 .designer-proposal-metadata-form label span { color: #65757d; font-size: 11px; font-weight: 700; text-transform: uppercase; }
 .designer-proposal-metadata-form input,.designer-proposal-metadata-form select,.designer-proposal-metadata-form textarea { border: 1px solid #d8e0e4; color: var(--fs-ink-soft); font: inherit; min-height: 38px; padding: 8px 10px; width: 100%; }
 .designer-proposal-metadata-form textarea { resize: vertical; }
-.designer-proposal-setup-section { display: grid; gap: 16px; padding: 18px 20px; }
+.designer-proposal-setup-section {
+  background: linear-gradient(180deg, #fffaf2 0%, #ffffff 100%);
+  border: 2px solid var(--fs-gold);
+  border-radius: 12px;
+  box-shadow: 0 12px 28px rgba(192, 149, 75, 0.12);
+  display: grid;
+  gap: 16px;
+  padding: 18px 20px;
+}
 .designer-proposal-setup-section > header { align-items: center; display: flex; justify-content: space-between; gap: 16px; }
 .designer-proposal-setup-section > header > div { align-items: center; display: flex; gap: 10px; min-width: 0; }
 .designer-proposal-setup-section h2 { font-size: 17px; margin: 0; }

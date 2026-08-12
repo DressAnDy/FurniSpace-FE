@@ -136,4 +136,6 @@ function invalidateProductionCaches(
     void queryClient.invalidateQueries({ queryKey: orderQueryKeys.byProject(projectId) });
     void queryClient.invalidateQueries({ queryKey: ['projects', 'detail', projectId] });
   }
+
+  void queryClient.invalidateQueries({ queryKey: ['notifications'] });
 }

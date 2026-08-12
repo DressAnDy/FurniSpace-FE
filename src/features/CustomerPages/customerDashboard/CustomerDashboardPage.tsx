@@ -106,7 +106,7 @@ export function CustomerDashboardPage() {
         .sort((left, right) => new Date(left.scheduledStart).getTime() - new Date(right.scheduledStart).getTime()),
     [schedulesQuery.data?.items, todayIso],
   );
-  const actionConfig = project ? getActionConfig(project.status) : null;
+  const actionConfig = project ? getActionConfig(project.status, project.projectId) : null;
 
   async function handleScheduleConfirm(schedule: ProjectScheduleDto) {
     setScheduleActionMessage('');
@@ -222,7 +222,7 @@ export function CustomerDashboardPage() {
 
           <aside className="customer-dashboard-sidebar">
             {hasActiveProject ? (
-              <DashboardPanel title="Pending Your Review">
+              <DashboardPanel projectId={activeProject?.projectId} title="Pending Your Review">
                 <div className="customer-dashboard-review-list">
                   {proposalsQuery.isLoading ? <p className="customer-dashboard-state">Loading published proposals...</p> : null}
                   {proposalsQuery.isError ? <p className="customer-dashboard-api-note">Cannot load published proposals.</p> : null}
@@ -234,7 +234,7 @@ export function CustomerDashboardPage() {
                       <div>
                         <h3>{proposal.proposalName}</h3>
                         <p>Version {proposal.versionNo} - {proposal.publishedAt ? formatDate(proposal.publishedAt) : 'Published'}</p>
-                        <button type="button" onClick={() => navigate(`/customer/proposals/${proposal.proposalId}?projectId=${proposal.projectId}`)}>
+                        <button type="button" onClick={() => navigate(`/customer/projects/${proposal.projectId}?proposalId=${proposal.proposalId}`)}>
                           Review
                         </button>
                       </div>
@@ -305,11 +305,14 @@ export function CustomerDashboardPage() {
 
 type DashboardPanelProps = {
   children: React.ReactNode;
+  projectId?: string;
   title: string;
 };
 
-function DashboardPanel({ children, title }: DashboardPanelProps) {
-  const href = title === 'Pending Your Review' ? '/customer/proposals' : '/customer/projects';
+function DashboardPanel({ children, projectId, title }: DashboardPanelProps) {
+  const href = title === 'Pending Your Review'
+    ? (projectId ? `/customer/projects/${projectId}` : '/customer/projects')
+    : '/customer/projects';
 
   return (
     <section className="customer-dashboard-panel">
@@ -363,13 +366,13 @@ function getJourneyIndex(status: ProjectStatus) {
   return directIndex >= 0 ? directIndex : 0;
 }
 
-function getActionConfig(status: ProjectStatus) {
+function getActionConfig(status: ProjectStatus, projectId?: string) {
   if (status === 'NEED_BASIC_INFORMATION') {
     return {
       title: 'Action Required: Add Project Information',
       description: 'Your sales team needs more details before the project can continue.',
       label: 'Update Info',
-      path: '/customer/projects',
+      path: projectId ? `/customer/projects/${projectId}/edit` : '/customer/projects',
     };
   }
 
@@ -378,7 +381,7 @@ function getActionConfig(status: ProjectStatus) {
       title: 'Action Required: Review Design Proposals',
       description: 'Your designer has published design proposals. Please review and provide feedback.',
       label: 'Review Now',
-      path: '/customer/proposals',
+      path: projectId ? `/customer/projects/${projectId}` : '/customer/projects',
     };
   }
 
@@ -387,7 +390,7 @@ function getActionConfig(status: ProjectStatus) {
       title: 'Action Required: Review Quotation',
       description: 'A quotation is ready for review before the next project stage.',
       label: 'View Quotation',
-      path: '/customer/proposals',
+      path: '/customer/quotations',
     };
   }
 

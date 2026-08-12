@@ -4,6 +4,7 @@ import {
   assignDesignerToProject,
   assignSalesToProject,
   createProject,
+  getAdminProjectWorkflow,
   getProjectById,
   getProjectFiles,
   getProjects,
@@ -28,6 +29,7 @@ export const projectQueryKeys = {
   all: ['projects'] as const,
   list: (params?: ProjectListParams) => ['projects', 'list', params] as const,
   detail: (projectId: string) => ['projects', 'detail', projectId] as const,
+  workflow: (projectId: string) => ['projects', 'workflow', projectId] as const,
   files: (params: ProjectFileListParams) => ['projects', 'files', params] as const,
   staffQueue: (params?: Pick<ProjectListParams, 'search' | 'page' | 'limit'>) => ['projects', 'staff-queue', params] as const,
 };
@@ -44,6 +46,14 @@ export function useProjectDetail(projectId?: string) {
   return useQuery({
     queryKey: projectQueryKeys.detail(projectId ?? ''),
     queryFn: () => getProjectById(projectId ?? ''),
+    enabled: Boolean(projectId),
+  });
+}
+
+export function useAdminProjectWorkflow(projectId?: string) {
+  return useQuery({
+    queryKey: projectQueryKeys.workflow(projectId ?? ''),
+    queryFn: () => getAdminProjectWorkflow(projectId ?? ''),
     enabled: Boolean(projectId),
   });
 }
@@ -137,6 +147,7 @@ export function useAssignSalesToProject() {
     onSuccess: (data) => {
       void queryClient.invalidateQueries({ queryKey: projectQueryKeys.all });
       void queryClient.invalidateQueries({ queryKey: projectQueryKeys.detail(data.projectId) });
+      void queryClient.invalidateQueries({ queryKey: projectQueryKeys.workflow(data.projectId) });
       void queryClient.invalidateQueries({ queryKey: projectChatQueryKeys.all });
     },
   });
@@ -150,6 +161,7 @@ export function useAssignDesignerToProject() {
     onSuccess: (data) => {
       void queryClient.invalidateQueries({ queryKey: projectQueryKeys.all });
       void queryClient.invalidateQueries({ queryKey: projectQueryKeys.detail(data.projectId) });
+      void queryClient.invalidateQueries({ queryKey: projectQueryKeys.workflow(data.projectId) });
       void queryClient.invalidateQueries({ queryKey: projectChatQueryKeys.all });
     },
   });
@@ -161,6 +173,10 @@ export function useUpdateProjectStatus() {
   return useMutation({
     mutationFn: (input: UpdateProjectStatusInput) => updateProjectStatus(input),
     onSuccess: (data) => {
+      void queryClient.invalidateQueries({ queryKey: projectQueryKeys.all });
+      void queryClient.invalidateQueries({ queryKey: projectQueryKeys.detail(data.projectId) });
+      void queryClient.invalidateQueries({ queryKey: projectQueryKeys.workflow(data.projectId) });
+      void queryClient.invalidateQueries({ queryKey: projectChatQueryKeys.all });
       invalidateProjectCaches(queryClient, data.projectId);
     },
   });
