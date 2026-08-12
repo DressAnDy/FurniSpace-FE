@@ -294,10 +294,6 @@ function groupProductionItems(items: ProductionItem[]): ProductionItemGroup[] {
       item.productVersionId ?? item.productVersionNameSnapshot ?? item.productNameSnapshot,
       item.productNameSnapshot,
       item.productVersionNameSnapshot ?? '-',
-      item.status,
-      item.materialNote ?? '-',
-      item.estimatedCompletionDate ?? '-',
-      item.completedAt ?? '-',
     ].join('|');
     const existingGroup = groupsByKey.get(key);
 

@@ -7,3 +7,93 @@
   font-size: 13px;
   font-weight: 800;
 }
+
+.production-requests-queue .production-workspace-table {
+  min-width: 980px;
+  table-layout: fixed;
+}
+
+.production-requests-queue .production-workspace-table th,
+.production-requests-queue .production-workspace-table td {
+  padding: 10px 8px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  vertical-align: middle;
+}
+
+.production-requests-queue .production-workspace-table th:nth-child(1),
+.production-requests-queue .production-workspace-table td:nth-child(1) {
+  width: 118px;
+}
+
+.production-requests-queue .production-workspace-table th:nth-child(2),
+.production-requests-queue .production-workspace-table td:nth-child(2) {
+  width: 160px;
+}
+
+.production-requests-queue .production-workspace-table th:nth-child(3),
+.production-requests-queue .production-workspace-table td:nth-child(3) {
+  width: 112px;
+}
+
+.production-requests-queue .production-workspace-table th:nth-child(4),
+.production-requests-queue .production-workspace-table td:nth-child(4) {
+  width: 120px;
+}
+
+.production-requests-queue .production-workspace-table th:nth-child(5),
+.production-requests-queue .production-workspace-table td:nth-child(5) {
+  width: 84px;
+}
+
+.production-requests-queue .production-workspace-table th:nth-child(6),
+.production-requests-queue .production-workspace-table td:nth-child(6) {
+  width: 126px;
+}
+
+.production-requests-queue .production-workspace-table th:nth-child(7),
+.production-requests-queue .production-workspace-table td:nth-child(7),
+.production-requests-queue .production-workspace-table th:nth-child(8),
+.production-requests-queue .production-workspace-table td:nth-child(8) {
+  width: 108px;
+}
+
+.production-requests-queue .production-workspace-table th:nth-child(9),
+.production-requests-queue .production-workspace-table td:nth-child(9) {
+  width: 210px;
+  white-space: normal;
+}
+
+.production-requests-code {
+  display: inline-block;
+  max-width: 100%;
+  overflow: hidden;
+  color: #2d2d2d;
+  font-family: Consolas, "Courier New", monospace;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.production-requests-project {
+  display: inline-block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.production-requests-queue .production-workspace-row-actions {
+  flex-wrap: nowrap;
+}
+
+.production-requests-queue .production-workspace-row-actions button,
+.production-requests-queue .production-workspace-row-actions a {
+  min-height: 32px;
+  font-size: 12px;
+  padding: 0 10px;
+  white-space: nowrap;
+}

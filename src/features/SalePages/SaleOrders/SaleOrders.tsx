@@ -462,8 +462,6 @@ function OrderDetailPanel({
               <th>Unit</th>
               <th>Discount</th>
               <th>Pre-VAT Subtotal</th>
-              <th>Adjustment</th>
-              <th>Delivery</th>
             </tr>
           </thead>
           <tbody>
@@ -474,8 +472,6 @@ function OrderDetailPanel({
                 <td>{formatMoney(item.unitPrice)}</td>
                 <td>{formatMoney(item.discountAmount)}</td>
                 <td>{formatMoney(item.subtotalAmount)}</td>
-                <td>{formatMoney(item.adjustmentAmount)}</td>
-                <td>{formatDeliveryState(item)}</td>
               </tr>
             ))}
           </tbody>
@@ -524,14 +520,6 @@ function formatPercentRate(value?: number | null) {
   if (typeof value !== 'number') return '-';
 
   return `${new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 2 }).format(value * 100)}%`;
-}
-
-function formatDeliveryState(item: OrderItemDto) {
-  const delivered = item.deliveredQuantity ?? 0;
-  const quantity = item.quantity ?? 0;
-  const status = item.status ? formatEnumLabel(item.status) : 'Pending';
-
-  return `${delivered}/${quantity} - ${status}`;
 }
 
 function getCompleteOrderBlocker(order: OrderDetailDto) {

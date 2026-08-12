@@ -19,10 +19,11 @@ import { Customer3dPreviewPage } from '@/features/CustomerPages/customer3dPrevie
 import { CustomerChatPage } from '@/features/CustomerPages/customerChat';
 import { CustomerDashboardPage } from '@/features/CustomerPages/customerDashboard';
 import { CustomerOrdersPage } from '@/features/CustomerPages/customerOrders';
+import { CustomerProjectDetailPage } from '@/features/CustomerPages/customerProjectDetail';
+import { CustomerProposalLegacyRedirect } from '@/features/CustomerPages/customerProjectDetail/CustomerProposalLegacyRedirect';
 import { CustomerProjectInformationPage } from '@/features/CustomerPages/customerProjectInformation/CustomerProjectInformationPage';
 import { CustomerProjectListPage } from '@/features/CustomerPages/customerProjectList';
 import { CustomerProjectRequestPage } from '@/features/CustomerPages/customerProjectRequest';
-import { CustomerProposalDetailPage } from '@/features/CustomerPages/customerProposalDetail';
 import { CustomerQuotationsPage } from '@/features/CustomerPages/customerQuotations';
 import { CustomerSchedulesPage } from '@/features/CustomerPages/customerSchedules';
 import { ProjectFeedback } from '@/features/CustomerPages/Feedback';
@@ -123,12 +124,13 @@ export default function App() {
                   <Route path="/customer" element={<Navigate to="/customer/dashboard" replace />} />
                   <Route path="/customer/dashboard" element={<CustomerDashboardPage />} />
                   <Route path="/customer/projects" element={<CustomerProjectListPage />} />
+                  <Route path="/customer/projects/:projectId" element={<CustomerProjectDetailPage />} />
                   <Route path="/customer/projects/:projectId/edit" element={<CustomerProjectInformationPage />} />
                   <Route path="/customer/project-request" element={<CustomerProjectRequestPage />} />
                   <Route path="/customer/tracking" element={<Tracking />} />
                   <Route path="/customer/schedules" element={<CustomerSchedulesPage />} />
-                  <Route path="/customer/proposals" element={<CustomerProposalDetailPage />} />
-                  <Route path="/customer/proposals/:proposalId" element={<CustomerProposalDetailPage />} />
+                  <Route path="/customer/proposals" element={<CustomerProposalLegacyRedirect />} />
+                  <Route path="/customer/proposals/:proposalId" element={<CustomerProposalLegacyRedirect />} />
                   <Route path="/customer/quotations" element={<CustomerQuotationsPage />} />
                   <Route path="/customer/orders" element={<CustomerOrdersPage />} />
                   <Route path="/customer/profile" element={<UserProfilePage />} />
@@ -141,7 +143,7 @@ export default function App() {
                   <Route path="/customer-project-request" element={<Navigate to="/customer/project-request" replace />} />
                   <Route path="/customer-tracking" element={<Navigate to="/customer/tracking" replace />} />
                   <Route path="/customer-schedules" element={<Navigate to="/customer/schedules" replace />} />
-                  <Route path="/customer-proposal-detail" element={<Navigate to="/customer/proposals" replace />} />
+                  <Route path="/customer-proposal-detail" element={<Navigate to="/customer/projects" replace />} />
                   <Route path="/customer-chat" element={<Navigate to="/customer/chat" replace />} />
                 </Route>
 
@@ -170,7 +172,6 @@ export default function App() {
                   <Route path="/designer/product-library" element={<DesignerProductLibrary />} />
                   <Route path="/designer/product-library/:productId/versions/create" element={<DesignerCreateProductVersionPage />} />
                   <Route path="/designer/schedules" element={<DesignerSchedules />} />
-                  <Route path="/designer/projects/:projectId/proposals/legacy-new" element={<DesignerProposalWorkspace />} />
                   <Route path="/designer/projects/:projectId/proposals/new" element={<DesignerProposalWorkspace />} />
                   <Route path="/designer/projects/:projectId/proposals/:proposalId" element={<DesignerProposalWorkspace />} />
                 </Route>

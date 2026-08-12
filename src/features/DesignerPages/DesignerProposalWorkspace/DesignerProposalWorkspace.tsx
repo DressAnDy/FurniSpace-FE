@@ -66,12 +66,6 @@ function getSceneAreaIds(scene: ProposalSceneDto) {
   return scene.projectAreaId ? [scene.projectAreaId] : [];
 }
 
-function getActiveAreaIds(areas: ProjectAreaDto[]) {
-  return areas
-    .filter((area) => area.status !== 'CANCELLED')
-    .map((area) => area.projectAreaId);
-}
-
 function getSceneDisplayName(scene: ProposalSceneDto) {
   return scene.sceneName?.trim() || 'Untitled Room Planner Scene';
 }
@@ -189,34 +183,6 @@ export function DesignerProposalWorkspace() {
     }
   }
 
-  async function createScene() {
-    if (!activeProposalId || !project) {
-      return;
-    }
-
-    setMessage('');
-
-    const projectAreaIds = getActiveAreaIds(areas);
-
-    if (projectAreaIds.length === 0) {
-      setMessage('Create project areas before creating a room planner scene. Each area will become a floor.');
-      return;
-    }
-
-    try {
-      const scene = await createSceneMutation.mutateAsync({
-        proposalId: activeProposalId,
-        sceneName: `${project.projectName} Room Planner`,
-        sceneType: 'ROOM_PLANNER',
-        projectAreaIds,
-      });
-
-      openRoomPlanner(scene);
-    } catch (error) {
-      setMessage(getProposalServiceResultMessage(error));
-    }
-  }
-
   async function createProposal() {
     if (!projectId) {
       return;
@@ -224,6 +190,9 @@ export function DesignerProposalWorkspace() {
 
     const proposalName = proposalDraft.proposalName.trim();
     const description = proposalDraft.description.trim();
+    const projectAreaIds = areas
+      .filter((area) => area.status !== 'CANCELLED')
+      .map((area) => area.projectAreaId);
 
     setMessage('');
 
@@ -237,6 +206,11 @@ export function DesignerProposalWorkspace() {
       return;
     }
 
+    if (projectAreaIds.length === 0) {
+      setMessage('Create at least one project area first. Each area becomes a floor in the room planner scene.');
+      return;
+    }
+
     try {
       const createdProposal = await createProposalMutation.mutateAsync({
         projectId,
@@ -244,10 +218,20 @@ export function DesignerProposalWorkspace() {
         description,
       });
 
+      const createdScene = await createSceneMutation.mutateAsync({
+        proposalId: createdProposal.proposalId,
+        sceneName: `${proposalName} Room Planner`,
+        sceneType: 'ROOM_PLANNER',
+        projectAreaIds,
+      });
+
       setProposalDraft(DEFAULT_PROPOSAL_DRAFT);
-      setMessage('Proposal created. Select a project area before creating a proposal scene.');
+      setMessage(`Created ${createdProposal.proposalName} with one room planner scene.`);
       navigate(`/designer/projects/${projectId}/proposals/${createdProposal.proposalId}`, {
-        state: selectedAreaId ? { selectedAreaId } : undefined,
+        state: {
+          createdSceneId: createdScene.sceneId,
+          ...(selectedAreaId ? { selectedAreaId } : {}),
+        },
       });
     } catch (error) {
       setMessage(getProposalServiceResultMessage(error));
@@ -445,17 +429,14 @@ export function DesignerProposalWorkspace() {
           {isProposalSetupMode ? (
             <ProposalSetupSection
               draft={proposalDraft}
-              isCreating={createProposalMutation.isPending}
+              isCreating={createProposalMutation.isPending || createSceneMutation.isPending}
               onCreateProposal={() => void createProposal()}
               onDraftChange={setProposalDraft}
             />
           ) : (
           <section className="designer-scenes-section">
             <header>
-              <div><h2>Proposal Scenes</h2></div>
-              <button disabled={!activeProposalId || proposal?.status !== 'DRAFT' || areas.length === 0 || createSceneMutation.isPending} type="button" onClick={() => void createScene()}>
-                <IconPlus size={17} /> {createSceneMutation.isPending ? 'Creating...' : 'Create Room Planner Scene'}
-              </button>
+              <div><h2>Proposal Scenes</h2><p>One proposal maps to one Room Planner scene per area.</p></div>
             </header>
             <div className="designer-scenes-list">
               {scenesQuery.isLoading ? <EmptyState message="Loading proposal scenes from backend..." /> : null}
@@ -802,8 +783,8 @@ function ProposalSetupSection({
         <div>
           <IconFileText size={22} />
           <div>
-            <h2>Create Proposal</h2>
-            <p>Name and description are intentionally blank. Fill them before creating the proposal workspace.</p>
+            <h2>Create Proposal & Scene</h2>
+            <p>Creates one proposal with one Room Planner scene. Do not create extra scenes for the same proposal.</p>
           </div>
         </div>
         <span>Name and description required</span>
@@ -827,7 +808,7 @@ function ProposalSetupSection({
           />
         </label>
         <button disabled={isCreating || !draft.proposalName.trim() || !draft.description.trim()} type="button" onClick={onCreateProposal}>
-          <IconPlus size={17} /> {isCreating ? 'Creating proposal...' : 'Create Proposal'}
+          <IconPlus size={17} /> {isCreating ? 'Creating proposal & scene...' : 'Create Proposal & Scene'}
         </button>
       </div>
     </section>

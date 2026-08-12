@@ -18,6 +18,8 @@ import {
   useStartProductionRequest,
 } from '@/services/queries';
 
+import './ProductionRequests.css';
+
 type RequestFilter = ProductionRequestStatus | 'ALL';
 
 const filters: Array<{ label: string; value: RequestFilter }> = [
@@ -120,7 +122,7 @@ export function ProductionRequests() {
           <ProductionSummaryCard icon={IconCheck} label="Completed" value={rawRequests.filter((request) => request.status === 'COMPLETED').length} />
         </section>
 
-        <article className="production-workspace-card">
+        <article className="production-workspace-card production-requests-queue">
           <header>
             <div>
               <h3>Production Request Queue</h3>
@@ -155,9 +157,21 @@ export function ProductionRequests() {
                 ) : null}
                 {requests.map((request) => (
                   <tr key={request.productionRequestId}>
-                    <td>{request.productionCode}</td>
-                    <td>{request.projectName}</td>
-                    <td>{request.orderCode}</td>
+                    <td>
+                      <code className="production-requests-code" title={request.productionCode}>
+                        {formatCompactCode(request.productionCode)}
+                      </code>
+                    </td>
+                    <td>
+                      <span className="production-requests-project" title={request.projectName}>
+                        {request.projectName}
+                      </span>
+                    </td>
+                    <td>
+                      <code className="production-requests-code" title={request.orderCode}>
+                        {formatCompactCode(request.orderCode)}
+                      </code>
+                    </td>
                     <td>{request.assignedToName ?? '-'}</td>
                     <td>{request.priority}</td>
                     <td><ProductionStatusBadge label={getProductionRequestStatusLabel(request.status)} status={request.status} /></td>
@@ -188,4 +202,14 @@ export function ProductionRequests() {
       </div>
     </ProductionLayout>
   );
+}
+
+function formatCompactCode(value: string) {
+  const trimmed = value.trim();
+
+  if (trimmed.length <= 14) {
+    return trimmed;
+  }
+
+  return `${trimmed.slice(0, 6)}…${trimmed.slice(-4)}`;
 }
