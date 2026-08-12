@@ -29,6 +29,7 @@ describe('dateValidation', () => {
   it('validates optional future date-only ranges', () => {
     expect(validateOptionalFutureDateRange('', '', { now })).toEqual({ ok: true, start: null, end: null });
     expect(validateOptionalFutureDateRange('2026-08-13', '2026-08-12', { now }).ok).toBe(false);
+    expect(validateOptionalFutureDateRange('2026-08-13', '2026-08-13', { now }).ok).toBe(false);
     expect(validateOptionalFutureDateRange('2026-08-13', '2026-08-14', { now })).toEqual({ ok: true, start: '2026-08-13', end: '2026-08-14' });
   });
 

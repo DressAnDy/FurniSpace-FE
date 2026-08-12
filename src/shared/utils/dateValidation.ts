@@ -19,6 +19,20 @@ export function getLocalDateInputValue(value = new Date()) {
   return formatLocalDateParts(value.getFullYear(), value.getMonth() + 1, value.getDate());
 }
 
+export function getMinimumEndDateInputValue(startValue: string, minimumGapDays = 1) {
+  const match = DATE_ONLY_PATTERN.exec(startValue.trim());
+  if (!match) return '';
+
+  const [, year, month, day] = match;
+  const start = new Date(Number(year), Number(month) - 1, Number(day));
+  if (start.getFullYear() !== Number(year)
+    || start.getMonth() !== Number(month) - 1
+    || start.getDate() !== Number(day)) return '';
+
+  start.setDate(start.getDate() + minimumGapDays);
+  return getLocalDateInputValue(start);
+}
+
 export function getLocalDateTimeInputValue(value = new Date()) {
   return `${getLocalDateInputValue(value)}T${String(value.getHours()).padStart(2, '0')}:${String(value.getMinutes()).padStart(2, '0')}`;
 }
@@ -84,8 +98,8 @@ export function validateOptionalFutureDateRange(
   if (!start.ok) return start;
   const end = validateOptionalFutureDate(endValue, endLabel, options.now);
   if (!end.ok) return end;
-  if (start.value && end.value && end.value < start.value) {
-    return { ok: false, message: `${endLabel} cannot be before ${startLabel.toLowerCase()}.` };
+  if (start.value && end.value && end.value <= start.value) {
+    return { ok: false, message: `${endLabel} must be after ${startLabel.toLowerCase()}.` };
   }
   return { ok: true, start: start.value, end: end.value };
 }
