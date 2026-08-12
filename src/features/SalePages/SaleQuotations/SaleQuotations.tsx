@@ -6,6 +6,7 @@ import type { ProjectListItemDto, ProjectStatus } from '@/services/api/projects'
 import {
   useCancelQuotation,
   useBulkUpdateQuotationItemFinancials,
+  useCreateDraftQuotation,
   useCurrentUser,
   useProjectList,
   useProjectProposals,
@@ -48,9 +49,7 @@ type QuotationProjectView = 'pending' | 'finalized';
 type FinancialDraft = {
   quantity: string;
   unitPrice: string;
-  customizationUnitAdditionalCost: string;
   discountAmount: string;
-  taxRate: string;
 };
 
 export function SaleQuotations() {
@@ -80,6 +79,7 @@ export function SaleQuotations() {
     { enabled: Boolean(selectedProjectId) },
   );
   const updateQuotationMutation = useUpdateQuotation();
+  const createDraftQuotationMutation = useCreateDraftQuotation();
   const bulkFinancialsMutation = useBulkUpdateQuotationItemFinancials();
   const sendQuotationMutation = useSendQuotation();
   const reviseQuotationMutation = useReviseQuotation();
@@ -158,7 +158,7 @@ export function SaleQuotations() {
 
   useEffect(() => {
     if (selectedQuotation) {
-      setValidUntil(selectedQuotation.validUntil ?? '');
+      setValidUntil(toDateInputValue(selectedQuotation.validUntil));
       setSalesNote(selectedQuotation.salesNote ?? '');
     }
   }, [selectedQuotation]);
@@ -194,6 +194,22 @@ export function SaleQuotations() {
     }
   }
 
+  async function createDraftQuotationForSelectedProject() {
+    if (!selectedProject || selectedProject.status !== 'PROPOSAL_SELECTED') return;
+
+    setMessage(null);
+
+    try {
+      const quotation = await createDraftQuotationMutation.mutateAsync(selectedProject.projectId);
+      setSelectedQuotationId(quotation.quotationId);
+      setSelectedStatus(null);
+      setProjectView('finalized');
+      setMessage({ tone: 'success', text: 'Draft quotation created from the selected proposal.' });
+    } catch (error) {
+      setMessage({ tone: 'error', text: getQuotationServiceResultMessage(error) });
+    }
+  }
+
   async function saveFinancials() {
     if (!selectedQuotation || !canEditFinancials(selectedQuotation.status)) return;
 
@@ -216,10 +232,7 @@ export function SaleQuotations() {
             quotationItemId: item.quotationItemId,
             quantity: normalizeNumber(draft?.quantity),
             unitPrice: normalizeNumber(draft?.unitPrice),
-            customizationUnitAdditionalCost:
-              item.itemType === 'MANUAL_ITEM' ? 0 : normalizeNumber(draft?.customizationUnitAdditionalCost),
             discountAmount: normalizeNumber(draft?.discountAmount),
-            taxRate: normalizeNumber(draft?.taxRate),
           };
         }),
       });
@@ -265,7 +278,7 @@ export function SaleQuotations() {
           <section className="sale-quotations-heading">
             <div>
               <h2>Quotations</h2>
-              <p>Draft quotations are created automatically after the customer selects a final proposal</p>
+              <p>Create official quotations from customer-selected proposals, then review pricing before sending.</p>
             </div>
           </section>
 
@@ -343,12 +356,26 @@ export function SaleQuotations() {
                   <span>Selected Project</span>
                   <strong>{selectedProject ? `${selectedProject.projectCode} - ${formatEnumLabel(selectedProject.status)}` : 'No project selected'}</strong>
                 </div>
+                <button
+                  disabled={
+                    !selectedProject
+                    || selectedProject.status !== 'PROPOSAL_SELECTED'
+                    || quotations.length > 0
+                    || createDraftQuotationMutation.isPending
+                    || quotationsQuery.isLoading
+                  }
+                  title={getCreateDraftBlockedReason(selectedProject, quotations.length, quotationsQuery.isLoading)}
+                  type="button"
+                  onClick={() => void createDraftQuotationForSelectedProject()}
+                >
+                  {createDraftQuotationMutation.isPending ? 'Creating...' : 'Create Draft Quotation'}
+                </button>
               </section>
 
               <section className="sale-quotations-card">
                 <header>
                   <h3>Project Quotations</h3>
-                  <p>Quotation items are copied from selected proposal items; service fees must be manual items.</p>
+                  <p>Quotation items are copied from selected proposal items; adjust item financials before sending.</p>
                 </header>
                 <div className="sale-quotations-table-scroll">
                   <table>
@@ -365,10 +392,10 @@ export function SaleQuotations() {
                     </thead>
                     <tbody>
                       {quotationsQuery.isLoading ? (
-                        <tr><td colSpan={8}>Loading quotations...</td></tr>
+                        <tr><td colSpan={7}>Loading quotations...</td></tr>
                       ) : null}
                       {!quotationsQuery.isLoading && quotations.length === 0 ? (
-                        <tr><td colSpan={8}>{selectedProjectId ? 'No quotation found for this project.' : 'Select a project to load quotations.'}</td></tr>
+                        <tr><td colSpan={7}>{selectedProjectId ? 'No quotation found for this project.' : 'Select a project to load quotations.'}</td></tr>
                       ) : null}
                       {quotations.map((quotation) => (
                         <tr key={quotation.quotationId}>
@@ -457,16 +484,11 @@ export function SaleQuotations() {
                     <tr>
                       <th>Order</th>
                       <th>Item</th>
-                      <th>Type</th>
                       <th>Quantity</th>
                       <th>Unit Price</th>
-                      <th>Customization</th>
                       <th>Gross</th>
                       <th>Discount</th>
-                      <th>Taxable</th>
-                      <th>Tax %</th>
-                      <th>Tax</th>
-                      <th>Total</th>
+                      <th>Line Total (before VAT)</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -480,22 +502,11 @@ export function SaleQuotations() {
                           {item.displayOrder ?? '-'}
                         </td>
                         <td className="sale-quotations-item-name" title={getQuotationItemName(item)}>{getQuotationItemName(item)}</td>
-                        <td>{formatEnumLabel(item.itemType ?? 'UNKNOWN')}</td>
                         <td>{editable ? <LineInput itemId={item.quotationItemId} name="quantity" value={draft.quantity} onChange={setFinancialDrafts} /> : item.quantity ?? '-'}</td>
                         <td>{editable ? <LineInput itemId={item.quotationItemId} name="unitPrice" value={draft.unitPrice} onChange={setFinancialDrafts} /> : formatMoney(item.unitPrice)}</td>
-                        <td>
-                          {editable && item.itemType !== 'MANUAL_ITEM' ? (
-                            <LineInput itemId={item.quotationItemId} name="customizationUnitAdditionalCost" value={draft.customizationUnitAdditionalCost} onChange={setFinancialDrafts} />
-                          ) : (
-                            formatMoney(getCustomizationUnitAdditionalCost(item))
-                          )}
-                        </td>
-                        <td>{formatMoney(item.grossAmount ?? item.subtotalAmount)}</td>
+                        <td>{formatMoney(item.grossAmount)}</td>
                         <td>{editable ? <LineInput itemId={item.quotationItemId} name="discountAmount" value={draft.discountAmount} onChange={setFinancialDrafts} /> : formatMoney(item.discountAmount)}</td>
-                        <td>{formatMoney(item.taxableAmount)}</td>
-                        <td>{editable ? <LineInput itemId={item.quotationItemId} name="taxRate" value={draft.taxRate} onChange={setFinancialDrafts} small /> : formatPercent(item.taxRate)}</td>
-                        <td>{formatMoney(item.taxAmount)}</td>
-                        <td>{formatMoney(item.totalAmount ?? item.subtotalAmount)}</td>
+                        <td>{formatMoney(item.totalAmount)}</td>
                       </tr>
                     );
                     })}
@@ -510,15 +521,15 @@ export function SaleQuotations() {
                 </div>
                 <div>
                   <span>Discount</span>
-                  <strong className="sale-quotations-discount">-{formatMoney(getQuotationDiscountTotal(selectedQuotation))}</strong>
+                  <strong className="sale-quotations-discount">-{formatMoney(selectedQuotation.totalDiscountAmount)}</strong>
                 </div>
                 <div>
-                  <span>Taxable</span>
-                  <strong>{formatMoney(selectedQuotation.taxableAmount)}</strong>
+                  <span>Before VAT</span>
+                  <strong>{formatMoney(selectedQuotation.preVatAmount)}</strong>
                 </div>
                 <div>
-                  <span>Tax</span>
-                  <strong>{formatMoney(selectedQuotation.taxAmount)}</strong>
+                  <span>VAT {formatPercentRate(selectedQuotation.vatRate)}</span>
+                  <strong>{formatMoney(selectedQuotation.vatAmount)}</strong>
                 </div>
                 <div className="sale-quotations-total">
                   <span>Total Amount</span>
@@ -630,6 +641,15 @@ function canSend(quotation: QuotationDto & { items?: unknown[] }) {
   return !getSendBlockedReason(quotation);
 }
 
+function getCreateDraftBlockedReason(project: ProjectListItemDto | undefined, quotationCount: number, isLoading: boolean) {
+  if (isLoading) return 'Loading existing quotations for this project.';
+  if (!project) return 'Select a project waiting for quotation.';
+  if (project.status !== 'PROPOSAL_SELECTED') return 'Draft quotation can only be created after the customer selects a final proposal.';
+  if (quotationCount > 0) return 'This project already has a quotation.';
+
+  return 'Create a Sales-owned draft quotation from the selected proposal.';
+}
+
 function getSendBlockedReason(quotation: QuotationDto & { items?: unknown[] }) {
   if (quotation.status === 'REVISION_REQUESTED') {
     return 'Click Revise first, then update the quotation before sending it back to the customer.';
@@ -668,9 +688,7 @@ function getFinancialDraft(item: QuotationItemDto): FinancialDraft {
   return {
     quantity: String(item.quantity ?? 0),
     unitPrice: String(item.unitPrice ?? 0),
-    customizationUnitAdditionalCost: String(getCustomizationUnitAdditionalCost(item) ?? 0),
     discountAmount: String(item.discountAmount ?? 0),
-    taxRate: String(item.taxRate ?? 0),
   };
 }
 
@@ -686,9 +704,7 @@ function setFinancialDraft(
       ...(current[quotationItemId] ?? {
         quantity: '0',
         unitPrice: '0',
-        customizationUnitAdditionalCost: '0',
         discountAmount: '0',
-        taxRate: '0',
       }),
       [name]: value,
     },
@@ -707,29 +723,17 @@ function validateFinancialDrafts(items: QuotationItemDto[], drafts: Record<strin
     const draft = drafts[item.quotationItemId] ?? getFinancialDraft(item);
     const quantity = normalizeNumber(draft.quantity);
     const unitPrice = normalizeNumber(draft.unitPrice);
-    const customizationUnitAdditionalCost = item.itemType === 'MANUAL_ITEM' ? 0 : normalizeNumber(draft.customizationUnitAdditionalCost);
     const discountAmount = normalizeNumber(draft.discountAmount);
-    const taxRate = normalizeNumber(draft.taxRate);
-    const grossAmount = quantity * (unitPrice + customizationUnitAdditionalCost);
+    const grossAmount = quantity * unitPrice;
     const itemName = getQuotationItemName(item);
 
     if (quantity <= 0) return `${itemName}: quantity must be greater than 0.`;
     if (unitPrice < 0) return `${itemName}: unit price cannot be negative.`;
-    if (customizationUnitAdditionalCost < 0) return `${itemName}: customization cost cannot be negative.`;
     if (discountAmount < 0) return `${itemName}: discount cannot be negative.`;
     if (discountAmount > grossAmount) return `${itemName}: discount cannot exceed gross amount.`;
-    if (taxRate < 0 || taxRate > 100) return `${itemName}: tax rate must be between 0 and 100.`;
   }
 
   return null;
-}
-
-function getCustomizationUnitAdditionalCost(item: Pick<QuotationItemDto, 'customizationUnitAdditionalCost' | 'customizationAdditionalCost'>) {
-  return item.customizationUnitAdditionalCost ?? item.customizationAdditionalCost ?? null;
-}
-
-function getQuotationDiscountTotal(quotation: Pick<QuotationDto, 'totalDiscountAmount' | 'discountAmount'>) {
-  return quotation.totalDiscountAmount ?? quotation.discountAmount ?? null;
 }
 
 function formatQuotationCode(value?: string | null) {
@@ -769,14 +773,30 @@ function formatDate(value: string) {
   }).format(new Date(value));
 }
 
+function toDateInputValue(value?: string | null) {
+  if (!value) return '';
+
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return value;
+  }
+
+  const parsedDate = new Date(value);
+
+  if (Number.isNaN(parsedDate.getTime())) {
+    return '';
+  }
+
+  return parsedDate.toISOString().slice(0, 10);
+}
+
 function formatMoney(value?: number | null) {
   if (typeof value !== 'number') return '-';
 
   return `${new Intl.NumberFormat('vi-VN').format(value)} VND`;
 }
 
-function formatPercent(value?: number | null) {
+function formatPercentRate(value?: number | null) {
   if (typeof value !== 'number') return '-';
 
-  return `${new Intl.NumberFormat('vi-VN').format(value)}%`;
+  return `${new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 2 }).format(value * 100)}%`;
 }

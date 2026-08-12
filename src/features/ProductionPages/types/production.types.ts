@@ -1,11 +1,7 @@
 export type CustomizationStatus =
   | 'SUBMITTED'
-  | 'DESIGN_REVIEWING'
-  | 'PRODUCTION_REVIEWING'
-  | 'WAITING_FOR_CUSTOMER_FINAL_APPROVAL'
-  | 'NOT_FEASIBLE'
+  | 'REVIEWING'
   | 'ACCEPTED'
-  | 'REJECTED_BY_CUSTOMER'
   | 'CANCELLED';
 
 export type MaterialAvailability = 'AVAILABLE' | 'UNAVAILABLE' | 'UNKNOWN';

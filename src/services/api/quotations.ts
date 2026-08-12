@@ -48,8 +48,6 @@ export type QuotationStatus =
   | 'EXPIRED'
   | 'CANCELLED';
 
-export type QuotationItemType = 'PRODUCT_ITEM' | 'MANUAL_ITEM';
-
 export type QuotationDto = {
   quotationId: string;
   projectId: string;
@@ -58,9 +56,9 @@ export type QuotationDto = {
   versionNo?: number | null;
   subtotalAmount?: number | null;
   totalDiscountAmount?: number | null;
-  taxableAmount?: number | null;
-  discountAmount?: number | null;
-  taxAmount?: number | null;
+  preVatAmount?: number | null;
+  vatRate?: number | null;
+  vatAmount?: number | null;
   totalAmount?: number | null;
   currency?: string | null;
   status?: QuotationStatus | null;
@@ -80,7 +78,6 @@ export type QuotationDto = {
 export type QuotationItemDto = {
   quotationItemId: string;
   quotationId: string;
-  itemType?: QuotationItemType | null;
   proposalItemId?: string | null;
   productVersionId?: string | null;
   productNameSnapshot?: string | null;
@@ -91,15 +88,9 @@ export type QuotationItemDto = {
   displayOrder?: number | null;
   quantity?: number | null;
   unitPrice?: number | null;
-  customizationUnitAdditionalCost?: number | null;
-  customizationAdditionalCost?: number | null;
   grossAmount?: number | null;
   discountAmount?: number | null;
-  taxableAmount?: number | null;
-  taxRate?: number | null;
-  taxAmount?: number | null;
   totalAmount?: number | null;
-  subtotalAmount?: number | null;
   isCustomized?: boolean | null;
   customizationNote?: string | null;
   note?: string | null;
@@ -126,31 +117,12 @@ export type UpdateQuotationInput = {
   revisionReason?: string | null;
 };
 
-export type CreateManualQuotationItemInput = {
-  quotationId: string;
-  itemName?: string | null;
-  description?: string | null;
-  displayOrder?: number | null;
-  quantity?: number | null;
-  unitPrice?: number | null;
-  discountAmount?: number | null;
-  taxRate?: number | null;
-  note?: string | null;
-};
-
-export type UpdateManualQuotationItemInput = CreateManualQuotationItemInput & {
-  quotationItemId: string;
-  customizationUnitAdditionalCost?: number | null;
-};
-
 export type UpdateQuotationItemFinancialsInput = {
   quotationId: string;
   quotationItemId: string;
   quantity?: number | null;
   unitPrice?: number | null;
-  customizationUnitAdditionalCost?: number | null;
   discountAmount?: number | null;
-  taxRate?: number | null;
 };
 
 export type BulkUpdateQuotationItemFinancialsInput = {
@@ -229,40 +201,6 @@ export async function updateQuotation(input: UpdateQuotationInput) {
   return response.data.data;
 }
 
-export async function createManualQuotationItem(input: CreateManualQuotationItemInput) {
-  const response = await quotationApiClient.post<ServiceResult<QuotationItemDto>>(`/quotations/${input.quotationId}/items`, {
-    itemName: input.itemName?.trim() || null,
-    description: input.description?.trim() || null,
-    displayOrder: input.displayOrder ?? null,
-    quantity: input.quantity ?? null,
-    unitPrice: input.unitPrice ?? null,
-    discountAmount: input.discountAmount ?? null,
-    taxRate: input.taxRate ?? null,
-    note: input.note?.trim() || null,
-  });
-
-  return response.data.data;
-}
-
-export async function updateManualQuotationItem(input: UpdateManualQuotationItemInput) {
-  const response = await quotationApiClient.patch<ServiceResult<QuotationItemDto>>(
-    `/quotations/${input.quotationId}/items/${input.quotationItemId}`,
-    {
-      itemName: input.itemName?.trim() || undefined,
-      description: input.description?.trim() || undefined,
-      displayOrder: input.displayOrder ?? undefined,
-      quantity: input.quantity ?? undefined,
-      unitPrice: input.unitPrice ?? undefined,
-      customizationUnitAdditionalCost: input.customizationUnitAdditionalCost ?? undefined,
-      discountAmount: input.discountAmount ?? undefined,
-      taxRate: input.taxRate ?? undefined,
-      note: input.note?.trim() || undefined,
-    },
-  );
-
-  return response.data.data;
-}
-
 export async function updateQuotationItemFinancials(input: UpdateQuotationItemFinancialsInput) {
   const response = await quotationApiClient.patch<ServiceResult<QuotationItemDto>>(
     `/quotations/${input.quotationId}/items/${input.quotationItemId}/financials`,
@@ -284,10 +222,6 @@ export async function bulkUpdateQuotationItemFinancials(input: BulkUpdateQuotati
   );
 
   return response.data.data;
-}
-
-export async function deleteManualQuotationItem(quotationId: string, quotationItemId: string) {
-  await quotationApiClient.delete<ServiceResult<null>>(`/quotations/${quotationId}/items/${quotationItemId}`);
 }
 
 export async function sendQuotation(quotationId: string) {
@@ -343,8 +277,6 @@ function getQuotationItemFinancialsPayload(input: Omit<UpdateQuotationItemFinanc
   return {
     quantity: input.quantity ?? null,
     unitPrice: input.unitPrice ?? null,
-    customizationUnitAdditionalCost: input.customizationUnitAdditionalCost ?? null,
     discountAmount: input.discountAmount ?? null,
-    taxRate: input.taxRate ?? null,
   };
 }

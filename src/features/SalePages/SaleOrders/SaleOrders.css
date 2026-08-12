@@ -386,44 +386,7 @@
   line-height: 18px;
 }
 
-.sale-orders-production-tracking {
-  background: #ffffff;
-}
-
-.sale-orders-tracking-grid {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 10px;
-}
-
-.sale-orders-tracking-grid > div {
-  border-radius: 10px;
-  background: #faf9f7;
-  padding: 12px;
-}
-
-.sale-orders-tracking-grid span {
-  display: block;
-  color: #6b6b6b;
-  font-size: 11px;
-  font-weight: 800;
-  line-height: 15px;
-  text-transform: uppercase;
-}
-
-.sale-orders-tracking-grid strong {
-  display: block;
-  margin-top: 7px;
-  color: #2d2d2d;
-  font-size: 14px;
-  font-weight: 800;
-  line-height: 20px;
-  overflow-wrap: anywhere;
-}
-
-.sale-orders-flow-panel > button,
-.sale-orders-schedule-list button,
-.sale-orders-delivery-list button {
+.sale-orders-flow-panel > button {
   display: inline-flex;
   width: fit-content;
   min-height: 38px;
@@ -477,27 +440,6 @@
   padding: 8px 10px;
 }
 
-.sale-orders-schedule-list,
-.sale-orders-delivery-list {
-  display: grid;
-  gap: 8px;
-}
-
-.sale-orders-schedule-list div,
-.sale-orders-delivery-list div {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  border: 1px solid rgba(139, 111, 71, 0.12);
-  border-radius: 10px;
-  background: #ffffff;
-  color: #525252;
-  font-size: 13px;
-  font-weight: 700;
-  padding: 10px;
-}
-
 .sale-orders-table-scroll {
   overflow-x: auto;
 }
@@ -533,8 +475,7 @@
   .sale-orders-layout,
   .sale-orders-grid,
   .sale-orders-adjustment-form,
-  .sale-orders-form-grid,
-  .sale-orders-tracking-grid {
+  .sale-orders-form-grid {
     grid-template-columns: 1fr;
   }
 }

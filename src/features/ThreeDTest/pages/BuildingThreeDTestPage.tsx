@@ -18,9 +18,29 @@ import type {
   Vector3State,
 } from '@/features/ThreeDTest/schemas/buildingScene.types';
 import { createBuildingTestSceneFromProjectFloorAreas, getLevelCenter, type BuildingProjectFloorAreaSource } from '@/features/ThreeDTest/utils/buildingTestSceneFactory';
-import { getProductById, getProductServiceResultMessage, type CatalogFileDto, type ProductDetailDto, type ProductListItemDto, type ProductVersionDto } from '@/services/api';
+import {
+  getProductById,
+  getProjectCatalogProductVersion,
+  getProductServiceResultMessage,
+  type CatalogFileDto,
+  type ProductDetailDto,
+  type ProductListItemDto,
+  type ProductVersionDto,
+  type ProjectCatalogProductItemDto,
+  type ProjectCatalogProductVersionDetailDto,
+  type ProjectCatalogVersionSummaryDto,
+} from '@/services/api';
 import { getProposalServiceResultMessage, type ProposalItemDto } from '@/services/api/proposals';
-import { productQueryKeys, useCategoryList, useProductList, useProposalDetail, useRoomPlannerScene, useSaveRoomPlannerScene, useSyncProposalItemsFromScene } from '@/services/queries';
+import {
+  productQueryKeys,
+  useCategoryList,
+  useProductList,
+  useProjectCatalogProducts,
+  useProposalDetail,
+  useRoomPlannerScene,
+  useSaveRoomPlannerScene,
+  useSyncProposalItemsFromScene,
+} from '@/services/queries';
 
 import './BuildingThreeDTestPage.css';
 
@@ -105,6 +125,38 @@ function mapVersionToModel(product: ProductListItemDto, version: ProductVersionD
     scale: { x: API_PRODUCT_DEFAULT_SCALE, y: API_PRODUCT_DEFAULT_SCALE, z: API_PRODUCT_DEFAULT_SCALE },
     thumbnailUrl: getVersionThumbnail(product, version),
     width: version.width,
+  };
+}
+
+function mapProjectCatalogVersionToModel(
+  product: ProjectCatalogProductItemDto,
+  version: ProjectCatalogProductVersionDetailDto | ProjectCatalogVersionSummaryDto,
+): BuildingProductModel | null {
+  const files = 'files' in version ? version.files : [];
+  const modelFile = getCatalogModelFile(files);
+
+  if (!modelFile?.fileUrl) {
+    return null;
+  }
+
+  const thumbnailFile = files.find((file) => file.fileType === 'PRODUCT_PREVIEW');
+
+  return {
+    categoryId: product.categoryId ?? '',
+    categoryName: product.categoryName ?? '',
+    color: version.color ?? null,
+    depth: version.depth ?? null,
+    fileId: modelFile.fileId,
+    height: version.height ?? null,
+    id: `building-test-${version.productVersionId}`,
+    material: version.material ?? null,
+    modelUrl: modelFile.fileUrl,
+    name: `${product.productName} - ${version.versionName}`,
+    productId: product.productId,
+    productVersionId: version.productVersionId,
+    scale: { x: API_PRODUCT_DEFAULT_SCALE, y: API_PRODUCT_DEFAULT_SCALE, z: API_PRODUCT_DEFAULT_SCALE },
+    thumbnailUrl: thumbnailFile?.fileUrl ?? product.thumbnail?.fileUrl ?? EMPTY_THUMBNAIL,
+    width: version.width ?? null,
   };
 }
 
@@ -204,16 +256,37 @@ export function BuildingThreeDTestPage() {
   const syncProposalItemsMutation = useSyncProposalItemsFromScene();
   const currentProposalId = routeState?.proposalId ?? roomPlannerSceneQuery.data?.proposalId ?? null;
   const proposalDetailQuery = useProposalDetail(currentProposalId ?? undefined, { enabled: Boolean(currentProposalId) });
+  const currentProjectId = routeState?.projectId ?? proposalDetailQuery.data?.projectId ?? null;
   const categoriesQuery = useCategoryList({ page: 1, limit: 100 });
-  const productListQuery = useProductList({ page: 1, limit: 48 });
+  const projectCatalogQuery = useProjectCatalogProducts(currentProjectId ?? undefined, { page: 1, pageSize: 48 }, Boolean(currentProjectId));
+  const productListQuery = useProductList({ page: 1, limit: 48 }, !currentProjectId);
   const [detailLimit, setDetailLimit] = useState(DETAIL_BATCH_SIZE);
+  const projectCatalogVersions = useMemo(
+    () => (projectCatalogQuery.data?.items ?? []).flatMap((product) => product.eligibleVersions.map((version) => ({ product, version }))).slice(0, detailLimit),
+    [detailLimit, projectCatalogQuery.data?.items],
+  );
   const detailProducts = useMemo(
     () => (productListQuery.data?.items ?? []).slice(0, detailLimit),
     [detailLimit, productListQuery.data?.items],
   );
+  const projectCatalogVersionDetailQueries = useQueries({
+    queries: projectCatalogVersions.map(({ product, version }) => ({
+      enabled: Boolean(currentProjectId && version.productVersionId),
+      queryFn: async () => {
+        const response = await getProjectCatalogProductVersion({
+          productVersionId: version.productVersionId,
+          projectId: currentProjectId ?? '',
+        });
+
+        return { product, version: response };
+      },
+      queryKey: productQueryKeys.projectCatalogVersion(currentProjectId ?? '', version.productVersionId),
+      staleTime: 5 * 60 * 1000,
+    })),
+  });
   const productDetailQueries = useQueries({
     queries: detailProducts.map((product) => ({
-      enabled: Boolean(product.productId),
+      enabled: Boolean(product.productId) && !currentProjectId,
       queryFn: () => getProductById(product.productId),
       queryKey: productQueryKeys.detail(product.productId),
       staleTime: 5 * 60 * 1000,
@@ -237,6 +310,22 @@ export function BuildingThreeDTestPage() {
   const availableModels = useMemo(() => {
     const models = new Map<string, BuildingProductModel>();
 
+    if (currentProjectId) {
+      projectCatalogVersionDetailQueries.forEach((query) => {
+        if (!query.data) {
+          return;
+        }
+
+        const model = mapProjectCatalogVersionToModel(query.data.product, query.data.version);
+
+        if (model) {
+          models.set(model.id, model);
+        }
+      });
+
+      return [...models.values()];
+    }
+
     (productListQuery.data?.items ?? []).forEach((product) => {
       mapProductToModels(product).forEach((model) => {
         models.set(model.id, model);
@@ -254,7 +343,7 @@ export function BuildingThreeDTestPage() {
     });
 
     return [...models.values()];
-  }, [productDetailQueries, productListQuery.data?.items]);
+  }, [currentProjectId, productDetailQueries, productListQuery.data?.items, projectCatalogVersionDetailQueries]);
 
   const modelsById = useMemo(
     () => new Map(availableModels.map((model) => [model.id, model])),
@@ -265,6 +354,15 @@ export function BuildingThreeDTestPage() {
     () => new Map(availableModels.flatMap((model) => model.productVersionId ? [[model.productVersionId, model] as const] : [])),
     [availableModels],
   );
+  const isCatalogLoading = currentProjectId
+    ? projectCatalogQuery.isLoading || projectCatalogVersionDetailQueries.some((query) => query.isLoading)
+    : productListQuery.isLoading || productDetailQueries.some((query) => query.isLoading);
+  const catalogError = currentProjectId
+    ? projectCatalogQuery.error ?? projectCatalogVersionDetailQueries.find((query) => query.isError)?.error
+    : productListQuery.error ?? productDetailQueries.find((query) => query.isError)?.error;
+  const hasMoreCatalogModels = currentProjectId
+    ? detailLimit < (projectCatalogQuery.data?.totalCount ?? 0)
+    : detailLimit < (productListQuery.data?.items.length ?? 0);
 
   useEffect(() => {
     if (sceneId || !routeState?.areas?.length) {
@@ -874,15 +972,12 @@ export function BuildingThreeDTestPage() {
               ))}
             </div>
 
-            {productListQuery.isLoading || productDetailQueries.some((query) => query.isLoading) ? (
+            {isCatalogLoading ? (
               <div className="building-test-status">Loading product models...</div>
             ) : null}
-            {productListQuery.isError ? (
-              <div className="building-test-status is-error">{getProductServiceResultMessage(productListQuery.error)}</div>
-            ) : null}
-            {productDetailQueries.some((query) => query.isError) ? (
+            {catalogError ? (
               <div className="building-test-status is-error">
-                {getProductServiceResultMessage(productDetailQueries.find((query) => query.isError)?.error)}
+                {getProductServiceResultMessage(catalogError)}
               </div>
             ) : null}
 
@@ -908,11 +1003,11 @@ export function BuildingThreeDTestPage() {
                   </div>
                 </article>
               ))}
-              {!productListQuery.isLoading && filteredModels.length === 0 ? (
+              {!isCatalogLoading && filteredModels.length === 0 ? (
                 <div className="building-test-status">No ready 3D product models found.</div>
               ) : null}
             </div>
-            {productListQuery.data && detailLimit < productListQuery.data.items.length ? (
+            {hasMoreCatalogModels ? (
               <button
                 className="building-load-more-button"
                 type="button"

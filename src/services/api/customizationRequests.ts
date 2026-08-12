@@ -38,24 +38,85 @@ export type ServiceResult<T> = {
   errorCode?: string;
 };
 
-export type CustomizationStatus =
-  | 'SUBMITTED'
-  | 'DESIGN_REVIEWING'
-  | 'PRODUCTION_REVIEWING'
-  | 'WAITING_FOR_CUSTOMER_FINAL_APPROVAL'
-  | 'NOT_FEASIBLE'
-  | 'ACCEPTED'
-  | 'REJECTED_BY_CUSTOMER'
-  | 'CANCELLED';
-
+export type CustomizationStatus = 'SUBMITTED' | 'REVIEWING' | 'ACCEPTED' | 'CANCELLED';
+export type CustomizationVersionStatus = 'DRAFT' | 'REVIEWING' | 'PRODUCTION_REJECTED' | 'ACCEPTED' | 'WITHDRAWN';
+export type ProductionFeasibilityStatus = 'PENDING' | 'FEASIBLE' | 'NOT_FEASIBLE';
 export type ProductionReviewResult = 'FEASIBLE' | 'NOT_FEASIBLE';
-export type CustomerCustomizationDecision = 'ACCEPT' | 'REJECT';
+
+export type ApprovedProductVersionSummaryDto = {
+  productVersionId: string;
+  productId?: string | null;
+  productName?: string | null;
+  versionName?: string | null;
+  versionCode?: string | null;
+  material?: string | null;
+  color?: string | null;
+  width?: number | null;
+  height?: number | null;
+  depth?: number | null;
+  dimensionUnit?: string | null;
+  estimatedPrice?: number | null;
+  price?: number | null;
+  thumbnailUrl?: string | null;
+  modelFileUrl?: string | null;
+};
+
+export type CustomizationProductVersionFileDto = {
+  fileId: string;
+  fileUrl?: string | null;
+  fileType?: string | null;
+};
+
+export type CustomizationProductVersionDto = {
+  productVersionId?: string | null;
+  productId?: string | null;
+  versionName?: string | null;
+  versionCode?: string | null;
+  material?: string | null;
+  color?: string | null;
+  width?: number | null;
+  height?: number | null;
+  depth?: number | null;
+  dimensionUnit?: string | null;
+  estimatedPrice?: number | null;
+  price?: number | null;
+  modelFileId?: string | null;
+  modelFileUrl?: string | null;
+  previewFiles?: CustomizationProductVersionFileDto[] | null;
+};
+
+export type CustomizationRequestVersionDto = {
+  customizationRequestVersionId: string;
+  customizationRequestId: string;
+  versionNo: number;
+  createdByDesignerId: string;
+  versionTitle?: string | null;
+  designerNote?: string | null;
+  status: CustomizationVersionStatus;
+  feasibilityStatus: ProductionFeasibilityStatus;
+  feasibilityNote?: string | null;
+  estimatedProductionDays?: number | null;
+  estimatedAdditionalCost?: number | null;
+  additionalCostReason?: string | null;
+  materialAvailable?: boolean | null;
+  productionRiskNote?: string | null;
+  alternativeMaterialNote?: string | null;
+  submittedForReviewAt?: string | null;
+  productionReviewedAt?: string | null;
+  productionRejectedAt?: string | null;
+  acceptedAt?: string | null;
+  withdrawnAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  isAccepted: boolean;
+  productVersion: CustomizationProductVersionDto;
+};
 
 export type CustomizationRequestDto = {
   customizationRequestId: string;
   projectId: string;
   proposalId: string;
-  proposalItemId: string;
+  sourceProductVersionId: string;
   requestedByCustomerId?: string | null;
   requestTitle: string;
   requestDescription?: string | null;
@@ -65,44 +126,16 @@ export type CustomizationRequestDto = {
   requestedMaterial?: string | null;
   requestedColor?: string | null;
   requestedChangeNote?: string | null;
-  designerId?: string | null;
-  designerSpecNote?: string | null;
-  productionReviewBy?: string | null;
-  feasibilityNote?: string | null;
-  estimatedProductionDays?: number | null;
-  estimatedAdditionalCost?: number | null;
-  additionalCostReason?: string | null;
-  materialAvailable?: boolean | null;
-  productionRiskNote?: string | null;
-  salesReviewBy?: string | null;
-  approvedProductVersionId?: string | null;
+  acceptedRequestVersionId?: string | null;
   status?: CustomizationStatus | null;
-  customerAcceptedAt?: string | null;
-  customerRejectedAt?: string | null;
   createdAt?: string | null;
   updatedAt?: string | null;
+  sourceProductVersion?: ApprovedProductVersionSummaryDto | null;
+  acceptedVersion?: CustomizationRequestVersionDto | null;
+  versions?: CustomizationRequestVersionDto[] | null;
 };
 
-export type CustomizationRequestItemSnapshotDto = {
-  proposalItemId: string;
-  proposalId: string;
-  productVersionId?: string | null;
-  itemName: string;
-  itemType?: string | null;
-  quantity?: number | null;
-  width?: number | null;
-  height?: number | null;
-  depth?: number | null;
-  material?: string | null;
-  color?: string | null;
-  unitPriceSnapshot?: number | null;
-  totalPriceSnapshot?: number | null;
-  note?: string | null;
-};
-
-export type CustomizationRequestDetailDto = CustomizationRequestDto & {
-  proposalItem: CustomizationRequestItemSnapshotDto;
-};
+export type CustomizationRequestDetailDto = CustomizationRequestDto;
 
 export type CustomizationRequestListData = {
   items: CustomizationRequestDto[];
@@ -122,14 +155,16 @@ export type ProductionCustomizationProposalSummaryDto = {
   status?: string | null;
 };
 
-export type ProductionCustomizationRequestQueueItemDto = CustomizationRequestDto & {
+export type ProductionCustomizationVersionQueueItemDto = {
+  version: CustomizationRequestVersionDto;
+  request: CustomizationRequestDto;
   project: ProductionCustomizationProjectSummaryDto;
   proposal: ProductionCustomizationProposalSummaryDto;
-  proposalItem: CustomizationRequestItemSnapshotDto;
+  sourceProductVersion: ApprovedProductVersionSummaryDto;
 };
 
-export type ProductionCustomizationRequestListData = {
-  items: ProductionCustomizationRequestQueueItemDto[];
+export type ProductionCustomizationVersionListData = {
+  items: ProductionCustomizationVersionQueueItemDto[];
   page: number;
   pageSize: number;
   total: number;
@@ -138,12 +173,13 @@ export type ProductionCustomizationRequestListData = {
 export type CustomizationRequestListParams = {
   projectId: string;
   proposalId?: string | null;
-  proposalItemId?: string | null;
+  sourceProductVersionId?: string | null;
   status?: CustomizationStatus | null;
 };
 
-export type ProductionCustomizationRequestListParams = {
-  status?: CustomizationStatus | null;
+export type ProductionCustomizationVersionListParams = {
+  status?: CustomizationVersionStatus | null;
+  feasibilityStatus?: ProductionFeasibilityStatus | null;
   projectId?: string | null;
   proposalId?: string | null;
   materialAvailable?: boolean | null;
@@ -165,13 +201,49 @@ export type SubmitCustomizationRequestInput = {
   requestedChangeNote?: string | null;
 };
 
-export type DesignerReviewCustomizationRequestInput = {
-  customizationRequestId: string;
-  designerSpecNote: string;
+export type CreateCustomizationRequestVersionDto = {
+  versionTitle?: string | null;
+  designerNote?: string | null;
+  versionName?: string | null;
+  versionCode?: string | null;
+  material?: string | null;
+  color?: string | null;
+  width?: number | null;
+  height?: number | null;
+  depth?: number | null;
+  dimensionUnit?: 'cm' | 'm' | 'mm' | null;
+  estimatedPrice?: number | null;
+  modelFileId?: string | null;
+  previewFileIds: string[];
 };
 
-export type ProductionReviewCustomizationRequestInput = {
+export type UpdateCustomizationRequestVersionDto = Omit<CreateCustomizationRequestVersionDto, 'previewFileIds'> & {
+  previewFileIds?: string[] | null;
+};
+
+export type CreateCustomizationRequestVersionInput = {
   customizationRequestId: string;
+  body: CreateCustomizationRequestVersionDto;
+};
+
+export type UpdateCustomizationRequestVersionInput = {
+  customizationRequestId: string;
+  customizationRequestVersionId: string;
+  body: UpdateCustomizationRequestVersionDto;
+};
+
+export type SubmitCustomizationRequestVersionForReviewInput = {
+  customizationRequestId: string;
+  customizationRequestVersionId: string;
+};
+
+export type WithdrawCustomizationRequestVersionInput = {
+  customizationRequestId: string;
+  customizationRequestVersionId: string;
+};
+
+export type ProductionReviewCustomizationVersionInput = {
+  customizationRequestVersionId: string;
   result: ProductionReviewResult;
   materialAvailable?: boolean | null;
   estimatedProductionDays?: number | null;
@@ -179,12 +251,12 @@ export type ProductionReviewCustomizationRequestInput = {
   additionalCostReason?: string | null;
   feasibilityNote?: string | null;
   productionRiskNote?: string | null;
+  alternativeMaterialNote?: string | null;
 };
 
-export type CustomerDecisionCustomizationRequestInput = {
+export type AcceptCustomizationRequestVersionInput = {
   customizationRequestId: string;
-  decision: CustomerCustomizationDecision;
-  rejectReason?: string | null;
+  customizationRequestVersionId: string;
 };
 
 export type CancelCustomizationRequestInput = {
@@ -203,8 +275,26 @@ export function getCustomizationRequestServiceResultMessage(error: unknown) {
     return result.errors.join('\n');
   }
 
+  if (result.errorCode && result.errorCode in customizationRequestErrorMessages) {
+    return customizationRequestErrorMessages[result.errorCode];
+  }
+
   return result.message || 'Request failed. Please try again.';
 }
+
+const customizationRequestErrorMessages: Record<string, string> = {
+  VERSION_CODE_ALREADY_EXISTS: 'This customization version code already exists.',
+  CUSTOMIZATION_VERSION_NUMBER_CONFLICT: 'This customization version number conflicts with another version. Please reload and try again.',
+  PRODUCT_VERSION_FILE_LINK_CONFLICT: 'One or more selected files are already linked in a conflicting way.',
+  SOURCE_PRODUCT_VERSION_NOT_FOUND: 'The source product version for this customization could not be found.',
+  SOURCE_PRODUCT_VERSION_PRICE_REQUIRED: 'The source product version needs an estimated price before this version can be accepted.',
+  APPROVED_PRODUCT_VERSION_NOT_FOUND: 'The approved custom product version could not be found.',
+  APPROVED_PRODUCT_VERSION_INVALID_TYPE: 'The approved version is not a valid project-specific customization version.',
+  ESTIMATED_ADDITIONAL_COST_REQUIRED: 'Production must provide an estimated additional cost before the customer can accept.',
+  CUSTOMIZATION_VERSION_NOT_REVIEWING: 'Only customization versions in review can be accepted.',
+  CUSTOMIZATION_VERSION_NOT_FEASIBLE: 'Only feasible customization versions can be accepted.',
+  CUSTOMIZATION_NOT_IN_REVIEWING: 'Only customization requests in reviewing status can be accepted.',
+};
 
 export function getCustomizationRequestServiceResultFromError(error: unknown) {
   if (!(error instanceof AxiosError)) {
@@ -226,7 +316,7 @@ export async function getProjectCustomizationRequests(params: CustomizationReque
     {
       params: {
         proposalId: params.proposalId ?? undefined,
-        proposalItemId: params.proposalItemId ?? undefined,
+        sourceProductVersionId: params.sourceProductVersionId ?? undefined,
         status: params.status ?? undefined,
       },
     },
@@ -235,20 +325,21 @@ export async function getProjectCustomizationRequests(params: CustomizationReque
   return response.data.data;
 }
 
-export async function getProductionCustomizationRequests(params: ProductionCustomizationRequestListParams = {}) {
-  const response = await customizationRequestApiClient.get<ServiceResult<ProductionCustomizationRequestListData>>(
-    '/api/production/customization-requests',
+export async function getProductionCustomizationVersions(params: ProductionCustomizationVersionListParams = {}) {
+  const response = await customizationRequestApiClient.get<ServiceResult<ProductionCustomizationVersionListData>>(
+    '/api/production/customization-versions',
     {
-    params: {
-      Status: params.status ?? undefined,
-      ProjectId: params.projectId ?? undefined,
-      ProposalId: params.proposalId ?? undefined,
-      MaterialAvailable: params.materialAvailable ?? undefined,
-      FromDate: params.fromDate ?? undefined,
-      ToDate: params.toDate ?? undefined,
-      Page: params.page ?? 1,
-      PageSize: params.pageSize ?? 20,
-    },
+      params: {
+        Status: params.status ?? undefined,
+        FeasibilityStatus: params.feasibilityStatus ?? undefined,
+        ProjectId: params.projectId ?? undefined,
+        ProposalId: params.proposalId ?? undefined,
+        MaterialAvailable: params.materialAvailable ?? undefined,
+        FromDate: params.fromDate ?? undefined,
+        ToDate: params.toDate ?? undefined,
+        Page: params.page ?? 1,
+        PageSize: params.pageSize ?? 20,
+      },
     },
   );
 
@@ -281,20 +372,43 @@ export async function submitCustomizationRequest(input: SubmitCustomizationReque
   return response.data.data;
 }
 
-export async function designerReviewCustomizationRequest(input: DesignerReviewCustomizationRequestInput) {
-  const response = await customizationRequestApiClient.patch<ServiceResult<CustomizationRequestDto>>(
-    `/customization-requests/${input.customizationRequestId}/designer-review`,
-    {
-      designerSpecNote: input.designerSpecNote.trim(),
-    },
+export async function createCustomizationRequestVersion(input: CreateCustomizationRequestVersionInput) {
+  const response = await customizationRequestApiClient.post<ServiceResult<{ customizationRequestId: string; customizationRequestVersionId: string; version: CustomizationRequestVersionDto }>>(
+    `/customization-requests/${input.customizationRequestId}/versions`,
+    normalizeVersionBody(input.body),
   );
 
   return response.data.data;
 }
 
-export async function productionReviewCustomizationRequest(input: ProductionReviewCustomizationRequestInput) {
-  const response = await customizationRequestApiClient.patch<ServiceResult<CustomizationRequestDto>>(
-    `/customization-requests/${input.customizationRequestId}/production-review`,
+export async function updateCustomizationRequestVersion(input: UpdateCustomizationRequestVersionInput) {
+  const response = await customizationRequestApiClient.patch<ServiceResult<CustomizationRequestVersionDto>>(
+    `/customization-requests/${input.customizationRequestId}/versions/${input.customizationRequestVersionId}`,
+    normalizeVersionBody(input.body),
+  );
+
+  return response.data.data;
+}
+
+export async function submitCustomizationRequestVersionForReview(input: SubmitCustomizationRequestVersionForReviewInput) {
+  const response = await customizationRequestApiClient.post<ServiceResult<CustomizationRequestVersionDto>>(
+    `/customization-requests/${input.customizationRequestId}/versions/${input.customizationRequestVersionId}/submit-for-review`,
+  );
+
+  return response.data.data;
+}
+
+export async function withdrawCustomizationRequestVersion(input: WithdrawCustomizationRequestVersionInput) {
+  const response = await customizationRequestApiClient.post<ServiceResult<CustomizationRequestVersionDto>>(
+    `/customization-requests/${input.customizationRequestId}/versions/${input.customizationRequestVersionId}/withdraw`,
+  );
+
+  return response.data.data;
+}
+
+export async function productionReviewCustomizationVersion(input: ProductionReviewCustomizationVersionInput) {
+  const response = await customizationRequestApiClient.patch<ServiceResult<CustomizationRequestVersionDto>>(
+    `/api/production/customization-versions/${input.customizationRequestVersionId}/review`,
     {
       result: input.result,
       materialAvailable: input.materialAvailable ?? null,
@@ -303,18 +417,18 @@ export async function productionReviewCustomizationRequest(input: ProductionRevi
       additionalCostReason: input.additionalCostReason?.trim() || null,
       feasibilityNote: input.feasibilityNote?.trim() || null,
       productionRiskNote: input.productionRiskNote?.trim() || null,
+      alternativeMaterialNote: input.alternativeMaterialNote?.trim() || null,
     },
   );
 
   return response.data.data;
 }
 
-export async function customerDecisionCustomizationRequest(input: CustomerDecisionCustomizationRequestInput) {
-  const response = await customizationRequestApiClient.patch<ServiceResult<CustomizationRequestDto>>(
-    `/customization-requests/${input.customizationRequestId}/customer-decision`,
+export async function acceptCustomizationRequestVersion(input: AcceptCustomizationRequestVersionInput) {
+  const response = await customizationRequestApiClient.post<ServiceResult<CustomizationRequestDto>>(
+    `/customization-requests/${input.customizationRequestId}/accept`,
     {
-      decision: input.decision,
-      rejectReason: input.rejectReason?.trim() || null,
+      customizationRequestVersionId: input.customizationRequestVersionId,
     },
   );
 
@@ -330,6 +444,24 @@ export async function cancelCustomizationRequest(input: CancelCustomizationReque
   );
 
   return response.data.data;
+}
+
+function normalizeVersionBody(body: CreateCustomizationRequestVersionDto | UpdateCustomizationRequestVersionDto) {
+  return {
+    versionTitle: body.versionTitle?.trim() || null,
+    designerNote: body.designerNote?.trim() || null,
+    versionName: body.versionName?.trim() || null,
+    versionCode: body.versionCode?.trim() || null,
+    material: body.material?.trim() || null,
+    color: body.color?.trim() || null,
+    width: body.width ?? null,
+    height: body.height ?? null,
+    depth: body.depth ?? null,
+    dimensionUnit: body.dimensionUnit ?? null,
+    estimatedPrice: body.estimatedPrice ?? null,
+    modelFileId: body.modelFileId?.trim() || null,
+    ...('previewFileIds' in body ? { previewFileIds: body.previewFileIds ?? [] } : {}),
+  };
 }
 
 function getCustomizationRequestApiBaseUrl() {
