@@ -431,7 +431,7 @@ function getQueueMeta(status: ProjectStatus): {
     return { action: 'Follow proposal review', group: 'Proposal and Quotation', path: (id) => `/sales/assigned-projects/${id}`, phase: 'Proposal consulting', priority: 'Medium' };
   }
   if (status === 'PROPOSAL_SELECTED') {
-    return { action: 'Prepare quotation', group: 'Proposal and Quotation', path: (id) => `/sales/quotations`, phase: 'Quotation draft', priority: 'High' };
+    return { action: 'Prepare quotation', group: 'Proposal and Quotation', path: () => `/sales/quotations`, phase: 'Quotation draft', priority: 'High' };
   }
   if (status === 'QUOTATION_SENT') {
     return { action: 'Follow quotation decision', group: 'Proposal and Quotation', path: () => '/sales/quotations', phase: 'Quotation sent', priority: 'Medium' };

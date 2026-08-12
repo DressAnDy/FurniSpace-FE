@@ -10,7 +10,7 @@ import {
 } from '@tabler/icons-react';
 import { useQueries } from '@tanstack/react-query';
 import { useMemo, useState, type ComponentType } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 
 import { DesignerLayout } from '@/features/DesignerPages/designercomponents';
 import { getAccountById } from '@/services/api';
@@ -43,7 +43,6 @@ const detailTabs: DesignerProjectTabConfig[] = [
 ];
 
 export function DesignerProjectDetail() {
-  const navigate = useNavigate();
   const { projectId } = useParams();
   const [activeTab, setActiveTab] = useState<DesignerProjectDetailTab>('overview');
   const [projectActionMessage, setProjectActionMessage] = useState<{ tone: 'error' | 'success'; text: string } | null>(null);
@@ -90,7 +89,7 @@ export function DesignerProjectDetail() {
     }
 
     setProjectActionMessage(null);
-    navigate(`/designer/projects/${project.projectId}/proposals/new`);
+    setActiveTab('proposals');
   }
 
   async function updateProjectToNextDesignStatus() {

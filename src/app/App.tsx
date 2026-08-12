@@ -172,7 +172,6 @@ export default function App() {
                   <Route path="/designer/product-library" element={<DesignerProductLibrary />} />
                   <Route path="/designer/product-library/:productId/versions/create" element={<DesignerCreateProductVersionPage />} />
                   <Route path="/designer/schedules" element={<DesignerSchedules />} />
-                  <Route path="/designer/projects/:projectId/proposals/legacy-new" element={<DesignerProposalWorkspace />} />
                   <Route path="/designer/projects/:projectId/proposals/new" element={<DesignerProposalWorkspace />} />
                   <Route path="/designer/projects/:projectId/proposals/:proposalId" element={<DesignerProposalWorkspace />} />
                 </Route>
