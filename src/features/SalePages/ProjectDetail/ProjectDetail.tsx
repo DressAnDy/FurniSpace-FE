@@ -5,7 +5,7 @@ import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { ProjectStatusBadge, ProjectTimeline, SaleNavbar, SaleSidebar } from '@/features/SalePages/salecomponents';
 import type { ProjectDto, ProjectStatus } from '@/services/api/projects';
 import { getProjectServiceResultMessage } from '@/services/api/projects';
-import { useAssignSalesToProject, useProjectDetail, useRequestProjectInformation, useUpdateProjectStatus } from '@/services/queries/useProjects';
+import { useAssignSalesToProject, useProjectDetail, useRejectProject, useRequestProjectInformation } from '@/services/queries/useProjects';
 
 import { ChatTab, CustomerInfoTab, FilesAttachmentsTab, OverviewTab, SchedulesTab } from './tabs';
 import './ProjectDetail.css';
@@ -71,7 +71,7 @@ export function ProjectDetail() {
   const projectQuery = useProjectDetail(projectId);
   const assignSalesMutation = useAssignSalesToProject();
   const requestInformationMutation = useRequestProjectInformation();
-  const updateProjectStatusMutation = useUpdateProjectStatus();
+  const rejectProjectMutation = useRejectProject();
   const project = projectQuery.data;
   const isAssignedProjectRoute = location.pathname.startsWith('/sales/assigned-projects');
   const activeSidebarLabel = isAssignedProjectRoute ? 'Assigned Projects' : 'Project Request Queue';
@@ -98,9 +98,8 @@ export function ProjectDetail() {
     }
 
     try {
-      await updateProjectStatusMutation.mutateAsync({
+      await rejectProjectMutation.mutateAsync({
         projectId: project.projectId,
-        status,
         note: getStatusUpdateNote(status),
       });
       setStatusMessage('Project status updated successfully.');
@@ -178,17 +177,17 @@ export function ProjectDetail() {
                     <div className="project-detail-status-buttons">
                       <button
                         type="button"
-                        disabled={updateProjectStatusMutation.isPending || requestInformationMutation.isPending}
+                        disabled={rejectProjectMutation.isPending || requestInformationMutation.isPending}
                         onClick={() => void handleConsultationDecision('NEED_BASIC_INFORMATION')}
                       >
                         Request More Info
                       </button>
                       <button
                         type="button"
-                        disabled={updateProjectStatusMutation.isPending || requestInformationMutation.isPending}
+                        disabled={rejectProjectMutation.isPending || requestInformationMutation.isPending}
                         onClick={() => void handleConsultationDecision('REJECTED')}
                       >
-                        {updateProjectStatusMutation.isPending ? 'Updating...' : 'Reject Project'}
+                        {rejectProjectMutation.isPending ? 'Updating...' : 'Reject Project'}
                       </button>
                     </div>
                     {statusMessage ? <p className={statusMessage.toLowerCase().includes('success') ? 'project-detail-status-message' : 'project-detail-status-message project-detail-status-message-error'}>{statusMessage}</p> : null}

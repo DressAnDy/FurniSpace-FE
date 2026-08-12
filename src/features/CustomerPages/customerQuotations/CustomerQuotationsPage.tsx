@@ -20,7 +20,6 @@ import {
   useRejectQuotation,
   useRequestQuotationRevision,
 } from '@/services/queries';
-import { aggregateDuplicateItems } from '@/shared/utils/itemAggregation';
 
 import './CustomerQuotationsPage.css';
 
@@ -251,7 +250,15 @@ function QuotationDetail({
   revisionReason: string;
 }) {
   const canDecide = quotation.status === 'SENT' || quotation.status === 'REVISED';
-  const quotationItems = useMemo(() => aggregateDuplicateItems(quotation.items ?? []), [quotation.items]);
+  const quotationItems = useMemo(
+    () =>
+      [...(quotation.items ?? [])].sort(
+        (first, second) =>
+          (first.displayOrder ?? Number.MAX_SAFE_INTEGER) - (second.displayOrder ?? Number.MAX_SAFE_INTEGER)
+          || first.quotationItemId.localeCompare(second.quotationItemId),
+      ),
+    [quotation.items],
+  );
 
   return (
     <section className="customer-quotations-card customer-quotations-detail">
@@ -272,15 +279,15 @@ function QuotationDetail({
         </div>
         <div>
           <span>Discount</span>
-          <strong>-{formatMoney(getQuotationDiscountTotal(quotation))}</strong>
+          <strong>-{formatMoney(quotation.totalDiscountAmount)}</strong>
         </div>
         <div>
-          <span>Taxable</span>
-          <strong>{formatMoney(quotation.taxableAmount)}</strong>
+          <span>Before VAT</span>
+          <strong>{formatMoney(quotation.preVatAmount)}</strong>
         </div>
         <div>
-          <span>Tax</span>
-          <strong>{formatMoney(quotation.taxAmount)}</strong>
+          <span>VAT {formatPercentRate(quotation.vatRate)}</span>
+          <strong>{formatMoney(quotation.vatAmount)}</strong>
         </div>
         <div>
           <span>Total</span>
@@ -293,16 +300,11 @@ function QuotationDetail({
           <thead>
             <tr>
               <th>Item</th>
-              <th>Type</th>
               <th>Qty</th>
               <th>Unit</th>
-              <th>Customization</th>
               <th>Gross</th>
               <th>Discount</th>
-              <th>Taxable</th>
-              <th>Tax %</th>
-              <th>Tax</th>
-              <th>Total</th>
+              <th>Line Total (before VAT)</th>
             </tr>
           </thead>
           <tbody>
@@ -312,16 +314,11 @@ function QuotationDetail({
                   <strong title={getQuotationItemName(item)}>{getQuotationItemName(item)}</strong>
                   {item.note || item.customizationNote ? <span>{item.note ?? item.customizationNote}</span> : null}
                 </td>
-                <td>{formatEnumLabel(item.itemType ?? 'UNKNOWN')}</td>
                 <td>{item.quantity ?? '-'}</td>
                 <td>{formatMoney(item.unitPrice)}</td>
-                <td>{formatMoney(getCustomizationUnitAdditionalCost(item))}</td>
-                <td>{formatMoney(item.grossAmount ?? item.subtotalAmount)}</td>
+                <td>{formatMoney(item.grossAmount)}</td>
                 <td>{formatMoney(item.discountAmount)}</td>
-                <td>{formatMoney(item.taxableAmount)}</td>
-                <td>{formatPercent(item.taxRate)}</td>
-                <td>{formatMoney(item.taxAmount)}</td>
-                <td>{formatMoney(item.totalAmount ?? item.subtotalAmount)}</td>
+                <td>{formatMoney(item.totalAmount)}</td>
               </tr>
             ))}
           </tbody>
@@ -399,14 +396,6 @@ function getQuotationItemName(item: Pick<QuotationItemDto, 'itemName' | 'product
   return item.itemName ?? item.productNameSnapshot ?? item.productVersionNameSnapshot ?? '-';
 }
 
-function getCustomizationUnitAdditionalCost(item: Pick<QuotationItemDto, 'customizationUnitAdditionalCost' | 'customizationAdditionalCost'>) {
-  return item.customizationUnitAdditionalCost ?? item.customizationAdditionalCost ?? null;
-}
-
-function getQuotationDiscountTotal(quotation: Pick<QuotationDto, 'totalDiscountAmount' | 'discountAmount'>) {
-  return quotation.totalDiscountAmount ?? quotation.discountAmount ?? null;
-}
-
 function statusClass(status?: QuotationStatus | null) {
   return (status ?? 'UNKNOWN').toLowerCase().replace(/_/g, '-');
 }
@@ -425,8 +414,8 @@ function formatMoney(value?: number | null) {
   return `${new Intl.NumberFormat('vi-VN').format(value)} VND`;
 }
 
-function formatPercent(value?: number | null) {
+function formatPercentRate(value?: number | null) {
   if (typeof value !== 'number') return '-';
 
-  return `${new Intl.NumberFormat('vi-VN').format(value)}%`;
+  return `${new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 2 }).format(value * 100)}%`;
 }

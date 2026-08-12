@@ -2,9 +2,8 @@ import { IconCircleCheck, IconSettings, IconUserPlus } from '@tabler/icons-react
 import { type FormEvent, useEffect, useMemo, useState } from 'react';
 
 import { SaleNavbar, SaleSidebar } from '@/features/SalePages/salecomponents';
-import type { ProductionItem } from '@/features/ProductionPages/types';
-import { getOrderServiceResultMessage, type OrderDetailDto, type OrderItemDto, type OrderStatus } from '@/services/api/orders';
-import { getProductionServiceResultMessage, type ProductionRequestQueueItemDto } from '@/services/api/production';
+import { getOrderServiceResultMessage, type OrderDetailDto, type OrderItemDto } from '@/services/api/orders';
+import { getProductionServiceResultMessage } from '@/services/api/production';
 import type { ProjectListItemDto } from '@/services/api/projects';
 import {
   useAvailableProductionStaff,
@@ -15,13 +14,10 @@ import {
   useCurrentUser,
   useOrderDetail,
   usePrepareOrderFinalPayment,
-  useProductionRequestDetail,
-  useProductionRequests,
   useProjectList,
   useProjectOrders,
   useUpdateOrderFinancialAdjustment,
 } from '@/services/queries';
-import { aggregateDuplicateItems } from '@/shared/utils/itemAggregation';
 
 import './SaleOrders.css';
 
@@ -34,10 +30,6 @@ const orderProjectStatuses = new Set([
   'DELIVERED',
   'COMPLETED',
 ]);
-
-type SalesProductionTrackingRequest = ProductionRequestQueueItemDto & {
-  items?: ProductionItem[];
-};
 
 export function SaleOrders() {
   const [selectedProjectId, setSelectedProjectId] = useState('');
@@ -61,12 +53,6 @@ export function SaleOrders() {
   const orderDetailQuery = useOrderDetail(selectedOrderId, { enabled: Boolean(selectedOrderId) });
   const order = orderDetailQuery.data ?? null;
   const financialAdjustmentMutation = useUpdateOrderFinancialAdjustment();
-  const productionRequestsQuery = useProductionRequests(undefined);
-  const currentProductionRequest = useMemo(
-    () => productionRequestsQuery.data?.items.find((request) => request.orderId === selectedOrderId) ?? null,
-    [productionRequestsQuery.data?.items, selectedOrderId],
-  );
-  const productionRequestDetailQuery = useProductionRequestDetail(currentProductionRequest?.productionRequestId);
   const productionStaffQuery = useAvailableProductionStaff({ projectId: selectedProjectId }, { enabled: Boolean(selectedProjectId) });
   const createProductionRequestMutation = useCreateProductionRequest();
   const createAdjustmentMutation = useCreateOrderAdjustment();
@@ -94,9 +80,13 @@ export function SaleOrders() {
   async function updateFinancialAdjustment(input: { depositAmount: number; orderId: string }) {
     setMessage(null);
 
+    if (input.depositAmount < 0) {
+      setMessage({ tone: 'error', text: 'Deposit amount cannot be negative.' });
+      return;
+    }
+
     try {
       await financialAdjustmentMutation.mutateAsync({
-        additionalDiscountAmount: 0,
         adjustmentNote: null,
         depositAmount: input.depositAmount,
         orderId: input.orderId,
@@ -173,7 +163,6 @@ export function SaleOrders() {
                     isPreparingFinalPayment={prepareFinalPaymentMutation.isPending}
                     isAdjusting={financialAdjustmentMutation.isPending}
                     order={order}
-                    productionRequest={productionRequestDetailQuery.data ?? currentProductionRequest}
                     productionStaff={productionStaffQuery.data ?? []}
                     onAdjustFinancial={(input) => void updateFinancialAdjustment(input)}
                     onCompleteOrder={async () => {
@@ -265,7 +254,6 @@ function OrderDetailPanel({
   onCreateProduction,
   onPrepareAndCreateRemainingPayment,
   order,
-  productionRequest,
   productionStaff,
 }: {
   isCompleting: boolean;
@@ -280,7 +268,6 @@ function OrderDetailPanel({
   onCreateProduction: (input: { assignedTo?: string | null; priority: 'LOW' | 'MEDIUM' | 'NORMAL' | 'HIGH' | 'URGENT'; estimatedStartDate?: string | null; estimatedCompletionDate?: string | null; note?: string | null }) => void;
   onPrepareAndCreateRemainingPayment: () => void;
   order: OrderDetailDto;
-  productionRequest: SalesProductionTrackingRequest | null | undefined;
   productionStaff: Array<{ accountId: string; fullName: string; activeRequestCount: number; isAvailable: boolean }>;
 }) {
   const [depositAmount, setDepositAmount] = useState(() => String(order.depositAmount ?? 0));
@@ -288,7 +275,10 @@ function OrderDetailPanel({
   const [priority, setPriority] = useState<'LOW' | 'MEDIUM' | 'NORMAL' | 'HIGH' | 'URGENT'>('NORMAL');
   const [estimatedStartDate, setEstimatedStartDate] = useState('');
   const [estimatedCompletionDate, setEstimatedCompletionDate] = useState('');
-  const orderItems = useMemo(() => aggregateDuplicateItems(order.items), [order.items]);
+  const orderItems = useMemo(
+    () => [...order.items].sort((first, second) => getOrderItemName(first).localeCompare(getOrderItemName(second))),
+    [order.items],
+  );
   const hasCancelledItems = order.items.some((item) => item.status === 'CANCELLED' || item.status === 'UNAVAILABLE');
   const canCompleteOrder = order.status === 'DELIVERED' || order.status === 'FINAL_PAYMENT_PENDING';
   const isOrderCompleted = order.status === 'COMPLETED';
@@ -318,6 +308,8 @@ function OrderDetailPanel({
         <span className={`sale-orders-status sale-orders-status-${statusClass(order.status)}`}>{formatEnumLabel(order.status ?? 'UNKNOWN')}</span>
       </header>
       <div className="sale-orders-money-grid">
+        <MoneyValue label="Original Total" value={formatMoney(order.originalTotalAmount)} />
+        <MoneyValue label={`VAT ${formatPercentRate(order.vatRate)}`} value={formatMoney(order.vatAmount)} />
         <MoneyValue label="Final Total" value={formatMoney(order.finalTotalAmount)} />
         <MoneyValue label="Deposit" value={formatMoney(order.depositAmount)} />
         <MoneyValue label="Paid" value={formatMoney(order.paidAmount)} />
@@ -335,7 +327,6 @@ function OrderDetailPanel({
           </button>
         </form>
       ) : null}
-      <ProductionTrackingPanel order={order} productionRequest={productionRequest} />
       {order.status === 'DEPOSIT_PAID' ? (
         <form
           className="sale-orders-flow-panel"
@@ -420,7 +411,7 @@ function OrderDetailPanel({
                   ? 'Create Remaining Payment'
                   : 'Prepare & Create Remaining Payment'}
             </button>
-            <button disabled={isOrderCompleted || !canCompleteOrder || isCompleting} type="button" onClick={onCompleteOrder}>
+            <button disabled={isOrderCompleted || !canCompleteOrder || Boolean(completeOrderBlocker) || isCompleting} type="button" onClick={onCompleteOrder}>
               <IconCircleCheck size={16} />
               {isOrderCompleted ? 'Completed' : isCompleting ? 'Completing...' : 'Complete Order'}
             </button>
@@ -433,16 +424,11 @@ function OrderDetailPanel({
           <thead>
             <tr>
               <th>Item</th>
-              <th>Type</th>
               <th>Qty</th>
               <th>Unit</th>
-              <th>Customization</th>
-              <th>Gross</th>
               <th>Discount</th>
-              <th>Taxable</th>
-              <th>Tax %</th>
-              <th>Tax</th>
-              <th>Total</th>
+              <th>Pre-VAT Subtotal</th>
+              <th>Adjustment</th>
               <th>Delivery</th>
             </tr>
           </thead>
@@ -450,89 +436,17 @@ function OrderDetailPanel({
             {orderItems.map((item) => (
               <tr key={item.orderItemId}>
                 <td>{getOrderItemName(item)}</td>
-                <td>{formatEnumLabel(item.itemType ?? 'UNKNOWN')}</td>
                 <td>{item.quantity ?? '-'}</td>
                 <td>{formatMoney(item.unitPrice)}</td>
-                <td>{formatMoney(getCustomizationUnitAdditionalCost(item))}</td>
-                <td>{formatMoney(item.grossAmount ?? item.subtotalAmount)}</td>
                 <td>{formatMoney(item.discountAmount)}</td>
-                <td>{formatMoney(item.taxableAmount)}</td>
-                <td>{formatPercent(item.taxRate)}</td>
-                <td>{formatMoney(item.taxAmount)}</td>
-                <td>{formatMoney(item.totalAmount ?? item.subtotalAmount)}</td>
+                <td>{formatMoney(item.subtotalAmount)}</td>
+                <td>{formatMoney(item.adjustmentAmount)}</td>
                 <td>{formatDeliveryState(item)}</td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
-    </section>
-  );
-}
-
-function ProductionTrackingPanel({
-  order,
-  productionRequest,
-}: {
-  order: OrderDetailDto;
-  productionRequest: SalesProductionTrackingRequest | null | undefined;
-}) {
-  const orderItems = useMemo(() => aggregateDuplicateItems(order.items), [order.items]);
-
-  return (
-    <section className="sale-orders-flow-panel sale-orders-production-tracking">
-      <header>
-        <div>
-          <h3>Production Tracking</h3>
-          <p>Read-only current production state for this order.</p>
-        </div>
-        <span className={`sale-orders-status sale-orders-status-${statusClass(productionRequest?.status ?? order.status)}`}>
-          {formatEnumLabel(productionRequest?.status ?? order.status ?? 'UNKNOWN')}
-        </span>
-      </header>
-      <div className="sale-orders-tracking-grid">
-        <MoneyValue label="Production Request" value={productionRequest?.productionCode ?? 'Not created'} />
-        <MoneyValue label="Assigned To" value={productionRequest?.assignedToName ?? '-'} />
-        <MoneyValue label="Estimated Completion" value={formatDate(productionRequest?.estimatedCompletionDate)} />
-        <MoneyValue label="Current Order State" value={formatEnumLabel(order.status ?? 'UNKNOWN')} />
-      </div>
-      {productionRequest?.items?.length ? (
-        <div className="sale-orders-table-scroll">
-          <table>
-            <thead>
-              <tr>
-                <th>Production Item</th>
-                <th>Qty</th>
-                <th>Status</th>
-                <th>Started</th>
-                <th>Completed</th>
-                <th>Note</th>
-              </tr>
-            </thead>
-            <tbody>
-              {productionRequest.items.map((item) => (
-                <tr key={item.productionItemId}>
-                  <td>{item.productNameSnapshot}</td>
-                  <td>{item.quantity}</td>
-                  <td>{formatEnumLabel(item.status)}</td>
-                  <td>{formatDate(item.startedAt)}</td>
-                  <td>{formatDate(item.completedAt)}</td>
-                  <td>{item.productionNote ?? item.materialNote ?? item.cancellationReason ?? '-'}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      ) : (
-        <div className="sale-orders-delivery-list">
-          {orderItems.map((item) => (
-            <div key={item.orderItemId}>
-              <span>{getOrderItemName(item)}: {formatEnumLabel(getOrderItemTrackingStatus(item, order.status))}</span>
-              <small>{formatDeliveryState(item)}</small>
-            </div>
-          ))}
-        </div>
-      )}
     </section>
   );
 }
@@ -548,10 +462,6 @@ function MoneyValue({ label, value }: { label: string; value: string }) {
 
 function getOrderItemName(item: Pick<OrderItemDto, 'itemName' | 'productNameSnapshot'>) {
   return item.itemName ?? item.productNameSnapshot ?? '-';
-}
-
-function getCustomizationUnitAdditionalCost(item: Pick<OrderItemDto, 'customizationUnitAdditionalCost' | 'customizationAdditionalCost'>) {
-  return item.customizationUnitAdditionalCost ?? item.customizationAdditionalCost ?? null;
 }
 
 function getOrderProjects(projects: ProjectListItemDto[]) {
@@ -576,33 +486,10 @@ function formatMoney(value?: number | null) {
   return `${new Intl.NumberFormat('vi-VN').format(value)} VND`;
 }
 
-function formatPercent(value?: number | null) {
+function formatPercentRate(value?: number | null) {
   if (typeof value !== 'number') return '-';
 
-  return `${new Intl.NumberFormat('vi-VN').format(value)}%`;
-}
-
-function getOrderItemTrackingStatus(item: OrderItemDto, orderStatus?: OrderStatus | null) {
-  if (item.status) return item.status;
-  if (orderStatus === 'IN_PRODUCTION') return 'IN_PRODUCTION';
-  if (orderStatus === 'READY_FOR_DELIVERY') return 'COMPLETED';
-  if (orderStatus === 'DELIVERING') return 'DELIVERING';
-  if (orderStatus === 'DELIVERED' || orderStatus === 'COMPLETED') return 'DELIVERED';
-
-  return 'PENDING';
-}
-
-function formatDate(value?: string | null) {
-  if (!value) return '-';
-  const date = new Date(value);
-
-  if (Number.isNaN(date.getTime())) return value;
-
-  return new Intl.DateTimeFormat('en-GB', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-  }).format(date);
+  return `${new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 2 }).format(value * 100)}%`;
 }
 
 function formatDeliveryState(item: OrderItemDto) {
@@ -617,8 +504,23 @@ function getCompleteOrderBlocker(order: OrderDetailDto) {
   if (order.status === 'COMPLETED') return 'This order has already been completed.';
   if (order.status !== 'DELIVERED' && order.status !== 'FINAL_PAYMENT_PENDING') return null;
   if ((order.remainingAmount ?? 0) > 0) return 'Order detail still shows a remaining balance. Backend will validate payment before completing.';
+  const incompleteDeliveryItem = order.items.find((item) => isDeliverableOrderItem(item) && (item.deliveredQuantity ?? 0) < (item.quantity ?? 0));
+
+  if (incompleteDeliveryItem) {
+    return `${getOrderItemName(incompleteDeliveryItem)} is not fully delivered yet.`;
+  }
+
+  const unconfirmedDeliveryItem = order.items.find((item) => isDeliverableOrderItem(item) && !item.customerConfirmedAt);
+
+  if (unconfirmedDeliveryItem) {
+    return `${getOrderItemName(unconfirmedDeliveryItem)} is waiting for customer delivery confirmation.`;
+  }
 
   return null;
+}
+
+function isDeliverableOrderItem(item: OrderItemDto) {
+  return (item.quantity ?? 0) > 0 && item.status !== 'CANCELLED' && item.status !== 'UNAVAILABLE';
 }
 
 function normalizeMoneyInput(value: string) {

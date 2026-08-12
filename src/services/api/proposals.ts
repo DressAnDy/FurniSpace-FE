@@ -1,6 +1,7 @@
 import axios, { AxiosError } from 'axios';
 
 import type { RoomPlannerScenePayload } from '@/features/ThreeD/types/roomPlannerScene.types';
+import type { CatalogFileDto } from './products';
 
 import { getStoredAccessToken } from './tokenStore';
 
@@ -214,6 +215,30 @@ export type SaveRoomPlannerSceneData = {
   lastSavedAt: string;
 };
 
+export type RoomPlannerResolvedProductDto = {
+  productVersionId: string;
+  productId: string;
+  productName?: string | null;
+  versionCode?: string | null;
+  versionName?: string | null;
+  versionType?: string | null;
+  material?: string | null;
+  color?: string | null;
+  width?: number | null;
+  height?: number | null;
+  depth?: number | null;
+  dimensionUnit?: string | null;
+  estimatedPrice?: number | null;
+  isProjectSpecific?: boolean | null;
+  files?: CatalogFileDto[] | null;
+};
+
+export type RoomPlannerResolvedProductsData = {
+  sceneId: string;
+  projectId?: string | null;
+  items: RoomPlannerResolvedProductDto[];
+};
+
 export type ProposalItemDto = {
   proposalItemId: string;
   proposalId: string;
@@ -384,6 +409,17 @@ export async function saveRoomPlannerScene(input: SaveRoomPlannerSceneInput) {
   const response = await proposalApiClient.put<ServiceResult<SaveRoomPlannerSceneData>>(
     `/proposal-scenes/${input.sceneId}/room-planner`,
     input.payload,
+  );
+
+  return response.data.data;
+}
+
+export async function resolveRoomPlannerSceneProducts(input: { sceneId: string; productVersionIds: string[] }) {
+  const response = await proposalApiClient.post<ServiceResult<RoomPlannerResolvedProductsData>>(
+    `/proposal-scenes/${input.sceneId}/room-planner/resolve-products`,
+    {
+      productVersionIds: input.productVersionIds,
+    },
   );
 
   return response.data.data;

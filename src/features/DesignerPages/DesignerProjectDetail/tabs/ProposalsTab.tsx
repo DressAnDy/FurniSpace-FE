@@ -91,10 +91,6 @@ export function ProposalsTab({ project }: ProposalsTabProps) {
     }
   }
 
-  function openLegacyProposalSetup() {
-    navigate(`/designer/projects/${project.projectId}/proposals/legacy-new`);
-  }
-
   async function publishProposal(proposal: ProposalDto) {
     setMessage('');
     setMessageTone('error');
@@ -124,20 +120,12 @@ export function ProposalsTab({ project }: ProposalsTabProps) {
         </div>
         <div className="designer-project-table-actions">
           <button
-            className="designer-project-detail-button"
-            disabled={!canCreateProposal}
-            type="button"
-            onClick={openLegacyProposalSetup}
-          >
-            Legacy Setup
-          </button>
-          <button
-            className="designer-project-detail-button designer-project-detail-button-primary"
+            className="designer-project-detail-button designer-project-detail-button-primary designer-project-proposal-setup-button"
             disabled={!canCreateProposal || areasQuery.isLoading}
             type="button"
             onClick={openProposalSetup}
           >
-            Set Up Proposal
+            Set Up Room Planner Proposal
           </button>
         </div>
       </div>

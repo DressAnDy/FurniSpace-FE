@@ -1,5 +1,14 @@
 import type { BuildingProductModel, PlacedBuildingProduct } from '@/features/ThreeDTest/schemas/buildingScene.types';
-import type { CatalogFileDto, ProductDetailDto, ProductListItemDto, ProductVersionDto } from '@/services/api/products';
+import type { RoomPlannerResolvedProductDto } from '@/services/api/proposals';
+import type {
+  CatalogFileDto,
+  ProductDetailDto,
+  ProductListItemDto,
+  ProductVersionDto,
+  ProjectCatalogProductItemDto,
+  ProjectCatalogProductVersionDetailDto,
+  ProjectCatalogVersionSummaryDto,
+} from '@/services/api/products';
 
 const API_PRODUCT_DEFAULT_SCALE = 2.6;
 const EMPTY_THUMBNAIL = '';
@@ -65,6 +74,110 @@ export function createBuildingModelVersionMap(products: Array<ProductDetailDto |
   });
 
   return modelsByVersionId;
+}
+
+export function mapProjectCatalogVersionToBuildingModel(
+  product: ProjectCatalogProductItemDto,
+  version: ProjectCatalogProductVersionDetailDto | ProjectCatalogVersionSummaryDto,
+): BuildingProductModel | null {
+  const files = 'files' in version ? version.files : [];
+  const modelFile = getCatalogModelFile(files);
+
+  if (!modelFile?.fileUrl) {
+    return null;
+  }
+
+  const thumbnailFile = files.find((file) => file.fileType === 'PRODUCT_PREVIEW');
+
+  return {
+    categoryId: product.categoryId ?? '',
+    categoryName: product.categoryName ?? '',
+    color: version.color ?? null,
+    depth: version.depth ?? null,
+    fileId: modelFile.fileId,
+    height: version.height ?? null,
+    id: `building-test-${version.productVersionId}`,
+    material: version.material ?? null,
+    modelUrl: modelFile.fileUrl,
+    name: `${product.productName} - ${version.versionName}`,
+    productId: product.productId,
+    productVersionId: version.productVersionId,
+    scale: { x: API_PRODUCT_DEFAULT_SCALE, y: API_PRODUCT_DEFAULT_SCALE, z: API_PRODUCT_DEFAULT_SCALE },
+    thumbnailUrl: thumbnailFile?.fileUrl ?? product.thumbnail?.fileUrl ?? EMPTY_THUMBNAIL,
+    width: version.width ?? null,
+  };
+}
+
+export function createProjectCatalogBuildingModelVersionMap(
+  entries: Array<{
+    product: ProjectCatalogProductItemDto;
+    version: ProjectCatalogProductVersionDetailDto | ProjectCatalogVersionSummaryDto;
+  } | null | undefined>,
+) {
+  const modelsByVersionId = new Map<string, BuildingProductModel>();
+
+  entries.forEach((entry) => {
+    if (!entry) {
+      return;
+    }
+
+    const model = mapProjectCatalogVersionToBuildingModel(entry.product, entry.version);
+
+    if (model?.productVersionId) {
+      modelsByVersionId.set(model.productVersionId, model);
+    }
+  });
+
+  return modelsByVersionId;
+}
+
+export function createResolvedRoomPlannerBuildingModelVersionMap(
+  products: Array<RoomPlannerResolvedProductDto | null | undefined>,
+) {
+  const modelsByVersionId = new Map<string, BuildingProductModel>();
+
+  products.forEach((product) => {
+    const model = mapResolvedRoomPlannerProductToBuildingModel(product);
+
+    if (model?.productVersionId) {
+      modelsByVersionId.set(model.productVersionId, model);
+    }
+  });
+
+  return modelsByVersionId;
+}
+
+export function mapResolvedRoomPlannerProductToBuildingModel(
+  product: RoomPlannerResolvedProductDto | null | undefined,
+): BuildingProductModel | null {
+  if (!product) {
+    return null;
+  }
+
+  const files = product.files ?? [];
+  const modelFile = getCatalogModelFile(files);
+
+  if (!modelFile?.fileUrl) {
+    return null;
+  }
+
+  const thumbnailFile = files.find((file) => file.fileType === 'PRODUCT_PREVIEW');
+
+  return {
+    color: product.color ?? null,
+    depth: product.depth ?? null,
+    fileId: modelFile.fileId,
+    height: product.height ?? null,
+    id: `room-planner-${product.productVersionId}`,
+    material: product.material ?? null,
+    modelUrl: modelFile.fileUrl,
+    name: [product.productName, product.versionName].filter(Boolean).join(' - ') || product.versionCode || 'Furniture',
+    productId: product.productId,
+    productVersionId: product.productVersionId,
+    scale: { x: API_PRODUCT_DEFAULT_SCALE, y: API_PRODUCT_DEFAULT_SCALE, z: API_PRODUCT_DEFAULT_SCALE },
+    thumbnailUrl: thumbnailFile?.fileUrl ?? EMPTY_THUMBNAIL,
+    width: product.width ?? null,
+  };
 }
 
 export function resolvePlacedBuildingProducts(

@@ -1,28 +1,34 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import {
+  acceptCustomizationRequestVersion,
   cancelCustomizationRequest,
-  customerDecisionCustomizationRequest,
-  designerReviewCustomizationRequest,
+  createCustomizationRequestVersion,
   getCustomizationRequestById,
-  getProductionCustomizationRequests,
+  getProductionCustomizationVersions,
   getProjectCustomizationRequests,
-  productionReviewCustomizationRequest,
+  productionReviewCustomizationVersion,
   submitCustomizationRequest,
+  submitCustomizationRequestVersionForReview,
+  updateCustomizationRequestVersion,
+  withdrawCustomizationRequestVersion,
+  type AcceptCustomizationRequestVersionInput,
   type CancelCustomizationRequestInput,
-  type CustomerDecisionCustomizationRequestInput,
+  type CreateCustomizationRequestVersionInput,
   type CustomizationRequestListParams,
-  type DesignerReviewCustomizationRequestInput,
-  type ProductionCustomizationRequestListParams,
-  type ProductionReviewCustomizationRequestInput,
+  type ProductionCustomizationVersionListParams,
+  type ProductionReviewCustomizationVersionInput,
   type SubmitCustomizationRequestInput,
+  type SubmitCustomizationRequestVersionForReviewInput,
+  type UpdateCustomizationRequestVersionInput,
+  type WithdrawCustomizationRequestVersionInput,
 } from '@/services/api/customizationRequests';
 
 export const customizationRequestQueryKeys = {
   all: ['customization-requests'] as const,
   byProject: (params: CustomizationRequestListParams) => ['customization-requests', 'project', params] as const,
   detail: (customizationRequestId: string) => ['customization-requests', 'detail', customizationRequestId] as const,
-  productionQueue: (params: ProductionCustomizationRequestListParams) => ['customization-requests', 'production-queue', params] as const,
+  productionVersions: (params: ProductionCustomizationVersionListParams) => ['customization-versions', 'production-queue', params] as const,
 };
 
 export function useProjectCustomizationRequests(params?: CustomizationRequestListParams, options?: { enabled?: boolean }) {
@@ -41,10 +47,10 @@ export function useCustomizationRequestDetail(customizationRequestId?: string, o
   });
 }
 
-export function useProductionCustomizationRequests(params?: ProductionCustomizationRequestListParams, options?: { enabled?: boolean }) {
+export function useProductionCustomizationVersions(params?: ProductionCustomizationVersionListParams, options?: { enabled?: boolean }) {
   return useQuery({
-    queryKey: customizationRequestQueryKeys.productionQueue(params ?? {}),
-    queryFn: () => getProductionCustomizationRequests(params),
+    queryKey: customizationRequestQueryKeys.productionVersions(params ?? {}),
+    queryFn: () => getProductionCustomizationVersions(params),
     enabled: options?.enabled ?? true,
   });
 }
@@ -60,37 +66,71 @@ export function useSubmitCustomizationRequest() {
   });
 }
 
-export function useDesignerReviewCustomizationRequest() {
+export function useCreateCustomizationRequestVersion() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (input: DesignerReviewCustomizationRequestInput) => designerReviewCustomizationRequest(input),
-    onSuccess: (request) => {
-      invalidateCustomizationCaches(queryClient, request);
+    mutationFn: (input: CreateCustomizationRequestVersionInput) => createCustomizationRequestVersion(input),
+    onSuccess: (result) => {
+      invalidateCustomizationCaches(queryClient, { customizationRequestId: result.customizationRequestId });
     },
   });
 }
 
-export function useProductionReviewCustomizationRequest() {
+export function useUpdateCustomizationRequestVersion() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (input: ProductionReviewCustomizationRequestInput) => productionReviewCustomizationRequest(input),
-    onSuccess: (request) => {
-      invalidateCustomizationCaches(queryClient, request);
+    mutationFn: (input: UpdateCustomizationRequestVersionInput) => updateCustomizationRequestVersion(input),
+    onSuccess: (version) => {
+      invalidateCustomizationCaches(queryClient, { customizationRequestId: version.customizationRequestId });
     },
   });
 }
 
-export function useCustomerDecisionCustomizationRequest() {
+export function useSubmitCustomizationRequestVersionForReview() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (input: CustomerDecisionCustomizationRequestInput) => customerDecisionCustomizationRequest(input),
+    mutationFn: (input: SubmitCustomizationRequestVersionForReviewInput) => submitCustomizationRequestVersionForReview(input),
+    onSuccess: (version) => {
+      invalidateCustomizationCaches(queryClient, { customizationRequestId: version.customizationRequestId });
+    },
+  });
+}
+
+export function useWithdrawCustomizationRequestVersion() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (input: WithdrawCustomizationRequestVersionInput) => withdrawCustomizationRequestVersion(input),
+    onSuccess: (version) => {
+      invalidateCustomizationCaches(queryClient, { customizationRequestId: version.customizationRequestId });
+    },
+  });
+}
+
+export function useProductionReviewCustomizationVersion() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (input: ProductionReviewCustomizationVersionInput) => productionReviewCustomizationVersion(input),
+    onSuccess: (version) => {
+      invalidateCustomizationCaches(queryClient, { customizationRequestId: version.customizationRequestId });
+    },
+  });
+}
+
+export function useAcceptCustomizationRequestVersion() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (input: AcceptCustomizationRequestVersionInput) => acceptCustomizationRequestVersion(input),
     onSuccess: (request) => {
       invalidateCustomizationCaches(queryClient, request);
       void queryClient.invalidateQueries({ queryKey: ['proposals', request.proposalId, 'items'] });
       void queryClient.invalidateQueries({ queryKey: ['proposals', 'detail', request.proposalId] });
+      void queryClient.invalidateQueries({ queryKey: ['quotations'] });
     },
   });
 }
@@ -108,12 +148,23 @@ export function useCancelCustomizationRequest() {
 
 function invalidateCustomizationCaches(
   queryClient: ReturnType<typeof useQueryClient>,
-  request: { customizationRequestId: string; projectId: string; proposalId: string },
+  request: { customizationRequestId?: string; projectId?: string; proposalId?: string },
 ) {
   void queryClient.invalidateQueries({ queryKey: customizationRequestQueryKeys.all });
-  void queryClient.invalidateQueries({ queryKey: customizationRequestQueryKeys.detail(request.customizationRequestId) });
+  void queryClient.invalidateQueries({ queryKey: ['customization-versions'] });
   void queryClient.invalidateQueries({ queryKey: ['customization-requests', 'project'] });
-  void queryClient.invalidateQueries({ queryKey: ['projects', 'detail', request.projectId] });
-  void queryClient.invalidateQueries({ queryKey: ['proposals', 'detail', request.proposalId] });
   void queryClient.invalidateQueries({ queryKey: ['notifications'] });
+
+  if (request.customizationRequestId) {
+    void queryClient.invalidateQueries({ queryKey: customizationRequestQueryKeys.detail(request.customizationRequestId) });
+  }
+
+  if (request.projectId) {
+    void queryClient.invalidateQueries({ queryKey: ['projects', 'detail', request.projectId] });
+    void queryClient.invalidateQueries({ queryKey: ['projects'] });
+  }
+
+  if (request.proposalId) {
+    void queryClient.invalidateQueries({ queryKey: ['proposals', 'detail', request.proposalId] });
+  }
 }

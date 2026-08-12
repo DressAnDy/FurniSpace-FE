@@ -3,7 +3,6 @@ import { IconEye } from '@tabler/icons-react';
 
 import { getOrderServiceResultMessage, type OrderItemDto, type OrderStatus } from '@/services/api/orders';
 import { useOrderDetail, useProjectOrders } from '@/services/queries';
-import { aggregateDuplicateItems } from '@/shared/utils/itemAggregation';
 
 type OrdersTabProps = {
   projectId: string;
@@ -15,7 +14,7 @@ export function OrdersTab({ projectId }: OrdersTabProps) {
   const selectedOrderQuery = useOrderDetail(selectedOrderId ?? undefined, { enabled: Boolean(selectedOrderId) });
   const orders = useMemo(() => ordersQuery.data?.items ?? [], [ordersQuery.data?.items]);
   const selectedOrder = selectedOrderQuery.data;
-  const selectedOrderItems = useMemo(() => aggregateDuplicateItems(selectedOrder?.items ?? []), [selectedOrder?.items]);
+  const selectedOrderItems = useMemo(() => selectedOrder?.items ?? [], [selectedOrder?.items]);
 
   return (
     <section className="project-detail-card project-detail-tab-panel project-detail-orders-card">
@@ -87,6 +86,7 @@ export function OrdersTab({ projectId }: OrdersTabProps) {
                 </div>
                 <div className="project-detail-order-detail-summary">
                   <OrderMoney label="Final total" value={selectedOrder.finalTotalAmount} />
+                  <OrderMoney label="VAT" value={selectedOrder.vatAmount} />
                   <OrderMoney label="Deposit" value={selectedOrder.depositAmount} />
                   <OrderMoney label="Paid" value={selectedOrder.paidAmount} />
                   <OrderMoney label="Remaining" value={selectedOrder.remainingAmount} />
@@ -96,7 +96,7 @@ export function OrdersTab({ projectId }: OrdersTabProps) {
                     <article key={item.orderItemId}>
                       <div>
                         <strong>{getOrderItemName(item)}</strong>
-                        <span>{formatStatusLabel(item.itemType)}{item.isCustomized ? ' - Customized' : ''}</span>
+                        <span>{formatStatusLabel(item.status)}{item.isCustomized ? ' - Customized' : ''}</span>
                       </div>
                       <div>
                         <strong>{formatMoney(item.subtotalAmount)}</strong>

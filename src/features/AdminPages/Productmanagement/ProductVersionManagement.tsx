@@ -150,13 +150,13 @@ export function ProductVersionManagement() {
                         <span>Price</span>
                         <strong>{formatPrice(version.estimatedPrice)}</strong>
                       </div>
+                    </div>
+
+                    <div className="product-version-details">
                       <div>
                         <span>Type</span>
                         <strong>{version.versionType}</strong>
                       </div>
-                    </div>
-
-                    <div className="product-version-details">
                       <div>
                         <span>Material</span>
                         <strong>{version.material ?? 'Not set'}</strong>

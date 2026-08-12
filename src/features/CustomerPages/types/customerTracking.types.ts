@@ -18,7 +18,7 @@ export type ProjectStatus =
   | 'COMPLETED'
   | 'REJECTED';
 
-export type PaymentType = 'PROJECT_START_FEE' | 'DEPOSIT' | 'REMAINING_PAYMENT' | 'FULL_PAYMENT' | 'REFUND' | 'OTHER';
+export type PaymentType = 'PROJECT_START_FEE' | 'DEPOSIT' | 'REMAINING_PAYMENT';
 export type PaymentStatus = 'PENDING' | 'PROCESSING' | 'PAID' | 'CANCELLED' | 'EXPIRED' | 'REFUNDED';
 export type PaymentTransactionType = 'CHARGE' | 'REFUND' | 'ADJUSTMENT';
 export type PaymentTransactionStatus = 'PENDING' | 'SUCCESS' | 'FAILED' | 'CANCELLED';

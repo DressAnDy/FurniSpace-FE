@@ -18,7 +18,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { DesignerLayout } from '@/features/DesignerPages/designercomponents';
 import { getAccountById } from '@/services/api';
 import { getProjectServiceResultMessage, type ProjectDto, type ProjectStatus } from '@/services/api/projects';
-import { useProjectDetail, useUpdateProjectStatus } from '@/services/queries';
+import { useMarkSpaceVerified, useProjectDetail, useStartProposalConsulting } from '@/services/queries';
 
 import { ChatTab, CustomizationTab, OverviewTab, ProjectAreasTab, ProposalsTab, SchedulesTab, SpaceFilesTab } from './tabs';
 import './DesignerProjectDetail.css';
@@ -51,7 +51,8 @@ export function DesignerProjectDetail() {
   const [activeTab, setActiveTab] = useState<DesignerProjectDetailTab>('overview');
   const [projectActionMessage, setProjectActionMessage] = useState<{ tone: 'error' | 'success'; text: string } | null>(null);
   const projectQuery = useProjectDetail(projectId);
-  const updateProjectStatusMutation = useUpdateProjectStatus();
+  const markSpaceVerifiedMutation = useMarkSpaceVerified();
+  const startProposalConsultingMutation = useStartProposalConsulting();
   const project = projectQuery.data;
   const accountIds = useMemo(() => [project?.customerId, project?.assignedSalesId].filter((accountId): accountId is string => Boolean(accountId)), [project?.assignedSalesId, project?.customerId]);
   const accountQueries = useQueries({
@@ -109,11 +110,17 @@ export function DesignerProjectDetail() {
     setProjectActionMessage(null);
 
     try {
-      await updateProjectStatusMutation.mutateAsync({
-        projectId: project.projectId,
-        status: nextStatus,
-        note: `Designer moved project from ${project.status} to ${nextStatus} from project detail.`,
-      });
+      if (nextStatus === 'SPACE_VERIFIED') {
+        await markSpaceVerifiedMutation.mutateAsync({
+          projectId: project.projectId,
+          note: 'Designer verified project space information from project detail.',
+        });
+      } else {
+        await startProposalConsultingMutation.mutateAsync({
+          projectId: project.projectId,
+          note: 'Designer started proposal consulting from project detail.',
+        });
+      }
       setProjectActionMessage({ tone: 'success', text: `Project status updated to ${formatEnumLabel(nextStatus)}.` });
     } catch (error) {
       setProjectActionMessage({ tone: 'error', text: getProjectServiceResultMessage(error) });
@@ -164,12 +171,12 @@ export function DesignerProjectDetail() {
                 <div className="designer-project-progress-actions">
                   <button
                     className="designer-project-detail-button"
-                    disabled={!getNextDesignStatus(project.status) || updateProjectStatusMutation.isPending}
+                    disabled={!getNextDesignStatus(project.status) || markSpaceVerifiedMutation.isPending || startProposalConsultingMutation.isPending}
                     type="button"
                     onClick={() => void updateProjectToNextDesignStatus()}
                   >
                     <IconRefresh size={17} />
-                    {updateProjectStatusMutation.isPending ? 'Updating...' : getDesignStatusActionLabel(project.status)}
+                    {markSpaceVerifiedMutation.isPending || startProposalConsultingMutation.isPending ? 'Updating...' : getDesignStatusActionLabel(project.status)}
                   </button>
                   <button
                     className="designer-project-detail-button designer-project-detail-button-primary"
