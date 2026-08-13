@@ -8,7 +8,7 @@ import { Link } from 'react-router-dom';
 import { CustomerNavbar } from '@/features/CustomerPages/customercomponents';
 import { getOrderServiceResultMessage, type OrderDetailDto, type OrderItemDto, type OrderStatus } from '@/services/api/orders';
 import type { PaymentDetailDto } from '@/services/api/payments';
-import type { ProjectListItemDto } from '@/services/api/projects';
+import { getProjectServiceResultMessage, type ProjectListItemDto } from '@/services/api/projects';
 import {
   useConfirmOrderItemDelivery,
   useCreateOrderDepositPayment,
@@ -16,15 +16,20 @@ import {
   usePayments,
   useProjectList,
   useProjectOrders,
+  useReopenProjectProposal,
 } from '@/services/queries';
+import { aggregateDuplicateItems, getItemAggregateKey } from '@/shared/utils/itemAggregation';
 import { PaymentCollectionModal } from '@/features/payments/PaymentCollectionModal';
 
 import './CustomerOrdersPage.css';
 
+type GroupedOrderItem = OrderItemDto & {
+  sourceItems: OrderItemDto[];
+};
+
 const orderProjectStatuses = new Set([
   'ORDER_CONFIRMED',
   'IN_PRODUCTION',
-  'PRODUCTION_BLOCKED',
   'READY_FOR_DELIVERY',
   'DELIVERING',
   'DELIVERED',
@@ -49,6 +54,7 @@ export function CustomerOrdersPage() {
   );
   const depositMutation = useCreateOrderDepositPayment();
   const confirmDeliveryMutation = useConfirmOrderItemDelivery();
+  const reopenProposalMutation = useReopenProjectProposal();
 
   useEffect(() => {
     if (!selectedProjectId && orderProjects.length > 0) {
@@ -79,6 +85,23 @@ export function CustomerOrdersPage() {
       setMessage({ tone: 'success', text: 'Deposit payment is ready.' });
     } catch (error) {
       setMessage({ tone: 'error', text: getOrderServiceResultMessage(error) });
+    }
+  }
+
+  async function reopenProposalFlow() {
+    if (!selectedProjectId) return;
+
+    setMessage(null);
+
+    try {
+      await reopenProposalMutation.mutateAsync(selectedProjectId);
+      setSelectedOrderId('');
+      setActivePayment(null);
+      setMessage({ tone: 'success', text: 'Project was reopened to proposal consulting.' });
+      void projectsQuery.refetch();
+      void ordersQuery.refetch();
+    } catch (error) {
+      setMessage({ tone: 'error', text: getProjectServiceResultMessage(error) });
     }
   }
 
@@ -141,14 +164,18 @@ export function CustomerOrdersPage() {
               <OrderDetailCard
                 confirmingDeliveryItemId={confirmDeliveryMutation.variables ?? null}
                 depositPending={depositMutation.isPending}
+                isReopeningProposal={reopenProposalMutation.isPending}
                 order={order}
                 remainingPayment={remainingPaymentsQuery.data?.items?.[0] ?? null}
-                onConfirmDelivery={async (orderItemId) => {
+                onConfirmDelivery={async (orderItemIds) => {
                   setMessage(null);
 
                   try {
-                    await confirmDeliveryMutation.mutateAsync(orderItemId);
-                    setMessage({ tone: 'success', text: 'Delivery confirmed for this item.' });
+                    for (const orderItemId of orderItemIds) {
+                      await confirmDeliveryMutation.mutateAsync(orderItemId);
+                    }
+
+                    setMessage({ tone: 'success', text: 'Delivery confirmed.' });
                     void orderDetailQuery.refetch();
                     void ordersQuery.refetch();
                     void projectsQuery.refetch();
@@ -158,6 +185,7 @@ export function CustomerOrdersPage() {
                 }}
                 onCreateDeposit={() => void createDepositPayment()}
                 onOpenRemainingPayment={(payment) => setActivePayment(payment)}
+                onReopenProposal={() => void reopenProposalFlow()}
               />
             ) : null}
 
@@ -180,21 +208,25 @@ export function CustomerOrdersPage() {
 function OrderDetailCard({
   confirmingDeliveryItemId,
   depositPending,
+  isReopeningProposal,
   onConfirmDelivery,
   onCreateDeposit,
   onOpenRemainingPayment,
+  onReopenProposal,
   order,
   remainingPayment,
 }: {
   confirmingDeliveryItemId: string | null;
   depositPending: boolean;
-  onConfirmDelivery: (orderItemId: string) => Promise<void>;
+  isReopeningProposal: boolean;
+  onConfirmDelivery: (orderItemIds: string[]) => Promise<void>;
   onCreateDeposit: () => void;
   onOpenRemainingPayment: (payment: PaymentDetailDto) => void;
+  onReopenProposal: () => void;
   order: OrderDetailDto;
   remainingPayment: PaymentDetailDto | null;
 }) {
-  const orderItems = order.items;
+  const orderItems = useMemo(() => aggregateOrderItems(order.items), [order.items]);
 
   return (
     <section className="customer-orders-card customer-orders-detail">
@@ -215,9 +247,14 @@ function OrderDetailCard({
       </div>
 
       <div className="customer-orders-actions">
-        <button disabled={order.status !== 'DEPOSIT_PENDING' || depositPending} type="button" onClick={onCreateDeposit}>
-          {depositPending ? 'Preparing...' : 'Pay Deposit'}
+        <button disabled={!canCreateDepositPayment(order.status) || depositPending} type="button" onClick={onCreateDeposit}>
+          {depositPending ? 'Preparing...' : order.status === 'CREATED' ? 'Create Deposit Payment' : 'Pay Deposit'}
         </button>
+        {canReopenProposal(order.status) ? (
+          <button className="is-secondary" disabled={isReopeningProposal} type="button" onClick={onReopenProposal}>
+            {isReopeningProposal ? 'Reopening...' : 'Reopen Proposal'}
+          </button>
+        ) : null}
         <button disabled={order.status !== 'FINAL_PAYMENT_PENDING' || !remainingPayment} type="button" onClick={() => remainingPayment && onOpenRemainingPayment(remainingPayment)}>
           Pay Remaining
         </button>
@@ -232,42 +269,53 @@ function OrderDetailCard({
               <th>Unit</th>
               <th>Discount</th>
               <th>Pre-VAT Subtotal</th>
-              <th>Adjustment</th>
               <th>Delivery</th>
               <th>Confirmation</th>
             </tr>
           </thead>
           <tbody>
-            {orderItems.map((item) => (
-              <tr key={item.orderItemId}>
+            {orderItems.map((item) => {
+              const confirmableItemIds = item.sourceItems.filter(canConfirmDelivery).map((sourceItem) => sourceItem.orderItemId);
+              const isConfirmingGroup = item.sourceItems.some((sourceItem) => confirmingDeliveryItemId === sourceItem.orderItemId);
+
+              return (
+              <tr key={item.sourceItems.map((sourceItem) => sourceItem.orderItemId).join('-')}>
                 <td>{getOrderItemName(item)}</td>
                 <td>{item.quantity ?? '-'}</td>
                 <td>{formatMoney(item.unitPrice)}</td>
                 <td>{formatMoney(item.discountAmount)}</td>
                 <td>{formatMoney(item.subtotalAmount)}</td>
-                <td>{formatMoney(item.adjustmentAmount)}</td>
-                <td>{formatDeliveryState(item)}</td>
+                <td>{formatGroupedDeliveryState(item)}</td>
                 <td>
-                  {canConfirmDelivery(item) ? (
+                  {confirmableItemIds.length > 0 ? (
                     <button
-                      disabled={confirmingDeliveryItemId === item.orderItemId}
+                      disabled={isConfirmingGroup}
                       type="button"
-                      onClick={() => void onConfirmDelivery(item.orderItemId)}
+                      onClick={() => void onConfirmDelivery(confirmableItemIds)}
                     >
-                      {confirmingDeliveryItemId === item.orderItemId ? 'Confirming...' : 'Confirm Delivery'}
+                      {isConfirmingGroup ? 'Confirming...' : 'Confirm Delivery'}
                     </button>
                   ) : (
-                    getDeliveryConfirmationLabel(item)
+                    getGroupedDeliveryConfirmationLabel(item)
                   )}
                 </td>
               </tr>
-            ))}
+            );
+            })}
           </tbody>
         </table>
       </div>
 
     </section>
   );
+}
+
+function canCreateDepositPayment(status?: OrderStatus | null) {
+  return status === 'CREATED' || status === 'DEPOSIT_PENDING';
+}
+
+function canReopenProposal(status?: OrderStatus | null) {
+  return status === 'CREATED' || status === 'DEPOSIT_PENDING';
 }
 
 function MoneyValue({ label, value }: { label: string; value: string }) {
@@ -281,6 +329,21 @@ function MoneyValue({ label, value }: { label: string; value: string }) {
 
 function getOrderItemName(item: Pick<OrderItemDto, 'itemName' | 'productNameSnapshot'>) {
   return item.itemName ?? item.productNameSnapshot ?? '-';
+}
+
+function aggregateOrderItems(items: OrderItemDto[]): GroupedOrderItem[] {
+  const groupedItems = new Map<string, GroupedOrderItem>();
+  const aggregateItems = aggregateDuplicateItems(items);
+
+  for (const item of aggregateItems) {
+    groupedItems.set(getItemAggregateKey(item), { ...item, sourceItems: [] });
+  }
+
+  for (const item of items) {
+    groupedItems.get(getItemAggregateKey(item))?.sourceItems.push(item);
+  }
+
+  return Array.from(groupedItems.values());
 }
 
 function getOrderProjects(projects: ProjectListItemDto[]) {
@@ -311,10 +374,11 @@ function formatPercentRate(value?: number | null) {
   return `${new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 2 }).format(value * 100)}%`;
 }
 
-function formatDeliveryState(item: OrderItemDto) {
+function formatGroupedDeliveryState(item: GroupedOrderItem) {
   const delivered = item.deliveredQuantity ?? 0;
   const quantity = item.quantity ?? 0;
-  const status = item.status ? formatEnumLabel(item.status) : 'Pending';
+  const statuses = Array.from(new Set(item.sourceItems.map((sourceItem) => sourceItem.status ?? 'PENDING')));
+  const status = statuses.length === 1 ? formatEnumLabel(statuses[0]) : 'Mixed';
 
   return `${delivered}/${quantity} - ${status}`;
 }
@@ -329,9 +393,14 @@ function canConfirmDelivery(item: OrderItemDto) {
   return quantity > 0 && delivered >= quantity;
 }
 
-function getDeliveryConfirmationLabel(item: OrderItemDto) {
-  if (item.status === 'CANCELLED' || item.status === 'UNAVAILABLE') return 'Not deliverable';
-  if (item.customerConfirmedAt) return 'Confirmed';
+function getGroupedDeliveryConfirmationLabel(item: GroupedOrderItem) {
+  if (item.sourceItems.every((sourceItem) => sourceItem.status === 'CANCELLED' || sourceItem.status === 'UNAVAILABLE')) {
+    return 'Not deliverable';
+  }
+
+  if (item.sourceItems.every((sourceItem) => sourceItem.customerConfirmedAt)) {
+    return 'Confirmed';
+  }
 
   return 'Pending delivery';
 }

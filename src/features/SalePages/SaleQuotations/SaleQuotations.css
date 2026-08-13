@@ -516,7 +516,7 @@
 
 .sale-quotations-edit-form {
   display: grid;
-  grid-template-columns: minmax(160px, 0.8fr) minmax(220px, 1fr) auto;
+  grid-template-columns: minmax(160px, 0.8fr) minmax(220px, 1fr) minmax(180px, 0.8fr) auto;
   align-items: end;
   gap: 12px;
   border-radius: 10px;
@@ -594,6 +594,12 @@
   font: inherit;
   font-size: 13px;
   padding: 0 8px;
+}
+
+.sale-quotations-line-input:focus {
+  border-color: #8b6f47;
+  box-shadow: 0 0 0 3px rgba(139, 111, 71, 0.14);
+  outline: none;
 }
 
 .sale-quotations-line-input-small {

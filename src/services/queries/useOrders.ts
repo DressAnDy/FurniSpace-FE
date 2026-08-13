@@ -1,28 +1,19 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import {
-  addOrderAdjustmentItem,
   completeOrder,
-  confirmOrderAdjustment,
   confirmOrderItemDelivery,
-  createOrderAdjustment,
   createOrderDepositPayment,
   createOrderRemainingPayment,
-  deleteOrderAdjustmentItem,
   getOrderById,
   getProjectOrders,
   prepareOrderFinalPayment,
   startOrderDelivery,
-  updateOrderFinancialAdjustment,
-  updateOrderAdjustmentItem,
   updateOrderItemDeliveredQuantity,
-  type CreateOrderAdjustmentInput,
   type CreateOrderPaymentInput,
   type OrderDetailDto,
   type OrderListItemDto,
   type UpdateDeliveredQuantityInput,
-  type UpdateOrderFinancialAdjustmentInput,
-  type UpsertOrderAdjustmentItemInput,
 } from '@/services/api/orders';
 import { paymentQueryKeys } from './usePayments';
 
@@ -68,75 +59,6 @@ export function useCreateOrderRemainingPayment() {
     onSuccess: (payment, input) => {
       invalidateOrderPaymentCaches(queryClient, input.orderId, payment.projectId);
       void queryClient.invalidateQueries({ queryKey: paymentQueryKeys.detail(payment.paymentId) });
-    },
-  });
-}
-
-export function useUpdateOrderFinancialAdjustment() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: (input: UpdateOrderFinancialAdjustmentInput) => updateOrderFinancialAdjustment(input),
-    onSuccess: (order) => {
-      void queryClient.invalidateQueries({ queryKey: orderQueryKeys.all });
-      void queryClient.invalidateQueries({ queryKey: orderQueryKeys.detail(order.orderId) });
-      void queryClient.invalidateQueries({ queryKey: orderQueryKeys.byProject(order.projectId) });
-      void queryClient.invalidateQueries({ queryKey: ['projects', 'detail', order.projectId] });
-    },
-  });
-}
-
-export function useCreateOrderAdjustment() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: (input: CreateOrderAdjustmentInput) => createOrderAdjustment(input),
-    onSuccess: (adjustment) => {
-      invalidateOrderPaymentCaches(queryClient, adjustment.orderId);
-    },
-  });
-}
-
-export function useAddOrderAdjustmentItem() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: (input: UpsertOrderAdjustmentItemInput) => addOrderAdjustmentItem(input),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: orderQueryKeys.all });
-    },
-  });
-}
-
-export function useUpdateOrderAdjustmentItem() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: (input: UpsertOrderAdjustmentItemInput) => updateOrderAdjustmentItem(input),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: orderQueryKeys.all });
-    },
-  });
-}
-
-export function useDeleteOrderAdjustmentItem() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: (orderAdjustmentItemId: string) => deleteOrderAdjustmentItem(orderAdjustmentItemId),
-    onSuccess: (adjustment) => {
-      invalidateOrderPaymentCaches(queryClient, adjustment.orderId);
-    },
-  });
-}
-
-export function useConfirmOrderAdjustment() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: (orderAdjustmentId: string) => confirmOrderAdjustment(orderAdjustmentId),
-    onSuccess: (adjustment) => {
-      invalidateOrderPaymentCaches(queryClient, adjustment.orderId);
     },
   });
 }

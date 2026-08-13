@@ -12,7 +12,7 @@ import './LoginPage.css';
 
 const loginFields = [
   { autoComplete: 'email', label: 'Email', name: 'email', type: 'email' },
-  { autoComplete: 'current-password', label: 'Mật khẩu', name: 'password', type: 'password' },
+  { autoComplete: 'current-password', label: 'Password', name: 'password', type: 'password' },
 ];
 
 export function LoginPage() {
@@ -62,7 +62,7 @@ export function LoginPage() {
     <main className="login-page">
       <section className="login-form-panel" aria-labelledby="login-title">
         <form className="login-form" onSubmit={handleSubmit}>
-          <h1 id="login-title">Đăng nhập</h1>
+          <h1 id="login-title">Sign in</h1>
 
           <div className="login-field-list">
             {loginFields.map((field) => (
@@ -77,7 +77,7 @@ export function LoginPage() {
                 />
                 {field.type === 'password' ? (
                   <button
-                    aria-label={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
                     className="login-password-toggle"
                     type="button"
                     onClick={() => setShowPassword((current) => !current)}
@@ -92,17 +92,17 @@ export function LoginPage() {
           {message ? <p className="login-message">{message}</p> : null}
 
           <button className="login-submit" type="submit" disabled={loginMutation.isPending}>
-            {loginMutation.isPending ? 'Đang đăng nhập...' : 'Đăng nhập'}
+            {loginMutation.isPending ? 'Signing in...' : 'Sign in'}
           </button>
 
           <div className="login-divider" />
 
           <div className="login-account-row">
             <p className="login-register-copy">
-              Bạn chưa có tài khoản? <Link to="/register">Đăng ký</Link>
+              Don&apos;t have an account? <Link to="/register">Sign up</Link>
             </p>
             <Link className="login-forgot-link" to="/forgot-password">
-              Quên mật khẩu?
+              Forgot password?
             </Link>
           </div>
         </form>
@@ -111,7 +111,7 @@ export function LoginPage() {
       <section className="login-hero" aria-label="FurniSpace login preview">
         <img src={authenPic} alt="" aria-hidden="true" />
         <Link className="login-back-home" to="/">
-          Trở về trang chủ
+          Back to home
         </Link>
         <strong className="login-brand">FurniSpace</strong>
       </section>
@@ -121,11 +121,11 @@ export function LoginPage() {
 
 function validateLoginForm(input: { email: string; password: string }) {
   if (!normalizeEmail(input.email)) {
-    return 'Vui lòng nhập email.';
+    return 'Please enter your email.';
   }
 
   if (!input.password.trim()) {
-    return 'Vui lòng nhập mật khẩu.';
+    return 'Please enter your password.';
   }
 
   return '';

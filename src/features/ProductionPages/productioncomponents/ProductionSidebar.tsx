@@ -25,7 +25,7 @@ const productionSidebarItems: ProductionSidebarItem[] = [
   { label: 'Customization Reviews', icon: IconAdjustments, path: '/production/customization-reviews' },
   { label: 'Production Requests', icon: IconClipboardList, path: '/production/requests' },
   { label: 'My Tasks', icon: IconUserCheck, path: '/production/my-tasks' },
-  { label: 'Blocked Issues', icon: IconAlertTriangle, path: '/production/blocked-issues' },
+  { label: 'Unavailable Items', icon: IconAlertTriangle, path: '/production/blocked-issues' },
   { label: 'Ready for Delivery', icon: IconTruckDelivery, path: '/production/ready-for-delivery' },
 ];
 

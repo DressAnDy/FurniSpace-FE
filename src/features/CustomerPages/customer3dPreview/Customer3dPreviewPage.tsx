@@ -344,8 +344,12 @@ export function Customer3dPreviewPage() {
     setDecisionMessage('');
 
     try {
-      await selectFinalProposalMutation.mutateAsync({ proposalId: selectedProposal.proposalId });
-      setDecisionMessage('Proposal selected successfully. Sales can now create the official quotation.');
+      const result = await selectFinalProposalMutation.mutateAsync({ proposalId: selectedProposal.proposalId });
+      setDecisionMessage(
+        result.quotationId
+          ? 'Proposal selected successfully. A draft quotation has been created for Sales review.'
+          : 'Proposal selected successfully. Sales can now review the quotation flow.',
+      );
     } catch (error) {
       setDecisionMessage(getProposalServiceResultMessage(error));
     }

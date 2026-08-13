@@ -145,6 +145,15 @@ export type PublishProposalData = {
   publishedAt: string;
 };
 
+export type SelectFinalProposalData = {
+  proposalId: string;
+  projectId: string;
+  quotationId?: string | null;
+  proposalStatus: ProposalStatus;
+  projectStatus?: string | null;
+  selectedAt?: string | null;
+};
+
 export type CreateProposalInput = {
   projectId: string;
   proposalName: string;
@@ -343,7 +352,7 @@ export async function publishProposal(proposalId: string, note?: string | null) 
 }
 
 export async function selectFinalProposal(input: ProposalDecisionInput) {
-  const response = await proposalApiClient.patch<ServiceResult<ProposalDto>>(`/proposals/${input.proposalId}/select-final`, {
+  const response = await proposalApiClient.patch<ServiceResult<SelectFinalProposalData>>(`/proposals/${input.proposalId}/select-final`, {
     note: input.note?.trim() || null,
   });
 

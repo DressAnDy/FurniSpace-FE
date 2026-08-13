@@ -104,6 +104,8 @@ export function useSelectFinalProposal() {
       void queryClient.invalidateQueries({ queryKey: proposalQueryKeys.all });
       void queryClient.invalidateQueries({ queryKey: proposalQueryKeys.detail(proposal.proposalId) });
       void queryClient.invalidateQueries({ queryKey: proposalQueryKeys.byProject({ projectId: proposal.projectId }) });
+      void queryClient.invalidateQueries({ queryKey: ['quotations'] });
+      void queryClient.invalidateQueries({ queryKey: ['quotations', 'project'] });
       void queryClient.invalidateQueries({ queryKey: ['projects'] });
       void queryClient.invalidateQueries({ queryKey: ['notifications'] });
     },

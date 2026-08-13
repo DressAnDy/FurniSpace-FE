@@ -57,7 +57,7 @@ export function aggregateDuplicateItems<T extends AggregatableItem>(items: T[]) 
   return Array.from(itemsBySample.values());
 }
 
-function getItemAggregateKey(item: AggregatableItem) {
+export function getItemAggregateKey(item: AggregatableItem) {
   const sampleKey =
     item.productVersionId ??
     item.productVersionCodeSnapshot ??

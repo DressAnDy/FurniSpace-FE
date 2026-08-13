@@ -20,7 +20,6 @@ export const getProductionRequestStatusLabel = (status: string) => {
     FEASIBLE: 'Feasible',
     IN_PRODUCTION: 'In Production',
     COMPLETED: 'Completed',
-    BLOCKED: 'Blocked',
     CANCELLED: 'Cancelled',
   };
 
@@ -32,7 +31,6 @@ export const getProductionItemStatusLabel = (status: string) => {
     PENDING: 'Pending',
     IN_PRODUCTION: 'In Production',
     COMPLETED: 'Completed',
-    BLOCKED: 'Blocked',
     CANCELLED: 'Cancelled',
   };
 
@@ -44,7 +42,7 @@ export const getProductionStatusTone = (status: string) => {
     return 'success';
   }
 
-  if (status === 'BLOCKED' || status === 'CANCELLED' || status === 'NOT_FEASIBLE' || status === 'UNAVAILABLE' || status === 'PRODUCTION_REJECTED') {
+  if (status === 'CANCELLED' || status === 'NOT_FEASIBLE' || status === 'UNAVAILABLE' || status === 'PRODUCTION_REJECTED') {
     return 'danger';
   }
 
@@ -60,10 +58,9 @@ export const getProductionStatusTone = (status: string) => {
 };
 
 export const productionRequestAllowedActions: Record<string, string[]> = {
-  PENDING_REVIEW: ['Mark Feasible', 'Mark Blocked', 'Cancel'],
-  FEASIBLE: ['Start Production', 'Mark Blocked'],
-  IN_PRODUCTION: ['Complete', 'Mark Blocked'],
-  BLOCKED: ['Resolve Blocked', 'Cancel'],
+  PENDING_REVIEW: ['Mark Feasible', 'Cancel'],
+  FEASIBLE: ['Start Production'],
+  IN_PRODUCTION: ['Complete'],
   COMPLETED: [],
   CANCELLED: [],
 };

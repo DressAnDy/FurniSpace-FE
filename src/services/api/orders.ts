@@ -63,8 +63,6 @@ export type OrderItemStatus =
   | 'DELIVERING'
   | 'DELIVERED'
   | 'CANCELLED';
-export type OrderAdjustmentStatus = 'DRAFT' | 'CONFIRMED' | 'APPLIED' | 'CANCELLED';
-export type OrderAdjustmentItemType = 'UNAVAILABLE_ITEM' | 'ADDITIONAL_DISCOUNT';
 
 export type OrderListItemDto = {
   orderId: string;
@@ -132,51 +130,6 @@ export type CreateOrderPaymentInput = {
   orderId: string;
   expiredAt?: string | null;
   note?: string | null;
-};
-
-export type UpdateOrderFinancialAdjustmentInput = {
-  orderId: string;
-  depositAmount: number;
-  adjustmentNote?: string | null;
-};
-
-export type CreateOrderAdjustmentInput = {
-  orderId: string;
-  reason: string;
-  internalNote?: string | null;
-};
-
-export type OrderAdjustmentDto = {
-  orderAdjustmentId: string;
-  orderId: string;
-  status: OrderAdjustmentStatus;
-  reason?: string | null;
-  internalNote?: string | null;
-  itemAdjustmentAmount: number;
-  additionalDiscountAmount: number;
-  totalAdjustmentAmount: number;
-  confirmedBy?: string | null;
-  confirmedAt?: string | null;
-  items?: OrderAdjustmentItemDto[] | null;
-};
-
-export type OrderAdjustmentItemDto = {
-  orderAdjustmentItemId: string;
-  orderAdjustmentId: string;
-  orderItemId?: string | null;
-  adjustmentType: OrderAdjustmentItemType;
-  previousItemAmount: number;
-  adjustmentAmount: number;
-  reason: string;
-};
-
-export type UpsertOrderAdjustmentItemInput = {
-  orderAdjustmentId?: string;
-  orderAdjustmentItemId?: string;
-  adjustmentType: OrderAdjustmentItemType;
-  orderItemId?: string | null;
-  adjustmentAmount: number;
-  reason: string;
 };
 
 export type PrepareFinalPaymentResultDto = {
@@ -265,15 +218,6 @@ export async function getOrderById(orderId: string) {
   return response.data.data;
 }
 
-export async function updateOrderFinancialAdjustment(input: UpdateOrderFinancialAdjustmentInput) {
-  const response = await orderApiClient.patch<ServiceResult<OrderDetailDto>>(`/orders/${input.orderId}/financial-adjustment`, {
-    depositAmount: input.depositAmount,
-    adjustmentNote: input.adjustmentNote?.trim() || null,
-  });
-
-  return response.data.data;
-}
-
 export async function createOrderDepositPayment(input: CreateOrderPaymentInput) {
   const response = await orderApiClient.post<ServiceResult<PaymentDetailDto>>(`/orders/${input.orderId}/payments/deposit`, {
     expiredAt: input.expiredAt || null,
@@ -288,45 +232,6 @@ export async function createOrderRemainingPayment(input: CreateOrderPaymentInput
     expiredAt: input.expiredAt || null,
     note: input.note?.trim() || null,
   });
-
-  return response.data.data;
-}
-
-export async function createOrderAdjustment(input: CreateOrderAdjustmentInput) {
-  const response = await orderApiClient.post<ServiceResult<OrderAdjustmentDto>>(`/orders/${input.orderId}/adjustments`, {
-    reason: input.reason.trim(),
-    internalNote: input.internalNote?.trim() || null,
-  });
-
-  return response.data.data;
-}
-
-export async function addOrderAdjustmentItem(input: UpsertOrderAdjustmentItemInput) {
-  const response = await orderApiClient.post<ServiceResult<OrderAdjustmentItemDto>>(
-    `/order-adjustments/${input.orderAdjustmentId}/items`,
-    getOrderAdjustmentItemPayload(input),
-  );
-
-  return response.data.data;
-}
-
-export async function updateOrderAdjustmentItem(input: UpsertOrderAdjustmentItemInput) {
-  const response = await orderApiClient.patch<ServiceResult<OrderAdjustmentItemDto>>(
-    `/order-adjustment-items/${input.orderAdjustmentItemId}`,
-    getOrderAdjustmentItemPayload(input),
-  );
-
-  return response.data.data;
-}
-
-export async function deleteOrderAdjustmentItem(orderAdjustmentItemId: string) {
-  const response = await orderApiClient.delete<ServiceResult<OrderAdjustmentDto>>(`/order-adjustment-items/${orderAdjustmentItemId}`);
-
-  return response.data.data;
-}
-
-export async function confirmOrderAdjustment(orderAdjustmentId: string) {
-  const response = await orderApiClient.patch<ServiceResult<OrderAdjustmentDto>>(`/order-adjustments/${orderAdjustmentId}/confirm`);
 
   return response.data.data;
 }
@@ -365,15 +270,6 @@ export async function completeOrder(orderId: string) {
   const response = await orderApiClient.patch<ServiceResult<CompleteOrderResultDto>>(`/orders/${orderId}/complete`);
 
   return response.data.data;
-}
-
-function getOrderAdjustmentItemPayload(input: UpsertOrderAdjustmentItemInput) {
-  return {
-    adjustmentType: input.adjustmentType,
-    orderItemId: input.orderItemId || null,
-    adjustmentAmount: input.adjustmentAmount,
-    reason: input.reason.trim(),
-  };
 }
 
 function getOrderApiBaseUrl() {

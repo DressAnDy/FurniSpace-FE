@@ -602,9 +602,7 @@ function ProjectAreasSection({
           <header>
             <div>
               <strong>{selectedArea.areaName}</strong>
-              <span>{selectedArea.description?.trim() || 'No description provided.'}</span>
             </div>
-            <small>{formatEnumLabel(selectedArea.status)}</small>
           </header>
           <dl>
             <div>

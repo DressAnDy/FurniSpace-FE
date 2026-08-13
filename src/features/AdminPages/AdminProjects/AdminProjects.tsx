@@ -54,7 +54,6 @@ const PROJECT_STATUSES: ProjectStatus[] = [
   'QUOTATION_REVISION_REQUESTED',
   'ORDER_CONFIRMED',
   'IN_PRODUCTION',
-  'PRODUCTION_BLOCKED',
   'READY_FOR_DELIVERY',
   'DELIVERING',
   'DELIVERED',
@@ -131,7 +130,7 @@ export function AdminProjects() {
               <SummaryCard icon={IconFolderOpen} label="Projects in View" value={projectsQuery.data?.total ?? projects.length} note="" />
               <SummaryCard icon={IconBriefcase} label="Active Projects" value={stats.active} note="Not completed/rejected" />
               <SummaryCard icon={IconUsers} label="Needs Owner" value={stats.unassignedSales + stats.unassignedDesigner} note="Sales or designer missing" />
-              <SummaryCard icon={IconCalendarDue} label="Attention Needed" value={stats.attention} note="Missing info, blocked, rejected" />
+              <SummaryCard icon={IconCalendarDue} label="Attention Needed" value={stats.attention} note="Missing info or rejected" />
             </section>
 
             <section className="admin-card admin-projects-filters" aria-label="Project filters">
@@ -712,7 +711,7 @@ function getProjectStats(projects: ProjectListItemDto[]) {
     active: projects.filter((project) => ACTIVE_PROJECT_STATUSES.includes(project.status)).length,
     unassignedSales: projects.filter((project) => !project.assignedSalesId).length,
     unassignedDesigner: projects.filter((project) => project.status !== 'SUBMITTED' && !project.assignedDesignerId).length,
-    attention: projects.filter((project) => ['NEED_BASIC_INFORMATION', 'PRODUCTION_BLOCKED', 'REJECTED'].includes(project.status)).length,
+    attention: projects.filter((project) => ['NEED_BASIC_INFORMATION', 'REJECTED'].includes(project.status)).length,
   };
 }
 
@@ -724,7 +723,6 @@ function getNextFocus(project: ProjectListItemDto | ProjectDto) {
   if (project.status === 'MEASUREMENT_REQUIRED') return 'Schedule measurement';
   if (project.status === 'SPACE_VERIFIED') return 'Start proposal consulting';
   if (project.status === 'PROPOSAL_CONSULTING') return 'Create, publish, and compare proposals';
-  if (project.status === 'PRODUCTION_BLOCKED') return 'Resolve production blocker';
   if (project.status === 'READY_FOR_DELIVERY') return 'Prepare delivery';
   if (project.status === 'REJECTED') return 'Closed as rejected';
   if (project.status === 'COMPLETED') return 'Completed';
@@ -744,7 +742,7 @@ function getProjectStageDescription(status: ProjectStatus) {
 
 function getStatusTone(status: ProjectStatus) {
   if (status === 'COMPLETED' || status === 'DELIVERED') return 'success';
-  if (status === 'REJECTED' || status === 'PRODUCTION_BLOCKED') return 'danger';
+  if (status === 'REJECTED') return 'danger';
   if (status === 'NEED_BASIC_INFORMATION' || status === 'MEASUREMENT_REQUIRED') return 'warning';
   if (status === 'SUBMITTED' || status === 'WAITING_FOR_DESIGNER_ASSIGNMENT' || status === 'PROPOSAL_CONSULTING') return 'info';
   return 'neutral';

@@ -3,8 +3,10 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   createProjectArea,
   getProjectAreas,
+  updateProjectArea,
   type ProjectAreaListParams,
   type ProjectAreaWriteInput,
+  type UpdateProjectAreaInput,
 } from '@/services/api/projectAreas';
 
 export const projectAreaQueryKeys = {
@@ -25,6 +27,19 @@ export function useCreateProjectArea() {
 
   return useMutation({
     mutationFn: (input: ProjectAreaWriteInput) => createProjectArea(input),
+    onSuccess: (area) => {
+      void queryClient.invalidateQueries({ queryKey: projectAreaQueryKeys.all });
+      void queryClient.invalidateQueries({ queryKey: ['project-areas', 'project'] });
+      void queryClient.invalidateQueries({ queryKey: ['projects', 'detail', area.projectId] });
+    },
+  });
+}
+
+export function useUpdateProjectArea() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (input: UpdateProjectAreaInput) => updateProjectArea(input),
     onSuccess: (area) => {
       void queryClient.invalidateQueries({ queryKey: projectAreaQueryKeys.all });
       void queryClient.invalidateQueries({ queryKey: ['project-areas', 'project'] });

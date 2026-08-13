@@ -76,7 +76,6 @@ const ACTIVE_STATUSES: ProjectStatus[] = [
   'QUOTATION_REVISION_REQUESTED',
   'ORDER_CONFIRMED',
   'IN_PRODUCTION',
-  'PRODUCTION_BLOCKED',
   'READY_FOR_DELIVERY',
   'DELIVERING',
 ];
@@ -98,7 +97,7 @@ const WAITING_INTERNAL_STATUSES: ProjectStatus[] = [
 
 const QUOTATION_PENDING_STATUSES: ProjectStatus[] = ['QUOTATION_SENT', 'QUOTATION_REVISION_REQUESTED'];
 const PAYMENT_FOLLOWUP_STATUSES: ProjectStatus[] = ['ORDER_CONFIRMED', 'DELIVERED'];
-const AT_RISK_STATUSES: ProjectStatus[] = ['NEED_BASIC_INFORMATION', 'PRODUCTION_BLOCKED', 'REJECTED'];
+const AT_RISK_STATUSES: ProjectStatus[] = ['NEED_BASIC_INFORMATION', 'REJECTED'];
 
 export function SaleDashbroad() {
   const [activeGroup, setActiveGroup] = useState<QueueGroup>('Intake');
@@ -444,9 +443,6 @@ function getQueueMeta(status: ProjectStatus): {
   }
   if (status === 'IN_PRODUCTION') {
     return { action: 'Monitor production', group: 'Payment and Production', path: () => '/sales/orders', phase: 'In production', priority: 'Medium' };
-  }
-  if (status === 'PRODUCTION_BLOCKED') {
-    return { action: 'Resolve production blocker', group: 'Payment and Production', path: () => '/sales/orders', phase: 'Production blocked', priority: 'High' };
   }
   if (status === 'READY_FOR_DELIVERY') {
     return { action: 'Create delivery schedule', group: 'Delivery and Completion', path: () => '/sales/tracking', phase: 'Ready for delivery', priority: 'Medium' };

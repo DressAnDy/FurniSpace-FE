@@ -8,10 +8,15 @@ import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 
 import { CustomerNavbar } from '@/features/CustomerPages/customercomponents';
+import { PaymentCollectionModal } from '@/features/payments/PaymentCollectionModal';
+import { getOrderServiceResultMessage, type OrderListItemDto, type OrderStatus } from '@/services/api/orders';
+import type { PaymentDetailDto } from '@/services/api/payments';
 import { getQuotationServiceResultMessage, type QuotationDto, type QuotationItemDto, type QuotationStatus } from '@/services/api/quotations';
 import type { ProjectListItemDto } from '@/services/api/projects';
 import {
   useAcceptQuotation,
+  useCreateOrderDepositPayment,
+  useProjectOrders,
   useProjectList,
   useProjectProposals,
   useProposalDetail,
@@ -20,6 +25,7 @@ import {
   useRejectQuotation,
   useRequestQuotationRevision,
 } from '@/services/queries';
+import { aggregateDuplicateItems } from '@/shared/utils/itemAggregation';
 
 import './CustomerQuotationsPage.css';
 
@@ -39,17 +45,24 @@ export function CustomerQuotationsPage() {
   const [selectedQuotationId, setSelectedQuotationId] = useState('');
   const [revisionReason, setRevisionReason] = useState('');
   const [rejectReason, setRejectReason] = useState('');
+  const [activePayment, setActivePayment] = useState<PaymentDetailDto | null>(null);
   const [message, setMessage] = useState<{ tone: 'error' | 'success'; text: string } | null>(null);
   const projectsQuery = useProjectList({ page: 1, limit: 50 });
   const projects = useMemo(() => projectsQuery.data?.items ?? [], [projectsQuery.data?.items]);
   const quotationProjects = useMemo(() => getQuotationProjects(projects), [projects]);
   const quotationsQuery = useProjectQuotations({ projectId: selectedProjectId }, { enabled: Boolean(selectedProjectId) });
+  const ordersQuery = useProjectOrders(selectedProjectId, { enabled: Boolean(selectedProjectId) });
   const projectProposalsQuery = useProjectProposals(
     { projectId: selectedProjectId, limit: 50 },
     { enabled: Boolean(selectedProjectId) },
   );
   const quotations = useMemo(() => quotationsQuery.data?.items ?? [], [quotationsQuery.data?.items]);
+  const orders = useMemo(() => ordersQuery.data?.items ?? [], [ordersQuery.data?.items]);
   const selectedQuotation = useQuotationDetail(selectedQuotationId, { enabled: Boolean(selectedQuotationId) }).data;
+  const selectedQuotationOrder = useMemo(
+    () => orders.find((order) => order.quotationId === selectedQuotation?.quotationId) ?? null,
+    [orders, selectedQuotation?.quotationId],
+  );
   const proposalNameById = useMemo(
     () => new Map((projectProposalsQuery.data?.items ?? []).map((proposal) => [proposal.proposalId, proposal.proposalName])),
     [projectProposalsQuery.data?.items],
@@ -57,6 +70,7 @@ export function CustomerQuotationsPage() {
   const selectedProposalQuery = useProposalDetail(selectedQuotation?.proposalId, { enabled: Boolean(selectedQuotation?.proposalId) });
   const selectedProposalName = getProposalName(selectedQuotation?.proposalId, proposalNameById, selectedProposalQuery.data?.proposalName);
   const acceptMutation = useAcceptQuotation();
+  const depositMutation = useCreateOrderDepositPayment();
   const revisionMutation = useRequestQuotationRevision();
   const rejectMutation = useRejectQuotation();
 
@@ -85,8 +99,27 @@ export function CustomerQuotationsPage() {
     try {
       await acceptMutation.mutateAsync(selectedQuotation.quotationId);
       setMessage({ tone: 'success', text: 'Quotation accepted. Your order is being created from this quotation.' });
+      void ordersQuery.refetch();
     } catch (error) {
       setMessage({ tone: 'error', text: getQuotationServiceResultMessage(error) });
+    }
+  }
+
+  async function createDepositPayment() {
+    if (!selectedQuotationOrder) return;
+
+    setMessage(null);
+
+    try {
+      const payment = await depositMutation.mutateAsync({
+        orderId: selectedQuotationOrder.orderId,
+        note: 'Customer deposit payment from quotation.',
+      });
+
+      setActivePayment(payment);
+      setMessage({ tone: 'success', text: 'Deposit payment is ready.' });
+    } catch (error) {
+      setMessage({ tone: 'error', text: getOrderServiceResultMessage(error) });
     }
   }
 
@@ -186,6 +219,7 @@ export function CustomerQuotationsPage() {
                   onClick={() => {
                     setSelectedProjectId(project.projectId);
                     setSelectedQuotationId('');
+                    setActivePayment(null);
                     setMessage(null);
                   }}
                 >
@@ -202,6 +236,8 @@ export function CustomerQuotationsPage() {
             {selectedQuotation ? (
               <QuotationDetail
                 acceptPending={acceptMutation.isPending}
+                depositPending={depositMutation.isPending}
+                order={selectedQuotationOrder}
                 quotation={selectedQuotation}
                 proposalName={selectedProposalName}
                 rejectPending={rejectMutation.isPending}
@@ -209,12 +245,27 @@ export function CustomerQuotationsPage() {
                 revisionPending={revisionMutation.isPending}
                 revisionReason={revisionReason}
                 onAccept={() => void acceptQuotation()}
+                onCreateDeposit={() => void createDepositPayment()}
                 onReject={(event) => void rejectQuotation(event)}
                 onRejectReasonChange={setRejectReason}
                 onRequestRevision={(event) => void requestRevision(event)}
                 onRevisionReasonChange={setRevisionReason}
               />
             ) : null}
+
+            <PaymentCollectionModal
+              completionDescription="Your deposit has been confirmed. The order status will be refreshed automatically."
+              completionTitle="Deposit Paid"
+              continueLabel="Back to Quotation"
+              payment={activePayment}
+              title="Deposit Payment"
+              onClose={() => setActivePayment(null)}
+              onPaid={() => {
+                setActivePayment(null);
+                void ordersQuery.refetch();
+                void projectsQuery.refetch();
+              }}
+            />
           </section>
         </section>
       </div>
@@ -224,12 +275,15 @@ export function CustomerQuotationsPage() {
 
 function QuotationDetail({
   acceptPending,
+  depositPending,
   onAccept,
+  onCreateDeposit,
   onReject,
   onRejectReasonChange,
   onRequestRevision,
   onRevisionReasonChange,
   quotation,
+  order,
   proposalName,
   rejectPending,
   rejectReason,
@@ -237,13 +291,16 @@ function QuotationDetail({
   revisionReason,
 }: {
   acceptPending: boolean;
+  depositPending: boolean;
   onAccept: () => void;
+  onCreateDeposit: () => void;
   onReject: (event: FormEvent<HTMLFormElement>) => void;
   onRejectReasonChange: (value: string) => void;
   onRequestRevision: (event: FormEvent<HTMLFormElement>) => void;
   onRevisionReasonChange: (value: string) => void;
   proposalName: string;
   quotation: QuotationDto & { items?: QuotationItemDto[] };
+  order: OrderListItemDto | null;
   rejectPending: boolean;
   rejectReason: string;
   revisionPending: boolean;
@@ -251,12 +308,15 @@ function QuotationDetail({
 }) {
   const canDecide = quotation.status === 'SENT' || quotation.status === 'REVISED';
   const quotationItems = useMemo(
-    () =>
-      [...(quotation.items ?? [])].sort(
+    () => {
+      const sortedItems = [...(quotation.items ?? [])].sort(
         (first, second) =>
           (first.displayOrder ?? Number.MAX_SAFE_INTEGER) - (second.displayOrder ?? Number.MAX_SAFE_INTEGER)
           || first.quotationItemId.localeCompare(second.quotationItemId),
-      ),
+      );
+
+      return aggregateDuplicateItems(sortedItems);
+    },
     [quotation.items],
   );
 
@@ -290,10 +350,26 @@ function QuotationDetail({
           <strong>{formatMoney(quotation.vatAmount)}</strong>
         </div>
         <div>
+          <span>Deposit</span>
+          <strong>{formatMoney(quotation.depositAmount)}</strong>
+        </div>
+        <div>
           <span>Total</span>
           <strong>{formatMoney(quotation.totalAmount)}</strong>
         </div>
       </div>
+
+      <section className="customer-quotations-payment-panel">
+        <div>
+          <span>Deposit Payment</span>
+          <strong>{getDepositPaymentLabel(quotation.status, order)}</strong>
+        </div>
+        {order && canCreateDepositPayment(order.status) ? (
+          <button disabled={depositPending} type="button" onClick={onCreateDeposit}>
+            {depositPending ? 'Preparing...' : order.status === 'CREATED' ? 'Create Deposit Payment' : 'Pay Deposit'}
+          </button>
+        ) : null}
+      </section>
 
       <div className="customer-quotations-table-wrap">
         <table>
@@ -398,6 +474,26 @@ function getQuotationItemName(item: Pick<QuotationItemDto, 'itemName' | 'product
 
 function statusClass(status?: QuotationStatus | null) {
   return (status ?? 'UNKNOWN').toLowerCase().replace(/_/g, '-');
+}
+
+function canCreateDepositPayment(status?: OrderStatus | null) {
+  return status === 'CREATED' || status === 'DEPOSIT_PENDING';
+}
+
+function getDepositPaymentLabel(status: QuotationStatus | null | undefined, order: OrderListItemDto | null) {
+  if (status === 'SENT' || status === 'REVISED') {
+    return 'Accept quotation first';
+  }
+
+  if (!order) {
+    return status === 'ACCEPTED' ? 'Preparing order' : 'Not available';
+  }
+
+  if (order.status === 'CREATED') return 'Ready to create payment';
+  if (order.status === 'DEPOSIT_PENDING') return 'Payment pending';
+  if (order.status === 'DEPOSIT_PAID') return 'Deposit paid';
+
+  return formatEnumLabel(order.status ?? 'UNKNOWN');
 }
 
 function formatEnumLabel(value: string) {

@@ -1,5 +1,5 @@
 import { useMemo, useState, type ReactNode } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { IconChartBar, IconDownload, IconReportAnalytics } from '@tabler/icons-react';
 
 import type {
@@ -31,15 +31,17 @@ import {
 } from '@/services/queries';
 
 import { AdminNavbar, AdminSidebar } from '../admincomponents';
+import { FinancialPanel } from './AdminFinancialPanel';
 import './AdminReports.css';
 
-type ReportTabId = ReportExportDomain;
+type ReportTabId = ReportExportDomain | 'financial';
 
 const REPORT_TABS: Array<{ id: ReportTabId; title: string; description: string; exportable: boolean }> = [
   { id: 'overview', title: 'Overview', description: 'Cross-domain snapshot for the selected date range.', exportable: true },
   { id: 'business', title: 'Business', description: 'Accounts and soft-cap capacity for designers and sales.', exportable: true },
   { id: 'projects', title: 'Projects', description: 'Pipeline buckets, aging, and intake blockers.', exportable: true },
   { id: 'commercial', title: 'Commercial', description: 'Quotations, orders, payments, and trend chart.', exportable: true },
+  { id: 'financial', title: 'Financial', description: 'Cash collection, receivables, payment ops, and exceptions.', exportable: false },
   { id: 'production', title: 'Production', description: 'Open requests and production staff workload.', exportable: true },
   { id: 'delivery', title: 'Delivery', description: 'Delivery pipeline and customer reviews.', exportable: true },
   { id: 'catalog', title: 'Catalog', description: 'Catalog readiness and bestsellers in range.', exportable: true },
@@ -55,14 +57,28 @@ function defaultDateRange() {
   };
 }
 
+function isReportTabId(value: string | null): value is ReportTabId {
+  return REPORT_TABS.some((tab) => tab.id === value);
+}
+
 export function AdminReports() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const initialRange = useMemo(() => defaultDateRange(), []);
-  const [activeTab, setActiveTab] = useState<ReportTabId>('overview');
+  const tabFromUrl = searchParams.get('tab');
+  const [activeTab, setActiveTab] = useState<ReportTabId>(isReportTabId(tabFromUrl) ? tabFromUrl : 'overview');
   const [fromDate, setFromDate] = useState(initialRange.from);
   const [toDate, setToDate] = useState(initialRange.to);
   const [exportMessage, setExportMessage] = useState<string | null>(null);
 
   const dateParams = useMemo(
+    () => ({
+      from: toFinancialApiDateTime(fromDate),
+      to: toFinancialApiDateTime(toDate),
+    }),
+    [fromDate, toDate],
+  );
+
+  const reportDateParams = useMemo(
     () => ({
       from: toApiDateTime(fromDate, 'start'),
       to: toApiDateTime(toDate, 'end'),
@@ -74,13 +90,25 @@ export function AdminReports() {
   const activeMeta = REPORT_TABS.find((tab) => tab.id === activeTab) ?? REPORT_TABS[0];
   const generatedTime = new Intl.DateTimeFormat('en-US', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date());
 
+  const handleTabChange = (tab: ReportTabId) => {
+    setActiveTab(tab);
+    const next = new URLSearchParams(searchParams);
+    if (tab === 'overview') {
+      next.delete('tab');
+    } else {
+      next.set('tab', tab);
+    }
+    setSearchParams(next, { replace: true });
+  };
+
   const handleExport = async () => {
+    if (activeTab === 'financial') return;
     setExportMessage(null);
     try {
       const result = await exportMutation.mutateAsync({
         domain: activeTab,
-        from: dateParams.from,
-        to: dateParams.to,
+        from: reportDateParams.from,
+        to: reportDateParams.to,
       });
       downloadBlob(result.blob, result.filename);
       setExportMessage(`Exported ${result.filename}`);
@@ -99,7 +127,7 @@ export function AdminReports() {
             <section className="admin-page-heading admin-reports-heading">
               <div>
                 <h2>Reports</h2>
-                <p>Business, project, commercial, production, delivery, and catalog analysis</p>
+                <p>Business, project, commercial, financial, production, delivery, and catalog analysis</p>
                 <span className="admin-report-freshness">Generated {generatedTime}</span>
               </div>
               <div className="admin-reports-actions">
@@ -125,7 +153,7 @@ export function AdminReports() {
                   onChange={(event) => {
                     const nextFrom = event.target.value;
                     setFromDate(nextFrom);
-                    setToDate((current) => current && nextFrom && current < nextFrom ? nextFrom : current);
+                    setToDate((current) => (current && nextFrom && current < nextFrom ? nextFrom : current));
                   }}
                 />
               </label>
@@ -140,8 +168,8 @@ export function AdminReports() {
                 />
               </label>
               <p className="admin-report-filter-note">
-                Date range applies to overview, projects, commercial, production, delivery, trend, reviews, bestsellers, and
-                export. Soft caps are display-only (Designer 2 / Sales 5 / Production 5).
+                Date range applies to overview, projects, commercial, financial, production, delivery, trend, reviews,
+                bestsellers, and export. Soft caps are display-only (Designer 2 / Sales 5 / Production 5).
               </p>
             </section>
 
@@ -160,7 +188,7 @@ export function AdminReports() {
                   key={tab.id}
                   className={`admin-report-tab${tab.id === activeTab ? ' admin-report-tab-active' : ''}`}
                   type="button"
-                  onClick={() => setActiveTab(tab.id)}
+                  onClick={() => handleTabChange(tab.id)}
                 >
                   {tab.title}
                 </button>
@@ -177,12 +205,17 @@ export function AdminReports() {
               </div>
             </section>
 
-            {activeTab === 'overview' ? <OverviewPanel dateParams={dateParams} /> : null}
+            {activeTab === 'overview' ? <OverviewPanel dateParams={reportDateParams} /> : null}
             {activeTab === 'business' ? <BusinessPanel /> : null}
-            {activeTab === 'projects' ? <ProjectsPanel dateParams={dateParams} /> : null}
-            {activeTab === 'commercial' ? <CommercialPanel dateParams={dateParams} fromDate={fromDate} toDate={toDate} /> : null}
-            {activeTab === 'production' ? <ProductionPanel dateParams={dateParams} /> : null}
-            {activeTab === 'delivery' ? <DeliveryPanel dateParams={dateParams} /> : null}
+            {activeTab === 'projects' ? <ProjectsPanel dateParams={reportDateParams} /> : null}
+            {activeTab === 'commercial' ? (
+              <CommercialPanel dateParams={reportDateParams} fromDate={fromDate} toDate={toDate} />
+            ) : null}
+            {activeTab === 'financial' ? (
+              <FinancialPanel dateParams={dateParams} fromDate={fromDate} toDate={toDate} />
+            ) : null}
+            {activeTab === 'production' ? <ProductionPanel dateParams={reportDateParams} /> : null}
+            {activeTab === 'delivery' ? <DeliveryPanel dateParams={reportDateParams} /> : null}
             {activeTab === 'catalog' ? <CatalogPanel fromDate={fromDate} toDate={toDate} /> : null}
           </div>
         </section>
@@ -669,7 +702,7 @@ function ProductionPanel({ dateParams }: { dateParams: { from: string; to: strin
           <div className="admin-report-kpi-grid admin-report-kpi-grid-4">
             <KpiCard label="Active staff" value={summary?.totalActiveStaff} />
             <KpiCard label="Open requests" value={summary?.totalOpenRequests} note={`Soft cap ${summary?.maxActiveRequests ?? 5}`} />
-            <KpiCard label="Blocked" value={summary?.blockedCount} />
+            <KpiCard label="Available staff" value={summary?.availableCount} />
             <KpiCard label="Overdue" value={summary?.overdueCount} />
           </div>
           {summary ? (
@@ -762,7 +795,6 @@ function ProductionPanel({ dateParams }: { dateParams: { from: string; to: strin
                     <th>Staff</th>
                     <th>Email</th>
                     <th>Open</th>
-                    <th>Blocked</th>
                     <th>Overdue</th>
                     <th>Slots</th>
                     <th>Capacity</th>
@@ -776,7 +808,6 @@ function ProductionPanel({ dateParams }: { dateParams: { from: string; to: strin
                       <td>
                         {item.openRequestCount}/{item.maxActiveRequests}
                       </td>
-                      <td>{item.blockedCount}</td>
                       <td>{item.overdueCount}</td>
                       <td>{item.availableSlot}</td>
                       <td>{formatLabel(item.capacityState)}</td>
@@ -1348,6 +1379,11 @@ function toDateInputValue(date: Date) {
 function toApiDateTime(dateInput: string, edge: 'start' | 'end') {
   if (!dateInput) return '';
   return edge === 'start' ? `${dateInput}T00:00:00` : `${dateInput}T23:59:59`;
+}
+
+function toFinancialApiDateTime(dateInput: string) {
+  if (!dateInput) return '';
+  return `${dateInput}T00:00:00+07:00`;
 }
 
 function downloadBlob(blob: Blob, filename: string) {

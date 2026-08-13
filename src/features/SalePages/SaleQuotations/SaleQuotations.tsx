@@ -6,7 +6,6 @@ import type { ProjectListItemDto, ProjectStatus } from '@/services/api/projects'
 import {
   useCancelQuotation,
   useBulkUpdateQuotationItemFinancials,
-  useCreateDraftQuotation,
   useCurrentUser,
   useProjectList,
   useProjectProposals,
@@ -37,7 +36,6 @@ const finalizedQuotationProjectStatuses = new Set<ProjectStatus>([
   'QUOTATION_REVISION_REQUESTED',
   'ORDER_CONFIRMED',
   'IN_PRODUCTION',
-  'PRODUCTION_BLOCKED',
   'READY_FOR_DELIVERY',
   'DELIVERING',
   'DELIVERED',
@@ -52,12 +50,21 @@ type FinancialDraft = {
   discountAmount: string;
 };
 
+type SavedQuotationHeaderSnapshot = {
+  quotationId: string;
+  validUntil?: string | null;
+  depositAmount?: number | null;
+  salesNote?: string | null;
+};
+
 export function SaleQuotations() {
   const [selectedProjectId, setSelectedProjectId] = useState('');
   const [selectedStatus, setSelectedStatus] = useState<QuotationStatus | null>(null);
   const [selectedQuotationId, setSelectedQuotationId] = useState('');
   const [validUntil, setValidUntil] = useState('');
   const [salesNote, setSalesNote] = useState('');
+  const [depositAmount, setDepositAmount] = useState('');
+  const [savedHeaderSnapshot, setSavedHeaderSnapshot] = useState<SavedQuotationHeaderSnapshot | null>(null);
   const [financialDrafts, setFinancialDrafts] = useState<Record<string, FinancialDraft>>({});
   const [message, setMessage] = useState<{ tone: 'error' | 'success'; text: string } | null>(null);
   const [projectView, setProjectView] = useState<QuotationProjectView>('pending');
@@ -79,7 +86,6 @@ export function SaleQuotations() {
     { enabled: Boolean(selectedProjectId) },
   );
   const updateQuotationMutation = useUpdateQuotation();
-  const createDraftQuotationMutation = useCreateDraftQuotation();
   const bulkFinancialsMutation = useBulkUpdateQuotationItemFinancials();
   const sendQuotationMutation = useSendQuotation();
   const reviseQuotationMutation = useReviseQuotation();
@@ -113,15 +119,22 @@ export function SaleQuotations() {
   );
   const selectedProject = quotationProjects.find((project) => project.projectId === selectedProjectId);
   const selectedQuotation = quotationDetailQuery.data;
+  const selectedQuotationForActions = useMemo(
+    () => getSavedQuotationSnapshot(selectedQuotation, savedHeaderSnapshot),
+    [savedHeaderSnapshot, selectedQuotation],
+  );
   const selectedProposalQuery = useProposalDetail(selectedQuotation?.proposalId, { enabled: Boolean(selectedQuotation?.proposalId) });
   const selectedProposalName = getProposalName(selectedQuotation?.proposalId, proposalNameById, selectedProposalQuery.data?.proposalName);
   const selectedQuotationItems = useMemo(
-    () =>
-      [...(selectedQuotation?.items ?? [])].sort(
+    () => {
+      const sortedItems = [...(selectedQuotation?.items ?? [])].sort(
         (first, second) =>
           (first.displayOrder ?? Number.MAX_SAFE_INTEGER) - (second.displayOrder ?? Number.MAX_SAFE_INTEGER)
           || first.quotationItemId.localeCompare(second.quotationItemId),
-      ),
+      );
+
+      return sortedItems;
+    },
     [selectedQuotation?.items],
   );
 
@@ -158,10 +171,22 @@ export function SaleQuotations() {
 
   useEffect(() => {
     if (selectedQuotation) {
-      setValidUntil(toDateInputValue(selectedQuotation.validUntil));
-      setSalesNote(selectedQuotation.salesNote ?? '');
+      const savedHeader =
+        savedHeaderSnapshot?.quotationId === selectedQuotation.quotationId
+          ? savedHeaderSnapshot
+          : {
+            quotationId: selectedQuotation.quotationId,
+            validUntil: selectedQuotation.validUntil ?? null,
+            depositAmount: selectedQuotation.depositAmount ?? null,
+            salesNote: selectedQuotation.salesNote ?? null,
+          };
+
+      setValidUntil(toDateInputValue(savedHeader.validUntil));
+      setSalesNote(savedHeader.salesNote ?? '');
+      setDepositAmount(String(savedHeader.depositAmount ?? ''));
+      setSavedHeaderSnapshot(savedHeader);
     }
-  }, [selectedQuotation]);
+  }, [savedHeaderSnapshot, selectedQuotation]);
 
   useEffect(() => {
     setFinancialDrafts(getFinancialDrafts(selectedQuotation?.items ?? []));
@@ -180,31 +205,36 @@ export function SaleQuotations() {
       return;
     }
 
+    const depositValidation = validateDepositAmount(depositAmount, selectedQuotation.totalAmount);
+    if (!depositValidation.ok) {
+      setMessage({ tone: 'error', text: depositValidation.message });
+      return;
+    }
+
     try {
-      await updateQuotationMutation.mutateAsync({
+      const updatedQuotation = await updateQuotationMutation.mutateAsync({
         quotationId: selectedQuotation.quotationId,
         validUntil: validUntilResult.value,
         customerNote: selectedQuotation.customerNote ?? null,
         salesNote,
         revisionReason: selectedQuotation.revisionReason ?? null,
+        depositAmount: depositValidation.value,
       });
+      const savedDepositAmount = updatedQuotation.depositAmount ?? depositValidation.value;
+      const savedValidUntil = updatedQuotation.validUntil ?? validUntilResult.value;
+      const savedSalesNote = updatedQuotation.salesNote ?? salesNote;
+
+      setSavedHeaderSnapshot({
+        quotationId: selectedQuotation.quotationId,
+        validUntil: savedValidUntil,
+        depositAmount: savedDepositAmount,
+        salesNote: savedSalesNote,
+      });
+      setDepositAmount(String(savedDepositAmount));
+      setValidUntil(toDateInputValue(savedValidUntil));
+      setSalesNote(savedSalesNote);
+      void quotationDetailQuery.refetch();
       setMessage({ tone: 'success', text: 'Quotation header updated.' });
-    } catch (error) {
-      setMessage({ tone: 'error', text: getQuotationServiceResultMessage(error) });
-    }
-  }
-
-  async function createDraftQuotationForSelectedProject() {
-    if (!selectedProject || selectedProject.status !== 'PROPOSAL_SELECTED') return;
-
-    setMessage(null);
-
-    try {
-      const quotation = await createDraftQuotationMutation.mutateAsync(selectedProject.projectId);
-      setSelectedQuotationId(quotation.quotationId);
-      setSelectedStatus(null);
-      setProjectView('finalized');
-      setMessage({ tone: 'success', text: 'Draft quotation created from the selected proposal.' });
     } catch (error) {
       setMessage({ tone: 'error', text: getQuotationServiceResultMessage(error) });
     }
@@ -249,7 +279,14 @@ export function SaleQuotations() {
 
     try {
       if (action === 'send') {
-        const validUntilResult = validateRequiredFutureDate(selectedQuotation.validUntil, 'Quotation valid-until date');
+        const quotationForAction = getSavedQuotationSnapshot(selectedQuotation, savedHeaderSnapshot) ?? selectedQuotation;
+        const blockedReason = getSendBlockedReason(quotationForAction);
+        if (blockedReason) {
+          setMessage({ tone: 'error', text: blockedReason });
+          return;
+        }
+
+        const validUntilResult = validateRequiredFutureDate(quotationForAction.validUntil, 'Quotation valid-until date');
         if (!validUntilResult.ok) {
           setMessage({ tone: 'error', text: validUntilResult.message });
           return;
@@ -278,7 +315,7 @@ export function SaleQuotations() {
           <section className="sale-quotations-heading">
             <div>
               <h2>Quotations</h2>
-              <p>Create official quotations from customer-selected proposals, then review pricing before sending.</p>
+              <p>Review auto-created draft quotations from selected proposals, then adjust pricing and deposit before sending.</p>
             </div>
           </section>
 
@@ -356,20 +393,6 @@ export function SaleQuotations() {
                   <span>Selected Project</span>
                   <strong>{selectedProject ? `${selectedProject.projectCode} - ${formatEnumLabel(selectedProject.status)}` : 'No project selected'}</strong>
                 </div>
-                <button
-                  disabled={
-                    !selectedProject
-                    || selectedProject.status !== 'PROPOSAL_SELECTED'
-                    || quotations.length > 0
-                    || createDraftQuotationMutation.isPending
-                    || quotationsQuery.isLoading
-                  }
-                  title={getCreateDraftBlockedReason(selectedProject, quotations.length, quotationsQuery.isLoading)}
-                  type="button"
-                  onClick={() => void createDraftQuotationForSelectedProject()}
-                >
-                  {createDraftQuotationMutation.isPending ? 'Creating...' : 'Create Draft Quotation'}
-                </button>
               </section>
 
               <section className="sale-quotations-card">
@@ -477,7 +500,6 @@ export function SaleQuotations() {
                   </thead>
                   <tbody>
                     {selectedQuotationItems.map((item) => {
-                      const draft = financialDrafts[item.quotationItemId] ?? getFinancialDraft(item);
                       const editable = canEditFinancials(selectedQuotation.status);
 
                       return (
@@ -489,7 +511,16 @@ export function SaleQuotations() {
                         <td>{item.quantity ?? '-'}</td>
                         <td>{formatMoney(item.unitPrice)}</td>
                         <td>{formatMoney(item.grossAmount)}</td>
-                        <td>{editable ? <LineInput itemId={item.quotationItemId} name="discountAmount" value={draft.discountAmount} onChange={setFinancialDrafts} /> : formatMoney(item.discountAmount)}</td>
+                        <td>
+                          {editable ? (
+                            <LineInput
+                              itemId={item.quotationItemId}
+                              name="discountAmount"
+                              value={(financialDrafts[item.quotationItemId] ?? getFinancialDraft(item)).discountAmount}
+                              onChange={setFinancialDrafts}
+                            />
+                          ) : formatMoney(item.discountAmount)}
+                        </td>
                         <td>{formatMoney(item.totalAmount)}</td>
                       </tr>
                     );
@@ -515,6 +546,10 @@ export function SaleQuotations() {
                   <span>VAT {formatPercentRate(selectedQuotation.vatRate)}</span>
                   <strong>{formatMoney(selectedQuotation.vatAmount)}</strong>
                 </div>
+                <div>
+                  <span>Deposit</span>
+                  <strong>{formatMoney(selectedQuotationForActions?.depositAmount ?? selectedQuotation.depositAmount)}</strong>
+                </div>
                 <div className="sale-quotations-total">
                   <span>Total Amount</span>
                   <strong>{formatMoney(selectedQuotation.totalAmount)}</strong>
@@ -531,6 +566,10 @@ export function SaleQuotations() {
                     <span>Customer Note</span>
                     <input type="text" value={salesNote} onChange={(event) => setSalesNote(event.target.value)} placeholder="Note shown with the quotation" />
                   </label>
+                  <label>
+                    <span>Deposit Amount</span>
+                    <input inputMode="decimal" value={depositAmount} onChange={(event) => setDepositAmount(event.target.value)} placeholder="Required before sending" />
+                  </label>
                   <button disabled={updateQuotationMutation.isPending} type="submit">
                     {updateQuotationMutation.isPending ? 'Saving...' : 'Save Quotation Details'}
                   </button>
@@ -539,8 +578,8 @@ export function SaleQuotations() {
 
               <div className="sale-quotations-actions">
                 <button
-                  disabled={!canSend(selectedQuotation) || sendQuotationMutation.isPending}
-                  title={getSendBlockedReason(selectedQuotation) ?? 'Send this quotation to the customer.'}
+                  disabled={!selectedQuotationForActions || !canSend(selectedQuotationForActions) || sendQuotationMutation.isPending}
+                  title={selectedQuotationForActions ? getSendBlockedReason(selectedQuotationForActions) ?? 'Send this quotation to the customer.' : undefined}
                   type="button"
                   onClick={() => void runQuotationAction('send')}
                 >
@@ -553,8 +592,8 @@ export function SaleQuotations() {
                   {cancelQuotationMutation.isPending ? 'Cancelling...' : 'Cancel'}
                 </button>
               </div>
-              {getSendBlockedReason(selectedQuotation) ? (
-                <p className="sale-quotations-action-hint">{getSendBlockedReason(selectedQuotation)}</p>
+              {selectedQuotationForActions && getSendBlockedReason(selectedQuotationForActions) ? (
+                <p className="sale-quotations-action-hint">{getSendBlockedReason(selectedQuotationForActions)}</p>
               ) : null}
             </section>
               ) : null}
@@ -637,17 +676,23 @@ function canCancel(status?: QuotationStatus | null) {
   return status === 'DRAFT' || status === 'REVISION_REQUESTED' || status === 'REVISED';
 }
 
-function canSend(quotation: QuotationDto & { items?: unknown[] }) {
-  return !getSendBlockedReason(quotation);
+function getSavedQuotationSnapshot(
+  quotation: (QuotationDto & { items?: unknown[] }) | undefined,
+  snapshot: SavedQuotationHeaderSnapshot | null,
+) {
+  if (!quotation || snapshot?.quotationId !== quotation.quotationId) {
+    return quotation;
+  }
+
+  return {
+    ...quotation,
+    validUntil: snapshot.validUntil ?? quotation.validUntil,
+    depositAmount: snapshot.depositAmount ?? quotation.depositAmount,
+  };
 }
 
-function getCreateDraftBlockedReason(project: ProjectListItemDto | undefined, quotationCount: number, isLoading: boolean) {
-  if (isLoading) return 'Loading existing quotations for this project.';
-  if (!project) return 'Select a project waiting for quotation.';
-  if (project.status !== 'PROPOSAL_SELECTED') return 'Draft quotation can only be created after the customer selects a final proposal.';
-  if (quotationCount > 0) return 'This project already has a quotation.';
-
-  return 'Create a Sales-owned draft quotation from the selected proposal.';
+function canSend(quotation: QuotationDto & { items?: unknown[] }) {
+  return !getSendBlockedReason(quotation);
 }
 
 function getSendBlockedReason(quotation: QuotationDto & { items?: unknown[] }) {
@@ -671,13 +716,39 @@ function getSendBlockedReason(quotation: QuotationDto & { items?: unknown[] }) {
     return 'Quotation total must be greater than 0 before sending.';
   }
 
+  const depositValidation = validateDepositAmount(quotation.depositAmount, quotation.totalAmount);
+  if (!depositValidation.ok) {
+    return depositValidation.message;
+  }
+
   return null;
+}
+
+function validateDepositAmount(value: string | number | null | undefined, totalAmount?: number | null) {
+  const deposit = typeof value === 'number' ? value : normalizeMoneyInput(value ?? '');
+  const total = totalAmount ?? 0;
+
+  if (!Number.isFinite(deposit) || deposit <= 0) {
+    return { ok: false as const, message: 'Deposit amount must be greater than 0 before sending this quotation.' };
+  }
+
+  if (deposit > total) {
+    return { ok: false as const, message: 'Deposit amount cannot be greater than quotation total.' };
+  }
+
+  return { ok: true as const, value: deposit };
 }
 
 function normalizeNumber(value: string) {
   const numberValue = Number(value);
 
   return Number.isFinite(numberValue) ? numberValue : 0;
+}
+
+function normalizeMoneyInput(value: string) {
+  const parsed = Number(value.trim().replace(/\./g, '').replace(',', '.'));
+
+  return Number.isFinite(parsed) ? parsed : 0;
 }
 
 function getFinancialDrafts(items: QuotationItemDto[]) {
