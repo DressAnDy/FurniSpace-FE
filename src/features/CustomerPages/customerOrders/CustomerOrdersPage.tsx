@@ -374,14 +374,6 @@ function formatPercentRate(value?: number | null) {
   return `${new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 2 }).format(value * 100)}%`;
 }
 
-function formatDeliveryState(item: OrderItemDto) {
-  const delivered = item.deliveredQuantity ?? 0;
-  const quantity = item.quantity ?? 0;
-  const status = item.status ? formatEnumLabel(item.status) : 'Pending';
-
-  return `${delivered}/${quantity} - ${status}`;
-}
-
 function formatGroupedDeliveryState(item: GroupedOrderItem) {
   const delivered = item.deliveredQuantity ?? 0;
   const quantity = item.quantity ?? 0;
@@ -399,13 +391,6 @@ function canConfirmDelivery(item: OrderItemDto) {
   const quantity = item.quantity ?? 0;
 
   return quantity > 0 && delivered >= quantity;
-}
-
-function getDeliveryConfirmationLabel(item: OrderItemDto) {
-  if (item.status === 'CANCELLED' || item.status === 'UNAVAILABLE') return 'Not deliverable';
-  if (item.customerConfirmedAt) return 'Confirmed';
-
-  return 'Pending delivery';
 }
 
 function getGroupedDeliveryConfirmationLabel(item: GroupedOrderItem) {
