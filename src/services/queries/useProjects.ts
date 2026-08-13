@@ -8,6 +8,7 @@ import {
   getProjectById,
   getProjectFiles,
   getProjects,
+  reopenProjectProposal,
   requestProjectInformation,
   updateProjectStatus,
   updateProjectBasicInformation,
@@ -178,6 +179,22 @@ export function useUpdateProjectStatus() {
       void queryClient.invalidateQueries({ queryKey: projectQueryKeys.workflow(data.projectId) });
       void queryClient.invalidateQueries({ queryKey: projectChatQueryKeys.all });
       invalidateProjectCaches(queryClient, data.projectId);
+    },
+  });
+}
+
+export function useReopenProjectProposal() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (projectId: string) => reopenProjectProposal(projectId),
+    onSuccess: (data) => {
+      invalidateProjectCaches(queryClient, data.projectId);
+      void queryClient.invalidateQueries({ queryKey: ['proposals', 'project'] });
+      void queryClient.invalidateQueries({ queryKey: ['quotations'] });
+      void queryClient.invalidateQueries({ queryKey: ['orders'] });
+      void queryClient.invalidateQueries({ queryKey: ['payments'] });
+      void queryClient.invalidateQueries({ queryKey: ['notifications'] });
     },
   });
 }

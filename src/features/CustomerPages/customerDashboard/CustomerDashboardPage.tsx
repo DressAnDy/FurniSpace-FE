@@ -57,7 +57,6 @@ const activeProjectStatuses: ProjectStatus[] = [
   'QUOTATION_REVISION_REQUESTED',
   'ORDER_CONFIRMED',
   'IN_PRODUCTION',
-  'PRODUCTION_BLOCKED',
   'READY_FOR_DELIVERY',
   'DELIVERING',
   'DELIVERED',
@@ -357,7 +356,7 @@ function getJourneyIndex(status: ProjectStatus) {
     return 5;
   }
 
-  if (['IN_PRODUCTION', 'PRODUCTION_BLOCKED', 'READY_FOR_DELIVERY', 'DELIVERING', 'DELIVERED'].includes(status)) {
+  if (['IN_PRODUCTION', 'READY_FOR_DELIVERY', 'DELIVERING', 'DELIVERED'].includes(status)) {
     return 6;
   }
 

@@ -30,7 +30,6 @@ import './Tracking.css';
 const trackableProjectStatuses = new Set<ProjectStatus>([
   'ORDER_CONFIRMED',
   'IN_PRODUCTION',
-  'PRODUCTION_BLOCKED',
   'READY_FOR_DELIVERY',
   'DELIVERING',
   'DELIVERED',
@@ -41,7 +40,7 @@ const itemStatusLabels: Record<string, string> = {
   PENDING: 'Waiting to start',
   IN_PRODUCTION: 'In production',
   COMPLETED: 'Production completed',
-  BLOCKED: 'Blocked',
+  ATTENTION: 'Needs attention',
   UNAVAILABLE: 'Unavailable',
   CANCELLED: 'Cancelled',
   DELIVERING: 'Delivering',
@@ -293,7 +292,7 @@ function sumItemNumbers(items: OrderItemDto[], field: 'deliveredQuantity' | 'qua
 }
 
 function isBlockedOrUnavailable(status?: string | null) {
-  return status === 'BLOCKED' || status === 'CANCELLED' || status === 'UNAVAILABLE';
+  return status === 'CANCELLED' || status === 'UNAVAILABLE';
 }
 
 function getCustomerItemStatus(item: OrderItemDto, orderStatus?: OrderStatus | null) {
@@ -307,7 +306,7 @@ function getCustomerItemStatus(item: OrderItemDto, orderStatus?: OrderStatus | n
 }
 
 function getGroupStatus(group: OrderItemGroup, orderStatus?: OrderStatus | null) {
-  if (group.hasAttention) return 'BLOCKED';
+  if (group.hasAttention) return 'ATTENTION';
   if (group.confirmedQuantity >= group.quantity && group.quantity > 0) return 'DELIVERED';
   if (group.deliveredQuantity >= group.quantity && group.quantity > 0) return 'DELIVERING';
 
@@ -333,7 +332,6 @@ function getOrderItemName(item: Pick<OrderItemDto, 'itemName' | 'productNameSnap
 
 function getTrackingMessage(status?: string | null) {
   if (status === 'IN_PRODUCTION') return 'Your order is currently in production. Item statuses below show what is being worked on.';
-  if (status === 'PRODUCTION_BLOCKED') return 'One or more items needs production attention. The team will coordinate next steps.';
   if (status === 'READY_FOR_DELIVERY') return 'Production is complete and the team is preparing delivery coordination.';
   if (status === 'DELIVERING') return 'Delivery is in progress. Items can be confirmed once fully delivered.';
   if (status === 'DELIVERED') return 'Delivery has been completed and final payment or completion may be pending.';

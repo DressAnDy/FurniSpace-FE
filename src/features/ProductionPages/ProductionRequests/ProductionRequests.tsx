@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { IconAlertTriangle, IconCheck, IconClipboardList, IconClockCog } from '@tabler/icons-react';
+import { IconCheck, IconClipboardList, IconClockCog } from '@tabler/icons-react';
 import { Link } from 'react-router-dom';
 
 import {
@@ -27,7 +27,6 @@ const filters: Array<{ label: string; value: RequestFilter }> = [
   { label: 'Pending Review', value: 'PENDING_REVIEW' },
   { label: 'Feasible', value: 'FEASIBLE' },
   { label: 'In Production', value: 'IN_PRODUCTION' },
-  { label: 'Blocked', value: 'BLOCKED' },
   { label: 'Completed', value: 'COMPLETED' },
   { label: 'Cancelled', value: 'CANCELLED' },
 ];
@@ -117,8 +116,8 @@ export function ProductionRequests() {
 
         <section className="production-workspace-summary-grid">
           <ProductionSummaryCard icon={IconClipboardList} label="Pending Review" value={rawRequests.filter((request) => request.status === 'PENDING_REVIEW').length} />
+          <ProductionSummaryCard icon={IconClockCog} label="Feasible" value={rawRequests.filter((request) => request.status === 'FEASIBLE').length} />
           <ProductionSummaryCard icon={IconClockCog} label="In Production" value={rawRequests.filter((request) => request.status === 'IN_PRODUCTION').length} />
-          <ProductionSummaryCard icon={IconAlertTriangle} label="Blocked" value={rawRequests.filter((request) => request.status === 'BLOCKED').length} />
           <ProductionSummaryCard icon={IconCheck} label="Completed" value={rawRequests.filter((request) => request.status === 'COMPLETED').length} />
         </section>
 
@@ -183,7 +182,7 @@ export function ProductionRequests() {
                         {productionRequestAllowedActions[request.status].slice(0, 2).map((action) => (
                           <button
                             className="is-secondary"
-                            disabled={markFeasibleMutation.isPending || startMutation.isPending || action === 'Mark Blocked' || action === 'Cancel' || action === 'Resolve Blocked'}
+                            disabled={markFeasibleMutation.isPending || startMutation.isPending || action === 'Cancel'}
                             key={action}
                             type="button"
                             onClick={() => void runQuickAction(action, request.productionRequestId)}

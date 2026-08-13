@@ -11,7 +11,6 @@ export type ProjectStatus =
   | 'QUOTATION_REVISION_REQUESTED'
   | 'ORDER_CONFIRMED'
   | 'IN_PRODUCTION'
-  | 'PRODUCTION_BLOCKED'
   | 'READY_FOR_DELIVERY'
   | 'DELIVERING'
   | 'DELIVERED'
@@ -94,7 +93,7 @@ export interface CustomerProjectReview {
   updatedAt?: string;
 }
 
-export type CustomerProductionItemStatus = 'PENDING' | 'IN_PRODUCTION' | 'COMPLETED' | 'BLOCKED' | 'CANCELLED';
+export type CustomerProductionItemStatus = 'PENDING' | 'IN_PRODUCTION' | 'COMPLETED' | 'CANCELLED';
 
 export interface CustomerProductionTrackingItem {
   productionItemId: string;

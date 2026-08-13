@@ -80,12 +80,6 @@ export function ProductionRequestDetail() {
       return;
     }
 
-    const productionNote = status === 'BLOCKED' ? window.prompt('Block reason') : null;
-
-    if (status === 'BLOCKED' && !productionNote?.trim()) {
-      return;
-    }
-
     setMessage(null);
 
     try {
@@ -96,7 +90,7 @@ export function ProductionRequestDetail() {
         await itemStatusMutation.mutateAsync({
           cancellationReason,
           productionItemId: item.productionItemId,
-          productionNote,
+          productionNote: null,
           status,
         });
       }
@@ -227,17 +221,8 @@ export function ProductionRequestDetail() {
                           {group.status === 'PENDING' ? (
                             <button disabled={itemStatusMutation.isPending} type="button" onClick={() => void updateItemGroupStatus(group, 'IN_PRODUCTION')}>Start Items</button>
                           ) : null}
-                          {group.status === 'PENDING' ? (
-                            <button className="is-secondary" disabled={itemStatusMutation.isPending} type="button" onClick={() => void updateItemGroupStatus(group, 'BLOCKED')}>Mark Blocked</button>
-                          ) : null}
                           {group.status === 'IN_PRODUCTION' ? (
                             <button disabled={itemStatusMutation.isPending} type="button" onClick={() => void updateItemGroupStatus(group, 'COMPLETED')}>Mark Completed</button>
-                          ) : null}
-                          {group.status === 'IN_PRODUCTION' ? (
-                            <button className="is-secondary" disabled={itemStatusMutation.isPending} type="button" onClick={() => void updateItemGroupStatus(group, 'BLOCKED')}>Mark Blocked</button>
-                          ) : null}
-                          {group.status === 'BLOCKED' ? (
-                            <button className="is-secondary" disabled={itemStatusMutation.isPending} type="button" onClick={() => void updateItemGroupStatus(group, 'IN_PRODUCTION')}>Resume</button>
                           ) : null}
                           {group.status !== 'COMPLETED' && group.status !== 'CANCELLED' ? (
                             <button className="is-secondary" disabled={itemStatusMutation.isPending} type="button" onClick={() => void updateItemGroupStatus(group, 'CANCELLED')}>Cancel Items</button>

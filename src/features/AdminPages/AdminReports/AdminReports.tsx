@@ -669,7 +669,7 @@ function ProductionPanel({ dateParams }: { dateParams: { from: string; to: strin
           <div className="admin-report-kpi-grid admin-report-kpi-grid-4">
             <KpiCard label="Active staff" value={summary?.totalActiveStaff} />
             <KpiCard label="Open requests" value={summary?.totalOpenRequests} note={`Soft cap ${summary?.maxActiveRequests ?? 5}`} />
-            <KpiCard label="Blocked" value={summary?.blockedCount} />
+            <KpiCard label="Available staff" value={summary?.availableCount} />
             <KpiCard label="Overdue" value={summary?.overdueCount} />
           </div>
           {summary ? (
@@ -762,7 +762,6 @@ function ProductionPanel({ dateParams }: { dateParams: { from: string; to: strin
                     <th>Staff</th>
                     <th>Email</th>
                     <th>Open</th>
-                    <th>Blocked</th>
                     <th>Overdue</th>
                     <th>Slots</th>
                     <th>Capacity</th>
@@ -776,7 +775,6 @@ function ProductionPanel({ dateParams }: { dateParams: { from: string; to: strin
                       <td>
                         {item.openRequestCount}/{item.maxActiveRequests}
                       </td>
-                      <td>{item.blockedCount}</td>
                       <td>{item.overdueCount}</td>
                       <td>{item.availableSlot}</td>
                       <td>{formatLabel(item.capacityState)}</td>

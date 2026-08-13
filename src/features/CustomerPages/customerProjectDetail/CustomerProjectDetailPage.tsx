@@ -217,7 +217,7 @@ function getStageLabel(status: ProjectStatus) {
 
 function getStageTone(status: ProjectStatus) {
   if (status === 'COMPLETED' || status === 'DELIVERED') return 'green';
-  if (status === 'REJECTED' || status === 'PRODUCTION_BLOCKED') return 'gold';
+  if (status === 'REJECTED') return 'gold';
   return 'stone';
 }
 

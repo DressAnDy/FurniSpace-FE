@@ -4,11 +4,11 @@ import { type FormEvent, useEffect, useMemo, useState } from 'react';
 import { SaleNavbar, SaleSidebar } from '@/features/SalePages/salecomponents';
 import { getOrderServiceResultMessage, type OrderDetailDto, type OrderItemDto } from '@/services/api/orders';
 import { getProductionServiceResultMessage } from '@/services/api/production';
-import type { ProjectListItemDto } from '@/services/api/projects';
+import { getProjectServiceResultMessage, type ProjectListItemDto } from '@/services/api/projects';
 import {
   useAvailableProductionStaff,
   useCompleteOrder,
-  useCreateOrderAdjustment,
+  useCreateOrderDepositPayment,
   useCreateOrderRemainingPayment,
   useCreateProductionRequest,
   useCurrentUser,
@@ -16,16 +16,16 @@ import {
   usePrepareOrderFinalPayment,
   useProjectList,
   useProjectOrders,
-  useUpdateOrderFinancialAdjustment,
+  useReopenProjectProposal,
 } from '@/services/queries';
 import { getLocalDateInputValue, getMinimumEndDateInputValue, validateOptionalFutureDateRange } from '@/shared/utils/dateValidation';
+import { aggregateDuplicateItems } from '@/shared/utils/itemAggregation';
 
 import './SaleOrders.css';
 
 const orderProjectStatuses = new Set([
   'ORDER_CONFIRMED',
   'IN_PRODUCTION',
-  'PRODUCTION_BLOCKED',
   'READY_FOR_DELIVERY',
   'DELIVERING',
   'DELIVERED',
@@ -53,10 +53,10 @@ export function SaleOrders() {
   const orders = useMemo(() => ordersQuery.data?.items ?? [], [ordersQuery.data?.items]);
   const orderDetailQuery = useOrderDetail(selectedOrderId, { enabled: Boolean(selectedOrderId) });
   const order = orderDetailQuery.data ?? null;
-  const financialAdjustmentMutation = useUpdateOrderFinancialAdjustment();
   const productionStaffQuery = useAvailableProductionStaff({ projectId: selectedProjectId }, { enabled: Boolean(selectedProjectId) });
   const createProductionRequestMutation = useCreateProductionRequest();
-  const createAdjustmentMutation = useCreateOrderAdjustment();
+  const createDepositPaymentMutation = useCreateOrderDepositPayment();
+  const reopenProposalMutation = useReopenProjectProposal();
   const prepareFinalPaymentMutation = usePrepareOrderFinalPayment();
   const remainingPaymentMutation = useCreateOrderRemainingPayment();
   const completeOrderMutation = useCompleteOrder();
@@ -77,28 +77,6 @@ export function SaleOrders() {
       setSelectedOrderId(orders[0]?.orderId ?? '');
     }
   }, [orders, selectedOrderId]);
-
-  async function updateFinancialAdjustment(input: { depositAmount: number; orderId: string }) {
-    setMessage(null);
-
-    if (input.depositAmount < 0) {
-      setMessage({ tone: 'error', text: 'Deposit amount cannot be negative.' });
-      return;
-    }
-
-    try {
-      await financialAdjustmentMutation.mutateAsync({
-        adjustmentNote: null,
-        depositAmount: input.depositAmount,
-        orderId: input.orderId,
-      });
-      setMessage({ tone: 'success', text: 'Order financial adjustment updated.' });
-      void ordersQuery.refetch();
-      void orderDetailQuery.refetch();
-    } catch (error) {
-      setMessage({ tone: 'error', text: getOrderServiceResultMessage(error) });
-    }
-  }
 
   return (
     <div className="sale-orders-shell">
@@ -158,14 +136,13 @@ export function SaleOrders() {
                 {order ? (
                   <OrderDetailPanel
                     isCompleting={completeOrderMutation.isPending}
-                    isCreatingAdjustment={createAdjustmentMutation.isPending}
+                    isCreatingDepositPayment={createDepositPaymentMutation.isPending}
                     isCreatingProduction={createProductionRequestMutation.isPending}
                     isCreatingRemainingPayment={remainingPaymentMutation.isPending}
                     isPreparingFinalPayment={prepareFinalPaymentMutation.isPending}
-                    isAdjusting={financialAdjustmentMutation.isPending}
+                    isReopeningProposal={reopenProposalMutation.isPending}
                     order={order}
                     productionStaff={productionStaffQuery.data ?? []}
-                    onAdjustFinancial={(input) => void updateFinancialAdjustment(input)}
                     onCompleteOrder={async () => {
                       setMessage(null);
                       try {
@@ -182,11 +159,12 @@ export function SaleOrders() {
                         setMessage({ tone: 'error', text: getOrderServiceResultMessage(error) });
                       }
                     }}
-                    onCreateAdjustment={async (reason) => {
+                    onCreateDepositPayment={async () => {
                       setMessage(null);
                       try {
-                        await createAdjustmentMutation.mutateAsync({ orderId: order.orderId, reason });
-                        setMessage({ tone: 'success', text: 'Adjustment draft created.' });
+                        await createDepositPaymentMutation.mutateAsync({ orderId: order.orderId, note: 'Sales-created deposit payment.' });
+                        setMessage({ tone: 'success', text: 'Deposit payment created or reused.' });
+                        void ordersQuery.refetch();
                         void orderDetailQuery.refetch();
                       } catch (error) {
                         setMessage({ tone: 'error', text: getOrderServiceResultMessage(error) });
@@ -227,6 +205,18 @@ export function SaleOrders() {
                         setMessage({ tone: 'error', text: getOrderServiceResultMessage(error) });
                       }
                     }}
+                    onReopenProposal={async () => {
+                      setMessage(null);
+                      try {
+                        await reopenProposalMutation.mutateAsync(order.projectId);
+                        setSelectedOrderId('');
+                        setMessage({ tone: 'success', text: 'Project reopened to proposal consulting.' });
+                        void projectsQuery.refetch();
+                        void ordersQuery.refetch();
+                      } catch (error) {
+                        setMessage({ tone: 'error', text: getProjectServiceResultMessage(error) });
+                      }
+                    }}
                   />
                 ) : ordersQuery.isLoading ? (
                   <p className="sale-orders-muted">Loading orders...</p>
@@ -244,44 +234,42 @@ export function SaleOrders() {
 
 function OrderDetailPanel({
   isCompleting,
-  isCreatingAdjustment,
+  isCreatingDepositPayment,
   isCreatingProduction,
   isCreatingRemainingPayment,
   isPreparingFinalPayment,
-  isAdjusting,
-  onAdjustFinancial,
+  isReopeningProposal,
   onCompleteOrder,
-  onCreateAdjustment,
+  onCreateDepositPayment,
   onCreateProduction,
   onPrepareAndCreateRemainingPayment,
+  onReopenProposal,
   order,
   productionStaff,
 }: {
   isCompleting: boolean;
-  isCreatingAdjustment: boolean;
+  isCreatingDepositPayment: boolean;
   isCreatingProduction: boolean;
   isCreatingRemainingPayment: boolean;
   isPreparingFinalPayment: boolean;
-  isAdjusting: boolean;
-  onAdjustFinancial: (input: { depositAmount: number; orderId: string }) => void;
+  isReopeningProposal: boolean;
   onCompleteOrder: () => void;
-  onCreateAdjustment: (reason: string) => void;
+  onCreateDepositPayment: () => void;
   onCreateProduction: (input: { assignedTo?: string | null; priority: 'LOW' | 'MEDIUM' | 'NORMAL' | 'HIGH' | 'URGENT'; estimatedStartDate?: string | null; estimatedCompletionDate?: string | null; note?: string | null }) => void;
   onPrepareAndCreateRemainingPayment: () => void;
+  onReopenProposal: () => void;
   order: OrderDetailDto;
   productionStaff: Array<{ accountId: string; fullName: string; activeRequestCount: number; isAvailable: boolean }>;
 }) {
-  const [depositAmount, setDepositAmount] = useState(() => String(order.depositAmount ?? 0));
   const [assignedTo, setAssignedTo] = useState('');
   const [priority, setPriority] = useState<'LOW' | 'MEDIUM' | 'NORMAL' | 'HIGH' | 'URGENT'>('NORMAL');
   const [estimatedStartDate, setEstimatedStartDate] = useState('');
   const [estimatedCompletionDate, setEstimatedCompletionDate] = useState('');
   const [productionDateMessage, setProductionDateMessage] = useState('');
   const orderItems = useMemo(
-    () => [...order.items].sort((first, second) => getOrderItemName(first).localeCompare(getOrderItemName(second))),
+    () => aggregateDuplicateItems([...order.items].sort((first, second) => getOrderItemName(first).localeCompare(getOrderItemName(second)))),
     [order.items],
   );
-  const hasCancelledItems = order.items.some((item) => item.status === 'CANCELLED' || item.status === 'UNAVAILABLE');
   const canCompleteOrder = order.status === 'DELIVERED' || order.status === 'FINAL_PAYMENT_PENDING';
   const isOrderCompleted = order.status === 'COMPLETED';
   const canPrepareOrCreateRemainingPayment = order.status === 'DELIVERED'
@@ -289,20 +277,8 @@ function OrderDetailPanel({
   const completeOrderBlocker = getCompleteOrderBlocker(order);
 
   useEffect(() => {
-    setDepositAmount(String(order.depositAmount ?? 0));
-  }, [order.depositAmount, order.orderId]);
-
-  useEffect(() => {
     setAssignedTo((current) => current || productionStaff.find((staff) => staff.isAvailable)?.accountId || productionStaff[0]?.accountId || '');
   }, [productionStaff]);
-
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    onAdjustFinancial({
-      depositAmount: normalizeMoneyInput(depositAmount),
-      orderId: order.orderId,
-    });
-  }
 
   return (
     <section className="sale-orders-detail">
@@ -317,17 +293,24 @@ function OrderDetailPanel({
         <MoneyValue label="Paid" value={formatMoney(order.paidAmount)} />
         <MoneyValue label="Remaining" value={formatMoney(order.remainingAmount)} />
       </div>
-      {order.status === 'DEPOSIT_PENDING' ? (
-        <form className="sale-orders-adjustment-form" onSubmit={handleSubmit}>
-          <label>
-            <span>Deposit Amount</span>
-            <input inputMode="decimal" value={depositAmount} onChange={(event) => setDepositAmount(event.target.value)} />
-          </label>
-          <button disabled={isAdjusting} type="submit">
-            <IconSettings size={16} />
-            {isAdjusting ? 'Updating...' : 'Update Financial'}
-          </button>
-        </form>
+      {order.status === 'CREATED' || order.status === 'DEPOSIT_PENDING' ? (
+        <div className="sale-orders-flow-panel">
+          <header>
+            <div>
+              <h3>Deposit Payment</h3>
+              <p>Deposit amount is copied from the accepted quotation. Change it on quotation before acceptance, not on the order.</p>
+            </div>
+          </header>
+          <div className="sale-orders-actions">
+            <button disabled={isCreatingDepositPayment} type="button" onClick={onCreateDepositPayment}>
+              <IconSettings size={16} />
+              {isCreatingDepositPayment ? 'Preparing...' : order.status === 'CREATED' ? 'Create Deposit Payment' : 'Reuse Deposit Payment'}
+            </button>
+            <button className="is-secondary" disabled={isReopeningProposal} type="button" onClick={onReopenProposal}>
+              {isReopeningProposal ? 'Reopening...' : 'Reopen Proposal'}
+            </button>
+          </div>
+        </div>
       ) : null}
       {order.status === 'DEPOSIT_PAID' ? (
         <form
@@ -412,17 +395,6 @@ function OrderDetailPanel({
             {isCreatingProduction ? 'Assigning...' : 'Create Production Request'}
           </button>
         </form>
-      ) : null}
-      {order.status === 'IN_PRODUCTION' && hasCancelledItems ? (
-        <div className="sale-orders-flow-panel">
-          <header>
-            <h3>Adjustment</h3>
-          </header>
-          <button disabled={isCreatingAdjustment} type="button" onClick={() => onCreateAdjustment('Production item unavailable.')}>
-            <IconSettings size={16} />
-            {isCreatingAdjustment ? 'Creating...' : 'Create Adjustment Draft'}
-          </button>
-        </div>
       ) : null}
       {order.status === 'DELIVERED' || order.status === 'FINAL_PAYMENT_PENDING' || order.status === 'COMPLETED' ? (
         <div className="sale-orders-flow-panel">
@@ -543,10 +515,4 @@ function getCompleteOrderBlocker(order: OrderDetailDto) {
 
 function isDeliverableOrderItem(item: OrderItemDto) {
   return (item.quantity ?? 0) > 0 && item.status !== 'CANCELLED' && item.status !== 'UNAVAILABLE';
-}
-
-function normalizeMoneyInput(value: string) {
-  const parsed = Number(value.trim().replace(/\./g, '').replace(',', '.'));
-
-  return Number.isFinite(parsed) ? parsed : 0;
 }
