@@ -11,21 +11,18 @@ export type ProductionRequestStatus =
   | 'FEASIBLE'
   | 'IN_PRODUCTION'
   | 'COMPLETED'
-  | 'BLOCKED'
   | 'CANCELLED';
 
 export type ProductionItemStatus =
   | 'PENDING'
   | 'IN_PRODUCTION'
   | 'COMPLETED'
-  | 'BLOCKED'
   | 'CANCELLED';
 
 export type Priority = 'LOW' | 'MEDIUM' | 'NORMAL' | 'HIGH' | 'URGENT';
 
 export type ProductionRelatedProjectStatus =
   | 'IN_PRODUCTION'
-  | 'PRODUCTION_BLOCKED'
   | 'READY_FOR_DELIVERY'
   | 'DELIVERING'
   | 'DELIVERED'

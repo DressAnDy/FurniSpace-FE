@@ -498,9 +498,9 @@
   border: 1px solid rgba(37, 95, 115, 0.22);
   display: flex;
   gap: 6px;
-  left: 14px;
   padding: 8px;
   position: absolute;
+  right: 14px;
   top: 14px;
   z-index: 2;
 }
@@ -1566,6 +1566,13 @@
 
   .room-product-sidebar {
     min-height: 300px;
+  }
+
+  .blueprint-view-controls {
+    left: auto;
+    max-width: calc(100% - 28px);
+    flex-wrap: wrap;
+    justify-content: flex-end;
   }
 
   .product-floating-menu {

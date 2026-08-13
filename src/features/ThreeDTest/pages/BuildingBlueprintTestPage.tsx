@@ -663,6 +663,8 @@ export function BuildingBlueprintTestPage() {
     ? sceneData.building.levels.find((level) => level.id === currentLevelId)?.layout ?? null
     : null;
   const underlayLayout = underlayLevel?.layout ?? null;
+  const activeLayerLabel = levelTabs.find((tab) => tab.value === activeLayer)?.label ?? 'Layer';
+  const activeToolLabel = blueprintTools.find((tool) => tool.value === activeTool)?.label ?? 'Tool';
 
   function updateSceneDraft(update: Parameters<typeof setSceneData>[0]) {
     hasLocalSceneEditsRef.current = true;
@@ -711,7 +713,7 @@ export function BuildingBlueprintTestPage() {
           <section className="building-blueprint-panel">
             <div className="building-blueprint-panel-heading">
               <strong>Layers</strong>
-              <span>{activeLayer}</span>
+              <span>{activeLayerLabel}</span>
             </div>
             <div className="building-blueprint-tabs">
               {levelTabs.map((tab) => (
@@ -731,7 +733,7 @@ export function BuildingBlueprintTestPage() {
             <section className="building-blueprint-panel">
               <div className="building-blueprint-panel-heading">
                 <strong>Blueprint Tools</strong>
-                <span>{activeTool}</span>
+                <span>{activeToolLabel}</span>
               </div>
               <div className="building-blueprint-tool-grid">
                 {blueprintTools.map((tool) => (
@@ -904,7 +906,7 @@ export function BuildingBlueprintTestPage() {
                   <div className="blueprint-floor-card" key={level.id}>
                     <div className="blueprint-floor-card-heading">
                       <strong>{level.label}</strong>
-                      <span>{level.projectAreaId ? `Area ${level.projectAreaId}` : level.id}</span>
+                      <span>{level.projectAreaId ? 'Linked project area' : 'Manual floor'}</span>
                     </div>
                   <NumberField
                     label="Width"

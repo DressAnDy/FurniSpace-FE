@@ -69,6 +69,10 @@ export type ProjectAreaWriteInput = {
   status?: ProjectAreaStatus | null;
 };
 
+export type UpdateProjectAreaInput = ProjectAreaWriteInput & {
+  projectAreaId: string;
+};
+
 export type ProjectAreaListParams = {
   projectId: string;
   includeCancelled?: boolean;
@@ -127,6 +131,15 @@ export async function getProjectAreas(params: ProjectAreaListParams) {
 export async function createProjectArea(input: ProjectAreaWriteInput) {
   const response = await projectAreaApiClient.post<ServiceResult<ProjectAreaDto>>(
     `/projects/${input.projectId}/areas`,
+    toProjectAreaPayload(input),
+  );
+
+  return response.data.data;
+}
+
+export async function updateProjectArea(input: UpdateProjectAreaInput) {
+  const response = await projectAreaApiClient.patch<ServiceResult<ProjectAreaDto>>(
+    `/project-areas/${input.projectAreaId}`,
     toProjectAreaPayload(input),
   );
 

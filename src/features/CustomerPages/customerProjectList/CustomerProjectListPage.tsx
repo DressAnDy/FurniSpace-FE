@@ -264,7 +264,6 @@ function getProjectStage(status: ProjectListItemDto['status']) {
     QUOTATION_REVISION_REQUESTED: { label: 'Quotation Revision', tone: 'gold' },
     ORDER_CONFIRMED: { label: 'Order Confirmed', tone: 'green' },
     IN_PRODUCTION: { label: 'In Production', tone: 'stone' },
-    PRODUCTION_BLOCKED: { label: 'Production Blocked', tone: 'gold' },
     READY_FOR_DELIVERY: { label: 'Ready For Delivery', tone: 'green' },
     DELIVERING: { label: 'Delivering', tone: 'green' },
     DELIVERED: { label: 'Delivered', tone: 'green' },

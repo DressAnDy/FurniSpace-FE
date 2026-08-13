@@ -1,6 +1,5 @@
 import { useMemo, useState } from 'react';
 import {
-  IconAlertTriangle,
   IconArrowRight,
   IconBan,
   IconClock,
@@ -27,7 +26,7 @@ type KpiItem = {
   value: string;
 };
 
-type QueueTab = 'All Queue' | 'Pending Review' | 'Assigned to Me' | 'In Production' | 'Blocked' | 'Ready to Complete' | 'Completed';
+type QueueTab = 'All Queue' | 'Pending Review' | 'Assigned to Me' | 'In Production' | 'Ready to Complete' | 'Completed';
 
 type QueueItem = {
   action: string;
@@ -45,7 +44,7 @@ type QueueItem = {
   tabs: QueueTab[];
 };
 
-const queueTabs: QueueTab[] = ['All Queue', 'Pending Review', 'Assigned to Me', 'In Production', 'Blocked'];
+const queueTabs: QueueTab[] = ['All Queue', 'Pending Review', 'Assigned to Me', 'In Production'];
 
 // Mocked until production dashboard aggregation endpoints are available.
 const kpis: KpiItem[] = [
@@ -53,15 +52,14 @@ const kpis: KpiItem[] = [
   { description: 'Requests primarily assigned to current staff', icon: IconUserCheck, label: 'Assigned to Me', note: '6 active', path: '/production/my-tasks', tone: 'blue', value: '9' },
   { description: 'Production requests currently active', icon: IconClockCog, label: 'In Production', note: '+3 this week', path: '/production/requests', tone: 'neutral', value: '18' },
   { description: 'Item-level execution currently active', icon: IconTool, label: 'Items In Progress', note: '42 units', path: '/production/requests', tone: 'blue', value: '27' },
-  { description: 'Items blocked by material or technical issue', icon: IconAlertTriangle, label: 'Blocked Items', note: '3 critical', path: '/production/blocked-issues', tone: 'red', value: '7' },
-  { description: 'Unavailable/cancelled item paths needing adjustment', icon: IconBan, label: 'Unavailable Items', note: '2 need Sales adjustment', path: '/production/blocked-issues', tone: 'red', value: '3' },
+  { description: 'Unavailable or cancelled item paths needing Sales/customer coordination', icon: IconBan, label: 'Unavailable Items', note: 'Review before delivery', path: '/production/blocked-issues', tone: 'red', value: '3' },
 ];
 
 const productionQueue: QueueItem[] = [
   { action: 'Review', assigned: 'Shared queue', completed: 0, due: 'Today 13:00', path: '/production/requests', priority: 'High', project: 'PRJ-2026-184 Bean & Brew', request: 'PROD-2026-090', risk: 'Review overdue', start: '-', status: 'PENDING_REVIEW', tabs: ['All Queue', 'Pending Review'], total: 12 },
   { action: 'Start Production', assigned: 'Minh Tran', completed: 3, due: 'Aug 9', path: '/production/requests', priority: 'Medium', project: 'PRJ-2026-181 Luma Cafe', request: 'PROD-2026-088', risk: 'On track', start: 'Aug 5', status: 'ASSIGNED', tabs: ['All Queue', 'Assigned to Me'], total: 10 },
   { action: 'View Items', assigned: 'Minh Tran', completed: 8, due: 'Tomorrow', path: '/production/requests', priority: 'High', project: 'PRJ-2026-176 Nova Work Lounge', request: 'PROD-2026-084', risk: '2 items due soon', start: 'Aug 3', status: 'IN_PRODUCTION', tabs: ['All Queue', 'Assigned to Me', 'In Production'], total: 16 },
-  { action: 'Resolve Blocker', assigned: 'Huy Pham', completed: 5, due: 'Overdue', path: '/production/blocked-issues', priority: 'High', project: 'PRJ-2026-166 Studio Nine', request: 'PROD-2026-080', risk: 'Material unavailable', start: 'Aug 1', status: 'BLOCKED', tabs: ['All Queue', 'Blocked'], total: 15 },
+  { action: 'Review Unavailable Item', assigned: 'Huy Pham', completed: 5, due: 'Overdue', path: '/production/blocked-issues', priority: 'High', project: 'PRJ-2026-166 Studio Nine', request: 'PROD-2026-080', risk: 'Material unavailable', start: 'Aug 1', status: 'CANCELLED_ITEM', tabs: ['All Queue'], total: 15 },
   { action: 'Complete Request', assigned: 'Lan Ho', completed: 14, due: 'Today', path: '/production/requests', priority: 'Medium', project: 'PRJ-2026-160 Oak & Steel', request: 'PROD-2026-076', risk: 'Ready to complete', start: 'Jul 29', status: 'READY_TO_COMPLETE', tabs: ['All Queue', 'Ready to Complete'], total: 14 },
   { action: 'View Delivery', assigned: 'Thanh Le', completed: 18, due: 'Done', path: '/production/ready-for-delivery', priority: 'Low', project: 'PRJ-2026-151 Northline Office', request: 'PROD-2026-070', risk: 'Awaiting delivery', start: 'Jul 24', status: 'COMPLETED', tabs: ['All Queue', 'Completed'], total: 18 },
 ];

@@ -62,7 +62,6 @@ export type AvailableProductionStaffDto = {
   activeRequestCount: number;
   pendingReviewRequestCount: number;
   inProductionRequestCount: number;
-  blockedRequestCount: number;
   isAvailable: boolean;
 };
 
@@ -79,7 +78,6 @@ export type ProductionWorkloadDto = {
   fullName: string;
   email: string;
   openRequestCount: number;
-  blockedCount: number;
   overdueCount: number;
   maxActiveRequests: number;
   availableSlot: number;
@@ -110,7 +108,6 @@ export type ProductionWorkloadSummaryDto = {
   fullCount: number;
   overCount: number;
   totalOpenRequests: number;
-  blockedCount: number;
   overdueCount: number;
   maxActiveRequests: number;
 };
@@ -142,7 +139,10 @@ export type ProductionCompleteResultDto = {
   productionStatus: ProductionRequestStatus;
   orderStatus: string;
   projectStatus: string;
-  appliedAdjustmentCount: number;
+  actualStartDate?: string | null;
+  actualCompletionDate?: string | null;
+  readyOrderItemCount: number;
+  unavailableOrderItemCount: number;
   finalTotalAmount: number;
   paidAmount: number;
   remainingAmount: number;
@@ -275,10 +275,10 @@ export async function markProductionRequestFeasible(productionRequestId: string,
   return response.data.data;
 }
 
-export async function startProductionRequest(productionRequestId: string, actualStartDate?: string | null) {
+export async function startProductionRequest(productionRequestId: string) {
   const response = await productionApiClient.patch<ServiceResult<ProductionRequestTransitionResultDto>>(
     `/production-requests/${productionRequestId}/start`,
-    { actualStartDate: actualStartDate || null },
+    {},
   );
 
   return response.data.data;

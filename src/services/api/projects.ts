@@ -53,7 +53,6 @@ export type ProjectStatus =
   | 'QUOTATION_REVISION_REQUESTED'
   | 'ORDER_CONFIRMED'
   | 'IN_PRODUCTION'
-  | 'PRODUCTION_BLOCKED'
   | 'READY_FOR_DELIVERY'
   | 'DELIVERING'
   | 'DELIVERED'
@@ -229,6 +228,15 @@ export type UpdateProjectStatusData = {
   projectId: string;
   status: ProjectStatus;
   updatedAt: string;
+};
+
+export type ReopenProposalData = {
+  projectId: string;
+  status: ProjectStatus;
+  proposalStatus?: string | null;
+  cancelledQuotationId?: string | null;
+  cancelledOrderId?: string | null;
+  reopenedAt?: string | null;
 };
 
 export type ProjectWorkflowStageKey =
@@ -422,6 +430,12 @@ export async function updateProjectStatus(input: UpdateProjectStatusInput) {
     status: input.status,
     note: input.note?.trim() || null,
   });
+
+  return response.data.data;
+}
+
+export async function reopenProjectProposal(projectId: string) {
+  const response = await projectApiClient.post<ServiceResult<ReopenProposalData>>(`/projects/${projectId}/reopen-proposal`);
 
   return response.data.data;
 }

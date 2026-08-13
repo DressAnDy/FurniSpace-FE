@@ -60,6 +60,7 @@ export type QuotationDto = {
   vatRate?: number | null;
   vatAmount?: number | null;
   totalAmount?: number | null;
+  depositAmount?: number | null;
   currency?: string | null;
   status?: QuotationStatus | null;
   validUntil?: string | null;
@@ -115,6 +116,7 @@ export type UpdateQuotationInput = {
   customerNote?: string | null;
   salesNote?: string | null;
   revisionReason?: string | null;
+  depositAmount?: number | null;
 };
 
 export type UpdateQuotationItemFinancialsInput = {
@@ -196,6 +198,7 @@ export async function updateQuotation(input: UpdateQuotationInput) {
     customerNote: input.customerNote?.trim() || null,
     salesNote: input.salesNote?.trim() || null,
     revisionReason: input.revisionReason?.trim() || null,
+    depositAmount: input.depositAmount ?? null,
   });
 
   return response.data.data;

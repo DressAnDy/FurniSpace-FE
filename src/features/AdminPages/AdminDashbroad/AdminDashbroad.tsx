@@ -80,7 +80,6 @@ const activeStatuses: ProjectStatus[] = [
   'QUOTATION_REVISION_REQUESTED',
   'ORDER_CONFIRMED',
   'IN_PRODUCTION',
-  'PRODUCTION_BLOCKED',
   'READY_FOR_DELIVERY',
   'DELIVERING',
 ];
@@ -89,7 +88,7 @@ const overviewPhases: Array<{ color: string; label: string; statuses: ProjectSta
   { color: '#5c4030', label: 'Request', statuses: ['SUBMITTED', 'NEED_BASIC_INFORMATION'] },
   { color: '#c4a574', label: 'Design', statuses: ['IN_CONSULTATION', 'WAITING_FOR_DESIGNER_ASSIGNMENT', 'MEASUREMENT_REQUIRED', 'SPACE_VERIFIED', 'PROPOSAL_CONSULTING', 'PROPOSAL_SELECTED'] },
   { color: '#a67c52', label: 'Quotation', statuses: ['QUOTATION_SENT', 'QUOTATION_REVISION_REQUESTED', 'ORDER_CONFIRMED'] },
-  { color: '#e8d5b7', label: 'Production', statuses: ['IN_PRODUCTION', 'PRODUCTION_BLOCKED'] },
+  { color: '#e8d5b7', label: 'Production', statuses: ['IN_PRODUCTION'] },
   { color: '#1f1a17', label: 'Delivery', statuses: ['READY_FOR_DELIVERY', 'DELIVERING', 'DELIVERED'] },
   { color: '#b8956c', label: 'Complete', statuses: ['COMPLETED'] },
 ];

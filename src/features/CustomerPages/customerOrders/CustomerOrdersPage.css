@@ -251,6 +251,12 @@
   opacity: 0.58;
 }
 
+.customer-orders-actions button.is-secondary {
+  border-color: rgba(139, 111, 71, 0.28);
+  background: #ffffff;
+  color: #6f5634;
+}
+
 .customer-orders-table-wrap {
   overflow-x: auto;
 }

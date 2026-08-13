@@ -86,8 +86,8 @@ export function useStartProductionRequest() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (input: { productionRequestId: string; actualStartDate?: string | null }) =>
-      startProductionRequest(input.productionRequestId, input.actualStartDate),
+    mutationFn: (input: { productionRequestId: string }) =>
+      startProductionRequest(input.productionRequestId),
     onSuccess: (result) => {
       invalidateProductionCaches(queryClient, result.productionRequestId);
     },
