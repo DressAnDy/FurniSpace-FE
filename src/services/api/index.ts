@@ -1,6 +1,7 @@
 export { apiClient } from './client';
 export { httpClient } from './httpClient';
 export * from './accounts';
+export * from './adminFinancial';
 export * from './businessTypes';
 export * from './categories';
 export * from './customizationRequests';

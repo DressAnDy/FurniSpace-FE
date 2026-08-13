@@ -1410,6 +1410,14 @@ body.admin-sidebar-collapsed .admin-topbar {
   justify-content: space-between;
 }
 
+.admin-dash-v2-header-actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
 .admin-dash-v2-header > div > span,
 .admin-dash-v2-section-title p {
   color: #6b7280;
@@ -1610,7 +1618,97 @@ body.admin-sidebar-collapsed .admin-topbar {
 }
 
 .admin-dash-v2-grid-bottom {
-  grid-template-columns: minmax(0, 2fr) minmax(320px, 1fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.admin-dash-v2-breakdown-list,
+.admin-dash-v2-exceptions ul {
+  display: grid;
+  gap: 12px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.admin-dash-v2-breakdown-list li,
+.admin-dash-v2-exceptions li {
+  align-items: flex-start;
+  border: 1px solid rgba(92, 64, 48, 0.12);
+  border-radius: 12px;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  padding: 12px 14px;
+}
+
+.admin-dash-v2-breakdown-list strong,
+.admin-dash-v2-exceptions strong {
+  color: #1f1a17;
+  display: block;
+  font-size: 14px;
+}
+
+.admin-dash-v2-breakdown-list span,
+.admin-dash-v2-exceptions small {
+  color: #6b7280;
+  display: block;
+  font-size: 12px;
+  margin-top: 4px;
+}
+
+.admin-dash-v2-breakdown-list em,
+.admin-dash-v2-exceptions em {
+  color: #5c4030;
+  font-style: normal;
+  font-weight: 700;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.admin-dash-v2-breakdown-list small {
+  color: #a16207;
+  display: block;
+  font-size: 11px;
+  margin-top: 4px;
+  text-align: right;
+}
+
+.admin-dash-v2-severity {
+  border-radius: 999px;
+  flex: 0 0 auto;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  padding: 4px 8px;
+  text-transform: uppercase;
+}
+
+.admin-dash-v2-severity-high {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.admin-dash-v2-severity-medium {
+  background: #fef3c7;
+  color: #a16207;
+}
+
+.admin-dash-v2-severity-low {
+  background: #e0f2fe;
+  color: #0369a1;
+}
+
+.admin-dash-v2-exceptions-link {
+  color: #8b6f47;
+  display: inline-block;
+  font-size: 13px;
+  font-weight: 700;
+  margin-top: 14px;
+  text-decoration: none;
+}
+
+.admin-dash-v2-exceptions-link:hover {
+  text-decoration: underline;
 }
 
 .admin-dash-v2-grid-top {

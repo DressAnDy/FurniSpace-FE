@@ -14,10 +14,10 @@ import './RegisterPage.css';
 
 const registerFields = [
   { autoComplete: 'email', label: 'Email', name: 'email', type: 'email' },
-  { autoComplete: 'name', label: 'Họ và tên', name: 'fullName', type: 'text' },
-  { autoComplete: 'tel', label: 'Số điện thoại', name: 'phoneNumber', type: 'tel' },
-  { autoComplete: 'new-password', label: 'Mật khẩu', name: 'password', type: 'password' },
-  { autoComplete: 'new-password', label: 'Xác nhận mật khẩu', name: 'confirmPassword', type: 'password' },
+  { autoComplete: 'name', label: 'Full name', name: 'fullName', type: 'text' },
+  { autoComplete: 'tel', label: 'Phone number', name: 'phoneNumber', type: 'tel' },
+  { autoComplete: 'new-password', label: 'Password', name: 'password', type: 'password' },
+  { autoComplete: 'new-password', label: 'Confirm password', name: 'confirmPassword', type: 'password' },
 ];
 
 export function RegisterPage() {
@@ -70,7 +70,7 @@ export function RegisterPage() {
     <main className="register-page">
       <section className="register-form-panel" aria-labelledby="register-title">
         <form className="register-form" onSubmit={handleSubmit}>
-          <h1 id="register-title">Đăng ký</h1>
+          <h1 id="register-title">Sign up</h1>
 
           <div className="register-field-list">
             {registerFields.map((field) => (
@@ -78,7 +78,7 @@ export function RegisterPage() {
                 <span>{field.label}</span>
                 {field.type === 'password' ? (
                   <button
-                    aria-label={visiblePasswordFields[field.name] ? `Ẩn ${field.label.toLowerCase()}` : `Hiện ${field.label.toLowerCase()}`}
+                    aria-label={visiblePasswordFields[field.name] ? `Hide ${field.label.toLowerCase()}` : `Show ${field.label.toLowerCase()}`}
                     className="register-password-toggle"
                     type="button"
                     onClick={() => togglePasswordVisibility(field.name)}
@@ -100,13 +100,13 @@ export function RegisterPage() {
           {message ? <p className="register-message">{message}</p> : null}
 
           <button className="register-submit" type="submit" disabled={registerMutation.isPending}>
-            {registerMutation.isPending ? 'Đang đăng ký...' : 'Đăng ký'}
+            {registerMutation.isPending ? 'Signing up...' : 'Sign up'}
           </button>
 
           <div className="register-divider" />
 
           <p className="register-login-copy">
-            Bạn đã có tài khoản? <Link to="/login">Đăng nhập</Link>
+            Already have an account? <Link to="/login">Sign in</Link>
           </p>
         </form>
       </section>
@@ -114,7 +114,7 @@ export function RegisterPage() {
       <section className="register-hero" aria-label="FurniSpace register preview">
         <img src={authenPic} alt="" aria-hidden="true" />
         <Link className="register-back-home" to="/">
-          Trở về trang chủ
+          Back to home
         </Link>
         <strong className="register-brand">FurniSpace</strong>
       </section>
@@ -134,23 +134,23 @@ function validateRegisterForm(input: {
   const phone = input.phone.trim();
 
   if (!email || email.length > 100 || !email.includes('@')) {
-    return 'Email không hợp lệ.';
+    return 'Please enter a valid email.';
   }
 
   if (!fullName || fullName.length > 100) {
-    return 'Họ và tên không hợp lệ.';
+    return 'Please enter a valid full name.';
   }
 
   if (phone.length > 20) {
-    return 'Số điện thoại không được vượt quá 20 ký tự.';
+    return 'Phone number must be 20 characters or fewer.';
   }
 
   if (!isValidPassword(input.password)) {
-    return 'Mật khẩu phải dài 8-128 ký tự và có chữ hoa, chữ thường, số.';
+    return 'Password must be 8-128 characters and include uppercase, lowercase, and a number.';
   }
 
   if (input.password !== input.confirmPassword) {
-    return 'Xác nhận mật khẩu không khớp.';
+    return 'Passwords do not match.';
   }
 
   return '';

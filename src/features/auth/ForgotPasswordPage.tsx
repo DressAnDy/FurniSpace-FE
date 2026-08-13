@@ -24,7 +24,7 @@ export function ForgotPasswordPage() {
     const normalizedEmail = normalizeEmail(email);
 
     if (!normalizedEmail || !normalizedEmail.includes('@')) {
-      setMessage('Vui lòng nhập email hợp lệ.');
+      setMessage('Please enter a valid email.');
       return;
     }
 
@@ -36,7 +36,7 @@ export function ForgotPasswordPage() {
         },
         onSuccess: (result) => {
           setEmail(normalizedEmail);
-          setMessage(result.message || 'Nếu tài khoản tồn tại, email đặt lại mật khẩu đã được gửi.');
+          setMessage(result.message || 'If an account exists, a password reset email has been sent.');
           setStep('reset');
         },
       },
@@ -63,7 +63,7 @@ export function ForgotPasswordPage() {
           setMessage(getServiceResultMessage(error));
         },
         onSuccess: (result) => {
-          setMessage(result.message || 'Đã đặt lại mật khẩu. Vui lòng đăng nhập.');
+          setMessage(result.message || 'Password updated. Please sign in.');
           window.setTimeout(() => navigate('/login', { replace: true }), 900);
         },
       },
@@ -75,8 +75,8 @@ export function ForgotPasswordPage() {
       <section className="login-form-panel" aria-labelledby="forgot-password-title">
         {step === 'request' ? (
           <form className="login-form" onSubmit={handleRequestSubmit}>
-            <h1 id="forgot-password-title">Quên mật khẩu</h1>
-            <p className="login-helper-copy">Nhập email tài khoản để nhận mã đặt lại mật khẩu.</p>
+            <h1 id="forgot-password-title">Forgot password</h1>
+            <p className="login-helper-copy">Enter your account email to receive a password reset code.</p>
 
             <label className="login-field">
               <span>Email</span>
@@ -94,34 +94,34 @@ export function ForgotPasswordPage() {
             {message ? <p className="login-message">{message}</p> : null}
 
             <button className="login-submit" disabled={forgotPasswordMutation.isPending} type="submit">
-              {forgotPasswordMutation.isPending ? 'Đang gửi...' : 'Gửi mã đặt lại'}
+              {forgotPasswordMutation.isPending ? 'Sending...' : 'Send reset code'}
             </button>
 
             <p className="login-register-copy">
-              Nhớ mật khẩu? <Link to="/login">Đăng nhập</Link>
+              Remember your password? <Link to="/login">Sign in</Link>
             </p>
           </form>
         ) : (
           <form className="login-form" onSubmit={handleResetSubmit}>
-            <h1 id="forgot-password-title">Đặt mật khẩu mới</h1>
-            <p className="login-helper-copy">Nhập mã trong email và mật khẩu mới cho {email}.</p>
+            <h1 id="forgot-password-title">Set a new password</h1>
+            <p className="login-helper-copy">Enter the code from your email and a new password for {email}.</p>
 
             <div className="login-field-list">
               <label className="login-field">
-                <span>Mã đặt lại</span>
-                <input aria-label="Mã đặt lại" autoComplete="one-time-code" name="token" placeholder="Mã đặt lại" />
+                <span>Reset code</span>
+                <input aria-label="Reset code" autoComplete="one-time-code" name="token" placeholder="Reset code" />
               </label>
               <label className="login-field">
-                <span>Mật khẩu mới</span>
+                <span>New password</span>
                 <input
-                  aria-label="Mật khẩu mới"
+                  aria-label="New password"
                   autoComplete="new-password"
                   name="newPassword"
-                  placeholder="Mật khẩu mới"
+                  placeholder="New password"
                   type={showPassword ? 'text' : 'password'}
                 />
                 <button
-                  aria-label={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
                   className="login-password-toggle"
                   type="button"
                   onClick={() => setShowPassword((current) => !current)}
@@ -130,12 +130,12 @@ export function ForgotPasswordPage() {
                 </button>
               </label>
               <label className="login-field">
-                <span>Xác nhận mật khẩu mới</span>
+                <span>Confirm new password</span>
                 <input
-                  aria-label="Xác nhận mật khẩu mới"
+                  aria-label="Confirm new password"
                   autoComplete="new-password"
                   name="confirmPassword"
-                  placeholder="Xác nhận mật khẩu mới"
+                  placeholder="Confirm new password"
                   type={showPassword ? 'text' : 'password'}
                 />
               </label>
@@ -144,13 +144,13 @@ export function ForgotPasswordPage() {
             {message ? <p className="login-message">{message}</p> : null}
 
             <button className="login-submit" disabled={resetPasswordMutation.isPending} type="submit">
-              {resetPasswordMutation.isPending ? 'Đang cập nhật...' : 'Đổi mật khẩu'}
+              {resetPasswordMutation.isPending ? 'Updating...' : 'Update password'}
             </button>
 
             <p className="login-register-copy">
-              Chưa nhận được mã?{' '}
+              Didn&apos;t get a code?{' '}
               <button className="login-inline-button" disabled={forgotPasswordMutation.isPending} type="button" onClick={() => forgotPasswordMutation.mutate({ email })}>
-                {forgotPasswordMutation.isPending ? 'Đang gửi...' : 'Gửi lại'}
+                {forgotPasswordMutation.isPending ? 'Sending...' : 'Resend'}
               </button>
             </p>
           </form>
@@ -160,7 +160,7 @@ export function ForgotPasswordPage() {
       <section className="login-hero" aria-label="FurniSpace password reset preview">
         <img src={authenPic} alt="" aria-hidden="true" />
         <Link className="login-back-home" to="/">
-          Trở về trang chủ
+          Back to home
         </Link>
         <strong className="login-brand">FurniSpace</strong>
       </section>
@@ -170,19 +170,19 @@ export function ForgotPasswordPage() {
 
 function validateResetForm(input: { email: string; token: string; newPassword: string; confirmPassword: string }) {
   if (!normalizeEmail(input.email)) {
-    return 'Vui lòng nhập email trước khi đặt lại mật khẩu.';
+    return 'Please enter your email before resetting the password.';
   }
 
   if (!input.token) {
-    return 'Vui lòng nhập mã đặt lại mật khẩu.';
+    return 'Please enter the password reset code.';
   }
 
   if (!isValidPassword(input.newPassword)) {
-    return 'Mật khẩu phải dài 8-128 ký tự và có chữ hoa, chữ thường, số.';
+    return 'Password must be 8-128 characters and include uppercase, lowercase, and a number.';
   }
 
   if (input.newPassword !== input.confirmPassword) {
-    return 'Xác nhận mật khẩu không khớp.';
+    return 'Passwords do not match.';
   }
 
   return '';
