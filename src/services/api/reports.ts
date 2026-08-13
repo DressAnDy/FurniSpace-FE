@@ -525,7 +525,17 @@ export async function exportReportCsv(params: ReportExportParams) {
     const match = /filename="?([^"]+)"?/i.exec(disposition);
     const filename = match?.[1] ?? `report-${params.domain}-${formatExportDateStamp()}.csv`;
 
-    return { blob: response.data, filename };
+    const rawText = await response.data.text();
+    const tabularCsv = normalizeReportExportCsv(rawText, {
+      domain: params.domain,
+      from: params.from,
+      to: params.to,
+    });
+
+    // UTF-8 BOM helps Excel open Vietnamese characters correctly.
+    const blob = new Blob([`\uFEFF${tabularCsv}`], { type: 'text/csv;charset=utf-8;' });
+
+    return { blob, filename };
   } catch (error) {
     if (error instanceof AxiosError && error.response?.data instanceof Blob) {
       try {
@@ -544,6 +554,226 @@ export async function exportReportCsv(params: ReportExportParams) {
 
     throw error;
   }
+}
+
+/**
+ * BE currently returns a dump CSV with columns:
+ * domain,exportedAtUtc,payloadJson
+ * where payloadJson is the whole report DTO as escaped JSON.
+ * Flatten that into spreadsheet-friendly rows for Excel.
+ */
+export function normalizeReportExportCsv(
+  rawCsv: string,
+  meta: { domain: ReportExportDomain; from?: string | null; to?: string | null },
+) {
+  const dump = parseReportExportDump(rawCsv);
+
+  if (!dump) {
+    return rawCsv.replace(/^\uFEFF/, '');
+  }
+
+  const rows: string[][] = [
+    ['Domain', dump.domain || meta.domain],
+    ['Exported At (UTC)', dump.exportedAtUtc || ''],
+    ['From', meta.from || ''],
+    ['To', meta.to || ''],
+    [],
+    ['Section', 'Field', 'Key', 'Label', 'Count', 'Amount', 'Value'],
+  ];
+
+  flattenReportPayload(dump.payload, '', rows);
+
+  return rows.map((row) => row.map(escapeCsvCell).join(',')).join('\r\n');
+}
+
+function parseReportExportDump(rawCsv: string) {
+  const text = rawCsv.replace(/^\uFEFF/, '').trim();
+  if (!text) return null;
+
+  const lines = splitCsvLines(text);
+  if (lines.length < 2) return null;
+
+  const header = parseCsvLine(lines[0]).map((cell) => cell.trim().toLowerCase());
+  const domainIdx = header.indexOf('domain');
+  const exportedIdx = header.indexOf('exportedatutc');
+  const payloadIdx = header.indexOf('payloadjson');
+
+  if (domainIdx < 0 || payloadIdx < 0) {
+    return null;
+  }
+
+  const dataRow = parseCsvLine(lines[1]);
+  const payloadRaw = dataRow[payloadIdx] ?? '';
+
+  try {
+    const payload = JSON.parse(payloadRaw) as unknown;
+    if (!payload || typeof payload !== 'object') {
+      return null;
+    }
+
+    return {
+      domain: dataRow[domainIdx] ?? '',
+      exportedAtUtc: exportedIdx >= 0 ? dataRow[exportedIdx] ?? '' : '',
+      payload,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function flattenReportPayload(value: unknown, path: string, rows: string[][]) {
+  if (value == null) {
+    return;
+  }
+
+  if (Array.isArray(value)) {
+    if (value.length === 0) {
+      rows.push([sectionOf(path), fieldOf(path), '', '', '0', '', '']);
+      return;
+    }
+
+    value.forEach((item, index) => {
+      if (item && typeof item === 'object') {
+        const record = item as Record<string, unknown>;
+        const key = String(record.key ?? record.type ?? record.id ?? record.code ?? index);
+        const label = record.label ?? record.name ?? '';
+        const count = record.count ?? record.openCount;
+        const amount = record.amount ?? record.revenue;
+        const hasFacetShape = 'count' in record || 'amount' in record || 'type' in record || 'key' in record;
+
+        if (hasFacetShape) {
+          rows.push([
+            sectionOf(path),
+            fieldOf(path),
+            key,
+            label == null ? '' : String(label),
+            count == null ? '' : String(count),
+            amount == null ? '' : String(amount),
+            '',
+          ]);
+
+          // Keep extra fields from nested assignee-like rows.
+          for (const [extraKey, extraValue] of Object.entries(record)) {
+            if (['key', 'type', 'id', 'code', 'label', 'name', 'count', 'openCount', 'amount', 'revenue'].includes(extraKey)) {
+              continue;
+            }
+            if (extraValue == null || typeof extraValue === 'object') continue;
+            rows.push([
+              sectionOf(path),
+              `${fieldOf(path)}.${extraKey}`,
+              key,
+              label == null ? '' : String(label),
+              '',
+              '',
+              String(extraValue),
+            ]);
+          }
+          return;
+        }
+      }
+
+      flattenReportPayload(item, path ? `${path}[${index}]` : `[${index}]`, rows);
+    });
+    return;
+  }
+
+  if (typeof value === 'object') {
+    for (const [key, nested] of Object.entries(value as Record<string, unknown>)) {
+      const nextPath = path ? `${path}.${key}` : key;
+      flattenReportPayload(nested, nextPath, rows);
+    }
+    return;
+  }
+
+  rows.push([sectionOf(path), fieldOf(path), '', '', '', '', String(value)]);
+}
+
+function sectionOf(path: string) {
+  if (!path) return 'root';
+  return path.split('.')[0] ?? 'root';
+}
+
+function fieldOf(path: string) {
+  if (!path) return '';
+  const parts = path.split('.');
+  return parts.length <= 1 ? parts[0] ?? '' : parts.slice(1).join('.');
+}
+
+function splitCsvLines(text: string) {
+  const lines: string[] = [];
+  let current = '';
+  let inQuotes = false;
+
+  for (let i = 0; i < text.length; i += 1) {
+    const char = text[i];
+    const next = text[i + 1];
+
+    if (char === '"') {
+      inQuotes = !inQuotes;
+      current += char;
+      continue;
+    }
+
+    if (!inQuotes && (char === '\n' || (char === '\r' && next === '\n'))) {
+      lines.push(current);
+      current = '';
+      if (char === '\r' && next === '\n') i += 1;
+      continue;
+    }
+
+    if (!inQuotes && char === '\r') {
+      lines.push(current);
+      current = '';
+      continue;
+    }
+
+    current += char;
+  }
+
+  if (current.length > 0) {
+    lines.push(current);
+  }
+
+  return lines;
+}
+
+function parseCsvLine(line: string) {
+  const cells: string[] = [];
+  let current = '';
+  let inQuotes = false;
+
+  for (let i = 0; i < line.length; i += 1) {
+    const char = line[i];
+    const next = line[i + 1];
+
+    if (char === '"') {
+      if (inQuotes && next === '"') {
+        current += '"';
+        i += 1;
+      } else {
+        inQuotes = !inQuotes;
+      }
+      continue;
+    }
+
+    if (char === ',' && !inQuotes) {
+      cells.push(current);
+      current = '';
+      continue;
+    }
+
+    current += char;
+  }
+
+  cells.push(current);
+  return cells;
+}
+
+function escapeCsvCell(value: string) {
+  if (/[",\r\n]/.test(value)) {
+    return `"${value.replace(/"/g, '""')}"`;
+  }
+  return value;
 }
 
 function cleanDateParams(params: ReportDateRangeParams) {
