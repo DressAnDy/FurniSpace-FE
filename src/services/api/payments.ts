@@ -182,7 +182,7 @@ export type PaymentUpdatedRealtimeDto = {
   paymentTransactionId: string;
   transactionAmount: number;
   appliedAmount: number;
-  paidAt?: string | null;
+  paidAt: string | null;
   occurredAt: string;
 };
 

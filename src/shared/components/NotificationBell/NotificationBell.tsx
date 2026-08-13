@@ -2,16 +2,15 @@ import { IconBell, IconCheck, IconLoader2 } from '@tabler/icons-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
+import { useRealtimeInAppNotification } from '@/app/providers/RealtimeSyncProvider';
 import {
   getNotificationServiceResultMessage,
   type NotificationDto,
-  type RealtimeNotificationPayload,
 } from '@/services/api/notifications';
 import {
   useCurrentUser,
   useMarkAllNotificationsAsRead,
   useMarkNotificationAsRead,
-  useNotificationRealtime,
   useNotificationUnreadCount,
   useNotifications,
 } from '@/services/queries';
@@ -27,25 +26,24 @@ export function NotificationBell({ buttonClassName, className }: NotificationBel
   const navigate = useNavigate();
   const wrapRef = useRef<HTMLDivElement>(null);
   const [isOpen, setIsOpen] = useState(false);
-  const [realtimeMessage, setRealtimeMessage] = useState<RealtimeNotificationPayload | null>(null);
   const notificationsQuery = useNotifications({ page: 1, limit: 10 });
   const unreadCountQuery = useNotificationUnreadCount();
   const markReadMutation = useMarkNotificationAsRead();
   const markAllReadMutation = useMarkAllNotificationsAsRead();
   const { data: user } = useCurrentUser();
+  const lastInAppNotification = useRealtimeInAppNotification();
   const unreadCount = unreadCountQuery.data?.unreadCount ?? 0;
   const notifications = notificationsQuery.data?.items ?? [];
   const formattedUnreadCount = unreadCount > 99 ? '99+' : unreadCount.toString();
+  const [realtimeMessage, setRealtimeMessage] = useState<typeof lastInAppNotification>(null);
 
-  useNotificationRealtime({
-    enabled: Boolean(user),
-    onInAppNotification: (payload) => {
-      setRealtimeMessage(payload);
-    },
-    onRealtimeOnlyNotification: (payload) => {
-      setRealtimeMessage(payload);
-    },
-  });
+  useEffect(() => {
+    if (!lastInAppNotification?.notificationId) {
+      return;
+    }
+
+    setRealtimeMessage(lastInAppNotification);
+  }, [lastInAppNotification]);
 
   useEffect(() => {
     if (!realtimeMessage) {
@@ -205,6 +203,40 @@ function getNotificationTargetPath(notification: NotificationDto, role?: string)
     return notification.projectId ? `/customer/projects/${notification.projectId}` : '/customer/projects';
   }
 
+  if (notification.referenceType === 'QUOTATION') {
+    if (normalizedRole === 'SALES') {
+      return '/sales/quotations';
+    }
+
+    return '/customer/quotations';
+  }
+
+  if (notification.referenceType === 'ORDER' || notification.referenceType === 'PAYMENT') {
+    if (normalizedRole === 'SALES') {
+      return '/sales/orders';
+    }
+
+    if (normalizedRole === 'PRODUCTION') {
+      return '/production/requests';
+    }
+
+    return '/customer/orders';
+  }
+
+  if (notification.referenceType === 'PRODUCTION_REQUEST') {
+    if (normalizedRole === 'PRODUCTION') {
+      return notification.referenceId
+        ? `/production/requests/${encodeURIComponent(notification.referenceId)}`
+        : '/production/requests';
+    }
+
+    if (normalizedRole === 'SALES') {
+      return '/sales/orders';
+    }
+
+    return notification.projectId ? `/customer/projects/${notification.projectId}` : '/customer/orders';
+  }
+
   const projectId = notification.referenceType === 'PROJECT' ? notification.referenceId : notification.projectId;
 
   if (projectId) {
@@ -215,6 +247,12 @@ function getNotificationTargetPath(notification: NotificationDto, role?: string)
     if (normalizedRole === 'SALES') {
       return `/sales/assigned-projects/${projectId}`;
     }
+
+    if (normalizedRole === 'PRODUCTION') {
+      return '/production/requests';
+    }
+
+    return `/customer/projects/${projectId}`;
   }
 
   if (normalizedRole === 'ADMIN') {
@@ -227,6 +265,10 @@ function getNotificationTargetPath(notification: NotificationDto, role?: string)
 
   if (normalizedRole === 'SALES') {
     return '/sales/assigned-projects';
+  }
+
+  if (normalizedRole === 'PRODUCTION') {
+    return '/production/requests';
   }
 
   return '/customer/projects';

@@ -2,7 +2,17 @@ import axios, { AxiosError } from 'axios';
 
 import { shouldRedirectUnauthorized } from '@/shared/config/authPreview';
 
-export type NotificationReferenceType = 'PROJECT' | 'PROJECT_SCHEDULE' | 'PROPOSAL' | string;
+import { getStoredAccessToken } from './tokenStore';
+
+export type NotificationReferenceType =
+  | 'PROJECT'
+  | 'PROJECT_SCHEDULE'
+  | 'PROPOSAL'
+  | 'QUOTATION'
+  | 'PAYMENT'
+  | 'ORDER'
+  | 'PRODUCTION_REQUEST'
+  | string;
 
 export type NotificationType =
   | 'ProjectRequestSubmitted'
@@ -63,8 +73,22 @@ export type MarkNotificationReadResponse = {
   readAt: string | null;
 };
 
+export type RealtimeMetadata = {
+  paymentType?: 'PROJECT_START_FEE' | 'DEPOSIT' | 'REMAINING_PAYMENT' | string;
+  orderId?: string;
+  orderItemId?: string;
+  quotationId?: string;
+  proposalId?: string;
+  scheduleId?: string;
+  productionRequestId?: string;
+  assignedToAccountId?: string;
+  newProjectStatus?: string;
+  orderStatus?: string;
+  [key: string]: unknown;
+};
+
 export type RealtimeNotificationPayload = {
-  notificationId?: string;
+  notificationId?: string | null;
   title: string;
   message?: string | null;
   notificationType?: NotificationType | null;
@@ -73,6 +97,7 @@ export type RealtimeNotificationPayload = {
   referenceId?: string | null;
   createdAt?: string | null;
   occurredAt?: string | null;
+  metadata?: RealtimeMetadata | null;
 };
 
 const notificationApiClient = axios.create({
@@ -81,6 +106,16 @@ const notificationApiClient = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
+});
+
+notificationApiClient.interceptors.request.use((config) => {
+  const token = getStoredAccessToken();
+
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+
+  return config;
 });
 
 notificationApiClient.interceptors.response.use(
