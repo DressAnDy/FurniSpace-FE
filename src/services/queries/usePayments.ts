@@ -99,7 +99,7 @@ export function usePaymentRealtime(input: {
   paymentId?: string | null;
   enabled?: boolean;
   onPaymentUpdated?: (payload: PaymentUpdatedRealtimeDto) => void;
-}) {
+} = {}) {
   const { enabled = true, onPaymentUpdated, paymentId } = input;
   const queryClient = useQueryClient();
   const onPaymentUpdatedRef = useRef(onPaymentUpdated);
@@ -115,7 +115,7 @@ export function usePaymentRealtime(input: {
   }, [paymentId]);
 
   useEffect(() => {
-    if (!enabled || !paymentId) {
+    if (!enabled) {
       return undefined;
     }
 

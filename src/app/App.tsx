@@ -5,6 +5,7 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { LangProvider } from '@/app/providers/LangContext';
 import { ProtectedRoute } from '@/app/providers/ProtectedRoute';
 import { queryClient } from '@/app/providers/queryClient';
+import { RealtimeSyncProvider } from '@/app/providers/RealtimeSyncProvider';
 import { theme } from '@/app/providers/theme';
 import { AdminDashbroad } from '@/features/AdminPages/AdminDashbroad';
 import { AdminProjects } from '@/features/AdminPages/AdminProjects';
@@ -67,8 +68,9 @@ export default function App() {
         <CssBaseline />
         <LangProvider>
           <BrowserRouter>
-            <TileTransitionProvider>
-              <Routes>
+            <RealtimeSyncProvider>
+              <TileTransitionProvider>
+                <Routes>
                 {/* Public routes */}
                 <Route path="/" element={<HomePage />} />
                 <Route path="/login" element={<LoginPage />} />
@@ -194,6 +196,7 @@ export default function App() {
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Routes>
             </TileTransitionProvider>
+            </RealtimeSyncProvider>
           </BrowserRouter>
         </LangProvider>
       </ThemeProvider>
