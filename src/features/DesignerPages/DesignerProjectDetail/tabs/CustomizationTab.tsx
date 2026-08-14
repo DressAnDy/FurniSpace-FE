@@ -4,6 +4,7 @@ import { IconCube, IconUpload } from '@tabler/icons-react';
 import { SelectedImagePreview } from '@/features/AdminPages/Productmanagement/SelectedImagePreview';
 import { ModelViewer, type ModelViewerStatus } from '@/features/ThreeD/components';
 import {
+  getCustomizationRequestServiceResultFromError,
   getCustomizationRequestServiceResultMessage,
   type CustomizationRequestDto,
   type CustomizationRequestVersionDto,
@@ -11,12 +12,8 @@ import {
   type SubmitCustomizationRequestInput,
   type UpdateCustomizationRequestVersionDto,
 } from '@/services/api/customizationRequests';
-import {
-  getProjectServiceResultMessage,
-  type FileType,
-  type ProjectDto,
-  type ProjectFileUploadResponseDto,
-} from '@/services/api/projects';
+import { getProductServiceResultMessage } from '@/services/api';
+import { type ProjectDto } from '@/services/api/projects';
 import type { ProposalDto, ProposalItemDto } from '@/services/api/proposals';
 import {
   useCancelCustomizationRequest,
@@ -27,7 +24,7 @@ import {
   useSubmitCustomizationRequest,
   useSubmitCustomizationRequestVersionForReview,
   useUpdateCustomizationRequestVersion,
-  useUploadProjectFile,
+  useUploadProductVersionFile,
   useWithdrawCustomizationRequestVersion,
 } from '@/services/queries';
 
@@ -68,7 +65,7 @@ const emptyVersionForm: VersionFormState = {
   color: '',
   depth: '',
   designerNote: '',
-  dimensionUnit: 'cm',
+  dimensionUnit: 'm',
   estimatedPrice: '',
   height: '',
   material: '',
@@ -134,7 +131,7 @@ export function CustomizationTab({ project }: CustomizationTabProps) {
     status: statusFilter,
   });
   const submitRequestMutation = useSubmitCustomizationRequest();
-  const uploadProjectFileMutation = useUploadProjectFile();
+  const uploadProductVersionFileMutation = useUploadProductVersionFile();
   const createVersionMutation = useCreateCustomizationRequestVersion();
   const updateVersionMutation = useUpdateCustomizationRequestVersion();
   const submitVersionMutation = useSubmitCustomizationRequestVersionForReview();
@@ -226,56 +223,45 @@ export function CustomizationTab({ project }: CustomizationTabProps) {
     }
 
     try {
-      const uploadedPreviewFile = previewFile
-        ? await uploadProjectFileMutation.mutateAsync({
-          file: previewFile,
-          fileType: 'PRODUCT_PREVIEW',
-          note: `Customization preview for ${versionForm.versionName}`,
-          projectId: project.projectId,
-          visibility: 'CUSTOMER_VISIBLE',
-        })
-        : null;
-      const uploadedModelFile = modelFile
-        ? await uploadProjectFileMutation.mutateAsync({
-          file: modelFile,
-          fileType: 'MODEL_3D',
-          note: `Customization 3D model for ${versionForm.versionName}`,
-          projectId: project.projectId,
-          visibility: 'CUSTOMER_VISIBLE',
-        })
-        : null;
-      const uploadedFileValidationMessage = validateUploadedCustomizationFiles({
-        modelFile: uploadedModelFile,
-        previewFile: uploadedPreviewFile,
-        projectId: project.projectId,
-      });
-
-      if (uploadedFileValidationMessage) {
-        setMessage({ tone: 'error', text: uploadedFileValidationMessage });
-        return;
-      }
-
-      const versionBody = {
-        ...body,
-        modelFileId: uploadedModelFile?.fileId ?? body.modelFileId ?? null,
-        previewFileIds: uploadedPreviewFile?.fileId
-          ? [uploadedPreviewFile.fileId]
-          : body.previewFileIds ?? [],
-      };
-
+      const versionBody = getVersionMetadataBody(body, activeRequest, editingVersion);
+      let savedVersion: CustomizationRequestVersionDto;
       if (editingVersion) {
-        await updateVersionMutation.mutateAsync({
+        savedVersion = await updateVersionMutation.mutateAsync({
           customizationRequestId: activeRequest.customizationRequestId,
           customizationRequestVersionId: editingVersion.customizationRequestVersionId,
           body: versionBody,
         });
-        setMessage({ tone: 'success', text: 'Customization version updated.' });
       } else {
-        await createVersionMutation.mutateAsync({
+        const createResult = await createVersionMutation.mutateAsync({
           customizationRequestId: activeRequest.customizationRequestId,
           body: versionBody,
         });
-        setMessage({ tone: 'success', text: 'Customization version draft created.' });
+        savedVersion = createResult.version;
+      }
+
+      const productVersionId = savedVersion.productVersion?.productVersionId;
+
+      if ((previewFile || modelFile) && !productVersionId) {
+        setMessage({ tone: 'error', text: 'Custom ProductVersion was created, but its productVersionId was not returned for file upload.' });
+        return;
+      }
+
+      if (previewFile && productVersionId) {
+        await uploadProductVersionFileMutation.mutateAsync({
+          description: `Customization preview for ${versionForm.versionName}`,
+          file: previewFile,
+          fileType: 'PRODUCT_PREVIEW',
+          productVersionId,
+        });
+      }
+
+      if (modelFile && productVersionId) {
+        await uploadProductVersionFileMutation.mutateAsync({
+          description: `Customization 3D model for ${versionForm.versionName}`,
+          file: modelFile,
+          fileType: 'MODEL_3D',
+          productVersionId,
+        });
       }
 
       setEditingVersionId(null);
@@ -283,8 +269,10 @@ export function CustomizationTab({ project }: CustomizationTabProps) {
       setPreviewFile(null);
       setModelFile(null);
       setVersionModalOpen(false);
+      await requestsQuery.refetch();
+      setMessage({ tone: 'success', text: editingVersion ? 'Customization version updated.' : 'Customization version draft created.' });
     } catch (error) {
-      setMessage({ tone: 'error', text: getProjectServiceResultMessage(error) || getCustomizationRequestServiceResultMessage(error) });
+      setMessage({ tone: 'error', text: getVersionSaveErrorMessage(error) });
     }
   }
 
@@ -501,7 +489,7 @@ export function CustomizationTab({ project }: CustomizationTabProps) {
             editingVersion={editingVersion}
             form={versionForm}
             modelFile={modelFile}
-            mutationPending={createVersionMutation.isPending || updateVersionMutation.isPending || uploadProjectFileMutation.isPending}
+            mutationPending={createVersionMutation.isPending || updateVersionMutation.isPending || uploadProductVersionFileMutation.isPending}
             previewFile={previewFile}
             viewerError={viewerError}
             viewerStatus={viewerStatus}
@@ -907,19 +895,21 @@ function VersionForm({
 
   return (
     <form className="designer-project-custom-action-form" onSubmit={onSubmit}>
-      <label>
-        <span>{editingVersion ? 'Edit draft version' : 'Create custom version'}</span>
-        <input required value={form.versionName} placeholder="Version name" onChange={(event) => setField('versionName', event.target.value)} />
-      </label>
-      <label>
-        <span>Version title</span>
-        <input value={form.versionTitle} placeholder="Version title" onChange={(event) => setField('versionTitle', event.target.value)} />
-      </label>
+      <div className="designer-project-custom-field-grid">
+        <label>
+          <span>{editingVersion ? 'Edit draft version' : 'Create custom version'}</span>
+          <input required value={form.versionName} placeholder="Version name" onChange={(event) => setField('versionName', event.target.value)} />
+        </label>
+        <label>
+          <span>Version title</span>
+          <input value={form.versionTitle} placeholder="Version title" onChange={(event) => setField('versionTitle', event.target.value)} />
+        </label>
+      </div>
       <label>
         <span>Designer note</span>
         <textarea rows={3} value={form.designerNote} placeholder="Designer note" onChange={(event) => setField('designerNote', event.target.value)} />
       </label>
-      <div className="designer-project-custom-detail-grid">
+      <div className="designer-project-custom-field-grid">
         <label>
           <span>Material</span>
           <input value={form.material} placeholder="Material" onChange={(event) => setField('material', event.target.value)} />
@@ -941,28 +931,14 @@ function VersionForm({
           <input min="0" type="number" value={form.depth} onChange={(event) => setField('depth', event.target.value)} />
         </label>
         <label>
-          <span>Estimated price</span>
-          <input min="0" type="number" value={form.estimatedPrice} onChange={(event) => setField('estimatedPrice', event.target.value)} />
-        </label>
-      </div>
-      <div className="designer-project-custom-detail-grid">
-        <label>
           <span>Version code</span>
           <input value={form.versionCode} placeholder="Optional unique code" onChange={(event) => setField('versionCode', event.target.value)} />
-        </label>
-        <label>
-          <span>Dimension unit</span>
-          <select value={form.dimensionUnit} onChange={(event) => setField('dimensionUnit', event.target.value)}>
-            <option value="cm">cm</option>
-            <option value="m">m</option>
-            <option value="mm">mm</option>
-          </select>
         </label>
       </div>
       <div className="designer-project-custom-upload-section">
         <div>
           <span>Version Files</span>
-          <p>Files are uploaded to Project Files first, then linked to this custom ProductVersion.</p>
+          <p>Create the custom ProductVersion first, then upload files directly to that ProductVersion.</p>
         </div>
         <label className="designer-project-custom-upload-card">
           <span>{editingVersion ? 'Replace / Add Preview Image' : 'Preview Image'}</span>
@@ -1008,7 +984,7 @@ function VersionForm({
             <div className="designer-project-custom-upload-main designer-project-custom-upload-model">
               <IconCube size={42} />
               <strong>{(modelFile?.name ?? form.modelFileId) || 'Select GLB/glTF model'}</strong>
-              <small>Uploaded as MODEL_3D before this custom version is saved.</small>
+              <small>Uploaded as MODEL_3D after this custom ProductVersion is saved.</small>
             </div>
           </div>
         </label>
@@ -1123,6 +1099,46 @@ function getVersionBody(form: VersionFormState): UpdateCustomizationRequestVersi
   };
 }
 
+function getVersionMetadataBody(
+  formBody: UpdateCustomizationRequestVersionDto,
+  request: CustomizationRequestDto,
+  editingVersion: CustomizationRequestVersionDto | null,
+): UpdateCustomizationRequestVersionDto {
+  const inheritedEstimatedPrice = request.sourceProductVersion?.estimatedPrice
+    ?? request.sourceProductVersion?.price
+    ?? editingVersion?.productVersion?.estimatedPrice
+    ?? editingVersion?.productVersion?.price
+    ?? formBody.estimatedPrice;
+
+  return {
+    color: formBody.color,
+    depth: formBody.depth,
+    designerNote: formBody.designerNote,
+    dimensionUnit: 'm',
+    estimatedPrice: inheritedEstimatedPrice,
+    height: formBody.height,
+    material: formBody.material,
+    versionCode: formBody.versionCode,
+    versionName: formBody.versionName,
+    versionTitle: formBody.versionTitle,
+    width: formBody.width,
+  };
+}
+
+function getVersionSaveErrorMessage(error: unknown) {
+  const customizationResult = getCustomizationRequestServiceResultFromError(error);
+
+  if (customizationResult?.errorCode && customizationResult.errorCode.startsWith('CUSTOMIZATION')) {
+    return getCustomizationRequestServiceResultMessage(error);
+  }
+
+  if (customizationResult?.errorCode === 'PRODUCT_VERSION_FILE_LINK_CONFLICT') {
+    return 'File already belongs to this version. Please refresh or choose another file.';
+  }
+
+  return getProductServiceResultMessage(error);
+}
+
 function validateSelectedCustomizationFiles({
   modelFile,
   previewFile,
@@ -1141,69 +1157,6 @@ function validateSelectedCustomizationFiles({
   return null;
 }
 
-function validateUploadedCustomizationFiles({
-  modelFile,
-  previewFile,
-  projectId,
-}: {
-  modelFile: ProjectFileUploadResponseDto | null;
-  previewFile: ProjectFileUploadResponseDto | null;
-  projectId: string;
-}) {
-  const modelValidationMessage = modelFile ? validateUploadedCustomizationFile({
-    expectedFileType: 'MODEL_3D',
-    file: modelFile,
-    projectId,
-    requireModelExtension: true,
-  }) : null;
-
-  if (modelValidationMessage) {
-    return modelValidationMessage;
-  }
-
-  const previewValidationMessage = previewFile ? validateUploadedCustomizationFile({
-    expectedFileType: 'PRODUCT_PREVIEW',
-    file: previewFile,
-    projectId,
-  }) : null;
-
-  if (previewValidationMessage) {
-    return previewValidationMessage;
-  }
-
-  return null;
-}
-
-function validateUploadedCustomizationFile({
-  expectedFileType,
-  file,
-  projectId,
-  requireModelExtension = false,
-}: {
-  expectedFileType: FileType;
-  file: ProjectFileUploadResponseDto & { status?: string | null };
-  projectId: string;
-  requireModelExtension?: boolean;
-}) {
-  if (file.projectId !== projectId) {
-    return `${expectedFileType} upload belongs to another project. Please upload the file from this project.`;
-  }
-
-  if (file.fileType !== expectedFileType) {
-    return `Uploaded file ${file.originalFileName} has fileType ${file.fileType}, expected ${expectedFileType}. Please remove it and upload again.`;
-  }
-
-  if (file.status && file.status !== 'ACTIVE') {
-    return `Uploaded file ${file.originalFileName} is ${file.status}, expected ACTIVE.`;
-  }
-
-  if (requireModelExtension && !isModel3dFileName(file.originalFileName || file.fileName)) {
-    return `Uploaded MODEL_3D file ${file.originalFileName || file.fileName} must be .glb or .gltf.`;
-  }
-
-  return null;
-}
-
 function isModel3dFileName(fileName: string) {
   return /\.(glb|gltf)$/i.test(fileName.trim());
 }
@@ -1215,7 +1168,7 @@ function formFromVersion(version: CustomizationRequestVersionDto): VersionFormSt
     color: productVersion.color ?? '',
     depth: formatInputNumber(productVersion.depth),
     designerNote: version.designerNote ?? '',
-    dimensionUnit: isDimensionUnit(productVersion.dimensionUnit) ? productVersion.dimensionUnit : 'cm',
+    dimensionUnit: isDimensionUnit(productVersion.dimensionUnit) ? productVersion.dimensionUnit : 'm',
     estimatedPrice: formatInputNumber(productVersion.estimatedPrice ?? productVersion.price),
     height: formatInputNumber(productVersion.height),
     material: productVersion.material ?? '',

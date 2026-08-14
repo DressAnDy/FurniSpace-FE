@@ -63,8 +63,13 @@ export type ApprovedProductVersionSummaryDto = {
 
 export type CustomizationProductVersionFileDto = {
   fileId: string;
+  fileLinkId?: string | null;
   fileUrl?: string | null;
+  publicUrl?: string | null;
+  url?: string | null;
   fileType?: string | null;
+  originalFileName?: string | null;
+  visibility?: string | null;
 };
 
 export type CustomizationProductVersionDto = {
@@ -72,6 +77,8 @@ export type CustomizationProductVersionDto = {
   productId?: string | null;
   versionName?: string | null;
   versionCode?: string | null;
+  versionType?: string | null;
+  isProjectSpecific?: boolean | null;
   material?: string | null;
   color?: string | null;
   width?: number | null;
@@ -82,6 +89,8 @@ export type CustomizationProductVersionDto = {
   price?: number | null;
   modelFileId?: string | null;
   modelFileUrl?: string | null;
+  thumbnail?: CustomizationProductVersionFileDto | null;
+  files?: CustomizationProductVersionFileDto[] | null;
   previewFiles?: CustomizationProductVersionFileDto[] | null;
 };
 
@@ -214,7 +223,7 @@ export type CreateCustomizationRequestVersionDto = {
   dimensionUnit?: 'cm' | 'm' | 'mm' | null;
   estimatedPrice?: number | null;
   modelFileId?: string | null;
-  previewFileIds: string[];
+  previewFileIds?: string[] | null;
 };
 
 export type UpdateCustomizationRequestVersionDto = Omit<CreateCustomizationRequestVersionDto, 'previewFileIds'> & {
@@ -327,7 +336,7 @@ export async function getProjectCustomizationRequests(params: CustomizationReque
 
 export async function getProductionCustomizationVersions(params: ProductionCustomizationVersionListParams = {}) {
   const response = await customizationRequestApiClient.get<ServiceResult<ProductionCustomizationVersionListData>>(
-    '/production/customization-versions',
+    '/api/production/customization-versions',
     {
       params: {
         Status: params.status ?? undefined,
@@ -408,7 +417,7 @@ export async function withdrawCustomizationRequestVersion(input: WithdrawCustomi
 
 export async function productionReviewCustomizationVersion(input: ProductionReviewCustomizationVersionInput) {
   const response = await customizationRequestApiClient.patch<ServiceResult<CustomizationRequestVersionDto>>(
-    `/production/customization-versions/${input.customizationRequestVersionId}/review`,
+    `/api/production/customization-versions/${input.customizationRequestVersionId}/review`,
     {
       result: input.result,
       materialAvailable: input.materialAvailable ?? null,
@@ -459,7 +468,7 @@ function normalizeVersionBody(body: CreateCustomizationRequestVersionDto | Updat
     depth: body.depth ?? null,
     dimensionUnit: body.dimensionUnit ?? null,
     estimatedPrice: body.estimatedPrice ?? null,
-    modelFileId: body.modelFileId?.trim() || null,
+    ...('modelFileId' in body ? { modelFileId: body.modelFileId?.trim() || null } : {}),
     ...('previewFileIds' in body ? { previewFileIds: body.previewFileIds ?? [] } : {}),
   };
 }

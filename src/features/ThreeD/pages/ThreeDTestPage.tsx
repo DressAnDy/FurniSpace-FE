@@ -39,8 +39,15 @@ import {
   type ProductDetailDto,
   type ProductVersionDto,
 } from '@/services/api';
+import type {
+  CustomizationProductVersionDto,
+  CustomizationRequestDto,
+  CustomizationRequestVersionDto,
+} from '@/services/api/customizationRequests';
+import { getCustomizationRequestServiceResultMessage } from '@/services/api/customizationRequests';
 import {
   useCategoryList,
+  useProjectCustomizationRequests,
   useProposalDetail,
   useRoomPlannerScene,
   useSaveRoomPlannerScene,
@@ -53,6 +60,7 @@ import './ThreeDTestPage.css';
 
 type ViewMode = '2d' | '3d';
 type DesignPanel = 'products' | 'floor' | 'wall' | null;
+type ProductSourceTab = 'catalog' | 'custom';
 type RoomPlannerRouteState = {
   mode?: 'create-proposal';
   proposalId?: string;
@@ -74,7 +82,7 @@ type ProductModel = {
   categoryName?: string | null;
   productId?: string;
   productVersionId?: string;
-  source?: 'api' | 'uploaded';
+  source?: 'api' | 'uploaded' | 'custom';
   thumbnailUrl: string;
   width?: number | null;
 };
@@ -108,7 +116,7 @@ function getProductScale(product: PlacedProduct3D) {
 }
 
 function getInitialProductScale(product: ProductModel): Vector3State {
-  const scale = product.source === 'api' || product.source === 'uploaded'
+  const scale = product.source === 'api' || product.source === 'uploaded' || product.source === 'custom'
     ? API_PRODUCT_DEFAULT_SCALE
     : 1;
 
@@ -189,6 +197,37 @@ function getCatalogModelFile(files: CatalogFileDto[] | undefined) {
   return files?.find((file) => file.fileType === 'MODEL_3D') ?? null;
 }
 
+function getCustomProductVersionFiles(productVersion: CustomizationProductVersionDto | null | undefined) {
+  return [
+    ...(productVersion?.files ?? []),
+    ...(productVersion?.previewFiles ?? []),
+    productVersion?.thumbnail,
+  ].filter((file): file is NonNullable<typeof file> => Boolean(file));
+}
+
+function getCustomProductVersionFileType(file: ReturnType<typeof getCustomProductVersionFiles>[number]) {
+  return file.fileType?.toUpperCase() ?? '';
+}
+
+function getCustomProductVersionFileUrl(file: ReturnType<typeof getCustomProductVersionFiles>[number] | null | undefined) {
+  return file?.fileUrl ?? file?.publicUrl ?? file?.url ?? null;
+}
+
+function getCustomProductVersionModelFile(productVersion: CustomizationProductVersionDto | null | undefined) {
+  return getCustomProductVersionFiles(productVersion).find((file) => getCustomProductVersionFileType(file) === 'MODEL_3D') ?? null;
+}
+
+function getCustomProductVersionThumbnail(productVersion: CustomizationProductVersionDto | null | undefined) {
+  const previewFile = getCustomProductVersionFiles(productVersion).find((file) => getCustomProductVersionFileType(file) === 'PRODUCT_PREVIEW')
+    ?? getCustomProductVersionFiles(productVersion).find((file) => {
+      const url = getCustomProductVersionFileUrl(file);
+
+      return Boolean(url && /\.(png|jpe?g|webp|gif)(\?|$)/i.test(url));
+    });
+
+  return getCustomProductVersionFileUrl(previewFile) ?? EMPTY_MODEL_THUMBNAIL;
+}
+
 function getVersionThumbnail(product: ProductDetailDto, version: ProductVersionDto) {
   return version.thumbnail?.fileUrl ??
     product.thumbnail?.fileUrl ??
@@ -227,6 +266,42 @@ function mapCatalogVersionToModel(product: ProductDetailDto, version: ProductVer
     source: 'api',
     thumbnailUrl: getVersionThumbnail(product, version),
     width: version.width,
+  };
+}
+
+function mapCustomVersionToModel(request: CustomizationRequestDto, version: CustomizationRequestVersionDto): ProductModel | null {
+  const productVersion = version.productVersion;
+
+  if (!productVersion?.productVersionId || productVersion.versionType !== 'PROJECT_SPECIFIC') {
+    return null;
+  }
+
+  const modelFile = getCustomProductVersionModelFile(productVersion);
+  const modelUrl = getCustomProductVersionFileUrl(modelFile) ?? productVersion.modelFileUrl;
+
+  if (!modelUrl) {
+    return null;
+  }
+
+  return {
+    color: productVersion.color,
+    depth: productVersion.depth,
+    fileId: modelFile?.fileId ?? modelFile?.fileLinkId ?? undefined,
+    height: productVersion.height,
+    id: `custom-${productVersion.productVersionId}`,
+    material: productVersion.material,
+    modelUrl,
+    name: [
+      request.sourceProductVersion?.productName,
+      productVersion.versionName ?? version.versionTitle ?? `Custom v${version.versionNo}`,
+    ].filter(Boolean).join(' - ') || productVersion.versionName || `Custom v${version.versionNo}`,
+    categoryId: 'custom-products',
+    categoryName: 'Custom Products',
+    productId: productVersion.productId ?? request.sourceProductVersion?.productId ?? undefined,
+    productVersionId: productVersion.productVersionId,
+    source: 'custom',
+    thumbnailUrl: getCustomProductVersionThumbnail(productVersion),
+    width: productVersion.width,
   };
 }
 
@@ -352,6 +427,10 @@ function formatNumberInput(value: number) {
 }
 
 function getCatalogSourceLabel(product: ProductModel) {
+  if (product.source === 'custom') {
+    return 'Custom';
+  }
+
   if (product.source === 'uploaded') {
     return 'Uploaded';
   }
@@ -472,6 +551,10 @@ export function ThreeDTestPage() {
   const currentProposalId = routeState?.proposalId ?? roomPlannerSceneQuery.data?.proposalId ?? null;
   const proposalDetailQuery = useProposalDetail(currentProposalId ?? undefined, { enabled: Boolean(currentProposalId) && isProposalScene });
   const currentProjectId = routeState?.projectId ?? roomPlannerSceneQuery.data?.projectId ?? null;
+  const customizationRequestsQuery = useProjectCustomizationRequests(
+    currentProjectId ? { projectId: currentProjectId } : undefined,
+    { enabled: Boolean(currentProjectId) },
+  );
   const backLinkTarget = routeState?.returnTo ?? (currentProjectId ? `/designer/assigned-projects/${currentProjectId}` : isAdminLab ? '/admin/dashbroad' : '/designer/assigned-projects');
   const [activeTool, setActiveTool] = useState<BlueprintTool>('select');
   const [hideLabels, setHideLabels] = useState(false);
@@ -480,6 +563,7 @@ export function ThreeDTestPage() {
   const [designPanel, setDesignPanel] = useState<DesignPanel>('products');
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [panelSearch, setPanelSearch] = useState('');
+  const [productSourceTab, setProductSourceTab] = useState<ProductSourceTab>('catalog');
   const [selectedCatalogCategoryId, setSelectedCatalogCategoryId] = useState<string | null>(null);
   const [selectedCatalogProductId, setSelectedCatalogProductId] = useState<string | null>(null);
   const [apiCatalogProducts, setApiCatalogProducts] = useState<ProductDetailDto[]>([]);
@@ -536,21 +620,42 @@ export function ThreeDTestPage() {
     () => mergeProductModels(
       uploadedProductModels,
       apiProductModels,
+      (customizationRequestsQuery.data?.items ?? []).flatMap((request) =>
+        (request.versions ?? [])
+          .map((version) => mapCustomVersionToModel(request, version))
+          .filter((model): model is ProductModel => Boolean(model)),
+      ),
+    ),
+    [apiProductModels, customizationRequestsQuery.data?.items, uploadedProductModels],
+  );
+  const catalogProductModels = useMemo(
+    () => mergeProductModels(
+      uploadedProductModels,
+      apiProductModels,
     ),
     [apiProductModels, uploadedProductModels],
+  );
+  const customProductModels = useMemo(
+    () =>
+      (customizationRequestsQuery.data?.items ?? []).flatMap((request) =>
+        (request.versions ?? [])
+          .map((version) => mapCustomVersionToModel(request, version))
+          .filter((model): model is ProductModel => Boolean(model)),
+      ),
+    [customizationRequestsQuery.data?.items],
   );
   const filteredProductModels = useMemo(() => {
     const normalizedSearch = panelSearch.trim().toLowerCase();
 
     return normalizedSearch
-      ? availableProductModels.filter((product) => product.name.toLowerCase().includes(normalizedSearch))
-      : availableProductModels;
-  }, [availableProductModels, panelSearch]);
+      ? customProductModels.filter((product) => product.name.toLowerCase().includes(normalizedSearch))
+      : customProductModels;
+  }, [customProductModels, panelSearch]);
   const normalizedCatalogSearch = panelSearch.trim().toLowerCase();
   const productModelCountByProductId = useMemo(() => {
     const counts = new Map<string, number>();
 
-    apiProductModels.forEach((model) => {
+    catalogProductModels.forEach((model) => {
       if (!model.productId) {
         return;
       }
@@ -559,7 +664,7 @@ export function ThreeDTestPage() {
     });
 
     return counts;
-  }, [apiProductModels]);
+  }, [catalogProductModels]);
   const catalogCategoryCards = useMemo(() => {
     const categories = categoriesQuery.data?.items ?? [];
     const productCountsByCategoryId = new Map<string, number>();
@@ -609,12 +714,16 @@ export function ThreeDTestPage() {
   );
   const selectedProductModels = useMemo(
     () =>
-      filteredProductModels.filter((model) =>
+      catalogProductModels.filter((model) =>
         selectedCatalogProductId
           ? model.productId === selectedCatalogProductId
           : false,
+      ).filter((model) =>
+        normalizedCatalogSearch
+          ? model.name.toLowerCase().includes(normalizedCatalogSearch)
+          : true,
       ),
-    [filteredProductModels, selectedCatalogProductId],
+    [catalogProductModels, normalizedCatalogSearch, selectedCatalogProductId],
   );
 
   const openDesignPanel = useCallback((panel: Exclude<DesignPanel, null>) => {
@@ -625,6 +734,7 @@ export function ThreeDTestPage() {
     if (panel === 'products') {
       setSelectedCatalogCategoryId(null);
       setSelectedCatalogProductId(null);
+      setProductSourceTab('catalog');
     }
   }, []);
 
@@ -635,13 +745,13 @@ export function ThreeDTestPage() {
   const resolveSceneObjectModelUrl = useCallback((object: Partial<RoomPlannerObject>) => {
     const modelFileId = object.modelSnapshot?.modelFileId;
     const productVersionId = object.productVersionId;
-    const catalogModel = apiProductModels.find((model) =>
+    const catalogModel = availableProductModels.find((model) =>
       Boolean(productVersionId && model.productVersionId === productVersionId) ||
       Boolean(modelFileId && model.fileId === modelFileId),
     );
 
     return catalogModel?.modelUrl ?? null;
-  }, [apiProductModels]);
+  }, [availableProductModels]);
 
   useEffect(() => {
     if (!isProposalScene || !roomPlannerSceneQuery.data) {
@@ -1375,16 +1485,44 @@ export function ThreeDTestPage() {
             {designPanel === 'products' && (
               <section className="design-panel-section">
                 <div className="room-product-sidebar-heading">
-                  <strong>Catalog</strong>
-                  <span>{filteredProductModels.length} ready model(s)</span>
+                  <strong>{productSourceTab === 'catalog' ? 'Catalog' : 'Custom Products'}</strong>
+                  <span>{productSourceTab === 'catalog' ? catalogProductModels.length : filteredProductModels.length} ready model(s)</span>
                 </div>
-                {categoriesQuery.isLoading && (
+                <div className="product-source-tabs" role="tablist" aria-label="Product source">
+                  <button
+                    className={productSourceTab === 'catalog' ? 'is-active' : ''}
+                    role="tab"
+                    type="button"
+                    onClick={() => {
+                      setProductSourceTab('catalog');
+                      setSelectedCatalogCategoryId(null);
+                      setSelectedCatalogProductId(null);
+                      setPanelSearch('');
+                    }}
+                  >
+                    Catalog
+                  </button>
+                  <button
+                    className={productSourceTab === 'custom' ? 'is-active' : ''}
+                    role="tab"
+                    type="button"
+                    onClick={() => {
+                      setProductSourceTab('custom');
+                      setSelectedCatalogCategoryId(null);
+                      setSelectedCatalogProductId(null);
+                      setPanelSearch('');
+                    }}
+                  >
+                    Custom
+                  </button>
+                </div>
+                {productSourceTab === 'catalog' && categoriesQuery.isLoading && (
                   <div className="catalog-status">Loading categories...</div>
                 )}
-                {categoriesQuery.isError && (
+                {productSourceTab === 'catalog' && categoriesQuery.isError && (
                   <div className="catalog-status is-error">{getCategoryServiceResultMessage(categoriesQuery.error)}</div>
                 )}
-                {isAdminLab && (
+                {productSourceTab === 'catalog' && isAdminLab && (
                   <div className="model-upload-card">
                     <div>
                       <strong>Upload MODEL_3D</strong>
@@ -1413,7 +1551,7 @@ export function ThreeDTestPage() {
                     {modelUploadMessage && <small>{modelUploadMessage}</small>}
                   </div>
                 )}
-                {!selectedCatalogCategoryId && (
+                {productSourceTab === 'catalog' && !selectedCatalogCategoryId && (
                   <div className="catalog-page">
                     {catalogCategoryCards.length === 0 && (
                       <div className="catalog-status">
@@ -1440,7 +1578,7 @@ export function ThreeDTestPage() {
                   </div>
                 )}
 
-                {selectedCatalogCategoryId && !selectedCatalogProductId && (
+                {productSourceTab === 'catalog' && selectedCatalogCategoryId && !selectedCatalogProductId && (
                   <div className="catalog-page">
                     <div className="catalog-page-heading">
                       <button type="button" onClick={() => {
@@ -1483,7 +1621,7 @@ export function ThreeDTestPage() {
                   </div>
                 )}
 
-                {selectedCatalogProductId && (
+                {productSourceTab === 'catalog' && selectedCatalogProductId && (
                   <div className="catalog-page">
                     <div className="catalog-page-heading">
                       <button type="button" onClick={() => {
@@ -1504,6 +1642,65 @@ export function ThreeDTestPage() {
                     )}
                     <div className="product-catalog-list">
                       {selectedProductModels.map((product) => {
+                        const disabled = Boolean(product.missingReferences?.length) || !layout;
+
+                        return (
+                          <article
+                            aria-label={product.name}
+                            className={disabled ? 'product-catalog-card is-disabled' : 'product-catalog-card'}
+                            draggable={!disabled}
+                            key={product.id}
+                            title={product.missingReferences?.length ? `${product.name} - missing files` : `Drag ${product.name} into the room`}
+                            onDragStart={(event) => {
+                              if (disabled) {
+                                event.preventDefault();
+                                return;
+                              }
+
+                              event.dataTransfer.effectAllowed = 'copy';
+                              event.dataTransfer.setData('application/x-furnispace-product-id', product.id);
+                            }}
+                          >
+                            <div className="product-catalog-media">
+                              <div className="product-live-thumbnail">
+                                <ModelViewer
+                                  autoRotate
+                                  fallbackImageUrl={product.thumbnailUrl}
+                                  height="100%"
+                                  modelUrl={product.modelUrl}
+                                  showGrid={false}
+                                />
+                              </div>
+                            </div>
+                            <div className="product-catalog-info">
+                              <strong>{product.name}</strong>
+                              <span>{getCatalogSourceLabel(product)}{product.material ? ` / ${product.material}` : ''}{product.color ? ` / ${product.color}` : ''}</span>
+                              <button disabled={disabled} type="button" onClick={() => handleAddProduct(product)}>
+                                Add to scene
+                              </button>
+                            </div>
+                          </article>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {productSourceTab === 'custom' && (
+                  <div className="catalog-page">
+                    {customizationRequestsQuery.isLoading ? (
+                      <div className="catalog-status">Loading custom product versions...</div>
+                    ) : null}
+                    {customizationRequestsQuery.isError ? (
+                      <div className="catalog-status is-error">{getCustomizationRequestServiceResultMessage(customizationRequestsQuery.error)}</div>
+                    ) : null}
+                    {!customizationRequestsQuery.isLoading && !customizationRequestsQuery.isError && filteredProductModels.length === 0 ? (
+                      <div className="catalog-status">
+                        {panelSearch.trim() ? 'No custom versions match your search.' : 'No custom product versions with ready MODEL_3D files are available for this project.'}
+                      </div>
+                    ) : null}
+                    <div className="product-catalog-list">
+                      {filteredProductModels.map((product) => {
                         const disabled = Boolean(product.missingReferences?.length) || !layout;
 
                         return (

@@ -95,7 +95,7 @@ export type FileReferenceType =
   | 'PRODUCT'
   | 'PRODUCT_VERSION';
 export type ProductFileType = 'PRODUCT_PREVIEW';
-export type ProductVersionFileType = 'PRODUCT_PREVIEW' | 'MODEL_3D' | 'TEXTURE';
+export type ProductVersionFileType = 'PRODUCT_PREVIEW' | 'MODEL_3D' | 'TEXTURE' | 'OTHER';
 export type FileType =
   | ProductFileType
   | ProductVersionFileType
@@ -440,6 +440,9 @@ const PRODUCT_PREVIEW_ERROR_MESSAGES: Record<string, string> = {
   FILE_TOO_LARGE: 'Image exceeds the maximum size of 5MB.',
   INVALID_REORDER_PAYLOAD: 'Could not reorder preview images. Please refresh and try again.',
   PREVIEW_FILE_NOT_FOUND: 'Preview image not found.',
+  PRODUCT_VERSION_ACCESS_DENIED: 'You do not have permission to upload files to this product version.',
+  PRODUCT_VERSION_FILE_LINK_CONFLICT: 'File already belongs to this version. Please refresh or choose another file.',
+  PRODUCT_VERSION_NOT_FOUND: 'This custom product version could not be found or is no longer accessible.',
   USE_PREVIEW_FILES_ENDPOINT: 'Preview images must use the dedicated preview-files endpoint.',
 };
 

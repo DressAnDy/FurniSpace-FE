@@ -108,6 +108,12 @@
   color: #ffffff;
 }
 
+.project-detail-header-actions button.project-detail-secondary-button {
+  border: 1px solid rgba(139, 111, 71, 0.22);
+  background: #ffffff;
+  color: #4f3f2d;
+}
+
 .project-detail-header-actions button:disabled,
 .project-detail-primary-button:disabled {
   cursor: not-allowed;
@@ -156,6 +162,23 @@
 }
 
 .project-detail-status-message-error {
+  color: #991b1b;
+}
+
+.project-detail-status-banner {
+  margin: -10px 0 18px;
+  border: 1px solid #bbf7d0;
+  border-radius: 10px;
+  background: #f0fdf4;
+  color: #166534;
+  font-size: 14px;
+  font-weight: 600;
+  padding: 12px 14px;
+}
+
+.project-detail-status-banner-error {
+  border-color: #fecaca;
+  background: #fef2f2;
   color: #991b1b;
 }
 
