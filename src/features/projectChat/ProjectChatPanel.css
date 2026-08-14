@@ -2,52 +2,94 @@
   width: 100%;
   min-width: 0;
   border: 1px solid rgba(139, 111, 71, 0.15);
-  border-radius: 12px;
+  border-radius: 14px;
   background: #ffffff;
   color: #2d2d2d;
+  overflow: hidden;
 }
 
 .project-chat-panel-header {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   gap: 16px;
   border-bottom: 1px solid rgba(139, 111, 71, 0.15);
-  padding: 20px 22px;
+  background: linear-gradient(135deg, #fbf8f3 0%, #f5f1ec 100%);
+  padding: 18px 22px;
+}
+
+.project-chat-panel-heading {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 12px;
+}
+
+.project-chat-panel-heading-icon {
+  display: grid;
+  width: 38px;
+  height: 38px;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 11px;
+  background: #8b6f47;
+  color: #ffffff;
+}
+
+.project-chat-panel-heading > div {
+  min-width: 0;
 }
 
 .project-chat-panel-header h3 {
   margin: 0;
   font-size: 17px;
   font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .project-chat-panel-header p {
-  margin: 6px 0 0;
-  color: #6b6b6b;
-  font-size: 13px;
+  margin: 3px 0 0;
+  color: #7a6a55;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
 }
 
 .project-chat-panel-status {
   display: inline-flex;
   min-height: 28px;
+  flex: 0 0 auto;
   align-items: center;
+  gap: 6px;
+  border: 1px solid rgba(139, 111, 71, 0.2);
   border-radius: 999px;
-  background: #ede7dd;
-  color: #2d2d2d;
+  background: #ffffff;
+  color: #6b6b6b;
   font-size: 12px;
   font-weight: 700;
-  padding: 0 11px;
+  padding: 0 12px;
+}
+
+.project-chat-panel-status::before {
+  content: '';
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: currentcolor;
 }
 
 .project-chat-panel-status-open {
-  background: #dff2eb;
+  border-color: rgba(23, 107, 80, 0.24);
+  background: #eefaf5;
   color: #176b50;
 }
 
 .project-chat-panel-status-closed,
 .project-chat-panel-status-archived {
-  background: #f1e1df;
+  border-color: rgba(159, 45, 45, 0.22);
+  background: #fdf1f0;
   color: #9f2d2d;
 }
 
@@ -76,7 +118,7 @@
   flex-direction: column;
   gap: 8px;
   border: 1px solid rgba(139, 111, 71, 0.15);
-  border-radius: 10px;
+  border-radius: 12px;
   background: #ffffff;
   padding: 14px;
 }
@@ -90,12 +132,40 @@
   padding: 12px;
 }
 
+.project-chat-panel-empty {
+  display: grid;
+  margin: auto;
+  gap: 10px;
+  justify-items: center;
+  padding: 24px 16px;
+  text-align: center;
+}
+
+.project-chat-panel-empty-icon {
+  display: grid;
+  width: 44px;
+  height: 44px;
+  place-items: center;
+  border-radius: 999px;
+  background: #f5f1ec;
+  color: #6d5533;
+}
+
+.project-chat-panel-empty p {
+  margin: 0;
+  max-width: 260px;
+  color: #7d7367;
+  font-size: 13px;
+  line-height: 19px;
+  padding: 0;
+}
+
 .project-chat-panel-list button {
   position: relative;
   display: grid;
   gap: 7px;
   border: 1px solid transparent;
-  border-radius: 8px;
+  border-radius: 10px;
   background: #faf9f7;
   color: #2d2d2d;
   cursor: pointer;
@@ -103,11 +173,18 @@
   min-width: 0;
   padding: 11px 42px 11px 12px;
   text-align: left;
+  transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+}
+
+.project-chat-panel-list button:hover {
+  border-color: rgba(139, 111, 71, 0.35);
+  background: #f5f1ec;
 }
 
 .project-chat-panel-list button.is-active {
   border-color: #8b6f47;
   background: #f5f1ec;
+  box-shadow: 0 1px 6px rgba(139, 111, 71, 0.16);
 }
 
 .project-chat-panel-list button.has-unread {
@@ -159,7 +236,7 @@
   display: grid;
   min-width: 0;
   border: 1px solid rgba(139, 111, 71, 0.15);
-  border-radius: 10px;
+  border-radius: 12px;
   background: #ffffff;
   grid-template-rows: auto minmax(0, 1fr) auto auto;
   overflow: hidden;
@@ -172,7 +249,12 @@
   justify-content: space-between;
   gap: 12px;
   border-bottom: 1px solid rgba(139, 111, 71, 0.15);
+  background: #fdfcfa;
   padding: 12px 16px;
+}
+
+.project-chat-panel-thread-header strong {
+  font-size: 14px;
 }
 
 .project-chat-panel-thread-header > div {
@@ -219,8 +301,22 @@
   max-height: 470px;
   flex-direction: column;
   gap: 14px;
+  background:
+    radial-gradient(circle at 1px 1px, rgba(139, 111, 71, 0.08) 1px, transparent 0) 0 0 / 18px 18px,
+    #fdfcfa;
   overflow-y: auto;
   padding: 18px;
+}
+
+.project-chat-panel-messages::-webkit-scrollbar {
+  width: 8px;
+}
+
+.project-chat-panel-messages::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background: rgba(139, 111, 71, 0.28);
+  background-clip: content-box;
 }
 
 .project-chat-panel-message {
@@ -247,13 +343,17 @@
 
 .project-chat-panel-bubble {
   max-width: min(680px, calc(100% - 44px));
-  border-radius: 8px;
-  background: #f5f1ec;
+  border: 1px solid rgba(139, 111, 71, 0.12);
+  border-radius: 12px 12px 12px 4px;
+  background: #ffffff;
+  box-shadow: 0 1px 3px rgba(45, 45, 45, 0.05);
   padding: 10px 12px;
 }
 
 .project-chat-panel-message.is-mine .project-chat-panel-bubble {
-  background: #e7f2f5;
+  border-color: rgba(139, 111, 71, 0.2);
+  border-radius: 12px 12px 4px;
+  background: #f7f2ea;
 }
 
 .project-chat-panel-message.is-pending .project-chat-panel-bubble {
@@ -348,31 +448,46 @@
 
 .project-chat-panel-composer {
   display: grid;
+  border-top: 1px solid rgba(139, 111, 71, 0.12);
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 10px;
-  padding: 10px 16px 16px;
+  background: #ffffff;
+  padding: 12px 16px 16px;
 }
 
 .project-chat-panel-composer input {
-  height: 40px;
-  padding: 0 12px;
+  height: 42px;
+  border-radius: 999px;
+  padding: 0 16px;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.project-chat-panel-composer input:focus {
+  border-color: #8b6f47;
+  box-shadow: 0 0 0 3px rgba(139, 111, 71, 0.14);
 }
 
 .project-chat-panel-composer button {
   display: inline-flex;
-  min-height: 40px;
+  min-height: 42px;
   align-items: center;
   justify-content: center;
   gap: 7px;
   border: 1px solid #8b6f47;
-  border-radius: 6px;
+  border-radius: 999px;
   background: #8b6f47;
   color: #ffffff;
   cursor: pointer;
   font: inherit;
   font-size: 14px;
   font-weight: 700;
-  padding: 0 14px;
+  padding: 0 18px;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.project-chat-panel-composer button:hover:not(:disabled) {
+  border-color: #745c39;
+  background: #745c39;
 }
 
 .project-chat-panel-composer button:disabled,

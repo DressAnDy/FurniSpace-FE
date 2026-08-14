@@ -269,6 +269,7 @@ function MonthlyScheduleCalendar({
   onSelectDay,
   onSelectSchedule,
 }: MonthlyScheduleCalendarProps) {
+  const [expandedDateKey, setExpandedDateKey] = useState<string | null>(null);
   const year = month.getFullYear();
   const monthIndex = month.getMonth();
   const daysInMonth = new Date(year, monthIndex + 1, 0).getDate();
@@ -286,6 +287,10 @@ function MonthlyScheduleCalendar({
 
     return nextMap;
   }, [schedules]);
+
+  useEffect(() => {
+    setExpandedDateKey(null);
+  }, [month]);
 
   return (
     <section className="customer-schedules-calendar" aria-label="Monthly schedule calendar">
@@ -317,11 +322,15 @@ function MonthlyScheduleCalendar({
           const dateKey = getDateKey(date);
           const daySchedules = scheduleMap.get(dateKey) ?? [];
           const isSelectedDate = selectedDateKey === dateKey;
+          const isExpanded = expandedDateKey === dateKey;
+          const visibleDaySchedules = isExpanded ? daySchedules : daySchedules.slice(0, 2);
+          const hiddenCount = daySchedules.length - visibleDaySchedules.length;
           const className = [
             'customer-schedules-calendar-day',
             dateKey === todayKey ? 'customer-schedules-calendar-day-today' : '',
             isSelectedDate ? 'customer-schedules-calendar-day-selected' : '',
             daySchedules.length > 0 ? 'customer-schedules-calendar-day-has-events' : '',
+            isExpanded ? 'customer-schedules-calendar-day-expanded' : '',
           ]
             .filter(Boolean)
             .join(' ');
@@ -345,7 +354,7 @@ function MonthlyScheduleCalendar({
 
               {daySchedules.length > 0 ? (
                 <span className="customer-schedules-calendar-events">
-                  {daySchedules.slice(0, 2).map(({ project, schedule }) => (
+                  {visibleDaySchedules.map(({ project, schedule }) => (
                     <button
                       className={`customer-schedules-calendar-event customer-schedules-calendar-event-${schedule.status.toLowerCase().replace(/_/g, '-')}${
                         selectedScheduleId === schedule.scheduleId ? ' customer-schedules-calendar-event-active' : ''
@@ -362,7 +371,19 @@ function MonthlyScheduleCalendar({
                       <em>{schedule.title ?? formatEnumLabel(schedule.scheduleType)}</em>
                     </button>
                   ))}
-                  {daySchedules.length > 2 ? <span className="customer-schedules-calendar-more">+{daySchedules.length - 2} more</span> : null}
+                  {daySchedules.length > 2 ? (
+                    <button
+                      aria-expanded={isExpanded}
+                      className="customer-schedules-calendar-more"
+                      type="button"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        setExpandedDateKey(isExpanded ? null : dateKey);
+                      }}
+                    >
+                      {isExpanded ? 'Show less' : `+${hiddenCount} more`}
+                    </button>
+                  ) : null}
                 </span>
               ) : null}
             </div>

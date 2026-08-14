@@ -256,7 +256,7 @@
 .customer-project-request-field textarea {
   width: 100%;
   min-height: 40px;
-  border: 0;
+  border: 1px solid transparent;
   border-radius: 8px;
   background: #f5f1ec;
   color: #2d2d2d;
@@ -280,6 +280,57 @@
 .customer-project-request-field select:focus,
 .customer-project-request-field textarea:focus {
   box-shadow: 0 0 0 2px rgba(201, 161, 59, 0.25);
+}
+
+.customer-project-request-field input.customer-project-request-input-invalid,
+.customer-project-request-field select.customer-project-request-input-invalid,
+.customer-project-request-field textarea.customer-project-request-input-invalid {
+  border: 1px solid #c62828;
+  box-shadow: 0 0 0 2px rgba(198, 40, 40, 0.16);
+}
+
+.customer-project-request-field-error {
+  color: #c62828;
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.customer-project-request-input-with-suffix {
+  position: relative;
+  display: grid;
+}
+
+.customer-project-request-input-with-suffix input {
+  padding-right: 52px;
+}
+
+.customer-project-request-input-with-suffix input[type='number'] {
+  appearance: textfield;
+}
+
+.customer-project-request-input-with-suffix input[type='number']::-webkit-outer-spin-button,
+.customer-project-request-input-with-suffix input[type='number']::-webkit-inner-spin-button {
+  appearance: none;
+  margin: 0;
+}
+
+.customer-project-request-input-suffix {
+  position: absolute;
+  top: 50%;
+  right: 14px;
+  color: rgba(45, 45, 45, 0.55);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  line-height: 1;
+  pointer-events: none;
+  transform: translateY(-50%);
+}
+
+.customer-project-request-field input.customer-project-request-input-invalid:focus,
+.customer-project-request-field select.customer-project-request-input-invalid:focus,
+.customer-project-request-field textarea.customer-project-request-input-invalid:focus {
+  box-shadow: 0 0 0 2px rgba(198, 40, 40, 0.28);
 }
 
 .customer-project-request-upload {
