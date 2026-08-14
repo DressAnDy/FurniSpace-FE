@@ -102,8 +102,9 @@ export function ProductionCustomizationRequests() {
   useEffect(() => {
     if (versionIdFromUrl) {
       setActiveVersionId(versionIdFromUrl);
+      setSearchParams({}, { replace: true });
     }
-  }, [versionIdFromUrl]);
+  }, [setSearchParams, versionIdFromUrl]);
 
   useEffect(() => {
     if (!activeVersionId && items.length > 0) {
@@ -128,7 +129,7 @@ export function ProductionCustomizationRequests() {
 
   function selectVersion(versionId: string) {
     setActiveVersionId(versionId);
-    setSearchParams({ versionId });
+    setSearchParams({}, { replace: true });
     setMessage(null);
   }
 
@@ -221,8 +222,8 @@ export function ProductionCustomizationRequests() {
                 >
                   <strong>{item.version.productVersion?.versionName ?? item.version.versionTitle ?? item.request.requestTitle}</strong>
                   <ProductionStatusBadge label={getCustomizationStatusLabel(`${item.version.status}_${item.version.feasibilityStatus}`)} status={item.version.feasibilityStatus} />
-                  <small>{item.project.projectId} - {item.project.projectName}</small>
-                  <small>{item.sourceProductVersion.productName ?? item.sourceProductVersion.productVersionId}</small>
+                  <small>{item.project.projectName}</small>
+                  <small>{getSourceProductLabel(item)}</small>
                   <small>Material: {getMaterialAvailability(item.version.materialAvailable)}</small>
                   <p>{item.version.designerNote || item.request.requestDescription || item.request.requestedChangeNote}</p>
                   <small>Updated {formatDate(item.version.updatedAt)}</small>
@@ -320,11 +321,11 @@ function VersionDetail({ item }: { item: ProductionCustomizationVersionQueueItem
 
   return (
     <section className="production-workspace-detail-grid production-customization-detail">
-      <Field label="Project" value={`${item.project.projectId} - ${item.project.projectName}`} />
+      <Field label="Project" value={item.project.projectName} />
       <Field label="Proposal" value={item.proposal.proposalName} />
       <Field label="Request" value={item.request.requestTitle} />
-      <Field label="Source Product Version" value={item.sourceProductVersion.versionName ?? item.sourceProductVersion.productVersionId} />
-      <Field label="Custom Version" value={productVersion.versionName ?? item.version.versionTitle ?? item.version.customizationRequestVersionId} />
+      <Field label="Source Product Version" value={getSourceProductLabel(item)} />
+      <Field label="Custom Version" value={productVersion.versionName ?? item.version.versionTitle ?? `Version ${item.version.versionNo}`} />
       <Field label="Requested Change" value={item.request.requestDescription ?? item.request.requestedChangeNote ?? '-'} />
       <Field label="Custom Dimensions" value={formatDimensions(productVersion.width, productVersion.height, productVersion.depth)} />
       <Field label="Custom Material" value={productVersion.material ?? '-'} />
@@ -386,6 +387,13 @@ function matchesFilters(
     || (item.sourceProductVersion.versionName ?? '').toLowerCase().includes(normalizedSearch);
 
   return materialMatches && searchMatches;
+}
+
+function getSourceProductLabel(item: ProductionCustomizationVersionQueueItemDto) {
+  return [
+    item.sourceProductVersion.productName,
+    item.sourceProductVersion.versionName,
+  ].filter(Boolean).join(' - ') || '-';
 }
 
 function getMaterialAvailability(value?: boolean | null): MaterialAvailability {

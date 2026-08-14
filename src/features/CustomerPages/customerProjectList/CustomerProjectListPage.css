@@ -694,6 +694,23 @@
   padding: 24px;
 }
 
+.customer-project-detail-message {
+  margin-top: 16px;
+  border: 1px solid #bbf7d0;
+  border-radius: 10px;
+  background: #f0fdf4;
+  color: #166534;
+  font-size: 14px;
+  font-weight: 600;
+  padding: 12px 14px;
+}
+
+.customer-project-detail-message-error {
+  border-color: #fecaca;
+  background: #fef2f2;
+  color: #991b1b;
+}
+
 .customer-project-detail-hero {
   position: relative;
   display: grid;
@@ -905,6 +922,36 @@
   font-weight: 700;
   padding: 6px 12px;
   white-space: nowrap;
+}
+
+.customer-project-detail-proposals-tools {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.customer-project-detail-reopen-button {
+  display: inline-flex;
+  min-height: 34px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 1px solid rgba(139, 111, 71, 0.22);
+  border-radius: 8px;
+  background: #ffffff;
+  color: #4f3f2d;
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 0 12px;
+}
+
+.customer-project-detail-reopen-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
 }
 
 .customer-project-detail-proposals-state {

@@ -8,7 +8,7 @@ import { Link } from 'react-router-dom';
 import { CustomerNavbar } from '@/features/CustomerPages/customercomponents';
 import { getOrderServiceResultMessage, type OrderDetailDto, type OrderItemDto, type OrderStatus } from '@/services/api/orders';
 import type { PaymentDetailDto } from '@/services/api/payments';
-import { getProjectServiceResultMessage, type ProjectListItemDto } from '@/services/api/projects';
+import type { ProjectListItemDto } from '@/services/api/projects';
 import {
   useConfirmOrderItemDelivery,
   useCreateOrderDepositPayment,
@@ -16,7 +16,6 @@ import {
   usePayments,
   useProjectList,
   useProjectOrders,
-  useReopenProjectProposal,
 } from '@/services/queries';
 import { aggregateDuplicateItems, getItemAggregateKey } from '@/shared/utils/itemAggregation';
 import { PaymentCollectionModal } from '@/features/payments/PaymentCollectionModal';
@@ -54,7 +53,6 @@ export function CustomerOrdersPage() {
   );
   const depositMutation = useCreateOrderDepositPayment();
   const confirmDeliveryMutation = useConfirmOrderItemDelivery();
-  const reopenProposalMutation = useReopenProjectProposal();
 
   useEffect(() => {
     if (!selectedProjectId && orderProjects.length > 0) {
@@ -85,23 +83,6 @@ export function CustomerOrdersPage() {
       setMessage({ tone: 'success', text: 'Deposit payment is ready.' });
     } catch (error) {
       setMessage({ tone: 'error', text: getOrderServiceResultMessage(error) });
-    }
-  }
-
-  async function reopenProposalFlow() {
-    if (!selectedProjectId) return;
-
-    setMessage(null);
-
-    try {
-      await reopenProposalMutation.mutateAsync(selectedProjectId);
-      setSelectedOrderId('');
-      setActivePayment(null);
-      setMessage({ tone: 'success', text: 'Project was reopened to proposal consulting.' });
-      void projectsQuery.refetch();
-      void ordersQuery.refetch();
-    } catch (error) {
-      setMessage({ tone: 'error', text: getProjectServiceResultMessage(error) });
     }
   }
 
@@ -164,7 +145,6 @@ export function CustomerOrdersPage() {
               <OrderDetailCard
                 confirmingDeliveryItemId={confirmDeliveryMutation.variables ?? null}
                 depositPending={depositMutation.isPending}
-                isReopeningProposal={reopenProposalMutation.isPending}
                 order={order}
                 remainingPayment={remainingPaymentsQuery.data?.items?.[0] ?? null}
                 onConfirmDelivery={async (orderItemIds) => {
@@ -185,7 +165,6 @@ export function CustomerOrdersPage() {
                 }}
                 onCreateDeposit={() => void createDepositPayment()}
                 onOpenRemainingPayment={(payment) => setActivePayment(payment)}
-                onReopenProposal={() => void reopenProposalFlow()}
               />
             ) : null}
 
@@ -208,21 +187,17 @@ export function CustomerOrdersPage() {
 function OrderDetailCard({
   confirmingDeliveryItemId,
   depositPending,
-  isReopeningProposal,
   onConfirmDelivery,
   onCreateDeposit,
   onOpenRemainingPayment,
-  onReopenProposal,
   order,
   remainingPayment,
 }: {
   confirmingDeliveryItemId: string | null;
   depositPending: boolean;
-  isReopeningProposal: boolean;
   onConfirmDelivery: (orderItemIds: string[]) => Promise<void>;
   onCreateDeposit: () => void;
   onOpenRemainingPayment: (payment: PaymentDetailDto) => void;
-  onReopenProposal: () => void;
   order: OrderDetailDto;
   remainingPayment: PaymentDetailDto | null;
 }) {
@@ -250,11 +225,6 @@ function OrderDetailCard({
         <button disabled={!canCreateDepositPayment(order.status) || depositPending} type="button" onClick={onCreateDeposit}>
           {depositPending ? 'Preparing...' : order.status === 'CREATED' ? 'Create Deposit Payment' : 'Pay Deposit'}
         </button>
-        {canReopenProposal(order.status) ? (
-          <button className="is-secondary" disabled={isReopeningProposal} type="button" onClick={onReopenProposal}>
-            {isReopeningProposal ? 'Reopening...' : 'Reopen Proposal'}
-          </button>
-        ) : null}
         <button disabled={order.status !== 'FINAL_PAYMENT_PENDING' || !remainingPayment} type="button" onClick={() => remainingPayment && onOpenRemainingPayment(remainingPayment)}>
           Pay Remaining
         </button>
@@ -311,10 +281,6 @@ function OrderDetailCard({
 }
 
 function canCreateDepositPayment(status?: OrderStatus | null) {
-  return status === 'CREATED' || status === 'DEPOSIT_PENDING';
-}
-
-function canReopenProposal(status?: OrderStatus | null) {
   return status === 'CREATED' || status === 'DEPOSIT_PENDING';
 }
 

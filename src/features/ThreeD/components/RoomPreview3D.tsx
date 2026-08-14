@@ -97,7 +97,7 @@ export type PlacedProduct3D = {
   proposalItemId?: string | null;
   rotation?: Vector3State;
   scale?: Vector3State;
-  source?: 'api' | 'local' | 'uploaded';
+  source?: 'api' | 'custom' | 'local' | 'uploaded';
   supportObjectId?: string | null;
   thumbnailUrl?: string | null;
   visualSnapshot?: {

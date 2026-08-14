@@ -6,6 +6,7 @@ import {
   IconMaximize,
   IconMessageDots,
   IconPackage,
+  IconX,
 } from '@tabler/icons-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 
@@ -42,7 +43,7 @@ import {
 } from '@/services/queries';
 import { aggregateDuplicateItems } from '@/shared/utils/itemAggregation';
 
-type SidePanelMode = 'items' | 'chat' | null;
+type SidePanelMode = 'items' | null;
 const EMPTY_GUID = '00000000-0000-0000-0000-000000000000';
 
 export function Customer3dPreviewPage() {
@@ -54,6 +55,7 @@ export function Customer3dPreviewPage() {
   const stageRef = useRef<HTMLDivElement>(null);
   const [activeLevel, setActiveLevel] = useState<BuildingLevelVisibility>('all');
   const [sidePanelMode, setSidePanelMode] = useState<SidePanelMode>(null);
+  const [isChatModalOpen, setIsChatModalOpen] = useState(false);
   const [isProposalsMenuOpen, setIsProposalsMenuOpen] = useState(false);
   const [isSceneLevelsMenuOpen, setIsSceneLevelsMenuOpen] = useState(false);
   const [selectedObjectId, setSelectedObjectId] = useState<string | null>(null);
@@ -323,6 +325,22 @@ export function Customer3dPreviewPage() {
     };
   }, [isProposalsMenuOpen, isSceneLevelsMenuOpen]);
 
+  useEffect(() => {
+    if (!isChatModalOpen) {
+      return undefined;
+    }
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        setIsChatModalOpen(false);
+      }
+    }
+
+    document.addEventListener('keydown', handleKeyDown);
+
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [isChatModalOpen]);
+
   function selectProposalFromMenu(proposal: ProposalDto) {
     setSelectedProposalId(proposal.proposalId);
     setSelectedSceneId(null);
@@ -435,11 +453,11 @@ export function Customer3dPreviewPage() {
 
             <div className="customer-3d-preview-panel-switch" role="tablist" aria-label="Preview side panel">
               <button
-                className={sidePanelMode === 'chat' ? 'customer-3d-preview-view-active' : ''}
+                className={isChatModalOpen ? 'customer-3d-preview-view-active' : ''}
                 type="button"
                 role="tab"
-                aria-selected={sidePanelMode === 'chat'}
-                onClick={() => setSidePanelMode((currentMode) => (currentMode === 'chat' ? null : 'chat'))}
+                aria-selected={isChatModalOpen}
+                onClick={() => setIsChatModalOpen(true)}
               >
                 <IconMessageDots size={16} stroke={1.8} /> Chat
               </button>
@@ -554,65 +572,76 @@ export function Customer3dPreviewPage() {
             <div className="customer-readonly-notice">Saved scene - editing disabled</div>
           </div>
 
-          {sidePanelMode ? (
-          <aside className="customer-3d-preview-right-panel" aria-label={sidePanelMode === 'chat' ? 'Designer chat' : 'Scene items'}>
-            <PanelHeader title={sidePanelMode === 'chat' ? 'Designer Chat' : 'Scene Items'} />
-            {sidePanelMode === 'chat' ? (
-              selectedProject ? (
-                <div className="customer-3d-preview-side-content customer-3d-preview-side-chat">
-                  <ProjectChatPanel
-                    compact
-                    preferredChatType="DESIGNER"
-                    projectCode={selectedProject.projectCode}
-                    projectId={selectedProject.projectId}
-                    title="Designer Chat"
-                  />
-                </div>
-              ) : (
-                <p className="customer-scene-state">Select a project to chat with the assigned designer.</p>
-              )
-            ) : (
-              <>
-                <div className="customer-3d-preview-side-content">
-                  {selectedObject && (
-                    <div className="customer-selected-object">
-                      <span>Selected object</span>
-                      <strong>{selectedObject.modelName}</strong>
-                      <small>{selectedObject.productVersionId ?? selectedObject.productId ?? selectedObject.id}</small>
-                    </div>
-                  )}
-                  <div className="customer-3d-preview-item-list">
-                    {(proposalItemsQuery.isLoading || proposalDetailQuery.isLoading) && proposalItems.length === 0 ? (
-                      <p className="customer-scene-state">Loading proposal items...</p>
-                    ) : null}
-                    {proposalItemsQuery.isError && proposalItems.length === 0 ? (
-                      <p className="customer-scene-state">{getProposalServiceResultMessage(proposalItemsQuery.error)}</p>
-                    ) : null}
-                    {displayProposalItems.length > 0
-                      ? displayProposalItems.map((item) => <ProposalItemCard item={item} key={item.proposalItemId} />)
-                      : displaySceneProducts.map((product) => <SceneProductCard product={product} key={product.id} />)}
-                    {!proposalItemsQuery.isLoading && !proposalDetailQuery.isLoading && displayProposalItems.length === 0 && displaySceneProducts.length === 0 && (
-                      <p className="customer-scene-state">No furniture objects are saved in this scene yet.</p>
-                    )}
+          {sidePanelMode === 'items' ? (
+            <aside className="customer-3d-preview-right-panel" aria-label="Scene items">
+              <PanelHeader title="Scene Items" />
+              <div className="customer-3d-preview-side-content">
+                {selectedObject && (
+                  <div className="customer-selected-object">
+                    <span>Selected object</span>
+                    <strong>{selectedObject.modelName}</strong>
+                    <small>{selectedObject.productVersionId ?? selectedObject.productId ?? selectedObject.id}</small>
                   </div>
+                )}
+                <div className="customer-3d-preview-item-list">
+                  {(proposalItemsQuery.isLoading || proposalDetailQuery.isLoading) && proposalItems.length === 0 ? (
+                    <p className="customer-scene-state">Loading proposal items...</p>
+                  ) : null}
+                  {proposalItemsQuery.isError && proposalItems.length === 0 ? (
+                    <p className="customer-scene-state">{getProposalServiceResultMessage(proposalItemsQuery.error)}</p>
+                  ) : null}
+                  {displayProposalItems.length > 0
+                    ? displayProposalItems.map((item) => <ProposalItemCard item={item} key={item.proposalItemId} />)
+                    : displaySceneProducts.map((product) => <SceneProductCard product={product} key={product.id} />)}
+                  {!proposalItemsQuery.isLoading && !proposalDetailQuery.isLoading && displayProposalItems.length === 0 && displaySceneProducts.length === 0 && (
+                    <p className="customer-scene-state">No furniture objects are saved in this scene yet.</p>
+                  )}
                 </div>
+              </div>
 
-                {decisionMessage && <div className="customer-decision-message">{decisionMessage}</div>}
-                {customizationBlocker ? <div className="customer-decision-message">{customizationBlocker}</div> : null}
-                <div className="customer-3d-preview-decision">
-                  <ProposalStatusAction
-                    canSelect={canSelectProposal}
-                    isSelecting={selectFinalProposalMutation.isPending}
-                    status={selectedProposal?.status}
-                    onSelect={() => void selectProposal()}
-                  />
-                </div>
-              </>
-            )}
-          </aside>
+              {decisionMessage && <div className="customer-decision-message">{decisionMessage}</div>}
+              {customizationBlocker ? <div className="customer-decision-message">{customizationBlocker}</div> : null}
+              <div className="customer-3d-preview-decision">
+                <ProposalStatusAction
+                  canSelect={canSelectProposal}
+                  isSelecting={selectFinalProposalMutation.isPending}
+                  status={selectedProposal?.status}
+                  onSelect={() => void selectProposal()}
+                />
+              </div>
+            </aside>
           ) : null}
         </div>
       </section>
+
+      {isChatModalOpen ? (
+        <div className="customer-3d-preview-chat-modal" role="dialog" aria-modal="true" aria-label="Designer chat">
+          <button className="customer-3d-preview-chat-backdrop" type="button" aria-label="Close designer chat" onClick={() => setIsChatModalOpen(false)} />
+          <section className="customer-3d-preview-chat-dialog">
+            <header className="customer-3d-preview-chat-header">
+              <div>
+                <strong>Designer Chat</strong>
+                <span>{selectedProject?.projectName ?? 'Select a project to start chatting'}</span>
+              </div>
+              <button type="button" aria-label="Close designer chat" onClick={() => setIsChatModalOpen(false)}>
+                <IconX size={18} stroke={1.8} />
+              </button>
+            </header>
+            <div className="customer-3d-preview-chat-body">
+              {selectedProject ? (
+                <ProjectChatPanel
+                  preferredChatType="DESIGNER"
+                  projectCode={selectedProject.projectCode}
+                  projectId={selectedProject.projectId}
+                  title="Designer Chat"
+                />
+              ) : (
+                <p className="customer-scene-state">Select a project to chat with the assigned designer.</p>
+              )}
+            </div>
+          </section>
+        </div>
+      ) : null}
     </main>
   );
 }
@@ -642,6 +671,7 @@ function ProposalStatusAction({
   const isSelected = displayStatus === 'SELECTED';
   const isRejected = displayStatus === 'REJECTED';
   const isClickable = isPublished && canSelect && !isSelecting;
+  const actionLabel = isSelecting ? 'Selecting...' : isPublished && isClickable ? 'Select' : displayStatus;
 
   return (
     <button
@@ -662,7 +692,7 @@ function ProposalStatusAction({
       }}
     >
       {isSelected || isSelecting ? <IconCircleCheck size={16} stroke={1.8} /> : null}
-      {isSelecting ? 'Selecting...' : displayStatus}
+      {actionLabel}
     </button>
   );
 }

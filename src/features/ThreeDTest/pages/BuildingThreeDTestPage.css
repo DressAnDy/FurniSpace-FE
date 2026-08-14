@@ -250,6 +250,32 @@
   padding: 0;
 }
 
+.building-product-source-tabs {
+  background: var(--building-surface);
+  border: 1px solid var(--building-border);
+  display: grid;
+  gap: 6px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-bottom: 12px;
+  padding: 4px;
+}
+
+.building-product-source-tabs button {
+  background: transparent;
+  border: 0;
+  color: var(--building-muted);
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  min-height: 32px;
+}
+
+.building-product-source-tabs button.is-active {
+  background: var(--building-accent);
+  color: #ffffff;
+}
+
 .building-category-list {
   display: grid;
   gap: 8px;

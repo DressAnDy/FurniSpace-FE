@@ -30,11 +30,18 @@ import {
   type ProjectCatalogProductVersionDetailDto,
   type ProjectCatalogVersionSummaryDto,
 } from '@/services/api';
+import {
+  getCustomizationRequestServiceResultMessage,
+  type CustomizationProductVersionDto,
+  type CustomizationRequestDto,
+  type CustomizationRequestVersionDto,
+} from '@/services/api/customizationRequests';
 import { getProposalServiceResultMessage, type ProposalItemDto } from '@/services/api/proposals';
 import {
   productQueryKeys,
   useCategoryList,
   useProductList,
+  useProjectCustomizationRequests,
   useProjectCatalogProducts,
   useProposalDetail,
   useRoomPlannerScene,
@@ -59,6 +66,7 @@ type BuildingRoomPlannerRouteState = {
   transientSelectedProductId?: string | null;
 };
 type BuildingDesignPanel = 'products' | 'materials';
+type BuildingProductSourceTab = 'catalog' | 'custom';
 type BuildingMaterialOption = {
   fallbackColor: string;
   id: string;
@@ -93,6 +101,37 @@ const WALL_MATERIALS: BuildingMaterialOption[] = [
 
 function getCatalogModelFile(files: CatalogFileDto[] | undefined) {
   return files?.find((file) => file.fileType === 'MODEL_3D') ?? null;
+}
+
+function getCustomProductVersionFiles(productVersion: CustomizationProductVersionDto | null | undefined) {
+  return [
+    ...(productVersion?.files ?? []),
+    ...(productVersion?.previewFiles ?? []),
+    productVersion?.thumbnail,
+  ].filter((file): file is NonNullable<typeof file> => Boolean(file));
+}
+
+function getCustomProductVersionFileType(file: ReturnType<typeof getCustomProductVersionFiles>[number]) {
+  return file.fileType?.toUpperCase() ?? '';
+}
+
+function getCustomProductVersionFileUrl(file: ReturnType<typeof getCustomProductVersionFiles>[number] | null | undefined) {
+  return file?.fileUrl ?? file?.publicUrl ?? file?.url ?? null;
+}
+
+function getCustomProductVersionModelFile(productVersion: CustomizationProductVersionDto | null | undefined) {
+  return getCustomProductVersionFiles(productVersion).find((file) => getCustomProductVersionFileType(file) === 'MODEL_3D') ?? null;
+}
+
+function getCustomProductVersionThumbnail(productVersion: CustomizationProductVersionDto | null | undefined) {
+  const previewFile = getCustomProductVersionFiles(productVersion).find((file) => getCustomProductVersionFileType(file) === 'PRODUCT_PREVIEW')
+    ?? getCustomProductVersionFiles(productVersion).find((file) => {
+      const url = getCustomProductVersionFileUrl(file);
+
+      return Boolean(url && /\.(png|jpe?g|webp|gif)(\?|$)/i.test(url));
+    });
+
+  return getCustomProductVersionFileUrl(previewFile) ?? EMPTY_THUMBNAIL;
 }
 
 function getVersionThumbnail(product: ProductListItemDto, version: ProductVersionDto) {
@@ -157,6 +196,42 @@ function mapProjectCatalogVersionToModel(
     scale: { x: API_PRODUCT_DEFAULT_SCALE, y: API_PRODUCT_DEFAULT_SCALE, z: API_PRODUCT_DEFAULT_SCALE },
     thumbnailUrl: thumbnailFile?.fileUrl ?? product.thumbnail?.fileUrl ?? EMPTY_THUMBNAIL,
     width: version.width ?? null,
+  };
+}
+
+function mapCustomVersionToBuildingModel(request: CustomizationRequestDto, version: CustomizationRequestVersionDto): BuildingProductModel | null {
+  const productVersion = version.productVersion;
+
+  if (!productVersion?.productVersionId || productVersion.versionType !== 'PROJECT_SPECIFIC') {
+    return null;
+  }
+
+  const modelFile = getCustomProductVersionModelFile(productVersion);
+  const modelUrl = getCustomProductVersionFileUrl(modelFile) ?? productVersion.modelFileUrl;
+
+  if (!modelUrl) {
+    return null;
+  }
+
+  return {
+    categoryId: 'custom-products',
+    categoryName: 'Custom',
+    color: productVersion.color ?? null,
+    depth: productVersion.depth ?? null,
+    fileId: modelFile?.fileId ?? modelFile?.fileLinkId ?? undefined,
+    height: productVersion.height ?? null,
+    id: `building-custom-${productVersion.productVersionId}`,
+    material: productVersion.material ?? null,
+    modelUrl,
+    name: [
+      request.sourceProductVersion?.productName,
+      productVersion.versionName ?? version.versionTitle ?? `Custom v${version.versionNo}`,
+    ].filter(Boolean).join(' - ') || productVersion.versionName || `Custom v${version.versionNo}`,
+    productId: productVersion.productId ?? request.sourceProductVersion?.productId ?? undefined,
+    productVersionId: productVersion.productVersionId,
+    scale: { x: API_PRODUCT_DEFAULT_SCALE, y: API_PRODUCT_DEFAULT_SCALE, z: API_PRODUCT_DEFAULT_SCALE },
+    thumbnailUrl: getCustomProductVersionThumbnail(productVersion),
+    width: productVersion.width ?? null,
   };
 }
 
@@ -258,10 +333,15 @@ export function BuildingThreeDTestPage() {
   const proposalDetailQuery = useProposalDetail(currentProposalId ?? undefined, { enabled: Boolean(currentProposalId) });
   const currentProjectId = routeState?.projectId ?? proposalDetailQuery.data?.projectId ?? null;
   const categoriesQuery = useCategoryList({ page: 1, limit: 100 });
+  const customizationRequestsQuery = useProjectCustomizationRequests(
+    currentProjectId ? { projectId: currentProjectId } : undefined,
+    { enabled: Boolean(currentProjectId) },
+  );
   const projectCatalogQuery = useProjectCatalogProducts(currentProjectId ?? undefined, { page: 1, pageSize: 48 }, Boolean(currentProjectId));
   const productListQuery = useProductList({ page: 1, limit: 48 }, !currentProjectId);
   const [detailLimit, setDetailLimit] = useState(DETAIL_BATCH_SIZE);
   const [search, setSearch] = useState('');
+  const [productSourceTab, setProductSourceTab] = useState<BuildingProductSourceTab>('catalog');
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   const projectCatalogVersions = useMemo(() => {
     const keyword = search.trim().toLowerCase();
@@ -319,7 +399,7 @@ export function BuildingThreeDTestPage() {
   const appliedRemoteProductsKeyRef = useRef<string | null>(null);
   const appliedRemoteSceneKeyRef = useRef<string | null>(null);
 
-  const availableModels = useMemo(() => {
+  const catalogModels = useMemo(() => {
     const models = new Map<string, BuildingProductModel>();
 
     if (currentProjectId) {
@@ -372,6 +452,26 @@ export function BuildingThreeDTestPage() {
     selectedCategoryId,
   ]);
 
+  const customModels = useMemo(
+    () =>
+      (customizationRequestsQuery.data?.items ?? []).flatMap((request) =>
+        (request.versions ?? [])
+          .map((version) => mapCustomVersionToBuildingModel(request, version))
+          .filter((model): model is BuildingProductModel => Boolean(model)),
+      ),
+    [customizationRequestsQuery.data?.items],
+  );
+
+  const availableModels = useMemo(() => {
+    const models = new Map<string, BuildingProductModel>();
+
+    [...catalogModels, ...customModels].forEach((model) => {
+      models.set(model.productVersionId ? `version-${model.productVersionId}` : model.id, model);
+    });
+
+    return [...models.values()];
+  }, [catalogModels, customModels]);
+
   const modelsById = useMemo(
     () => new Map(availableModels.map((model) => [model.id, model])),
     [availableModels],
@@ -382,8 +482,8 @@ export function BuildingThreeDTestPage() {
     [availableModels],
   );
   const isCatalogLoading = currentProjectId
-    ? projectCatalogQuery.isLoading || (projectCatalogVersionDetailQueries.some((query) => query.isLoading) && availableModels.length === 0)
-    : productListQuery.isLoading || (productDetailQueries.some((query) => query.isLoading) && availableModels.length === 0);
+    ? projectCatalogQuery.isLoading || (projectCatalogVersionDetailQueries.some((query) => query.isLoading) && catalogModels.length === 0)
+    : productListQuery.isLoading || (productDetailQueries.some((query) => query.isLoading) && catalogModels.length === 0);
   const catalogError = currentProjectId
     ? projectCatalogQuery.error ?? projectCatalogVersionDetailQueries.find((query) => query.isError)?.error
     : productListQuery.error ?? productDetailQueries.find((query) => query.isError)?.error;
@@ -519,9 +619,10 @@ export function BuildingThreeDTestPage() {
 
   const filteredModels = useMemo(() => {
     const normalizedSearch = search.trim().toLowerCase();
+    const sourceModels = productSourceTab === 'custom' ? customModels : catalogModels;
     const categoryFilteredModels = selectedCategoryId
-      ? availableModels.filter((model) => model.categoryId === selectedCategoryId)
-      : availableModels;
+      ? sourceModels.filter((model) => model.categoryId === selectedCategoryId)
+      : sourceModels;
 
     return normalizedSearch
       ? categoryFilteredModels.filter((model) =>
@@ -533,12 +634,12 @@ export function BuildingThreeDTestPage() {
           ].some((value) => value.toLowerCase().includes(normalizedSearch)),
         )
       : categoryFilteredModels;
-  }, [availableModels, search, selectedCategoryId]);
+  }, [catalogModels, customModels, productSourceTab, search, selectedCategoryId]);
 
   const categoryCards = useMemo(() => {
     const counts = new Map<string, number>();
 
-    availableModels.forEach((model) => {
+    catalogModels.forEach((model) => {
       if (model.categoryId) {
         counts.set(model.categoryId, (counts.get(model.categoryId) ?? 0) + 1);
       }
@@ -550,7 +651,7 @@ export function BuildingThreeDTestPage() {
         count: counts.get(category.categoryId) ?? 0,
       }))
       .filter((item) => item.count > 0);
-  }, [availableModels, categoriesQuery.data?.items]);
+  }, [catalogModels, categoriesQuery.data?.items]);
 
   const selectedProduct = useMemo(
     () => placedProducts.find((product) => product.sceneObjectId === selectedProductId) ?? null,
@@ -963,7 +1064,7 @@ export function BuildingThreeDTestPage() {
           {designPanel === 'products' && (
           <section className="building-test-panel">
             <div className="building-test-panel-heading">
-              <strong>Products</strong>
+              <strong>{productSourceTab === 'custom' ? 'Custom Products' : 'Products'}</strong>
               <span>{filteredModels.length} ready model(s)</span>
             </div>
             <label className="building-product-search">
@@ -981,6 +1082,35 @@ export function BuildingThreeDTestPage() {
               )}
             </label>
 
+            <div className="building-product-source-tabs" role="tablist" aria-label="Product source">
+              <button
+                className={productSourceTab === 'catalog' ? 'is-active' : ''}
+                role="tab"
+                type="button"
+                onClick={() => {
+                  setProductSourceTab('catalog');
+                  setSelectedCategoryId(null);
+                  setSearch('');
+                  setDetailLimit(DETAIL_BATCH_SIZE);
+                }}
+              >
+                Catalog
+              </button>
+              <button
+                className={productSourceTab === 'custom' ? 'is-active' : ''}
+                role="tab"
+                type="button"
+                onClick={() => {
+                  setProductSourceTab('custom');
+                  setSelectedCategoryId(null);
+                  setSearch('');
+                }}
+              >
+                Custom
+              </button>
+            </div>
+
+            {productSourceTab === 'catalog' ? (
             <div className="building-category-list">
               <button
                 className={!selectedCategoryId ? 'is-selected' : ''}
@@ -1001,13 +1131,22 @@ export function BuildingThreeDTestPage() {
                 </button>
               ))}
             </div>
+            ) : null}
 
-            {isCatalogLoading ? (
+            {productSourceTab === 'catalog' && isCatalogLoading ? (
               <div className="building-test-status">Loading product models...</div>
             ) : null}
-            {catalogError ? (
+            {productSourceTab === 'catalog' && catalogError ? (
               <div className="building-test-status is-error">
                 {getProductServiceResultMessage(catalogError)}
+              </div>
+            ) : null}
+            {productSourceTab === 'custom' && customizationRequestsQuery.isLoading ? (
+              <div className="building-test-status">Loading custom product versions...</div>
+            ) : null}
+            {productSourceTab === 'custom' && customizationRequestsQuery.isError ? (
+              <div className="building-test-status is-error">
+                {getCustomizationRequestServiceResultMessage(customizationRequestsQuery.error)}
               </div>
             ) : null}
 
@@ -1033,11 +1172,16 @@ export function BuildingThreeDTestPage() {
                   </div>
                 </article>
               ))}
-              {!isCatalogLoading && filteredModels.length === 0 ? (
+              {productSourceTab === 'catalog' && !isCatalogLoading && filteredModels.length === 0 ? (
                 <div className="building-test-status">No ready 3D product models found.</div>
               ) : null}
+              {productSourceTab === 'custom' && !customizationRequestsQuery.isLoading && !customizationRequestsQuery.isError && filteredModels.length === 0 ? (
+                <div className="building-test-status">
+                  {search.trim() ? 'No custom versions match your search.' : 'No custom product versions with ready MODEL_3D files are available for this project.'}
+                </div>
+              ) : null}
             </div>
-            {hasMoreCatalogModels ? (
+            {productSourceTab === 'catalog' && hasMoreCatalogModels ? (
               <button
                 className="building-load-more-button"
                 type="button"

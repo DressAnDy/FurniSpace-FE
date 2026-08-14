@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { SaleNavbar, SaleSidebar } from '@/features/SalePages/salecomponents';
 import { getOrderServiceResultMessage, type OrderDetailDto, type OrderItemDto } from '@/services/api/orders';
 import { getProductionServiceResultMessage } from '@/services/api/production';
-import { getProjectServiceResultMessage, type ProjectListItemDto } from '@/services/api/projects';
+import type { ProjectListItemDto } from '@/services/api/projects';
 import {
   useAvailableProductionStaff,
   useCompleteOrder,
@@ -16,7 +16,6 @@ import {
   usePrepareOrderFinalPayment,
   useProjectList,
   useProjectOrders,
-  useReopenProjectProposal,
 } from '@/services/queries';
 import { getLocalDateInputValue, getMinimumEndDateInputValue, validateOptionalFutureDateRange } from '@/shared/utils/dateValidation';
 import { aggregateDuplicateItems } from '@/shared/utils/itemAggregation';
@@ -56,7 +55,6 @@ export function SaleOrders() {
   const productionStaffQuery = useAvailableProductionStaff({ projectId: selectedProjectId }, { enabled: Boolean(selectedProjectId) });
   const createProductionRequestMutation = useCreateProductionRequest();
   const createDepositPaymentMutation = useCreateOrderDepositPayment();
-  const reopenProposalMutation = useReopenProjectProposal();
   const prepareFinalPaymentMutation = usePrepareOrderFinalPayment();
   const remainingPaymentMutation = useCreateOrderRemainingPayment();
   const completeOrderMutation = useCompleteOrder();
@@ -140,7 +138,6 @@ export function SaleOrders() {
                     isCreatingProduction={createProductionRequestMutation.isPending}
                     isCreatingRemainingPayment={remainingPaymentMutation.isPending}
                     isPreparingFinalPayment={prepareFinalPaymentMutation.isPending}
-                    isReopeningProposal={reopenProposalMutation.isPending}
                     order={order}
                     productionStaff={productionStaffQuery.data ?? []}
                     onCompleteOrder={async () => {
@@ -205,18 +202,6 @@ export function SaleOrders() {
                         setMessage({ tone: 'error', text: getOrderServiceResultMessage(error) });
                       }
                     }}
-                    onReopenProposal={async () => {
-                      setMessage(null);
-                      try {
-                        await reopenProposalMutation.mutateAsync(order.projectId);
-                        setSelectedOrderId('');
-                        setMessage({ tone: 'success', text: 'Project reopened to proposal consulting.' });
-                        void projectsQuery.refetch();
-                        void ordersQuery.refetch();
-                      } catch (error) {
-                        setMessage({ tone: 'error', text: getProjectServiceResultMessage(error) });
-                      }
-                    }}
                   />
                 ) : ordersQuery.isLoading ? (
                   <p className="sale-orders-muted">Loading orders...</p>
@@ -238,12 +223,10 @@ function OrderDetailPanel({
   isCreatingProduction,
   isCreatingRemainingPayment,
   isPreparingFinalPayment,
-  isReopeningProposal,
   onCompleteOrder,
   onCreateDepositPayment,
   onCreateProduction,
   onPrepareAndCreateRemainingPayment,
-  onReopenProposal,
   order,
   productionStaff,
 }: {
@@ -252,12 +235,10 @@ function OrderDetailPanel({
   isCreatingProduction: boolean;
   isCreatingRemainingPayment: boolean;
   isPreparingFinalPayment: boolean;
-  isReopeningProposal: boolean;
   onCompleteOrder: () => void;
   onCreateDepositPayment: () => void;
   onCreateProduction: (input: { assignedTo?: string | null; priority: 'LOW' | 'MEDIUM' | 'NORMAL' | 'HIGH' | 'URGENT'; estimatedStartDate?: string | null; estimatedCompletionDate?: string | null; note?: string | null }) => void;
   onPrepareAndCreateRemainingPayment: () => void;
-  onReopenProposal: () => void;
   order: OrderDetailDto;
   productionStaff: Array<{ accountId: string; fullName: string; activeRequestCount: number; isAvailable: boolean }>;
 }) {
@@ -305,9 +286,6 @@ function OrderDetailPanel({
             <button disabled={isCreatingDepositPayment} type="button" onClick={onCreateDepositPayment}>
               <IconSettings size={16} />
               {isCreatingDepositPayment ? 'Preparing...' : order.status === 'CREATED' ? 'Create Deposit Payment' : 'Reuse Deposit Payment'}
-            </button>
-            <button className="is-secondary" disabled={isReopeningProposal} type="button" onClick={onReopenProposal}>
-              {isReopeningProposal ? 'Reopening...' : 'Reopen Proposal'}
             </button>
           </div>
         </div>

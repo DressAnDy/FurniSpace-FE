@@ -4,6 +4,7 @@ import {
   IconHome,
   IconMapPin,
   IconPalette,
+  IconRefresh,
 } from '@tabler/icons-react';
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
@@ -11,7 +12,7 @@ import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { CustomerNavbar } from '@/features/CustomerPages/customercomponents';
 import { getProjectServiceResultMessage, type ProjectStatus } from '@/services/api/projects';
 import { getProposalServiceResultMessage, type ProposalDto } from '@/services/api/proposals';
-import { useProjectDetail, useProjectProposals } from '@/services/queries';
+import { useProjectDetail, useProjectProposals, useReopenProjectProposal } from '@/services/queries';
 
 import { CustomerProjectProposalAccordionItem } from './CustomerProjectProposalAccordion';
 import '../customerProjectList/CustomerProjectListPage.css';
@@ -23,6 +24,7 @@ export function CustomerProjectDetailPage() {
   const navigate = useNavigate();
   const projectQuery = useProjectDetail(projectId);
   const project = projectQuery.data;
+  const reopenProposalMutation = useReopenProjectProposal();
   const proposalsQuery = useProjectProposals(
     {
       projectId: project?.projectId ?? '',
@@ -36,6 +38,7 @@ export function CustomerProjectDetailPage() {
     [proposalsQuery.data?.items],
   );
   const [expandedProposalId, setExpandedProposalId] = useState<string | null>(proposalIdFromUrl);
+  const [message, setMessage] = useState<{ tone: 'error' | 'success'; text: string } | null>(null);
 
   useEffect(() => {
     if (!proposalIdFromUrl) {
@@ -54,6 +57,22 @@ export function CustomerProjectDetailPage() {
     return () => window.cancelAnimationFrame(frameId);
   }, [proposalIdFromUrl, proposals]);
 
+  async function reopenProposalFlow() {
+    if (!project) return;
+
+    setMessage(null);
+
+    try {
+      await reopenProposalMutation.mutateAsync(project.projectId);
+      setMessage({ tone: 'success', text: 'Project was reopened to proposal consulting.' });
+      setExpandedProposalId(null);
+      void projectQuery.refetch();
+      void proposalsQuery.refetch();
+    } catch (error) {
+      setMessage({ tone: 'error', text: getProjectServiceResultMessage(error) });
+    }
+  }
+
   return (
     <main className="customer-project-list-page">
       <CustomerNavbar activeLabel="My Projects" classPrefix="customer-project-list" />
@@ -71,6 +90,7 @@ export function CustomerProjectDetailPage() {
 
         {projectQuery.isLoading ? <section className="customer-project-list-state">Loading project detail...</section> : null}
         {projectQuery.isError ? <section className="customer-project-list-state is-error">{getProjectServiceResultMessage(projectQuery.error)}</section> : null}
+        {message ? <section className={`customer-project-detail-message customer-project-detail-message-${message.tone}`}>{message.text}</section> : null}
 
         {project ? (
           <section className="customer-project-detail-card">
@@ -133,9 +153,22 @@ export function CustomerProjectDetailPage() {
                       <p>Review published design options for this project.</p>
                     </div>
                   </div>
-                  <span className="customer-project-detail-proposals-count">
-                    {proposals.length} option{proposals.length === 1 ? '' : 's'}
-                  </span>
+                  <div className="customer-project-detail-proposals-tools">
+                    <span className="customer-project-detail-proposals-count">
+                      {proposals.length} option{proposals.length === 1 ? '' : 's'}
+                    </span>
+                    {canReopenProjectProposal(project.status) ? (
+                      <button
+                        className="customer-project-detail-reopen-button"
+                        type="button"
+                        disabled={reopenProposalMutation.isPending}
+                        onClick={() => void reopenProposalFlow()}
+                      >
+                        <IconRefresh size={16} stroke={1.8} />
+                        {reopenProposalMutation.isPending ? 'Reopening...' : 'Reopen Proposal'}
+                      </button>
+                    ) : null}
+                  </div>
                 </header>
 
                 {proposalsQuery.isLoading ? <p className="customer-project-detail-proposals-state">Loading proposals...</p> : null}
@@ -219,6 +252,12 @@ function getStageTone(status: ProjectStatus) {
   if (status === 'COMPLETED' || status === 'DELIVERED') return 'green';
   if (status === 'REJECTED') return 'gold';
   return 'stone';
+}
+
+function canReopenProjectProposal(status: ProjectStatus) {
+  return status === 'PROPOSAL_SELECTED'
+    || status === 'QUOTATION_SENT'
+    || status === 'ORDER_CONFIRMED';
 }
 
 function formatStatusLabel(value: string) {
