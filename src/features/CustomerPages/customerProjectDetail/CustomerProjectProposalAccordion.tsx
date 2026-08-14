@@ -2,9 +2,21 @@ import { IconChevronDown } from '@tabler/icons-react';
 import { FormEvent, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
-import { getCustomizationRequestServiceResultMessage } from '@/services/api/customizationRequests';
+import { ModelViewer } from '@/features/ThreeD/components';
+import {
+  getCustomizationRequestServiceResultMessage,
+  type CustomizationRequestDto,
+  type CustomizationRequestVersionDto,
+} from '@/services/api/customizationRequests';
 import { getProposalServiceResultMessage, type ProposalDto, type ProposalItemDto, type ProposalSceneDto } from '@/services/api/proposals';
-import { useProposalDetail, useProposalItems, useProposalScenes, useSubmitCustomizationRequest } from '@/services/queries';
+import {
+  useAcceptCustomizationRequestVersion,
+  useProjectCustomizationRequests,
+  useProposalDetail,
+  useProposalItems,
+  useProposalScenes,
+  useSubmitCustomizationRequest,
+} from '@/services/queries';
 import { aggregateDuplicateItems } from '@/shared/utils/itemAggregation';
 
 import '../customerProposalDetail/CustomerProposalDetailPage.css';
@@ -78,8 +90,17 @@ function CustomerProjectProposalPanel({
   const [customizationWidth, setCustomizationWidth] = useState('');
   const [customizationHeight, setCustomizationHeight] = useState('');
   const [customizationDepth, setCustomizationDepth] = useState('');
+  const [modelPreviewVersion, setModelPreviewVersion] = useState<CustomizationRequestVersionDto | null>(null);
   const submitCustomizationMutation = useSubmitCustomizationRequest();
+  const acceptCustomizationMutation = useAcceptCustomizationRequestVersion();
   const proposalQuery = useProposalDetail(proposal.proposalId, { enabled: true });
+  const customizationRequestsQuery = useProjectCustomizationRequests(
+    {
+      projectId,
+      proposalId: proposal.proposalId,
+    },
+    { enabled: true },
+  );
 
   const scenesQuery = useProposalScenes(
     {
@@ -109,15 +130,49 @@ function CustomerProjectProposalPanel({
     [backendProposal?.items, itemsQuery.data?.items],
   );
   const displayProposalItems = useMemo(() => aggregateDuplicateItems(proposalItems), [proposalItems]);
+  const customizationRequests = useMemo(
+    () => customizationRequestsQuery.data?.items ?? [],
+    [customizationRequestsQuery.data?.items],
+  );
+  const customVersionReviewItems = useMemo(
+    () =>
+      customizationRequests.flatMap((request) =>
+        (request.versions ?? [])
+          .filter((version) =>
+            !request.acceptedRequestVersionId &&
+            request.status === 'REVIEWING' &&
+            version.status === 'REVIEWING' &&
+            !version.isAccepted,
+          )
+          .map((version) => ({ request, version })),
+      ),
+    [customizationRequests],
+  );
+  const acceptedCustomVersionItems = useMemo(
+    () =>
+      customizationRequests.flatMap((request) => {
+        const acceptedVersion = request.acceptedVersion ?? (request.versions ?? []).find((version) => version.isAccepted);
+
+        return acceptedVersion ? [{ request, version: acceptedVersion }] : [];
+      }),
+    [customizationRequests],
+  );
   const estimatedTotal = displayProposalItems.reduce((total, item) => total + (item.subtotalAmount ?? 0), 0);
   const isLoadingScenes = (scenesQuery.isLoading || proposalQuery.isLoading) && scenes.length === 0;
   const isLoadingItems = (itemsQuery.isLoading || proposalQuery.isLoading) && displayProposalItems.length === 0;
+  const shouldShowCustomizationVersions =
+    customizationRequestsQuery.isLoading ||
+    customizationRequestsQuery.isError ||
+    customizationRequests.length > 0;
   const scenesError = scenesQuery.isError ? getProposalServiceResultMessage(scenesQuery.error) : null;
   const itemsError = itemsQuery.isError && displayProposalItems.length === 0
     ? getProposalServiceResultMessage(itemsQuery.error)
     : proposalQuery.isError && displayProposalItems.length === 0
       ? getProposalServiceResultMessage(proposalQuery.error)
       : null;
+  const customizationRequestsError = customizationRequestsQuery.isError
+    ? getCustomizationRequestServiceResultMessage(customizationRequestsQuery.error)
+    : null;
 
   function openScene(scene: ProposalSceneDto) {
     const params = new URLSearchParams({
@@ -173,6 +228,24 @@ function CustomerProjectProposalPanel({
       });
       resetCustomizationForm();
       setCustomizationMessage('Customization request submitted for this proposal item.');
+      void customizationRequestsQuery.refetch();
+    } catch (error) {
+      setCustomizationMessage(getCustomizationRequestServiceResultMessage(error));
+    }
+  }
+
+  async function acceptCustomVersion(request: CustomizationRequestDto, version: CustomizationRequestVersionDto) {
+    setCustomizationMessage('');
+
+    try {
+      await acceptCustomizationMutation.mutateAsync({
+        customizationRequestId: request.customizationRequestId,
+        customizationRequestVersionId: version.customizationRequestVersionId,
+      });
+      setCustomizationMessage('Custom version accepted. The proposal items will be refreshed with this version.');
+      void customizationRequestsQuery.refetch();
+      void proposalQuery.refetch();
+      void itemsQuery.refetch();
     } catch (error) {
       setCustomizationMessage(getCustomizationRequestServiceResultMessage(error));
     }
@@ -265,6 +338,63 @@ function CustomerProjectProposalPanel({
           </>
         ) : null}
       </section>
+
+      {shouldShowCustomizationVersions ? (
+        <section className="customer-proposal-detail-card customer-proposal-detail-custom-version-review">
+          <div className="customer-proposal-detail-section-heading">
+            <div>
+              <h2>Custom Versions for Review</h2>
+              <p>Review designer custom versions while production checks feasibility. Accept becomes available after production marks a version feasible.</p>
+            </div>
+          </div>
+          {customizationRequestsQuery.isLoading ? <p>Loading custom versions...</p> : null}
+          {customizationRequestsError ? <p className="customer-proposal-detail-message">{customizationRequestsError}</p> : null}
+          {!customizationRequestsQuery.isLoading && !customizationRequestsError && customVersionReviewItems.length === 0 && acceptedCustomVersionItems.length === 0 ? (
+            <p className="customer-proposal-detail-custom-version-empty">No custom version is ready for customer review yet.</p>
+          ) : null}
+          {customVersionReviewItems.length > 0 ? (
+            <div className="customer-proposal-detail-custom-version-list">
+              {customVersionReviewItems.map(({ request, version }) => (
+                <CustomVersionReviewCard
+                  key={version.customizationRequestVersionId}
+                  request={request}
+                  version={version}
+                  actionLabel={
+                    version.feasibilityStatus === 'FEASIBLE'
+                      ? acceptCustomizationMutation.isPending
+                        ? 'Accepting...'
+                        : 'Accept Custom Version'
+                      : 'Feasibility Pending'
+                  }
+                  disabled={acceptCustomizationMutation.isPending || version.feasibilityStatus !== 'FEASIBLE'}
+                  onPreviewModel={() => setModelPreviewVersion(version)}
+                  onAccept={() => acceptCustomVersion(request, version)}
+                />
+              ))}
+            </div>
+          ) : null}
+          {acceptedCustomVersionItems.length > 0 ? (
+            <div className="customer-proposal-detail-custom-version-list">
+              {acceptedCustomVersionItems.map(({ request, version }) => (
+                <CustomVersionReviewCard
+                  isAccepted
+                  key={version.customizationRequestVersionId}
+                  request={request}
+                  version={version}
+                  onPreviewModel={() => setModelPreviewVersion(version)}
+                />
+              ))}
+            </div>
+          ) : null}
+        </section>
+      ) : null}
+
+      {modelPreviewVersion ? (
+        <CustomVersionModelModal
+          version={modelPreviewVersion}
+          onClose={() => setModelPreviewVersion(null)}
+        />
+      ) : null}
     </div>
   );
 }
@@ -286,6 +416,181 @@ function ProposalItemRow({ item, onCustomize, proposalStatus }: { item: Proposal
       </td>
     </tr>
   );
+}
+
+function CustomVersionReviewCard({
+  actionLabel,
+  disabled,
+  isAccepted = false,
+  onPreviewModel,
+  onAccept,
+  request,
+  version,
+}: {
+  actionLabel?: string;
+  disabled?: boolean;
+  isAccepted?: boolean;
+  onPreviewModel?: () => void;
+  onAccept?: () => void;
+  request: CustomizationRequestDto;
+  version: CustomizationRequestVersionDto;
+}) {
+  const productVersion = version.productVersion;
+  const previewUrl = getCustomVersionPreviewUrl(version);
+  const modelUrl = getCustomVersionModelUrl(version);
+
+  return (
+    <article className="customer-proposal-detail-custom-version-card">
+      {previewUrl ? (
+        <img alt={productVersion.versionName ?? version.versionTitle ?? request.requestTitle} src={previewUrl} />
+      ) : (
+        <div className="customer-proposal-detail-custom-version-placeholder">No preview</div>
+      )}
+      <div>
+        <div className="customer-proposal-detail-custom-version-title">
+          <div>
+            <strong>{version.versionTitle || productVersion.versionName || request.requestTitle}</strong>
+            <span>{request.requestTitle}</span>
+          </div>
+          <span className={getCustomVersionBadgeClassName(isAccepted, version)}>
+            {getCustomVersionBadgeLabel(isAccepted, version)}
+          </span>
+        </div>
+        {version.designerNote ? <p>{version.designerNote}</p> : null}
+        <dl>
+          <div>
+            <dt>Version</dt>
+            <dd>{productVersion.versionName || `v${version.versionNo}`}</dd>
+          </div>
+          <div>
+            <dt>Material</dt>
+            <dd>{productVersion.material || request.requestedMaterial || '-'}</dd>
+          </div>
+          <div>
+            <dt>Color</dt>
+            <dd>{productVersion.color || request.requestedColor || '-'}</dd>
+          </div>
+          <div>
+            <dt>Dimensions</dt>
+            <dd>{formatDimensions(productVersion.width, productVersion.height, productVersion.depth, productVersion.dimensionUnit)}</dd>
+          </div>
+          <div>
+            <dt>Extra Cost</dt>
+            <dd>{formatMoney(version.estimatedAdditionalCost)}</dd>
+          </div>
+          <div>
+            <dt>Production</dt>
+            <dd>{version.estimatedProductionDays ? `${version.estimatedProductionDays} days` : '-'}</dd>
+          </div>
+        </dl>
+        {version.feasibilityNote ? <p>{version.feasibilityNote}</p> : null}
+        <div className="customer-proposal-detail-custom-version-actions">
+          <button disabled={!modelUrl} type="button" onClick={onPreviewModel}>
+            View 3D
+          </button>
+          {!isAccepted && onAccept ? (
+            <button disabled={disabled} type="button" onClick={onAccept}>
+              {actionLabel ?? 'Accept Custom Version'}
+            </button>
+          ) : null}
+        </div>
+        {!modelUrl ? <p>No MODEL_3D file is available for this custom version yet.</p> : null}
+      </div>
+    </article>
+  );
+}
+
+function CustomVersionModelModal({
+  onClose,
+  version,
+}: {
+  onClose: () => void;
+  version: CustomizationRequestVersionDto;
+}) {
+  const previewUrl = getCustomVersionPreviewUrl(version) ?? undefined;
+  const modelUrl = getCustomVersionModelUrl(version) ?? undefined;
+
+  return (
+    <div className="customer-proposal-detail-model-modal-backdrop" role="presentation" onClick={onClose}>
+      <section
+        aria-label="Custom version 3D model preview"
+        className="customer-proposal-detail-model-modal"
+        role="dialog"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <header>
+          <div>
+            <h3>{version.versionTitle || version.productVersion.versionName || `Version ${version.versionNo}`}</h3>
+            <p>{modelUrl ? 'Inspect the custom product MODEL_3D file.' : 'No MODEL_3D file is available.'}</p>
+          </div>
+          <button aria-label="Close 3D preview" type="button" onClick={onClose}>X</button>
+        </header>
+        <div className="customer-proposal-detail-model-modal-body">
+          <ModelViewer
+            fallbackImageUrl={previewUrl}
+            height="100%"
+            modelUrl={modelUrl}
+            showGrid={false}
+          />
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function getCustomVersionFiles(version: CustomizationRequestVersionDto) {
+  return [
+    ...(version.productVersion.files ?? []),
+    ...(version.productVersion.previewFiles ?? []),
+    version.productVersion.thumbnail,
+  ].filter((file): file is NonNullable<typeof file> => Boolean(file));
+}
+
+function getCustomVersionFileUrl(file: ReturnType<typeof getCustomVersionFiles>[number] | null | undefined) {
+  return file?.fileUrl ?? file?.publicUrl ?? file?.url ?? null;
+}
+
+function getCustomVersionFileType(file: ReturnType<typeof getCustomVersionFiles>[number]) {
+  return file.fileType?.toUpperCase() ?? '';
+}
+
+function getCustomVersionModelUrl(version: CustomizationRequestVersionDto) {
+  const modelFile = getCustomVersionFiles(version).find((file) => getCustomVersionFileType(file) === 'MODEL_3D');
+
+  return getCustomVersionFileUrl(modelFile) ?? version.productVersion.modelFileUrl ?? null;
+}
+
+function isPreviewFile(file: ReturnType<typeof getCustomVersionFiles>[number]) {
+  const fileType = getCustomVersionFileType(file);
+
+  return fileType === 'PRODUCT_PREVIEW' || fileType.startsWith('IMAGE');
+}
+
+function getCustomVersionPreviewUrl(version: CustomizationRequestVersionDto) {
+  const previewFile = getCustomVersionFiles(version).find(isPreviewFile)
+    ?? getCustomVersionFiles(version).find((file) => {
+      const url = getCustomVersionFileUrl(file);
+
+      return Boolean(url && /\.(png|jpe?g|webp|gif)(\?|$)/i.test(url));
+    });
+
+  return getCustomVersionFileUrl(previewFile);
+}
+
+function getCustomVersionBadgeLabel(isAccepted: boolean, version: CustomizationRequestVersionDto) {
+  if (isAccepted) return 'Accepted';
+  if (version.feasibilityStatus === 'FEASIBLE') return 'Feasible';
+  if (version.feasibilityStatus === 'NOT_FEASIBLE') return 'Not Feasible';
+
+  return 'Production Review';
+}
+
+function getCustomVersionBadgeClassName(isAccepted: boolean, version: CustomizationRequestVersionDto) {
+  if (isAccepted) return 'is-accepted';
+  if (version.feasibilityStatus === 'FEASIBLE') return 'is-feasible';
+  if (version.feasibilityStatus === 'NOT_FEASIBLE') return 'is-not-feasible';
+
+  return 'is-pending';
 }
 
 function getProposalStatusTone(status: ProposalDto['status']) {

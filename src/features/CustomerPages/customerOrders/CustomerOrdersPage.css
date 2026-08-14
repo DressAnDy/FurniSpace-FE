@@ -108,6 +108,55 @@
   gap: 12px;
 }
 
+.customer-orders-panel-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 14px;
+  border-top: 1px solid rgba(139, 111, 71, 0.12);
+  padding-top: 14px;
+}
+
+.customer-orders-panel-pagination p {
+  margin: 0;
+  color: #756b61;
+  font-size: 12px;
+  line-height: 1.2;
+}
+
+.customer-orders-panel-pagination strong {
+  color: #2f2a24;
+  font-weight: 700;
+}
+
+.customer-orders-panel-pagination div {
+  display: flex;
+  gap: 6px;
+}
+
+.customer-orders-panel-pagination button {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  place-items: center;
+  border: 1px solid rgba(139, 111, 71, 0.22);
+  border-radius: 8px;
+  background: #ffffff;
+  color: #2f2a24;
+  cursor: pointer;
+}
+
+.customer-orders-panel-pagination button:hover:not(:disabled) {
+  border-color: #8b6f47;
+  background: #f5f1ec;
+}
+
+.customer-orders-panel-pagination button:disabled {
+  cursor: default;
+  opacity: 0.45;
+}
+
 .customer-orders-project-list button,
 .customer-orders-order-list button {
   display: grid;

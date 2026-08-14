@@ -1,11 +1,11 @@
-import { IconArrowLeft, IconX } from '@tabler/icons-react';
+import { IconArrowLeft, IconRefresh, IconX } from '@tabler/icons-react';
 import { FormEvent, useEffect, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 
 import { ProjectStatusBadge, ProjectTimeline, SaleNavbar, SaleSidebar } from '@/features/SalePages/salecomponents';
 import type { ProjectDto, ProjectStatus } from '@/services/api/projects';
 import { getProjectServiceResultMessage } from '@/services/api/projects';
-import { useAssignSalesToProject, useProjectDetail, useRejectProject, useRequestProjectInformation } from '@/services/queries/useProjects';
+import { useAssignSalesToProject, useProjectDetail, useRejectProject, useReopenProjectProposal, useRequestProjectInformation } from '@/services/queries/useProjects';
 
 import { ChatTab, CustomerInfoTab, FilesAttachmentsTab, OverviewTab, SchedulesTab } from './tabs';
 import './ProjectDetail.css';
@@ -72,6 +72,7 @@ export function ProjectDetail() {
   const assignSalesMutation = useAssignSalesToProject();
   const requestInformationMutation = useRequestProjectInformation();
   const rejectProjectMutation = useRejectProject();
+  const reopenProposalMutation = useReopenProjectProposal();
   const project = projectQuery.data;
   const isAssignedProjectRoute = location.pathname.startsWith('/sales/assigned-projects');
   const activeSidebarLabel = isAssignedProjectRoute ? 'Assigned Projects' : 'Project Request Queue';
@@ -129,6 +130,20 @@ export function ProjectDetail() {
       setIsRequestInfoModalOpen(false);
       setRequestInfoMessage('');
       setStatusMessage('Project status updated successfully.');
+    } catch (error) {
+      setStatusMessage(getProjectServiceResultMessage(error));
+    }
+  }
+
+  async function handleReopenProposal() {
+    setStatusMessage('');
+
+    if (!project) return;
+
+    try {
+      await reopenProposalMutation.mutateAsync(project.projectId);
+      setStatusMessage('Project reopened to proposal consulting.');
+      projectQuery.refetch();
     } catch (error) {
       setStatusMessage(getProjectServiceResultMessage(error));
     }
@@ -207,9 +222,26 @@ export function ProjectDetail() {
                     {assignSalesMutation.isPending ? 'Accepting...' : 'Accept for Consultation'}
                   </button>
                 ) : null}
+                {canReopenProjectProposal(project.status) ? (
+                  <button
+                    className="project-detail-secondary-button"
+                    type="button"
+                    disabled={reopenProposalMutation.isPending}
+                    onClick={() => void handleReopenProposal()}
+                  >
+                    <IconRefresh size={16} />
+                    {reopenProposalMutation.isPending ? 'Reopening...' : 'Reopen Proposal'}
+                  </button>
+                ) : null}
               </div>
             ) : null}
           </section>
+
+          {statusMessage && !isRequestInfoModalOpen ? (
+            <section className={statusMessage.toLowerCase().includes('success') || statusMessage.toLowerCase().includes('reopened') ? 'project-detail-status-banner' : 'project-detail-status-banner project-detail-status-banner-error'}>
+              {statusMessage}
+            </section>
+          ) : null}
 
           {projectQuery.isLoading ? <section className="project-detail-card project-detail-state">Loading project detail...</section> : null}
           {projectQuery.isError ? (
@@ -321,6 +353,12 @@ function formatDate(value: string) {
 
 function canSalesDecideConsultation(status: ProjectStatus) {
   return status === 'IN_CONSULTATION';
+}
+
+function canReopenProjectProposal(status: ProjectStatus) {
+  return status === 'PROPOSAL_SELECTED'
+    || status === 'QUOTATION_SENT'
+    || status === 'ORDER_CONFIRMED';
 }
 
 function getStatusUpdateNote(status: ProjectStatus) {

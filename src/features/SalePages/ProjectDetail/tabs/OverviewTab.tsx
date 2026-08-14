@@ -1,5 +1,6 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { useQueries } from '@tanstack/react-query';
+import { IconCalendarDue, IconCash, IconSend } from '@tabler/icons-react';
 
 import { getAccountById, getAccountRoleName, type AccountDto } from '@/services/api';
 import { getAccountServiceResultMessage } from '@/services/api/accounts';
@@ -26,6 +27,7 @@ export function OverviewTab({ project, showAssignedTeam = false }: OverviewTabPr
   const [selectedDesignerId, setSelectedDesignerId] = useState(project.assignedDesignerId ?? '');
   const [startFeeMessage, setStartFeeMessage] = useState('');
   const [startFeeAmount, setStartFeeAmount] = useState('');
+  const [startFeeAmountError, setStartFeeAmountError] = useState<string | null>(null);
   const [startFeeDueDate, setStartFeeDueDate] = useState('');
   const teamAccountIds = [project.assignedSalesId, project.assignedDesignerId].filter((accountId): accountId is string => Boolean(accountId));
   const teamQueries = useQueries({
@@ -125,10 +127,15 @@ export function OverviewTab({ project, showAssignedTeam = false }: OverviewTabPr
   async function handleCreateStartFeePayment() {
     setStartFeeMessage('');
 
-    const amount = normalizePositiveAmount(startFeeAmount);
+    const amountError = getFeeAmountError(startFeeAmount, { required: true });
+    if (amountError) {
+      setStartFeeAmountError(amountError);
+      return;
+    }
 
+    const amount = normalizePositiveAmount(startFeeAmount);
     if (!amount) {
-      setStartFeeMessage('Please enter a project start fee amount greater than 0.');
+      setStartFeeAmountError('Fee amount must be a number greater than 0.');
       return;
     }
 
@@ -153,6 +160,7 @@ export function OverviewTab({ project, showAssignedTeam = false }: OverviewTabPr
       });
       setStartFeeMessage(`Start fee request ${payment.paymentCode} was created and sent to the customer.`);
       setStartFeeAmount('');
+      setStartFeeAmountError(null);
       setStartFeeDueDate('');
       void startFeeStatusQuery.refetch();
     } catch (error) {
@@ -216,11 +224,20 @@ export function OverviewTab({ project, showAssignedTeam = false }: OverviewTabPr
 
           {!project.assignedDesignerId ? (
             <section className={isStartFeeBlocking ? 'project-detail-start-fee-card project-detail-start-fee-card-blocking' : 'project-detail-start-fee-card'}>
-              <div>
-                <h4>Project Start Fee</h4>
-                <p>{getStartFeeCopy(startFeeStatusQuery.isLoading, startFeeStatusQuery.isError, startFeeStatus)}</p>
+              <div className="project-detail-start-fee-copy">
+                <span className="project-detail-start-fee-icon" aria-hidden="true">
+                  <IconCash size={18} stroke={1.8} />
+                </span>
+                <div>
+                  <div className="project-detail-start-fee-title-row">
+                    <h4>Project Start Fee</h4>
+                    <span className={`project-detail-start-fee-status project-detail-start-fee-status-${(startFeeStatus?.projectStartFeeStatus ?? (startFeeStatus?.isEligibleForDesignerAssignment ? 'PAID' : 'IDLE')).toLowerCase()}`}>
+                      {formatStatusLabel(startFeeStatus?.projectStartFeeStatus ?? (startFeeStatus?.isEligibleForDesignerAssignment ? 'PAID' : null))}
+                    </span>
+                  </div>
+                  <p>{getStartFeeCopy(startFeeStatusQuery.isLoading, startFeeStatusQuery.isError, startFeeStatus)}</p>
+                </div>
               </div>
-              <span>{formatStatusLabel(startFeeStatus?.projectStartFeeStatus ?? (startFeeStatus?.isEligibleForDesignerAssignment ? 'PAID' : null))}</span>
               {isStartFeeBlocking ? (
                 <div className="project-detail-start-fee-actions">
                   {startFeeStatus?.paymentId ? (
@@ -232,31 +249,48 @@ export function OverviewTab({ project, showAssignedTeam = false }: OverviewTabPr
                     <div className="project-detail-start-fee-create">
                       <label>
                         <span>Fee amount</span>
-                        <input
-                          min="1"
-                          inputMode="decimal"
-                          placeholder="Enter amount"
-                          type="number"
-                          value={startFeeAmount}
-                          disabled={createStartFeePaymentMutation.isPending}
-                          onChange={(event) => setStartFeeAmount(event.currentTarget.value)}
-                        />
+                        <div className={`project-detail-start-fee-input-wrap${startFeeAmountError ? ' is-invalid' : ''}`}>
+                          <input
+                            aria-invalid={Boolean(startFeeAmountError)}
+                            disabled={createStartFeePaymentMutation.isPending}
+                            inputMode="decimal"
+                            placeholder="e.g. 2000000"
+                            type="text"
+                            value={startFeeAmount}
+                            onChange={(event) => {
+                              const nextValue = sanitizePositiveAmountInput(event.currentTarget.value);
+                              setStartFeeAmount(nextValue);
+                              setStartFeeAmountError(getFeeAmountError(nextValue));
+                            }}
+                            onKeyDown={(event) => {
+                              if (event.key === 'e' || event.key === 'E' || event.key === '+' || event.key === '-') {
+                                event.preventDefault();
+                              }
+                            }}
+                          />
+                          <em aria-hidden="true">VNĐ</em>
+                        </div>
+                        {startFeeAmountError ? <small className="project-detail-field-error">{startFeeAmountError}</small> : null}
                       </label>
                       <label>
                         <span>Due date</span>
-                        <input
-                          type="date"
-                          min={getLocalDateInputValue()}
-                          value={startFeeDueDate}
-                          disabled={createStartFeePaymentMutation.isPending}
-                          onChange={(event) => setStartFeeDueDate(event.currentTarget.value)}
-                        />
+                        <div className="project-detail-start-fee-input-wrap">
+                          <IconCalendarDue className="project-detail-start-fee-date-icon" size={16} stroke={1.8} aria-hidden="true" />
+                          <input
+                            type="date"
+                            min={getLocalDateInputValue()}
+                            value={startFeeDueDate}
+                            disabled={createStartFeePaymentMutation.isPending}
+                            onChange={(event) => setStartFeeDueDate(event.currentTarget.value)}
+                          />
+                        </div>
                       </label>
                       <button
                         type="button"
                         disabled={createStartFeePaymentMutation.isPending || !normalizePositiveAmount(startFeeAmount) || !startFeeDueDate}
                         onClick={() => void handleCreateStartFeePayment()}
                       >
+                        <IconSend size={15} stroke={1.9} />
                         {createStartFeePaymentMutation.isPending ? 'Creating...' : 'Create Start Fee'}
                       </button>
                     </div>
@@ -440,8 +474,42 @@ function formatStatusLabel(value?: string | null) {
     .join(' ');
 }
 
+function sanitizePositiveAmountInput(value: string) {
+  const cleaned = value.replace(/[^\d.]/g, '');
+  const [whole = '', ...fractionParts] = cleaned.split('.');
+  const fraction = fractionParts.join('').slice(0, 2);
+
+  if (fractionParts.length === 0) {
+    return whole;
+  }
+
+  return `${whole}.${fraction}`;
+}
+
+function getFeeAmountError(value: string, options?: { required?: boolean }) {
+  const normalized = value.trim();
+  if (!normalized) {
+    return options?.required ? 'Fee amount is required.' : null;
+  }
+
+  if (!/^\d+(\.\d{1,2})?$/.test(normalized)) {
+    return 'Fee amount must contain numbers only.';
+  }
+
+  const amount = Number(normalized);
+  if (!Number.isFinite(amount) || amount <= 0) {
+    return 'Fee amount must be greater than 0.';
+  }
+
+  return null;
+}
+
 function normalizePositiveAmount(value: string) {
-  const amount = Number(value);
+  if (getFeeAmountError(value)) {
+    return null;
+  }
+
+  const amount = Number(value.trim());
 
   return Number.isFinite(amount) && amount > 0 ? amount : null;
 }

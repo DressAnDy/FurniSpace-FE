@@ -108,6 +108,12 @@
   color: #ffffff;
 }
 
+.project-detail-header-actions button.project-detail-secondary-button {
+  border: 1px solid rgba(139, 111, 71, 0.22);
+  background: #ffffff;
+  color: #4f3f2d;
+}
+
 .project-detail-header-actions button:disabled,
 .project-detail-primary-button:disabled {
   cursor: not-allowed;
@@ -156,6 +162,23 @@
 }
 
 .project-detail-status-message-error {
+  color: #991b1b;
+}
+
+.project-detail-status-banner {
+  margin: -10px 0 18px;
+  border: 1px solid #bbf7d0;
+  border-radius: 10px;
+  background: #f0fdf4;
+  color: #166534;
+  font-size: 14px;
+  font-weight: 600;
+  padding: 12px 14px;
+}
+
+.project-detail-status-banner-error {
+  border-color: #fecaca;
+  background: #fef2f2;
   color: #991b1b;
 }
 
@@ -715,50 +738,109 @@
 
 .project-detail-start-fee-card {
   display: grid;
-  align-items: center;
-  gap: 12px;
-  grid-template-columns: minmax(0, 1fr) auto auto;
-  border: 1px solid rgba(139, 111, 71, 0.15);
-  border-radius: 12px;
-  background: #faf9f7;
+  align-items: stretch;
+  gap: 16px;
+  grid-template-columns: minmax(240px, 0.95fr) minmax(320px, 1.15fr);
+  border: 1px solid rgba(139, 111, 71, 0.18);
+  border-radius: 14px;
+  background:
+    linear-gradient(135deg, rgba(139, 111, 71, 0.08), transparent 42%),
+    linear-gradient(180deg, #fffdf9 0%, #f7f2ea 100%);
+  box-shadow: 0 8px 24px rgba(87, 68, 40, 0.06);
   margin-bottom: 18px;
-  padding: 16px;
+  padding: 18px;
 }
 
 .project-detail-start-fee-card-blocking {
-  border-color: rgba(139, 111, 71, 0.32);
-  background: #fffaf2;
+  border-color: rgba(139, 111, 71, 0.34);
+  background:
+    linear-gradient(135deg, rgba(139, 111, 71, 0.12), transparent 46%),
+    linear-gradient(180deg, #fffaf2 0%, #f4eadc 100%);
+}
+
+.project-detail-start-fee-copy {
+  display: flex;
+  min-width: 0;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.project-detail-start-fee-icon {
+  display: grid;
+  width: 40px;
+  height: 40px;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid rgba(139, 111, 71, 0.18);
+  border-radius: 12px;
+  background: #ffffff;
+  color: #8b6f47;
+  box-shadow: 0 2px 8px rgba(139, 111, 71, 0.08);
+}
+
+.project-detail-start-fee-title-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
 }
 
 .project-detail-start-fee-card h4 {
   margin: 0;
   color: #2d2d2d;
   font-size: 15px;
+  font-weight: 800;
   line-height: 20px;
 }
 
 .project-detail-start-fee-card p {
-  margin: 4px 0 0;
+  margin: 6px 0 0;
   color: #6b6b6b;
   font-size: 13px;
   line-height: 20px;
 }
 
-.project-detail-start-fee-card > span {
+.project-detail-start-fee-status {
   display: inline-flex;
-  min-height: 28px;
+  min-height: 24px;
   align-items: center;
+  gap: 6px;
+  border: 1px solid rgba(139, 111, 71, 0.22);
   border-radius: 999px;
-  background: #f5f1ec;
-  color: #8b6f47;
-  font-size: 12px;
+  background: #ffffff;
+  color: #6d5533;
+  font-size: 11px;
   font-weight: 800;
-  line-height: 16px;
-  padding: 6px 10px;
+  line-height: 1;
+  padding: 0 10px;
+}
+
+.project-detail-start-fee-status::before {
+  content: '';
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: currentcolor;
+}
+
+.project-detail-start-fee-status-paid,
+.project-detail-start-fee-status-completed {
+  border-color: rgba(23, 107, 80, 0.24);
+  background: #eefaf5;
+  color: #176b50;
+}
+
+.project-detail-start-fee-status-pending,
+.project-detail-start-fee-status-awaiting_payment {
+  border-color: rgba(180, 120, 20, 0.28);
+  background: #fff7e8;
+  color: #9a6700;
 }
 
 .project-detail-start-fee-actions {
   display: flex;
+  min-width: 0;
+  align-items: center;
   justify-content: flex-end;
 }
 
@@ -766,7 +848,11 @@
   display: grid;
   justify-items: end;
   gap: 4px;
-  max-width: 280px;
+  max-width: 320px;
+  border: 1px solid rgba(139, 111, 71, 0.16);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.72);
+  padding: 12px 14px;
 }
 
 .project-detail-start-fee-existing strong {
@@ -786,14 +872,21 @@
 
 .project-detail-start-fee-create {
   display: flex;
+  width: 100%;
   align-items: end;
   justify-content: flex-end;
+  flex-wrap: wrap;
   gap: 10px;
+  border: 1px solid rgba(139, 111, 71, 0.14);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.78);
+  padding: 12px;
 }
 
 .project-detail-start-fee-create label {
   display: flex;
-  min-width: 180px;
+  min-width: 168px;
+  flex: 1 1 168px;
   flex-direction: column;
   gap: 6px;
 }
@@ -812,33 +905,100 @@
   line-height: 15px;
 }
 
-.project-detail-start-fee-create input {
+.project-detail-start-fee-input-wrap {
+  position: relative;
+  display: grid;
+}
+
+.project-detail-start-fee-input-wrap input {
   width: 100%;
-  height: 36px;
-  border: 1px solid rgba(139, 111, 71, 0.15);
-  border-radius: 8px;
+  height: 40px;
+  border: 1px solid rgba(139, 111, 71, 0.18);
+  border-radius: 10px;
   background: #ffffff;
   color: #2d2d2d;
   font: inherit;
   font-size: 13px;
   outline: 0;
-  padding: 0 10px;
+  padding: 0 12px;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.project-detail-start-fee-input-wrap em {
+  position: absolute;
+  top: 50%;
+  right: 12px;
+  color: rgba(45, 45, 45, 0.5);
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  line-height: 1;
+  pointer-events: none;
+  transform: translateY(-50%);
+}
+
+.project-detail-start-fee-input-wrap:has(em) input {
+  padding-right: 46px;
+}
+
+.project-detail-start-fee-date-icon {
+  position: absolute;
+  top: 50%;
+  left: 12px;
+  color: #8b6f47;
+  pointer-events: none;
+  transform: translateY(-50%);
+  z-index: 1;
+}
+
+.project-detail-start-fee-input-wrap:has(.project-detail-start-fee-date-icon) input {
+  padding-left: 34px;
+}
+
+.project-detail-start-fee-input-wrap.is-invalid input,
+.project-detail-start-fee-create input.is-invalid {
+  border-color: #c62828;
+  box-shadow: inset 0 0 0 1px rgba(198, 40, 40, 0.35);
+}
+
+.project-detail-start-fee-input-wrap input:focus {
+  border-color: #8b6f47;
+  box-shadow: inset 0 0 0 1px rgba(139, 111, 71, 0.4);
+}
+
+.project-detail-start-fee-input-wrap.is-invalid input:focus {
+  border-color: #c62828;
+  box-shadow: inset 0 0 0 1px rgba(198, 40, 40, 0.5);
+}
+
+.project-detail-field-error {
+  color: #c62828;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.35;
 }
 
 .project-detail-start-fee-actions button {
   display: inline-flex;
-  height: 36px;
+  height: 40px;
   align-items: center;
   justify-content: center;
+  gap: 7px;
   border: 1px solid #8b6f47;
-  border-radius: 8px;
-  background: #8b6f47;
+  border-radius: 10px;
+  background: linear-gradient(180deg, #9a7c51 0%, #8b6f47 100%);
   color: #ffffff;
   cursor: pointer;
   font: inherit;
   font-size: 13px;
   font-weight: 800;
-  padding: 0 14px;
+  padding: 0 16px;
+  transition: filter 0.15s ease, transform 0.15s ease;
+}
+
+.project-detail-start-fee-actions button:hover:not(:disabled) {
+  filter: brightness(1.04);
 }
 
 .project-detail-start-fee-actions button:disabled {

@@ -1,6 +1,7 @@
 import {
+  IconChevronLeft,
   IconChevronRight,
-  IconHome
+  IconHome,
 } from '@tabler/icons-react';
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
@@ -8,7 +9,7 @@ import { Link } from 'react-router-dom';
 import { CustomerNavbar } from '@/features/CustomerPages/customercomponents';
 import { getOrderServiceResultMessage, type OrderDetailDto, type OrderItemDto, type OrderStatus } from '@/services/api/orders';
 import type { PaymentDetailDto } from '@/services/api/payments';
-import { getProjectServiceResultMessage, type ProjectListItemDto } from '@/services/api/projects';
+import type { ProjectListItemDto } from '@/services/api/projects';
 import {
   useConfirmOrderItemDelivery,
   useCreateOrderDepositPayment,
@@ -16,7 +17,6 @@ import {
   usePayments,
   useProjectList,
   useProjectOrders,
-  useReopenProjectProposal,
 } from '@/services/queries';
 import { aggregateDuplicateItems, getItemAggregateKey } from '@/shared/utils/itemAggregation';
 import { PaymentCollectionModal } from '@/features/payments/PaymentCollectionModal';
@@ -26,6 +26,8 @@ import './CustomerOrdersPage.css';
 type GroupedOrderItem = OrderItemDto & {
   sourceItems: OrderItemDto[];
 };
+
+const PROJECT_PAGE_SIZE = 4;
 
 const orderProjectStatuses = new Set([
   'ORDER_CONFIRMED',
@@ -39,11 +41,18 @@ const orderProjectStatuses = new Set([
 export function CustomerOrdersPage() {
   const [selectedProjectId, setSelectedProjectId] = useState('');
   const [selectedOrderId, setSelectedOrderId] = useState('');
+  const [projectPage, setProjectPage] = useState(1);
   const [activePayment, setActivePayment] = useState<PaymentDetailDto | null>(null);
   const [message, setMessage] = useState<{ tone: 'error' | 'success'; text: string } | null>(null);
   const projectsQuery = useProjectList({ page: 1, limit: 50 });
   const projects = useMemo(() => projectsQuery.data?.items ?? [], [projectsQuery.data?.items]);
   const orderProjects = useMemo(() => getOrderProjects(projects), [projects]);
+  const totalProjectPages = Math.max(1, Math.ceil(orderProjects.length / PROJECT_PAGE_SIZE));
+  const pagedOrderProjects = useMemo(() => {
+    const start = (projectPage - 1) * PROJECT_PAGE_SIZE;
+
+    return orderProjects.slice(start, start + PROJECT_PAGE_SIZE);
+  }, [orderProjects, projectPage]);
   const ordersQuery = useProjectOrders(selectedProjectId, { enabled: Boolean(selectedProjectId) });
   const orders = useMemo(() => ordersQuery.data?.items ?? [], [ordersQuery.data?.items]);
   const orderDetailQuery = useOrderDetail(selectedOrderId, { enabled: Boolean(selectedOrderId) });
@@ -54,13 +63,19 @@ export function CustomerOrdersPage() {
   );
   const depositMutation = useCreateOrderDepositPayment();
   const confirmDeliveryMutation = useConfirmOrderItemDelivery();
-  const reopenProposalMutation = useReopenProjectProposal();
 
   useEffect(() => {
     if (!selectedProjectId && orderProjects.length > 0) {
       setSelectedProjectId(orderProjects[0].projectId);
+      setProjectPage(1);
     }
   }, [orderProjects, selectedProjectId]);
+
+  useEffect(() => {
+    if (projectPage > totalProjectPages) {
+      setProjectPage(totalProjectPages);
+    }
+  }, [projectPage, totalProjectPages]);
 
   useEffect(() => {
     if (!selectedOrderId && orders.length > 0) {
@@ -85,23 +100,6 @@ export function CustomerOrdersPage() {
       setMessage({ tone: 'success', text: 'Deposit payment is ready.' });
     } catch (error) {
       setMessage({ tone: 'error', text: getOrderServiceResultMessage(error) });
-    }
-  }
-
-  async function reopenProposalFlow() {
-    if (!selectedProjectId) return;
-
-    setMessage(null);
-
-    try {
-      await reopenProposalMutation.mutateAsync(selectedProjectId);
-      setSelectedOrderId('');
-      setActivePayment(null);
-      setMessage({ tone: 'success', text: 'Project was reopened to proposal consulting.' });
-      void projectsQuery.refetch();
-      void ordersQuery.refetch();
-    } catch (error) {
-      setMessage({ tone: 'error', text: getProjectServiceResultMessage(error) });
     }
   }
 
@@ -139,7 +137,7 @@ export function CustomerOrdersPage() {
             {projectsQuery.isLoading ? <p className="customer-orders-muted">Loading projects...</p> : null}
             {!projectsQuery.isLoading && orderProjects.length === 0 ? <p className="customer-orders-muted">No order is available yet.</p> : null}
             <div className="customer-orders-project-list">
-              {orderProjects.map((project) => (
+              {pagedOrderProjects.map((project) => (
                 <button
                   className={project.projectId === selectedProjectId ? 'is-active' : ''}
                   key={project.projectId}
@@ -157,6 +155,31 @@ export function CustomerOrdersPage() {
                 </button>
               ))}
             </div>
+            {orderProjects.length > PROJECT_PAGE_SIZE ? (
+              <footer className="customer-orders-panel-pagination">
+                <p>
+                  Page <strong>{projectPage}</strong> / {totalProjectPages}
+                </p>
+                <div>
+                  <button
+                    aria-label="Previous projects page"
+                    disabled={projectPage <= 1}
+                    type="button"
+                    onClick={() => setProjectPage((current) => Math.max(1, current - 1))}
+                  >
+                    <IconChevronLeft size={16} stroke={1.8} />
+                  </button>
+                  <button
+                    aria-label="Next projects page"
+                    disabled={projectPage >= totalProjectPages}
+                    type="button"
+                    onClick={() => setProjectPage((current) => Math.min(totalProjectPages, current + 1))}
+                  >
+                    <IconChevronRight size={16} stroke={1.8} />
+                  </button>
+                </div>
+              </footer>
+            ) : null}
           </aside>
 
           <section className="customer-orders-workspace">
@@ -164,7 +187,6 @@ export function CustomerOrdersPage() {
               <OrderDetailCard
                 confirmingDeliveryItemId={confirmDeliveryMutation.variables ?? null}
                 depositPending={depositMutation.isPending}
-                isReopeningProposal={reopenProposalMutation.isPending}
                 order={order}
                 remainingPayment={remainingPaymentsQuery.data?.items?.[0] ?? null}
                 onConfirmDelivery={async (orderItemIds) => {
@@ -185,7 +207,6 @@ export function CustomerOrdersPage() {
                 }}
                 onCreateDeposit={() => void createDepositPayment()}
                 onOpenRemainingPayment={(payment) => setActivePayment(payment)}
-                onReopenProposal={() => void reopenProposalFlow()}
               />
             ) : null}
 
@@ -208,21 +229,17 @@ export function CustomerOrdersPage() {
 function OrderDetailCard({
   confirmingDeliveryItemId,
   depositPending,
-  isReopeningProposal,
   onConfirmDelivery,
   onCreateDeposit,
   onOpenRemainingPayment,
-  onReopenProposal,
   order,
   remainingPayment,
 }: {
   confirmingDeliveryItemId: string | null;
   depositPending: boolean;
-  isReopeningProposal: boolean;
   onConfirmDelivery: (orderItemIds: string[]) => Promise<void>;
   onCreateDeposit: () => void;
   onOpenRemainingPayment: (payment: PaymentDetailDto) => void;
-  onReopenProposal: () => void;
   order: OrderDetailDto;
   remainingPayment: PaymentDetailDto | null;
 }) {
@@ -231,9 +248,6 @@ function OrderDetailCard({
   return (
     <section className="customer-orders-card customer-orders-detail">
       <header>
-        <div>
-          <h2 title={order.orderCode}>{formatOrderCode(order.orderCode)}</h2>
-        </div>
         <span className={`customer-orders-status customer-orders-status-${statusClass(order.status)}`}>{formatEnumLabel(order.status ?? 'UNKNOWN')}</span>
       </header>
 
@@ -250,11 +264,6 @@ function OrderDetailCard({
         <button disabled={!canCreateDepositPayment(order.status) || depositPending} type="button" onClick={onCreateDeposit}>
           {depositPending ? 'Preparing...' : order.status === 'CREATED' ? 'Create Deposit Payment' : 'Pay Deposit'}
         </button>
-        {canReopenProposal(order.status) ? (
-          <button className="is-secondary" disabled={isReopeningProposal} type="button" onClick={onReopenProposal}>
-            {isReopeningProposal ? 'Reopening...' : 'Reopen Proposal'}
-          </button>
-        ) : null}
         <button disabled={order.status !== 'FINAL_PAYMENT_PENDING' || !remainingPayment} type="button" onClick={() => remainingPayment && onOpenRemainingPayment(remainingPayment)}>
           Pay Remaining
         </button>
@@ -311,10 +320,6 @@ function OrderDetailCard({
 }
 
 function canCreateDepositPayment(status?: OrderStatus | null) {
-  return status === 'CREATED' || status === 'DEPOSIT_PENDING';
-}
-
-function canReopenProposal(status?: OrderStatus | null) {
   return status === 'CREATED' || status === 'DEPOSIT_PENDING';
 }
 
@@ -403,11 +408,4 @@ function getGroupedDeliveryConfirmationLabel(item: GroupedOrderItem) {
   }
 
   return 'Pending delivery';
-}
-
-function formatOrderCode(value?: string | null) {
-  if (!value) return '-';
-
-  const [, suffix] = value.split('-', 2);
-  return (suffix || value).slice(0, 6);
 }
