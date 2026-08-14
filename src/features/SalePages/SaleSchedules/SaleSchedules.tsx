@@ -65,6 +65,7 @@ export function SaleSchedules() {
   });
   const [selectedDateKey, setSelectedDateKey] = useState(() => getDateKey(new Date()));
   const [selectedScheduleId, setSelectedScheduleId] = useState<string | null>(searchParams.get('scheduleId'));
+  const [expandedDateKey, setExpandedDateKey] = useState<string | null>(null);
   const currentUserQuery = useCurrentUser();
   const currentUser = currentUserQuery.data;
   const projectsQuery = useProjectList(
@@ -144,14 +145,21 @@ export function SaleSchedules() {
       return;
     }
 
+    const scheduledStart = new Date(matched.schedule.scheduledStart);
+
     setSelectedScheduleId(matched.schedule.scheduleId);
-    setSelectedDateKey(getDateKey(new Date(matched.schedule.scheduledStart)));
-    setCalendarMonth(new Date(
-      new Date(matched.schedule.scheduledStart).getFullYear(),
-      new Date(matched.schedule.scheduledStart).getMonth(),
-      1,
+    setSelectedDateKey(getDateKey(scheduledStart));
+    setCalendarMonth((currentMonth) => (
+      currentMonth.getFullYear() === scheduledStart.getFullYear()
+        && currentMonth.getMonth() === scheduledStart.getMonth()
+        ? currentMonth
+        : new Date(scheduledStart.getFullYear(), scheduledStart.getMonth(), 1)
     ));
   }, [managedSchedules, searchParams]);
+
+  useEffect(() => {
+    setExpandedDateKey(null);
+  }, [calendarMonth]);
 
   function selectSchedule(scheduleId: string, dateKey: string) {
     setSelectedDateKey(dateKey);
@@ -264,11 +272,15 @@ export function SaleSchedules() {
                   {getMonthDays(calendarMonth).map(({ date, day, gridColumnStart }) => {
                     const dateKey = getDateKey(date);
                     const daySchedules = schedulesByDate.get(dateKey) ?? [];
+                    const isExpanded = expandedDateKey === dateKey;
+                    const visibleDaySchedules = isExpanded ? daySchedules : daySchedules.slice(0, 2);
+                    const hiddenCount = daySchedules.length - visibleDaySchedules.length;
                     const dayClassName = [
                       'sale-schedules-calendar-day',
                       dateKey === getDateKey(new Date()) ? 'sale-schedules-calendar-day-today' : '',
                       selectedDateKey === dateKey ? 'sale-schedules-calendar-day-selected' : '',
                       daySchedules.length > 0 ? 'sale-schedules-calendar-day-has-events' : '',
+                      isExpanded ? 'sale-schedules-calendar-day-expanded' : '',
                     ].filter(Boolean).join(' ');
                     const scheduleCountLabel = formatScheduleCount(daySchedules.length);
 
@@ -289,7 +301,7 @@ export function SaleSchedules() {
 
                         {daySchedules.length > 0 ? (
                           <span className="sale-schedules-calendar-events">
-                            {daySchedules.slice(0, 2).map(({ project, schedule }) => (
+                            {visibleDaySchedules.map(({ project, schedule }) => (
                               <button
                                 className={`sale-schedules-calendar-event sale-schedules-calendar-event-${schedule.status.toLowerCase().replace(/_/g, '-')}${selectedItem?.schedule.scheduleId === schedule.scheduleId ? ' sale-schedules-calendar-event-active' : ''}`}
                                 key={schedule.scheduleId}
@@ -304,7 +316,19 @@ export function SaleSchedules() {
                                 <em>{schedule.title ?? formatEnumLabel(schedule.scheduleType)}</em>
                               </button>
                             ))}
-                            {daySchedules.length > 2 ? <span className="sale-schedules-calendar-more">+{daySchedules.length - 2} more</span> : null}
+                            {daySchedules.length > 2 ? (
+                              <button
+                                aria-expanded={isExpanded}
+                                className="sale-schedules-calendar-more"
+                                type="button"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  setExpandedDateKey(isExpanded ? null : dateKey);
+                                }}
+                              >
+                                {isExpanded ? 'Show less' : `+${hiddenCount} more`}
+                              </button>
+                            ) : null}
                           </span>
                         ) : null}
                       </div>

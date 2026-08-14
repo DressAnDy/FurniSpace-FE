@@ -128,6 +128,8 @@ export function CustomerProjectDetailPage() {
                 <DetailBlock label="Current Stage" value={getStageLabel(project.status)} />
                 <DetailBlock label="Area" value={project.totalAreaSqm ? `${project.totalAreaSqm} sqm` : '-'} />
                 <DetailBlock label="Floors" value={project.numberOfFloors ? String(project.numberOfFloors) : '-'} />
+                <DetailBlock label="Minimum Budget" value={formatBudgetAmount(project.budgetMin)} />
+                <DetailBlock label="Maximum Budget" value={formatBudgetAmount(project.budgetMax)} />
               </div>
 
               <section className="customer-project-detail-section">
@@ -274,4 +276,14 @@ function formatDate(value: string) {
     month: 'short',
     year: 'numeric',
   }).format(new Date(value));
+}
+
+function formatBudgetAmount(value: number | null | undefined) {
+  if (value == null) {
+    return '-';
+  }
+
+  return `${new Intl.NumberFormat('vi-VN', {
+    maximumFractionDigits: 0,
+  }).format(value)} VNĐ`;
 }

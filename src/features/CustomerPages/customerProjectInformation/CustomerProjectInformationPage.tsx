@@ -11,6 +11,14 @@ import {
 } from '@/services/api/projects';
 import { useProjectDetail, useUpdateProjectBasicInformation, useUploadProjectFile } from '@/services/queries/useProjects';
 import { getLocalDateInputValue, validateOptionalFutureDate } from '@/shared/utils/dateValidation';
+import {
+  PROJECT_BUDGET_MAX,
+  PROJECT_BUDGET_MIN,
+  getProjectSpaceAndBudgetFieldErrors,
+  validateProjectSpaceAndBudget,
+  type ProjectRequestFieldErrors,
+  type ProjectRequestFieldName,
+} from '@/shared/utils/projectRequestValidation';
 
 import '../customerProjectRequest/CustomerProjectRequestPage.css';
 
@@ -23,10 +31,42 @@ export function CustomerProjectInformationPage() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [formMessage, setFormMessage] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<ProjectRequestFieldErrors>({});
+  const [showFieldErrors, setShowFieldErrors] = useState(false);
   const [isDraggingFiles, setIsDraggingFiles] = useState(false);
   const project = projectQuery.data;
   const isSubmitting = updateProjectMutation.isPending || uploadProjectFileMutation.isPending;
   const canEdit = project?.status === 'NEED_BASIC_INFORMATION' || project?.status === 'SUBMITTED' || project?.status === 'IN_CONSULTATION';
+
+  function clearFieldError(field: ProjectRequestFieldName) {
+    setFieldErrors((current) => {
+      if (!current[field]) return current;
+      const next = { ...current };
+      delete next[field];
+      return next;
+    });
+  }
+
+  function syncSpaceAndBudgetFieldErrors(form: HTMLFormElement | null) {
+    if (!form || !showFieldErrors) return;
+
+    const formData = new FormData(form);
+    const nextErrors = getProjectSpaceAndBudgetFieldErrors({
+      totalAreaSqm: normalizeOptionalNumber(formData.get('totalAreaSqm')),
+      numberOfFloors: normalizeOptionalNumber(formData.get('numberOfFloors')),
+      budgetMin: normalizeOptionalNumber(formData.get('budgetMin')),
+      budgetMax: normalizeOptionalNumber(formData.get('budgetMax')),
+    });
+
+    setFieldErrors((current) => {
+      const next: ProjectRequestFieldErrors = { ...current };
+      (['totalAreaSqm', 'numberOfFloors', 'budgetMin', 'budgetMax'] as const).forEach((field) => {
+        if (nextErrors[field]) next[field] = nextErrors[field];
+        else delete next[field];
+      });
+      return next;
+    });
+  }
 
   function addSelectedFiles(fileList: FileList | null) {
     if (!fileList?.length) {
@@ -70,10 +110,29 @@ export function CustomerProjectInformationPage() {
       normalizeOptionalText(formData.get('targetCompletionDate')),
       'Target completion date',
     );
+    const spaceAndBudget = validateProjectSpaceAndBudget({
+      totalAreaSqm: normalizeOptionalNumber(formData.get('totalAreaSqm')),
+      numberOfFloors: normalizeOptionalNumber(formData.get('numberOfFloors')),
+      budgetMin: normalizeOptionalNumber(formData.get('budgetMin')),
+      budgetMax: normalizeOptionalNumber(formData.get('budgetMax')),
+    });
+
+    const nextFieldErrors: ProjectRequestFieldErrors = {};
     if (!targetDate.ok) {
-      setFormMessage(targetDate.message);
+      nextFieldErrors.targetCompletionDate = targetDate.message;
+    }
+    if (!spaceAndBudget.ok) {
+      Object.assign(nextFieldErrors, spaceAndBudget.fieldErrors);
+    }
+
+    if (!targetDate.ok || !spaceAndBudget.ok) {
+      setShowFieldErrors(true);
+      setFieldErrors(nextFieldErrors);
       return;
     }
+
+    setShowFieldErrors(false);
+    setFieldErrors({});
 
     try {
       const uploads = await Promise.allSettled(
@@ -100,10 +159,10 @@ export function CustomerProjectInformationPage() {
         businessPurpose: normalizeOptionalText(formData.get('businessPurpose')),
         furnitureRequirement: normalizeRequiredText(formData.get('furnitureRequirement')),
         description: normalizeOptionalText(formData.get('description')),
-        totalAreaSqm: normalizeOptionalNumber(formData.get('totalAreaSqm')),
-        numberOfFloors: normalizeOptionalNumber(formData.get('numberOfFloors')),
-        budgetMin: normalizeOptionalNumber(formData.get('budgetMin')),
-        budgetMax: normalizeOptionalNumber(formData.get('budgetMax')),
+        totalAreaSqm: spaceAndBudget.totalAreaSqm,
+        numberOfFloors: spaceAndBudget.numberOfFloors,
+        budgetMin: spaceAndBudget.budgetMin,
+        budgetMax: spaceAndBudget.budgetMax,
         targetCompletionDate: targetDate.value,
       });
 
@@ -136,7 +195,7 @@ export function CustomerProjectInformationPage() {
           ) : null}
 
           {project ? (
-            <form className="customer-project-request-form" onSubmit={handleSubmit}>
+            <form className="customer-project-request-form" noValidate onSubmit={handleSubmit}>
               <FormSection title="Basic Information">
                 <div className="customer-project-request-grid">
                   <Field label="Project Name *">
@@ -172,27 +231,86 @@ export function CustomerProjectInformationPage() {
 
               <FormSection title="Space Details">
                 <div className="customer-project-request-grid">
-                  <Field label="Total Area (sqm)">
-                    <input defaultValue={project.totalAreaSqm ?? ''} disabled={!canEdit || isSubmitting} min="0" name="totalAreaSqm" step="0.1" type="number" />
+                  <Field error={fieldErrors.totalAreaSqm} label="Total Area (sqm)">
+                    <input
+                      aria-invalid={Boolean(fieldErrors.totalAreaSqm)}
+                      className={fieldErrors.totalAreaSqm ? 'customer-project-request-input-invalid' : undefined}
+                      defaultValue={project.totalAreaSqm ?? ''}
+                      disabled={!canEdit || isSubmitting}
+                      min="0"
+                      name="totalAreaSqm"
+                      step="0.1"
+                      type="number"
+                      onChange={(event) => syncSpaceAndBudgetFieldErrors(event.currentTarget.form)}
+                    />
                   </Field>
-                  <Field label="Number of Floors">
-                    <input defaultValue={project.numberOfFloors ?? ''} disabled={!canEdit || isSubmitting} min="0" name="numberOfFloors" step="1" type="number" />
+                  <Field error={fieldErrors.numberOfFloors} label="Number of Floors">
+                    <input
+                      aria-invalid={Boolean(fieldErrors.numberOfFloors)}
+                      className={fieldErrors.numberOfFloors ? 'customer-project-request-input-invalid' : undefined}
+                      defaultValue={project.numberOfFloors ?? ''}
+                      disabled={!canEdit || isSubmitting}
+                      min="1"
+                      name="numberOfFloors"
+                      step="1"
+                      type="number"
+                      onChange={(event) => syncSpaceAndBudgetFieldErrors(event.currentTarget.form)}
+                    />
                   </Field>
                 </div>
               </FormSection>
 
               <FormSection title="Budget & Timeline">
                 <div className="customer-project-request-grid">
-                  <Field label="Minimum Budget">
-                    <input defaultValue={project.budgetMin ?? ''} disabled={!canEdit || isSubmitting} min="0" name="budgetMin" type="number" />
+                  <Field error={fieldErrors.budgetMin} label="Minimum Budget">
+                    <div className="customer-project-request-input-with-suffix">
+                      <input
+                        aria-invalid={Boolean(fieldErrors.budgetMin)}
+                        className={fieldErrors.budgetMin ? 'customer-project-request-input-invalid' : undefined}
+                        defaultValue={project.budgetMin ?? ''}
+                        disabled={!canEdit || isSubmitting}
+                        max={PROJECT_BUDGET_MAX}
+                        min={PROJECT_BUDGET_MIN}
+                        name="budgetMin"
+                        type="number"
+                        onChange={(event) => syncSpaceAndBudgetFieldErrors(event.currentTarget.form)}
+                      />
+                      <span aria-hidden="true" className="customer-project-request-input-suffix">
+                        VNĐ
+                      </span>
+                    </div>
                   </Field>
-                  <Field label="Maximum Budget">
-                    <input defaultValue={project.budgetMax ?? ''} disabled={!canEdit || isSubmitting} min="0" name="budgetMax" type="number" />
+                  <Field error={fieldErrors.budgetMax} label="Maximum Budget">
+                    <div className="customer-project-request-input-with-suffix">
+                      <input
+                        aria-invalid={Boolean(fieldErrors.budgetMax)}
+                        className={fieldErrors.budgetMax ? 'customer-project-request-input-invalid' : undefined}
+                        defaultValue={project.budgetMax ?? ''}
+                        disabled={!canEdit || isSubmitting}
+                        max={PROJECT_BUDGET_MAX}
+                        min={PROJECT_BUDGET_MIN}
+                        name="budgetMax"
+                        type="number"
+                        onChange={(event) => syncSpaceAndBudgetFieldErrors(event.currentTarget.form)}
+                      />
+                      <span aria-hidden="true" className="customer-project-request-input-suffix">
+                        VNĐ
+                      </span>
+                    </div>
                   </Field>
                 </div>
 
-                <Field label="Target Completion Date">
-                  <input defaultValue={toDateInputValue(project.targetCompletionDate)} disabled={!canEdit || isSubmitting} min={getLocalDateInputValue()} name="targetCompletionDate" type="date" />
+                <Field error={fieldErrors.targetCompletionDate} label="Target Completion Date">
+                  <input
+                    aria-invalid={Boolean(fieldErrors.targetCompletionDate)}
+                    className={fieldErrors.targetCompletionDate ? 'customer-project-request-input-invalid' : undefined}
+                    defaultValue={toDateInputValue(project.targetCompletionDate)}
+                    disabled={!canEdit || isSubmitting}
+                    min={getLocalDateInputValue()}
+                    name="targetCompletionDate"
+                    type="date"
+                    onChange={() => clearFieldError('targetCompletionDate')}
+                  />
                 </Field>
               </FormSection>
 
@@ -326,14 +444,16 @@ function FormSection({ children, description, title }: FormSectionProps) {
 
 type FieldProps = {
   children: React.ReactNode;
+  error?: string;
   label: string;
 };
 
-function Field({ children, label }: FieldProps) {
+function Field({ children, error, label }: FieldProps) {
   return (
     <label className="customer-project-request-field">
       <span>{label}</span>
       {children}
+      {error ? <small className="customer-project-request-field-error">{error}</small> : null}
     </label>
   );
 }

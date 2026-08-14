@@ -187,12 +187,17 @@ export function ProjectChatPanel({
   return (
     <section className={`project-chat-panel${compact ? ' project-chat-panel-compact' : ''}`}>
       <header className="project-chat-panel-header">
-        <div>
-          <h3>{title}</h3>
-          {projectCode ? <p>{projectCode}</p> : null}
+        <div className="project-chat-panel-heading">
+          <span className="project-chat-panel-heading-icon">
+            <IconMessageCircle size={19} stroke={1.8} />
+          </span>
+          <div>
+            <h3>{title}</h3>
+            {projectCode ? <p>{projectCode}</p> : null}
+          </div>
         </div>
         <span className={`project-chat-panel-status project-chat-panel-status-${activeChat?.status.toLowerCase() ?? 'idle'}`}>
-          {activeChat?.status ?? 'No chat'}
+          {formatChatStatusLabel(activeChat?.status)}
         </span>
       </header>
 
@@ -202,7 +207,9 @@ export function ProjectChatPanel({
         <aside className="project-chat-panel-list" aria-label="Project chat channels">
           {chatListQuery.isLoading ? <p>Loading chats...</p> : null}
           {chatListQuery.isError ? <p>{getProjectChatServiceResultMessage(chatListQuery.error)}</p> : null}
-          {!chatListQuery.isLoading && !chatListQuery.isError && chats.length === 0 ? <p>No chat is available for this project yet.</p> : null}
+          {!chatListQuery.isLoading && !chatListQuery.isError && chats.length === 0 ? (
+            <EmptyState message="No chat is available for this project yet." />
+          ) : null}
           {chats.map((chat) => (
             <ChatListButton
               chat={chat}
@@ -235,9 +242,9 @@ export function ProjectChatPanel({
             {messagesQuery.isLoading ? <p className="project-chat-panel-state">Loading messages...</p> : null}
             {messagesQuery.isError ? <p className="project-chat-panel-state">{getProjectChatServiceResultMessage(messagesQuery.error)}</p> : null}
             {!messagesQuery.isLoading && !messagesQuery.isError && activeChat && messages.length === 0 ? (
-              <p className="project-chat-panel-state">No messages yet.</p>
+              <EmptyState message="No messages yet. Say hello to start the conversation." />
             ) : null}
-            {!activeChat ? <p className="project-chat-panel-state">Select a project chat to start.</p> : null}
+            {!activeChat ? <EmptyState message="Select a project chat to start." /> : null}
             {messages.map((message) => (
               <MessageBubble currentUserId={currentUserId} key={message.messageId} message={message} />
             ))}
@@ -265,6 +272,17 @@ export function ProjectChatPanel({
         </div>
       </div>
     </section>
+  );
+}
+
+function EmptyState({ message }: { message: string }) {
+  return (
+    <div className="project-chat-panel-empty">
+      <span className="project-chat-panel-empty-icon">
+        <IconMessageCircle size={22} stroke={1.7} />
+      </span>
+      <p>{message}</p>
+    </div>
   );
 }
 
@@ -320,6 +338,14 @@ function getChatTitle(chat: ProjectChatListItem | null) {
   }
 
   return chat.title || getChatTypeLabel(chat.chatType);
+}
+
+function formatChatStatusLabel(status?: ProjectChatListItem['status']) {
+  if (!status) {
+    return 'No chat';
+  }
+
+  return status.charAt(0) + status.slice(1).toLowerCase();
 }
 
 function getChatTypeLabel(chatType?: ProjectChatType) {
