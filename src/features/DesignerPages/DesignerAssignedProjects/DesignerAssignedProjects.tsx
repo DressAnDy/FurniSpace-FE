@@ -1,6 +1,6 @@
-import { IconFilter, IconSearch } from '@tabler/icons-react';
+import { IconFilter, IconSearch, IconX } from '@tabler/icons-react';
 import { useQueries } from '@tanstack/react-query';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 
 import { DesignerLayout } from '@/features/DesignerPages/designercomponents';
@@ -11,8 +11,12 @@ import { useCurrentUser, useProjectList } from '@/services/queries';
 
 import './DesignerAssignedProjects.css';
 
-const statusOptions: Array<ProjectStatus | 'All status'> = [
-  'All status',
+const PAGE_SIZE = 5;
+const ALL_STATUS = 'All status';
+const ALL_BUSINESS_TYPES = 'All business types';
+
+const statusOptions: Array<ProjectStatus | typeof ALL_STATUS> = [
+  ALL_STATUS,
   'MEASUREMENT_REQUIRED',
   'SPACE_VERIFIED',
   'PROPOSAL_CONSULTING',
@@ -23,7 +27,11 @@ const statusOptions: Array<ProjectStatus | 'All status'> = [
 
 export function DesignerAssignedProjects() {
   const [keyword, setKeyword] = useState('');
-  const [status, setStatus] = useState<ProjectStatus | 'All status'>('All status');
+  const [status, setStatus] = useState<ProjectStatus | typeof ALL_STATUS>(ALL_STATUS);
+  const [businessType, setBusinessType] = useState(ALL_BUSINESS_TYPES);
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [page, setPage] = useState(1);
+  const filterPanelRef = useRef<HTMLDivElement | null>(null);
   const currentUserQuery = useCurrentUser();
   const currentUser = currentUserQuery.data;
   const projectsQuery = useProjectList(
@@ -68,22 +76,84 @@ export function DesignerAssignedProjects() {
       return lookup;
     }, {});
   }, [accountIds, accountQueries]);
+  const businessTypeOptions = useMemo(() => {
+    const types = Array.from(
+      new Set(
+        projects
+          .map((project) => project.businessType?.trim())
+          .filter((value): value is string => Boolean(value)),
+      ),
+    ).sort((first, second) => first.localeCompare(second));
+
+    return [ALL_BUSINESS_TYPES, ...types];
+  }, [projects]);
   const filteredProjects = useMemo(() => {
     const normalizedKeyword = keyword.trim().toLowerCase();
 
     return projects.filter((project) => {
       const customer = accountById[project.customerId];
       const sales = project.assignedSalesId ? accountById[project.assignedSalesId] : null;
-      const matchesStatus = status === 'All status' || project.status === status;
+      const matchesStatus = status === ALL_STATUS || project.status === status;
+      const matchesBusinessType = businessType === ALL_BUSINESS_TYPES || project.businessType === businessType;
       const matchesKeyword =
         !normalizedKeyword ||
         [project.projectCode, project.projectName, project.businessType, project.status, customer?.fullName ?? '', customer?.email ?? '', sales?.fullName ?? '', sales?.email ?? ''].some((value) =>
           value.toLowerCase().includes(normalizedKeyword),
         );
 
-      return matchesStatus && matchesKeyword;
+      return matchesStatus && matchesBusinessType && matchesKeyword;
     });
-  }, [accountById, keyword, projects, status]);
+  }, [accountById, businessType, keyword, projects, status]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredProjects.length / PAGE_SIZE));
+  const currentPage = Math.min(page, totalPages);
+  const pagedProjects = useMemo(
+    () => filteredProjects.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE),
+    [currentPage, filteredProjects],
+  );
+  const activeFilterCount = Number(status !== ALL_STATUS) + Number(businessType !== ALL_BUSINESS_TYPES);
+  const hasActiveFilters = activeFilterCount > 0;
+
+  useEffect(() => {
+    setPage(1);
+  }, [keyword, status, businessType]);
+
+  useEffect(() => {
+    if (page > totalPages) {
+      setPage(totalPages);
+    }
+  }, [page, totalPages]);
+
+  useEffect(() => {
+    if (!isFilterOpen) {
+      return undefined;
+    }
+
+    function handlePointerDown(event: MouseEvent) {
+      if (!filterPanelRef.current?.contains(event.target as Node)) {
+        setIsFilterOpen(false);
+      }
+    }
+
+    function handleEscape(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        setIsFilterOpen(false);
+      }
+    }
+
+    document.addEventListener('mousedown', handlePointerDown);
+    document.addEventListener('keydown', handleEscape);
+
+    return () => {
+      document.removeEventListener('mousedown', handlePointerDown);
+      document.removeEventListener('keydown', handleEscape);
+    };
+  }, [isFilterOpen]);
+
+  function clearFilters() {
+    setStatus(ALL_STATUS);
+    setBusinessType(ALL_BUSINESS_TYPES);
+  }
 
   return (
     <DesignerLayout activeLabel="Assigned Projects">
@@ -101,17 +171,79 @@ export function DesignerAssignedProjects() {
         </label>
         <div className="designer-assigned-filters">
           <span>Filters:</span>
-          <select value={status} onChange={(event) => setStatus(event.target.value as ProjectStatus | 'All status')}>
-            {statusOptions.map((option) => (
-              <option key={option} value={option}>{option === 'All status' ? option : formatEnumLabel(option)}</option>
-            ))}
-          </select>
-          <button className="designer-assigned-filter-button" type="button" aria-label="Advanced filters">
-            <IconFilter size={18} />
-          </button>
+          <div className="designer-assigned-filter-menu" ref={filterPanelRef}>
+            <button
+              aria-expanded={isFilterOpen}
+              aria-haspopup="dialog"
+              className={hasActiveFilters || isFilterOpen ? 'designer-assigned-filter-button is-active' : 'designer-assigned-filter-button'}
+              type="button"
+              onClick={() => setIsFilterOpen((open) => !open)}
+            >
+              <IconFilter size={18} />
+              {hasActiveFilters ? <span className="designer-assigned-filter-count">{activeFilterCount}</span> : null}
+            </button>
+
+            {isFilterOpen ? (
+              <div className="designer-assigned-filter-panel" role="dialog" aria-label="Project filters">
+                <div className="designer-assigned-filter-panel-header">
+                  <strong>Filter projects</strong>
+                  <button aria-label="Close filters" type="button" onClick={() => setIsFilterOpen(false)}>
+                    <IconX size={16} />
+                  </button>
+                </div>
+
+                <label>
+                  <span>Status</span>
+                  <select value={status} onChange={(event) => setStatus(event.target.value as ProjectStatus | typeof ALL_STATUS)}>
+                    {statusOptions.map((option) => (
+                      <option key={option} value={option}>{option === ALL_STATUS ? option : formatEnumLabel(option)}</option>
+                    ))}
+                  </select>
+                </label>
+
+                <label>
+                  <span>Business type</span>
+                  <select value={businessType} onChange={(event) => setBusinessType(event.target.value)}>
+                    {businessTypeOptions.map((option) => (
+                      <option key={option} value={option}>{option}</option>
+                    ))}
+                  </select>
+                </label>
+
+                <div className="designer-assigned-filter-panel-actions">
+                  <button disabled={!hasActiveFilters} type="button" onClick={clearFilters}>
+                    Clear
+                  </button>
+                  <button type="button" onClick={() => setIsFilterOpen(false)}>
+                    Done
+                  </button>
+                </div>
+              </div>
+            ) : null}
+          </div>
           <span>{filteredProjects.length} of {projects.length} projects</span>
         </div>
       </section>
+
+      {hasActiveFilters ? (
+        <section className="designer-assigned-active-filters">
+          {status !== ALL_STATUS ? (
+            <button type="button" onClick={() => setStatus(ALL_STATUS)}>
+              Status: {formatEnumLabel(status)}
+              <IconX size={14} />
+            </button>
+          ) : null}
+          {businessType !== ALL_BUSINESS_TYPES ? (
+            <button type="button" onClick={() => setBusinessType(ALL_BUSINESS_TYPES)}>
+              Type: {businessType}
+              <IconX size={14} />
+            </button>
+          ) : null}
+          <button className="designer-assigned-clear-all" type="button" onClick={clearFilters}>
+            Clear all
+          </button>
+        </section>
+      ) : null}
 
       {projectsQuery.isError ? (
         <section className="designer-card designer-assigned-message designer-assigned-error">
@@ -135,7 +267,7 @@ export function DesignerAssignedProjects() {
                   <td className="designer-assigned-empty" colSpan={7}>Loading assigned projects...</td>
                 </tr>
               ) : null}
-              {filteredProjects.map((project) => {
+              {pagedProjects.map((project) => {
                 const customer = accountById[project.customerId];
                 const sales = project.assignedSalesId ? accountById[project.assignedSalesId] : null;
 
@@ -174,6 +306,24 @@ export function DesignerAssignedProjects() {
             </tbody>
           </table>
         </div>
+
+        {filteredProjects.length > 0 ? (
+          <div className="designer-assigned-pagination">
+            <button type="button" disabled={currentPage <= 1} onClick={() => setPage((current) => Math.max(1, current - 1))}>
+              Previous
+            </button>
+            <span>
+              Page {currentPage} / {totalPages}
+            </span>
+            <button
+              type="button"
+              disabled={currentPage >= totalPages}
+              onClick={() => setPage((current) => Math.min(totalPages, current + 1))}
+            >
+              Next
+            </button>
+          </div>
+        ) : null}
       </section>
     </DesignerLayout>
   );

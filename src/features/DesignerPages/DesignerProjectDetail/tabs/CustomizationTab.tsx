@@ -1,5 +1,13 @@
 import { FormEvent, type ReactNode, useEffect, useMemo, useState } from 'react';
-import { IconCube, IconUpload } from '@tabler/icons-react';
+import {
+  IconAlertCircle,
+  IconCircleCheck,
+  IconCube,
+  IconPalette,
+  IconPlus,
+  IconStack2,
+  IconUpload,
+} from '@tabler/icons-react';
 
 import { SelectedImagePreview } from '@/features/AdminPages/Productmanagement/SelectedImagePreview';
 import { ModelViewer, type ModelViewerStatus } from '@/features/ThreeD/components';
@@ -98,7 +106,7 @@ const statusFilters: Array<{ label: string; value: CustomizationStatus | null }>
   { label: 'Cancelled', value: 'CANCELLED' },
 ];
 
-export function CustomizationTab({ project }: CustomizationTabProps) {
+export function CustomizationTab({ project }: Readonly<CustomizationTabProps>) {
   const [statusFilter, setStatusFilter] = useState<CustomizationStatus | null>(null);
   const [activeRequestId, setActiveRequestId] = useState<string | null>(null);
   const [editingVersionId, setEditingVersionId] = useState<string | null>(null);
@@ -333,28 +341,36 @@ export function CustomizationTab({ project }: CustomizationTabProps) {
     <section className="designer-card designer-project-section-card">
       <div className="designer-project-section-toolbar">
         <div>
-          <h3>Customization</h3>
-          <p>Manage customer requests or create assisted requests when the customer needs help describing a product change.</p>
+          <h3>
+            Customization
+            {!requestsQuery.isLoading ? <span className="designer-proposal-count">{requests.length}</span> : null}
+          </h3>
         </div>
-        <div className="designer-project-filter-list">
-          {statusFilters.map((filter) => (
-            <button
-              className={`designer-project-filter ${statusFilter === filter.value ? 'designer-project-filter-active' : ''}`}
-              key={filter.label}
-              type="button"
-              onClick={() => {
-                setStatusFilter(filter.value);
-                selectRequest(null);
-              }}
-            >
-              {filter.label}
-            </button>
-          ))}
+        <div className="designer-project-filter-list" aria-label="Customization status filter">
+          {statusFilters.map((filter) => {
+            const isActive = statusFilter === filter.value;
+
+            return (
+              <button
+                aria-pressed={isActive}
+                className={`designer-project-filter ${isActive ? 'designer-project-filter-active' : ''}`}
+                key={filter.label}
+                type="button"
+                onClick={() => {
+                  setStatusFilter(filter.value);
+                  selectRequest(null);
+                }}
+              >
+                {filter.label}
+              </button>
+            );
+          })}
         </div>
       </div>
 
       {message ? (
-        <p className={`designer-project-schedule-message ${message.tone === 'success' ? 'designer-project-message-success' : 'designer-project-file-error'}`}>
+        <p className={`designer-project-file-message ${message.tone === 'success' ? 'designer-project-message-success' : 'designer-project-file-error'}`}>
+          {message.tone === 'success' ? <IconCircleCheck size={17} /> : <IconAlertCircle size={17} />}
           {message.text}
         </p>
       ) : null}
@@ -369,53 +385,66 @@ export function CustomizationTab({ project }: CustomizationTabProps) {
       {requestsQuery.isLoading ? <p className="designer-project-empty-text">Loading customization requests...</p> : null}
       {requestsQuery.isError ? (
         <p className="designer-project-file-message designer-project-file-error">
+          <IconAlertCircle size={17} />
           {getCustomizationRequestServiceResultMessage(requestsQuery.error)}
         </p>
       ) : null}
       {!requestsQuery.isLoading && requests.length === 0 ? (
-        <p className="designer-project-empty-text">No customization requests found for this project.</p>
+        <div className="designer-project-custom-empty-state">
+          <IconPalette size={22} stroke={1.6} />
+          <strong>No customization requests yet</strong>
+          <span>Create an assisted request from a published proposal item, or wait for the customer to submit one.</span>
+        </div>
       ) : null}
 
       {requests.length > 0 ? (
         <div className="designer-project-custom-layout">
           <div className="designer-project-custom-list">
-            {requests.map((request) => (
-              <button
-                className={`designer-project-custom-card ${activeRequest?.customizationRequestId === request.customizationRequestId ? 'designer-project-custom-card-active' : ''}`}
-                key={request.customizationRequestId}
-                type="button"
-                onClick={() => selectRequest(request.customizationRequestId)}
-              >
-                <div className="designer-project-custom-main">
-                  <div className="designer-project-custom-title">
-                    <h4>{request.requestTitle}</h4>
-                    <span className={`designer-project-status designer-project-status-${getRequestStatusTone(request.status)}`}>
-                      {formatEnumLabel(request.status ?? 'UNKNOWN')}
-                    </span>
+            {requests.map((request) => {
+              const versionCount = (request.versions ?? []).length;
+
+              return (
+                <button
+                  className={`designer-project-custom-card ${activeRequest?.customizationRequestId === request.customizationRequestId ? 'designer-project-custom-card-active' : ''}`}
+                  key={request.customizationRequestId}
+                  type="button"
+                  onClick={() => selectRequest(request.customizationRequestId)}
+                >
+                  <div className="designer-project-custom-main">
+                    <div className="designer-project-custom-title">
+                      <h4>{request.requestTitle}</h4>
+                      <span className={`designer-project-status designer-project-status-${getRequestStatusTone(request.status)}`}>
+                        {formatEnumLabel(request.status ?? 'UNKNOWN')}
+                      </span>
+                    </div>
+                    <p className="designer-project-custom-subtitle">
+                      <span>Created {request.createdAt ? formatDate(request.createdAt) : '-'}</span>
+                      <span className="designer-project-custom-version-chip">
+                        <IconStack2 size={12} stroke={1.9} />
+                        {versionCount} version{versionCount === 1 ? '' : 's'}
+                      </span>
+                    </p>
+                    <p className="designer-project-custom-note-preview">
+                      {request.requestedChangeNote || request.requestDescription || 'No note provided.'}
+                    </p>
+                    <div className="designer-project-custom-specs">
+                      <div className="designer-project-custom-spec">
+                        <span>Source</span>
+                        <p>{request.sourceProductVersion?.versionName ?? request.sourceProductVersionId}</p>
+                      </div>
+                      <div className="designer-project-custom-spec">
+                        <span>Material</span>
+                        <p>{request.requestedMaterial ?? '-'}</p>
+                      </div>
+                      <div className="designer-project-custom-spec">
+                        <span>Color</span>
+                        <p>{request.requestedColor ?? '-'}</p>
+                      </div>
+                    </div>
                   </div>
-                  <p className="designer-project-custom-subtitle">
-                    Created {request.createdAt ? formatDate(request.createdAt) : '-'} - {(request.versions ?? []).length} versions
-                  </p>
-                  <p className="designer-project-custom-note-preview">
-                    {request.requestedChangeNote || request.requestDescription || 'No note provided.'}
-                  </p>
-                  <div className="designer-project-custom-specs">
-                    <div className="designer-project-custom-spec">
-                      <span>Source</span>
-                      <p>{request.sourceProductVersion?.versionName ?? request.sourceProductVersionId}</p>
-                    </div>
-                    <div className="designer-project-custom-spec">
-                      <span>Material</span>
-                      <p>{request.requestedMaterial ?? '-'}</p>
-                    </div>
-                    <div className="designer-project-custom-spec">
-                      <span>Color</span>
-                      <p>{request.requestedColor ?? '-'}</p>
-                    </div>
-                  </div>
-                </div>
-              </button>
-            ))}
+                </button>
+              );
+            })}
           </div>
 
           <aside className="designer-project-custom-review-panel">
@@ -444,6 +473,7 @@ export function CustomizationTab({ project }: CustomizationTabProps) {
               />
             ) : (
               <div className="designer-project-custom-empty-panel">
+                <IconPalette size={22} stroke={1.6} />
                 <span>Version Panel</span>
                 <h4>Select a customization request</h4>
                 <p>Requested specs, custom versions, and review actions will appear here.</p>
@@ -557,26 +587,39 @@ function DesignerRequestPrompt({
   onOpen,
   proposalsCount,
   proposalsLoading,
-}: {
+}: Readonly<{
   itemsCount: number;
   onOpen: () => void;
   proposalsCount: number;
   proposalsLoading: boolean;
-}) {
+}>) {
   return (
     <section className="designer-project-custom-assist-card">
+      <div className="designer-project-custom-assist-icon">
+        <IconPalette size={20} stroke={1.8} />
+      </div>
       <div>
         <span>Designer Assisted Request</span>
         <h4>Create a request for the customer</h4>
         <p>Use this when the customer explains a change in chat or during review and needs the designer to submit it from a published proposal item.</p>
       </div>
       <div className="designer-project-custom-assist-meta">
-        <strong>{proposalsCount}</strong>
-        <span>Published proposals</span>
-        <strong>{itemsCount}</strong>
-        <span>Items loaded</span>
+        <div>
+          <strong>{proposalsCount}</strong>
+          <span>Published proposals</span>
+        </div>
+        <div>
+          <strong>{itemsCount}</strong>
+          <span>Items loaded</span>
+        </div>
       </div>
-      <button className="designer-project-detail-button designer-project-detail-button-primary" disabled={proposalsLoading || proposalsCount === 0} type="button" onClick={onOpen}>
+      <button
+        className="designer-project-detail-button designer-project-detail-button-primary designer-project-custom-assist-button"
+        disabled={proposalsLoading || proposalsCount === 0}
+        type="button"
+        onClick={onOpen}
+      >
+        <IconPlus size={16} stroke={2.2} />
         Create Request
       </button>
     </section>
@@ -742,7 +785,7 @@ function RequestVersionPanel({
   onNewVersion,
   onSubmitVersion,
   onWithdrawVersion,
-}: {
+}: Readonly<{
   activeRequest: CustomizationRequestDto;
   cancelMutationPending: boolean;
   mutationPending: boolean;
@@ -751,7 +794,7 @@ function RequestVersionPanel({
   onNewVersion: () => void;
   onSubmitVersion: (version: CustomizationRequestVersionDto) => void;
   onWithdrawVersion: (version: CustomizationRequestVersionDto) => void;
-}) {
+}>) {
   const versions = activeRequest.versions ?? [];
   const canCreateVersion = activeRequest.status === 'SUBMITTED' || activeRequest.status === 'REVIEWING';
   const readOnlyRequest = activeRequest.status === 'ACCEPTED' || activeRequest.status === 'CANCELLED';
@@ -762,8 +805,19 @@ function RequestVersionPanel({
         <div>
           <span>Selected Request</span>
           <h4>{activeRequest.requestTitle}</h4>
+          <p className="designer-project-custom-review-status">
+            <span className={`designer-project-status designer-project-status-${getRequestStatusTone(activeRequest.status)}`}>
+              {formatEnumLabel(activeRequest.status ?? 'UNKNOWN')}
+            </span>
+          </p>
         </div>
-        <button className="designer-project-detail-button designer-project-detail-button-primary" disabled={!canCreateVersion || readOnlyRequest} type="button" onClick={onNewVersion}>
+        <button
+          className="designer-project-detail-button designer-project-detail-button-primary designer-project-custom-new-version-button"
+          disabled={!canCreateVersion || readOnlyRequest}
+          type="button"
+          onClick={onNewVersion}
+        >
+          <IconPlus size={15} stroke={2.2} />
           New Version
         </button>
       </div>
@@ -771,10 +825,12 @@ function RequestVersionPanel({
       <CustomizationRequestSummary request={activeRequest} />
 
       <div className="designer-project-custom-detail">
-        <div className="designer-project-custom-detail-section">
-          <span>Versions</span>
-          <strong>{versions.length ? `${versions.length} custom versions` : 'No version yet'}</strong>
-          <p>Create a draft version, then submit it to production review.</p>
+        <div className="designer-project-custom-versions-header">
+          <div>
+            <span>Versions</span>
+            <strong>{versions.length ? `${versions.length} custom version${versions.length === 1 ? '' : 's'}` : 'No version yet'}</strong>
+            <p>Create a draft version, then submit it to production review.</p>
+          </div>
         </div>
         {versions.map((version) => (
           <VersionCard
@@ -789,7 +845,7 @@ function RequestVersionPanel({
       </div>
 
       {!readOnlyRequest ? (
-        <button className="designer-project-detail-button" disabled={cancelMutationPending} type="button" onClick={onCancelRequest}>
+        <button className="designer-project-detail-button designer-project-custom-cancel-button" disabled={cancelMutationPending} type="button" onClick={onCancelRequest}>
           {cancelMutationPending ? 'Cancelling...' : 'Cancel Request'}
         </button>
       ) : null}
@@ -823,24 +879,34 @@ function VersionCard({
   onSubmit,
   onWithdraw,
   version,
-}: {
+}: Readonly<{
   mutationPending: boolean;
   onEdit: () => void;
   onSubmit: () => void;
   onWithdraw: () => void;
   version: CustomizationRequestVersionDto;
-}) {
+}>) {
   const canEdit = version.status === 'DRAFT';
   const canSubmit = version.status === 'DRAFT';
   const canWithdraw = version.status === 'DRAFT' || (version.status === 'REVIEWING' && version.feasibilityStatus === 'PENDING');
 
   return (
-    <div className="designer-project-custom-detail-section">
-      <span>
-        Version {version.versionNo} - {formatEnumLabel(version.status)} / {formatEnumLabel(version.feasibilityStatus)}
-      </span>
-      <strong>{version.productVersion?.versionName ?? version.versionTitle ?? `Version ${version.versionNo}`}</strong>
-      <p>{version.designerNote || version.feasibilityNote || '-'}</p>
+    <div className="designer-project-custom-version-card">
+      <div className="designer-project-custom-version-head">
+        <div>
+          <strong>{version.productVersion?.versionName ?? version.versionTitle ?? `Version ${version.versionNo}`}</strong>
+          <span>Version {version.versionNo}</span>
+        </div>
+        <div className="designer-project-custom-version-badges">
+          <span className={`designer-project-status designer-project-status-${getVersionStatusTone(version.status)}`}>
+            {formatEnumLabel(version.status)}
+          </span>
+          <span className={`designer-project-status designer-project-status-${getFeasibilityStatusTone(version.feasibilityStatus)}`}>
+            {formatEnumLabel(version.feasibilityStatus)}
+          </span>
+        </div>
+      </div>
+      <p>{version.designerNote || version.feasibilityNote || 'No designer note yet.'}</p>
       <div className="designer-project-custom-detail-grid">
         <DetailValue label="Material" value={version.productVersion?.material} />
         <DetailValue label="Color" value={version.productVersion?.color} />
@@ -1048,6 +1114,23 @@ function getRequestStatusTone(status?: CustomizationStatus | null) {
   if (status === 'ACCEPTED') return 'feasible';
   if (status === 'SUBMITTED' || status === 'REVIEWING') return 'pending';
   if (status === 'CANCELLED') return 'missing';
+
+  return 'new';
+}
+
+function getVersionStatusTone(status: string) {
+  if (status === 'DRAFT') return 'draft';
+  if (status === 'REVIEWING') return 'pending';
+  if (status === 'ACCEPTED' || status === 'APPROVED') return 'feasible';
+  if (status === 'REJECTED' || status === 'WITHDRAWN' || status === 'CANCELLED') return 'missing';
+
+  return 'new';
+}
+
+function getFeasibilityStatusTone(status: string) {
+  if (status === 'PENDING') return 'pending';
+  if (status === 'FEASIBLE' || status === 'APPROVED') return 'feasible';
+  if (status === 'NOT_FEASIBLE' || status === 'REJECTED') return 'missing';
 
   return 'new';
 }

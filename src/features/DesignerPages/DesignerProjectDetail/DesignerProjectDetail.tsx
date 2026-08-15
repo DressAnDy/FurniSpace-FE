@@ -5,7 +5,6 @@ import {
   IconClipboardList,
   IconFileText,
   IconMessage,
-  IconPlus,
   IconRefresh,
 } from '@tabler/icons-react';
 import { useQueries } from '@tanstack/react-query';
@@ -82,15 +81,6 @@ export function DesignerProjectDetail() {
         { icon: IconMessage, label: `Sales: ${sales?.fullName ?? project.assignedSalesId ?? '-'}` },
       ]
     : [];
-
-  function openProposalWorkspace() {
-    if (!project) {
-      return;
-    }
-
-    setProjectActionMessage(null);
-    setActiveTab('proposals');
-  }
 
   async function updateProjectToNextDesignStatus() {
     if (!project) {
@@ -174,15 +164,6 @@ export function DesignerProjectDetail() {
                     <IconRefresh size={17} />
                     {markSpaceVerifiedMutation.isPending || startProposalConsultingMutation.isPending ? 'Updating...' : getDesignStatusActionLabel(project.status)}
                   </button>
-                  <button
-                    className="designer-project-detail-button designer-project-detail-button-primary"
-                    disabled={!isProposalDraftingStatus(project.status)}
-                    type="button"
-                    onClick={openProposalWorkspace}
-                  >
-                    <IconPlus size={17} />
-                    Set Up Proposal
-                  </button>
                 </div>
               </div>
             </section>
@@ -252,14 +233,6 @@ function getDesignStatusActionLabel(status: ProjectStatus) {
   }
 
   return `Update to ${formatEnumLabel(nextStatus)}`;
-}
-
-function isProposalDraftingStatus(status: string) {
-  return normalizeStatus(status) === 'PROPOSAL_CONSULTING';
-}
-
-function normalizeStatus(status: string) {
-  return status.trim().toUpperCase().replace(/[^A-Z0-9]+/g, '_');
 }
 
 function getStatusTone(status: string) {

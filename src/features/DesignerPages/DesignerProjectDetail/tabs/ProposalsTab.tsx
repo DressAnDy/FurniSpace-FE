@@ -1,5 +1,15 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import {
+  IconAlertCircle,
+  IconArrowUpRight,
+  IconCircleCheck,
+  IconInfoCircle,
+  IconLock,
+  IconPlus,
+  IconSend,
+  IconStack2,
+} from '@tabler/icons-react';
 
 import { getProposalServiceResultMessage, type ProposalDto } from '@/services/api/proposals';
 import type { ProjectDto } from '@/services/api/projects';
@@ -9,7 +19,7 @@ type ProposalsTabProps = {
   project: ProjectDto;
 };
 
-export function ProposalsTab({ project }: ProposalsTabProps) {
+export function ProposalsTab({ project }: Readonly<ProposalsTabProps>) {
   const navigate = useNavigate();
   const [message, setMessage] = useState('');
   const [messageTone, setMessageTone] = useState<'error' | 'success'>('error');
@@ -111,20 +121,31 @@ export function ProposalsTab({ project }: ProposalsTabProps) {
     }
   }
 
+  const proposalTotal = proposalsQuery.data?.total ?? proposals.length;
+
   return (
     <section className="designer-card designer-project-table-card">
       <div className="designer-project-section-toolbar">
         <div>
-          <h3>Proposals</h3>
-          <p>{proposalsQuery.isLoading ? 'Loading proposals from backend...' : `${proposalsQuery.data?.total ?? proposals.length} proposal${(proposalsQuery.data?.total ?? proposals.length) === 1 ? '' : 's'} for this project.`}</p>
+          <h3>
+            Proposals
+            {!proposalsQuery.isLoading ? <span className="designer-proposal-count">{proposalTotal}</span> : null}
+          </h3>
+          <p>
+            {proposalsQuery.isLoading
+              ? 'Loading proposals from backend...'
+              : `${pluralize(proposalTotal, 'proposal')} for this project.`}
+          </p>
         </div>
         <div className="designer-project-table-actions">
           <button
             className="designer-project-detail-button designer-project-detail-button-primary designer-project-proposal-setup-button"
             disabled={!canCreateProposal || areasQuery.isLoading}
+            title={canCreateProposal ? undefined : 'Available once the project reaches Proposal Consulting.'}
             type="button"
             onClick={openProposalSetup}
           >
+            <IconPlus size={17} stroke={2.2} />
             Set Up Room Planner Proposal
           </button>
         </div>
@@ -143,33 +164,50 @@ export function ProposalsTab({ project }: ProposalsTabProps) {
 
       {message ? (
         <p className={`designer-project-file-message ${messageTone === 'success' ? 'designer-project-message-success' : 'designer-project-file-error'}`}>
+          {messageTone === 'success' ? <IconCircleCheck size={17} /> : <IconAlertCircle size={17} />}
           {message}
         </p>
       ) : null}
       {!canCreateProposal ? (
-        <p className="designer-project-file-message">Move this project to Proposal Consulting before creating a new proposal.</p>
+        <p className="designer-project-file-message">
+          <IconInfoCircle size={17} />
+          Move this project to Proposal Consulting before creating a new proposal.
+        </p>
       ) : null}
-      {proposalsQuery.isError ? <p className="designer-project-file-message designer-project-file-error">{getProposalServiceResultMessage(proposalsQuery.error)}</p> : null}
+      {proposalsQuery.isError ? (
+        <p className="designer-project-file-message designer-project-file-error">
+          <IconAlertCircle size={17} />
+          {getProposalServiceResultMessage(proposalsQuery.error)}
+        </p>
+      ) : null}
 
       <div className="designer-project-table-scroll">
         <table className="designer-project-table">
           <thead>
             <tr>
               {['Proposal', 'Version', 'Status', 'Scenes', 'Published', 'Updated', 'Action'].map((head) => (
-                <th key={head}>{head}</th>
+                <th className={head === 'Status' ? 'designer-proposal-status-cell' : undefined} key={head}>
+                  {head}
+                </th>
               ))}
             </tr>
           </thead>
           <tbody>
             {proposalsQuery.isLoading ? (
               <tr>
-                <td colSpan={7}>Loading proposals...</td>
+                <td className="designer-proposal-table-state" colSpan={7}>
+                  Loading proposals...
+                </td>
               </tr>
             ) : null}
 
             {!proposalsQuery.isLoading && proposals.length === 0 ? (
               <tr>
-                <td colSpan={7}>No proposals found for this project.</td>
+                <td className="designer-proposal-table-state" colSpan={7}>
+                  <IconStack2 size={22} stroke={1.6} />
+                  <strong>No proposals yet</strong>
+                  <span>Set up a room planner proposal to start designing for this project.</span>
+                </td>
               </tr>
             ) : null}
 
@@ -196,7 +234,7 @@ type ProposalRowProps = {
   publishDisabled: boolean;
 };
 
-function ProposalRow({ proposal, onOpenDetail, onPublish, publishDisabled }: ProposalRowProps) {
+function ProposalRow({ proposal, onOpenDetail, onPublish, publishDisabled }: Readonly<ProposalRowProps>) {
   const scenesQuery = useProposalScenes({
     proposalId: proposal.proposalId,
     isActive: true,
@@ -206,28 +244,43 @@ function ProposalRow({ proposal, onOpenDetail, onPublish, publishDisabled }: Pro
   const scenes = scenesQuery.data?.items ?? [];
   const primaryScene = scenes[0] ?? null;
   const canPublish = proposal.status === 'DRAFT' && Boolean(primaryScene);
-  const visibilityLabel = isCustomerVisibleProposal(proposal.status) ? 'Customer visible' : 'Hidden draft';
+  const isCustomerVisible = isCustomerVisibleProposal(proposal.status);
+  const sceneCount = scenesQuery.data?.total ?? scenes.length;
 
   return (
     <tr>
       <td>
         <strong>{proposal.proposalName}</strong>
-        <span>{proposal.proposalId}</span>
-      </td>
-      <td>v{proposal.versionNo}</td>
-      <td>
-        <span className={`designer-project-status designer-project-status-${getProposalStatusTone(proposal.status)}`}>{formatEnumLabel(proposal.status)}</span>
-        <small className="designer-project-proposal-visibility">{visibilityLabel}</small>
+        <span className="designer-proposal-id" title={proposal.proposalId}>
+          {proposal.proposalId}
+        </span>
       </td>
       <td>
-        {scenesQuery.isLoading ? 'Loading scenes...' : `${scenesQuery.data?.total ?? scenes.length} scene${(scenesQuery.data?.total ?? scenes.length) === 1 ? '' : 's'}`}
+        <span className="designer-proposal-version">v{proposal.versionNo}</span>
       </td>
-      <td>{proposal.publishedAt ? formatDateTime(proposal.publishedAt) : '-'}</td>
-      <td>{formatDateTime(proposal.updatedAt)}</td>
+      <td className="designer-proposal-status-cell">
+        <div className="designer-proposal-status-stack">
+          <span className={`designer-project-status designer-project-status-${getProposalStatusTone(proposal.status)}`}>{formatEnumLabel(proposal.status)}</span>
+          <small className={`designer-project-proposal-visibility ${isCustomerVisible ? 'is-visible' : ''}`}>
+            {isCustomerVisible ? 'Customer visible' : 'Hidden draft'}
+          </small>
+        </div>
+      </td>
+      <td>
+        <span className="designer-proposal-scenes">
+          <IconStack2 size={13} stroke={1.9} />
+          {scenesQuery.isLoading ? 'Loading...' : pluralize(sceneCount, 'scene')}
+        </span>
+      </td>
+      <td>{proposal.publishedAt ? <DateStamp value={proposal.publishedAt} /> : <span className="designer-proposal-empty-value">Not published</span>}</td>
+      <td>
+        <DateStamp value={proposal.updatedAt} />
+      </td>
       <td>
         <div className="designer-project-table-actions">
           <button className="designer-project-table-open" type="button" onClick={onOpenDetail}>
             Open Detail
+            <IconArrowUpRight size={14} stroke={2.1} />
           </button>
           {proposal.status === 'DRAFT' ? (
             <button
@@ -237,16 +290,32 @@ function ProposalRow({ proposal, onOpenDetail, onPublish, publishDisabled }: Pro
               type="button"
               onClick={() => void onPublish()}
             >
+              <IconSend size={14} stroke={1.9} />
               {publishDisabled ? 'Publishing...' : 'Publish to Customer'}
             </button>
           ) : (
-            <button type="button" disabled title="Published proposals are customer-visible and locked for editing.">
+            <button
+              className="designer-project-table-locked"
+              type="button"
+              disabled
+              title="Published proposals are customer-visible and locked for editing."
+            >
+              <IconLock size={14} stroke={1.9} />
               Customer Visible
             </button>
           )}
         </div>
       </td>
     </tr>
+  );
+}
+
+function DateStamp({ value }: Readonly<{ value: string }>) {
+  return (
+    <span className="designer-proposal-datestamp">
+      <strong>{formatDatePart(value)}</strong>
+      <em>{formatTimePart(value)}</em>
+    </span>
   );
 }
 
@@ -257,14 +326,14 @@ function CreateProposalModal({
   onClose,
   onDraftChange,
   onSubmit,
-}: {
+}: Readonly<{
   areaCount: number;
   draft: { description: string; proposalName: string };
   isCreating: boolean;
   onClose: () => void;
   onDraftChange: (draft: { description: string; proposalName: string }) => void;
   onSubmit: () => void;
-}) {
+}>) {
   function updateDraft(field: keyof typeof draft, value: string) {
     onDraftChange({ ...draft, [field]: value });
   }
@@ -347,12 +416,21 @@ function formatEnumLabel(value: string) {
     .join(' ');
 }
 
-function formatDateTime(value: string) {
+function pluralize(count: number, noun: string) {
+  return `${count} ${noun}${count === 1 ? '' : 's'}`;
+}
+
+function formatDatePart(value: string) {
   return new Intl.DateTimeFormat('en', {
     day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
     month: 'short',
     year: 'numeric',
+  }).format(new Date(value));
+}
+
+function formatTimePart(value: string) {
+  return new Intl.DateTimeFormat('en', {
+    hour: '2-digit',
+    minute: '2-digit',
   }).format(new Date(value));
 }

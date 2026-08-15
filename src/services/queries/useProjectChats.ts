@@ -208,8 +208,10 @@ export function useProjectChatRealtime(input: {
       .build();
     connectionRef.current = connection;
 
+    let isDisposed = false;
+
     const joinGroups = async () => {
-      if (connection.state !== signalR.HubConnectionState.Connected) {
+      if (isDisposed || connection.state !== signalR.HubConnectionState.Connected) {
         return;
       }
 
@@ -235,12 +237,13 @@ export function useProjectChatRealtime(input: {
       void joinGroups();
     });
 
-    void connection.start().then(joinGroups).catch(() => undefined);
+    const startPromise = connection.start().then(joinGroups).catch(() => undefined);
 
     return () => {
+      isDisposed = true;
       connection.off('project_chat.message_sent');
       connectionRef.current = null;
-      void connection.stop();
+      void startPromise.finally(() => connection.stop());
     };
   }, [enabled, hubUrl, projectId]);
 

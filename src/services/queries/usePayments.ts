@@ -127,8 +127,10 @@ export function usePaymentRealtime(input: {
       .withAutomaticReconnect()
       .build();
 
+    let isDisposed = false;
+
     const joinPayment = async () => {
-      if (connection.state !== signalR.HubConnectionState.Connected || !paymentIdRef.current) {
+      if (isDisposed || connection.state !== signalR.HubConnectionState.Connected || !paymentIdRef.current) {
         return;
       }
 
@@ -144,17 +146,19 @@ export function usePaymentRealtime(input: {
       void joinPayment();
     });
 
-    void connection.start().then(joinPayment).catch(() => undefined);
+    const startPromise = connection.start().then(joinPayment).catch(() => undefined);
 
     return () => {
       const currentPaymentId = paymentIdRef.current;
+
+      isDisposed = true;
 
       if (connection.state === signalR.HubConnectionState.Connected && currentPaymentId) {
         void connection.invoke('LeavePayment', currentPaymentId).catch(() => undefined);
       }
 
       connection.off('payment.updated');
-      void connection.stop();
+      void startPromise.finally(() => connection.stop());
     };
   }, [enabled, hubUrl, paymentId, queryClient]);
 }
