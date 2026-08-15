@@ -54,6 +54,21 @@ export function validateOptionalPositiveNumber(
   return { ok: true, value };
 }
 
+export function validateOptionalNonNegativeInteger(
+  value: number | null,
+  label: string,
+): OptionalNumberValidationResult {
+  if (value == null) return { ok: true, value: null };
+  if (!Number.isFinite(value)) {
+    return { ok: false, message: `${label} must be a valid number.` };
+  }
+  if (!Number.isInteger(value) || value < 0) {
+    return { ok: false, message: `${label} must be an integer of 0 or greater.` };
+  }
+
+  return { ok: true, value };
+}
+
 export function validateOptionalPositiveInteger(
   value: number | null,
   label: string,

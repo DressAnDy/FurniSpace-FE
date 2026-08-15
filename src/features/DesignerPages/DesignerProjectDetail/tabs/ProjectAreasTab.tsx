@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { getProjectAreaServiceResultMessage, type ProjectAreaDto, type ProjectAreaStatus, type ProjectAreaWriteInput } from '@/services/api/projectAreas';
 import type { ProjectDto } from '@/services/api/projects';
 import { useCreateProjectArea, useProjectAreas, useUpdateProjectArea } from '@/services/queries';
-import { validateOptionalPositiveInteger, validateOptionalPositiveNumber } from '@/shared/utils/projectRequestValidation';
+import { validateOptionalNonNegativeInteger, validateOptionalPositiveNumber } from '@/shared/utils/projectRequestValidation';
 
 type ProjectAreasTabProps = {
   project: ProjectDto;
@@ -332,7 +332,7 @@ function getAreaFieldErrors(draft: AreaDraft): AreaFieldErrors {
     fieldErrors.areaName = 'Area name is required.';
   }
 
-  const floorNumber = validateOptionalPositiveInteger(parseOptionalNumber(draft.floorNumber), NUMERIC_FIELD_LABELS.floorNumber);
+  const floorNumber = validateOptionalNonNegativeInteger(parseOptionalNumber(draft.floorNumber), NUMERIC_FIELD_LABELS.floorNumber);
   if (!floorNumber.ok) fieldErrors.floorNumber = floorNumber.message;
 
   (['areaSqm', 'width', 'length', 'height'] as const).forEach((field) => {
