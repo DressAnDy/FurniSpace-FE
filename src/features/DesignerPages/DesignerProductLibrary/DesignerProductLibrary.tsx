@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useQueries } from '@tanstack/react-query';
-import { IconArrowLeft, IconBox, IconChevronRight, IconCube, IconPlus, IconSearch, IconX } from '@tabler/icons-react';
+import { IconArrowLeft, IconBox, IconChevronRight, IconCube, IconLayersIntersect, IconPlus, IconSearch, IconX } from '@tabler/icons-react';
 import { useNavigate } from 'react-router-dom';
 
 import { DesignerLayout } from '@/features/DesignerPages/designercomponents';
@@ -320,22 +320,30 @@ function ProductVersionList({ card, onCreateVersion }: { card: ProductLibraryCar
         <div className="designer-product-version-summary-media">
           {card.imageUrl ? <img alt={product.productName} src={card.imageUrl} /> : <IconBox size={34} />}
         </div>
-        <div>
-          <span>{product.categoryName}</span>
+        <div className="designer-product-version-summary-copy">
+          <span className="designer-product-version-summary-category">{product.categoryName}</span>
           <h3>{product.productName}</h3>
           <p>{product.description || 'No description yet.'}</p>
           <div className="designer-product-summary">
-            <span>{versions.length} version{versions.length === 1 ? '' : 's'}</span>
-            <span>{card.hasModel3d ? 'Has MODEL_3D' : 'No model yet'}</span>
+            <span className="designer-product-summary-count">
+              <IconLayersIntersect size={13} stroke={1.9} />
+              {versions.length} version{versions.length === 1 ? '' : 's'}
+            </span>
+            <span className={`designer-product-summary-model ${card.hasModel3d ? 'is-ready' : ''}`}>
+              <IconCube size={13} stroke={1.9} />
+              {card.hasModel3d ? '3D model ready' : 'No 3D model'}
+            </span>
             {(product.businessTypes ?? []).map((businessType) => (
-              <span key={businessType.id}>{getBusinessTypeLabel(businessType.name)}</span>
+              <span className="designer-product-summary-business" key={businessType.id}>
+                {getBusinessTypeLabel(businessType.name)}
+              </span>
             ))}
           </div>
-          <button className="designer-product-create-version-button" type="button" onClick={() => onCreateVersion(product.productId)}>
-            <IconPlus size={15} />
-            Create version
-          </button>
         </div>
+        <button className="designer-product-create-version-button" type="button" onClick={() => onCreateVersion(product.productId)}>
+          <IconPlus size={15} />
+          Create version
+        </button>
       </div>
 
       {card.isLoadingDetail && versions.length === 0 ? (
@@ -402,51 +410,56 @@ function VersionRow({
   product,
   version,
   onPreview,
-}: {
+}: Readonly<{
   product: ProductDetailDto | ProductListItemDto;
   version: ProductVersionDto;
   onPreview: () => void;
-}) {
+}>) {
   const modelFile = getVersionModelFile(version);
   const thumbnailUrl = getVersionPreviewImage(version) ?? getProductCoverImage(product, version);
 
   return (
     <div className="designer-product-version-row">
       <div className="designer-product-version-media">
-        <span className="designer-product-version-status">{version.status}</span>
+        <span className={`designer-product-version-status ${version.status === 'ACTIVE' ? 'is-active' : ''}`}>{version.status}</span>
         {thumbnailUrl ? <img alt={version.versionName} src={thumbnailUrl} /> : <IconBox size={34} />}
       </div>
-      <div className="designer-product-version-head">
-        <div>
-          <strong>{version.versionName}</strong>
-          <span>{version.versionCode}</span>
+      <div className="designer-product-version-body">
+        <div className="designer-product-version-head">
+          <div>
+            <strong title={version.versionName}>{version.versionName}</strong>
+            <span title={version.versionCode}>{version.versionCode}</span>
+          </div>
+          <span className={`designer-product-model-pill ${modelFile ? 'is-ready' : ''}`}>
+            <IconCube size={13} />
+            {modelFile ? '3D Ready' : 'No 3D'}
+          </span>
         </div>
-        <span className={`designer-product-model-pill ${modelFile ? 'is-ready' : ''}`}>
-          <IconCube size={13} />
-          {modelFile ? '3D Ready' : 'No 3D'}
-        </span>
-      </div>
-      <div className="designer-product-version-tags">
-        {getVersionBadges(version).map((badge) => (
-          <span key={badge}>{badge}</span>
-        ))}
-      </div>
-      <dl className="designer-product-version-specs">
-        <ProductSpec label="Material" value={version.material || '-'} />
-        <ProductSpec label="Color" value={version.color || '-'} />
-        <ProductSpec label="Size" value={formatDimensions(version)} />
-      </dl>
-      <div className="designer-product-footer">
-        <strong>{formatCatalogPrice(version.estimatedPrice)}</strong>
-        <div className="designer-product-actions">
-          <button className="designer-product-asset-button" type="button" onClick={onPreview}>
-            <IconCube size={15} />
-            3D Assets
-          </button>
-          <button className="designer-product-add-button" type="button" aria-label={`Add ${version.versionName} from ${product.productName}`}>
-            <IconPlus size={15} />
-            Add
-          </button>
+        <div className="designer-product-version-tags">
+          {getVersionBadges(version).map((badge) => (
+            <span key={badge}>{badge}</span>
+          ))}
+        </div>
+        <dl className="designer-product-version-specs">
+          <ProductSpec label="Material" value={version.material || '-'} />
+          <ProductSpec label="Color" value={version.color || '-'} />
+          <ProductSpec label="Size" value={formatDimensions(version)} />
+        </dl>
+        <div className="designer-product-footer">
+          <div className="designer-product-version-price">
+            <small>Estimated price</small>
+            <strong>{formatCatalogPrice(version.estimatedPrice)}</strong>
+          </div>
+          <div className="designer-product-actions">
+            <button className="designer-product-asset-button" type="button" onClick={onPreview}>
+              <IconCube size={15} />
+              3D Assets
+            </button>
+            <button className="designer-product-add-button" type="button" aria-label={`Add ${version.versionName} from ${product.productName}`}>
+              <IconPlus size={15} />
+              Add
+            </button>
+          </div>
         </div>
       </div>
     </div>

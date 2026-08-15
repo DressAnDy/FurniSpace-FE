@@ -23,6 +23,7 @@ export function DesignerSchedules() {
   });
   const [selectedDateKey, setSelectedDateKey] = useState(() => getDateKey(new Date()));
   const [selectedScheduleId, setSelectedScheduleId] = useState<string | null>(null);
+  const [expandedDateKey, setExpandedDateKey] = useState<string | null>(null);
   const schedulesQuery = useMyAssignedProjectSchedules({
     scheduleType: null,
     status: null,
@@ -137,11 +138,15 @@ export function DesignerSchedules() {
               const daySchedules = schedulesByDate.get(dateKey) ?? [];
               const isToday = dateKey === getDateKey(new Date());
               const isSelected = selectedDateKey === dateKey;
+              const isExpanded = expandedDateKey === dateKey;
+              const visibleDaySchedules = isExpanded ? daySchedules : daySchedules.slice(0, 2);
+              const hiddenCount = daySchedules.length - visibleDaySchedules.length;
               const dayClassName = [
                 'designer-schedules-calendar-day',
                 isToday ? 'designer-schedules-calendar-day-today' : '',
                 isSelected ? 'designer-schedules-calendar-day-selected' : '',
                 daySchedules.length > 0 ? 'designer-schedules-calendar-day-has-events' : '',
+                isExpanded ? 'designer-schedules-calendar-day-expanded' : '',
               ].filter(Boolean).join(' ');
 
               return (
@@ -165,10 +170,11 @@ export function DesignerSchedules() {
                   </button>
                   {daySchedules.length > 0 ? (
                     <span className="designer-schedules-calendar-events">
-                      {daySchedules.slice(0, 2).map((schedule) => (
+                      {visibleDaySchedules.map((schedule) => (
                         <button
                           className={`designer-schedules-calendar-event designer-schedules-calendar-event-${schedule.status.toLowerCase().replace(/_/g, '-')}${selectedSchedule?.scheduleId === schedule.scheduleId ? ' designer-schedules-calendar-event-active' : ''}`}
                           key={schedule.scheduleId}
+                          title={`${schedule.title ?? formatEnumLabel(schedule.scheduleType)} - ${formatTime(schedule.scheduledStart)}`}
                           type="button"
                           onClick={(event) => {
                             event.stopPropagation();
@@ -180,7 +186,19 @@ export function DesignerSchedules() {
                           <em>{schedule.title ?? formatEnumLabel(schedule.scheduleType)}</em>
                         </button>
                       ))}
-                      {daySchedules.length > 2 ? <span className="designer-schedules-calendar-more">+{daySchedules.length - 2} more</span> : null}
+                      {daySchedules.length > 2 ? (
+                        <button
+                          aria-expanded={isExpanded}
+                          className="designer-schedules-calendar-more"
+                          type="button"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            setExpandedDateKey(isExpanded ? null : dateKey);
+                          }}
+                        >
+                          {isExpanded ? 'Show less' : `+${hiddenCount} more`}
+                        </button>
+                      ) : null}
                     </span>
                   ) : null}
                 </div>
