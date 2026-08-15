@@ -536,19 +536,11 @@
   left: 16px;
   max-height: calc(100% - 112px);
   overflow: auto;
-  padding: 12px 18px 12px 12px;
+  padding: 12px;
   position: absolute;
   top: 88px;
   width: min(330px, calc(100% - 32px));
   z-index: 7;
-}
-
-.building-object-floating-menu::after {
-  background: var(--building-accent);
-  content: '';
-  inset: 0 0 0 auto;
-  position: absolute;
-  width: 6px;
 }
 
 .building-object-floating-menu button,
@@ -646,6 +638,17 @@
   font-size: 12px;
   margin: 0;
   overflow-wrap: anywhere;
+}
+
+.building-object-info-state {
+  color: var(--building-muted);
+  font-size: 11px;
+  font-weight: 700;
+  margin: 0 0 8px;
+}
+
+.building-object-info-state.is-error {
+  color: #b91c1c;
 }
 
 .building-object-rotate-box {
@@ -1229,10 +1232,6 @@
   border-radius: 14px;
   box-shadow: 0 20px 50px rgba(38, 27, 17, 0.2);
   overflow: auto;
-}
-
-.building-object-floating-menu::after {
-  border-radius: 0 14px 14px 0;
 }
 
 .building-object-floating-header button,
