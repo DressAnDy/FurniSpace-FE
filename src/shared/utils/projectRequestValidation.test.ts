@@ -6,8 +6,10 @@ import {
   getProjectSpaceAndBudgetFieldErrors,
   validateOptionalBudgetMax,
   validateOptionalBudgetMin,
+  validateOptionalNonNegativeInteger,
   validateOptionalNonNegativeNumber,
   validateOptionalPositiveInteger,
+  validateOptionalPositiveNumber,
   validateProjectSpaceAndBudget,
 } from './projectRequestValidation';
 
@@ -19,6 +21,21 @@ describe('projectRequestValidation', () => {
     expect(validateOptionalPositiveInteger(-2, 'Number of Floors').ok).toBe(false);
     expect(validateOptionalPositiveInteger(1.5, 'Number of Floors').ok).toBe(false);
     expect(validateOptionalPositiveInteger(2, 'Number of Floors')).toEqual({ ok: true, value: 2 });
+  });
+
+  it('allows zero for optional non-negative integers like Floor', () => {
+    expect(validateOptionalNonNegativeInteger(0, 'Floor')).toEqual({ ok: true, value: 0 });
+    expect(validateOptionalNonNegativeInteger(2, 'Floor')).toEqual({ ok: true, value: 2 });
+    expect(validateOptionalNonNegativeInteger(-1, 'Floor').ok).toBe(false);
+    expect(validateOptionalNonNegativeInteger(1.5, 'Floor').ok).toBe(false);
+    expect(validateOptionalNonNegativeInteger(null, 'Floor')).toEqual({ ok: true, value: null });
+  });
+
+  it('rejects zero and negative optional positive decimals', () => {
+    expect(validateOptionalPositiveNumber(0, 'Width (m)').ok).toBe(false);
+    expect(validateOptionalPositiveNumber(-1.2, 'Width (m)').ok).toBe(false);
+    expect(validateOptionalPositiveNumber(1.5, 'Width (m)')).toEqual({ ok: true, value: 1.5 });
+    expect(validateOptionalPositiveNumber(null, 'Width (m)')).toEqual({ ok: true, value: null });
   });
 
   it('enforces budget min/max bounds', () => {

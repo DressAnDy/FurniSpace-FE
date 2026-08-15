@@ -9,6 +9,7 @@ import {
   IconMessageCircle,
   IconPackage,
   IconPlus,
+  IconRefresh,
   IconRulerMeasure,
   IconX,
 } from '@tabler/icons-react';
@@ -348,7 +349,7 @@ export function DesignerProposalWorkspace() {
       </button>
 
       <header className="designer-proposal-heading">
-        <div>
+        <div className="designer-proposal-heading-copy">
           <span>{projectQuery.isLoading ? 'LOADING PROJECT' : project?.projectCode ?? 'PROJECT NOT FOUND'}</span>
           <h1>{isProposalSetupMode ? 'Set Up Project Areas & Proposal' : proposalQuery.isLoading ? 'Loading proposal...' : proposal?.proposalName ?? 'Proposal not found'}</h1>
           <p>
@@ -356,9 +357,10 @@ export function DesignerProposalWorkspace() {
             {proposal ? ` · Version ${proposal.versionNo}` : ''}
           </p>
         </div>
-        <div>
+        <div className="designer-proposal-heading-actions">
           <span className="designer-proposal-status">{isProposalSetupMode ? 'SETUP' : proposal?.status ?? 'UNKNOWN'}</span>
           <button
+            className="designer-proposal-update-button"
             disabled={isProposalSetupMode || !proposal}
             type="button"
             onClick={openUpdateInfoModal}
@@ -366,6 +368,7 @@ export function DesignerProposalWorkspace() {
             <IconEdit size={17} /> Update Info
           </button>
           <button
+            className="designer-proposal-publish-button"
             disabled={!canPublishProposal || publishProposalMutation.isPending}
             title={canPublishProposal ? 'Publish this proposal for customer review.' : 'Proposal must be Draft and have at least one active scene.'}
             type="button"
@@ -454,8 +457,10 @@ export function DesignerProposalWorkspace() {
       {activeTab === 'items' && (
         <section className="designer-items-section">
           <header>
-            <div><h2>Proposal Items</h2><p>SQL business items synchronized from Room Planner scene objects.</p></div>
-            <button disabled type="button"><IconCube size={17} /> Sync From Scene</button>
+            <div><h2>Project Items</h2></div>
+            <button className="designer-items-sync-button" disabled type="button">
+              <IconRefresh size={16} stroke={1.8} /> Sync From Scene
+            </button>
           </header>
           <div className="designer-items-scene-filter">
             {scenes.length === 0 ? <span>No scenes available.</span> : null}
