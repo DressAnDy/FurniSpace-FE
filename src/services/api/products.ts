@@ -203,6 +203,7 @@ export type DeleteFileData = {
 export type ProductVersionDto = {
   productVersionId: string;
   productId: string;
+  productName?: string | null;
   projectId?: string | null;
   versionCode: string;
   versionName: string;
@@ -611,6 +612,14 @@ export async function getAdminCatalogProducts(params?: AdminCatalogQueryDto) {
   const response = await productApiClient.get<ServiceResult<AdminCatalogListResponseDto>>('/admin/catalog/products', {
     params: getCatalogSearchParams(params),
   });
+
+  return response.data.data;
+}
+
+export async function getProductVersionById(productVersionId: string) {
+  const response = await productApiClient.get<ServiceResult<ProductVersionDto>>(
+    `/api/ProductVersions/product-versions/${productVersionId}`,
+  );
 
   return response.data.data;
 }
