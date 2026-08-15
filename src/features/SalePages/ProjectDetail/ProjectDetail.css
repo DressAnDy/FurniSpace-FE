@@ -137,20 +137,81 @@
 .project-detail-status-buttons {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 10px;
   justify-content: flex-end;
 }
 
-.project-detail-status-buttons button:first-child {
-  border-color: rgba(139, 111, 71, 0.18);
-  background: #faf9f7;
-  color: #2d2d2d;
+.project-detail-status-buttons button.project-detail-decision-button {
+  height: 38px;
+  gap: 8px;
+  border-radius: 999px;
+  padding: 0 18px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: background 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease, color 0.18s ease;
 }
 
-.project-detail-status-buttons button:last-child {
-  border-color: rgba(185, 28, 28, 0.28);
-  background: #ffffff;
+.project-detail-status-buttons button.project-detail-decision-button svg {
+  flex: 0 0 auto;
+}
+
+.project-detail-status-buttons button.project-detail-decision-info {
+  border: 1px solid rgba(139, 111, 71, 0.3);
+  background: linear-gradient(180deg, #ffffff 0%, #f7f2ea 100%);
+  box-shadow: 0 1px 2px rgba(109, 80, 47, 0.08);
+  color: #6d502f;
+}
+
+.project-detail-status-buttons button.project-detail-decision-info:hover:not(:disabled) {
+  transform: translateY(-1px);
+  border-color: #8b6f47;
+  background: linear-gradient(180deg, #8b6f47 0%, #6d502f 100%);
+  box-shadow: 0 8px 18px rgba(109, 80, 47, 0.22);
+  color: #ffffff;
+}
+
+.project-detail-status-buttons button.project-detail-decision-reject {
+  border: 1px solid rgba(185, 28, 28, 0.32);
+  background: linear-gradient(180deg, #ffffff 0%, #fdf3f3 100%);
+  box-shadow: 0 1px 2px rgba(185, 28, 28, 0.08);
   color: #b91c1c;
+}
+
+.project-detail-status-buttons button.project-detail-decision-reject:hover:not(:disabled) {
+  transform: translateY(-1px);
+  border-color: #b91c1c;
+  background: linear-gradient(180deg, #dc2626 0%, #b91c1c 100%);
+  box-shadow: 0 8px 18px rgba(185, 28, 28, 0.24);
+  color: #ffffff;
+}
+
+.project-detail-status-buttons button.project-detail-decision-button:active:not(:disabled) {
+  transform: translateY(0);
+  box-shadow: none;
+}
+
+.project-detail-status-buttons button.project-detail-decision-button:focus-visible {
+  outline: 2px solid #8b6f47;
+  outline-offset: 2px;
+}
+
+.project-detail-status-buttons button.project-detail-decision-reject:focus-visible {
+  outline-color: #b91c1c;
+}
+
+.project-detail-status-buttons button.project-detail-decision-button:disabled {
+  transform: none;
+  box-shadow: none;
+}
+
+.project-detail-decision-spinner {
+  animation: project-detail-decision-spin 0.9s linear infinite;
+}
+
+@keyframes project-detail-decision-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .project-detail-status-message {

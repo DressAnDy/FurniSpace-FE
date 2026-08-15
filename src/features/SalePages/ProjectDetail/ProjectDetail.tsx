@@ -1,4 +1,4 @@
-import { IconArrowLeft, IconRefresh, IconX } from '@tabler/icons-react';
+import { IconArrowLeft, IconBan, IconInfoCircle, IconLoader2, IconRefresh, IconX } from '@tabler/icons-react';
 import { FormEvent, useEffect, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 
@@ -191,18 +191,30 @@ export function ProjectDetail() {
                     <span>Consultation Decision</span>
                     <div className="project-detail-status-buttons">
                       <button
+                        className="project-detail-decision-button project-detail-decision-info"
                         type="button"
                         disabled={rejectProjectMutation.isPending || requestInformationMutation.isPending}
                         onClick={() => void handleConsultationDecision('NEED_BASIC_INFORMATION')}
                       >
-                        Request More Info
+                        {requestInformationMutation.isPending ? (
+                          <IconLoader2 className="project-detail-decision-spinner" size={16} stroke={2} />
+                        ) : (
+                          <IconInfoCircle size={16} stroke={2} />
+                        )}
+                        <span>{requestInformationMutation.isPending ? 'Sending...' : 'Request More Info'}</span>
                       </button>
                       <button
+                        className="project-detail-decision-button project-detail-decision-reject"
                         type="button"
                         disabled={rejectProjectMutation.isPending || requestInformationMutation.isPending}
                         onClick={() => void handleConsultationDecision('REJECTED')}
                       >
-                        {rejectProjectMutation.isPending ? 'Updating...' : 'Reject Project'}
+                        {rejectProjectMutation.isPending ? (
+                          <IconLoader2 className="project-detail-decision-spinner" size={16} stroke={2} />
+                        ) : (
+                          <IconBan size={16} stroke={2} />
+                        )}
+                        <span>{rejectProjectMutation.isPending ? 'Updating...' : 'Reject Project'}</span>
                       </button>
                     </div>
                     {statusMessage ? <p className={statusMessage.toLowerCase().includes('success') ? 'project-detail-status-message' : 'project-detail-status-message project-detail-status-message-error'}>{statusMessage}</p> : null}

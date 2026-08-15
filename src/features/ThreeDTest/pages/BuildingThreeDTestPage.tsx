@@ -1,6 +1,20 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQueries } from '@tanstack/react-query';
-import { IconArrowLeft, IconBox, IconBuilding, IconCategory, IconPalette, IconRotateClockwise, IconSearch, IconTrash, IconX } from '@tabler/icons-react';
+import {
+  IconArrowLeft,
+  IconBox,
+  IconBuilding,
+  IconCategory,
+  IconChevronLeft,
+  IconChevronRight,
+  IconDeviceFloppy,
+  IconLock,
+  IconPalette,
+  IconRefresh,
+  IconRulerMeasure,
+  IconSearch,
+  IconX,
+} from '@tabler/icons-react';
 import { Link as RouterLink, useLocation, useParams } from 'react-router-dom';
 
 import { BuildingSceneCanvas, PRODUCT_DRAG_TYPE } from '@/features/ThreeDTest/components';
@@ -11,13 +25,12 @@ import {
   hydrateBuildingRoomPlannerPayload,
 } from '@/features/ThreeDTest/utils/buildingRoomPlannerPayloadMapper';
 import type {
-  BuildingLevel,
   BuildingLevelVisibility,
   BuildingProductModel,
   PlacedBuildingProduct,
   Vector3State,
 } from '@/features/ThreeDTest/schemas/buildingScene.types';
-import { createBuildingTestSceneFromProjectFloorAreas, getLevelCenter, type BuildingProjectFloorAreaSource } from '@/features/ThreeDTest/utils/buildingTestSceneFactory';
+import { createBuildingTestSceneFromProjectFloorAreas, type BuildingProjectFloorAreaSource } from '@/features/ThreeDTest/utils/buildingTestSceneFactory';
 import {
   getProductById,
   getProjectCatalogProductVersion,
@@ -277,28 +290,6 @@ function isSameVector(first: Vector3State, second: Vector3State) {
   return first.x === second.x && first.y === second.y && first.z === second.z;
 }
 
-function getLevelFallbackSurface(sceneData: ReturnType<typeof useBuildingTestSceneState>['sceneData'], activeLevel: BuildingLevelVisibility) {
-  const level = sceneData.building.levels.find((candidate) => activeLevel !== 'all' && activeLevel !== 'site' && candidate.id === activeLevel) ??
-    sceneData.building.levels[0] as BuildingLevel | undefined;
-
-  if (!level) {
-    return null;
-  }
-
-  const center = getLevelCenter(sceneData, level);
-
-  return {
-    elevation: level.elevation,
-    id: `${level.id}-layout-floor`,
-    levelId: level.id as BuildingLevelVisibility,
-    position: {
-      x: center.x,
-      y: level.elevation,
-      z: center.z,
-    },
-  };
-}
-
 function applyProposalItemIds(products: PlacedBuildingProduct[], items: ProposalItemDto[]) {
   const proposalItemIdsByObjectId = new Map(
     items
@@ -388,6 +379,7 @@ export function BuildingThreeDTestPage() {
   });
   const [activeLevel, setActiveLevel] = useState<BuildingLevelVisibility>('all');
   const [designPanel, setDesignPanel] = useState<BuildingDesignPanel>('products');
+  const [isCatalogPanelCollapsed, setIsCatalogPanelCollapsed] = useState(false);
   const [selectedFloorMaterialId, setSelectedFloorMaterialId] = useState('wood-floor');
   const [selectedWallMaterialId, setSelectedWallMaterialId] = useState('wall-base');
   const [placedProducts, setPlacedProducts] = useState<PlacedBuildingProduct[]>(() => placedProductsDraft?.placedProducts ?? []);
@@ -717,27 +709,6 @@ export function BuildingThreeDTestPage() {
     setMessage(`${model.name} added to ${levelOptions.find((level) => level.value === levelId)?.label ?? levelId}.`);
   }
 
-  function quickAddProduct(model: BuildingProductModel) {
-    const targetSurface = sceneData.surfaces.find((surface) => activeLevel !== 'all' && surface.levelId === activeLevel) ??
-      sceneData.surfaces.find((surface) => surface.levelId === sceneData.building.levels[0]?.id) ??
-      getLevelFallbackSurface(sceneData, activeLevel);
-
-    if (!targetSurface) {
-      return;
-    }
-
-    addProductToScene(
-      model,
-      {
-        x: targetSurface.position.x,
-        y: targetSurface.elevation,
-        z: targetSurface.position.z,
-      },
-      targetSurface.id,
-      targetSurface.levelId,
-    );
-  }
-
   function moveProduct(
     sceneObjectId: string,
     position: Vector3State,
@@ -1004,12 +975,13 @@ export function BuildingThreeDTestPage() {
             <IconArrowLeft size={17} /> Back
           </RouterLink>
           <div className="building-test-title">
-            <span><IconBuilding size={16} /> Building 3D Test</span>
-            <h1>Two-floor campus prototype</h1>
+            <span><IconBuilding size={16} /> FurniSpace Studio</span>
+            <h1>3D Room Planner</h1>
           </div>
         </div>
         <nav>
           <RouterLink
+            className="building-test-blueprint-link"
             state={{
               ...routeState,
               transientPlacedProducts: placedProducts,
@@ -1017,52 +989,105 @@ export function BuildingThreeDTestPage() {
             }}
             to={sceneId ? `${roomPlannerBasePath}/blueprint` : '/3d-building-test/blueprint'}
           >
-            2D Blueprint
+            <IconRulerMeasure size={17} />
+            <span>2D Blueprint</span>
           </RouterLink>
           <button
+            className="building-test-save-button"
             disabled={isSavingRoomPlanner}
             title={!sceneId ? 'Open this planner from a proposal scene to save to backend.' : undefined}
             type="button"
             onClick={() => void saveScene()}
           >
-            {isSavingRoomPlanner ? 'Saving...' : 'Save'}
+            <IconDeviceFloppy size={17} />
+            <span>{isSavingRoomPlanner ? 'Saving...' : 'Save design'}</span>
           </button>
-          <button type="button" onClick={resetScene}>Reset</button>
+          <button className="building-test-reset-button" type="button" onClick={resetScene}>
+            <IconRefresh size={17} />
+            <span>Reset</span>
+          </button>
         </nav>
       </header>
 
-      <section className="building-test-shell">
-        <aside className="building-test-sidebar">
-          <section className="building-test-panel">
-            <div className="building-test-panel-heading">
-              <strong>Scene Levels</strong>
-              <span>{placedProducts.length} object(s)</span>
-            </div>
-            <div className="building-level-tabs">
-              {levelOptions.map((level) => (
-                <button
-                  className={activeLevel === level.value ? 'is-active' : ''}
-                  key={level.value}
-                  type="button"
-                  onClick={() => setActiveLevel(level.value)}
-                >
-                  {level.label}
-                </button>
-              ))}
-            </div>
-          </section>
-
-          <div className="building-content-tabs">
-            <button className={designPanel === 'products' ? 'is-active' : ''} type="button" onClick={() => setDesignPanel('products')}>
-              <IconCategory size={15} /> Products
-            </button>
-            <button className={designPanel === 'materials' ? 'is-active' : ''} type="button" onClick={() => setDesignPanel('materials')}>
-              <IconPalette size={15} /> Materials
-            </button>
+      <section className={isCatalogPanelCollapsed ? 'building-test-shell is-catalog-collapsed' : 'building-test-shell'}>
+        <aside className={isCatalogPanelCollapsed ? 'building-test-sidebar is-catalog-collapsed' : 'building-test-sidebar'}>
+          <div className="building-sidebar-rail">
+            <section className="building-test-panel building-scene-levels-panel">
+              <div className="building-test-panel-heading">
+                <strong>Scene Levels</strong>
+                <span>{placedProducts.length} object(s)</span>
+              </div>
+              <div className="building-level-tabs">
+                {levelOptions.map((level) => (
+                  <button
+                    className={activeLevel === level.value ? 'is-active' : ''}
+                    key={level.value}
+                    type="button"
+                    onClick={() => setActiveLevel(level.value)}
+                  >
+                    {level.label}
+                  </button>
+                ))}
+              </div>
+            </section>
+            {designPanel === 'products' && productSourceTab === 'catalog' ? (
+              <section className="building-test-panel building-catalog-panel">
+                <div className="building-test-panel-heading">
+                  <strong>Catalog</strong>
+                  <span>{categoryCards.length}</span>
+                </div>
+                <div className="building-category-list">
+                  <button
+                    className={!selectedCategoryId ? 'is-selected' : ''}
+                    type="button"
+                    onClick={() => setSelectedCategoryId(null)}
+                  >
+                    All Categories
+                  </button>
+                  {categoryCards.map((item) => (
+                    <button
+                      className={selectedCategoryId === item.category.categoryId ? 'is-selected' : ''}
+                      key={item.category.categoryId}
+                      type="button"
+                      onClick={() => setSelectedCategoryId(item.category.categoryId)}
+                    >
+                      {item.category.categoryName}
+                      <span>{item.count}</span>
+                    </button>
+                  ))}
+                </div>
+              </section>
+            ) : null}
           </div>
+          <button
+            aria-expanded={!isCatalogPanelCollapsed}
+            aria-label={isCatalogPanelCollapsed ? 'Show product panel' : 'Hide product panel'}
+            className="building-catalog-collapse-button"
+            title={isCatalogPanelCollapsed ? 'Show products' : 'Hide products'}
+            type="button"
+            onClick={() => setIsCatalogPanelCollapsed((isCollapsed) => !isCollapsed)}
+          >
+            {isCatalogPanelCollapsed ? <IconChevronRight size={18} /> : <IconChevronLeft size={18} />}
+          </button>
 
-          {designPanel === 'products' && (
-          <section className="building-test-panel">
+          <div className="building-design-column">
+            <div className="building-content-tabs">
+              <button className={designPanel === 'products' ? 'is-active' : ''} type="button" onClick={() => setDesignPanel('products')}>
+                <IconCategory size={15} /> Products
+              </button>
+              <button
+                aria-disabled="true"
+                className="is-locked"
+                disabled
+                title="Materials will be available when the API is ready."
+                type="button"
+              >
+                <IconPalette size={15} /> Materials <IconLock className="building-content-tab-lock" size={13} />
+              </button>
+            </div>
+
+            {designPanel === 'products' && (
+            <section className="building-test-panel building-design-panel">
             <div className="building-test-panel-heading">
               <strong>{productSourceTab === 'custom' ? 'Custom Products' : 'Products'}</strong>
               <span>{filteredModels.length} ready model(s)</span>
@@ -1110,29 +1135,6 @@ export function BuildingThreeDTestPage() {
               </button>
             </div>
 
-            {productSourceTab === 'catalog' ? (
-            <div className="building-category-list">
-              <button
-                className={!selectedCategoryId ? 'is-selected' : ''}
-                type="button"
-                onClick={() => setSelectedCategoryId(null)}
-              >
-                All Categories
-              </button>
-              {categoryCards.map((item) => (
-                <button
-                  className={selectedCategoryId === item.category.categoryId ? 'is-selected' : ''}
-                  key={item.category.categoryId}
-                  type="button"
-                  onClick={() => setSelectedCategoryId(item.category.categoryId)}
-                >
-                  {item.category.categoryName}
-                  <span>{item.count}</span>
-                </button>
-              ))}
-            </div>
-            ) : null}
-
             {productSourceTab === 'catalog' && isCatalogLoading ? (
               <div className="building-test-status">Loading product models...</div>
             ) : null}
@@ -1168,7 +1170,6 @@ export function BuildingThreeDTestPage() {
                   <div className="building-product-info">
                     <strong>{model.name}</strong>
                     <span>{model.categoryName ?? 'Catalog'}{model.material ? ` / ${model.material}` : ''}</span>
-                    <button type="button" onClick={() => quickAddProduct(model)}>Add</button>
                   </div>
                 </article>
               ))}
@@ -1190,11 +1191,11 @@ export function BuildingThreeDTestPage() {
                 Load more models
               </button>
             ) : null}
-          </section>
-          )}
+            </section>
+            )}
 
-          {designPanel === 'materials' && (
-            <section className="building-test-panel">
+            {designPanel === 'materials' && (
+              <section className="building-test-panel building-design-panel">
               <div className="building-test-panel-heading">
                 <strong>Materials</strong>
                 <span>Floor / wall presets</span>
@@ -1231,8 +1232,9 @@ export function BuildingThreeDTestPage() {
                   ))}
                 </div>
               </div>
-            </section>
-          )}
+              </section>
+            )}
+          </div>
         </aside>
 
         <section className="building-test-workspace">
@@ -1240,16 +1242,6 @@ export function BuildingThreeDTestPage() {
             <div>
               <strong>{levelOptions.find((level) => level.value === activeLevel)?.label ?? 'All'} View</strong>
               <span>Drag models onto the yard, floor 1, balcony, or floor 2 surface.</span>
-            </div>
-            <div className="building-object-actions">
-              <button disabled={!selectedProduct} type="button" onClick={rotateSelectedProduct}>
-                <IconRotateClockwise size={16} />
-                Rotate
-              </button>
-              <button disabled={!selectedProduct} type="button" onClick={deleteSelectedProduct}>
-                <IconTrash size={16} />
-                Delete
-              </button>
             </div>
           </div>
 

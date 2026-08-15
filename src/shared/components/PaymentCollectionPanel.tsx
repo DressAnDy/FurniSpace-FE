@@ -28,7 +28,7 @@ export function PaymentCollectionPanel({ onPaid, payment }: PaymentCollectionPan
     paymentId: activePayment?.paymentId,
     enabled: Boolean(activePayment?.paymentId),
     onPaymentUpdated: (payload) => {
-      if (normalizePaymentStatus(payload.status) === 'PAID') {
+      if (normalizePaymentStatus(payload.status) === 'PAID' || payload.remainingAmount <= 0) {
         setMessage({ tone: 'success', text: 'Payment confirmed.' });
         onPaid?.();
       }
@@ -112,15 +112,15 @@ function PaymentValue({ label, value }: { label: string; value: string }) {
   );
 }
 
+/** Matches backend PaymentStatus enum ordinals (see services/api/payments.ts). */
 const paymentStatusByNumber: Record<number, string> = {
   0: 'PENDING',
   1: 'PROCESSING',
-  2: 'LEGACY_PARTIALLY_PAID',
-  3: 'PAID',
-  4: 'FAILED',
-  5: 'CANCELLED',
-  6: 'EXPIRED',
-  7: 'REFUNDED',
+  2: 'PAID',
+  3: 'FAILED',
+  4: 'CANCELLED',
+  5: 'EXPIRED',
+  6: 'REFUNDED',
 };
 
 const paymentTypeByNumber: Record<number, string> = {
@@ -159,7 +159,7 @@ function normalizePaymentType(value: unknown) {
 }
 
 function normalizeLegacyPaymentEnum(value: string) {
-  if (value === 'PARTIALLY_PAID') return 'LEGACY_PARTIALLY_PAID';
+  if (value === 'PARTIALLY_PAID' || value === 'LEGACY_PARTIALLY_PAID') return 'PAID';
   if (value === 'FULL_PAYMENT') return 'LEGACY_FULL_PAYMENT';
   if (value === 'REFUND') return 'LEGACY_REFUND';
   if (value === 'OTHER') return 'LEGACY_OTHER';
