@@ -54,6 +54,7 @@ import {
   productQueryKeys,
   useCategoryList,
   useProductList,
+  useProductVersionDetail,
   useProjectCustomizationRequests,
   useProjectCatalogProducts,
   useProposalDetail,
@@ -1281,18 +1282,11 @@ export function BuildingThreeDTestPage() {
               </div>
 
               {showProductInfo ? (
-                <div className="building-object-info-box">
-                  <dl>
-                    <div><dt>Product name</dt><dd>{selectedProduct.name}</dd></div>
-                    <div><dt>Product ID</dt><dd>{selectedProduct.productId ?? selectedProduct.productVersionId ?? selectedProduct.sceneObjectId}</dd></div>
-                    <div><dt>Model URL</dt><dd>{selectedProduct.modelUrl}</dd></div>
-                    <div><dt>Level</dt><dd>{levelOptions.find((level) => level.value === selectedProduct.levelId)?.label ?? selectedProduct.levelId}</dd></div>
-                    <div><dt>Surface</dt><dd>{selectedProduct.surfaceId}</dd></div>
-                    <div><dt>Position</dt><dd>{selectedProduct.position.x}, {selectedProduct.position.y}, {selectedProduct.position.z}</dd></div>
-                    <div><dt>Rotation Y</dt><dd>{selectedProductRotationDegrees} deg</dd></div>
-                    <div><dt>Placement</dt><dd>{selectedProduct.placementMode ?? 'FLOOR'}</dd></div>
-                  </dl>
-                </div>
+                <SelectedProductInfoBox
+                  levelLabel={levelOptions.find((level) => level.value === selectedProduct.levelId)?.label ?? selectedProduct.levelId}
+                  product={selectedProduct}
+                  rotationDegrees={selectedProductRotationDegrees}
+                />
               ) : null}
 
               {freeRotateProductId === selectedProduct.sceneObjectId ? (
@@ -1343,4 +1337,62 @@ export function BuildingThreeDTestPage() {
       </section>
     </main>
   );
+}
+
+function SelectedProductInfoBox({
+  levelLabel,
+  product,
+  rotationDegrees,
+}: Readonly<{
+  levelLabel: string;
+  product: PlacedBuildingProduct;
+  rotationDegrees: number;
+}>) {
+  const productVersionId = product.productVersionId ?? null;
+  const versionQuery = useProductVersionDetail(productVersionId ?? undefined);
+  const version = versionQuery.data ?? null;
+
+  return (
+    <div className="building-object-info-box">
+      {versionQuery.isLoading ? <p className="building-object-info-state">Loading product version...</p> : null}
+      {versionQuery.isError ? (
+        <p className="building-object-info-state is-error">{getProductServiceResultMessage(versionQuery.error)}</p>
+      ) : null}
+
+      <dl>
+        <div><dt>Product name</dt><dd>{version?.productName ?? product.name}</dd></div>
+        {version ? <div><dt>Version</dt><dd>{version.versionName}</dd></div> : null}
+        {version ? <div><dt>Version code</dt><dd>{version.versionCode}</dd></div> : null}
+        {version ? <div><dt>Version type</dt><dd>{version.versionType}</dd></div> : null}
+        {version ? <div><dt>Material</dt><dd>{version.material || '-'}</dd></div> : null}
+        {version ? <div><dt>Color</dt><dd>{version.color || '-'}</dd></div> : null}
+        {version ? <div><dt>Size</dt><dd>{formatVersionDimensions(version)}</dd></div> : null}
+        {version ? <div><dt>Estimated price</dt><dd>{formatVersionPrice(version.estimatedPrice)}</dd></div> : null}
+        {version ? <div><dt>Status</dt><dd>{version.status}</dd></div> : null}
+        <div><dt>Level</dt><dd>{levelLabel}</dd></div>
+        <div><dt>Position</dt><dd>{product.position.x}, {product.position.y}, {product.position.z}</dd></div>
+        <div><dt>Rotation Y</dt><dd>{rotationDegrees} deg</dd></div>
+        <div><dt>Placement</dt><dd>{product.placementMode ?? 'FLOOR'}</dd></div>
+      </dl>
+    </div>
+  );
+}
+
+function formatVersionDimensions(version: ProductVersionDto) {
+  const unit = version.dimensionUnit || 'cm';
+  const parts = [
+    version.width ? `W ${version.width}` : null,
+    version.depth ? `D ${version.depth}` : null,
+    version.height ? `H ${version.height}` : null,
+  ].filter(Boolean);
+
+  return parts.length > 0 ? `${parts.join(' x ')} ${unit}` : '-';
+}
+
+function formatVersionPrice(price: number | null) {
+  if (price == null) {
+    return '-';
+  }
+
+  return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND', maximumFractionDigits: 0 }).format(price);
 }

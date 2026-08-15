@@ -179,16 +179,6 @@ export function ProjectAreasTab({ project }: Readonly<ProjectAreasTabProps>) {
                 onChange={(event) => updateDraft('areaName', event.target.value)}
               />
             </label>
-            <label>
-              <span>Status</span>
-              <input
-                aria-readonly="true"
-                className="designer-project-area-status-locked"
-                readOnly
-                title="Status is locked to Verified"
-                value={formatEnumLabel(LOCKED_AREA_STATUS)}
-              />
-            </label>
             <NumericAreaInput
               error={fieldErrors.floorNumber}
               inputMode="numeric"

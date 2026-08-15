@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useQueries } from '@tanstack/react-query';
-import { IconArrowLeft, IconBox, IconChevronRight, IconCube, IconPlus, IconSearch, IconX } from '@tabler/icons-react';
+import { IconArrowLeft, IconBox, IconChevronRight, IconCube, IconLayersIntersect, IconPlus, IconSearch, IconX } from '@tabler/icons-react';
 import { useNavigate } from 'react-router-dom';
 
 import { DesignerLayout } from '@/features/DesignerPages/designercomponents';
@@ -123,47 +123,73 @@ export function DesignerProductLibrary() {
       </section>
 
       {!selectedCard ? (
-        <section className="designer-card designer-products-toolbar">
-          <label className="designer-products-search">
-            <IconSearch size={18} />
-            <input
-              placeholder="Search product, material, code..."
-              type="search"
-              value={search}
-              onChange={(event) => updateSearch(event.target.value)}
-            />
-          </label>
-          <div className="designer-products-filters">
-            {versionFilters.map((filter) => (
-              <button
-                className={activeFilter === filter ? 'is-active' : ''}
-                key={filter}
-                type="button"
-                onClick={() => updateFilter(filter)}
-              >
-                {filter}
-              </button>
-            ))}
-            <span>{visibleCards.reduce((total, card) => total + card.versions.length, 0)} versions</span>
+        <form
+          className="designer-card designer-products-toolbar"
+          role="search"
+          aria-label="Filter product library"
+          onSubmit={(event) => event.preventDefault()}
+        >
+          <div className="designer-products-toolbar-top">
+            <label className="designer-products-search">
+              <IconSearch size={18} />
+              <input
+                placeholder="Search product, material, code..."
+                type="search"
+                value={search}
+                onChange={(event) => updateSearch(event.target.value)}
+              />
+            </label>
+            <span className="designer-products-filter-count">
+              {visibleCards.reduce((total, card) => total + card.versions.length, 0)} versions
+            </span>
           </div>
-          <div className="designer-products-filters designer-products-business-filters">
-            {businessTypeOptions.map((businessType) => (
-              <button
-                className={businessTypeFilterIds.includes(businessType.id) ? 'is-active' : ''}
-                key={businessType.id}
-                type="button"
-                onClick={() => toggleBusinessTypeFilter(businessType.id)}
-              >
-                {businessType.name}
-              </button>
-            ))}
-            {businessTypeFilterIds.length > 0 ? (
-              <button type="button" onClick={() => setBusinessTypeFilterIds([])}>
-                Clear Business Type
-              </button>
-            ) : null}
+
+          <div className="designer-products-filter-row">
+            <span className="designer-products-filter-label" id="designer-products-version-filter-label">
+              Version type
+            </span>
+            <fieldset className="designer-products-filter-options" aria-labelledby="designer-products-version-filter-label">
+              {versionFilters.map((filter) => (
+                <button
+                  aria-pressed={activeFilter === filter}
+                  className={activeFilter === filter ? 'is-active' : ''}
+                  key={filter}
+                  type="button"
+                  onClick={() => updateFilter(filter)}
+                >
+                  {filter}
+                </button>
+              ))}
+            </fieldset>
           </div>
-        </section>
+
+          {businessTypeOptions.length > 0 ? (
+            <div className="designer-products-filter-row">
+              <span className="designer-products-filter-label" id="designer-products-business-filter-label">
+                Business type
+              </span>
+              <fieldset className="designer-products-filter-options" aria-labelledby="designer-products-business-filter-label">
+                {businessTypeOptions.map((businessType) => (
+                  <button
+                    aria-pressed={businessTypeFilterIds.includes(businessType.id)}
+                    className={businessTypeFilterIds.includes(businessType.id) ? 'is-active' : ''}
+                    key={businessType.id}
+                    type="button"
+                    onClick={() => toggleBusinessTypeFilter(businessType.id)}
+                  >
+                    {getBusinessTypeLabel(businessType.name)}
+                  </button>
+                ))}
+                {businessTypeFilterIds.length > 0 ? (
+                  <button className="designer-products-filter-clear" type="button" onClick={() => setBusinessTypeFilterIds([])}>
+                    <IconX size={13} />
+                    Clear
+                  </button>
+                ) : null}
+              </fieldset>
+            </div>
+          ) : null}
+        </form>
       ) : null}
 
       {productListQuery.isError ? (
@@ -294,20 +320,30 @@ function ProductVersionList({ card, onCreateVersion }: { card: ProductLibraryCar
         <div className="designer-product-version-summary-media">
           {card.imageUrl ? <img alt={product.productName} src={card.imageUrl} /> : <IconBox size={34} />}
         </div>
-        <div>
-          <span>{product.categoryName}</span>
+        <div className="designer-product-version-summary-copy">
+          <span className="designer-product-version-summary-category">{product.categoryName}</span>
           <h3>{product.productName}</h3>
           <p>{product.description || 'No description yet.'}</p>
           <div className="designer-product-summary">
-            <span>{versions.length} version{versions.length === 1 ? '' : 's'}</span>
-            <span>{card.hasModel3d ? 'Has MODEL_3D' : 'No model yet'}</span>
-            {(product.businessTypes ?? []).map((businessType) => <span key={businessType.id}>{businessType.name}</span>)}
+            <span className="designer-product-summary-count">
+              <IconLayersIntersect size={13} stroke={1.9} />
+              {versions.length} version{versions.length === 1 ? '' : 's'}
+            </span>
+            <span className={`designer-product-summary-model ${card.hasModel3d ? 'is-ready' : ''}`}>
+              <IconCube size={13} stroke={1.9} />
+              {card.hasModel3d ? '3D model ready' : 'No 3D model'}
+            </span>
+            {(product.businessTypes ?? []).map((businessType) => (
+              <span className="designer-product-summary-business" key={businessType.id}>
+                {getBusinessTypeLabel(businessType.name)}
+              </span>
+            ))}
           </div>
-          <button className="designer-product-create-version-button" type="button" onClick={() => onCreateVersion(product.productId)}>
-            <IconPlus size={15} />
-            Create version
-          </button>
         </div>
+        <button className="designer-product-create-version-button" type="button" onClick={() => onCreateVersion(product.productId)}>
+          <IconPlus size={15} />
+          Create version
+        </button>
       </div>
 
       {card.isLoadingDetail && versions.length === 0 ? (
@@ -374,51 +410,56 @@ function VersionRow({
   product,
   version,
   onPreview,
-}: {
+}: Readonly<{
   product: ProductDetailDto | ProductListItemDto;
   version: ProductVersionDto;
   onPreview: () => void;
-}) {
+}>) {
   const modelFile = getVersionModelFile(version);
   const thumbnailUrl = getVersionPreviewImage(version) ?? getProductCoverImage(product, version);
 
   return (
     <div className="designer-product-version-row">
       <div className="designer-product-version-media">
-        <span className="designer-product-version-status">{version.status}</span>
+        <span className={`designer-product-version-status ${version.status === 'ACTIVE' ? 'is-active' : ''}`}>{version.status}</span>
         {thumbnailUrl ? <img alt={version.versionName} src={thumbnailUrl} /> : <IconBox size={34} />}
       </div>
-      <div className="designer-product-version-head">
-        <div>
-          <strong>{version.versionName}</strong>
-          <span>{version.versionCode}</span>
+      <div className="designer-product-version-body">
+        <div className="designer-product-version-head">
+          <div>
+            <strong title={version.versionName}>{version.versionName}</strong>
+            <span title={version.versionCode}>{version.versionCode}</span>
+          </div>
+          <span className={`designer-product-model-pill ${modelFile ? 'is-ready' : ''}`}>
+            <IconCube size={13} />
+            {modelFile ? '3D Ready' : 'No 3D'}
+          </span>
         </div>
-        <span className={`designer-product-model-pill ${modelFile ? 'is-ready' : ''}`}>
-          <IconCube size={13} />
-          {modelFile ? '3D Ready' : 'No 3D'}
-        </span>
-      </div>
-      <div className="designer-product-version-tags">
-        {getVersionBadges(version).map((badge) => (
-          <span key={badge}>{badge}</span>
-        ))}
-      </div>
-      <dl className="designer-product-version-specs">
-        <ProductSpec label="Material" value={version.material || '-'} />
-        <ProductSpec label="Color" value={version.color || '-'} />
-        <ProductSpec label="Size" value={formatDimensions(version)} />
-      </dl>
-      <div className="designer-product-footer">
-        <strong>{formatCatalogPrice(version.estimatedPrice)}</strong>
-        <div className="designer-product-actions">
-          <button className="designer-product-asset-button" type="button" onClick={onPreview}>
-            <IconCube size={15} />
-            3D Assets
-          </button>
-          <button className="designer-product-add-button" type="button" aria-label={`Add ${version.versionName} from ${product.productName}`}>
-            <IconPlus size={15} />
-            Add
-          </button>
+        <div className="designer-product-version-tags">
+          {getVersionBadges(version).map((badge) => (
+            <span key={badge}>{badge}</span>
+          ))}
+        </div>
+        <dl className="designer-product-version-specs">
+          <ProductSpec label="Material" value={version.material || '-'} />
+          <ProductSpec label="Color" value={version.color || '-'} />
+          <ProductSpec label="Size" value={formatDimensions(version)} />
+        </dl>
+        <div className="designer-product-footer">
+          <div className="designer-product-version-price">
+            <small>Estimated price</small>
+            <strong>{formatCatalogPrice(version.estimatedPrice)}</strong>
+          </div>
+          <div className="designer-product-actions">
+            <button className="designer-product-asset-button" type="button" onClick={onPreview}>
+              <IconCube size={15} />
+              3D Assets
+            </button>
+            <button className="designer-product-add-button" type="button" aria-label={`Add ${version.versionName} from ${product.productName}`}>
+              <IconPlus size={15} />
+              Add
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -470,6 +511,25 @@ function formatDimensions(version: ProductVersionDto) {
   ].filter(Boolean);
 
   return dimensions.length > 0 ? `${dimensions.join(' x ')} cm` : '-';
+}
+
+const businessTypeLabels: Record<string, string> = {
+  'cua hang ban nhac cu': 'Musical Instrument Store',
+  'cua hang lam dep': 'Beauty Salon',
+  'cua hang thoi trang': 'Fashion Store',
+  'cua hang tien loi': 'Convenience Store',
+  khac: 'Other',
+  'kiosk ban le': 'Retail Kiosk',
+  'nha hang': 'Restaurant',
+  'quan ca phe': 'Coffee Shop',
+  showroom: 'Showroom',
+  spa: 'Spa',
+};
+
+function getBusinessTypeLabel(name: string) {
+  const normalized = name.trim().toLowerCase().replace(/\s+/g, ' ');
+
+  return businessTypeLabels[normalized] ?? name.trim().replace(/\b\p{L}/gu, (letter) => letter.toUpperCase());
 }
 
 function formatEnumLabel(value: string) {

@@ -154,6 +154,7 @@ export {
   useProductDetail,
   useProductList,
   useProductPreviewImages,
+  useProductVersionDetail,
   useProductVersionsByProduct,
   useProjectCatalogProduct,
   useProjectCatalogProducts,

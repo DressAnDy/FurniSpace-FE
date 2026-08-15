@@ -16,6 +16,7 @@ import {
   getFilesByReference,
   getProductById,
   getProductPreviewImages,
+  getProductVersionById,
   getProductVersionsByProduct,
   getProjectCatalogProduct,
   getProjectCatalogProducts,
@@ -51,6 +52,7 @@ export const productQueryKeys = {
   projectCatalogProduct: (projectId: string, productId: string) => ['products', 'project-catalog', projectId, 'product', productId] as const,
   projectCatalogVersion: (projectId: string, productVersionId: string) => ['products', 'project-catalog', projectId, 'version', productVersionId] as const,
   versionsByProduct: (productId: string, params?: ProductVersionListQueryDto) => ['products', 'versions', productId, params] as const,
+  versionDetail: (productVersionId: string) => ['products', 'version-detail', productVersionId] as const,
   previewImages: (productId: string) => ['products', 'preview-images', productId] as const,
   filesByReference: (params: FileReferenceListParams) => ['products', 'files-by-reference', params] as const,
 };
@@ -116,6 +118,15 @@ export function useAdminCatalogProducts(params?: AdminCatalogQueryDto, enabled =
     queryKey: productQueryKeys.adminCatalog(params),
     queryFn: () => getAdminCatalogProducts(params),
     enabled,
+  });
+}
+
+export function useProductVersionDetail(productVersionId?: string, enabled = true) {
+  return useQuery({
+    queryKey: productQueryKeys.versionDetail(productVersionId ?? ''),
+    queryFn: () => getProductVersionById(productVersionId ?? ''),
+    enabled: Boolean(productVersionId) && enabled,
+    staleTime: 5 * 60 * 1000,
   });
 }
 
