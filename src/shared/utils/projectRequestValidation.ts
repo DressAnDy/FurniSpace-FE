@@ -39,6 +39,21 @@ export function validateOptionalNonNegativeNumber(
   return { ok: true, value };
 }
 
+export function validateOptionalPositiveNumber(
+  value: number | null,
+  label: string,
+): OptionalNumberValidationResult {
+  if (value == null) return { ok: true, value: null };
+  if (!Number.isFinite(value)) {
+    return { ok: false, message: `${label} must be a valid number.` };
+  }
+  if (value <= 0) {
+    return { ok: false, message: `${label} must be greater than 0.` };
+  }
+
+  return { ok: true, value };
+}
+
 export function validateOptionalPositiveInteger(
   value: number | null,
   label: string,

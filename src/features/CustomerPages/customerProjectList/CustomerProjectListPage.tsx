@@ -282,15 +282,15 @@ function formatDate(value: string) {
   }).format(new Date(value));
 }
 
+/** Matches backend PaymentStatus enum ordinals (see services/api/payments.ts). */
 const paymentStatusByNumber: Record<number, string> = {
   0: 'PENDING',
   1: 'PROCESSING',
-  2: 'LEGACY_PARTIALLY_PAID',
-  3: 'PAID',
-  4: 'FAILED',
-  5: 'CANCELLED',
-  6: 'EXPIRED',
-  7: 'REFUNDED',
+  2: 'PAID',
+  3: 'FAILED',
+  4: 'CANCELLED',
+  5: 'EXPIRED',
+  6: 'REFUNDED',
 };
 
 function isCollectablePaymentStatus(status?: string | null) {
@@ -323,7 +323,7 @@ function normalizePaymentStatus(value: unknown) {
 }
 
 function normalizeLegacyPaymentStatus(status: string) {
-  if (status === 'PARTIALLY_PAID') return 'LEGACY_PARTIALLY_PAID';
+  if (status === 'PARTIALLY_PAID' || status === 'LEGACY_PARTIALLY_PAID') return 'PAID';
 
   return status;
 }

@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { getProjectAreaServiceResultMessage, type ProjectAreaDto, type ProjectAreaStatus, type ProjectAreaWriteInput } from '@/services/api/projectAreas';
 import type { ProjectDto } from '@/services/api/projects';
 import { useCreateProjectArea, useProjectAreas, useUpdateProjectArea } from '@/services/queries';
+import { validateOptionalPositiveInteger, validateOptionalPositiveNumber } from '@/shared/utils/projectRequestValidation';
 
 type ProjectAreasTabProps = {
   project: ProjectDto;
@@ -22,6 +23,12 @@ type AreaDraft = {
   width: string;
 };
 
+type NumericAreaField = 'floorNumber' | 'areaSqm' | 'width' | 'length' | 'height';
+
+type AreaFieldErrors = Partial<Record<'areaName' | NumericAreaField, string>>;
+
+const LOCKED_AREA_STATUS: ProjectAreaStatus = 'VERIFIED';
+
 const DEFAULT_AREA_DRAFT: AreaDraft = {
   areaName: '',
   areaSqm: '',
@@ -31,15 +38,22 @@ const DEFAULT_AREA_DRAFT: AreaDraft = {
   height: '',
   length: '',
   requirementNote: '',
-  status: 'NEED_MEASUREMENT',
+  status: LOCKED_AREA_STATUS,
   width: '',
 };
 
-const areaStatusOptions: ProjectAreaStatus[] = ['DRAFT', 'NEED_MEASUREMENT', 'MEASURED', 'VERIFIED', 'CANCELLED'];
+const NUMERIC_FIELD_LABELS: Record<NumericAreaField, string> = {
+  floorNumber: 'Floor',
+  areaSqm: 'Area m2',
+  width: 'Width (m)',
+  length: 'Length (m)',
+  height: 'Height (m)',
+};
 
-export function ProjectAreasTab({ project }: ProjectAreasTabProps) {
+export function ProjectAreasTab({ project }: Readonly<ProjectAreasTabProps>) {
   const [areaDraft, setAreaDraft] = useState<AreaDraft>(DEFAULT_AREA_DRAFT);
   const [editingAreaId, setEditingAreaId] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<AreaFieldErrors>({});
   const [message, setMessage] = useState('');
   const [messageTone, setMessageTone] = useState<'error' | 'success'>('success');
   const areasQuery = useProjectAreas({
@@ -53,17 +67,37 @@ export function ProjectAreasTab({ project }: ProjectAreasTabProps) {
   const isSavingArea = createAreaMutation.isPending || updateAreaMutation.isPending;
 
   function updateDraft<K extends keyof AreaDraft>(field: K, value: AreaDraft[K]) {
-    setAreaDraft({ ...areaDraft, [field]: value });
+    setAreaDraft((current) => ({ ...current, [field]: value }));
+    setFieldErrors((current) => {
+      if (!(field in current)) return current;
+
+      const next = { ...current };
+      delete next[field as keyof AreaFieldErrors];
+      return next;
+    });
+  }
+
+  function updateNumericDraft(field: NumericAreaField, rawValue: string) {
+    const sanitized = field === 'floorNumber' ? sanitizeIntegerInput(rawValue) : sanitizeDecimalInput(rawValue);
+    updateDraft(field, sanitized);
   }
 
   async function saveArea() {
     const areaName = areaDraft.areaName.trim();
+    const nextFieldErrors = getAreaFieldErrors(areaDraft);
 
+    setFieldErrors(nextFieldErrors);
     setMessage('');
     setMessageTone('error');
 
     if (!areaName) {
       setMessage('Area name is required.');
+      return;
+    }
+
+    const firstNumericError = Object.values(nextFieldErrors).find(Boolean);
+    if (firstNumericError) {
+      setMessage(firstNumericError);
       return;
     }
 
@@ -80,7 +114,7 @@ export function ProjectAreasTab({ project }: ProjectAreasTabProps) {
         height: parseOptionalNumber(areaDraft.height),
         length: parseOptionalNumber(areaDraft.length),
         requirementNote: areaDraft.requirementNote,
-        status: areaDraft.status,
+        status: LOCKED_AREA_STATUS,
         width: parseOptionalNumber(areaDraft.width),
       };
       const area = editingAreaId
@@ -99,12 +133,14 @@ export function ProjectAreasTab({ project }: ProjectAreasTabProps) {
   function startUpdateArea(area: ProjectAreaDto) {
     setEditingAreaId(area.projectAreaId);
     setAreaDraft(getAreaDraft(area));
+    setFieldErrors({});
     setMessage('');
   }
 
   function resetAreaForm() {
     setEditingAreaId(null);
     setAreaDraft(DEFAULT_AREA_DRAFT);
+    setFieldErrors({});
   }
 
   return (
@@ -135,34 +171,59 @@ export function ProjectAreasTab({ project }: ProjectAreasTabProps) {
           <div className="designer-project-area-form">
             <label>
               <span>Area Name</span>
-              <input value={areaDraft.areaName} onChange={(event) => updateDraft('areaName', event.target.value)} />
+              <input
+                aria-invalid={Boolean(fieldErrors.areaName)}
+                className={fieldErrors.areaName ? 'designer-project-area-input-invalid' : undefined}
+                title={fieldErrors.areaName}
+                value={areaDraft.areaName}
+                onChange={(event) => updateDraft('areaName', event.target.value)}
+              />
             </label>
             <label>
               <span>Status</span>
-              <select value={areaDraft.status} onChange={(event) => updateDraft('status', event.target.value as ProjectAreaStatus)}>
-                {areaStatusOptions.map((status) => <option key={status} value={status}>{formatEnumLabel(status)}</option>)}
-              </select>
+              <input
+                aria-readonly="true"
+                className="designer-project-area-status-locked"
+                readOnly
+                title="Status is locked to Verified"
+                value={formatEnumLabel(LOCKED_AREA_STATUS)}
+              />
             </label>
-            <label>
-              <span>Floor</span>
-              <input inputMode="numeric" value={areaDraft.floorNumber} onChange={(event) => updateDraft('floorNumber', event.target.value)} />
-            </label>
-            <label>
-              <span>Area m2</span>
-              <input inputMode="decimal" value={areaDraft.areaSqm} onChange={(event) => updateDraft('areaSqm', event.target.value)} />
-            </label>
-            <label>
-              <span>Width (m)</span>
-              <input inputMode="decimal" value={areaDraft.width} onChange={(event) => updateDraft('width', event.target.value)} />
-            </label>
-            <label>
-              <span>Length (m)</span>
-              <input inputMode="decimal" value={areaDraft.length} onChange={(event) => updateDraft('length', event.target.value)} />
-            </label>
-            <label>
-              <span>Height (m)</span>
-              <input inputMode="decimal" value={areaDraft.height} onChange={(event) => updateDraft('height', event.target.value)} />
-            </label>
+            <NumericAreaInput
+              error={fieldErrors.floorNumber}
+              inputMode="numeric"
+              label="Floor"
+              value={areaDraft.floorNumber}
+              onChange={(value) => updateNumericDraft('floorNumber', value)}
+            />
+            <NumericAreaInput
+              error={fieldErrors.areaSqm}
+              inputMode="decimal"
+              label="Area m2"
+              value={areaDraft.areaSqm}
+              onChange={(value) => updateNumericDraft('areaSqm', value)}
+            />
+            <NumericAreaInput
+              error={fieldErrors.width}
+              inputMode="decimal"
+              label="Width (m)"
+              value={areaDraft.width}
+              onChange={(value) => updateNumericDraft('width', value)}
+            />
+            <NumericAreaInput
+              error={fieldErrors.length}
+              inputMode="decimal"
+              label="Length (m)"
+              value={areaDraft.length}
+              onChange={(value) => updateNumericDraft('length', value)}
+            />
+            <NumericAreaInput
+              error={fieldErrors.height}
+              inputMode="decimal"
+              label="Height (m)"
+              value={areaDraft.height}
+              onChange={(value) => updateNumericDraft('height', value)}
+            />
             <label className="designer-project-area-note">
               <span>Description</span>
               <textarea value={areaDraft.description} onChange={(event) => updateDraft('description', event.target.value)} />
@@ -183,7 +244,7 @@ export function ProjectAreasTab({ project }: ProjectAreasTabProps) {
               ) : null}
               <button disabled={isSavingArea || !areaDraft.areaName.trim()} type="button" onClick={() => void saveArea()}>
                 {isEditingArea ? <IconEdit size={16} /> : <IconPlus size={16} />}
-                {isSavingArea ? 'Saving...' : isEditingArea ? 'Update Area' : 'Create Area'}
+                {getSaveButtonLabel(isSavingArea, isEditingArea)}
               </button>
             </div>
           </div>
@@ -201,7 +262,42 @@ export function ProjectAreasTab({ project }: ProjectAreasTabProps) {
   );
 }
 
-function ProjectAreaItem({ area, onUpdate }: { area: ProjectAreaDto; onUpdate: (area: ProjectAreaDto) => void }) {
+function NumericAreaInput({
+  error,
+  inputMode,
+  label,
+  onChange,
+  value,
+}: Readonly<{
+  error?: string;
+  inputMode: 'decimal' | 'numeric';
+  label: string;
+  onChange: (value: string) => void;
+  value: string;
+}>) {
+  return (
+    <label>
+      <span>{label}</span>
+      <input
+        aria-invalid={Boolean(error)}
+        autoComplete="off"
+        className={error ? 'designer-project-area-input-invalid' : undefined}
+        inputMode={inputMode}
+        title={error}
+        type="text"
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        onKeyDown={(event) => {
+          if (event.key === '-' || event.key === 'e' || event.key === 'E' || event.key === '+') {
+            event.preventDefault();
+          }
+        }}
+      />
+    </label>
+  );
+}
+
+function ProjectAreaItem({ area, onUpdate }: Readonly<{ area: ProjectAreaDto; onUpdate: (area: ProjectAreaDto) => void }>) {
   return (
     <article className="designer-project-area-item">
       <div className="designer-project-area-item-main">
@@ -229,6 +325,24 @@ function ProjectAreaItem({ area, onUpdate }: { area: ProjectAreaDto; onUpdate: (
   );
 }
 
+function getAreaFieldErrors(draft: AreaDraft): AreaFieldErrors {
+  const fieldErrors: AreaFieldErrors = {};
+
+  if (!draft.areaName.trim()) {
+    fieldErrors.areaName = 'Area name is required.';
+  }
+
+  const floorNumber = validateOptionalPositiveInteger(parseOptionalNumber(draft.floorNumber), NUMERIC_FIELD_LABELS.floorNumber);
+  if (!floorNumber.ok) fieldErrors.floorNumber = floorNumber.message;
+
+  (['areaSqm', 'width', 'length', 'height'] as const).forEach((field) => {
+    const result = validateOptionalPositiveNumber(parseOptionalNumber(draft[field]), NUMERIC_FIELD_LABELS[field]);
+    if (!result.ok) fieldErrors[field] = result.message;
+  });
+
+  return fieldErrors;
+}
+
 function getAreaDraft(area: ProjectAreaDto): AreaDraft {
   return {
     areaName: area.areaName,
@@ -239,15 +353,34 @@ function getAreaDraft(area: ProjectAreaDto): AreaDraft {
     height: formatDraftNumber(area.height),
     length: formatDraftNumber(area.length),
     requirementNote: area.requirementNote ?? '',
-    status: area.status,
+    status: LOCKED_AREA_STATUS,
     width: formatDraftNumber(area.width),
   };
+}
+
+function sanitizeIntegerInput(value: string) {
+  return value.replace(/\D/g, '');
+}
+
+function sanitizeDecimalInput(value: string) {
+  const normalized = value.replace(',', '.');
+  const cleaned = normalized.replace(/[^\d.]/g, '');
+  const separatorIndex = cleaned.indexOf('.');
+
+  if (separatorIndex < 0) {
+    return cleaned;
+  }
+
+  const whole = cleaned.slice(0, separatorIndex).replace(/\D/g, '');
+  const fraction = cleaned.slice(separatorIndex + 1).replace(/\D/g, '');
+
+  return fraction ? `${whole}.${fraction}` : `${whole}.`;
 }
 
 function parseOptionalNumber(value: string) {
   const normalizedValue = value.trim().replace(',', '.');
 
-  if (!normalizedValue) {
+  if (!normalizedValue || normalizedValue === '.') {
     return null;
   }
 
@@ -272,4 +405,9 @@ function formatEnumLabel(value: string) {
     .split('_')
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(' ');
+}
+
+function getSaveButtonLabel(isSavingArea: boolean, isEditingArea: boolean) {
+  if (isSavingArea) return 'Saving...';
+  return isEditingArea ? 'Update Area' : 'Create Area';
 }
