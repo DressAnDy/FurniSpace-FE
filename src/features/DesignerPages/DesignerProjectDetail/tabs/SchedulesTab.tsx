@@ -1,5 +1,5 @@
 import { IconCalendarEvent, IconClock, IconMapPin, IconUsers } from '@tabler/icons-react';
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 
 import type { ProjectDto } from '@/services/api/projects';
 import { getProjectScheduleServiceResultMessage } from '@/services/api/schedules';
@@ -9,7 +9,7 @@ type SchedulesTabProps = {
   project: ProjectDto;
 };
 
-export function SchedulesTab({ project }: SchedulesTabProps) {
+export function SchedulesTab({ project }: Readonly<SchedulesTabProps>) {
   const [statusMessage, setStatusMessage] = useState('');
   const schedulesQuery = useProjectScheduleList({
     projectId: project.projectId,
@@ -57,25 +57,29 @@ export function SchedulesTab({ project }: SchedulesTabProps) {
                 </div>
                 <div>
                   <h4>{schedule.title ?? formatEnumLabel(schedule.scheduleType)}</h4>
-                  <p>{formatEnumLabel(schedule.scheduleType)} - {formatEnumLabel(schedule.status)}</p>
+                  <p>
+                    <span className="designer-project-schedule-type">{formatEnumLabel(schedule.scheduleType)}</span>
+                    <span className={`designer-project-schedule-status is-${getScheduleStatusTone(schedule.status)}`}>
+                      {formatEnumLabel(schedule.status)}
+                    </span>
+                  </p>
                 </div>
               </div>
               {schedule.description ? <p className="designer-project-schedule-description">{schedule.description}</p> : null}
               <div className="designer-project-schedule-meta-grid">
-                <span className="designer-project-schedule-meta">
-                  <IconClock size={15} />
-                  {formatDateTimeRange(schedule.scheduledStart, schedule.scheduledEnd)}
-                </span>
-                {schedule.location ? (
-                  <span className="designer-project-schedule-meta">
-                    <IconMapPin size={15} />
-                    {schedule.location}
-                  </span>
-                ) : null}
-                <span className="designer-project-schedule-meta">
-                  <IconUsers size={15} />
-                  Assigned to you
-                </span>
+                <ScheduleMeta
+                  icon={<IconClock size={16} stroke={1.9} />}
+                  label="When"
+                  value={formatScheduleDate(schedule.scheduledStart, schedule.scheduledEnd)}
+                  hint={formatScheduleTime(schedule.scheduledStart, schedule.scheduledEnd)}
+                />
+                <ScheduleMeta
+                  icon={<IconMapPin size={16} stroke={1.9} />}
+                  label="Location"
+                  value={schedule.location || 'Not specified'}
+                  isMuted={!schedule.location}
+                />
+                <ScheduleMeta icon={<IconUsers size={16} stroke={1.9} />} label="Assignee" value="Assigned to you" />
               </div>
             </div>
             {schedule.status === 'CONFIRMED' ? (
@@ -95,6 +99,39 @@ export function SchedulesTab({ project }: SchedulesTabProps) {
   );
 }
 
+type ScheduleMetaProps = {
+  hint?: string | null;
+  icon: ReactNode;
+  isMuted?: boolean;
+  label: string;
+  value: string;
+};
+
+function ScheduleMeta({ hint, icon, isMuted, label, value }: Readonly<ScheduleMetaProps>) {
+  return (
+    <div className="designer-project-schedule-meta">
+      <span className="designer-project-schedule-meta-icon">{icon}</span>
+      <div className="designer-project-schedule-meta-copy">
+        <small>{label}</small>
+        <strong className={isMuted ? 'is-muted' : undefined} title={value}>
+          {value}
+        </strong>
+        {hint ? <span>{hint}</span> : null}
+      </div>
+    </div>
+  );
+}
+
+function getScheduleStatusTone(status: string) {
+  const normalized = status.trim().toUpperCase();
+
+  if (normalized === 'COMPLETED') return 'done';
+  if (normalized === 'CONFIRMED') return 'active';
+  if (normalized === 'CANCELLED' || normalized === 'REJECTED') return 'danger';
+
+  return 'pending';
+}
+
 function formatEnumLabel(value: string) {
   return value
     .toLowerCase()
@@ -103,19 +140,43 @@ function formatEnumLabel(value: string) {
     .join(' ');
 }
 
-function formatDateTimeRange(start: string, end: string | null) {
-  const startText = formatDateTime(start);
-  const endText = end ? formatDateTime(end) : null;
+function formatScheduleDate(start: string, end: string | null) {
+  const startDate = new Date(start);
+  const endDate = end ? new Date(end) : null;
 
-  return endText ? `${startText} - ${endText}` : startText;
+  if (!endDate || isSameDay(startDate, endDate)) {
+    return formatDatePart(startDate);
+  }
+
+  return `${formatDatePart(startDate)} → ${formatDatePart(endDate)}`;
 }
 
-function formatDateTime(value: string) {
+function formatScheduleTime(start: string, end: string | null) {
+  const startDate = new Date(start);
+  const endDate = end ? new Date(end) : null;
+
+  if (!endDate) {
+    return formatTimePart(startDate);
+  }
+
+  return `${formatTimePart(startDate)} – ${formatTimePart(endDate)}`;
+}
+
+function isSameDay(first: Date, second: Date) {
+  return first.toDateString() === second.toDateString();
+}
+
+function formatDatePart(value: Date) {
   return new Intl.DateTimeFormat('en', {
     day: '2-digit',
     month: 'short',
     year: 'numeric',
+  }).format(value);
+}
+
+function formatTimePart(value: Date) {
+  return new Intl.DateTimeFormat('en', {
     hour: '2-digit',
     minute: '2-digit',
-  }).format(new Date(value));
+  }).format(value);
 }

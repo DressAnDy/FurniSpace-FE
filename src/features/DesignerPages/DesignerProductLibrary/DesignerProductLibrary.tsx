@@ -123,47 +123,73 @@ export function DesignerProductLibrary() {
       </section>
 
       {!selectedCard ? (
-        <section className="designer-card designer-products-toolbar">
-          <label className="designer-products-search">
-            <IconSearch size={18} />
-            <input
-              placeholder="Search product, material, code..."
-              type="search"
-              value={search}
-              onChange={(event) => updateSearch(event.target.value)}
-            />
-          </label>
-          <div className="designer-products-filters">
-            {versionFilters.map((filter) => (
-              <button
-                className={activeFilter === filter ? 'is-active' : ''}
-                key={filter}
-                type="button"
-                onClick={() => updateFilter(filter)}
-              >
-                {filter}
-              </button>
-            ))}
-            <span>{visibleCards.reduce((total, card) => total + card.versions.length, 0)} versions</span>
+        <form
+          className="designer-card designer-products-toolbar"
+          role="search"
+          aria-label="Filter product library"
+          onSubmit={(event) => event.preventDefault()}
+        >
+          <div className="designer-products-toolbar-top">
+            <label className="designer-products-search">
+              <IconSearch size={18} />
+              <input
+                placeholder="Search product, material, code..."
+                type="search"
+                value={search}
+                onChange={(event) => updateSearch(event.target.value)}
+              />
+            </label>
+            <span className="designer-products-filter-count">
+              {visibleCards.reduce((total, card) => total + card.versions.length, 0)} versions
+            </span>
           </div>
-          <div className="designer-products-filters designer-products-business-filters">
-            {businessTypeOptions.map((businessType) => (
-              <button
-                className={businessTypeFilterIds.includes(businessType.id) ? 'is-active' : ''}
-                key={businessType.id}
-                type="button"
-                onClick={() => toggleBusinessTypeFilter(businessType.id)}
-              >
-                {businessType.name}
-              </button>
-            ))}
-            {businessTypeFilterIds.length > 0 ? (
-              <button type="button" onClick={() => setBusinessTypeFilterIds([])}>
-                Clear Business Type
-              </button>
-            ) : null}
+
+          <div className="designer-products-filter-row">
+            <span className="designer-products-filter-label" id="designer-products-version-filter-label">
+              Version type
+            </span>
+            <fieldset className="designer-products-filter-options" aria-labelledby="designer-products-version-filter-label">
+              {versionFilters.map((filter) => (
+                <button
+                  aria-pressed={activeFilter === filter}
+                  className={activeFilter === filter ? 'is-active' : ''}
+                  key={filter}
+                  type="button"
+                  onClick={() => updateFilter(filter)}
+                >
+                  {filter}
+                </button>
+              ))}
+            </fieldset>
           </div>
-        </section>
+
+          {businessTypeOptions.length > 0 ? (
+            <div className="designer-products-filter-row">
+              <span className="designer-products-filter-label" id="designer-products-business-filter-label">
+                Business type
+              </span>
+              <fieldset className="designer-products-filter-options" aria-labelledby="designer-products-business-filter-label">
+                {businessTypeOptions.map((businessType) => (
+                  <button
+                    aria-pressed={businessTypeFilterIds.includes(businessType.id)}
+                    className={businessTypeFilterIds.includes(businessType.id) ? 'is-active' : ''}
+                    key={businessType.id}
+                    type="button"
+                    onClick={() => toggleBusinessTypeFilter(businessType.id)}
+                  >
+                    {getBusinessTypeLabel(businessType.name)}
+                  </button>
+                ))}
+                {businessTypeFilterIds.length > 0 ? (
+                  <button className="designer-products-filter-clear" type="button" onClick={() => setBusinessTypeFilterIds([])}>
+                    <IconX size={13} />
+                    Clear
+                  </button>
+                ) : null}
+              </fieldset>
+            </div>
+          ) : null}
+        </form>
       ) : null}
 
       {productListQuery.isError ? (
@@ -301,7 +327,9 @@ function ProductVersionList({ card, onCreateVersion }: { card: ProductLibraryCar
           <div className="designer-product-summary">
             <span>{versions.length} version{versions.length === 1 ? '' : 's'}</span>
             <span>{card.hasModel3d ? 'Has MODEL_3D' : 'No model yet'}</span>
-            {(product.businessTypes ?? []).map((businessType) => <span key={businessType.id}>{businessType.name}</span>)}
+            {(product.businessTypes ?? []).map((businessType) => (
+              <span key={businessType.id}>{getBusinessTypeLabel(businessType.name)}</span>
+            ))}
           </div>
           <button className="designer-product-create-version-button" type="button" onClick={() => onCreateVersion(product.productId)}>
             <IconPlus size={15} />
@@ -470,6 +498,25 @@ function formatDimensions(version: ProductVersionDto) {
   ].filter(Boolean);
 
   return dimensions.length > 0 ? `${dimensions.join(' x ')} cm` : '-';
+}
+
+const businessTypeLabels: Record<string, string> = {
+  'cua hang ban nhac cu': 'Musical Instrument Store',
+  'cua hang lam dep': 'Beauty Salon',
+  'cua hang thoi trang': 'Fashion Store',
+  'cua hang tien loi': 'Convenience Store',
+  khac: 'Other',
+  'kiosk ban le': 'Retail Kiosk',
+  'nha hang': 'Restaurant',
+  'quan ca phe': 'Coffee Shop',
+  showroom: 'Showroom',
+  spa: 'Spa',
+};
+
+function getBusinessTypeLabel(name: string) {
+  const normalized = name.trim().toLowerCase().replace(/\s+/g, ' ');
+
+  return businessTypeLabels[normalized] ?? name.trim().replace(/\b\p{L}/gu, (letter) => letter.toUpperCase());
 }
 
 function formatEnumLabel(value: string) {
