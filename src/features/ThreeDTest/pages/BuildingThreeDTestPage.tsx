@@ -485,6 +485,18 @@ export function BuildingThreeDTestPage() {
     : detailLimit < (productListQuery.data?.items.length ?? 0);
 
   useEffect(() => {
+    if (!message) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      setMessage('');
+    }, 3000);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [message]);
+
+  useEffect(() => {
     if (sceneId || !routeState?.areas?.length) {
       return;
     }
