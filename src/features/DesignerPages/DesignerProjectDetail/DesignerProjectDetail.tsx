@@ -82,15 +82,6 @@ export function DesignerProjectDetail() {
       ]
     : [];
 
-  function openProposalWorkspace() {
-    if (!project) {
-      return;
-    }
-
-    setProjectActionMessage(null);
-    setActiveTab('proposals');
-  }
-
   async function updateProjectToNextDesignStatus() {
     if (!project) {
       return;
