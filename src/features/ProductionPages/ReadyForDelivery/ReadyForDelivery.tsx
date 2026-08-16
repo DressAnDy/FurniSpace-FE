@@ -1,25 +1,30 @@
 import { useEffect, useMemo, useState } from 'react';
 import { IconClipboardCheck, IconNotes, IconPackage, IconTruckDelivery } from '@tabler/icons-react';
-import { Link } from 'react-router-dom';
 
 import { ProductionLayout, ProductionStatusBadge, ProductionSummaryCard } from '@/features/ProductionPages/productioncomponents';
-import { formatDate, getProductionRequestStatusLabel } from '@/features/ProductionPages/utils';
+import { formatDate } from '@/features/ProductionPages/utils';
 import { getOrderServiceResultMessage, type OrderItemDto } from '@/services/api/orders';
 import { getProjectScheduleServiceResultMessage } from '@/services/api/schedules';
 import {
+  useCompleteOrderDelivery,
   useOrderDetail,
   useProductionRequests,
   useProjectScheduleList,
   useStartOrderDelivery,
-  useUpdateOrderItemDeliveredQuantity,
 } from '@/services/queries';
 
 export function ReadyForDelivery() {
   const [selectedProductionRequestId, setSelectedProductionRequestId] = useState('');
-  const [deliveredQuantityInputs, setDeliveredQuantityInputs] = useState<Record<string, string>>({});
+  const [requestPage, setRequestPage] = useState(1);
   const [message, setMessage] = useState<{ tone: 'error' | 'success'; text: string } | null>(null);
   const readyRequestsQuery = useProductionRequests({ status: 'COMPLETED' });
   const readyRequests = useMemo(() => readyRequestsQuery.data?.items ?? [], [readyRequestsQuery.data?.items]);
+  const requestPageSize = 4;
+  const requestPageCount = Math.max(Math.ceil(readyRequests.length / requestPageSize), 1);
+  const pagedReadyRequests = useMemo(
+    () => readyRequests.slice((requestPage - 1) * requestPageSize, requestPage * requestPageSize),
+    [readyRequests, requestPage],
+  );
   const selectedRequest = readyRequests.find((request) => request.productionRequestId === selectedProductionRequestId) ?? readyRequests[0] ?? null;
   const orderDetailQuery = useOrderDetail(selectedRequest?.orderId, { enabled: Boolean(selectedRequest?.orderId) });
   const order = orderDetailQuery.data ?? null;
@@ -34,7 +39,7 @@ export function ReadyForDelivery() {
       : undefined,
   );
   const startDeliveryMutation = useStartOrderDelivery();
-  const deliveredQuantityMutation = useUpdateOrderItemDeliveredQuantity();
+  const completeDeliveryMutation = useCompleteOrderDelivery();
   const deliverableItems = useMemo(
     () => (order?.items ?? []).filter((item) => (item.quantity ?? 0) > 0 && item.status !== 'UNAVAILABLE' && item.status !== 'CANCELLED'),
     [order?.items],
@@ -50,55 +55,30 @@ export function ReadyForDelivery() {
     }
   }, [readyRequests, selectedProductionRequestId]);
 
+  useEffect(() => {
+    setRequestPage((currentPage) => Math.min(currentPage, requestPageCount));
+  }, [requestPageCount]);
+
   async function startDelivery() {
     if (!order) return;
     setMessage(null);
 
     try {
       await startDeliveryMutation.mutateAsync(order.orderId);
-      setMessage({ tone: 'success', text: 'Delivery started. You can now update delivered quantity.' });
+      setMessage({ tone: 'success', text: 'Delivery started. Complete delivery when the full order has arrived.' });
       void orderDetailQuery.refetch();
     } catch (error) {
       setMessage({ tone: 'error', text: getOrderServiceResultMessage(error) });
     }
   }
 
-  async function updateDeliveredQuantityGroup(group: OrderItemGroup, increment: number) {
+  async function completeDelivery() {
+    if (!order) return;
     setMessage(null);
 
-    if (!Number.isFinite(increment) || increment <= 0) {
-      setMessage({ tone: 'error', text: 'Delivered quantity must be greater than 0.' });
-      return;
-    }
-
-    if (increment > group.remainingQuantity) {
-      setMessage({ tone: 'error', text: 'Delivered quantity cannot exceed remaining quantity.' });
-      return;
-    }
-
     try {
-      let remainingIncrement = increment;
-
-      for (const item of group.items) {
-        if (remainingIncrement <= 0) break;
-
-        const itemRemainingQuantity = Math.max((item.quantity ?? 0) - (item.deliveredQuantity ?? 0), 0);
-
-        if (itemRemainingQuantity <= 0) continue;
-
-        const itemIncrement = Math.min(itemRemainingQuantity, remainingIncrement);
-
-        await deliveredQuantityMutation.mutateAsync({
-          deliveredQuantityIncrement: itemIncrement,
-          deliveryNote: 'Delivered by production staff.',
-          orderItemId: item.orderItemId,
-        });
-
-        remainingIncrement -= itemIncrement;
-      }
-
-      setMessage({ tone: 'success', text: 'Delivered quantity updated.' });
-      setDeliveredQuantityInputs((current) => ({ ...current, [group.key]: '' }));
+      const result = await completeDeliveryMutation.mutateAsync(order.orderId);
+      setMessage({ tone: 'success', text: `Delivery completed for ${result.deliveredItemCount} item(s). Waiting for customer confirmation.` });
       void orderDetailQuery.refetch();
     } catch (error) {
       setMessage({ tone: 'error', text: getOrderServiceResultMessage(error) });
@@ -112,7 +92,7 @@ export function ReadyForDelivery() {
           <div>
             <span>Production Workspace</span>
             <h2>Ready for Delivery</h2>
-            <p>Review completed production requests, start delivery when schedule is confirmed, and update delivered quantity per order item.</p>
+            <p>Review completed production requests, start delivery when schedule is confirmed, and complete delivery for the full order.</p>
           </div>
         </section>
 
@@ -134,8 +114,8 @@ export function ReadyForDelivery() {
           <ProductionSummaryCard icon={IconClipboardCheck} label="Delivering Orders" value={deliveringCount} />
         </section>
 
-        <section className="production-workspace-grid">
-          <article className="production-workspace-card">
+        <section className="production-workspace-grid production-ready-layout">
+          <article className="production-workspace-card production-ready-request-card">
             <header>
               <div>
                 <h3>Completed Production Requests</h3>
@@ -145,7 +125,7 @@ export function ReadyForDelivery() {
             <div className="production-workspace-list">
               {readyRequestsQuery.isLoading ? <p className="production-workspace-muted">Loading completed requests...</p> : null}
               {!readyRequestsQuery.isLoading && readyRequests.length === 0 ? <p className="production-workspace-muted">No completed production request is ready for delivery yet.</p> : null}
-              {readyRequests.map((request) => (
+              {pagedReadyRequests.map((request) => (
                 <button
                   className={`production-workspace-queue-card ${request.productionRequestId === selectedRequest?.productionRequestId ? 'is-active' : ''}`}
                   key={request.productionRequestId}
@@ -155,12 +135,26 @@ export function ReadyForDelivery() {
                     setMessage(null);
                   }}
                 >
-                  <strong>{request.productionCode}</strong>
-                  <p>{request.projectName} - {request.orderCode}</p>
+                  <strong>
+                    {request.projectName}
+                    <span>{request.productionCode}</span>
+                  </strong>
+                  <p>{request.orderCode}</p>
                   <small>{request.productionItemCount ?? 0} item(s) - completed {formatDate(request.updatedAt)}</small>
                 </button>
               ))}
             </div>
+            {readyRequests.length > requestPageSize ? (
+              <div className="production-ready-pagination">
+                <button disabled={requestPage === 1} type="button" onClick={() => setRequestPage((page) => Math.max(page - 1, 1))}>
+                  Previous
+                </button>
+                <span>{requestPage} / {requestPageCount}</span>
+                <button disabled={requestPage === requestPageCount} type="button" onClick={() => setRequestPage((page) => Math.min(page + 1, requestPageCount))}>
+                  Next
+                </button>
+              </div>
+            ) : null}
           </article>
 
           <article className="production-workspace-card">
@@ -169,7 +163,7 @@ export function ReadyForDelivery() {
                 <h3>Delivery Control</h3>
                 <p>Start delivery only after a confirmed delivery schedule exists.</p>
               </div>
-              {selectedRequest ? <ProductionStatusBadge label={getProductionRequestStatusLabel(selectedRequest.status)} status={selectedRequest.status} /> : null}
+              {order?.status ? <ProductionStatusBadge label={formatEnumLabel(order.status)} status={order.status} /> : null}
             </header>
             {selectedRequest && order ? (
               <div className="production-workspace-detail-grid">
@@ -182,100 +176,79 @@ export function ReadyForDelivery() {
               <p className="production-workspace-muted">Select a completed request to control delivery.</p>
             )}
             <div className="production-workspace-row-actions">
-              <button
-                disabled={!order || order.status !== 'READY_FOR_DELIVERY' || !confirmedDeliverySchedule || startDeliveryMutation.isPending}
-                type="button"
-                onClick={() => void startDelivery()}
-              >
-                Start Delivery
-              </button>
-              {selectedRequest ? <Link className="is-secondary" to={`/production/requests/${selectedRequest.productionRequestId}`}>View Production Detail</Link> : null}
+              {order?.status === 'READY_FOR_DELIVERY' ? (
+                <button
+                  disabled={!confirmedDeliverySchedule || startDeliveryMutation.isPending}
+                  type="button"
+                  onClick={() => void startDelivery()}
+                >
+                  Start Delivery
+                </button>
+              ) : null}
+              {order?.status === 'DELIVERING' ? (
+                <button
+                  disabled={completeDeliveryMutation.isPending}
+                  type="button"
+                  onClick={() => void completeDelivery()}
+                >
+                  {completeDeliveryMutation.isPending ? 'Completing...' : 'Complete Delivery'}
+                </button>
+              ) : null}
+            </div>
+
+            <div className="production-ready-deliverable-section">
+              <header>
+                <div>
+                  <h3>Deliverable Items</h3>
+                  <p>Delivery is completed once for the whole order. Item rows reflect backend delivery status.</p>
+                </div>
+              </header>
+              <div className="production-workspace-table-wrap production-ready-items-wrap">
+                <table className="production-workspace-table production-ready-items-table">
+                  <thead>
+                    <tr>
+                      <th>Item</th>
+                      <th>Ordered</th>
+                      <th>Status</th>
+                      <th>Delivered At</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {orderDetailQuery.isLoading ? (
+                      <tr>
+                        <td colSpan={4}>Loading order items...</td>
+                      </tr>
+                    ) : null}
+                    {!orderDetailQuery.isLoading && deliverableItemGroups.length === 0 ? (
+                      <tr>
+                        <td colSpan={4}>No deliverable product item is available.</td>
+                      </tr>
+                    ) : null}
+                    {deliverableItemGroups.map((group) => (
+                      <tr key={group.key}>
+                        <td>{group.name}</td>
+                        <td>{group.quantity}</td>
+                        <td>{group.statusSummary}</td>
+                        <td>{formatDate(group.deliveredAt)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </article>
         </section>
-
-        <article className="production-workspace-card">
-          <header>
-            <div>
-              <h3>Update Delivered Quantity</h3>
-              <p>Available when the order is DELIVERING. Customer confirms each item after full quantity is delivered.</p>
-            </div>
-          </header>
-          <div className="production-workspace-table-wrap">
-            <table className="production-workspace-table">
-              <thead>
-                <tr>
-                  <th>Item</th>
-                  <th>Ordered</th>
-                  <th>Delivered</th>
-                  <th>Status</th>
-                  <th>Last Delivered</th>
-                  <th>Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {orderDetailQuery.isLoading ? (
-                  <tr>
-                    <td colSpan={6}>Loading order items...</td>
-                  </tr>
-                ) : null}
-                {!orderDetailQuery.isLoading && deliverableItemGroups.length === 0 ? (
-                  <tr>
-                    <td colSpan={6}>No deliverable product item is available.</td>
-                  </tr>
-                ) : null}
-                {deliverableItemGroups.map((group) => (
-                  <tr key={group.key}>
-                    <td>{group.name}</td>
-                    <td>{group.quantity}</td>
-                    <td>{group.deliveredQuantity}</td>
-                    <td>{group.statusSummary}</td>
-                    <td>{formatDate(group.lastDeliveredAt)}</td>
-                    <td>
-                      <div className="production-workspace-row-actions">
-                        <input
-                          className="production-workspace-quantity-input"
-                          disabled={order?.status !== 'DELIVERING' || group.remainingQuantity <= 0}
-                          inputMode="numeric"
-                          min="1"
-                          max={group.remainingQuantity}
-                          placeholder={`Max ${group.remainingQuantity}`}
-                          type="number"
-                          value={deliveredQuantityInputs[group.key] ?? ''}
-                          onChange={(event) => setDeliveredQuantityInputs((current) => ({ ...current, [group.key]: event.target.value }))}
-                        />
-                        <button
-                          disabled={
-                            order?.status !== 'DELIVERING'
-                            || deliveredQuantityMutation.isPending
-                            || group.remainingQuantity <= 0
-                          }
-                          type="button"
-                          onClick={() => void updateDeliveredQuantityGroup(group, normalizePositiveInteger(deliveredQuantityInputs[group.key]))}
-                        >
-                          Update
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </article>
       </div>
     </ProductionLayout>
   );
 }
 
 type OrderItemGroup = {
-  deliveredQuantity: number;
+  deliveredAt?: string | null;
   items: OrderItemDto[];
   key: string;
-  lastDeliveredAt?: string | null;
   name: string;
   quantity: number;
-  remainingQuantity: number;
   statusSummary: string;
 };
 
@@ -308,35 +281,26 @@ function groupOrderItemsByName(items: OrderItemDto[]): OrderItemGroup[] {
 
   return Array.from(groupsByKey.entries()).map(([key, groupItems]) => {
     const quantity = sumItemNumbers(groupItems, 'quantity');
-    const deliveredQuantity = sumItemNumbers(groupItems, 'deliveredQuantity');
     const deliveredDates = groupItems
-      .map((item) => item.lastDeliveredAt)
+      .map((item) => item.deliveredAt)
       .filter((value): value is string => Boolean(value))
       .sort();
     const latestDeliveredAt = deliveredDates[deliveredDates.length - 1];
     const statuses = Array.from(new Set(groupItems.map((item) => item.status ?? 'PENDING')));
 
     return {
-      deliveredQuantity,
+      deliveredAt: latestDeliveredAt,
       items: groupItems,
       key,
-      lastDeliveredAt: latestDeliveredAt,
       name: getOrderItemName(groupItems[0] ?? {}),
       quantity,
-      remainingQuantity: Math.max(quantity - deliveredQuantity, 0),
       statusSummary: statuses.map(formatEnumLabel).join(', '),
     };
   });
 }
 
-function sumItemNumbers(items: OrderItemDto[], field: 'deliveredQuantity' | 'quantity') {
+function sumItemNumbers(items: OrderItemDto[], field: 'quantity') {
   return items.reduce((total, item) => total + (item[field] ?? 0), 0);
-}
-
-function normalizePositiveInteger(value?: string) {
-  const parsed = Number(value);
-
-  return Number.isFinite(parsed) ? Math.trunc(parsed) : 0;
 }
 
 function formatEnumLabel(value: string) {

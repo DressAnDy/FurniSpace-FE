@@ -6,7 +6,6 @@ import {
   IconHome,
   IconMenu2,
   IconTruckDelivery,
-  IconUserCheck,
   type Icon,
 } from '@tabler/icons-react';
 import { NavLink } from 'react-router-dom';
@@ -24,7 +23,6 @@ const productionSidebarItems: ProductionSidebarItem[] = [
   { label: 'Dashboard', icon: IconHome, path: '/production/dashbroad' },
   { label: 'Customization Reviews', icon: IconAdjustments, path: '/production/customization-reviews' },
   { label: 'Production Requests', icon: IconClipboardList, path: '/production/requests' },
-  { label: 'My Tasks', icon: IconUserCheck, path: '/production/my-tasks' },
   { label: 'Unavailable Items', icon: IconAlertTriangle, path: '/production/blocked-issues' },
   { label: 'Ready for Delivery', icon: IconTruckDelivery, path: '/production/ready-for-delivery' },
 ];

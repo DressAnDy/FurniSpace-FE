@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { IconCheck, IconClipboardList, IconClockCog } from '@tabler/icons-react';
 import { Link } from 'react-router-dom';
 
@@ -22,6 +22,16 @@ import './ProductionRequests.css';
 
 type RequestFilter = ProductionRequestStatus | 'ALL';
 
+const REQUEST_PAGE_SIZE = 5;
+
+const priorityRank: Record<Priority, number> = {
+  URGENT: 5,
+  HIGH: 4,
+  NORMAL: 3,
+  MEDIUM: 2,
+  LOW: 1,
+};
+
 const filters: Array<{ label: string; value: RequestFilter }> = [
   { label: 'All', value: 'ALL' },
   { label: 'Pending Review', value: 'PENDING_REVIEW' },
@@ -32,10 +42,11 @@ const filters: Array<{ label: string; value: RequestFilter }> = [
 ];
 
 export function ProductionRequests() {
-  const [statusFilter, setStatusFilter] = useState<RequestFilter>('ALL');
+  const [statusFilter, setStatusFilter] = useState<RequestFilter>('PENDING_REVIEW');
   const [priorityFilter, setPriorityFilter] = useState('ALL');
   const [assignedToMe, setAssignedToMe] = useState(false);
   const [searchText, setSearchText] = useState('');
+  const [requestPage, setRequestPage] = useState(1);
   const [message, setMessage] = useState<{ tone: 'error' | 'success'; text: string } | null>(null);
   const currentUserQuery = useCurrentUser();
   const requestsQuery = useProductionRequests({
@@ -48,17 +59,42 @@ export function ProductionRequests() {
   const rawRequests = useMemo(() => requestsQuery.data?.items ?? [], [requestsQuery.data?.items]);
   const requests = useMemo(
     () =>
-      rawRequests.filter((request) => {
-        const search = searchText.trim().toLowerCase();
-        const matchesSearch = !search
-          || request.productionCode.toLowerCase().includes(search)
-          || request.projectName.toLowerCase().includes(search)
-          || request.orderCode.toLowerCase().includes(search);
+      rawRequests
+        .filter((request) => {
+          const search = searchText.trim().toLowerCase();
+          const matchesSearch = !search
+            || request.productionCode.toLowerCase().includes(search)
+            || request.projectName.toLowerCase().includes(search)
+            || request.orderCode.toLowerCase().includes(search);
 
-        return matchesSearch;
-      }),
+          return matchesSearch;
+        })
+        .sort((first, second) => {
+          const priorityDiff = priorityRank[second.priority] - priorityRank[first.priority];
+
+          if (priorityDiff !== 0) return priorityDiff;
+
+          const receivedTimeDiff = getRequestReceivedTime(first.createdAt) - getRequestReceivedTime(second.createdAt);
+
+          if (receivedTimeDiff !== 0) return receivedTimeDiff;
+
+          return first.productionCode.localeCompare(second.productionCode);
+        }),
     [rawRequests, searchText],
   );
+  const requestPageCount = Math.max(Math.ceil(requests.length / REQUEST_PAGE_SIZE), 1);
+  const pagedRequests = useMemo(
+    () => requests.slice((requestPage - 1) * REQUEST_PAGE_SIZE, requestPage * REQUEST_PAGE_SIZE),
+    [requestPage, requests],
+  );
+
+  useEffect(() => {
+    setRequestPage(1);
+  }, [assignedToMe, priorityFilter, searchText, statusFilter]);
+
+  useEffect(() => {
+    setRequestPage((currentPage) => Math.min(currentPage, requestPageCount));
+  }, [requestPageCount]);
 
   async function runQuickAction(action: string, productionRequestId: string) {
     setMessage(null);
@@ -95,16 +131,23 @@ export function ProductionRequests() {
           <section className="production-workspace-message production-workspace-message-error">{getProductionServiceResultMessage(requestsQuery.error)}</section>
         ) : null}
 
+        <section className="production-workspace-summary-grid">
+          <ProductionSummaryCard icon={IconClipboardList} label="Pending Review" value={rawRequests.filter((request) => request.status === 'PENDING_REVIEW').length} />
+          <ProductionSummaryCard icon={IconClockCog} label="Feasible" value={rawRequests.filter((request) => request.status === 'FEASIBLE').length} />
+          <ProductionSummaryCard icon={IconClockCog} label="In Production" value={rawRequests.filter((request) => request.status === 'IN_PRODUCTION').length} />
+          <ProductionSummaryCard icon={IconCheck} label="Completed" value={rawRequests.filter((request) => request.status === 'COMPLETED').length} />
+        </section>
+
         <section className="production-workspace-filter-card">
           <ProductionFilterBar activeValue={statusFilter} filters={filters} onChange={setStatusFilter} />
           <div className="production-workspace-form-grid">
             <select className="production-workspace-select" value={priorityFilter} onChange={(event) => setPriorityFilter(event.target.value)}>
               <option value="ALL">All Priority</option>
-              <option value="LOW">Low</option>
+              <option value="URGENT">Urgent</option>
+              <option value="HIGH">High</option>
               <option value="NORMAL">Normal</option>
               <option value="MEDIUM">Medium</option>
-              <option value="HIGH">High</option>
-              <option value="URGENT">Urgent</option>
+              <option value="LOW">Low</option>
             </select>
             <input className="production-workspace-search" placeholder="Search by production code, project, or order" value={searchText} onChange={(event) => setSearchText(event.target.value)} />
           </div>
@@ -112,13 +155,6 @@ export function ProductionRequests() {
             <input checked={assignedToMe} type="checkbox" onChange={(event) => setAssignedToMe(event.target.checked)} />
             <span>Assigned to me</span>
           </label>
-        </section>
-
-        <section className="production-workspace-summary-grid">
-          <ProductionSummaryCard icon={IconClipboardList} label="Pending Review" value={rawRequests.filter((request) => request.status === 'PENDING_REVIEW').length} />
-          <ProductionSummaryCard icon={IconClockCog} label="Feasible" value={rawRequests.filter((request) => request.status === 'FEASIBLE').length} />
-          <ProductionSummaryCard icon={IconClockCog} label="In Production" value={rawRequests.filter((request) => request.status === 'IN_PRODUCTION').length} />
-          <ProductionSummaryCard icon={IconCheck} label="Completed" value={rawRequests.filter((request) => request.status === 'COMPLETED').length} />
         </section>
 
         <article className="production-workspace-card production-requests-queue">
@@ -154,7 +190,7 @@ export function ProductionRequests() {
                     <td colSpan={9}>No production request matched current filters.</td>
                   </tr>
                 ) : null}
-                {requests.map((request) => (
+                {pagedRequests.map((request) => (
                   <tr key={request.productionRequestId}>
                     <td>
                       <code className="production-requests-code" title={request.productionCode}>
@@ -197,6 +233,21 @@ export function ProductionRequests() {
               </tbody>
             </table>
           </div>
+          {requests.length > REQUEST_PAGE_SIZE ? (
+            <footer className="production-requests-pagination">
+              <span>
+                Page {requestPage} / {requestPageCount}
+              </span>
+              <div>
+                <button disabled={requestPage === 1} type="button" onClick={() => setRequestPage((page) => Math.max(page - 1, 1))}>
+                  Previous
+                </button>
+                <button disabled={requestPage === requestPageCount} type="button" onClick={() => setRequestPage((page) => Math.min(page + 1, requestPageCount))}>
+                  Next
+                </button>
+              </div>
+            </footer>
+          ) : null}
         </article>
       </div>
     </ProductionLayout>
@@ -211,4 +262,12 @@ function formatCompactCode(value: string) {
   }
 
   return `${trimmed.slice(0, 6)}…${trimmed.slice(-4)}`;
+}
+
+function getRequestReceivedTime(value?: string | null) {
+  if (!value) return Number.MAX_SAFE_INTEGER;
+
+  const time = new Date(value).getTime();
+
+  return Number.isFinite(time) ? time : Number.MAX_SAFE_INTEGER;
 }

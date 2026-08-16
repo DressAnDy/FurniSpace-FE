@@ -7,7 +7,7 @@ import {
   ProductionLayout,
   ProductionStatusBadge,
 } from '@/features/ProductionPages/productioncomponents';
-import type { ProductionItem, ProductionItemStatus } from '@/features/ProductionPages/types';
+import type { ProductionItem, ProductionItemStatus, ProductionRequestStatus } from '@/features/ProductionPages/types';
 import { formatDate, getProductionItemStatusLabel, getProductionRequestStatusLabel } from '@/features/ProductionPages/utils';
 import { getProductionServiceResultMessage } from '@/services/api/production';
 import {
@@ -33,6 +33,7 @@ export function ProductionRequestDetail() {
   const itemStatusMutation = useUpdateProductionItemStatus();
   const request = requestQuery.data ?? null;
   const groupedItems = useMemo(() => groupProductionItems(request?.items ?? []), [request?.items]);
+  const canUpdateProductionItems = canUpdateProductionItemsForRequest(request?.status);
 
   if (requestQuery.isLoading) {
     return (
@@ -72,6 +73,11 @@ export function ProductionRequestDetail() {
   }
 
   async function updateItemGroupStatus(group: ProductionItemGroup, status: ProductionItemStatus) {
+    if (!canUpdateProductionItems) {
+      setMessage({ tone: 'error', text: 'Start this production request before updating production items.' });
+      return;
+    }
+
     const requestedQuantity = itemUpdateQuantities[group.key] ?? group.totalQuantity;
     const updateQuantity = clampQuantity(requestedQuantity, group.totalQuantity);
     const cancellationReason = status === 'CANCELLED' ? window.prompt('Cancellation reason') : null;
@@ -175,6 +181,9 @@ export function ProductionRequestDetail() {
           ) : null}
           {activeTab === 'Production Items' ? (
             <div className="production-workspace-table-wrap">
+              {!canUpdateProductionItems ? (
+                <p className="production-workspace-muted">Start this production request before updating production items.</p>
+              ) : null}
               <table className="production-workspace-table">
                 <thead>
                   <tr>
@@ -206,7 +215,7 @@ export function ProductionRequestDetail() {
                           <input
                             aria-label={`Quantity to update for ${group.productName}`}
                             className="production-workspace-quantity-input"
-                            disabled={itemStatusMutation.isPending || group.totalQuantity <= 1 || !canUpdateItemGroup(group)}
+                            disabled={itemStatusMutation.isPending || group.totalQuantity <= 1 || !canUpdateProductionItems || !canUpdateItemGroup(group)}
                             min={1}
                             max={group.totalQuantity}
                             type="number"
@@ -219,13 +228,13 @@ export function ProductionRequestDetail() {
                             }
                           />
                           {group.status === 'PENDING' ? (
-                            <button disabled={itemStatusMutation.isPending} type="button" onClick={() => void updateItemGroupStatus(group, 'IN_PRODUCTION')}>Start Items</button>
+                            <button disabled={itemStatusMutation.isPending || !canUpdateProductionItems} type="button" onClick={() => void updateItemGroupStatus(group, 'IN_PRODUCTION')}>Start Items</button>
                           ) : null}
                           {group.status === 'IN_PRODUCTION' ? (
-                            <button disabled={itemStatusMutation.isPending} type="button" onClick={() => void updateItemGroupStatus(group, 'COMPLETED')}>Mark Completed</button>
+                            <button disabled={itemStatusMutation.isPending || !canUpdateProductionItems} type="button" onClick={() => void updateItemGroupStatus(group, 'COMPLETED')}>Mark Completed</button>
                           ) : null}
                           {group.status !== 'COMPLETED' && group.status !== 'CANCELLED' ? (
-                            <button className="is-secondary" disabled={itemStatusMutation.isPending} type="button" onClick={() => void updateItemGroupStatus(group, 'CANCELLED')}>Cancel Items</button>
+                            <button className="is-secondary" disabled={itemStatusMutation.isPending || !canUpdateProductionItems} type="button" onClick={() => void updateItemGroupStatus(group, 'CANCELLED')}>Cancel Items</button>
                           ) : null}
                         </div>
                       </td>
@@ -330,4 +339,8 @@ function getItemsForQuantityUpdate(items: ProductionItem[], requestedQuantity: n
 
 function canUpdateItemGroup(group: ProductionItemGroup) {
   return group.status !== 'COMPLETED' && group.status !== 'CANCELLED';
+}
+
+function canUpdateProductionItemsForRequest(status?: ProductionRequestStatus | null) {
+  return status === 'IN_PRODUCTION';
 }

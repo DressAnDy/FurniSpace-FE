@@ -8,6 +8,8 @@ import { useBusinessTypeList, useCategoryList, useProductList, useUpdateProduct 
 import { AdminNavbar, AdminSidebar } from '../admincomponents';
 import './Productmanagement.css';
 
+type ProductViewTab = 'catalog' | 'customer-specific';
+
 const statusClassName: Record<string, string> = {
   ACTIVE: 'product-management-status-active',
   INACTIVE: 'product-management-status-inactive',
@@ -19,6 +21,7 @@ export function Productmanagement() {
   const [searchValue, setSearchValue] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
   const [businessTypeFilterIds, setBusinessTypeFilterIds] = useState<number[]>([]);
+  const [activeProductTab, setActiveProductTab] = useState<ProductViewTab>('catalog');
   const [editingProductId, setEditingProductId] = useState<string | null>(null);
   const productListQuery = useProductList({ page: 1, limit: 100, businessTypeIds: businessTypeFilterIds });
   const categoryListQuery = useCategoryList({ page: 1, limit: 100 });
@@ -40,21 +43,24 @@ export function Productmanagement() {
         (product.description ?? '').toLowerCase().includes(keyword) ||
         product.status.toLowerCase().includes(keyword);
       const matchesCategory = !categoryFilter || product.categoryId === categoryFilter;
+      const matchesTab = activeProductTab === 'customer-specific' ? isCustomerSpecificProduct(product) : !isCustomerSpecificProduct(product);
 
-      return matchesKeyword && matchesCategory;
+      return matchesKeyword && matchesCategory && matchesTab;
     });
 
     return nextProducts;
-  }, [categoryFilter, productListQuery.data?.items, searchValue]);
+  }, [activeProductTab, categoryFilter, productListQuery.data?.items, searchValue]);
 
   const productStats = useMemo(() => {
     const products = productListQuery.data?.items ?? [];
     const countStatus = (statuses: string[]) => products.filter((product) => statuses.includes(product.status)).length;
+    const customerSpecificCount = products.filter(isCustomerSpecificProduct).length;
 
     return [
       { label: 'Published', value: countStatus(['ACTIVE']), helper: 'Visible catalog items', icon: IconCheck, tone: 'green' },
       { label: 'Pending', value: countStatus(['PENDING', 'PENDING_APPROVAL']), helper: 'Waiting approval', icon: IconClock, tone: 'gold' },
       { label: 'Archived', value: countStatus(['ARCHIVED']), helper: 'Stored product records', icon: IconArchive, tone: 'dark' },
+      { label: 'Customer Specific', value: customerSpecificCount, helper: 'Project/customer-specific products', icon: IconPackage, tone: 'blue' },
     ];
   }, [productListQuery.data?.items]);
 
@@ -142,18 +148,42 @@ export function Productmanagement() {
                 <aside className="product-management-filter-sidebar" aria-label="Product filters">
                   <div className="product-filter-sidebar-heading">
                     <strong>Filters</strong>
-                    {(searchValue || categoryFilter || businessTypeFilterIds.length > 0) ? (
+                    {(searchValue || categoryFilter || businessTypeFilterIds.length > 0 || activeProductTab !== 'catalog') ? (
                       <button
                         type="button"
                         onClick={() => {
                           setSearchValue('');
                           setCategoryFilter('');
                           setBusinessTypeFilterIds([]);
+                          setActiveProductTab('catalog');
                         }}
                       >
                         Reset
                       </button>
                     ) : null}
+                  </div>
+
+                  <div className="product-management-tabs" role="tablist" aria-label="Product views">
+                    <button
+                      className={activeProductTab === 'catalog' ? 'is-active' : ''}
+                      type="button"
+                      role="tab"
+                      aria-selected={activeProductTab === 'catalog'}
+                      onClick={() => setActiveProductTab('catalog')}
+                    >
+                      Catalog
+                      <span>{(productListQuery.data?.items ?? []).filter((product) => !isCustomerSpecificProduct(product)).length}</span>
+                    </button>
+                    <button
+                      className={activeProductTab === 'customer-specific' ? 'is-active' : ''}
+                      type="button"
+                      role="tab"
+                      aria-selected={activeProductTab === 'customer-specific'}
+                      onClick={() => setActiveProductTab('customer-specific')}
+                    >
+                      Customer Specific
+                      <span>{(productListQuery.data?.items ?? []).filter(isCustomerSpecificProduct).length}</span>
+                    </button>
                   </div>
 
                   <label className="admin-search product-management-search product-management-sidebar-search">
@@ -227,6 +257,9 @@ export function Productmanagement() {
                           <span className={`product-card-status ${statusClassName[product.status] ?? 'product-management-status-archived'}`}>
                             {product.status}
                           </span>
+                          {isCustomerSpecificProduct(product) ? (
+                            <span className="product-card-specific-badge">Customer Specific</span>
+                          ) : null}
                           {thumbnailUrl ? (
                             <img className="product-card-image" src={thumbnailUrl} alt={product.productName} />
                           ) : (
@@ -391,4 +424,25 @@ export function Productmanagement() {
 }
 
 export default Productmanagement;
+
+function isCustomerSpecificProduct(product: {
+  defaultVersion?: {
+    isProjectSpecific?: boolean | null;
+    versionType?: string | null;
+  } | null;
+  isSpecific?: boolean | null;
+  is_specific?: boolean | null;
+  type?: string | null;
+  versionType?: string | null;
+}) {
+  return Boolean(
+    product.isSpecific ||
+    product.is_specific ||
+    product.type === 'is_specific' ||
+    product.type === 'IS_SPECIFIC' ||
+    product.versionType === 'PROJECT_SPECIFIC' ||
+    product.defaultVersion?.isProjectSpecific ||
+    product.defaultVersion?.versionType === 'PROJECT_SPECIFIC',
+  );
+}
 

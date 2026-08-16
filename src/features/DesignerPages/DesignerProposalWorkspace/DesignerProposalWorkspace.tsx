@@ -7,9 +7,7 @@ import {
   IconEdit,
   IconFileText,
   IconMessageCircle,
-  IconPackage,
   IconPlus,
-  IconRefresh,
   IconRulerMeasure,
   IconX,
 } from '@tabler/icons-react';
@@ -36,7 +34,7 @@ import { aggregateDuplicateItems } from '@/shared/utils/itemAggregation';
 
 import './DesignerProposalWorkspace.css';
 
-type WorkspaceTab = 'scenes' | 'items' | 'chat';
+type WorkspaceTab = 'scenes' | 'chat';
 type ProposalDraft = {
   description: string;
   proposalName: string;
@@ -104,6 +102,8 @@ export function DesignerProposalWorkspace() {
     sceneId: selectedSceneId || null,
     page: 1,
     limit: 100,
+  }, {
+    enabled: Boolean(activeProposalId && selectedSceneId),
   });
   const createProposalMutation = useCreateProposal();
   const createSceneMutation = useCreateProposalScene();
@@ -118,8 +118,8 @@ export function DesignerProposalWorkspace() {
     [proposal?.scenes, scenesQuery.data?.items],
   );
   const items = useMemo(
-    () => itemsQuery.data?.items ?? proposal?.items ?? [],
-    [itemsQuery.data?.items, proposal?.items],
+    () => itemsQuery.data?.items ?? [],
+    [itemsQuery.data?.items],
   );
   const displayItems = useMemo(() => aggregateDuplicateItems(items), [items]);
   const total = useMemo(
@@ -127,11 +127,11 @@ export function DesignerProposalWorkspace() {
     [displayItems],
   );
   const primaryScene = scenes.find((scene) => scene.sceneType === 'ROOM_PLANNER') ?? scenes.find((scene) => scene.sceneType === 'THREE_D') ?? scenes[0] ?? null;
-  const selectedScene = scenes.find((scene) => scene.sceneId === selectedSceneId) ?? primaryScene;
   const selectedAreaScenes = useMemo(
     () => (selectedAreaId ? scenes.filter((scene) => getSceneAreaIds(scene).includes(selectedAreaId)) : []),
     [scenes, selectedAreaId],
   );
+  const selectedScene = scenes.find((scene) => scene.sceneId === selectedSceneId) ?? selectedAreaScenes[0] ?? (selectedAreaId ? null : primaryScene);
   const canPublishProposal = Boolean(activeProposalId && proposal?.status === 'DRAFT' && scenes.length > 0);
   useEffect(() => {
     if (!proposal) {
@@ -315,6 +315,17 @@ export function DesignerProposalWorkspace() {
     setSceneEditDraft(DEFAULT_SCENE_EDIT_DRAFT);
   }
 
+  function selectProjectArea(areaId: string) {
+    setSelectedAreaId(areaId);
+
+    const firstAreaScene = scenes.find((scene) => getSceneAreaIds(scene).includes(areaId));
+    if (firstAreaScene) {
+      setSelectedSceneId(firstAreaScene.sceneId);
+    } else {
+      setSelectedSceneId('');
+    }
+  }
+
   async function updateSceneMetadata() {
     if (!editingScene) {
       return;
@@ -381,7 +392,6 @@ export function DesignerProposalWorkspace() {
 
       <nav className="designer-proposal-tabs" aria-label="Proposal workspace tabs">
         <button className={activeTab === 'scenes' ? 'is-active' : ''} type="button" onClick={() => setActiveTab('scenes')}><IconCube size={16} /> Scenes</button>
-        <button className={activeTab === 'items' ? 'is-active' : ''} disabled={isProposalSetupMode} type="button" onClick={() => setActiveTab('items')}><IconPackage size={16} /> Proposal Items</button>
         <button className={activeTab === 'chat' ? 'is-active' : ''} type="button" onClick={() => setActiveTab('chat')}><IconMessageCircle size={16} /> Chat</button>
       </nav>
 
@@ -409,26 +419,8 @@ export function DesignerProposalWorkspace() {
         />
       ) : null}
 
-      {!isProposalSetupMode && proposal ? (
-        <ProposalSummarySection
-          proposal={proposal}
-          sceneCount={scenesQuery.data?.total ?? scenes.length}
-          itemCount={itemsQuery.data?.total ?? items.length}
-        />
-      ) : null}
-
       {activeTab === 'scenes' && (
         <div className="designer-scenes-workflow">
-          {!isProposalSetupMode ? (
-            <ProjectAreasSection
-              areas={areas}
-              isLoading={areasQuery.isLoading}
-              projectId={projectId}
-              selectedAreaId={selectedAreaId}
-              onSelectArea={setSelectedAreaId}
-            />
-          ) : null}
-
           {isProposalSetupMode ? (
             <ProposalSetupSection
               draft={proposalDraft}
@@ -437,52 +429,66 @@ export function DesignerProposalWorkspace() {
               onDraftChange={setProposalDraft}
             />
           ) : (
-          <section className="designer-scenes-section">
-            <header>
-              <div><h2>Proposal Scenes</h2><p>One proposal maps to one Room Planner scene per area.</p></div>
-            </header>
-            <div className="designer-scenes-list">
-              {scenesQuery.isLoading ? <EmptyState message="Loading proposal scenes from backend..." /> : null}
-              {!selectedAreaId ? <EmptyState message="Select a project area first." /> : null}
-              {selectedAreaId && !scenesQuery.isLoading && selectedAreaScenes.length === 0 ? <EmptyState message="No scene has been created for the selected project area in this proposal." /> : null}
-              {selectedAreaScenes.map((scene) => (
-                <SceneRow key={scene.sceneId} areas={areas} scene={scene} onEdit={() => openSceneEditModal(scene)} onOpen={() => openRoomPlanner(scene)} />
-              ))}
+            <div className="designer-scenes-layout">
+              <aside className="designer-scenes-aside">
+                {proposal ? (
+                  <ProposalSummarySection
+                    proposal={proposal}
+                    sceneCount={scenesQuery.data?.total ?? scenes.length}
+                    itemCount={itemsQuery.data?.total ?? items.length}
+                  />
+                ) : null}
+                <ProjectAreasSection
+                  areas={areas}
+                  isLoading={areasQuery.isLoading}
+                  projectId={projectId}
+                  selectedAreaId={selectedAreaId}
+                  onSelectArea={selectProjectArea}
+                />
+              </aside>
+
+              <div className="designer-scenes-main">
+                <section className="designer-scenes-section">
+                  <header>
+                    <div><h2>Proposal Scenes</h2><p>One proposal maps to one Room Planner scene per area.</p></div>
+                  </header>
+                  <div className="designer-scenes-list">
+                    {scenesQuery.isLoading ? <EmptyState message="Loading proposal scenes from backend..." /> : null}
+                    {!selectedAreaId ? <EmptyState message="Select a project area first." /> : null}
+                    {selectedAreaId && !scenesQuery.isLoading && selectedAreaScenes.length === 0 ? <EmptyState message="No scene has been created for the selected project area in this proposal." /> : null}
+                    {selectedAreaScenes.map((scene) => (
+                      <SceneRow
+                        key={scene.sceneId}
+                        areas={areas}
+                        isSelected={scene.sceneId === selectedScene?.sceneId}
+                        scene={scene}
+                        onEdit={() => openSceneEditModal(scene)}
+                        onOpen={() => openRoomPlanner(scene)}
+                        onSelect={() => setSelectedSceneId(scene.sceneId)}
+                      />
+                    ))}
+                  </div>
+                </section>
+
+                <section className="designer-items-section designer-scene-items-section">
+                  <header>
+                    <div>
+                      <h2>Project Items</h2>
+                      <p>{selectedScene ? getSceneDisplayName(selectedScene) : 'Select a proposal scene to view synced project items.'}</p>
+                    </div>
+                  </header>
+                  {itemsQuery.isLoading ? (
+                    <EmptyState message="Loading proposal items from backend..." />
+                  ) : displayItems.length ? (
+                    <ItemsTable items={displayItems} total={total} />
+                  ) : (
+                    <EmptyState message="No proposal items returned by backend. Open a scene, add catalog products, then Save Project to sync." />
+                  )}
+                </section>
+              </div>
             </div>
-          </section>
           )}
         </div>
-      )}
-
-      {activeTab === 'items' && (
-        <section className="designer-items-section">
-          <header>
-            <div><h2>Project Items</h2></div>
-            <button className="designer-items-sync-button" disabled type="button">
-              <IconRefresh size={16} stroke={1.8} /> Sync From Scene
-            </button>
-          </header>
-          <div className="designer-items-scene-filter">
-            {scenes.length === 0 ? <span>No scenes available.</span> : null}
-            {scenes.map((scene) => (
-              <button
-                className={scene.sceneId === selectedScene?.sceneId ? 'is-active' : ''}
-                key={scene.sceneId}
-                type="button"
-                onClick={() => setSelectedSceneId(scene.sceneId)}
-              >
-                {getSceneDisplayName(scene)}
-              </button>
-            ))}
-          </div>
-          {itemsQuery.isLoading ? (
-            <EmptyState message="Loading proposal items from backend..." />
-          ) : displayItems.length ? (
-            <ItemsTable items={displayItems} total={total} />
-          ) : (
-            <EmptyState message="No proposal items returned by backend. Open a scene, add catalog products, then Save Project to sync." />
-          )}
-        </section>
       )}
 
       {activeTab === 'chat' && (
@@ -818,7 +824,21 @@ function ProposalSetupSection({
   );
 }
 
-function SceneRow({ areas, scene, onEdit, onOpen }: { areas: ProjectAreaDto[]; scene: ProposalSceneDto; onEdit: () => void; onOpen: () => void }) {
+function SceneRow({
+  areas,
+  isSelected,
+  scene,
+  onEdit,
+  onOpen,
+  onSelect,
+}: {
+  areas: ProjectAreaDto[];
+  isSelected: boolean;
+  scene: ProposalSceneDto;
+  onEdit: () => void;
+  onOpen: () => void;
+  onSelect: () => void;
+}) {
   const sceneAreaIds = getSceneAreaIds(scene);
   const sceneAreaNames = sceneAreaIds
     .map((areaId) => areas.find((area) => area.projectAreaId === areaId)?.areaName ?? scene.areas?.find((area) => area.projectAreaId === areaId)?.areaName ?? areaId)
@@ -826,14 +846,13 @@ function SceneRow({ areas, scene, onEdit, onOpen }: { areas: ProjectAreaDto[]; s
   const areaLabel = sceneAreaNames.length > 0 ? `Floors: ${sceneAreaNames.join(', ')}` : 'No floors linked';
 
   return (
-    <article className="designer-scene-row">
-      <div>
+    <article className={isSelected ? 'designer-scene-row is-selected' : 'designer-scene-row'}>
+      <button className="designer-scene-summary-button" type="button" onClick={onSelect}>
         <span>{scene.sceneType ?? 'ROOM_PLANNER'}</span>
         <h3>{getSceneDisplayName(scene)}</h3>
         <p>{areaLabel}</p>
-        <p>{scene.mongoSceneId ? `Mongo scene ${scene.mongoSceneId}` : 'No Mongo scene saved yet'}</p>
         <small>Version {scene.versionNo} · Updated {formatDateTime(scene.updatedAt)}</small>
-      </div>
+      </button>
       <div className="designer-scene-actions">
         <button title="Edit scene metadata" type="button" onClick={onEdit}><IconEdit size={17} /></button>
         <button type="button" onClick={onOpen}>Open Room Planner <IconChevronRight size={17} /></button>
@@ -852,7 +871,7 @@ function ItemsTable({ items, total }: { items: ProposalItemDto[]; total: number 
         <tbody>
           {items.map((item) => (
             <tr key={item.proposalItemId}>
-              <td><strong>{item.productNameSnapshot}</strong><small>{item.productVersionId}</small></td>
+              <td><strong>{item.productNameSnapshot}</strong></td>
               <td>{item.materialSnapshot ?? '-'}</td>
               <td>{item.colorSnapshot ?? '-'}</td>
               <td>{item.quantity}</td>

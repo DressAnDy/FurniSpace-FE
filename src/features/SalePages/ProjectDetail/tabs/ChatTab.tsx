@@ -1,6 +1,7 @@
 import { IconFile, IconSend } from '@tabler/icons-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
+import { useLocation } from 'react-router-dom';
 
 import { formatChatTime, formatFileSize, formatUnreadBadge, getChatParticipant, getInitials, getMessageContent } from '@/features/projectChat/chatUi';
 import {
@@ -28,6 +29,7 @@ type ChatTabProps = {
 
 export function ChatTab({ project }: ChatTabProps) {
   const queryClient = useQueryClient();
+  const location = useLocation();
   const currentUserQuery = useCurrentUser();
   const customerQuery = useAccountDetail(project.customerId);
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
@@ -42,6 +44,7 @@ export function ChatTab({ project }: ChatTabProps) {
   });
   const { refetch: refetchChats } = chatListQuery;
   const chats = useMemo(() => chatListQuery.data?.items ?? [], [chatListQuery.data?.items]);
+  const requestedChatId = new URLSearchParams(location.search).get('chatId');
   const activeChat = chats.find((chat) => chat.chatId === activeChatId) ?? chats[0] ?? null;
   const unreadCounts = useProjectChatUnreadCounts(chats, currentUserQuery.data?.accountId, activeChat?.chatId);
   const messagesQueryParams = activeChat
@@ -69,10 +72,15 @@ export function ChatTab({ project }: ChatTabProps) {
       return;
     }
 
+    if (requestedChatId && chats.some((chat) => chat.chatId === requestedChatId)) {
+      setActiveChatId(requestedChatId);
+      return;
+    }
+
     if (!activeChatId || !chats.some((chat) => chat.chatId === activeChatId)) {
       setActiveChatId(chats[0].chatId);
     }
-  }, [activeChatId, chats]);
+  }, [activeChatId, chats, requestedChatId]);
 
   useEffect(() => {
     void refetchChats();

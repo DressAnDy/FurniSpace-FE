@@ -2,18 +2,17 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import {
   completeOrder,
-  confirmOrderItemDelivery,
+  completeOrderDelivery,
+  confirmOrderDelivery,
   createOrderDepositPayment,
   createOrderRemainingPayment,
   getOrderById,
   getProjectOrders,
   prepareOrderFinalPayment,
   startOrderDelivery,
-  updateOrderItemDeliveredQuantity,
   type CreateOrderPaymentInput,
   type OrderDetailDto,
   type OrderListItemDto,
-  type UpdateDeliveredQuantityInput,
 } from '@/services/api/orders';
 import { paymentQueryKeys } from './usePayments';
 
@@ -74,24 +73,22 @@ export function useStartOrderDelivery() {
   });
 }
 
-export function useUpdateOrderItemDeliveredQuantity() {
+export function useCompleteOrderDelivery() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (input: UpdateDeliveredQuantityInput) => updateOrderItemDeliveredQuantity(input),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: orderQueryKeys.all });
-    },
+    mutationFn: (orderId: string) => completeOrderDelivery(orderId),
+    onSuccess: (result) => invalidateOrderPaymentCaches(queryClient, result.orderId, result.projectId),
   });
 }
 
-export function useConfirmOrderItemDelivery() {
+export function useConfirmOrderDelivery() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (orderItemId: string) => confirmOrderItemDelivery(orderItemId),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: orderQueryKeys.all });
+    mutationFn: (orderId: string) => confirmOrderDelivery(orderId),
+    onSuccess: (result) => {
+      invalidateOrderPaymentCaches(queryClient, result.orderId, result.projectId);
       void queryClient.invalidateQueries({ queryKey: ['projects'] });
     },
   });

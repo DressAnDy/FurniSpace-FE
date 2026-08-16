@@ -50,6 +50,18 @@ type FinancialDraft = {
   discountAmount: string;
 };
 
+type QuotationItemGroup = {
+  groupId: string;
+  items: QuotationItemDto[];
+  representative: QuotationItemDto;
+  displayOrder?: number | null;
+  quantity: number;
+  unitPrice: number;
+  grossAmount: number;
+  discountAmount: number;
+  totalAmount: number;
+};
+
 type SavedQuotationHeaderSnapshot = {
   quotationId: string;
   validUntil?: string | null;
@@ -136,6 +148,14 @@ export function SaleQuotations() {
       return sortedItems;
     },
     [selectedQuotation?.items],
+  );
+  const selectedQuotationItemGroups = useMemo(
+    () => getGroupedQuotationItems(selectedQuotationItems, financialDrafts),
+    [financialDrafts, selectedQuotationItems],
+  );
+  const financialValidationMessage = useMemo(
+    () => validateFinancialDrafts(selectedQuotation?.items ?? [], financialDrafts),
+    [financialDrafts, selectedQuotation?.items],
   );
 
   useEffect(() => {
@@ -243,7 +263,14 @@ export function SaleQuotations() {
   async function saveFinancials() {
     if (!selectedQuotation || !canEditFinancials(selectedQuotation.status)) return;
 
-    const validationMessage = validateFinancialDrafts(selectedQuotation.items ?? [], financialDrafts);
+    const items = selectedQuotation.items ?? [];
+
+    if (items.length === 0) {
+      setMessage({ tone: 'error', text: 'Quotation must have at least one item before saving financials.' });
+      return;
+    }
+
+    const validationMessage = financialValidationMessage;
 
     if (validationMessage) {
       setMessage({ tone: 'error', text: validationMessage });
@@ -255,14 +282,12 @@ export function SaleQuotations() {
     try {
       await bulkFinancialsMutation.mutateAsync({
         quotationId: selectedQuotation.quotationId,
-        items: (selectedQuotation.items ?? []).map((item) => {
-          const draft = financialDrafts[item.quotationItemId];
+        items: items.map((item) => {
+          const draft = financialDrafts[item.quotationItemId] ?? getFinancialDraft(item);
 
           return {
             quotationItemId: item.quotationItemId,
-            quantity: item.quantity ?? normalizeNumber(draft?.quantity),
-            unitPrice: item.unitPrice ?? normalizeNumber(draft?.unitPrice),
-            discountAmount: normalizeNumber(draft?.discountAmount),
+            discountAmount: normalizeNumber(draft.discountAmount),
           };
         }),
       });
@@ -479,11 +504,14 @@ export function SaleQuotations() {
               <h4>Quotation Items</h4>
               {canEditFinancials(selectedQuotation.status) ? (
                 <div className="sale-quotations-item-toolbar">
-                  <span>Only discount can be edited. Quantity and unit price stay locked from the proposal.</span>
-                  <button disabled={bulkFinancialsMutation.isPending} type="button" onClick={() => void saveFinancials()}>
+                  <span>Matching items are grouped for review. Sales can update discounts in one bulk save.</span>
+                  <button disabled={bulkFinancialsMutation.isPending || Boolean(financialValidationMessage)} type="button" onClick={() => void saveFinancials()}>
                     {bulkFinancialsMutation.isPending ? 'Saving...' : 'Save Discounts'}
                   </button>
                 </div>
+              ) : null}
+              {canEditFinancials(selectedQuotation.status) && financialValidationMessage ? (
+                <p className="sale-quotations-inline-error">{financialValidationMessage}</p>
               ) : null}
               <div className="sale-quotations-table-scroll">
                 <table className="sale-quotations-items-table">
@@ -499,29 +527,35 @@ export function SaleQuotations() {
                     </tr>
                   </thead>
                   <tbody>
-                    {selectedQuotationItems.map((item) => {
+                    {selectedQuotationItemGroups.map((group) => {
+                      const item = group.representative;
                       const editable = canEditFinancials(selectedQuotation.status);
+                      const groupValidationMessage = editable ? validateFinancialDrafts(group.items, financialDrafts) : null;
 
                       return (
-                      <tr key={item.quotationItemId}>
+                      <tr key={group.groupId}>
                         <td>
-                          {item.displayOrder ?? '-'}
+                          {group.displayOrder ?? '-'}
                         </td>
-                        <td className="sale-quotations-item-name" title={getQuotationItemName(item)}>{getQuotationItemName(item)}</td>
-                        <td>{item.quantity ?? '-'}</td>
-                        <td>{formatMoney(item.unitPrice)}</td>
-                        <td>{formatMoney(item.grossAmount)}</td>
+                        <td className="sale-quotations-item-name" title={getQuotationItemGroupTitle(group)}>
+                          {getQuotationItemName(item)}
+                          {group.items.length > 1 ? <span>{group.items.length} matching lines merged</span> : null}
+                        </td>
+                        <td>{formatNumberValue(group.quantity)}</td>
+                        <td>{formatMoney(group.unitPrice)}</td>
+                        <td>{formatMoney(group.grossAmount)}</td>
                         <td>
                           {editable ? (
-                            <LineInput
-                              itemId={item.quotationItemId}
+                            <GroupLineInput
+                              group={group}
                               name="discountAmount"
-                              value={(financialDrafts[item.quotationItemId] ?? getFinancialDraft(item)).discountAmount}
+                              value={getGroupFinancialInputValue(group, 'discountAmount', financialDrafts)}
+                              error={groupValidationMessage}
                               onChange={setFinancialDrafts}
                             />
-                          ) : formatMoney(item.discountAmount)}
+                          ) : formatMoney(group.discountAmount)}
                         </td>
-                        <td>{formatMoney(item.totalAmount)}</td>
+                        <td>{formatMoney(group.totalAmount)}</td>
                       </tr>
                     );
                     })}
@@ -563,7 +597,7 @@ export function SaleQuotations() {
                     <input min={getLocalDateInputValue()} required type="date" value={validUntil} onChange={(event) => setValidUntil(event.target.value)} />
                   </label>
                   <label>
-                    <span>Customer Note</span>
+                    <span>Sales Note</span>
                     <input type="text" value={salesNote} onChange={(event) => setSalesNote(event.target.value)} placeholder="Note shown with the quotation" />
                   </label>
                   <label>
@@ -649,26 +683,31 @@ function canEditFinancials(status?: QuotationStatus | null) {
   return canEditHeader(status);
 }
 
-function LineInput({
-  itemId,
+function GroupLineInput({
+  error,
+  group,
   name,
   onChange,
   small,
   value,
 }: {
-  itemId: string;
+  error?: string | null;
+  group: QuotationItemGroup;
   name: keyof FinancialDraft;
   onChange: Dispatch<SetStateAction<Record<string, FinancialDraft>>>;
   small?: boolean;
   value: string;
 }) {
   return (
-    <input
-      className={`sale-quotations-line-input${small ? ' sale-quotations-line-input-small' : ''}`}
-      inputMode="decimal"
-      value={value}
-      onChange={(event) => setFinancialDraft(itemId, name, event.target.value, onChange)}
-    />
+    <span className="sale-quotations-line-field">
+      <input
+        className={`sale-quotations-line-input${small ? ' sale-quotations-line-input-small' : ''}${error ? ' sale-quotations-line-input-error' : ''}`}
+        inputMode="decimal"
+        value={value}
+        onChange={(event) => setFinancialGroupDraft(group, name, event.target.value, onChange)}
+      />
+      {error ? <small>{error}</small> : null}
+    </span>
   );
 }
 
@@ -698,10 +737,6 @@ function canSend(quotation: QuotationDto & { items?: unknown[] }) {
 function getSendBlockedReason(quotation: QuotationDto & { items?: unknown[] }) {
   if (quotation.status === 'REVISION_REQUESTED') {
     return 'Click Revise first, then update the quotation before sending it back to the customer.';
-  }
-
-  if (quotation.status !== 'DRAFT' && quotation.status !== 'REVISED') {
-    return `Only Draft or Revised quotations can be sent. Current status: ${formatEnumLabel(quotation.status ?? 'UNKNOWN')}.`;
   }
 
   if (!quotation.validUntil) {
@@ -745,6 +780,26 @@ function normalizeNumber(value: string) {
   return Number.isFinite(numberValue) ? numberValue : 0;
 }
 
+function parseFinancialInput(value: string) {
+  const trimmedValue = value.trim();
+
+  if (!trimmedValue) {
+    return { ok: false as const, message: 'Discount is required.' };
+  }
+
+  if (!/^-?\d+([.,]\d+)?$/.test(trimmedValue)) {
+    return { ok: false as const, message: 'Discount must be a valid number.' };
+  }
+
+  const parsedValue = Number(trimmedValue.replace(',', '.'));
+
+  if (!Number.isFinite(parsedValue)) {
+    return { ok: false as const, message: 'Discount must be a valid number.' };
+  }
+
+  return { ok: true as const, value: parsedValue };
+}
+
 function normalizeMoneyInput(value: string) {
   const parsed = Number(value.trim().replace(/\./g, '').replace(',', '.'));
 
@@ -763,23 +818,200 @@ function getFinancialDraft(item: QuotationItemDto): FinancialDraft {
   };
 }
 
-function setFinancialDraft(
-  quotationItemId: string,
+function getGroupedQuotationItems(items: QuotationItemDto[], drafts: Record<string, FinancialDraft>) {
+  const groupsByKey = new Map<string, QuotationItemDto[]>();
+
+  for (const item of items) {
+    const key = getQuotationItemGroupKey(item);
+    const groupItems = groupsByKey.get(key);
+
+    if (groupItems) {
+      groupItems.push(item);
+    } else {
+      groupsByKey.set(key, [item]);
+    }
+  }
+
+  return Array.from(groupsByKey.entries()).map(([groupId, groupItems]) => {
+    const representative = groupItems[0];
+    const totals = groupItems.reduce(
+      (current, item) => {
+        const draft = drafts[item.quotationItemId] ?? getFinancialDraft(item);
+        const quantity = normalizeNumber(draft.quantity);
+        const unitPrice = normalizeNumber(draft.unitPrice);
+        const discountAmount = normalizeNumber(draft.discountAmount);
+        const grossAmount = quantity * unitPrice;
+
+        return {
+          quantity: current.quantity + quantity,
+          grossAmount: current.grossAmount + grossAmount,
+          discountAmount: current.discountAmount + discountAmount,
+          totalAmount: current.totalAmount + Math.max(grossAmount - discountAmount, 0),
+        };
+      },
+      { quantity: 0, grossAmount: 0, discountAmount: 0, totalAmount: 0 },
+    );
+
+    return {
+      groupId,
+      items: groupItems,
+      representative,
+      displayOrder: representative.displayOrder,
+      quantity: totals.quantity,
+      unitPrice: normalizeNumber((drafts[representative.quotationItemId] ?? getFinancialDraft(representative)).unitPrice),
+      grossAmount: totals.grossAmount,
+      discountAmount: totals.discountAmount,
+      totalAmount: totals.totalAmount,
+    };
+  });
+}
+
+function getQuotationItemGroupKey(item: QuotationItemDto) {
+  const itemIdentity =
+    item.productVersionId ??
+    item.productVersionCodeSnapshot ??
+    item.productVersionNameSnapshot ??
+    item.productNameSnapshot ??
+    item.itemName ??
+    'UNKNOWN_ITEM';
+
+  return [
+    itemIdentity,
+    item.productNameSnapshot ?? 'NO_PRODUCT',
+    item.productVersionNameSnapshot ?? 'NO_VERSION',
+    item.itemName ?? 'NO_ITEM_NAME',
+    item.description ?? 'NO_DESCRIPTION',
+    item.isCustomized ? 'CUSTOMIZED' : 'STANDARD',
+    item.customizationNote ?? 'NO_CUSTOMIZATION_NOTE',
+    item.note ?? 'NO_NOTE',
+    item.unitPrice ?? 'NO_UNIT_PRICE',
+  ].join('|');
+}
+
+function setFinancialGroupDraft(
+  group: QuotationItemGroup,
   name: keyof FinancialDraft,
   value: string,
   setFinancialDrafts: Dispatch<SetStateAction<Record<string, FinancialDraft>>>,
 ) {
-  setFinancialDrafts((current) => ({
-    ...current,
-    [quotationItemId]: {
-      ...(current[quotationItemId] ?? {
-        quantity: '0',
-        unitPrice: '0',
-        discountAmount: '0',
-      }),
-      [name]: value,
-    },
-  }));
+  setFinancialDrafts((current) => {
+    const nextDrafts = { ...current };
+
+    if (name === 'quantity') {
+      const quantities = distributeTotalAcrossItems(normalizeNumber(value), group.items.length);
+      group.items.forEach((item, index) => {
+        nextDrafts[item.quotationItemId] = {
+          ...getCurrentFinancialDraft(item, nextDrafts),
+          quantity: formatDraftNumber(quantities[index] ?? 0),
+        };
+      });
+
+      return nextDrafts;
+    }
+
+    if (name === 'unitPrice') {
+      group.items.forEach((item) => {
+        nextDrafts[item.quotationItemId] = {
+          ...getCurrentFinancialDraft(item, nextDrafts),
+          unitPrice: value,
+        };
+      });
+
+      return nextDrafts;
+    }
+
+    const parsedDiscount = parseFinancialInput(value);
+    if (!parsedDiscount.ok || parsedDiscount.value < 0) {
+      group.items.forEach((item) => {
+        nextDrafts[item.quotationItemId] = {
+          ...getCurrentFinancialDraft(item, nextDrafts),
+          discountAmount: value,
+        };
+      });
+
+      return nextDrafts;
+    }
+
+    const discounts = distributeDiscountAcrossItems(parsedDiscount.value, group.items, nextDrafts);
+    group.items.forEach((item, index) => {
+      nextDrafts[item.quotationItemId] = {
+        ...getCurrentFinancialDraft(item, nextDrafts),
+        discountAmount: formatDraftNumber(discounts[index] ?? 0),
+      };
+    });
+
+    return nextDrafts;
+  });
+}
+
+function getCurrentFinancialDraft(item: QuotationItemDto, drafts: Record<string, FinancialDraft>) {
+  return drafts[item.quotationItemId] ?? getFinancialDraft(item);
+}
+
+function getGroupFinancialInputValue(
+  group: QuotationItemGroup,
+  name: keyof FinancialDraft,
+  drafts: Record<string, FinancialDraft>,
+) {
+  if (group.items.length === 1) {
+    return getCurrentFinancialDraft(group.representative, drafts)[name];
+  }
+
+  if (name === 'quantity') return formatDraftNumber(group.quantity);
+  if (name === 'unitPrice') return formatDraftNumber(group.unitPrice);
+
+  const discountDrafts = group.items.map((item) => getCurrentFinancialDraft(item, drafts).discountAmount);
+  const invalidDiscountDraft = discountDrafts.find((discountDraft) => !parseFinancialInput(discountDraft).ok);
+
+  if (invalidDiscountDraft !== undefined) {
+    return invalidDiscountDraft;
+  }
+
+  return formatDraftNumber(group.discountAmount);
+}
+
+function distributeTotalAcrossItems(total: number, itemCount: number) {
+  if (itemCount <= 0) return [];
+  if (itemCount === 1) return [total];
+  if (total <= 0) return Array(itemCount).fill(0);
+
+  if (!Number.isInteger(total) || total < itemCount) {
+    return Array(itemCount).fill(total / itemCount);
+  }
+
+  const baseQuantity = Math.floor(total / itemCount);
+  const remainder = total - baseQuantity * itemCount;
+
+  return Array.from({ length: itemCount }, (_, index) => {
+    if (index === 0) return baseQuantity + remainder;
+
+    return baseQuantity;
+  });
+}
+
+function distributeDiscountAcrossItems(totalDiscount: number, items: QuotationItemDto[], drafts: Record<string, FinancialDraft>) {
+  const grossAmounts = items.map((item) => {
+    const draft = getCurrentFinancialDraft(item, drafts);
+
+    return normalizeNumber(draft.quantity) * normalizeNumber(draft.unitPrice);
+  });
+  const totalGross = grossAmounts.reduce((sum, grossAmount) => sum + grossAmount, 0);
+
+  if (items.length === 0) return [];
+  if (items.length === 1 || totalGross <= 0) return [totalDiscount, ...Array(Math.max(items.length - 1, 0)).fill(0)];
+
+  let assignedDiscount = 0;
+
+  return grossAmounts.map((grossAmount, index) => {
+    if (index === grossAmounts.length - 1) {
+      return Math.max(totalDiscount - assignedDiscount, 0);
+    }
+
+    const discount = Math.min((totalDiscount * grossAmount) / totalGross, grossAmount);
+    assignedDiscount += discount;
+
+    return discount;
+  });
 }
 
 function validateFinancialDrafts(items: QuotationItemDto[], drafts: Record<string, FinancialDraft>) {
@@ -792,14 +1024,16 @@ function validateFinancialDrafts(items: QuotationItemDto[], drafts: Record<strin
 
     seenIds.add(item.quotationItemId);
     const draft = drafts[item.quotationItemId] ?? getFinancialDraft(item);
-    const quantity = normalizeNumber(draft.quantity);
-    const unitPrice = normalizeNumber(draft.unitPrice);
-    const discountAmount = normalizeNumber(draft.discountAmount);
+    const quantity = item.quantity ?? 0;
+    const unitPrice = item.unitPrice ?? 0;
+    const discountResult = parseFinancialInput(draft.discountAmount);
     const grossAmount = quantity * unitPrice;
     const itemName = getQuotationItemName(item);
 
-    if (quantity <= 0) return `${itemName}: quantity must be greater than 0.`;
-    if (unitPrice < 0) return `${itemName}: unit price cannot be negative.`;
+    if (quantity <= 0) return `${itemName}: current quantity must be greater than 0 before discount can be saved.`;
+    if (unitPrice <= 0) return `${itemName}: current unit price must be greater than 0 before discount can be saved.`;
+    if (!discountResult.ok) return `${itemName}: ${discountResult.message}`;
+    const discountAmount = discountResult.value;
     if (discountAmount < 0) return `${itemName}: discount cannot be negative.`;
     if (discountAmount > grossAmount) return `${itemName}: discount cannot exceed gross amount.`;
   }
@@ -822,6 +1056,26 @@ function getProposalName(proposalId?: string | null, proposalNameById?: Map<stri
 
 function getQuotationItemName(item: Pick<QuotationItemDto, 'itemName' | 'productNameSnapshot' | 'productVersionNameSnapshot'>) {
   return item.itemName ?? item.productNameSnapshot ?? item.productVersionNameSnapshot ?? '-';
+}
+
+function getQuotationItemGroupTitle(group: QuotationItemGroup) {
+  const itemName = getQuotationItemName(group.representative);
+
+  if (group.items.length === 1) return itemName;
+
+  return `${itemName} - ${group.items.length} matching quotation lines`;
+}
+
+function formatDraftNumber(value: number) {
+  if (!Number.isFinite(value)) return '0';
+
+  return Number.isInteger(value) ? String(value) : String(Number(value.toFixed(2)));
+}
+
+function formatNumberValue(value?: number | null) {
+  if (typeof value !== 'number') return '-';
+
+  return new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 2 }).format(value);
 }
 
 function statusClass(status?: string | null) {

@@ -8,6 +8,7 @@ import { getProjectServiceResultMessage } from '@/services/api/projects';
 import { useAssignSalesToProject, useProjectDetail, useRejectProject, useReopenProjectProposal, useRequestProjectInformation } from '@/services/queries/useProjects';
 
 import { ChatTab, CustomerInfoTab, FilesAttachmentsTab, OverviewTab, SchedulesTab } from './tabs';
+import { ProjectStartFeePanel } from './components/ProjectStartFeePanel';
 import './ProjectDetail.css';
 
 type ProjectDetailTab = 'overview' | 'customer' | 'files' | 'chat' | 'schedules';
@@ -80,12 +81,19 @@ export function ProjectDetail() {
   const visibleTabs = hasConsultationAccess ? (isAssignedProjectRoute ? assignedProjectTabs : baseTabs) : reviewTabs;
   const backPath = isAssignedProjectRoute ? '/sales/assigned-projects' : '/sales/project-requests';
   const backLabel = isAssignedProjectRoute ? 'Back to Assigned Projects' : 'Back to Project Request Queue';
+  const requestedTab = new URLSearchParams(location.search).get('tab') as ProjectDetailTab | null;
 
   useEffect(() => {
     if (!visibleTabs.some((tab) => tab.id === activeTab)) {
       setActiveTab('overview');
     }
   }, [activeTab, visibleTabs]);
+
+  useEffect(() => {
+    if (requestedTab && visibleTabs.some((tab) => tab.id === requestedTab)) {
+      setActiveTab(requestedTab);
+    }
+  }, [requestedTab, visibleTabs]);
 
   async function handleConsultationDecision(status: Extract<ProjectStatus, 'NEED_BASIC_INFORMATION' | 'REJECTED'>) {
     setStatusMessage('');
@@ -268,6 +276,7 @@ export function ProjectDetail() {
           {project ? (
             <>
               <ProjectTimeline currentStep={statusStepMap[project.status] ?? 'Submitted'} steps={getTimelineSteps(project.status)} dates={getTimelineDates(project)} />
+              {isAssignedProjectRoute && !project.assignedDesignerId ? <ProjectStartFeePanel projectId={project.projectId} /> : null}
 
               <section className="project-detail-tabs-section">
                 <div className="project-detail-tabs">

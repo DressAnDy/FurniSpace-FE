@@ -8,8 +8,8 @@ import {
   IconRefresh,
 } from '@tabler/icons-react';
 import { useQueries } from '@tanstack/react-query';
-import { useMemo, useState, type ComponentType } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { useEffect, useMemo, useState, type ComponentType } from 'react';
+import { Link, useLocation, useParams } from 'react-router-dom';
 
 import { DesignerLayout } from '@/features/DesignerPages/designercomponents';
 import { getAccountById } from '@/services/api';
@@ -43,6 +43,7 @@ const detailTabs: DesignerProjectTabConfig[] = [
 
 export function DesignerProjectDetail() {
   const { projectId } = useParams();
+  const location = useLocation();
   const [activeTab, setActiveTab] = useState<DesignerProjectDetailTab>('overview');
   const [projectActionMessage, setProjectActionMessage] = useState<{ tone: 'error' | 'success'; text: string } | null>(null);
   const projectQuery = useProjectDetail(projectId);
@@ -72,6 +73,7 @@ export function DesignerProjectDetail() {
   const customer = project ? accountById[project.customerId] : null;
   const sales = project?.assignedSalesId ? accountById[project.assignedSalesId] : null;
   const activeTabConfig = useMemo(() => detailTabs.find((tab) => tab.id === activeTab) ?? detailTabs[0], [activeTab]);
+  const requestedTab = new URLSearchParams(location.search).get('tab') as DesignerProjectDetailTab | null;
   const ActiveTab = activeTabConfig.component ?? OverviewTab;
   const projectFacts = project
     ? [
@@ -81,6 +83,12 @@ export function DesignerProjectDetail() {
         { icon: IconMessage, label: `Sales: ${sales?.fullName ?? project.assignedSalesId ?? '-'}` },
       ]
     : [];
+
+  useEffect(() => {
+    if (requestedTab && detailTabs.some((tab) => tab.id === requestedTab)) {
+      setActiveTab(requestedTab);
+    }
+  }, [requestedTab]);
 
   async function updateProjectToNextDesignStatus() {
     if (!project) {

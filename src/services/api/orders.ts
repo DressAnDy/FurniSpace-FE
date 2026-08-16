@@ -94,11 +94,8 @@ export type OrderItemDto = {
   unavailableReason?: string | null;
   isCustomized?: boolean | null;
   status?: OrderItemStatus | null;
-  deliveredQuantity?: number | null;
-  deliveryNote?: string | null;
-  lastDeliveredAt?: string | null;
-  lastDeliveredBy?: string | null;
-  customerConfirmedAt?: string | null;
+  deliveredAt?: string | null;
+  deliveredBy?: string | null;
 };
 
 export type OrderDetailDto = {
@@ -119,6 +116,7 @@ export type OrderDetailDto = {
   paidAmount?: number | null;
   remainingAmount?: number | null;
   status?: OrderStatus | null;
+  customerConfirmedDeliveryAt?: string | null;
   items: OrderItemDto[];
 };
 
@@ -149,25 +147,20 @@ export type OrderDeliveryTransitionResultDto = {
   updatedAt: string;
 };
 
-export type UpdateDeliveredQuantityInput = {
-  orderItemId: string;
-  deliveredQuantityIncrement: number;
-  deliveryNote?: string | null;
-};
-
-export type DeliveredQuantityResultDto = {
-  orderItemId: string;
-  quantity: number;
-  deliveredQuantity: number;
-  lastDeliveredAt?: string | null;
-  lastDeliveredBy?: string | null;
-};
-
-export type ConfirmDeliveryResultDto = {
-  orderItemId: string;
-  status: OrderItemStatus;
-  customerConfirmedAt?: string | null;
+export type OrderDeliveryCompletionDto = {
+  orderId: string;
+  projectId: string;
   orderStatus: OrderStatus;
+  deliveredItemCount: number;
+  updatedAt?: string | null;
+};
+
+export type OrderDeliveryConfirmationDto = {
+  orderId: string;
+  projectId: string;
+  orderStatus: OrderStatus;
+  projectStatus: string;
+  customerConfirmedDeliveryAt?: string | null;
 };
 
 export type CompleteOrderResultDto = {
@@ -242,20 +235,14 @@ export async function startOrderDelivery(orderId: string) {
   return response.data.data;
 }
 
-export async function updateOrderItemDeliveredQuantity(input: UpdateDeliveredQuantityInput) {
-  const response = await orderApiClient.patch<ServiceResult<DeliveredQuantityResultDto>>(
-    `/order-items/${input.orderItemId}/delivered-quantity`,
-    {
-      deliveredQuantityIncrement: input.deliveredQuantityIncrement,
-      deliveryNote: input.deliveryNote?.trim() || null,
-    },
-  );
+export async function completeOrderDelivery(orderId: string) {
+  const response = await orderApiClient.patch<ServiceResult<OrderDeliveryCompletionDto>>(`/orders/${orderId}/complete-delivery`);
 
   return response.data.data;
 }
 
-export async function confirmOrderItemDelivery(orderItemId: string) {
-  const response = await orderApiClient.patch<ServiceResult<ConfirmDeliveryResultDto>>(`/order-items/${orderItemId}/confirm-delivery`);
+export async function confirmOrderDelivery(orderId: string) {
+  const response = await orderApiClient.patch<ServiceResult<OrderDeliveryConfirmationDto>>(`/orders/${orderId}/confirm-delivery`);
 
   return response.data.data;
 }
