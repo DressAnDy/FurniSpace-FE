@@ -23,6 +23,8 @@ import { aggregateDuplicateItems } from '@/shared/utils/itemAggregation';
 
 import './SaleOrders.css';
 
+const PROJECT_PAGE_SIZE = 4;
+
 const orderProjectStatuses = new Set([
   'ORDER_CONFIRMED',
   'IN_PRODUCTION',
@@ -35,6 +37,7 @@ const orderProjectStatuses = new Set([
 export function SaleOrders() {
   const [selectedProjectId, setSelectedProjectId] = useState('');
   const [selectedOrderId, setSelectedOrderId] = useState('');
+  const [projectPage, setProjectPage] = useState(1);
   const [message, setMessage] = useState<{ tone: 'error' | 'success'; text: string } | null>(null);
   const currentUserQuery = useCurrentUser();
   const currentUser = currentUserQuery.data;
@@ -48,6 +51,12 @@ export function SaleOrders() {
   );
   const projects = useMemo(() => projectsQuery.data?.items ?? [], [projectsQuery.data?.items]);
   const orderProjects = useMemo(() => getOrderProjects(projects), [projects]);
+  const projectTotalPages = Math.max(1, Math.ceil(orderProjects.length / PROJECT_PAGE_SIZE));
+  const currentProjectPage = Math.min(projectPage, projectTotalPages);
+  const pagedOrderProjects = useMemo(
+    () => orderProjects.slice((currentProjectPage - 1) * PROJECT_PAGE_SIZE, currentProjectPage * PROJECT_PAGE_SIZE),
+    [currentProjectPage, orderProjects],
+  );
   const selectedProject = orderProjects.find((project) => project.projectId === selectedProjectId) ?? null;
   const projectDetailQuery = useProjectDetail(selectedProjectId || undefined);
   const ordersQuery = useProjectOrders(selectedProjectId, { enabled: Boolean(selectedProjectId) });
@@ -66,6 +75,12 @@ export function SaleOrders() {
       setSelectedProjectId(orderProjects[0].projectId);
     }
   }, [orderProjects, selectedProjectId]);
+
+  useEffect(() => {
+    if (projectPage > projectTotalPages) {
+      setProjectPage(projectTotalPages);
+    }
+  }, [projectPage, projectTotalPages]);
 
   useEffect(() => {
     if (!selectedOrderId && orders.length > 0) {
@@ -105,7 +120,7 @@ export function SaleOrders() {
               {projectsQuery.isLoading ? <p className="sale-orders-muted">Loading projects...</p> : null}
               {!projectsQuery.isLoading && orderProjects.length === 0 ? <p className="sale-orders-muted">No order project is available.</p> : null}
               <div className="sale-orders-project-list">
-                {orderProjects.map((project) => (
+                {pagedOrderProjects.map((project) => (
                   <button
                     className={project.projectId === selectedProjectId ? 'is-active' : ''}
                     key={project.projectId}
@@ -122,6 +137,27 @@ export function SaleOrders() {
                   </button>
                 ))}
               </div>
+              {orderProjects.length > 0 ? (
+                <div className="sale-orders-project-pagination">
+                  <button
+                    type="button"
+                    disabled={currentProjectPage <= 1}
+                    onClick={() => setProjectPage((current) => Math.max(1, current - 1))}
+                  >
+                    Previous
+                  </button>
+                  <span>
+                    Page {currentProjectPage} / {projectTotalPages}
+                  </span>
+                  <button
+                    type="button"
+                    disabled={currentProjectPage >= projectTotalPages}
+                    onClick={() => setProjectPage((current) => Math.min(projectTotalPages, current + 1))}
+                  >
+                    Next
+                  </button>
+                </div>
+              ) : null}
             </aside>
 
             <section className="sale-orders-workspace">
@@ -266,6 +302,8 @@ function OrderDetailPanel({
     setAssignedTo((current) => current || productionStaff.find((staff) => staff.isAvailable)?.accountId || productionStaff[0]?.accountId || '');
   }, [productionStaff]);
 
+  const selectedProductionStaff = productionStaff.find((staff) => staff.accountId === assignedTo) ?? null;
+
   return (
     <section className="sale-orders-detail">
       <header>
@@ -297,7 +335,7 @@ function OrderDetailPanel({
       ) : null}
       {order.status === 'DEPOSIT_PAID' ? (
         <form
-          className="sale-orders-flow-panel"
+          className="sale-orders-flow-panel sale-orders-flow-panel-production"
           onSubmit={(event) => {
             event.preventDefault();
             setProductionDateMessage('');
@@ -323,17 +361,32 @@ function OrderDetailPanel({
           }}
         >
           <header>
-            <h3>Production Assignment</h3>
+            <div>
+              <h3>Production Assignment</h3>
+              <p>Choose a staff member, priority, and estimated schedule, then create the production request.</p>
+            </div>
           </header>
-          <div className="sale-orders-form-grid">
+          <div className="sale-orders-form-grid sale-orders-form-grid-production">
             <label>
               <span>Staff</span>
-              <select value={assignedTo} onChange={(event) => setAssignedTo(event.target.value)}>
+              <select
+                title={selectedProductionStaff?.fullName ?? 'Unassigned'}
+                value={assignedTo}
+                onChange={(event) => setAssignedTo(event.target.value)}
+              >
                 <option value="">Unassigned</option>
                 {productionStaff.map((staff) => (
-                  <option key={staff.accountId} value={staff.accountId}>{staff.fullName} - {staff.activeRequestCount} active</option>
+                  <option key={staff.accountId} value={staff.accountId}>{staff.fullName}</option>
                 ))}
               </select>
+              {selectedProductionStaff ? (
+                <em className="sale-orders-staff-meta">
+                  {selectedProductionStaff.activeRequestCount} active
+                  {!selectedProductionStaff.isAvailable ? ' · unavailable' : ''}
+                </em>
+              ) : (
+                <em className="sale-orders-staff-meta">No staff selected</em>
+              )}
             </label>
             <label>
               <span>Priority</span>
@@ -379,10 +432,12 @@ function OrderDetailPanel({
             </label>
           </div>
           {productionDateMessage ? <p className="sale-orders-action-note">{productionDateMessage}</p> : null}
-          <button disabled={isCreatingProduction} type="submit">
-            <IconUserPlus size={16} />
-            {isCreatingProduction ? 'Assigning...' : 'Create Production Request'}
-          </button>
+          <div className="sale-orders-production-actions">
+            <button disabled={isCreatingProduction} type="submit">
+              <IconUserPlus size={16} />
+              {isCreatingProduction ? 'Assigning...' : 'Create Production Request'}
+            </button>
+          </div>
         </form>
       ) : null}
       {order.status === 'DELIVERED' || order.status === 'FINAL_PAYMENT_PENDING' || order.status === 'COMPLETED' ? (

@@ -1,4 +1,5 @@
 import { type Dispatch, FormEvent, type SetStateAction, useEffect, useMemo, useState } from 'react';
+import { IconAlertTriangle } from '@tabler/icons-react';
 
 import { SaleNavbar, SaleSidebar } from '@/features/SalePages/salecomponents';
 import { getQuotationServiceResultMessage, type QuotationDto, type QuotationItemDto, type QuotationStatus } from '@/services/api/quotations';
@@ -511,7 +512,10 @@ export function SaleQuotations() {
                 </div>
               ) : null}
               {canEditFinancials(selectedQuotation.status) && financialValidationMessage ? (
-                <p className="sale-quotations-inline-error">{financialValidationMessage}</p>
+                <p className="sale-quotations-inline-error" role="alert">
+                  <IconAlertTriangle aria-hidden="true" size={16} stroke={2} />
+                  <span>{financialValidationMessage}</span>
+                </p>
               ) : null}
               <div className="sale-quotations-table-scroll">
                 <table className="sale-quotations-items-table">
@@ -701,12 +705,19 @@ function GroupLineInput({
   return (
     <span className="sale-quotations-line-field">
       <input
+        aria-invalid={error ? true : undefined}
         className={`sale-quotations-line-input${small ? ' sale-quotations-line-input-small' : ''}${error ? ' sale-quotations-line-input-error' : ''}`}
         inputMode="decimal"
+        min={0}
         value={value}
         onChange={(event) => setFinancialGroupDraft(group, name, event.target.value, onChange)}
+        onKeyDown={(event) => {
+          if (name !== 'discountAmount') return;
+          if (event.key === '-' || event.key === 'e' || event.key === 'E' || event.key === '+') {
+            event.preventDefault();
+          }
+        }}
       />
-      {error ? <small>{error}</small> : null}
     </span>
   );
 }
@@ -787,17 +798,25 @@ function parseFinancialInput(value: string) {
     return { ok: false as const, message: 'Discount is required.' };
   }
 
-  if (!/^-?\d+([.,]\d+)?$/.test(trimmedValue)) {
-    return { ok: false as const, message: 'Discount must be a valid number.' };
+  if (!/^\d+([.,]\d+)?$/.test(trimmedValue)) {
+    return { ok: false as const, message: 'Discount must be a non-negative number.' };
   }
 
   const parsedValue = Number(trimmedValue.replace(',', '.'));
 
   if (!Number.isFinite(parsedValue)) {
-    return { ok: false as const, message: 'Discount must be a valid number.' };
+    return { ok: false as const, message: 'Discount must be a non-negative number.' };
+  }
+
+  if (parsedValue < 0) {
+    return { ok: false as const, message: 'Discount cannot be negative.' };
   }
 
   return { ok: true as const, value: parsedValue };
+}
+
+function isAllowedNonNegativeNumberDraft(value: string) {
+  return value === '' || /^\d*([.,]\d*)?$/.test(value);
 }
 
 function normalizeMoneyInput(value: string) {
@@ -920,8 +939,12 @@ function setFinancialGroupDraft(
       return nextDrafts;
     }
 
+    if (!isAllowedNonNegativeNumberDraft(value)) {
+      return current;
+    }
+
     const parsedDiscount = parseFinancialInput(value);
-    if (!parsedDiscount.ok || parsedDiscount.value < 0) {
+    if (!parsedDiscount.ok) {
       group.items.forEach((item) => {
         nextDrafts[item.quotationItemId] = {
           ...getCurrentFinancialDraft(item, nextDrafts),

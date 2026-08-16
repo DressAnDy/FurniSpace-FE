@@ -19,7 +19,7 @@ import {
   type ProductionReviewResult,
 } from '@/services/api/customizationRequests';
 import {
-  useProductionCustomizationVersions,
+  useProductionCustomizationVersionQueue,
   useProductionReviewCustomizationVersion,
 } from '@/services/queries';
 
@@ -52,25 +52,13 @@ const initialReviewForm: ReviewFormState = {
 };
 
 const statusFilters: Array<{ label: string; value: StatusFilter }> = [
+  { label: 'All', value: 'ALL' },
   { label: 'Reviewing', value: 'REVIEWING' },
   { label: 'Production Rejected', value: 'PRODUCTION_REJECTED' },
   { label: 'Accepted', value: 'ACCEPTED' },
-  { label: 'All', value: 'ALL' },
 ];
 
-const feasibilityFilters: Array<{ label: string; value: FeasibilityFilter }> = [
-  { label: 'Pending', value: 'PENDING' },
-  { label: 'Feasible', value: 'FEASIBLE' },
-  { label: 'Not Feasible', value: 'NOT_FEASIBLE' },
-  { label: 'All Feasibility', value: 'ALL' },
-];
-
-const materialFilters: Array<{ label: string; value: MaterialFilter }> = [
-  { label: 'All Material', value: 'ALL' },
-  { label: 'Available', value: 'AVAILABLE' },
-  { label: 'Unavailable', value: 'UNAVAILABLE' },
-  { label: 'Unknown', value: 'UNKNOWN' },
-];
+const QUEUE_PAGE_SIZE = 5;
 
 export function ProductionCustomizationRequests() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -79,25 +67,23 @@ export function ProductionCustomizationRequests() {
   const [feasibilityFilter, setFeasibilityFilter] = useState<FeasibilityFilter>('PENDING');
   const [materialFilter, setMaterialFilter] = useState<MaterialFilter>('ALL');
   const [searchText, setSearchText] = useState('');
+  const [queuePage, setQueuePage] = useState(1);
   const [activeVersionId, setActiveVersionId] = useState(versionIdFromUrl);
   const [reviewForm, setReviewForm] = useState<ReviewFormState>(initialReviewForm);
   const [message, setMessage] = useState<{ tone: 'error' | 'success'; text: string } | null>(null);
-  const queueQuery = useProductionCustomizationVersions({
-    status: statusFilter === 'ALL' ? null : statusFilter,
-    feasibilityStatus: feasibilityFilter === 'ALL' ? null : feasibilityFilter,
-    materialAvailable: materialFilter === 'ALL' || materialFilter === 'UNKNOWN' ? null : materialFilter === 'AVAILABLE',
-    page: 1,
-    pageSize: 50,
-  });
+  const queueQuery = useProductionCustomizationVersionQueue();
   const productionReviewMutation = useProductionReviewCustomizationVersion();
-  const sourceItems = useMemo(() => queueQuery.data?.items ?? [], [queueQuery.data?.items]);
+  const summaryItems = queueQuery.items;
   const items = useMemo(
-    () => sourceItems.filter((item) => matchesFilters(item, materialFilter, searchText)),
-    [materialFilter, searchText, sourceItems],
+    () => summaryItems.filter((item) => matchesFilters(item, statusFilter, feasibilityFilter, materialFilter, searchText)),
+    [feasibilityFilter, materialFilter, searchText, statusFilter, summaryItems],
   );
-  const selectedItem = items.find((item) => item.version.customizationRequestVersionId === activeVersionId)
-    ?? sourceItems.find((item) => item.version.customizationRequestVersionId === activeVersionId)
-    ?? null;
+  const queuePageCount = Math.max(Math.ceil(items.length / QUEUE_PAGE_SIZE), 1);
+  const pagedItems = useMemo(
+    () => items.slice((queuePage - 1) * QUEUE_PAGE_SIZE, queuePage * QUEUE_PAGE_SIZE),
+    [items, queuePage],
+  );
+  const selectedItem = items.find((item) => item.version.customizationRequestVersionId === activeVersionId) ?? null;
 
   useEffect(() => {
     if (versionIdFromUrl) {
@@ -107,7 +93,24 @@ export function ProductionCustomizationRequests() {
   }, [setSearchParams, versionIdFromUrl]);
 
   useEffect(() => {
-    if (!activeVersionId && items.length > 0) {
+    setQueuePage(1);
+  }, [feasibilityFilter, materialFilter, searchText, statusFilter]);
+
+  useEffect(() => {
+    setQueuePage((currentPage) => Math.min(currentPage, queuePageCount));
+  }, [queuePageCount]);
+
+  useEffect(() => {
+    if (items.length === 0) {
+      if (activeVersionId) {
+        setActiveVersionId('');
+      }
+      return;
+    }
+
+    const stillVisible = items.some((item) => item.version.customizationRequestVersionId === activeVersionId);
+
+    if (!activeVersionId || !stillVisible) {
       setActiveVersionId(items[0].version.customizationRequestVersionId);
     }
   }, [activeVersionId, items]);
@@ -155,7 +158,6 @@ export function ProductionCustomizationRequests() {
         productionRiskNote: reviewForm.productionRiskNote,
         alternativeMaterialNote: reviewForm.alternativeMaterialNote,
       });
-      void queueQuery.refetch();
       setMessage({ tone: 'success', text: result === 'FEASIBLE' ? 'Submitted as feasible.' : 'Marked as not feasible.' });
     } catch (error) {
       setMessage({ tone: 'error', text: getCustomizationRequestServiceResultMessage(error) });
@@ -179,22 +181,67 @@ export function ProductionCustomizationRequests() {
         </section>
 
         <section className="production-workspace-filter-card">
-          <ProductionFilterBar activeValue={statusFilter} filters={statusFilters} onChange={setStatusFilter} />
-          <ProductionFilterBar activeValue={feasibilityFilter} filters={feasibilityFilters} onChange={setFeasibilityFilter} />
-          <ProductionFilterBar activeValue={materialFilter} filters={materialFilters} onChange={setMaterialFilter} />
-          <input
-            className="production-workspace-search"
-            placeholder="Search by version, request, project, or source product"
-            value={searchText}
-            onChange={(event) => setSearchText(event.target.value)}
-          />
-        </section>
+          <div className="production-workspace-filter-group">
+            <span className="production-workspace-filter-label">Version status</span>
+            <ProductionFilterBar
+              activeValue={statusFilter}
+              filters={statusFilters}
+              onChange={(nextStatus) => {
+                setStatusFilter(nextStatus);
+                setMessage(null);
+              }}
+            />
+          </div>
+          <div className="production-workspace-filter-controls">
+            <label>
+              <span>Feasibility</span>
+              <select
+                className="production-workspace-select"
+                value={feasibilityFilter}
+                onChange={(event) => {
+                  setFeasibilityFilter(event.target.value as FeasibilityFilter);
+                  setMessage(null);
+                }}
+              >
+                <option value="ALL">All feasibility</option>
+                <option value="PENDING">Pending</option>
+                <option value="FEASIBLE">Feasible</option>
+                <option value="NOT_FEASIBLE">Not feasible</option>
+              </select>
+            </label>
+            <label>
+              <span>Material</span>
+              <select
+                className="production-workspace-select"
+                value={materialFilter}
+                onChange={(event) => {
+                  setMaterialFilter(event.target.value as MaterialFilter);
+                  setMessage(null);
+                }}
+              >
+                <option value="ALL">All material</option>
+                <option value="AVAILABLE">Available</option>
+                <option value="UNAVAILABLE">Unavailable</option>
+                <option value="UNKNOWN">Unknown</option>
+              </select>
+            </label>
+            <label className="production-workspace-filter-search">
+              <span>Search</span>
+              <input
+                className="production-workspace-search"
+                placeholder="Search by version, request, project, or source product"
+                value={searchText}
+                onChange={(event) => setSearchText(event.target.value)}
+              />
+            </label>
+          </div>
 
-        <section className="production-workspace-summary-grid">
-          <ProductionSummaryCard icon={IconClipboardCheck} label="Total Queue" value={items.length} />
-          <ProductionSummaryCard icon={IconClock} label="Pending Review" value={sourceItems.filter((item) => item.version.status === 'REVIEWING' && item.version.feasibilityStatus === 'PENDING').length} />
-          <ProductionSummaryCard icon={IconCurrencyDollar} label="Feasible" value={sourceItems.filter((item) => item.version.feasibilityStatus === 'FEASIBLE').length} />
-          <ProductionSummaryCard icon={IconAlertTriangle} label="Not Feasible" value={sourceItems.filter((item) => item.version.feasibilityStatus === 'NOT_FEASIBLE').length} />
+          <div className="production-workspace-summary-grid">
+            <ProductionSummaryCard icon={IconClipboardCheck} label="Total Queue" value={summaryItems.length} />
+            <ProductionSummaryCard icon={IconClock} label="Pending Review" value={summaryItems.filter((item) => item.version.status === 'REVIEWING' && item.version.feasibilityStatus === 'PENDING').length} />
+            <ProductionSummaryCard icon={IconCurrencyDollar} label="Feasible" value={summaryItems.filter((item) => item.version.feasibilityStatus === 'FEASIBLE').length} />
+            <ProductionSummaryCard icon={IconAlertTriangle} label="Not Feasible" value={summaryItems.filter((item) => item.version.feasibilityStatus === 'NOT_FEASIBLE').length} />
+          </div>
         </section>
 
         {queueQuery.isError ? (
@@ -213,7 +260,7 @@ export function ProductionCustomizationRequests() {
               </div>
             </header>
             <div className="production-workspace-list">
-              {items.map((item) => (
+              {pagedItems.map((item) => (
                 <button
                   className={`production-workspace-queue-card ${item.version.customizationRequestVersionId === selectedItem?.version.customizationRequestVersionId ? 'is-active' : ''}`}
                   key={item.version.customizationRequestVersionId}
@@ -229,8 +276,22 @@ export function ProductionCustomizationRequests() {
                   <small>Updated {formatDate(item.version.updatedAt)}</small>
                 </button>
               ))}
+              {queueQuery.isLoading ? <p className="production-workspace-muted">Loading customization versions...</p> : null}
               {!queueQuery.isLoading && items.length === 0 ? <ProductionEmptyState message="No customization versions match the current filters." /> : null}
             </div>
+            {items.length > QUEUE_PAGE_SIZE ? (
+              <div className="production-ready-pagination">
+                <button disabled={queuePage === 1} type="button" onClick={() => setQueuePage((page) => Math.max(page - 1, 1))}>
+                  Previous
+                </button>
+                <span>
+                  {queuePage} / {queuePageCount}
+                </span>
+                <button disabled={queuePage === queuePageCount} type="button" onClick={() => setQueuePage((page) => Math.min(page + 1, queuePageCount))}>
+                  Next
+                </button>
+              </div>
+            ) : null}
           </article>
 
           <article className="production-workspace-card">
@@ -373,20 +434,27 @@ function normalizeNumber(value: string) {
 
 function matchesFilters(
   item: ProductionCustomizationVersionQueueItemDto,
+  statusFilter: StatusFilter,
+  feasibilityFilter: FeasibilityFilter,
   materialFilter: MaterialFilter,
   searchText: string,
 ) {
   const normalizedSearch = searchText.trim().toLowerCase();
+  const statusMatches = statusFilter === 'ALL' || item.version.status === statusFilter;
+  const feasibilityMatches = feasibilityFilter === 'ALL' || item.version.feasibilityStatus === feasibilityFilter;
   const materialMatches = materialFilter === 'ALL' || getMaterialAvailability(item.version.materialAvailable) === materialFilter;
   const searchMatches = !normalizedSearch
     || item.version.customizationRequestVersionId.toLowerCase().includes(normalizedSearch)
     || item.request.customizationRequestId.toLowerCase().includes(normalizedSearch)
+    || (item.version.productVersion?.versionName ?? '').toLowerCase().includes(normalizedSearch)
+    || (item.version.versionTitle ?? '').toLowerCase().includes(normalizedSearch)
+    || item.request.requestTitle.toLowerCase().includes(normalizedSearch)
     || item.project.projectName.toLowerCase().includes(normalizedSearch)
     || item.project.projectId.toLowerCase().includes(normalizedSearch)
     || (item.sourceProductVersion.productName ?? '').toLowerCase().includes(normalizedSearch)
     || (item.sourceProductVersion.versionName ?? '').toLowerCase().includes(normalizedSearch);
 
-  return materialMatches && searchMatches;
+  return statusMatches && feasibilityMatches && materialMatches && searchMatches;
 }
 
 function getSourceProductLabel(item: ProductionCustomizationVersionQueueItemDto) {

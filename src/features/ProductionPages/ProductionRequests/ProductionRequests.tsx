@@ -139,17 +139,26 @@ export function ProductionRequests() {
         </section>
 
         <section className="production-workspace-filter-card">
-          <ProductionFilterBar activeValue={statusFilter} filters={filters} onChange={setStatusFilter} />
-          <div className="production-workspace-form-grid">
-            <select className="production-workspace-select" value={priorityFilter} onChange={(event) => setPriorityFilter(event.target.value)}>
-              <option value="ALL">All Priority</option>
-              <option value="URGENT">Urgent</option>
-              <option value="HIGH">High</option>
-              <option value="NORMAL">Normal</option>
-              <option value="MEDIUM">Medium</option>
-              <option value="LOW">Low</option>
-            </select>
-            <input className="production-workspace-search" placeholder="Search by production code, project, or order" value={searchText} onChange={(event) => setSearchText(event.target.value)} />
+          <div className="production-workspace-filter-group">
+            <span className="production-workspace-filter-label">Request status</span>
+            <ProductionFilterBar activeValue={statusFilter} filters={filters} onChange={setStatusFilter} />
+          </div>
+          <div className="production-workspace-filter-controls">
+            <label>
+              <span>Priority</span>
+              <select className="production-workspace-select" value={priorityFilter} onChange={(event) => setPriorityFilter(event.target.value)}>
+                <option value="ALL">All Priority</option>
+                <option value="URGENT">Urgent</option>
+                <option value="HIGH">High</option>
+                <option value="NORMAL">Normal</option>
+                <option value="MEDIUM">Medium</option>
+                <option value="LOW">Low</option>
+              </select>
+            </label>
+            <label className="production-workspace-filter-search">
+              <span>Search</span>
+              <input className="production-workspace-search" placeholder="Search by production code, project, or order" value={searchText} onChange={(event) => setSearchText(event.target.value)} />
+            </label>
           </div>
           <label className="production-requests-check">
             <input checked={assignedToMe} type="checkbox" onChange={(event) => setAssignedToMe(event.target.checked)} />
