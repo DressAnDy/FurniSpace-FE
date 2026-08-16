@@ -9,11 +9,15 @@ type ProductionFilterBarProps<T extends string> = {
 export function ProductionFilterBar<T extends string>({ activeValue, filters, onChange }: ProductionFilterBarProps<T>) {
   return (
     <div className="production-workspace-filter-bar">
-      {filters.map((filter) => (
-        <button className={activeValue === filter.value ? 'is-active' : ''} key={filter.value} type="button" onClick={() => onChange(filter.value)}>
-          {filter.label}
-        </button>
-      ))}
+      {filters.map((filter) => {
+        const statusClass = `production-workspace-filter-${filter.value.toLowerCase().replace(/_/g, '-')}`;
+
+        return (
+          <button className={`${statusClass}${activeValue === filter.value ? ' is-active' : ''}`} key={filter.value} type="button" onClick={() => onChange(filter.value)}>
+            {filter.label}
+          </button>
+        );
+      })}
     </div>
   );
 }

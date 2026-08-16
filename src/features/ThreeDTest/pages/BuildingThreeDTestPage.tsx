@@ -52,6 +52,7 @@ import {
 import { getProposalServiceResultMessage, type ProposalItemDto } from '@/services/api/proposals';
 import {
   productQueryKeys,
+  useBusinessTypeList,
   useCategoryList,
   useProductList,
   useProductVersionDetail,
@@ -80,6 +81,7 @@ type BuildingRoomPlannerRouteState = {
   transientSelectedProductId?: string | null;
 };
 type BuildingDesignPanel = 'products' | 'materials';
+type BuildingProductFilterTab = 'catalog' | 'businessType';
 type BuildingProductSourceTab = 'catalog' | 'custom';
 type BuildingMaterialOption = {
   fallbackColor: string;
@@ -164,6 +166,7 @@ function mapVersionToModel(product: ProductListItemDto, version: ProductVersionD
 
   return {
     categoryName: product.categoryName,
+    businessTypeIds: product.businessTypeIds,
     color: version.color,
     depth: version.depth,
     fileId: modelFile.fileId,
@@ -197,6 +200,7 @@ function mapProjectCatalogVersionToModel(
   return {
     categoryId: product.categoryId ?? '',
     categoryName: product.categoryName ?? '',
+    businessTypeIds: product.businessTypeIds,
     color: version.color ?? null,
     depth: version.depth ?? null,
     fileId: modelFile.fileId,
@@ -255,6 +259,10 @@ function mapProductToModels(product: ProductDetailDto | ProductListItemDto) {
   return versions
     .map((version) => mapVersionToModel(product, version))
     .filter((model): model is BuildingProductModel => Boolean(model));
+}
+
+function matchesBusinessTypes(businessTypeIds: number[] | null | undefined, selectedBusinessTypeIds: number[]) {
+  return selectedBusinessTypeIds.length === 0 || selectedBusinessTypeIds.some((businessTypeId) => businessTypeIds?.includes(businessTypeId));
 }
 
 function createSceneObjectId(products: PlacedBuildingProduct[]) {
@@ -325,11 +333,17 @@ export function BuildingThreeDTestPage() {
   const proposalDetailQuery = useProposalDetail(currentProposalId ?? undefined, { enabled: Boolean(currentProposalId) });
   const currentProjectId = routeState?.projectId ?? proposalDetailQuery.data?.projectId ?? null;
   const categoriesQuery = useCategoryList({ page: 1, limit: 100 });
+  const businessTypesQuery = useBusinessTypeList({ page: 1, limit: 100 });
   const customizationRequestsQuery = useProjectCustomizationRequests(
     currentProjectId ? { projectId: currentProjectId } : undefined,
     { enabled: Boolean(currentProjectId) },
   );
-  const projectCatalogQuery = useProjectCatalogProducts(currentProjectId ?? undefined, { page: 1, pageSize: 48 }, Boolean(currentProjectId));
+  const [selectedBusinessTypeIds, setSelectedBusinessTypeIds] = useState<number[]>([]);
+  const projectCatalogQuery = useProjectCatalogProducts(
+    currentProjectId ?? undefined,
+    { page: 1, pageSize: 48 },
+    Boolean(currentProjectId),
+  );
   const productListQuery = useProductList({ page: 1, limit: 48 }, !currentProjectId);
   const [detailLimit, setDetailLimit] = useState(DETAIL_BATCH_SIZE);
   const [search, setSearch] = useState('');
@@ -340,19 +354,21 @@ export function BuildingThreeDTestPage() {
 
     return (projectCatalogQuery.data?.items ?? [])
       .filter((product) => !selectedCategoryId || product.categoryId === selectedCategoryId)
+      .filter((product) => matchesBusinessTypes(product.businessTypeIds, selectedBusinessTypeIds))
       .filter((product) => !keyword || product.productName.toLowerCase().includes(keyword))
       .flatMap((product) => product.eligibleVersions.map((version) => ({ product, version })))
       .slice(0, detailLimit);
-  }, [detailLimit, projectCatalogQuery.data?.items, search, selectedCategoryId]);
+  }, [detailLimit, projectCatalogQuery.data?.items, search, selectedBusinessTypeIds, selectedCategoryId]);
   const detailProducts = useMemo(() => {
     const keyword = search.trim().toLowerCase();
 
     return (productListQuery.data?.items ?? [])
       .filter((product) => !selectedCategoryId || product.categoryId === selectedCategoryId)
+      .filter((product) => matchesBusinessTypes(product.businessTypeIds, selectedBusinessTypeIds))
       .filter((product) => !keyword || product.productName.toLowerCase().includes(keyword))
       .filter((product) => mapProductToModels(product).length === 0)
       .slice(0, detailLimit);
-  }, [detailLimit, productListQuery.data?.items, search, selectedCategoryId]);
+  }, [detailLimit, productListQuery.data?.items, search, selectedBusinessTypeIds, selectedCategoryId]);
   const projectCatalogVersionDetailQueries = useQueries({
     queries: projectCatalogVersions.map(({ product, version }) => ({
       enabled: Boolean(currentProjectId && version.productVersionId),
@@ -380,6 +396,7 @@ export function BuildingThreeDTestPage() {
   });
   const [activeLevel, setActiveLevel] = useState<BuildingLevelVisibility>('all');
   const [designPanel, setDesignPanel] = useState<BuildingDesignPanel>('products');
+  const [activeProductFilterTab, setActiveProductFilterTab] = useState<BuildingProductFilterTab>('catalog');
   const [isCatalogPanelCollapsed, setIsCatalogPanelCollapsed] = useState(false);
   const [selectedFloorMaterialId, setSelectedFloorMaterialId] = useState('wood-floor');
   const [selectedWallMaterialId, setSelectedWallMaterialId] = useState('wall-base');
@@ -416,6 +433,10 @@ export function BuildingThreeDTestPage() {
         return;
       }
 
+      if (!matchesBusinessTypes(product.businessTypeIds, selectedBusinessTypeIds)) {
+        return;
+      }
+
       if (search.trim() && !product.productName.toLowerCase().includes(search.trim().toLowerCase())) {
         return;
       }
@@ -442,6 +463,7 @@ export function BuildingThreeDTestPage() {
     productListQuery.data?.items,
     projectCatalogVersionDetailQueries,
     search,
+    selectedBusinessTypeIds,
     selectedCategoryId,
   ]);
 
@@ -481,8 +503,14 @@ export function BuildingThreeDTestPage() {
     ? projectCatalogQuery.error ?? projectCatalogVersionDetailQueries.find((query) => query.isError)?.error
     : productListQuery.error ?? productDetailQueries.find((query) => query.isError)?.error;
   const hasMoreCatalogModels = currentProjectId
-    ? detailLimit < (projectCatalogQuery.data?.items ?? []).flatMap((product) => product.eligibleVersions).length
-    : detailLimit < (productListQuery.data?.items.length ?? 0);
+    ? detailLimit < (projectCatalogQuery.data?.items ?? [])
+      .filter((product) => !selectedCategoryId || product.categoryId === selectedCategoryId)
+      .filter((product) => matchesBusinessTypes(product.businessTypeIds, selectedBusinessTypeIds))
+      .flatMap((product) => product.eligibleVersions).length
+    : detailLimit < (productListQuery.data?.items ?? [])
+      .filter((product) => !selectedCategoryId || product.categoryId === selectedCategoryId)
+      .filter((product) => matchesBusinessTypes(product.businessTypeIds, selectedBusinessTypeIds))
+      .length;
 
   useEffect(() => {
     if (!message) {
@@ -610,7 +638,7 @@ export function BuildingThreeDTestPage() {
 
   useEffect(() => {
     setDetailLimit(DETAIL_BATCH_SIZE);
-  }, [search, selectedCategoryId]);
+  }, [search, selectedBusinessTypeIds, selectedCategoryId]);
 
   useEffect(() => {
     if (activeLevel === 'all' || activeLevel === 'site') {
@@ -628,9 +656,12 @@ export function BuildingThreeDTestPage() {
     const categoryFilteredModels = selectedCategoryId
       ? sourceModels.filter((model) => model.categoryId === selectedCategoryId)
       : sourceModels;
+    const businessTypeFilteredModels = productSourceTab === 'catalog' && selectedBusinessTypeIds.length > 0
+      ? categoryFilteredModels.filter((model) => matchesBusinessTypes(model.businessTypeIds, selectedBusinessTypeIds))
+      : categoryFilteredModels;
 
     return normalizedSearch
-      ? categoryFilteredModels.filter((model) =>
+      ? businessTypeFilteredModels.filter((model) =>
           [
             model.name,
             model.categoryName ?? '',
@@ -638,8 +669,8 @@ export function BuildingThreeDTestPage() {
             model.color ?? '',
           ].some((value) => value.toLowerCase().includes(normalizedSearch)),
         )
-      : categoryFilteredModels;
-  }, [catalogModels, customModels, productSourceTab, search, selectedCategoryId]);
+      : businessTypeFilteredModels;
+  }, [catalogModels, customModels, productSourceTab, search, selectedBusinessTypeIds, selectedCategoryId]);
 
   const categoryCards = useMemo(() => {
     const counts = new Map<string, number>();
@@ -657,6 +688,23 @@ export function BuildingThreeDTestPage() {
       }))
       .filter((item) => item.count > 0);
   }, [catalogModels, categoriesQuery.data?.items]);
+
+  const businessTypeCards = useMemo(() => {
+    const counts = new Map<number, number>();
+
+    catalogModels.forEach((model) => {
+      model.businessTypeIds?.forEach((businessTypeId) => {
+        counts.set(businessTypeId, (counts.get(businessTypeId) ?? 0) + 1);
+      });
+    });
+
+    return (businessTypesQuery.data?.items ?? [])
+      .filter((businessType) => businessType.status)
+      .map((businessType) => ({
+        businessType,
+        count: counts.get(businessType.id) ?? 0,
+      }));
+  }, [businessTypesQuery.data?.items, catalogModels]);
 
   const selectedProduct = useMemo(
     () => placedProducts.find((product) => product.sceneObjectId === selectedProductId) ?? null,
@@ -720,6 +768,14 @@ export function BuildingThreeDTestPage() {
     setPlacedProducts((currentProducts) => [...currentProducts, nextProduct]);
     setSelectedProductId(nextProduct.sceneObjectId);
     setMessage(`${model.name} added to ${levelOptions.find((level) => level.value === levelId)?.label ?? levelId}.`);
+  }
+
+  function toggleBusinessTypeFilter(businessTypeId: number) {
+    setSelectedBusinessTypeIds((currentIds) =>
+      currentIds.includes(businessTypeId)
+        ? currentIds.filter((currentId) => currentId !== businessTypeId)
+        : [...currentIds, businessTypeId],
+    );
   }
 
   function moveProduct(
@@ -1044,31 +1100,78 @@ export function BuildingThreeDTestPage() {
               </div>
             </section>
             {designPanel === 'products' && productSourceTab === 'catalog' ? (
-              <section className="building-test-panel building-catalog-panel">
-                <div className="building-test-panel-heading">
-                  <strong>Catalog</strong>
-                  <span>{categoryCards.length}</span>
-                </div>
-                <div className="building-category-list">
+              <section className="building-test-panel building-product-filter-panel">
+                <div className="building-product-filter-tabs" role="tablist" aria-label="Product filters">
                   <button
-                    className={!selectedCategoryId ? 'is-selected' : ''}
+                    className={activeProductFilterTab === 'catalog' ? 'is-selected' : ''}
+                    role="tab"
                     type="button"
-                    onClick={() => setSelectedCategoryId(null)}
+                    onClick={() => setActiveProductFilterTab('catalog')}
                   >
-                    All Categories
+                    Cat
+                    <span>{selectedCategoryId ? 1 : categoryCards.length}</span>
                   </button>
-                  {categoryCards.map((item) => (
-                    <button
-                      className={selectedCategoryId === item.category.categoryId ? 'is-selected' : ''}
-                      key={item.category.categoryId}
-                      type="button"
-                      onClick={() => setSelectedCategoryId(item.category.categoryId)}
-                    >
-                      {item.category.categoryName}
-                      <span>{item.count}</span>
-                    </button>
-                  ))}
+                  <button
+                    className={activeProductFilterTab === 'businessType' ? 'is-selected' : ''}
+                    role="tab"
+                    type="button"
+                    onClick={() => setActiveProductFilterTab('businessType')}
+                  >
+                    Biz
+                    <span>{selectedBusinessTypeIds.length || businessTypeCards.length}</span>
+                  </button>
                 </div>
+
+                {activeProductFilterTab === 'catalog' ? (
+                  <div className="building-product-filter-content">
+                  <div className="building-category-list">
+                    <button
+                      className={!selectedCategoryId ? 'is-selected' : ''}
+                      type="button"
+                      onClick={() => setSelectedCategoryId(null)}
+                    >
+                      All Categories
+                    </button>
+                    {categoryCards.map((item) => (
+                      <button
+                        className={selectedCategoryId === item.category.categoryId ? 'is-selected' : ''}
+                        key={item.category.categoryId}
+                        type="button"
+                        onClick={() => setSelectedCategoryId(item.category.categoryId)}
+                      >
+                        {item.category.categoryName}
+                        <span>{item.count}</span>
+                      </button>
+                    ))}
+                  </div>
+                  </div>
+                ) : (
+                  <div className="building-product-filter-content">
+                  <div className="building-category-list building-business-type-list">
+                    <button
+                      className={selectedBusinessTypeIds.length === 0 ? 'is-selected' : ''}
+                      type="button"
+                      onClick={() => setSelectedBusinessTypeIds([])}
+                    >
+                      All Business Types
+                    </button>
+                    {businessTypesQuery.isLoading ? <small>Loading business types...</small> : null}
+                    {!businessTypesQuery.isLoading && businessTypeCards.length === 0 ? <small>No active business types.</small> : null}
+                    {businessTypeCards.map((item) => (
+                      <button
+                        aria-pressed={selectedBusinessTypeIds.includes(item.businessType.id)}
+                        className={selectedBusinessTypeIds.includes(item.businessType.id) ? 'is-selected' : ''}
+                        key={item.businessType.id}
+                        type="button"
+                        onClick={() => toggleBusinessTypeFilter(item.businessType.id)}
+                      >
+                        {item.businessType.name}
+                        <span>{item.count}</span>
+                      </button>
+                    ))}
+                  </div>
+                  </div>
+                )}
               </section>
             ) : null}
           </div>

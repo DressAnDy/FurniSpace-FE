@@ -63,6 +63,7 @@ export type BuildingTestScene = {
 };
 
 export type BuildingProductModel = {
+  businessTypeIds?: number[] | null;
   categoryId?: string | null;
   categoryName?: string | null;
   color?: string | null;

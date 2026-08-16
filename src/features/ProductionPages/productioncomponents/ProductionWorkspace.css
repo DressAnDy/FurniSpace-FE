@@ -191,6 +191,7 @@
 .production-workspace-filter-card {
   display: grid;
   gap: 14px;
+  box-shadow: 0 10px 24px rgba(45, 45, 45, 0.05);
 }
 
 .production-workspace-filter-bar {
@@ -212,10 +213,36 @@
   padding: 0 13px;
 }
 
+.production-workspace-filter-bar button.production-workspace-filter-pending-review {
+  border-color: rgba(245, 158, 11, 0.34);
+  background: rgba(245, 158, 11, 0.1);
+  color: #92400e;
+}
+
+.production-workspace-filter-bar button.production-workspace-filter-feasible,
+.production-workspace-filter-bar button.production-workspace-filter-completed {
+  border-color: rgba(22, 163, 74, 0.28);
+  background: rgba(22, 163, 74, 0.09);
+  color: #166534;
+}
+
+.production-workspace-filter-bar button.production-workspace-filter-in-production {
+  border-color: rgba(37, 99, 235, 0.28);
+  background: rgba(37, 99, 235, 0.09);
+  color: #1d4ed8;
+}
+
+.production-workspace-filter-bar button.production-workspace-filter-cancelled {
+  border-color: rgba(220, 38, 38, 0.24);
+  background: rgba(220, 38, 38, 0.08);
+  color: #b91c1c;
+}
+
 .production-workspace-filter-bar button.is-active {
   border-color: #8b6f47;
   background: #f5f1ec;
   color: #6f5636;
+  box-shadow: inset 0 0 0 1px currentColor, 0 4px 12px rgba(139, 111, 71, 0.14);
 }
 
 .production-workspace-search,
@@ -275,6 +302,140 @@
   color: #6b6b6b;
   font-size: 13px;
   line-height: 20px;
+}
+
+.production-ready-request-card {
+  align-self: start;
+}
+
+.production-ready-layout {
+  grid-template-columns: minmax(220px, 0.72fr) minmax(0, 1.28fr);
+}
+
+.production-ready-request-card header {
+  margin-bottom: 12px;
+}
+
+.production-ready-request-card .production-workspace-list {
+  gap: 7px;
+}
+
+.production-ready-request-card .production-workspace-queue-card {
+  gap: 4px;
+  padding: 9px 11px;
+}
+
+.production-ready-request-card .production-workspace-queue-card strong {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 13px;
+  line-height: 18px;
+}
+
+.production-ready-request-card .production-workspace-queue-card strong span {
+  flex: 0 0 auto;
+  border-radius: 999px;
+  background: rgba(139, 111, 71, 0.12);
+  color: #6f5636;
+  font-family: Consolas, "Courier New", monospace;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1;
+  padding: 4px 6px;
+}
+
+.production-ready-request-card .production-workspace-queue-card p,
+.production-ready-request-card .production-workspace-queue-card small {
+  overflow: hidden;
+  font-size: 12px;
+  line-height: 17px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.production-ready-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  border-top: 1px solid rgba(139, 111, 71, 0.12);
+  margin-top: 12px;
+  padding-top: 12px;
+}
+
+.production-ready-pagination button {
+  display: inline-flex;
+  min-height: 32px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(139, 111, 71, 0.18);
+  border-radius: 8px;
+  background: #ffffff;
+  color: #6f5636;
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 800;
+  padding: 0 10px;
+}
+
+.production-ready-pagination button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.production-ready-pagination span {
+  color: #6b6b6b;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.production-ready-deliverable-section {
+  border-top: 1px solid rgba(139, 111, 71, 0.15);
+  margin-top: 18px;
+  padding-top: 16px;
+}
+
+.production-ready-deliverable-section header {
+  margin-bottom: 12px;
+}
+
+.production-ready-items-table {
+  min-width: 0;
+  table-layout: fixed;
+}
+
+.production-ready-items-wrap {
+  overflow-x: visible;
+}
+
+.production-ready-items-table th,
+.production-ready-items-table td {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.production-ready-items-table th:nth-child(1),
+.production-ready-items-table td:nth-child(1) {
+  width: 42%;
+}
+
+.production-ready-items-table th:nth-child(2),
+.production-ready-items-table td:nth-child(2) {
+  width: 14%;
+}
+
+.production-ready-items-table th:nth-child(3),
+.production-ready-items-table td:nth-child(3) {
+  width: 24%;
+}
+
+.production-ready-items-table th:nth-child(4),
+.production-ready-items-table td:nth-child(4) {
+  width: 20%;
 }
 
 .production-workspace-meta,

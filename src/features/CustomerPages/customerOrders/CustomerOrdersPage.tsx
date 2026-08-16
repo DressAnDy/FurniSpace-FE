@@ -11,8 +11,7 @@ import { getOrderServiceResultMessage, type OrderDetailDto, type OrderItemDto, t
 import type { PaymentDetailDto } from '@/services/api/payments';
 import type { ProjectListItemDto } from '@/services/api/projects';
 import {
-  useConfirmOrderItemDelivery,
-  useCreateOrderDepositPayment,
+  useConfirmOrderDelivery,
   useOrderDetail,
   usePayments,
   useProjectList,
@@ -61,8 +60,7 @@ export function CustomerOrdersPage() {
     { orderId: selectedOrderId, paymentType: 'REMAINING_PAYMENT', status: 'PENDING' },
     { enabled: Boolean(selectedOrderId) },
   );
-  const depositMutation = useCreateOrderDepositPayment();
-  const confirmDeliveryMutation = useConfirmOrderItemDelivery();
+  const confirmDeliveryMutation = useConfirmOrderDelivery();
 
   useEffect(() => {
     if (!selectedProjectId && orderProjects.length > 0) {
@@ -87,21 +85,6 @@ export function CustomerOrdersPage() {
       setSelectedOrderId(orders[0]?.orderId ?? '');
     }
   }, [orders, selectedOrderId]);
-
-  async function createDepositPayment() {
-    if (!order) return;
-
-    setMessage(null);
-
-    try {
-      const payment = await depositMutation.mutateAsync({ orderId: order.orderId, note: 'Customer deposit payment.' });
-
-      setActivePayment(payment);
-      setMessage({ tone: 'success', text: 'Deposit payment is ready.' });
-    } catch (error) {
-      setMessage({ tone: 'error', text: getOrderServiceResultMessage(error) });
-    }
-  }
 
   return (
     <main className="customer-orders-page">
@@ -185,18 +168,14 @@ export function CustomerOrdersPage() {
           <section className="customer-orders-workspace">
             {order ? (
               <OrderDetailCard
-                confirmingDeliveryItemId={confirmDeliveryMutation.variables ?? null}
-                depositPending={depositMutation.isPending}
+                confirmDeliveryPending={confirmDeliveryMutation.isPending}
                 order={order}
                 remainingPayment={remainingPaymentsQuery.data?.items?.[0] ?? null}
-                onConfirmDelivery={async (orderItemIds) => {
+                onConfirmDelivery={async () => {
                   setMessage(null);
 
                   try {
-                    for (const orderItemId of orderItemIds) {
-                      await confirmDeliveryMutation.mutateAsync(orderItemId);
-                    }
-
+                    await confirmDeliveryMutation.mutateAsync(order.orderId);
                     setMessage({ tone: 'success', text: 'Delivery confirmed.' });
                     void orderDetailQuery.refetch();
                     void ordersQuery.refetch();
@@ -205,7 +184,6 @@ export function CustomerOrdersPage() {
                     setMessage({ tone: 'error', text: getOrderServiceResultMessage(error) });
                   }
                 }}
-                onCreateDeposit={() => void createDepositPayment()}
                 onOpenRemainingPayment={(payment) => setActivePayment(payment)}
               />
             ) : null}
@@ -227,18 +205,14 @@ export function CustomerOrdersPage() {
 }
 
 function OrderDetailCard({
-  confirmingDeliveryItemId,
-  depositPending,
+  confirmDeliveryPending,
   onConfirmDelivery,
-  onCreateDeposit,
   onOpenRemainingPayment,
   order,
   remainingPayment,
 }: {
-  confirmingDeliveryItemId: string | null;
-  depositPending: boolean;
-  onConfirmDelivery: (orderItemIds: string[]) => Promise<void>;
-  onCreateDeposit: () => void;
+  confirmDeliveryPending: boolean;
+  onConfirmDelivery: () => Promise<void>;
   onOpenRemainingPayment: (payment: PaymentDetailDto) => void;
   order: OrderDetailDto;
   remainingPayment: PaymentDetailDto | null;
@@ -261,11 +235,11 @@ function OrderDetailCard({
       </div>
 
       <div className="customer-orders-actions">
-        <button disabled={!canCreateDepositPayment(order.status) || depositPending} type="button" onClick={onCreateDeposit}>
-          {depositPending ? 'Preparing...' : order.status === 'CREATED' ? 'Create Deposit Payment' : 'Pay Deposit'}
-        </button>
         <button disabled={order.status !== 'FINAL_PAYMENT_PENDING' || !remainingPayment} type="button" onClick={() => remainingPayment && onOpenRemainingPayment(remainingPayment)}>
           Pay Remaining
+        </button>
+        <button disabled={!canConfirmOrderDelivery(order) || confirmDeliveryPending} type="button" onClick={() => void onConfirmDelivery()}>
+          {confirmDeliveryPending ? 'Confirming...' : order.customerConfirmedDeliveryAt ? 'Delivery Confirmed' : 'Confirm Delivery'}
         </button>
       </div>
 
@@ -284,9 +258,6 @@ function OrderDetailCard({
           </thead>
           <tbody>
             {orderItems.map((item) => {
-              const confirmableItemIds = item.sourceItems.filter(canConfirmDelivery).map((sourceItem) => sourceItem.orderItemId);
-              const isConfirmingGroup = item.sourceItems.some((sourceItem) => confirmingDeliveryItemId === sourceItem.orderItemId);
-
               return (
               <tr key={item.sourceItems.map((sourceItem) => sourceItem.orderItemId).join('-')}>
                 <td>{getOrderItemName(item)}</td>
@@ -296,17 +267,7 @@ function OrderDetailCard({
                 <td>{formatMoney(item.subtotalAmount)}</td>
                 <td>{formatGroupedDeliveryState(item)}</td>
                 <td>
-                  {confirmableItemIds.length > 0 ? (
-                    <button
-                      disabled={isConfirmingGroup}
-                      type="button"
-                      onClick={() => void onConfirmDelivery(confirmableItemIds)}
-                    >
-                      {isConfirmingGroup ? 'Confirming...' : 'Confirm Delivery'}
-                    </button>
-                  ) : (
-                    getGroupedDeliveryConfirmationLabel(item)
-                  )}
+                  {confirmDeliveryPending ? 'Confirming...' : getOrderDeliveryConfirmationLabel(order)}
                 </td>
               </tr>
             );
@@ -317,10 +278,6 @@ function OrderDetailCard({
 
     </section>
   );
-}
-
-function canCreateDepositPayment(status?: OrderStatus | null) {
-  return status === 'CREATED' || status === 'DEPOSIT_PENDING';
 }
 
 function MoneyValue({ label, value }: { label: string; value: string }) {
@@ -380,32 +337,41 @@ function formatPercentRate(value?: number | null) {
 }
 
 function formatGroupedDeliveryState(item: GroupedOrderItem) {
-  const delivered = item.deliveredQuantity ?? 0;
   const quantity = item.quantity ?? 0;
   const statuses = Array.from(new Set(item.sourceItems.map((sourceItem) => sourceItem.status ?? 'PENDING')));
   const status = statuses.length === 1 ? formatEnumLabel(statuses[0]) : 'Mixed';
 
-  return `${delivered}/${quantity} - ${status}`;
+  const deliveredDates = item.sourceItems
+    .map((sourceItem) => sourceItem.deliveredAt)
+    .filter((value): value is string => Boolean(value))
+    .sort();
+  const latestDeliveredAt = deliveredDates[deliveredDates.length - 1];
+
+  return `${quantity || '-'} item(s) - ${status}${latestDeliveredAt ? ` - ${formatDateTime(latestDeliveredAt)}` : ''}`;
 }
 
-function canConfirmDelivery(item: OrderItemDto) {
-  if (item.status === 'CANCELLED' || item.status === 'UNAVAILABLE') return false;
-  if (item.customerConfirmedAt) return false;
+function canConfirmOrderDelivery(order: OrderDetailDto) {
+  if (order.status !== 'DELIVERING' || order.customerConfirmedDeliveryAt) return false;
 
-  const delivered = item.deliveredQuantity ?? 0;
-  const quantity = item.quantity ?? 0;
-
-  return quantity > 0 && delivered >= quantity;
+  return order.items
+    .filter((item) => (item.quantity ?? 0) > 0 && item.status !== 'CANCELLED' && item.status !== 'UNAVAILABLE')
+    .every((item) => item.status === 'DELIVERED');
 }
 
-function getGroupedDeliveryConfirmationLabel(item: GroupedOrderItem) {
-  if (item.sourceItems.every((sourceItem) => sourceItem.status === 'CANCELLED' || sourceItem.status === 'UNAVAILABLE')) {
-    return 'Not deliverable';
-  }
-
-  if (item.sourceItems.every((sourceItem) => sourceItem.customerConfirmedAt)) {
-    return 'Confirmed';
-  }
+function getOrderDeliveryConfirmationLabel(order: OrderDetailDto) {
+  if (order.customerConfirmedDeliveryAt) return `Confirmed ${formatDateTime(order.customerConfirmedDeliveryAt)}`;
+  if (order.status === 'DELIVERING') return 'Waiting for full-order confirmation';
+  if (order.status === 'DELIVERED' || order.status === 'FINAL_PAYMENT_PENDING' || order.status === 'COMPLETED') return 'Confirmed';
 
   return 'Pending delivery';
+}
+
+function formatDateTime(value: string) {
+  return new Intl.DateTimeFormat('vi-VN', {
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  }).format(new Date(value));
 }

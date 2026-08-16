@@ -869,6 +869,8 @@
   gap: 10px;
   grid-template-columns: 132px minmax(0, 1fr);
   grid-template-rows: max-content minmax(0, 1fr);
+  min-height: 0;
+  overflow: hidden;
   padding: 0;
   position: relative;
 }
@@ -878,7 +880,9 @@
 }
 
 .building-test-sidebar.is-catalog-collapsed .building-design-column,
-.building-test-sidebar.is-catalog-collapsed .building-catalog-panel {
+.building-test-sidebar.is-catalog-collapsed .building-catalog-panel,
+.building-test-sidebar.is-catalog-collapsed .building-business-type-panel,
+.building-test-sidebar.is-catalog-collapsed .building-product-filter-panel {
   display: none;
 }
 
@@ -893,6 +897,7 @@
   grid-column: 1;
   grid-row: 1;
   grid-template-rows: max-content minmax(0, 1fr);
+  overflow: hidden;
 }
 
 .building-design-column {
@@ -940,7 +945,9 @@
   padding: 12px 10px;
 }
 
-.building-catalog-panel {
+.building-catalog-panel,
+.building-business-type-panel,
+.building-product-filter-panel {
   align-content: start;
   gap: 10px;
   grid-column: 1;
@@ -954,22 +961,27 @@
   scrollbar-width: thin;
 }
 
-.building-catalog-panel .building-test-panel-heading {
+.building-catalog-panel .building-test-panel-heading,
+.building-business-type-panel .building-test-panel-heading,
+.building-product-filter-panel .building-test-panel-heading {
   align-items: center;
   flex-direction: row;
   margin-bottom: 0;
 }
 
-.building-catalog-panel .building-category-list {
+.building-catalog-panel .building-category-list,
+.building-product-filter-panel .building-category-list {
   align-content: start;
   display: flex;
   flex-direction: column;
   gap: 8px;
+  justify-content: flex-start;
   margin-bottom: 0;
   min-height: 0;
 }
 
-.building-catalog-panel .building-category-list button {
+.building-catalog-panel .building-category-list button,
+.building-product-filter-panel .building-category-list button {
   flex: 0 0 auto;
   line-height: 1.3;
   min-height: 42px;
@@ -978,7 +990,88 @@
   white-space: normal;
 }
 
+.building-business-type-list {
+  align-content: start;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 0;
+  min-height: 0;
+}
+
+.building-business-type-list small {
+  color: #7a6b5e;
+  font-size: 12px;
+  line-height: 1.4;
+  padding: 4px 2px;
+}
+
+.building-product-filter-panel {
+  align-content: start;
+  gap: 8px;
+  grid-template-rows: max-content minmax(0, 1fr);
+}
+
+.building-product-filter-tabs {
+  display: grid;
+  gap: 4px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.building-product-filter-tabs button {
+  align-items: center;
+  background: #fbfaf8;
+  border: 1px solid #eee7df;
+  border-radius: 8px;
+  color: #665c52;
+  cursor: pointer;
+  display: flex;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 800;
+  gap: 5px;
+  justify-content: center;
+  line-height: 1;
+  min-height: 34px;
+  padding: 6px 4px;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.building-product-filter-tabs button.is-selected {
+  background: #f1e5d7;
+  border-color: #d7b892;
+  color: #795329;
+}
+
+.building-product-filter-tabs span {
+  align-items: center;
+  background: rgba(121, 83, 41, 0.1);
+  border-radius: 999px;
+  display: inline-flex;
+  font-size: 10px;
+  font-weight: 700;
+  justify-content: center;
+  min-width: 18px;
+  opacity: 0.7;
+  padding: 2px 4px;
+}
+
+.building-product-filter-content {
+  align-content: start;
+  display: grid;
+  gap: 8px;
+  min-height: 0;
+  overflow: auto;
+  padding-right: 2px;
+  scrollbar-color: #c8b49e transparent;
+  scrollbar-width: thin;
+}
+
 .building-design-panel {
+  align-content: start;
+  grid-auto-rows: max-content;
+  grid-template-rows: max-content max-content max-content minmax(0, auto) max-content;
   min-height: 0;
   overflow: auto;
 }
@@ -1078,9 +1171,12 @@
 }
 
 .building-product-search {
+  align-self: start;
   background: #fbfaf8;
   border-color: #ded3c7;
   border-radius: 10px;
+  box-sizing: border-box;
+  height: 42px;
   min-height: 42px;
   transition: background 150ms ease, border-color 150ms ease, box-shadow 150ms ease;
 }
@@ -1092,9 +1188,11 @@
 }
 
 .building-product-source-tabs {
+  align-self: start;
   border: 0;
   border-radius: 10px;
   gap: 4px;
+  height: 42px;
 }
 
 .building-product-source-tabs button {
@@ -1132,16 +1230,21 @@
 }
 
 .building-product-list {
+  align-content: start;
   gap: 9px;
+  grid-auto-rows: max-content;
+  min-height: 0;
   scrollbar-color: #c8b49e transparent;
   scrollbar-width: thin;
 }
 
 .building-product-card {
+  align-self: start;
   border-color: #ece3d9;
   border-radius: 11px;
   box-shadow: none;
   grid-template-columns: 86px minmax(0, 1fr);
+  height: 88px;
   min-height: 88px;
   transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
 }

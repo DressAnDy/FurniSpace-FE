@@ -11,7 +11,7 @@ import { type FormEvent, useEffect, useMemo, useState } from 'react';
 
 import { SaleNavbar, SaleSidebar } from '@/features/SalePages/salecomponents';
 import { getOrderServiceResultMessage, type OrderItemDto } from '@/services/api/orders';
-import { getProjectScheduleServiceResultMessage } from '@/services/api/schedules';
+import { getProjectScheduleServiceResultMessage, type ProjectScheduleDto } from '@/services/api/schedules';
 import {
   useCreateProjectSchedule,
   useCurrentUser,
@@ -20,7 +20,7 @@ import {
   useProjectList,
   useProjectOrders,
   useProjectScheduleList,
-  useStartOrderDelivery,
+  useUpdateProjectSchedule,
 } from '@/services/queries';
 
 import './SaleTracking.css';
@@ -43,6 +43,10 @@ const STATUS_PRIORITY: Record<string, number> = {
 export function SaleTracking() {
   const [scheduleStartInput, setScheduleStartInput] = useState('');
   const [scheduleEndInput, setScheduleEndInput] = useState('');
+  const [scheduleTitleInput, setScheduleTitleInput] = useState('');
+  const [scheduleLocationInput, setScheduleLocationInput] = useState('');
+  const [scheduleDescriptionInput, setScheduleDescriptionInput] = useState('');
+  const [editingScheduleId, setEditingScheduleId] = useState('');
   const [selectedProjectId, setSelectedProjectId] = useState('');
   const [selectedOrderId, setSelectedOrderId] = useState('');
   const [projectSearch, setProjectSearch] = useState('');
@@ -97,10 +101,13 @@ export function SaleTracking() {
   );
 
   const createScheduleMutation = useCreateProjectSchedule();
-  const startDeliveryMutation = useStartOrderDelivery();
+  const updateScheduleMutation = useUpdateProjectSchedule();
   const deliverySchedules = deliverySchedulesQuery.data?.items ?? [];
   const confirmedSchedule = deliverySchedules.find((s) => s.status === 'CONFIRMED') ?? null;
+  const activeDeliverySchedule = deliverySchedules.find((s) => s.status === 'PENDING_CONFIRMATION' || s.status === 'CONFIRMED') ?? null;
+  const targetCompletionDateTimeMax = projectDetail?.targetCompletionDate ? `${projectDetail.targetCompletionDate}T23:59` : undefined;
   const itemProgress = useMemo(() => getItemDeliveryProgress(order?.items ?? []), [order?.items]);
+  const deliveryItemGroups = useMemo(() => groupDeliveryItems(order?.items ?? []), [order?.items]);
 
   const isRefreshing =
     isManualRefreshing ||
@@ -109,13 +116,6 @@ export function SaleTracking() {
     orderDetailQuery.isFetching ||
     deliverySchedulesQuery.isFetching;
   const refreshTime = new Intl.DateTimeFormat('en-US', { hour: '2-digit', minute: '2-digit' }).format(lastRefreshAt);
-
-  const startDeliveryBlockedReason = useMemo(() => {
-    if (!order) return 'Select a project with an order.';
-    if (order.status !== 'READY_FOR_DELIVERY') return `Order is ${formatEnumLabel(order.status ?? 'unknown')}.`;
-    if (!confirmedSchedule) return 'Waiting for a confirmed delivery schedule.';
-    return null;
-  }, [confirmedSchedule, order]);
 
   useEffect(() => {
     if (!selectedProjectId && trackingProjects.length > 0) {
@@ -132,6 +132,15 @@ export function SaleTracking() {
       setSelectedOrderId(orders[0]?.orderId ?? '');
     }
   }, [orders, selectedOrderId]);
+
+  useEffect(() => {
+    setEditingScheduleId('');
+    setScheduleTitleInput(selectedProject ? `${selectedProject.projectName} - delivery` : '');
+    setScheduleLocationInput(projectDetail?.projectAddress ?? '');
+    setScheduleDescriptionInput('');
+    setScheduleStartInput('');
+    setScheduleEndInput('');
+  }, [projectDetail?.projectAddress, selectedProject, selectedProjectId]);
 
   async function handleRefresh() {
     if (isManualRefreshing) return;
@@ -151,7 +160,7 @@ export function SaleTracking() {
     }
   }
 
-  async function createDeliverySchedule(event: FormEvent<HTMLFormElement>) {
+  async function saveDeliverySchedule(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!selectedProject) {
       setMessage({ tone: 'error', text: 'Select a delivery project before creating a schedule.' });
@@ -163,28 +172,56 @@ export function SaleTracking() {
     const scheduledStart = String(formData.get('scheduledStart') ?? '').trim();
     const scheduledEnd = String(formData.get('scheduledEnd') ?? '').trim();
     const location = String(formData.get('location') ?? '').trim() || projectDetail?.projectAddress || null;
+    const title = String(formData.get('title') ?? '').trim() || `${selectedProject.projectName} - delivery`;
+    const description = String(formData.get('description') ?? '').trim() || null;
 
     const dateRange = validateScheduleDateRange(scheduledStart, scheduledEnd);
     if (!dateRange.ok) {
       setMessage({ tone: 'error', text: dateRange.message });
       return;
     }
+    if (projectDetail?.targetCompletionDate && isScheduleAfterTarget(scheduledStart, scheduledEnd, projectDetail.targetCompletionDate)) {
+      setMessage({ tone: 'error', text: 'Delivery schedule cannot be after project target completion date.' });
+      return;
+    }
+    if (activeDeliverySchedule && !editingScheduleId) {
+      setMessage({ tone: 'error', text: 'This project already has an active delivery schedule.' });
+      return;
+    }
 
     setMessage(null);
     try {
-      await createScheduleMutation.mutateAsync({
-        projectId: selectedProject.projectId,
-        scheduleType: 'DELIVERY',
-        title: String(formData.get('title') ?? '').trim() || `${selectedProject.projectName} - delivery`,
-        description: String(formData.get('description') ?? '').trim() || null,
-        scheduledStart: dateRange.startIso,
-        scheduledEnd: dateRange.endIso,
-        location,
-        customerNote: null,
-        internalNote: 'Created by Sales from delivery tracking.',
-      });
-      setMessage({ tone: 'success', text: 'Delivery schedule created and sent for customer confirmation.' });
+      if (editingScheduleId) {
+        await updateScheduleMutation.mutateAsync({
+          scheduleId: editingScheduleId,
+          title,
+          description,
+          scheduledStart: dateRange.startIso,
+          scheduledEnd: dateRange.endIso,
+          location,
+          customerNote: null,
+          internalNote: 'Rescheduled by Sales from delivery tracking.',
+        });
+        setMessage({ tone: 'success', text: 'Delivery schedule updated.' });
+      } else {
+        await createScheduleMutation.mutateAsync({
+          projectId: selectedProject.projectId,
+          scheduleType: 'DELIVERY',
+          title,
+          description,
+          scheduledStart: dateRange.startIso,
+          scheduledEnd: dateRange.endIso,
+          location,
+          customerNote: null,
+          internalNote: 'Created by Sales from delivery tracking.',
+        });
+        setMessage({ tone: 'success', text: 'Delivery schedule created and sent for customer confirmation.' });
+      }
       form.reset();
+      setEditingScheduleId('');
+      setScheduleTitleInput(selectedProject ? `${selectedProject.projectName} - delivery` : '');
+      setScheduleLocationInput(projectDetail?.projectAddress ?? '');
+      setScheduleDescriptionInput('');
       setScheduleStartInput('');
       setScheduleEndInput('');
       void deliverySchedulesQuery.refetch();
@@ -193,18 +230,24 @@ export function SaleTracking() {
     }
   }
 
-  async function startDelivery() {
-    if (!order) return;
+  function fillDeliveryScheduleForm(schedule: ProjectScheduleDto) {
+    setEditingScheduleId(schedule.scheduleId);
+    setScheduleTitleInput(schedule.title ?? `${selectedProject?.projectName ?? 'Delivery'} - delivery`);
+    setScheduleStartInput(toDateTimeLocalInputValue(schedule.scheduledStart));
+    setScheduleEndInput(toDateTimeLocalInputValue(schedule.scheduledEnd));
+    setScheduleLocationInput(schedule.location ?? projectDetail?.projectAddress ?? '');
+    setScheduleDescriptionInput(schedule.description ?? '');
     setMessage(null);
-    try {
-      await startDeliveryMutation.mutateAsync(order.orderId);
-      setMessage({ tone: 'success', text: 'Delivery started.' });
-      void orderDetailQuery.refetch();
-      void ordersQuery.refetch();
-      void projectsQuery.refetch();
-    } catch (error) {
-      setMessage({ tone: 'error', text: getOrderServiceResultMessage(error) });
-    }
+  }
+
+  function resetDeliveryScheduleForm(projectName?: string, projectAddress?: string | null) {
+    setEditingScheduleId('');
+    setScheduleTitleInput(projectName ? `${projectName} - delivery` : '');
+    setScheduleLocationInput(projectAddress ?? '');
+    setScheduleDescriptionInput('');
+    setScheduleStartInput('');
+    setScheduleEndInput('');
+    setMessage(null);
   }
 
   const queryError =
@@ -353,14 +396,14 @@ export function SaleTracking() {
                           <div className="sale-tracking-progress-head">
                             <span>Item delivery progress</span>
                             <strong>
-                              {itemProgress.delivered} / {itemProgress.total} units · {itemProgress.percent}%
+                              {itemProgress.delivered} / {itemProgress.total} item(s) · {itemProgress.percent}%
                             </strong>
                           </div>
                           <div className="sale-tracking-progress-track">
                             <i style={{ width: `${itemProgress.percent}%` }} />
                           </div>
                           <small>
-                            {itemProgress.confirmed} item(s) confirmed by customer · Production updates delivered qty
+                            {order.customerConfirmedDeliveryAt ? `Customer confirmed ${formatDateTime(order.customerConfirmedDeliveryAt)}` : 'Customer confirms delivery once for the full order'}
                           </small>
                         </div>
                       </>
@@ -368,28 +411,14 @@ export function SaleTracking() {
                       <p className="sale-tracking-muted">No order is available for this project.</p>
                     )}
 
-                    <div className="sale-tracking-actions">
-                      <button
-                        className="sale-tracking-primary-btn"
-                        disabled={Boolean(startDeliveryBlockedReason) || startDeliveryMutation.isPending}
-                        type="button"
-                        onClick={() => void startDelivery()}
-                      >
-                        <IconTruckDelivery size={16} />
-                        {startDeliveryMutation.isPending ? 'Starting...' : 'Start Delivery'}
-                      </button>
-                      {startDeliveryBlockedReason ? (
-                        <p className="sale-tracking-action-hint">{startDeliveryBlockedReason}</p>
-                      ) : null}
-                    </div>
                   </section>
 
                   <section className="sale-tracking-grid">
-                    <form className="sale-tracking-card sale-tracking-form" onSubmit={createDeliverySchedule}>
+                    <form className="sale-tracking-card sale-tracking-form" onSubmit={saveDeliverySchedule}>
                       <header>
                         <div>
-                          <h3>Create Delivery Schedule</h3>
-                          <p>Location defaults to project address. Customer confirms on their side.</p>
+                          <h3>{editingScheduleId ? 'Reschedule Delivery' : 'Create Delivery Schedule'}</h3>
+                          <p>{editingScheduleId ? 'Update the selected delivery schedule and send the new timing.' : 'Location defaults to project address. Customer confirms on their side.'}</p>
                         </div>
                       </header>
                       <label>
@@ -397,12 +426,15 @@ export function SaleTracking() {
                         <input
                           name="title"
                           placeholder={selectedProject ? `${selectedProject.projectName} - delivery` : 'Delivery schedule'}
+                          value={scheduleTitleInput}
+                          onChange={(event) => setScheduleTitleInput(event.target.value)}
                         />
                       </label>
                       <div className="sale-tracking-form-row">
                         <label>
                           <span>Start</span>
                           <input
+                            max={targetCompletionDateTimeMax}
                             min={getLocalDateTimeInputValue()}
                             name="scheduledStart"
                             required
@@ -420,6 +452,7 @@ export function SaleTracking() {
                           <span>End</span>
                           <input
                             disabled={!scheduleStartInput}
+                            max={targetCompletionDateTimeMax}
                             min={getMinimumEndDateTimeInputValue(scheduleStartInput)}
                             name="scheduledEnd"
                             type="datetime-local"
@@ -435,20 +468,45 @@ export function SaleTracking() {
                       <label>
                         <span>Location</span>
                         <input
-                          key={projectDetail?.projectAddress ?? selectedProjectId}
                           name="location"
-                          defaultValue={projectDetail?.projectAddress ?? ''}
                           placeholder={projectDetailQuery.isLoading ? 'Loading address...' : 'Delivery address'}
+                          value={scheduleLocationInput}
+                          onChange={(event) => setScheduleLocationInput(event.target.value)}
                         />
                       </label>
                       <label>
                         <span>Description</span>
-                        <textarea name="description" placeholder="Notes for customer and internal team" rows={3} />
+                        <textarea
+                          name="description"
+                          placeholder="Notes for customer and internal team"
+                          rows={3}
+                          value={scheduleDescriptionInput}
+                          onChange={(event) => setScheduleDescriptionInput(event.target.value)}
+                        />
                       </label>
-                      <button className="sale-tracking-primary-btn" disabled={createScheduleMutation.isPending} type="submit">
+                      <div className="sale-tracking-form-actions">
+                      <button
+                        className="sale-tracking-primary-btn"
+                        disabled={createScheduleMutation.isPending || updateScheduleMutation.isPending || Boolean(activeDeliverySchedule && !editingScheduleId)}
+                        type="submit"
+                      >
                         <IconCalendarPlus size={16} />
-                        {createScheduleMutation.isPending ? 'Creating...' : 'Create Delivery Schedule'}
+                        {updateScheduleMutation.isPending
+                          ? 'Updating...'
+                          : createScheduleMutation.isPending
+                            ? 'Creating...'
+                            : editingScheduleId
+                              ? 'Update Schedule'
+                              : activeDeliverySchedule
+                                ? 'Active Schedule Exists'
+                                : 'Create Delivery Schedule'}
                       </button>
+                      {editingScheduleId ? (
+                        <button className="sale-tracking-secondary-btn" type="button" onClick={() => resetDeliveryScheduleForm(selectedProject?.projectName, projectDetail?.projectAddress)}>
+                          Cancel
+                        </button>
+                      ) : null}
+                      </div>
                     </form>
 
                     <section className="sale-tracking-card">
@@ -474,6 +532,13 @@ export function SaleTracking() {
                               {schedule.scheduledEnd ? ` → ${formatDateTime(schedule.scheduledEnd)}` : ''}
                             </span>
                             <small>{schedule.location ?? 'No location specified'}</small>
+                            <button
+                              className="sale-tracking-reschedule-btn"
+                              type="button"
+                              onClick={() => fillDeliveryScheduleForm(schedule)}
+                            >
+                              Reschedule
+                            </button>
                           </article>
                         ))}
                       </div>
@@ -487,50 +552,41 @@ export function SaleTracking() {
                         <p>Production updates quantities · Customer confirms receipt</p>
                       </div>
                     </header>
-                    <div className="sale-tracking-table-wrap">
-                      <table>
+                    <div className="sale-tracking-table-wrap sale-tracking-items-wrap">
+                      <table className="sale-tracking-items-table">
                         <thead>
                           <tr>
                             <th>Item</th>
                             <th>Qty</th>
-                            <th>Delivered</th>
-                            <th>Progress</th>
                             <th>Status</th>
-                            <th>Confirmed</th>
+                            <th>Delivered At</th>
                           </tr>
                         </thead>
                         <tbody>
                           {orderDetailQuery.isLoading ? (
                             <tr>
-                              <td colSpan={6}>Loading order items...</td>
+                              <td colSpan={4}>Loading order items...</td>
                             </tr>
                           ) : null}
                           {!orderDetailQuery.isLoading && !order ? (
                             <tr>
-                              <td colSpan={6}>No order items to display.</td>
+                              <td colSpan={4}>No order items to display.</td>
                             </tr>
                           ) : null}
-                          {order?.items.map((item) => {
-                            const qty = item.quantity ?? 0;
-                            const delivered = item.deliveredQuantity ?? 0;
-                            const pct = qty > 0 ? Math.min(Math.round((delivered / qty) * 100), 100) : 0;
+                          {deliveryItemGroups.map((group) => {
+                            const item = group;
+
                             return (
-                              <tr key={item.orderItemId}>
-                                <td className="sale-tracking-item-name">{getOrderItemName(item)}</td>
-                                <td>{qty || '-'}</td>
-                                <td>{delivered}</td>
-                                <td>
-                                  <div className="sale-tracking-item-progress">
-                                    <div className="sale-tracking-progress-track sale-tracking-progress-track-sm">
-                                      <i style={{ width: `${pct}%` }} />
-                                    </div>
-                                    <span>{pct}%</span>
-                                  </div>
+                              <tr key={group.key}>
+                                <td className="sale-tracking-item-name">
+                                  {group.name}
+                                  {group.items.length > 1 ? <small>{group.items.length} matching item(s)</small> : null}
                                 </td>
+                                <td>{group.quantity || '-'}</td>
                                 <td>
-                                  <StatusBadge kind="item" value={item.status ?? 'PENDING'} />
+                                  <StatusBadge kind="item" value={group.status} />
                                 </td>
-                                <td>{item.customerConfirmedAt ? formatDateTime(item.customerConfirmedAt) : '—'}</td>
+                                <td>{item.deliveredAt ? formatDateTime(item.deliveredAt) : '—'}</td>
                               </tr>
                             );
                           })}
@@ -628,11 +684,52 @@ function Field({ label, value }: { label: string; value: string }) {
 }
 
 function getItemDeliveryProgress(items: OrderItemDto[]) {
-  const total = items.reduce((sum, item) => sum + (item.quantity ?? 0), 0);
-  const delivered = items.reduce((sum, item) => sum + (item.deliveredQuantity ?? 0), 0);
-  const confirmed = items.filter((item) => Boolean(item.customerConfirmedAt)).length;
+  const deliverableItems = items.filter((item) => (item.quantity ?? 0) > 0 && item.status !== 'CANCELLED' && item.status !== 'UNAVAILABLE');
+  const total = deliverableItems.length;
+  const delivered = deliverableItems.filter((item) => item.status === 'DELIVERED').length;
   const percent = total > 0 ? Math.min(Math.round((delivered / total) * 100), 100) : 0;
-  return { total, delivered, confirmed, percent };
+  return { total, delivered, percent };
+}
+
+type DeliveryItemGroup = {
+  deliveredAt?: string | null;
+  items: OrderItemDto[];
+  key: string;
+  name: string;
+  quantity: number;
+  status: string;
+};
+
+function groupDeliveryItems(items: OrderItemDto[]): DeliveryItemGroup[] {
+  const groupsByKey = new Map<string, DeliveryItemGroup>();
+
+  for (const item of items) {
+    const status = item.status ?? 'PENDING';
+    const key = [
+      item.productVersionId ?? item.productVersionCodeSnapshot ?? item.productVersionNameSnapshot ?? getOrderItemName(item),
+      getOrderItemName(item),
+      status,
+      item.deliveredAt ?? 'NOT_DELIVERED',
+    ].join('|');
+    const existingGroup = groupsByKey.get(key);
+
+    if (existingGroup) {
+      existingGroup.items.push(item);
+      existingGroup.quantity += item.quantity ?? 0;
+      continue;
+    }
+
+    groupsByKey.set(key, {
+      deliveredAt: item.deliveredAt,
+      items: [item],
+      key,
+      name: getOrderItemName(item),
+      quantity: item.quantity ?? 0,
+      status,
+    });
+  }
+
+  return Array.from(groupsByKey.values());
 }
 
 function getStatusTone(kind: string, value: string) {
@@ -675,7 +772,27 @@ function formatDateTime(value: string) {
   }).format(new Date(value));
 }
 
+function toDateTimeLocalInputValue(value?: string | null) {
+  if (!value) return '';
+
+  const parsedDate = new Date(value);
+
+  if (Number.isNaN(parsedDate.getTime())) {
+    return '';
+  }
+
+  const timezoneOffsetMs = parsedDate.getTimezoneOffset() * 60_000;
+
+  return new Date(parsedDate.getTime() - timezoneOffsetMs).toISOString().slice(0, 16);
+}
+
 function formatMoney(value?: number | null) {
   if (typeof value !== 'number') return '-';
   return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND', maximumFractionDigits: 0 }).format(value);
+}
+
+function isScheduleAfterTarget(startValue: string, endValue: string, targetCompletionDate: string) {
+  const maxDateTime = `${targetCompletionDate}T23:59`;
+
+  return startValue > maxDateTime || Boolean(endValue && endValue > maxDateTime);
 }

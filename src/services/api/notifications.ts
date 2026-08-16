@@ -27,6 +27,7 @@ export type NotificationType =
   | 'ProjectScheduleCompleted'
   | 'ProjectScheduleCancelled'
   | 'ProposalPublished'
+  | 'ProjectChatMessageSent'
   | string;
 
 export type ServiceResult<T> = {
@@ -48,6 +49,7 @@ export type NotificationDto = {
   isRead: boolean;
   createdAt: string | null;
   readAt: string | null;
+  metadata?: RealtimeMetadata | null;
 };
 
 export type NotificationListResponse = {
@@ -76,11 +78,18 @@ export type MarkNotificationReadResponse = {
 export type RealtimeMetadata = {
   paymentType?: 'PROJECT_START_FEE' | 'DEPOSIT' | 'REMAINING_PAYMENT' | string;
   orderId?: string;
-  orderItemId?: string;
   quotationId?: string;
   proposalId?: string;
   scheduleId?: string;
   productionRequestId?: string;
+  chatId?: string;
+  chatType?: string;
+  messageId?: string;
+  messageType?: string;
+  senderId?: string | null;
+  senderName?: string | null;
+  projectName?: string | null;
+  contentPreview?: string | null;
   assignedToAccountId?: string;
   newProjectStatus?: string;
   orderStatus?: string;

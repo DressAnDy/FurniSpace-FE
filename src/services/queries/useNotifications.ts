@@ -17,6 +17,7 @@ import { getStoredAccessToken } from '@/services/api/tokenStore';
 import { orderQueryKeys } from './useOrders';
 import { paymentQueryKeys } from './usePayments';
 import { productionQueryKeys } from './useProduction';
+import { projectChatQueryKeys } from './useProjectChats';
 import { projectQueryKeys } from './useProjects';
 import { proposalQueryKeys } from './useProposals';
 import { quotationQueryKeys } from './useQuotations';
@@ -55,6 +56,7 @@ const inAppNotificationEvents = [
   'production.request.created',
   'production.request.assigned',
   'production.request.completed',
+  'project_chat.message_sent',
 ] as const;
 
 const realtimeOnlyNotificationEvents = [
@@ -63,8 +65,8 @@ const realtimeOnlyNotificationEvents = [
   'project_schedule.updated',
   'project_schedule.confirmed',
   'project_schedule.completed',
-  'order.item.delivery_updated',
-  'order.item.delivery_confirmed',
+  'order.delivery.completed',
+  'order.delivery.confirmed',
 ] as const;
 
 export function useNotifications(params: NotificationListParams = {}) {
@@ -269,6 +271,7 @@ function invalidateBusinessQueries(queryClient: ReturnType<typeof useQueryClient
     paymentId: asId(referenceType === 'PAYMENT' ? payload.referenceId : null),
     productionRequestId:
       asId(metadata.productionRequestId) ?? asId(referenceType === 'PRODUCTION_REQUEST' ? payload.referenceId : null),
+    chatId: asId(metadata.chatId),
   };
 
   if (projectId) {
@@ -295,6 +298,7 @@ function invalidateByReference(
     scheduleId: string | null;
     paymentId: string | null;
     productionRequestId: string | null;
+    chatId: string | null;
   },
 ) {
   const referenceType = payload.referenceType ?? '';
@@ -365,6 +369,14 @@ function invalidateByReference(
       void queryClient.invalidateQueries({ queryKey: productionQueryKeys.detail(ids.productionRequestId) });
     }
   }
+
+  if (referenceType === 'PROJECT_CHAT_MESSAGE' || notificationType === 'ProjectChatMessageSent') {
+    void queryClient.invalidateQueries({ queryKey: projectChatQueryKeys.all });
+
+    if (ids.chatId) {
+      void queryClient.invalidateQueries({ queryKey: projectChatQueryKeys.messages({ chatId: ids.chatId, page: 1, limit: 50, sort: 'ASC' }) });
+    }
+  }
 }
 
 function asId(value: unknown): string | null {
@@ -388,5 +400,6 @@ function mapRealtimePayloadToNotification(payload: RealtimeNotificationPayload):
     isRead: false,
     createdAt: payload.createdAt ?? payload.occurredAt ?? new Date().toISOString(),
     readAt: null,
+    metadata: payload.metadata ?? null,
   };
 }

@@ -177,6 +177,52 @@
   background: #1f1a17;
 }
 
+.product-stat-icon-blue {
+  background: #2563eb;
+}
+
+.product-management-tabs {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+}
+
+.product-management-tabs button {
+  display: flex;
+  min-height: 40px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #4b5563;
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 800;
+  padding: 0 10px;
+  text-align: left;
+}
+
+.product-management-tabs button.is-active {
+  border-color: #9a6b3d;
+  background: #f5efe7;
+  color: #6f5636;
+}
+
+.product-management-tabs span {
+  display: inline-grid;
+  min-width: 24px;
+  height: 24px;
+  place-items: center;
+  border-radius: 999px;
+  background: rgba(154, 107, 61, 0.12);
+  color: #9a6b3d;
+  font-size: 11px;
+  line-height: 1;
+}
+
 .product-management-tools {
   display: flex;
   align-items: flex-end;
@@ -396,6 +442,20 @@
 
 .product-card-status {
   right: 16px;
+}
+
+.product-card-specific-badge {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  z-index: 1;
+  border-radius: 999px;
+  background: #2563eb;
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 16px;
+  padding: 4px 10px;
 }
 
 .product-version-index {

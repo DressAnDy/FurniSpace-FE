@@ -4,8 +4,6 @@ type AggregatableItem = {
   customizationAdditionalCost?: number | null;
   customizationNote?: string | null;
   depthSnapshot?: number | null;
-  deliveredQuantity?: number | null;
-  deliveryNote?: string | null;
   dimensionUnit?: string | null;
   discountAmount?: number | null;
   heightSnapshot?: number | null;
@@ -43,14 +41,12 @@ export function aggregateDuplicateItems<T extends AggregatableItem>(items: T[]) 
 
     existingItem.quantity = sumOptionalNumbers(existingItem.quantity, item.quantity);
     existingItem.discountAmount = sumOptionalNumbers(existingItem.discountAmount, item.discountAmount);
-    existingItem.deliveredQuantity = sumOptionalNumbers(existingItem.deliveredQuantity, item.deliveredQuantity);
     existingItem.grossAmount = sumOptionalNumbers(existingItem.grossAmount, item.grossAmount);
     existingItem.subtotalAmount = sumOptionalNumbers(existingItem.subtotalAmount, item.subtotalAmount);
     existingItem.taxableAmount = sumOptionalNumbers(existingItem.taxableAmount, item.taxableAmount);
     existingItem.taxAmount = sumOptionalNumbers(existingItem.taxAmount, item.taxAmount);
     existingItem.totalAmount = sumOptionalNumbers(existingItem.totalAmount, item.totalAmount);
     existingItem.customizationNote = mergeTextValues(existingItem.customizationNote, item.customizationNote);
-    existingItem.deliveryNote = mergeTextValues(existingItem.deliveryNote, item.deliveryNote);
     existingItem.note = mergeTextValues(existingItem.note, item.note);
   }
 

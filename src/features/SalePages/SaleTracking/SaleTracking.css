@@ -503,6 +503,35 @@
   opacity: 0.55;
 }
 
+.sale-tracking-form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.sale-tracking-secondary-btn,
+.sale-tracking-reschedule-btn {
+  align-items: center;
+  background: #ffffff;
+  border: 1px solid rgba(139, 111, 71, 0.22);
+  border-radius: 8px;
+  color: #6f5636;
+  cursor: pointer;
+  display: inline-flex;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  justify-content: center;
+  min-height: 34px;
+  padding: 0 12px;
+  width: fit-content;
+}
+
+.sale-tracking-secondary-btn:hover,
+.sale-tracking-reschedule-btn:hover {
+  background: #f5f1ec;
+}
+
 .sale-tracking-form {
   display: grid;
   gap: 12px;
@@ -564,6 +593,10 @@
   border-color: rgba(5, 150, 105, 0.22);
 }
 
+.sale-tracking-list .sale-tracking-reschedule-btn {
+  margin-top: 4px;
+}
+
 .sale-tracking-schedule-top {
   align-items: center;
   display: flex;
@@ -621,10 +654,46 @@
   overflow: auto;
 }
 
+.sale-tracking-items-wrap {
+  overflow-x: visible;
+}
+
 .sale-tracking-table-wrap table {
   border-collapse: collapse;
   min-width: 820px;
   width: 100%;
+}
+
+.sale-tracking-items-table {
+  min-width: 0 !important;
+  table-layout: fixed;
+}
+
+.sale-tracking-items-table th,
+.sale-tracking-items-table td {
+  padding: 9px 8px;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.sale-tracking-items-table th:nth-child(1),
+.sale-tracking-items-table td:nth-child(1) {
+  width: 44%;
+}
+
+.sale-tracking-items-table th:nth-child(2),
+.sale-tracking-items-table td:nth-child(2) {
+  width: 12%;
+}
+
+.sale-tracking-items-table th:nth-child(3),
+.sale-tracking-items-table td:nth-child(3) {
+  width: 22%;
+}
+
+.sale-tracking-items-table th:nth-child(4),
+.sale-tracking-items-table td:nth-child(4) {
+  width: 22%;
 }
 
 .sale-tracking-table-wrap th,
@@ -647,6 +716,15 @@
 .sale-tracking-item-name {
   font-weight: 600;
   max-width: 200px;
+}
+
+.sale-tracking-item-name small {
+  color: #8a8177;
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 15px;
+  margin-top: 2px;
 }
 
 .sale-tracking-item-progress {

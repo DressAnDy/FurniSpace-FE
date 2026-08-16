@@ -14,6 +14,7 @@ import {
   useCurrentUser,
   useOrderDetail,
   usePrepareOrderFinalPayment,
+  useProjectDetail,
   useProjectList,
   useProjectOrders,
 } from '@/services/queries';
@@ -48,6 +49,7 @@ export function SaleOrders() {
   const projects = useMemo(() => projectsQuery.data?.items ?? [], [projectsQuery.data?.items]);
   const orderProjects = useMemo(() => getOrderProjects(projects), [projects]);
   const selectedProject = orderProjects.find((project) => project.projectId === selectedProjectId) ?? null;
+  const projectDetailQuery = useProjectDetail(selectedProjectId || undefined);
   const ordersQuery = useProjectOrders(selectedProjectId, { enabled: Boolean(selectedProjectId) });
   const orders = useMemo(() => ordersQuery.data?.items ?? [], [ordersQuery.data?.items]);
   const orderDetailQuery = useOrderDetail(selectedOrderId, { enabled: Boolean(selectedOrderId) });
@@ -139,6 +141,7 @@ export function SaleOrders() {
                     isCreatingRemainingPayment={remainingPaymentMutation.isPending}
                     isPreparingFinalPayment={prepareFinalPaymentMutation.isPending}
                     order={order}
+                    projectTargetCompletionDate={projectDetailQuery.data?.targetCompletionDate ?? null}
                     productionStaff={productionStaffQuery.data ?? []}
                     onCompleteOrder={async () => {
                       setMessage(null);
@@ -228,6 +231,7 @@ function OrderDetailPanel({
   onCreateProduction,
   onPrepareAndCreateRemainingPayment,
   order,
+  projectTargetCompletionDate,
   productionStaff,
 }: {
   isCompleting: boolean;
@@ -240,6 +244,7 @@ function OrderDetailPanel({
   onCreateProduction: (input: { assignedTo?: string | null; priority: 'LOW' | 'MEDIUM' | 'NORMAL' | 'HIGH' | 'URGENT'; estimatedStartDate?: string | null; estimatedCompletionDate?: string | null; note?: string | null }) => void;
   onPrepareAndCreateRemainingPayment: () => void;
   order: OrderDetailDto;
+  projectTargetCompletionDate?: string | null;
   productionStaff: Array<{ accountId: string; fullName: string; activeRequestCount: number; isAvailable: boolean }>;
 }) {
   const [assignedTo, setAssignedTo] = useState('');
@@ -304,6 +309,10 @@ function OrderDetailPanel({
               setProductionDateMessage(dateRange.message);
               return;
             }
+            if (projectTargetCompletionDate && isDateRangeAfterTarget(dateRange.start, dateRange.end, projectTargetCompletionDate)) {
+              setProductionDateMessage('Production dates cannot be after project target completion date.');
+              return;
+            }
             onCreateProduction({
               assignedTo: assignedTo || null,
               estimatedCompletionDate: dateRange.end,
@@ -339,6 +348,7 @@ function OrderDetailPanel({
             <label>
               <span>Start</span>
               <input
+                max={projectTargetCompletionDate ?? undefined}
                 min={getLocalDateInputValue()}
                 type="date"
                 value={estimatedStartDate}
@@ -355,6 +365,7 @@ function OrderDetailPanel({
               <span>Complete</span>
               <input
                 disabled={!estimatedStartDate}
+                max={projectTargetCompletionDate ?? undefined}
                 min={getMinimumEndDateInputValue(estimatedStartDate) || getLocalDateInputValue()}
                 type="date"
                 value={estimatedCompletionDate}
@@ -476,21 +487,11 @@ function getCompleteOrderBlocker(order: OrderDetailDto) {
   if (order.status === 'COMPLETED') return 'This order has already been completed.';
   if (order.status !== 'DELIVERED' && order.status !== 'FINAL_PAYMENT_PENDING') return null;
   if ((order.remainingAmount ?? 0) > 0) return 'Order detail still shows a remaining balance. Backend will validate payment before completing.';
-  const incompleteDeliveryItem = order.items.find((item) => isDeliverableOrderItem(item) && (item.deliveredQuantity ?? 0) < (item.quantity ?? 0));
-
-  if (incompleteDeliveryItem) {
-    return `${getOrderItemName(incompleteDeliveryItem)} is not fully delivered yet.`;
-  }
-
-  const unconfirmedDeliveryItem = order.items.find((item) => isDeliverableOrderItem(item) && !item.customerConfirmedAt);
-
-  if (unconfirmedDeliveryItem) {
-    return `${getOrderItemName(unconfirmedDeliveryItem)} is waiting for customer delivery confirmation.`;
-  }
+  if (!order.customerConfirmedDeliveryAt) return 'Order is waiting for customer delivery confirmation.';
 
   return null;
 }
 
-function isDeliverableOrderItem(item: OrderItemDto) {
-  return (item.quantity ?? 0) > 0 && item.status !== 'CANCELLED' && item.status !== 'UNAVAILABLE';
+function isDateRangeAfterTarget(startDate: string | null, endDate: string | null, targetCompletionDate: string) {
+  return Boolean((startDate && startDate > targetCompletionDate) || (endDate && endDate > targetCompletionDate));
 }

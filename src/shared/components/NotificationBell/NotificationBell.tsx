@@ -174,6 +174,29 @@ export function NotificationBell({ buttonClassName, className }: NotificationBel
 
 function getNotificationTargetPath(notification: NotificationDto, role?: string) {
   const normalizedRole = normalizeRole(role);
+  const chatId = typeof notification.metadata?.chatId === 'string' ? notification.metadata.chatId : null;
+
+  if (notification.referenceType === 'PROJECT_CHAT_MESSAGE' || notification.notificationType === 'ProjectChatMessageSent') {
+    const chatQuery = chatId ? `&chatId=${encodeURIComponent(chatId)}` : '';
+
+    if (normalizedRole === 'DESIGNER') {
+      return notification.projectId ? `/designer/assigned-projects/${notification.projectId}?tab=chat${chatQuery}` : '/designer/assigned-projects';
+    }
+
+    if (normalizedRole === 'SALES') {
+      return notification.projectId ? `/sales/assigned-projects/${notification.projectId}?tab=chat${chatQuery}` : '/sales/assigned-projects';
+    }
+
+    if (normalizedRole === 'PRODUCTION') {
+      return '/production/requests';
+    }
+
+    const customerParams = new URLSearchParams();
+    if (notification.projectId) customerParams.set('projectId', notification.projectId);
+    if (chatId) customerParams.set('chatId', chatId);
+
+    return `/customer/chat${customerParams.size > 0 ? `?${customerParams.toString()}` : ''}`;
+  }
 
   if (notification.referenceType === 'PROJECT_SCHEDULE') {
     if (normalizedRole === 'DESIGNER') {

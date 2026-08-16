@@ -1,7 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useQueries } from '@tanstack/react-query';
-import { IconArrowLeft, IconBox, IconChevronRight, IconCube, IconLayersIntersect, IconPlus, IconSearch, IconX } from '@tabler/icons-react';
-import { useNavigate } from 'react-router-dom';
+import { IconArrowLeft, IconBox, IconChevronRight, IconCube, IconLayersIntersect, IconSearch, IconX } from '@tabler/icons-react';
 
 import { DesignerLayout } from '@/features/DesignerPages/designercomponents';
 import { ModelViewer, type ModelViewerStatus } from '@/features/ThreeD/components';
@@ -28,7 +27,6 @@ export function DesignerProductLibrary() {
   const [businessTypeFilterIds, setBusinessTypeFilterIds] = useState<number[]>([]);
   const [page, setPage] = useState(1);
   const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
-  const navigate = useNavigate();
   const productListQuery = useProductList({ page: 1, limit: 100, businessTypeIds: businessTypeFilterIds });
   const businessTypeListQuery = useBusinessTypeList({ page: 1, limit: 100 });
   const businessTypeOptions = businessTypeListQuery.data?.items.filter((businessType) => businessType.status) ?? [];
@@ -211,7 +209,7 @@ export function DesignerProductLibrary() {
       ) : null}
 
       {selectedCard ? (
-        <ProductVersionList card={selectedCard} onCreateVersion={(productId) => navigate(`/designer/product-library/${productId}/versions/create`)} />
+        <ProductVersionList card={selectedCard} />
       ) : (
         <section className="designer-products-grid">
           {productListQuery.isLoading
@@ -305,7 +303,7 @@ function ProductCard({ card, onOpen }: { card: ProductLibraryCardData; onOpen: (
   );
 }
 
-function ProductVersionList({ card, onCreateVersion }: { card: ProductLibraryCardData; onCreateVersion: (productId: string) => void }) {
+function ProductVersionList({ card }: { card: ProductLibraryCardData }) {
   const { product, versions } = card;
   const [previewVersionId, setPreviewVersionId] = useState<string | null>(null);
   const [viewerStatus, setViewerStatus] = useState<ModelViewerStatus>('idle');
@@ -340,10 +338,6 @@ function ProductVersionList({ card, onCreateVersion }: { card: ProductLibraryCar
             ))}
           </div>
         </div>
-        <button className="designer-product-create-version-button" type="button" onClick={() => onCreateVersion(product.productId)}>
-          <IconPlus size={15} />
-          Create version
-        </button>
       </div>
 
       {card.isLoadingDetail && versions.length === 0 ? (
@@ -454,10 +448,6 @@ function VersionRow({
             <button className="designer-product-asset-button" type="button" onClick={onPreview}>
               <IconCube size={15} />
               3D Assets
-            </button>
-            <button className="designer-product-add-button" type="button" aria-label={`Add ${version.versionName} from ${product.productName}`}>
-              <IconPlus size={15} />
-              Add
             </button>
           </div>
         </div>
