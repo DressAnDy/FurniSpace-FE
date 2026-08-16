@@ -2,7 +2,7 @@ import { IconBell, IconCheck, IconLoader2 } from '@tabler/icons-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
-import { useRealtimeInAppNotification } from '@/app/providers/RealtimeSyncProvider';
+import { useAcknowledgeInAppNotification, useRealtimeInAppNotification } from '@/app/providers/realtimeSyncContext';
 import {
   getNotificationServiceResultMessage,
   type NotificationDto,
@@ -32,18 +32,22 @@ export function NotificationBell({ buttonClassName, className }: NotificationBel
   const markAllReadMutation = useMarkAllNotificationsAsRead();
   const { data: user } = useCurrentUser();
   const lastInAppNotification = useRealtimeInAppNotification();
+  const acknowledgeInAppNotification = useAcknowledgeInAppNotification();
   const unreadCount = unreadCountQuery.data?.unreadCount ?? 0;
   const notifications = notificationsQuery.data?.items ?? [];
   const formattedUnreadCount = unreadCount > 99 ? '99+' : unreadCount.toString();
   const [realtimeMessage, setRealtimeMessage] = useState<typeof lastInAppNotification>(null);
 
   useEffect(() => {
-    if (!lastInAppNotification?.notificationId) {
+    const notificationId = lastInAppNotification?.notificationId;
+
+    if (!notificationId) {
       return;
     }
 
     setRealtimeMessage(lastInAppNotification);
-  }, [lastInAppNotification]);
+    acknowledgeInAppNotification(notificationId);
+  }, [acknowledgeInAppNotification, lastInAppNotification]);
 
   useEffect(() => {
     if (!realtimeMessage) {
