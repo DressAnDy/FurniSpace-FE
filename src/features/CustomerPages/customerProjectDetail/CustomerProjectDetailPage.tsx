@@ -244,6 +244,7 @@ function getStageLabel(status: ProjectStatus) {
     ORDER_CONFIRMED: 'Order Confirmed',
     IN_PRODUCTION: 'In Production',
     DELIVERING: 'Delivering',
+    DELIVERED: 'Awaiting Sales Completion',
     COMPLETED: 'Completed',
   };
 
