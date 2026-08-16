@@ -54,6 +54,7 @@ const inAppNotificationEvents = [
   'order.updated',
   'order.delivered',
   'order.completed',
+  'OrderCompleted',
   'production.request.created',
   'production.request.assigned',
   'production.request.completed',
@@ -62,6 +63,7 @@ const inAppNotificationEvents = [
 
 const realtimeOnlyNotificationEvents = [
   'project.status.changed',
+  'ProjectStatusChanged',
   'project_schedule.created',
   'project_schedule.updated',
   'project_schedule.confirmed',

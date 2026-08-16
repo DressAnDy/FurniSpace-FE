@@ -183,7 +183,7 @@ export function SaleOrders() {
                       setMessage(null);
                       try {
                         const result = await completeOrderMutation.mutateAsync(order.orderId);
-                        setMessage({ tone: 'success', text: 'Order and project completed.' });
+                        setMessage({ tone: 'success', text: 'Order completed. Open the project detail to complete the project separately.' });
                         void ordersQuery.refetch();
                         void orderDetailQuery.refetch();
                         void projectsQuery.refetch();
@@ -296,11 +296,14 @@ function OrderDetailPanel({
     () => aggregateDuplicateItems([...order.items].sort((first, second) => getOrderItemName(first).localeCompare(getOrderItemName(second)))),
     [order.items],
   );
-  const canCompleteOrder = order.status === 'DELIVERED' || order.status === 'FINAL_PAYMENT_PENDING';
+  const canCompleteOrder = order.status === 'FINAL_PAYMENT_PENDING'
+    && (order.remainingAmount ?? 0) <= 0
+    && Boolean(order.customerConfirmedDeliveryAt);
   const isOrderCompleted = order.status === 'COMPLETED';
   const canPrepareOrCreateRemainingPayment = order.status === 'DELIVERED'
     || (order.status === 'FINAL_PAYMENT_PENDING' && (order.remainingAmount ?? 0) > 0);
   const completeOrderBlocker = getCompleteOrderBlocker(order);
+  const showFinalPaymentActions = order.status === 'DELIVERED';
 
   useEffect(() => {
     setAssignedTo((current) => current || productionStaff.find((staff) => staff.isAvailable)?.accountId || productionStaff[0]?.accountId || '');
@@ -449,28 +452,28 @@ function OrderDetailPanel({
           <header>
             <div>
               <h3>Final Payment</h3>
-              <p>Prepare final payment phase and create/reuse the remaining payment when the backend reports a balance.</p>
+              <p>Prepare final payment phase and create/reuse the remaining payment when the backend reports a balance. Paid remaining payments complete the order automatically.</p>
             </div>
           </header>
-          <div className="sale-orders-actions">
-            <button
-              disabled={isOrderCompleted || !canPrepareOrCreateRemainingPayment || isPreparingFinalPayment || isCreatingRemainingPayment}
-              type="button"
-              onClick={onPrepareAndCreateRemainingPayment}
-            >
-              <IconSettings size={16} />
-              {isPreparingFinalPayment || isCreatingRemainingPayment
-                ? 'Processing...'
-                : order.status === 'FINAL_PAYMENT_PENDING'
-                  ? 'Create Remaining Payment'
-                  : 'Prepare & Create Remaining Payment'}
-            </button>
-            <button disabled={isOrderCompleted || !canCompleteOrder || Boolean(completeOrderBlocker) || isCompleting} type="button" onClick={onCompleteOrder}>
-              <IconCircleCheck size={16} />
-              {isOrderCompleted ? 'Completed' : isCompleting ? 'Completing...' : 'Complete Order'}
-            </button>
-          </div>
-          {completeOrderBlocker ? <p className="sale-orders-action-note">{completeOrderBlocker}</p> : null}
+          {showFinalPaymentActions ? (
+            <>
+              <div className="sale-orders-actions">
+                <button
+                  disabled={isOrderCompleted || !canPrepareOrCreateRemainingPayment || isPreparingFinalPayment || isCreatingRemainingPayment}
+                  type="button"
+                  onClick={onPrepareAndCreateRemainingPayment}
+                >
+                  <IconSettings size={16} />
+                  {isPreparingFinalPayment || isCreatingRemainingPayment ? 'Processing...' : 'Prepare & Create Remaining Payment'}
+                </button>
+                <button disabled={isOrderCompleted || !canCompleteOrder || Boolean(completeOrderBlocker) || isCompleting} type="button" onClick={onCompleteOrder}>
+                  <IconCircleCheck size={16} />
+                  {isCompleting ? 'Completing...' : 'Complete Zero-Remaining Order'}
+                </button>
+              </div>
+              {completeOrderBlocker ? <p className="sale-orders-action-note">{completeOrderBlocker}</p> : null}
+            </>
+          ) : null}
         </div>
       ) : null}
       <div className="sale-orders-table-scroll">
@@ -545,7 +548,8 @@ function formatPercentRate(value?: number | null) {
 function getCompleteOrderBlocker(order: OrderDetailDto) {
   if (order.status === 'COMPLETED') return 'This order has already been completed.';
   if (order.status !== 'DELIVERED' && order.status !== 'FINAL_PAYMENT_PENDING') return null;
-  if ((order.remainingAmount ?? 0) > 0) return 'Order detail still shows a remaining balance. Backend will validate payment before completing.';
+  if (order.status === 'DELIVERED') return 'Prepare the final payment phase before completing a zero-remaining order.';
+  if ((order.remainingAmount ?? 0) > 0) return 'Waiting for customer final payment. The backend will complete this order automatically after payment is confirmed.';
   if (!order.customerConfirmedDeliveryAt) return 'Order is waiting for customer delivery confirmation.';
 
   return null;

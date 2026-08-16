@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   assignDesignerToProject,
   assignSalesToProject,
+  completeProject,
   createProject,
   getAdminProjectWorkflow,
   getProjectById,
@@ -179,6 +180,21 @@ export function useUpdateProjectStatus() {
       void queryClient.invalidateQueries({ queryKey: projectQueryKeys.workflow(data.projectId) });
       void queryClient.invalidateQueries({ queryKey: projectChatQueryKeys.all });
       invalidateProjectCaches(queryClient, data.projectId);
+    },
+  });
+}
+
+export function useCompleteProject() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (projectId: string) => completeProject(projectId),
+    onSuccess: (data) => {
+      invalidateProjectCaches(queryClient, data.projectId);
+      void queryClient.invalidateQueries({ queryKey: projectQueryKeys.workflow(data.projectId) });
+      void queryClient.invalidateQueries({ queryKey: ['orders', 'project', data.projectId] });
+      void queryClient.invalidateQueries({ queryKey: ['payments'] });
+      void queryClient.invalidateQueries({ queryKey: ['notifications'] });
     },
   });
 }
