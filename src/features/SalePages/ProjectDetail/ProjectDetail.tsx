@@ -194,53 +194,56 @@ export function ProjectDetail() {
             </div>
             {project ? (
               <div className="project-detail-header-actions">
-                {isAssignedProjectRoute && canSalesDecideConsultation(project.status) ? (
+                {canRequestMoreInformation(project.status) || canRejectProject(project.status) || project.status === 'SUBMITTED' || project.status === 'NEED_BASIC_INFORMATION' ? (
                   <div className="project-detail-status-update">
-                    <span>Consultation Decision</span>
                     <div className="project-detail-status-buttons">
-                      <button
-                        className="project-detail-decision-button project-detail-decision-info"
-                        type="button"
-                        disabled={rejectProjectMutation.isPending || requestInformationMutation.isPending}
-                        onClick={() => void handleConsultationDecision('NEED_BASIC_INFORMATION')}
-                      >
-                        {requestInformationMutation.isPending ? (
-                          <IconLoader2 className="project-detail-decision-spinner" size={16} stroke={2} />
-                        ) : (
-                          <IconInfoCircle size={16} stroke={2} />
-                        )}
-                        <span>{requestInformationMutation.isPending ? 'Sending...' : 'Request More Info'}</span>
-                      </button>
-                      <button
-                        className="project-detail-decision-button project-detail-decision-reject"
-                        type="button"
-                        disabled={rejectProjectMutation.isPending || requestInformationMutation.isPending}
-                        onClick={() => void handleConsultationDecision('REJECTED')}
-                      >
-                        {rejectProjectMutation.isPending ? (
-                          <IconLoader2 className="project-detail-decision-spinner" size={16} stroke={2} />
-                        ) : (
-                          <IconBan size={16} stroke={2} />
-                        )}
-                        <span>{rejectProjectMutation.isPending ? 'Updating...' : 'Reject Project'}</span>
-                      </button>
+                      {canRequestMoreInformation(project.status) ? (
+                        <button
+                          className="project-detail-decision-button project-detail-decision-info"
+                          type="button"
+                          disabled={rejectProjectMutation.isPending || requestInformationMutation.isPending}
+                          onClick={() => void handleConsultationDecision('NEED_BASIC_INFORMATION')}
+                        >
+                          {requestInformationMutation.isPending ? (
+                            <IconLoader2 className="project-detail-decision-spinner" size={16} stroke={2} />
+                          ) : (
+                            <IconInfoCircle size={16} stroke={2} />
+                          )}
+                          <span>{requestInformationMutation.isPending ? 'Sending...' : 'Request More Info'}</span>
+                        </button>
+                      ) : null}
+                      {canRejectProject(project.status) ? (
+                        <button
+                          className="project-detail-decision-button project-detail-decision-reject"
+                          type="button"
+                          disabled={rejectProjectMutation.isPending || requestInformationMutation.isPending}
+                          onClick={() => void handleConsultationDecision('REJECTED')}
+                        >
+                          {rejectProjectMutation.isPending ? (
+                            <IconLoader2 className="project-detail-decision-spinner" size={16} stroke={2} />
+                          ) : (
+                            <IconBan size={16} stroke={2} />
+                          )}
+                          <span>{rejectProjectMutation.isPending ? 'Updating...' : 'Reject Project'}</span>
+                        </button>
+                      ) : null}
+                      {project.status === 'SUBMITTED' || project.status === 'NEED_BASIC_INFORMATION' ? (
+                        <button
+                          type="button"
+                          disabled={assignSalesMutation.isPending}
+                          onClick={() =>
+                            assignSalesMutation.mutate({
+                              projectId: project.projectId,
+                              note: getAcceptForConsultationNote(project.status),
+                            })
+                          }
+                        >
+                          {assignSalesMutation.isPending ? 'Accepting...' : 'Accept for Consultation'}
+                        </button>
+                      ) : null}
                     </div>
                     {statusMessage ? <p className={statusMessage.toLowerCase().includes('success') ? 'project-detail-status-message' : 'project-detail-status-message project-detail-status-message-error'}>{statusMessage}</p> : null}
                   </div>
-                ) : null}
-                {project.status === 'SUBMITTED' || project.status === 'NEED_BASIC_INFORMATION' ? (
-                  <button
-                    type="button"
-                    disabled={assignSalesMutation.isPending}
-                    onClick={() =>
-                      assignSalesMutation.mutate({
-                        projectId: project.projectId,
-                        note: getAcceptForConsultationNote(project.status),
-                      })
-                    }
-                  >
-                    {assignSalesMutation.isPending ? 'Accepting...' : 'Accept for Consultation'}
-                  </button>
                 ) : null}
                 {canReopenProjectProposal(project.status) ? (
                   <button
@@ -372,8 +375,19 @@ function formatDate(value: string) {
   }).format(new Date(value));
 }
 
-function canSalesDecideConsultation(status: ProjectStatus) {
+function canRequestMoreInformation(status: ProjectStatus) {
   return status === 'IN_CONSULTATION';
+}
+
+function canRejectProject(status: ProjectStatus) {
+  return [
+    'SUBMITTED',
+    'IN_CONSULTATION',
+    'NEED_BASIC_INFORMATION',
+    'WAITING_FOR_DESIGNER_ASSIGNMENT',
+    'MEASUREMENT_REQUIRED',
+    'SPACE_VERIFIED',
+  ].includes(status);
 }
 
 function canReopenProjectProposal(status: ProjectStatus) {

@@ -10,7 +10,6 @@ import {
 } from '@tabler/icons-react';
 
 import { SelectedImagePreview } from '@/features/AdminPages/Productmanagement/SelectedImagePreview';
-import { ModelViewer, type ModelViewerStatus } from '@/features/ThreeD/components';
 import {
   getCustomizationRequestServiceResultFromError,
   getCustomizationRequestServiceResultMessage,
@@ -33,7 +32,6 @@ import {
   useSubmitCustomizationRequestVersionForReview,
   useUpdateCustomizationRequestVersion,
   useUploadProductVersionFile,
-  useWithdrawCustomizationRequestVersion,
 } from '@/services/queries';
 
 type CustomizationTabProps = {
@@ -113,9 +111,6 @@ export function CustomizationTab({ project }: Readonly<CustomizationTabProps>) {
   const [requestModalOpen, setRequestModalOpen] = useState(false);
   const [versionModalOpen, setVersionModalOpen] = useState(false);
   const [cancelModalOpen, setCancelModalOpen] = useState(false);
-  const [modelPreviewOpen, setModelPreviewOpen] = useState(false);
-  const [viewerStatus, setViewerStatus] = useState<ModelViewerStatus>('idle');
-  const [viewerError, setViewerError] = useState<string | null>(null);
   const [previewFile, setPreviewFile] = useState<File | null>(null);
   const [modelFile, setModelFile] = useState<File | null>(null);
   const [requestForm, setRequestForm] = useState<RequestFormState>(emptyRequestForm);
@@ -143,7 +138,6 @@ export function CustomizationTab({ project }: Readonly<CustomizationTabProps>) {
   const createVersionMutation = useCreateCustomizationRequestVersion();
   const updateVersionMutation = useUpdateCustomizationRequestVersion();
   const submitVersionMutation = useSubmitCustomizationRequestVersionForReview();
-  const withdrawVersionMutation = useWithdrawCustomizationRequestVersion();
   const cancelMutation = useCancelCustomizationRequest();
   const proposals = useMemo(() => proposalsQuery.data?.items ?? [], [proposalsQuery.data?.items]);
   const proposalItems = useMemo(() => proposalItemsQuery.data?.items ?? [], [proposalItemsQuery.data?.items]);
@@ -299,21 +293,6 @@ export function CustomizationTab({ project }: Readonly<CustomizationTabProps>) {
     }
   }
 
-  async function withdrawVersion(version: CustomizationRequestVersionDto) {
-    if (!activeRequest) return;
-    setMessage(null);
-
-    try {
-      await withdrawVersionMutation.mutateAsync({
-        customizationRequestId: activeRequest.customizationRequestId,
-        customizationRequestVersionId: version.customizationRequestVersionId,
-      });
-      setMessage({ tone: 'success', text: 'Customization version withdrawn.' });
-    } catch (error) {
-      setMessage({ tone: 'error', text: getCustomizationRequestServiceResultMessage(error) });
-    }
-  }
-
   async function cancelRequest(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!activeRequest) return;
@@ -455,21 +434,15 @@ export function CustomizationTab({ project }: Readonly<CustomizationTabProps>) {
                 mutationPending={
                   createVersionMutation.isPending ||
                   updateVersionMutation.isPending ||
-                  submitVersionMutation.isPending ||
-                  withdrawVersionMutation.isPending
+                  submitVersionMutation.isPending
                 }
                 onCancelRequest={() => setCancelModalOpen(true)}
-                onEditVersion={(versionId) => {
-                  setEditingVersionId(versionId);
-                  setVersionModalOpen(true);
-                }}
                 onNewVersion={() => {
                   setEditingVersionId(null);
                   setVersionForm(emptyVersionForm);
                   setVersionModalOpen(true);
                 }}
                 onSubmitVersion={(version) => void submitVersion(version)}
-                onWithdrawVersion={(version) => void withdrawVersion(version)}
               />
             ) : (
               <div className="designer-project-custom-empty-panel">
@@ -511,8 +484,6 @@ export function CustomizationTab({ project }: Readonly<CustomizationTabProps>) {
             setEditingVersionId(null);
             setPreviewFile(null);
             setModelFile(null);
-            setViewerStatus('idle');
-            setViewerError(null);
           }}
         >
           <VersionForm
@@ -521,37 +492,10 @@ export function CustomizationTab({ project }: Readonly<CustomizationTabProps>) {
             modelFile={modelFile}
             mutationPending={createVersionMutation.isPending || updateVersionMutation.isPending || uploadProductVersionFileMutation.isPending}
             previewFile={previewFile}
-            viewerError={viewerError}
-            viewerStatus={viewerStatus}
             onChange={setVersionForm}
             onModelFileChange={setModelFile}
             onPreviewFileChange={setPreviewFile}
-            onPreviewModel={() => {
-              setModelPreviewOpen(true);
-              setViewerStatus('idle');
-              setViewerError(null);
-            }}
             onSubmit={(event) => void saveVersion(event)}
-          />
-        </DesignerModal>
-      ) : null}
-
-      {modelPreviewOpen ? (
-        <DesignerModal
-          description={viewerStatus === 'error' ? viewerError ?? 'Could not load model.' : modelFile ? 'Drag to rotate, scroll to zoom.' : 'No local MODEL_3D file is selected yet.'}
-          title={modelFile?.name ?? editingVersion?.productVersion?.versionName ?? '3D Model Preview'}
-          onClose={() => {
-            setModelPreviewOpen(false);
-            setViewerStatus('idle');
-            setViewerError(null);
-          }}
-        >
-          <ModelPreviewCanvas
-            modelFile={modelFile}
-            onStatusChange={(status, error) => {
-              setViewerStatus(status);
-              setViewerError(error);
-            }}
           />
         </DesignerModal>
       ) : null}
@@ -781,19 +725,15 @@ function RequestVersionPanel({
   cancelMutationPending,
   mutationPending,
   onCancelRequest,
-  onEditVersion,
   onNewVersion,
   onSubmitVersion,
-  onWithdrawVersion,
 }: Readonly<{
   activeRequest: CustomizationRequestDto;
   cancelMutationPending: boolean;
   mutationPending: boolean;
   onCancelRequest: () => void;
-  onEditVersion: (versionId: string | null) => void;
   onNewVersion: () => void;
   onSubmitVersion: (version: CustomizationRequestVersionDto) => void;
-  onWithdrawVersion: (version: CustomizationRequestVersionDto) => void;
 }>) {
   const versions = activeRequest.versions ?? [];
   const canCreateVersion = activeRequest.status === 'SUBMITTED' || activeRequest.status === 'REVIEWING';
@@ -837,9 +777,7 @@ function RequestVersionPanel({
             key={version.customizationRequestVersionId}
             mutationPending={mutationPending}
             version={version}
-            onEdit={() => onEditVersion(version.customizationRequestVersionId)}
             onSubmit={() => onSubmitVersion(version)}
-            onWithdraw={() => onWithdrawVersion(version)}
           />
         ))}
       </div>
@@ -875,20 +813,14 @@ function CustomizationRequestSummary({ request }: { request: CustomizationReques
 
 function VersionCard({
   mutationPending,
-  onEdit,
   onSubmit,
-  onWithdraw,
   version,
 }: Readonly<{
   mutationPending: boolean;
-  onEdit: () => void;
   onSubmit: () => void;
-  onWithdraw: () => void;
   version: CustomizationRequestVersionDto;
 }>) {
-  const canEdit = version.status === 'DRAFT';
   const canSubmit = version.status === 'DRAFT';
-  const canWithdraw = version.status === 'DRAFT' || (version.status === 'REVIEWING' && version.feasibilityStatus === 'PENDING');
 
   return (
     <div className="designer-project-custom-version-card">
@@ -914,14 +846,8 @@ function VersionCard({
         <DetailValue label="Additional Cost" value={formatMoney(version.estimatedAdditionalCost)} />
       </div>
       <div className="designer-project-progress-actions">
-        <button className="designer-project-detail-button" disabled={!canEdit || mutationPending} type="button" onClick={onEdit}>
-          Edit Draft
-        </button>
         <button className="designer-project-detail-button designer-project-detail-button-primary" disabled={!canSubmit || mutationPending} type="button" onClick={onSubmit}>
           Submit Review
-        </button>
-        <button className="designer-project-detail-button" disabled={!canWithdraw || mutationPending} type="button" onClick={onWithdraw}>
-          Withdraw
         </button>
       </div>
     </div>
@@ -936,11 +862,8 @@ function VersionForm({
   onChange,
   onModelFileChange,
   onPreviewFileChange,
-  onPreviewModel,
   onSubmit,
   previewFile,
-  viewerError,
-  viewerStatus,
 }: {
   editingVersion: CustomizationRequestVersionDto | null;
   form: VersionFormState;
@@ -949,15 +872,11 @@ function VersionForm({
   onChange: (form: VersionFormState) => void;
   onModelFileChange: (file: File | null) => void;
   onPreviewFileChange: (file: File | null) => void;
-  onPreviewModel: () => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
   previewFile: File | null;
-  viewerError: string | null;
-  viewerStatus: ModelViewerStatus;
 }) {
   const setField = (name: keyof VersionFormState, value: string) => onChange({ ...form, [name]: value });
   const currentPreviewFile = editingVersion?.productVersion?.previewFiles?.[0] ?? null;
-  const canPreviewModel = Boolean(modelFile);
 
   return (
     <form className="designer-project-custom-action-form" onSubmit={onSubmit}>
@@ -1055,49 +974,13 @@ function VersionForm({
           </div>
         </label>
         <div className="designer-project-custom-file-actions">
-          <button className="designer-project-detail-button" disabled={!canPreviewModel} type="button" onClick={onPreviewModel}>
-            <IconCube size={16} />
-            Preview 3D
-          </button>
-          <small>{viewerStatus === 'error' ? viewerError : modelFile ? 'Local model ready to preview.' : 'Choose a model file to preview it.'}</small>
+          <small>{modelFile ? 'Local model selected for upload.' : 'Choose a model file to upload with this custom ProductVersion.'}</small>
         </div>
       </div>
       <button className="designer-project-detail-button designer-project-detail-button-primary" disabled={mutationPending} type="submit">
         {mutationPending ? 'Saving...' : editingVersion ? 'Update Draft' : 'Create Draft'}
       </button>
     </form>
-  );
-}
-
-function ModelPreviewCanvas({
-  modelFile,
-  onStatusChange,
-}: {
-  modelFile: File | null;
-  onStatusChange: (status: ModelViewerStatus, error: string | null) => void;
-}) {
-  const [modelUrl, setModelUrl] = useState('');
-
-  useEffect(() => {
-    if (!modelFile) {
-      setModelUrl('');
-      return;
-    }
-
-    const objectUrl = URL.createObjectURL(modelFile);
-    setModelUrl(objectUrl);
-
-    return () => URL.revokeObjectURL(objectUrl);
-  }, [modelFile]);
-
-  if (!modelFile || !modelUrl) {
-    return <p className="designer-project-empty-text">Choose a GLB/glTF model file before opening preview.</p>;
-  }
-
-  return (
-    <div className="designer-project-custom-model-preview">
-      <ModelViewer height="100%" modelUrl={modelUrl} showGrid={false} onStatusChange={onStatusChange} />
-    </div>
   );
 }
 

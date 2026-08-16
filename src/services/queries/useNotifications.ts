@@ -38,6 +38,7 @@ const inAppNotificationEvents = [
   'project.designer.assigned',
   'proposal.published',
   'proposal.selected',
+  'proposal.revision.requested',
   'quotation.sent',
   'quotation.revised',
   'quotation.revision_requested',

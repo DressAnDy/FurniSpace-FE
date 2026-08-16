@@ -4,7 +4,12 @@ import { useLocation, useNavigate, useParams } from 'react-router-dom';
 
 import { BlueprintCanvas } from '@/features/ThreeD/components/BlueprintCanvas';
 import type { BlueprintTool, RoomLayoutState, SelectedRoomItem } from '@/features/ThreeD/types/roomLayout.types';
-import { createDefaultRoomLayout, getRoomBounds } from '@/features/ThreeD/utils/roomGeometry';
+import {
+  createDefaultRoomLayout,
+  getRoomBounds,
+  getWallLength,
+  normalizeDoorAndOpeningDimensions,
+} from '@/features/ThreeD/utils/roomGeometry';
 import { useBuildingTestSceneState } from '@/features/ThreeDTest/hooks';
 import { hydrateBuildingRoomPlannerPayload } from '@/features/ThreeDTest/utils/buildingRoomPlannerPayloadMapper';
 import type {
@@ -421,6 +426,64 @@ function getLayoutSize(layout: RoomLayoutState) {
     depth: Math.max(bounds.maxY - bounds.minY, 1),
     width: Math.max(bounds.maxX - bounds.minX, 1),
   };
+}
+
+function getLevelDimensionScale(currentValue: number, nextValue: number) {
+  return currentValue > 0 ? nextValue / currentValue : 1;
+}
+
+function getWallLengthMap(layout: RoomLayoutState) {
+  return new Map(layout.walls.map((wall) => [wall.id, getWallLength(wall, layout.points)]));
+}
+
+function resizeLevelLayout(layout: RoomLayoutState | null | undefined, nextWidth: number, nextDepth: number) {
+  if (!layout) {
+    return layout;
+  }
+
+  const currentSize = getLayoutSize(layout);
+  const scaleX = getLevelDimensionScale(currentSize.width, nextWidth);
+  const scaleZ = getLevelDimensionScale(currentSize.depth, nextDepth);
+  const previousWallLengths = getWallLengthMap(layout);
+  const nextPoints = layout.points.map((point) => ({
+    ...point,
+    x: roundMetric(currentSize.centerX + (point.x - currentSize.centerX) * scaleX),
+    y: roundMetric(currentSize.centerZ + (point.y - currentSize.centerZ) * scaleZ),
+  }));
+  const nextLayout: RoomLayoutState = {
+    ...layout,
+    points: nextPoints,
+  };
+  const nextWallLengths = getWallLengthMap(nextLayout);
+  const scaleOpeningOffset = <T extends { offset: number; wallId: string }>(opening: T) => {
+    const previousWallLength = previousWallLengths.get(opening.wallId) ?? 0;
+    const nextWallLength = nextWallLengths.get(opening.wallId) ?? previousWallLength;
+
+    return {
+      ...opening,
+      offset: roundMetric(opening.offset * getLevelDimensionScale(previousWallLength, nextWallLength)),
+    };
+  };
+
+  return normalizeDoorAndOpeningDimensions({
+    ...nextLayout,
+    doors: nextLayout.doors.map(scaleOpeningOffset),
+    openings: nextLayout.openings.map(scaleOpeningOffset),
+    windows: nextLayout.windows.map(scaleOpeningOffset),
+  });
+}
+
+function resizeLevel(scene: BuildingTestScene, levelId: BuildingLevel['id'], update: Partial<Pick<BuildingLevel, 'depth' | 'width'>>) {
+  return updateLevel(scene, levelId, (level) => {
+    const width = update.width ?? level.width;
+    const depth = update.depth ?? level.depth;
+
+    return {
+      ...level,
+      ...update,
+      layout: resizeLevelLayout(level.layout, width, depth),
+    };
+  });
 }
 
 function updateLevelLayout(scene: BuildingTestScene, levelId: BuildingLevel['id'], layout: RoomLayoutState) {
@@ -928,13 +991,13 @@ export function BuildingBlueprintTestPage() {
                     label="Width"
                     min={4}
                     value={level.width}
-                    onChange={(value) => setSceneData((scene) => updateLevel(scene, level.id, (currentLevel) => ({ ...currentLevel, width: value })))}
+                    onChange={(value) => setSceneData((scene) => resizeLevel(scene, level.id, { width: value }))}
                   />
                   <NumberField
                     label="Depth"
                     min={4}
                     value={level.depth}
-                    onChange={(value) => setSceneData((scene) => updateLevel(scene, level.id, (currentLevel) => ({ ...currentLevel, depth: value })))}
+                    onChange={(value) => setSceneData((scene) => resizeLevel(scene, level.id, { depth: value }))}
                   />
                   <NumberField
                     label="Offset X"

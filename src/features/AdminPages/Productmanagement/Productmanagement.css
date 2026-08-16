@@ -223,6 +223,47 @@
   line-height: 1;
 }
 
+.product-version-tabs {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 20px 0;
+}
+
+.product-version-tabs button {
+  display: inline-flex;
+  min-height: 40px;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #4b5563;
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 800;
+  padding: 0 12px;
+}
+
+.product-version-tabs button.is-active {
+  border-color: #9a6b3d;
+  background: #f5efe7;
+  color: #6f5636;
+}
+
+.product-version-tabs span {
+  display: inline-grid;
+  min-width: 24px;
+  height: 24px;
+  place-items: center;
+  border-radius: 999px;
+  background: rgba(154, 107, 61, 0.12);
+  color: #9a6b3d;
+  font-size: 11px;
+  line-height: 1;
+}
+
 .product-management-tools {
   display: flex;
   align-items: flex-end;
