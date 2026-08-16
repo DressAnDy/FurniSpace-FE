@@ -54,6 +54,7 @@ export {
   useCancelCustomizationRequest,
   useCreateCustomizationRequestVersion,
   useCustomizationRequestDetail,
+  useProductionCustomizationVersionQueue,
   useProductionCustomizationVersions,
   useProductionReviewCustomizationVersion,
   useProjectCustomizationRequests,

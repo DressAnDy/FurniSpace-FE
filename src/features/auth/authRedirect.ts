@@ -14,7 +14,7 @@ export function getPostLoginPath(role?: string) {
   }
 
   if (normalizedRole.includes('PRODUCTION')) {
-    return '/production/customization-requests';
+    return '/production/dashbroad';
   }
 
   if (normalizedRole.includes('CUSTOMER')) {
