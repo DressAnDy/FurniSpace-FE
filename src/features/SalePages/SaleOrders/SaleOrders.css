@@ -202,6 +202,48 @@
   font-style: normal;
 }
 
+.sale-orders-project-pagination {
+  align-items: center;
+  border-top: 1px solid rgba(139, 111, 71, 0.12);
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+  margin-top: 2px;
+  padding-top: 12px;
+}
+
+.sale-orders-project-pagination span {
+  color: #6b6b6b;
+  flex: 1;
+  font-size: 12px;
+  font-weight: 600;
+  text-align: center;
+}
+
+.sale-orders-project-pagination button {
+  background: #ffffff;
+  border: 1px solid rgba(139, 111, 71, 0.2);
+  border-radius: 8px;
+  color: #6f5636;
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  min-height: 32px;
+  padding: 0 10px;
+}
+
+.sale-orders-project-pagination button:hover:not(:disabled) {
+  background: #8b6f47;
+  border-color: #8b6f47;
+  color: #ffffff;
+}
+
+.sale-orders-project-pagination button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
 .sale-orders-workspace {
   min-width: 0;
 }
@@ -275,7 +317,11 @@
 }
 
 .sale-orders-actions button {
+  display: inline-flex;
   min-height: 40px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
   border: 1px solid #8b6f47;
   border-radius: 8px;
   background: #8b6f47;
@@ -285,6 +331,10 @@
   font-size: 13px;
   font-weight: 700;
   padding: 0 14px;
+}
+
+.sale-orders-actions button svg {
+  flex: 0 0 auto;
 }
 
 .sale-orders-actions button:disabled {
@@ -387,6 +437,124 @@
   padding: 8px 10px;
 }
 
+.sale-orders-flow-panel-production {
+  background:
+    linear-gradient(180deg, #ffffff 0%, #faf8f5 100%);
+  border-color: rgba(139, 111, 71, 0.18);
+  box-shadow: 0 8px 24px rgba(74, 55, 32, 0.05);
+  gap: 14px;
+  padding: 16px;
+}
+
+.sale-orders-flow-panel-production header {
+  border-bottom: 1px solid rgba(139, 111, 71, 0.1);
+  padding-bottom: 12px;
+}
+
+.sale-orders-flow-panel-production h3 {
+  font-size: 16px;
+  letter-spacing: -0.01em;
+}
+
+.sale-orders-form-grid-production {
+  align-items: start;
+  gap: 12px;
+  grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr) minmax(0, 1.05fr) minmax(0, 1.05fr);
+}
+
+.sale-orders-form-grid-production select {
+  overflow: hidden;
+  padding-right: 30px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sale-orders-form-grid-production label {
+  align-content: start;
+  gap: 7px;
+}
+
+.sale-orders-form-grid-production span {
+  color: #7a6b5a;
+  letter-spacing: 0.04em;
+}
+
+.sale-orders-form-grid-production input,
+.sale-orders-form-grid-production select {
+  border-color: rgba(139, 111, 71, 0.22);
+  border-radius: 9px;
+  min-height: 40px;
+  padding: 8px 12px;
+  transition: border-color 140ms ease, box-shadow 140ms ease, background-color 140ms ease;
+}
+
+.sale-orders-form-grid-production input:hover,
+.sale-orders-form-grid-production select:hover {
+  border-color: rgba(139, 111, 71, 0.38);
+}
+
+.sale-orders-form-grid-production input:focus,
+.sale-orders-form-grid-production select:focus {
+  border-color: #8b6f47;
+  box-shadow: 0 0 0 3px rgba(139, 111, 71, 0.14);
+  outline: none;
+}
+
+.sale-orders-form-grid-production input:disabled {
+  background: #f3f0eb;
+  color: #9a9187;
+  cursor: not-allowed;
+}
+
+.sale-orders-staff-meta {
+  color: #8a7b6a;
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 600;
+  line-height: 16px;
+  margin-top: -1px;
+}
+
+.sale-orders-production-actions {
+  align-items: center;
+  border-top: 1px solid rgba(139, 111, 71, 0.1);
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 12px;
+}
+
+.sale-orders-production-actions button {
+  display: inline-flex;
+  min-height: 40px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 0;
+  border-radius: 9px;
+  background: #8b6f47;
+  box-shadow: 0 8px 18px rgba(139, 111, 71, 0.22);
+  color: #ffffff;
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 0 16px;
+  transition: background-color 140ms ease, transform 140ms ease, box-shadow 140ms ease;
+}
+
+.sale-orders-production-actions button:hover:not(:disabled) {
+  background: #7a613c;
+  box-shadow: 0 10px 20px rgba(122, 97, 60, 0.24);
+  transform: translateY(-1px);
+}
+
+.sale-orders-production-actions button:disabled {
+  box-shadow: none;
+  cursor: not-allowed;
+  opacity: 0.58;
+  transform: none;
+}
+
 .sale-orders-table-scroll {
   overflow-x: auto;
 }
@@ -422,6 +590,24 @@
   .sale-orders-layout,
   .sale-orders-grid,
   .sale-orders-form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .sale-orders-form-grid-production {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .sale-orders-production-actions {
+    justify-content: stretch;
+  }
+
+  .sale-orders-production-actions button {
+    width: 100%;
+  }
+}
+
+@media (max-width: 640px) {
+  .sale-orders-form-grid-production {
     grid-template-columns: 1fr;
   }
 }

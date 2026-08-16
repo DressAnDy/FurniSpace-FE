@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueries, useQuery, useQueryClient, type UseQueryResult } from '@tanstack/react-query';
 
 import {
   acceptCustomizationRequestVersion,
@@ -16,13 +16,51 @@ import {
   type CancelCustomizationRequestInput,
   type CreateCustomizationRequestVersionInput,
   type CustomizationRequestListParams,
+  type CustomizationVersionStatus,
+  type ProductionCustomizationVersionListData,
   type ProductionCustomizationVersionListParams,
+  type ProductionCustomizationVersionQueueItemDto,
+  type ProductionFeasibilityStatus,
   type ProductionReviewCustomizationVersionInput,
   type SubmitCustomizationRequestInput,
   type SubmitCustomizationRequestVersionForReviewInput,
   type UpdateCustomizationRequestVersionInput,
   type WithdrawCustomizationRequestVersionInput,
 } from '@/services/api/customizationRequests';
+
+const PRODUCTION_QUEUE_PAGE_SIZE = 50;
+
+const productionQueueStatuses: CustomizationVersionStatus[] = ['REVIEWING', 'PRODUCTION_REJECTED', 'ACCEPTED'];
+const productionQueueFeasibilityStatuses: ProductionFeasibilityStatus[] = ['PENDING', 'FEASIBLE', 'NOT_FEASIBLE'];
+
+// The queue endpoint does not treat an omitted Status/FeasibilityStatus as "any",
+// so every supported combination has to be requested explicitly and merged here.
+const productionQueueParams: ProductionCustomizationVersionListParams[] = productionQueueStatuses.flatMap((status) =>
+  productionQueueFeasibilityStatuses.map((feasibilityStatus) => ({
+    status,
+    feasibilityStatus,
+    page: 1,
+    pageSize: PRODUCTION_QUEUE_PAGE_SIZE,
+  })),
+);
+
+function combineProductionQueueResults(results: Array<UseQueryResult<ProductionCustomizationVersionListData>>) {
+  const itemsByVersionId = new Map<string, ProductionCustomizationVersionQueueItemDto>();
+
+  for (const result of results) {
+    for (const item of result.data?.items ?? []) {
+      itemsByVersionId.set(item.version.customizationRequestVersionId, item);
+    }
+  }
+
+  return {
+    error: results.find((result) => result.isError)?.error ?? null,
+    isError: results.some((result) => result.isError),
+    isFetching: results.some((result) => result.isFetching),
+    isLoading: results.some((result) => result.isLoading),
+    items: Array.from(itemsByVersionId.values()),
+  };
+}
 
 export const customizationRequestQueryKeys = {
   all: ['customization-requests'] as const,
@@ -52,6 +90,16 @@ export function useProductionCustomizationVersions(params?: ProductionCustomizat
     queryKey: customizationRequestQueryKeys.productionVersions(params ?? {}),
     queryFn: () => getProductionCustomizationVersions(params),
     enabled: options?.enabled ?? true,
+  });
+}
+
+export function useProductionCustomizationVersionQueue() {
+  return useQueries({
+    queries: productionQueueParams.map((params) => ({
+      queryKey: customizationRequestQueryKeys.productionVersions(params),
+      queryFn: () => getProductionCustomizationVersions(params),
+    })),
+    combine: combineProductionQueueResults,
   });
 }
 

@@ -8,8 +8,8 @@ describe('getPostLoginPath', () => {
     ['ROLE_SALE', '/sale/dashbroad'],
     ['designer', '/designer/assigned-projects'],
     ['ROLE-DESIGNER', '/designer/assigned-projects'],
-    ['PRODUCTION', '/production/customization-requests'],
-    ['ROLE_PRODUCTION', '/production/customization-requests'],
+    ['PRODUCTION', '/production/dashbroad'],
+    ['ROLE_PRODUCTION', '/production/dashbroad'],
     ['CUSTOMER', '/customer/dashboard'],
   ])('routes %s to the correct workspace', (role, expectedPath) => {
     expect(getPostLoginPath(role)).toBe(expectedPath);

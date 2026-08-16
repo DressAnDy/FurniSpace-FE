@@ -179,7 +179,7 @@ export default function App() {
 
                 {/* Production routes */}
                 <Route element={<ProtectedRoute allowedRoles={['PRODUCTION']} />}>
-                  <Route path="/production" element={<Navigate to="/production/dashboard" replace />} />
+                  <Route path="/production" element={<Navigate to="/production/dashbroad" replace />} />
                   <Route path="/production/dashboard" element={<ProductionDashbroad />} />
                   <Route path="/production/dashbroad" element={<ProductionDashbroad />} />
                   <Route path="/production/customization-reviews" element={<ProductionCustomizationRequests />} />
@@ -189,7 +189,7 @@ export default function App() {
                   <Route path="/production/my-tasks" element={<Navigate to="/production/requests" replace />} />
                   <Route path="/production/blocked-issues" element={<BlockedIssues />} />
                   <Route path="/production/ready-for-delivery" element={<ReadyForDelivery />} />
-                  <Route path="/production/settings" element={<Navigate to="/production/dashboard" replace />} />
+                  <Route path="/production/settings" element={<Navigate to="/production/dashbroad" replace />} />
                 </Route>
 
                 <Route path="*" element={<Navigate to="/" replace />} />
