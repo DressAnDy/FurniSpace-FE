@@ -25,7 +25,6 @@ export function ProductionRequestDetail() {
   const { productionRequestId } = useParams();
   const [activeTab, setActiveTab] = useState<DetailTab>('Overview');
   const [message, setMessage] = useState<{ tone: 'error' | 'success'; text: string } | null>(null);
-  const [itemUpdateQuantities, setItemUpdateQuantities] = useState<Record<string, number>>({});
   const requestQuery = useProductionRequestDetail(productionRequestId);
   const markFeasibleMutation = useMarkProductionRequestFeasible();
   const startMutation = useStartProductionRequest();
@@ -72,38 +71,66 @@ export function ProductionRequestDetail() {
     }
   }
 
-  async function updateItemGroupStatus(group: ProductionItemGroup, status: ProductionItemStatus) {
+  async function startItemGroup(group: ProductionItemGroup) {
     if (!canUpdateProductionItems) {
       setMessage({ tone: 'error', text: 'Start this production request before updating production items.' });
       return;
     }
 
-    const requestedQuantity = itemUpdateQuantities[group.key] ?? group.totalQuantity;
-    const updateQuantity = clampQuantity(requestedQuantity, group.totalQuantity);
-    const cancellationReason = status === 'CANCELLED' ? window.prompt('Cancellation reason') : null;
-
-    if (status === 'CANCELLED' && !cancellationReason?.trim()) {
+    if (group.status !== 'PENDING') {
       return;
     }
 
     setMessage(null);
 
     try {
-      const itemsToUpdate = getItemsForQuantityUpdate(group.items, updateQuantity);
-      const actualQuantity = itemsToUpdate.reduce((total, item) => total + item.quantity, 0);
-
-      for (const item of itemsToUpdate) {
+      for (const item of group.items) {
         await itemStatusMutation.mutateAsync({
-          cancellationReason,
+          cancellationReason: null,
           productionItemId: item.productionItemId,
           productionNote: null,
-          status,
+          status: 'IN_PRODUCTION',
         });
       }
 
       setMessage({
         tone: 'success',
-        text: `${actualQuantity} production item quantity updated.`,
+        text: `${group.totalQuantity} production item quantity started.`,
+      });
+    } catch (error) {
+      setMessage({ tone: 'error', text: getProductionServiceResultMessage(error) });
+    }
+  }
+
+  async function completeItemGroup(group: ProductionItemGroup) {
+    if (!canUpdateProductionItems) {
+      setMessage({ tone: 'error', text: 'Start this production request before updating production items.' });
+      return;
+    }
+
+    const inProductionItems = group.items.filter((item) => item.status === 'IN_PRODUCTION');
+
+    if (inProductionItems.length === 0) {
+      return;
+    }
+
+    setMessage(null);
+
+    try {
+      for (const item of inProductionItems) {
+        await itemStatusMutation.mutateAsync({
+          cancellationReason: null,
+          productionItemId: item.productionItemId,
+          productionNote: null,
+          status: 'COMPLETED',
+        });
+      }
+
+      const completedQuantity = inProductionItems.reduce((total, item) => total + item.quantity, 0);
+
+      setMessage({
+        tone: 'success',
+        text: `${completedQuantity} production item quantity completed.`,
       });
     } catch (error) {
       setMessage({ tone: 'error', text: getProductionServiceResultMessage(error) });
@@ -212,30 +239,13 @@ export function ProductionRequestDetail() {
                       <td>{formatDate(group.completedAt)}</td>
                       <td>
                         <div className="production-workspace-row-actions">
-                          <input
-                            aria-label={`Quantity to update for ${group.productName}`}
-                            className="production-workspace-quantity-input"
-                            disabled={itemStatusMutation.isPending || group.totalQuantity <= 1 || !canUpdateProductionItems || !canUpdateItemGroup(group)}
-                            min={1}
-                            max={group.totalQuantity}
-                            type="number"
-                            value={itemUpdateQuantities[group.key] ?? group.totalQuantity}
-                            onChange={(event) =>
-                              setItemUpdateQuantities((current) => ({
-                                ...current,
-                                [group.key]: clampQuantity(Number(event.target.value), group.totalQuantity),
-                              }))
-                            }
-                          />
                           {group.status === 'PENDING' ? (
-                            <button disabled={itemStatusMutation.isPending || !canUpdateProductionItems} type="button" onClick={() => void updateItemGroupStatus(group, 'IN_PRODUCTION')}>Start Items</button>
-                          ) : null}
-                          {group.status === 'IN_PRODUCTION' ? (
-                            <button disabled={itemStatusMutation.isPending || !canUpdateProductionItems} type="button" onClick={() => void updateItemGroupStatus(group, 'COMPLETED')}>Mark Completed</button>
-                          ) : null}
-                          {group.status !== 'COMPLETED' && group.status !== 'CANCELLED' ? (
-                            <button className="is-secondary" disabled={itemStatusMutation.isPending || !canUpdateProductionItems} type="button" onClick={() => void updateItemGroupStatus(group, 'CANCELLED')}>Cancel Items</button>
-                          ) : null}
+                            <button disabled={itemStatusMutation.isPending || !canUpdateProductionItems} type="button" onClick={() => void startItemGroup(group)}>Start Items</button>
+                          ) : group.status === 'IN_PRODUCTION' ? (
+                            <button disabled={itemStatusMutation.isPending || !canUpdateProductionItems} type="button" onClick={() => void completeItemGroup(group)}>Complete Items</button>
+                          ) : (
+                            <span className="production-workspace-muted">-</span>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -311,34 +321,6 @@ function groupProductionItems(items: ProductionItem[]): ProductionItemGroup[] {
   }
 
   return Array.from(groupsByKey.values());
-}
-
-function clampQuantity(value: number, max: number) {
-  if (!Number.isFinite(value)) {
-    return 1;
-  }
-
-  return Math.min(Math.max(Math.trunc(value), 1), max);
-}
-
-function getItemsForQuantityUpdate(items: ProductionItem[], requestedQuantity: number) {
-  const selectedItems: ProductionItem[] = [];
-  let selectedQuantity = 0;
-
-  for (const item of items) {
-    if (selectedQuantity >= requestedQuantity) {
-      break;
-    }
-
-    selectedItems.push(item);
-    selectedQuantity += item.quantity;
-  }
-
-  return selectedItems;
-}
-
-function canUpdateItemGroup(group: ProductionItemGroup) {
-  return group.status !== 'COMPLETED' && group.status !== 'CANCELLED';
 }
 
 function canUpdateProductionItemsForRequest(status?: ProductionRequestStatus | null) {

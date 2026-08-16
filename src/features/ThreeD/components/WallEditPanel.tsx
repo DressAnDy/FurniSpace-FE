@@ -196,8 +196,8 @@ export function WallEditPanel({
                   ))
                 }
               >
-                <option value="IN_LEFT">Open In Left</option>
-                <option value="IN_RIGHT">Open In Right</option>
+                <option value="IN_LEFT">Open Inward</option>
+                <option value="IN_RIGHT">Open Outward</option>
               </select>
             </label>
           )}

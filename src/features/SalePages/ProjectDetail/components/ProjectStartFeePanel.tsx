@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { IconCalendarDue, IconCash, IconSend } from '@tabler/icons-react';
+import { IconCash, IconSend } from '@tabler/icons-react';
 
 import { getPaymentServiceResultMessage } from '@/services/api/payments';
 import {
@@ -7,7 +7,7 @@ import {
   usePaymentDetail,
   useProjectStartFeeStatus,
 } from '@/services/queries';
-import { getLocalDateInputValue, validateRequiredFutureDate } from '@/shared/utils/dateValidation';
+import { getDefaultPaymentExpiredAt } from '@/shared/utils/dateValidation';
 
 type ProjectStartFeePanelProps = {
   projectId: string;
@@ -18,7 +18,6 @@ export function ProjectStartFeePanel({ projectId, enabled = true }: ProjectStart
   const [startFeeMessage, setStartFeeMessage] = useState('');
   const [startFeeAmount, setStartFeeAmount] = useState('');
   const [startFeeAmountError, setStartFeeAmountError] = useState<string | null>(null);
-  const [startFeeDueDate, setStartFeeDueDate] = useState('');
   const startFeeStatusQuery = useProjectStartFeeStatus(projectId, { enabled });
   const startFeeStatus = startFeeStatusQuery.data;
   const existingStartFeePaymentQuery = usePaymentDetail(startFeeStatus?.paymentId ?? undefined, {
@@ -44,29 +43,16 @@ export function ProjectStartFeePanel({ projectId, enabled = true }: ProjectStart
       return;
     }
 
-    const dueDate = validateRequiredFutureDate(startFeeDueDate, 'Payment due date');
-    if (!dueDate.ok) {
-      setStartFeeMessage(dueDate.message);
-      return;
-    }
-
-    const expiredAt = toApiDateTimeAtEndOfDay(dueDate.value);
-    if (!expiredAt) {
-      setStartFeeMessage('Payment due date could not be converted to a valid time.');
-      return;
-    }
-
     try {
       const payment = await createStartFeePaymentMutation.mutateAsync({
         projectId,
         amount,
-        expiredAt,
+        expiredAt: getDefaultPaymentExpiredAt(),
         note: 'Project start fee created before designer assignment.',
       });
       setStartFeeMessage(`Start fee request ${payment.paymentCode} was created and sent to the customer.`);
       setStartFeeAmount('');
       setStartFeeAmountError(null);
-      setStartFeeDueDate('');
       void startFeeStatusQuery.refetch();
     } catch (error) {
       setStartFeeMessage(getPaymentServiceResultMessage(error));
@@ -127,22 +113,9 @@ export function ProjectStartFeePanel({ projectId, enabled = true }: ProjectStart
                 </div>
                 {startFeeAmountError ? <small className="project-detail-field-error">{startFeeAmountError}</small> : null}
               </label>
-              <label>
-                <span>Due date</span>
-                <div className="project-detail-start-fee-input-wrap">
-                  <IconCalendarDue className="project-detail-start-fee-date-icon" size={16} stroke={1.8} aria-hidden="true" />
-                  <input
-                    type="date"
-                    min={getLocalDateInputValue()}
-                    value={startFeeDueDate}
-                    disabled={createStartFeePaymentMutation.isPending}
-                    onChange={(event) => setStartFeeDueDate(event.currentTarget.value)}
-                  />
-                </div>
-              </label>
               <button
                 type="button"
-                disabled={createStartFeePaymentMutation.isPending || !normalizePositiveAmount(startFeeAmount) || !startFeeDueDate}
+                disabled={createStartFeePaymentMutation.isPending || !normalizePositiveAmount(startFeeAmount)}
                 onClick={() => void handleCreateStartFeePayment()}
               >
                 <IconSend size={15} stroke={1.9} />
@@ -221,14 +194,6 @@ function normalizePositiveAmount(value: string) {
   const amount = Number(value.trim());
 
   return Number.isFinite(amount) && amount > 0 ? amount : null;
-}
-
-function toApiDateTimeAtEndOfDay(value: string) {
-  if (!value) return null;
-
-  const date = new Date(`${value}T23:00`);
-
-  return Number.isNaN(date.getTime()) ? null : date.toISOString();
 }
 
 function formatDateOnly(value: string | null) {

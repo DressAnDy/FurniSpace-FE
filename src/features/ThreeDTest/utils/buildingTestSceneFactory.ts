@@ -34,6 +34,7 @@ import type {
 const WALL_THICKNESS = 0.16;
 const SLAB_THICKNESS = 0.28;
 const FLOOR_SURFACE_OFFSET = 0.018;
+const SITE_CLEARANCE = 0.02;
 const DEFAULT_LEVEL_HEIGHT = 3.1;
 
 export type BuildingProjectFloorAreaSource = {
@@ -234,7 +235,7 @@ export function createBuildingTestSceneFromProjectFloorAreas(
 export function createBuildingTestCamera(scene: Scene, canvas: HTMLCanvasElement, sceneData: BuildingTestScene) {
   const camera = new ArcRotateCamera(
     'building-test-camera',
-    // Match the 2D blueprint orientation: screen-right is world +X and screen-down is world +Z.
+    // Match the 2D blueprint orientation: screen-right is world +X.
     Tools.ToRadians(-90),
     Tools.ToRadians(56),
     18,
@@ -332,16 +333,21 @@ export function buildBuildingEnvironment(
     const y = level.elevation;
     const levelCenter = getLevelCenter(sceneData, level);
     const levelLayout = level.layout;
-    const facadeBaseY = level.elevation - SLAB_THICKNESS;
-    const facadeHeight = getFacadeHeight(level, nextLevel);
+    const rawFacadeBaseY = level.elevation - SLAB_THICKNESS;
+    const rawFacadeHeight = getFacadeHeight(level, nextLevel);
+    const facadeTopY = rawFacadeBaseY + rawFacadeHeight;
+    const facadeBaseY = Math.max(rawFacadeBaseY, SITE_CLEARANCE);
+    const facadeHeight = Math.max(facadeTopY - facadeBaseY, level.wallHeight);
+    const slabBaseY = Math.max(level.elevation - SLAB_THICKNESS, SITE_CLEARANCE);
+    const slabHeight = Math.max(level.elevation - slabBaseY, 0.04);
     const slabWidth = Math.max(level.width - WALL_THICKNESS * 2.4, 0.5);
     const slabDepth = Math.max(level.depth - WALL_THICKNESS * 2.4, 0.5);
     const slab = MeshBuilder.CreateBox(
       `building-test-${level.id}-slab`,
-      { depth: slabDepth, height: SLAB_THICKNESS, width: slabWidth },
+      { depth: slabDepth, height: slabHeight, width: slabWidth },
       scene,
     );
-    slab.position = new Vector3(levelCenter.x, y - SLAB_THICKNESS / 2, levelCenter.z);
+    slab.position = new Vector3(levelCenter.x, slabBaseY + slabHeight / 2, levelCenter.z);
     slab.material = slabMaterial;
     slab.isPickable = false;
     slab.metadata = { kind: 'level-slab', levelId: level.id, source: 'building-test-environment' };
@@ -470,6 +476,8 @@ function createLevelLayoutMeshes(
       windowFrameMaterial,
     );
   });
+
+  createLayoutWallCornerCaps(scene, levelId, wallBaseY, facadeHeight, layout, wallMaterial);
 }
 
 function getSignedPolygonArea(points: Array<{ x: number; y: number }>) {
@@ -610,6 +618,41 @@ function createLayoutWallSegment(
   };
 }
 
+function createLayoutWallCornerCaps(
+  scene: Scene,
+  levelId: string,
+  bottomY: number,
+  height: number,
+  layout: RoomLayoutState,
+  material: StandardMaterial,
+) {
+  if (height <= 0.05) {
+    return;
+  }
+
+  const wallPointIds = new Set(layout.walls.flatMap((wall) => [wall.startPointId, wall.endPointId]));
+  const capSize = Math.max(layout.wallThickness, WALL_THICKNESS) * 1.08;
+
+  layout.points
+    .filter((point) => wallPointIds.has(point.id))
+    .forEach((point) => {
+      const cap = MeshBuilder.CreateBox(
+        `building-test-${levelId}-${point.id}-wall-corner-cap`,
+        { depth: capSize, height, width: capSize },
+        scene,
+      );
+
+      cap.position = new Vector3(point.x, bottomY + height / 2, point.y);
+      cap.material = material;
+      cap.metadata = {
+        kind: 'wall-collision',
+        levelId,
+        source: 'building-test-environment',
+        wallCornerPointId: point.id,
+      };
+    });
+}
+
 function createLayoutWallWithOpenings(
   scene: Scene,
   levelId: string,
@@ -696,31 +739,24 @@ function createDoorPanel(
     return;
   }
 
-  const startPoint = getPointById(layout.points, wall.startPointId);
   const direction = getWallDirection(wall, layout.points);
   const normal = getWallNormal(wall, layout.points);
-  const hingeOffset = door.swingDirection === 'IN_LEFT'
-    ? door.offset - door.width / 2
-    : door.offset + door.width / 2;
+  const startPoint = getPointById(layout.points, wall.startPointId);
+  const hingeOffset = door.offset - door.width / 2;
   const hinge = {
     x: startPoint.x + direction.x * hingeOffset,
     y: startPoint.y + direction.y * hingeOffset,
   };
-  const openAngle = Math.PI / 2.6;
   const panelHeight = getEffectiveOpeningHeight(wall, door);
-  const panelDirection = door.swingDirection === 'IN_LEFT'
-    ? {
-        x: direction.x * Math.cos(openAngle) + normal.x * Math.sin(openAngle),
-        y: direction.y * Math.cos(openAngle) + normal.y * Math.sin(openAngle),
-      }
-    : {
-        x: -direction.x * Math.cos(openAngle) + normal.x * Math.sin(openAngle),
-        y: -direction.y * Math.cos(openAngle) + normal.y * Math.sin(openAngle),
-      };
+  const swingSide = door.swingDirection === 'IN_LEFT' ? 1 : -1;
+  const panelDirection = {
+    x: normal.x * swingSide,
+    y: normal.y * swingSide,
+  };
   const panel = MeshBuilder.CreateBox(
     `building-test-${levelId}-${door.id}-panel`,
     {
-      depth: 0.12,
+      depth: Math.max(wall.thickness * 0.72, 0.08),
       height: panelHeight,
       width: door.width,
     },

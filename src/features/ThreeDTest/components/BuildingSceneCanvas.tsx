@@ -148,6 +148,15 @@ function calculateGroundOffset(scene: Scene, root: TransformNode, sceneObjectId:
   return root.position.y - minY;
 }
 
+function refreshRootGroundOffset(scene: Scene, root: TransformNode, sceneObjectId: string) {
+  root.computeWorldMatrix(true);
+  root.getChildMeshes(false).forEach((mesh) => mesh.computeWorldMatrix(true));
+  root.metadata = {
+    ...(root.metadata ?? {}),
+    groundOffsetY: calculateGroundOffset(scene, root, sceneObjectId),
+  };
+}
+
 function arePositionsEqual(first: Vector3State, second: Vector3State) {
   return first.x === second.x && first.y === second.y && first.z === second.z;
 }
@@ -163,6 +172,7 @@ async function loadProduct(scene: Scene, product: PlacedBuildingProduct) {
       levelId: product.levelId,
       surfaceId: product.surfaceId,
     };
+    refreshRootGroundOffset(scene, existingRoot, product.sceneObjectId);
     setRootPosition(existingRoot, product.position);
     return;
   }
@@ -196,10 +206,7 @@ async function loadProduct(scene: Scene, product: PlacedBuildingProduct) {
     };
   });
 
-  root.metadata = {
-    ...root.metadata,
-    groundOffsetY: calculateGroundOffset(scene, root, product.sceneObjectId),
-  };
+  refreshRootGroundOffset(scene, root, product.sceneObjectId);
   setRootPosition(root, product.position);
 }
 
@@ -208,14 +215,14 @@ function removeMissingProducts(scene: Scene, products: PlacedBuildingProduct[]) 
 
   scene.transformNodes
     .filter((node) => node.metadata?.source === 'building-test-product' && !nextIds.has(node.metadata.sceneObjectId))
-    .forEach((node) => node.dispose(false, true));
+    .forEach((node) => node.dispose(false, false));
 }
 
 function removeDuplicateProductRoots(scene: Scene, sceneObjectId: string) {
   const roots = getProductRoots(scene, sceneObjectId);
   const primaryRoot = roots[0];
 
-  roots.slice(1).forEach((duplicateRoot) => duplicateRoot.dispose(false, true));
+  roots.slice(1).forEach((duplicateRoot) => duplicateRoot.dispose(false, false));
 
   return primaryRoot;
 }

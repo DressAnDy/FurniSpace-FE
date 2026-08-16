@@ -37,6 +37,13 @@ export function getLocalDateTimeInputValue(value = new Date()) {
   return `${getLocalDateInputValue(value)}T${String(value.getHours()).padStart(2, '0')}:${String(value.getMinutes()).padStart(2, '0')}`;
 }
 
+export function getDefaultPaymentExpiredAt(daysFromNow = 3, now = new Date()) {
+  const deadline = new Date(now);
+  deadline.setDate(deadline.getDate() + daysFromNow);
+
+  return deadline.toISOString();
+}
+
 export function getMinimumEndDateTimeInputValue(startValue: string, minimumGapMinutes = 1) {
   const start = parseLocalDateTime(startValue);
   if (!start) return '';

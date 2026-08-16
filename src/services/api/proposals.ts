@@ -57,6 +57,7 @@ export type ProposalDto = {
   description: string | null;
   versionNo: number;
   status: ProposalStatus;
+  revisionNote?: string | null;
   publishedAt: string | null;
   selectedAt: string | null;
   rejectedAt: string | null;
@@ -154,6 +155,14 @@ export type SelectFinalProposalData = {
   selectedAt?: string | null;
 };
 
+export type ReopenProposalForEditingData = {
+  proposalId: string;
+  projectId: string;
+  proposalStatus: ProposalStatus;
+  projectStatus: string;
+  updatedAt: string;
+};
+
 export type CreateProposalInput = {
   projectId: string;
   proposalName: string;
@@ -169,6 +178,11 @@ export type UpdateProposalInput = {
 export type ProposalDecisionInput = {
   note?: string | null;
   proposalId: string;
+};
+
+export type RequestProposalRevisionInput = {
+  proposalId: string;
+  revisionNote: string;
 };
 
 export type CreateProposalSceneInput = {
@@ -359,10 +373,16 @@ export async function selectFinalProposal(input: ProposalDecisionInput) {
   return response.data.data;
 }
 
-export async function requestProposalRevision(input: ProposalDecisionInput) {
+export async function requestProposalRevision(input: RequestProposalRevisionInput) {
   const response = await proposalApiClient.patch<ServiceResult<ProposalDto>>(`/proposals/${input.proposalId}/request-revision`, {
-    note: input.note?.trim() || null,
+    revisionNote: input.revisionNote.trim(),
   });
+
+  return response.data.data;
+}
+
+export async function reopenProposalForEditing(proposalId: string) {
+  const response = await proposalApiClient.post<ServiceResult<ReopenProposalForEditingData>>(`/proposals/${proposalId}/reopen-for-editing`);
 
   return response.data.data;
 }
