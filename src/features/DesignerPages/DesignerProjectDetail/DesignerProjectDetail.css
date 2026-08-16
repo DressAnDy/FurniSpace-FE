@@ -1690,3 +1690,31 @@
     padding: 12px;
   }
 }
+
+.designer-proposal-revision-note-inline {
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  border-left: 4px solid #f97316;
+  border-radius: 8px;
+  color: #7c2d12;
+  font-size: 12px;
+  line-height: 1.4;
+  margin: 8px 0;
+  max-width: 360px;
+  overflow-wrap: anywhere;
+  padding: 8px 10px;
+}
+
+.designer-proposal-revision-note-inline span {
+  display: block;
+  color: #9a3412;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  margin-bottom: 4px;
+  text-transform: uppercase;
+}
+
+.designer-proposal-revision-note-inline p {
+  margin: 0;
+}

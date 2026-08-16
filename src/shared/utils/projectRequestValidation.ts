@@ -24,6 +24,24 @@ export type ProjectSpaceAndBudgetValidationResult =
     }
   | { ok: false; message: string; fieldErrors: ProjectRequestFieldErrors };
 
+export function parseOptionalProjectRequestNumber(value: FormDataEntryValue | string | null | undefined) {
+  if (typeof value !== 'string') {
+    return null;
+  }
+
+  const trimmedValue = value.trim();
+
+  if (!trimmedValue) {
+    return null;
+  }
+
+  if (!/^-?\d+([.,]\d+)?$/.test(trimmedValue)) {
+    return Number.NaN;
+  }
+
+  return Number(trimmedValue.replace(',', '.'));
+}
+
 export function validateOptionalNonNegativeNumber(
   value: number | null,
   label: string,

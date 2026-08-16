@@ -460,3 +460,33 @@
     grid-template-columns: 1fr;
   }
 }
+
+.designer-proposal-revision-note {
+  background: linear-gradient(180deg, #fff7ed 0%, #ffffff 100%);
+  border: 1px solid #fed7aa;
+  border-left: 5px solid #f97316;
+  border-radius: 10px;
+  box-shadow: 0 10px 24px rgba(154, 52, 18, 0.1);
+  color: #7c2d12;
+  margin-top: 16px;
+  padding: 14px 16px;
+}
+
+.designer-proposal-revision-note strong {
+  display: block;
+  color: #9a3412;
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.designer-proposal-revision-note p {
+  background: rgba(255, 247, 237, 0.72);
+  border-radius: 8px;
+  color: #431407;
+  font-size: 14px;
+  line-height: 1.55;
+  margin: 10px 0 0;
+  overflow-wrap: anywhere;
+  padding: 10px 12px;
+}

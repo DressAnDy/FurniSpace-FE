@@ -8,6 +8,7 @@ import {
   IconFileText,
   IconMessageCircle,
   IconPlus,
+  IconRefresh,
   IconRulerMeasure,
   IconX,
 } from '@tabler/icons-react';
@@ -27,6 +28,7 @@ import {
   useProposalItems,
   useProposalScenes,
   usePublishProposal,
+  useReopenProposalForEditing,
   useUpdateProposal,
   useUpdateProposalScene,
 } from '@/services/queries';
@@ -108,6 +110,7 @@ export function DesignerProposalWorkspace() {
   const createProposalMutation = useCreateProposal();
   const createSceneMutation = useCreateProposalScene();
   const publishProposalMutation = usePublishProposal();
+  const reopenProposalMutation = useReopenProposalForEditing();
   const updateProposalMutation = useUpdateProposal();
   const updateProposalSceneMutation = useUpdateProposalScene();
   const project = projectQuery.data;
@@ -132,7 +135,9 @@ export function DesignerProposalWorkspace() {
     [scenes, selectedAreaId],
   );
   const selectedScene = scenes.find((scene) => scene.sceneId === selectedSceneId) ?? selectedAreaScenes[0] ?? (selectedAreaId ? null : primaryScene);
-  const canPublishProposal = Boolean(activeProposalId && proposal?.status === 'DRAFT' && scenes.length > 0);
+  const canEditProposal = Boolean(proposal && isEditableProposalStatus(proposal.status));
+  const canPublishProposal = Boolean(activeProposalId && proposal && isEditableProposalStatus(proposal.status) && scenes.length > 0);
+  const canReopenProposal = proposal?.status === 'PUBLISHED';
   useEffect(() => {
     if (!proposal) {
       return;
@@ -169,7 +174,7 @@ export function DesignerProposalWorkspace() {
     setMessage('');
 
     if (!canPublishProposal) {
-      setMessage('Proposal must be Draft and have at least one active scene before publishing.');
+      setMessage('Proposal must be editable and have at least one active scene before publishing.');
       return;
     }
 
@@ -253,7 +258,8 @@ export function DesignerProposalWorkspace() {
   }
 
   function openUpdateInfoModal() {
-    if (!proposal) {
+    if (!proposal || !isEditableProposalStatus(proposal.status)) {
+      setMessage('Reopen the proposal or wait for a revision request before editing proposal information.');
       return;
     }
 
@@ -276,7 +282,7 @@ export function DesignerProposalWorkspace() {
   }
 
   async function updateProposalMetadata() {
-    if (!activeProposalId) {
+    if (!activeProposalId || !canEditProposal) {
       return;
     }
 
@@ -303,6 +309,11 @@ export function DesignerProposalWorkspace() {
   }
 
   function openSceneEditModal(scene: ProposalSceneDto) {
+    if (!canEditProposal) {
+      setMessage('Reopen the proposal or wait for a revision request before editing scenes.');
+      return;
+    }
+
     setEditingScene(scene);
     setSceneEditDraft({
       projectAreaId: getSceneAreaIds(scene)[0] ?? '',
@@ -327,7 +338,7 @@ export function DesignerProposalWorkspace() {
   }
 
   async function updateSceneMetadata() {
-    if (!editingScene) {
+    if (!editingScene || !canEditProposal) {
       return;
     }
 
@@ -353,6 +364,24 @@ export function DesignerProposalWorkspace() {
     }
   }
 
+  async function reopenCurrentProposal() {
+    if (!activeProposalId) {
+      return;
+    }
+
+    setMessage('');
+
+    try {
+      await reopenProposalMutation.mutateAsync(activeProposalId);
+      setMessage('Proposal reopened for editing. You can update scenes, items, and proposal information before publishing again.');
+      void proposalQuery.refetch();
+      void scenesQuery.refetch();
+      void itemsQuery.refetch();
+    } catch (error) {
+      setMessage(getProposalServiceResultMessage(error));
+    }
+  }
+
   return (
     <DesignerShell activeLabel="Proposals">
       <button className="designer-proposal-back" type="button" onClick={() => navigate(projectId ? `/designer/assigned-projects/${projectId}` : '/designer/assigned-projects')}>
@@ -372,16 +401,28 @@ export function DesignerProposalWorkspace() {
           <span className="designer-proposal-status">{isProposalSetupMode ? 'SETUP' : proposal?.status ?? 'UNKNOWN'}</span>
           <button
             className="designer-proposal-update-button"
-            disabled={isProposalSetupMode || !proposal}
+            disabled={isProposalSetupMode || !proposal || !canEditProposal}
+            title={canEditProposal ? 'Edit proposal information.' : 'Only Draft or Revision Requested proposals can be edited.'}
             type="button"
             onClick={openUpdateInfoModal}
           >
             <IconEdit size={17} /> Update Info
           </button>
+          {canReopenProposal ? (
+            <button
+              className="designer-proposal-update-button"
+              disabled={reopenProposalMutation.isPending}
+              title="Move this published proposal back to Draft so the design can be edited."
+              type="button"
+              onClick={() => void reopenCurrentProposal()}
+            >
+              <IconRefresh size={17} /> {reopenProposalMutation.isPending ? 'Reopening...' : 'Reopen for Editing'}
+            </button>
+          ) : null}
           <button
             className="designer-proposal-publish-button"
             disabled={!canPublishProposal || publishProposalMutation.isPending}
-            title={canPublishProposal ? 'Publish this proposal for customer review.' : 'Proposal must be Draft and have at least one active scene.'}
+            title={canPublishProposal ? 'Publish this proposal for customer review.' : 'Proposal must be editable and have at least one active scene.'}
             type="button"
             onClick={() => void publishCurrentProposal()}
           >
@@ -465,6 +506,7 @@ export function DesignerProposalWorkspace() {
                         onEdit={() => openSceneEditModal(scene)}
                         onOpen={() => openRoomPlanner(scene)}
                         onSelect={() => setSelectedSceneId(scene.sceneId)}
+                        canEdit={canEditProposal}
                       />
                     ))}
                   </div>
@@ -553,6 +595,12 @@ function ProposalSummarySection({
           <dd>{formatDateTime(proposal.updatedAt)}</dd>
         </div>
       </dl>
+      {proposal.status === 'REVISION_REQUESTED' && proposal.revisionNote ? (
+        <div className="designer-proposal-revision-note">
+          <strong>Customer revision note</strong>
+          <p>{proposal.revisionNote}</p>
+        </div>
+      ) : null}
     </section>
   );
 }
@@ -826,6 +874,7 @@ function ProposalSetupSection({
 
 function SceneRow({
   areas,
+  canEdit,
   isSelected,
   scene,
   onEdit,
@@ -833,6 +882,7 @@ function SceneRow({
   onSelect,
 }: {
   areas: ProjectAreaDto[];
+  canEdit: boolean;
   isSelected: boolean;
   scene: ProposalSceneDto;
   onEdit: () => void;
@@ -854,7 +904,7 @@ function SceneRow({
         <small>Version {scene.versionNo} · Updated {formatDateTime(scene.updatedAt)}</small>
       </button>
       <div className="designer-scene-actions">
-        <button title="Edit scene metadata" type="button" onClick={onEdit}><IconEdit size={17} /></button>
+        <button disabled={!canEdit} title={canEdit ? 'Edit scene metadata' : 'Only Draft or Revision Requested proposals can be edited.'} type="button" onClick={onEdit}><IconEdit size={17} /></button>
         <button type="button" onClick={onOpen}>Open Room Planner <IconChevronRight size={17} /></button>
       </div>
     </article>
@@ -914,4 +964,8 @@ function formatEnumLabel(value: string) {
     .split('_')
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(' ');
+}
+
+function isEditableProposalStatus(status?: ProposalDetailDto['status'] | null) {
+  return status === 'DRAFT' || status === 'REVISION_REQUESTED';
 }

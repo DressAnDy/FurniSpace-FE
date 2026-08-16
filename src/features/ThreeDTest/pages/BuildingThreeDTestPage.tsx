@@ -69,6 +69,8 @@ import './BuildingThreeDTestPage.css';
 const EMPTY_THUMBNAIL = '';
 const API_PRODUCT_DEFAULT_SCALE = 2.6;
 const DETAIL_BATCH_SIZE = 8;
+const MAX_PRODUCT_SCALE = 5;
+const MIN_PRODUCT_SCALE = 0.1;
 const ROOM_PLANNER_SAVE_STATUSES = ['DRAFT', 'REVISION_REQUESTED'] as const;
 type BuildingRoomPlannerRouteState = {
   areas?: BuildingProjectFloorAreaSource[];
@@ -913,6 +915,22 @@ export function BuildingThreeDTestPage() {
     });
   }
 
+  function setSelectedProductScale(axis: keyof Vector3State, value: number) {
+    if (!selectedProduct) {
+      return;
+    }
+
+    const currentScale = selectedProduct.scale ?? { x: 1, y: 1, z: 1 };
+    const nextValue = Number(Math.min(MAX_PRODUCT_SCALE, Math.max(MIN_PRODUCT_SCALE, value)).toFixed(2));
+
+    updateSelectedProduct({
+      scale: {
+        ...currentScale,
+        [axis]: nextValue,
+      },
+    });
+  }
+
   function stepSelectedProductScale(axis: keyof Vector3State, step: number) {
     if (!selectedProduct) {
       return;
@@ -920,12 +938,7 @@ export function BuildingThreeDTestPage() {
 
     const currentScale = selectedProduct.scale ?? { x: 1, y: 1, z: 1 };
 
-    updateSelectedProduct({
-      scale: {
-        ...currentScale,
-        [axis]: Number(Math.min(5, Math.max(0.1, currentScale[axis] + step)).toFixed(2)),
-      },
-    });
+    setSelectedProductScale(axis, currentScale[axis] + step);
   }
 
   function duplicateSelectedProduct() {
@@ -1439,7 +1452,11 @@ export function BuildingThreeDTestPage() {
                   <div key={axis}>
                     <span>{axis.toUpperCase()}</span>
                     <button aria-label={`Decrease scale ${axis}`} type="button" onClick={() => stepSelectedProductScale(axis, -0.1)}>-</button>
-                    <output>{selectedProductScale[axis].toFixed(2)}</output>
+                    <DecimalScaleInput
+                      ariaLabel={`Scale ${axis}`}
+                      value={selectedProductScale[axis]}
+                      onChange={(value) => setSelectedProductScale(axis, value)}
+                    />
                     <button aria-label={`Increase scale ${axis}`} type="button" onClick={() => stepSelectedProductScale(axis, 0.1)}>+</button>
                   </div>
                 ))}
@@ -1451,6 +1468,58 @@ export function BuildingThreeDTestPage() {
         </section>
       </section>
     </main>
+  );
+}
+
+function formatScaleValue(value: number) {
+  return Number.isFinite(value) ? Number(value.toFixed(2)).toString() : '1';
+}
+
+function sanitizeDecimalScaleInput(value: string) {
+  const normalized = value.replace(/,/g, '.').replace(/[^\d.]/g, '');
+  const [integer = '', ...decimalParts] = normalized.split('.');
+
+  return decimalParts.length ? `${integer}.${decimalParts.join('')}` : integer;
+}
+
+function DecimalScaleInput({
+  ariaLabel,
+  onChange,
+  value,
+}: Readonly<{
+  ariaLabel: string;
+  onChange: (value: number) => void;
+  value: number;
+}>) {
+  const [draftValue, setDraftValue] = useState(formatScaleValue(value));
+
+  useEffect(() => {
+    setDraftValue(formatScaleValue(value));
+  }, [value]);
+
+  return (
+    <input
+      aria-label={ariaLabel}
+      inputMode="decimal"
+      type="text"
+      value={draftValue}
+      onBlur={() => setDraftValue(formatScaleValue(value))}
+      onChange={(event) => {
+        const nextValue = sanitizeDecimalScaleInput(event.target.value);
+
+        setDraftValue(nextValue);
+
+        if (!nextValue || nextValue === '.') {
+          return;
+        }
+
+        const numericValue = Number(nextValue);
+
+        if (Number.isFinite(numericValue)) {
+          onChange(numericValue);
+        }
+      }}
+    />
   );
 }
 

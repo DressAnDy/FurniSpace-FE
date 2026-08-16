@@ -1197,7 +1197,7 @@ function syncProductPreviews(
     const root = roots[0];
 
     roots.slice(1).forEach((duplicateRoot) => {
-      duplicateRoot.dispose(false, true);
+      duplicateRoot.dispose(false, false);
     });
 
     if (root) {

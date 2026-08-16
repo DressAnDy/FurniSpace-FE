@@ -243,7 +243,7 @@ function ProposalRow({ proposal, onOpenDetail, onPublish, publishDisabled }: Rea
   });
   const scenes = scenesQuery.data?.items ?? [];
   const primaryScene = scenes[0] ?? null;
-  const canPublish = proposal.status === 'DRAFT' && Boolean(primaryScene);
+  const canPublish = isEditableProposalStatus(proposal.status) && Boolean(primaryScene);
   const isCustomerVisible = isCustomerVisibleProposal(proposal.status);
   const sceneCount = scenesQuery.data?.total ?? scenes.length;
 
@@ -251,6 +251,12 @@ function ProposalRow({ proposal, onOpenDetail, onPublish, publishDisabled }: Rea
     <tr>
       <td>
         <strong>{proposal.proposalName}</strong>
+        {proposal.status === 'REVISION_REQUESTED' && proposal.revisionNote ? (
+          <div className="designer-proposal-revision-note-inline">
+            <span>Customer revision note</span>
+            <p>{proposal.revisionNote}</p>
+          </div>
+        ) : null}
         <span className="designer-proposal-id" title={proposal.proposalId}>
           {proposal.proposalId}
         </span>
@@ -282,7 +288,7 @@ function ProposalRow({ proposal, onOpenDetail, onPublish, publishDisabled }: Rea
             Open Detail
             <IconArrowUpRight size={14} stroke={2.1} />
           </button>
-          {proposal.status === 'DRAFT' ? (
+          {isEditableProposalStatus(proposal.status) ? (
             <button
               className="designer-project-table-publish"
               disabled={!canPublish || publishDisabled || scenesQuery.isLoading}
@@ -389,6 +395,10 @@ function CreateProposalModal({
 
 function isCustomerVisibleProposal(status: string) {
   return ['PUBLISHED', 'SELECTED', 'REVISION_REQUESTED', 'REJECTED'].includes(status);
+}
+
+function isEditableProposalStatus(status: ProposalDto['status']) {
+  return status === 'DRAFT' || status === 'REVISION_REQUESTED';
 }
 
 function isProposalDraftingStatus(status: string) {
