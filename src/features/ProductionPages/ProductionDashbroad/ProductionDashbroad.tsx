@@ -13,7 +13,19 @@ import {
 import { Link } from 'react-router-dom';
 
 import { ProductionLayout } from '@/features/ProductionPages/productioncomponents';
-import { useCurrentUser } from '@/services/queries';
+import type {
+  DashboardDateRange,
+  DashboardDueBucket,
+  DashboardPriority,
+  DashboardQueueItemDto,
+  DashboardScope,
+  ProductionDashboardKpisDto,
+} from '@/services/api/dashboard';
+import {
+  getDashboardServiceResultMessage,
+  useProductionDashboardKpis,
+  useProductionQueue,
+} from '@/services/queries';
 
 import './ProductionDashbroad.css';
 
@@ -31,78 +43,20 @@ type QueueTab = 'All Queue' | 'Pending Review' | 'In Production' | 'Ready to Com
 type DateRangeKey = 'today' | 'this-week' | 'this-month';
 type QueueScopeKey = 'all' | 'assigned';
 
-type QueueItem = {
-  action: string;
-  assigned: string;
-  assignedToCurrentUser?: boolean;
-  completed: number;
-  due: string;
-  dueBucket: 'today' | 'this-week' | 'this-month' | 'overdue';
-  path: string;
-  phase: string;
-  priority: 'High' | 'Medium' | 'Low';
-  project: string;
-  request: string;
-  risk: string;
-  start: string;
-  status: string;
-  total: number;
-  tabs: QueueTab[];
-  unavailableItems?: number;
-};
-
 const queueTabs: QueueTab[] = ['All Queue', 'Pending Review', 'In Production', 'Ready to Complete', 'Completed'];
 
-// Mocked until production dashboard aggregation endpoints are available.
-const productionQueue: QueueItem[] = [
-  { action: 'Review request', assigned: 'Shared queue', completed: 0, due: 'Today 13:00', dueBucket: 'today', path: '/production/requests', phase: 'Pending review', priority: 'High', project: 'PRJ-2026-184 Bean & Brew', request: 'PROD-2026-090', risk: 'Review overdue', start: '-', status: 'PENDING_REVIEW', tabs: ['All Queue', 'Pending Review'], total: 12 },
-  { action: 'Start production', assigned: '', assignedToCurrentUser: true, completed: 3, due: 'This week', dueBucket: 'this-week', path: '/production/requests', phase: 'Assigned', priority: 'Medium', project: 'PRJ-2026-181 Luma Cafe', request: 'PROD-2026-088', risk: 'On track', start: 'Aug 5', status: 'ASSIGNED', tabs: ['All Queue', 'In Production'], total: 10 },
-  { action: 'View items', assigned: '', assignedToCurrentUser: true, completed: 8, due: 'Tomorrow', dueBucket: 'this-week', path: '/production/requests', phase: 'In production', priority: 'High', project: 'PRJ-2026-176 Nova Work Lounge', request: 'PROD-2026-084', risk: '2 items due soon', start: 'Aug 3', status: 'IN_PRODUCTION', tabs: ['All Queue', 'In Production'], total: 16 },
-  { action: 'Review unavailable item', assigned: 'Huy Pham', completed: 5, due: 'Overdue', dueBucket: 'overdue', path: '/production/blocked-issues', phase: 'Blocked item', priority: 'High', project: 'PRJ-2026-166 Studio Nine', request: 'PROD-2026-080', risk: 'Material unavailable', start: 'Aug 1', status: 'CANCELLED_ITEM', tabs: ['All Queue'], total: 15, unavailableItems: 3 },
-  { action: 'Complete request', assigned: 'Lan Ho', completed: 14, due: 'Today', dueBucket: 'today', path: '/production/requests', phase: 'Ready to complete', priority: 'Medium', project: 'PRJ-2026-160 Oak & Steel', request: 'PROD-2026-076', risk: 'Ready to complete', start: 'Jul 29', status: 'READY_TO_COMPLETE', tabs: ['All Queue', 'Ready to Complete'], total: 14 },
-  { action: 'View delivery', assigned: 'Thanh Le', completed: 18, due: 'Done', dueBucket: 'this-month', path: '/production/ready-for-delivery', phase: 'Completed', priority: 'Low', project: 'PRJ-2026-151 Northline Office', request: 'PROD-2026-070', risk: 'Awaiting delivery', start: 'Jul 24', status: 'COMPLETED', tabs: ['All Queue', 'Completed'], total: 18 },
-];
+const DATE_RANGE_LABEL: Record<DateRangeKey, string> = {
+  today: 'Today',
+  'this-week': 'This week',
+  'this-month': 'This month',
+};
 
-function priorityClass(priority: QueueItem['priority']) {
-  return `production-ops-priority production-ops-priority-${priority.toLowerCase()}`;
-}
-
-function formatStatusLabel(status: string) {
-  return status
-    .toLowerCase()
-    .split('_')
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(' ');
-}
-
-function matchesDateRange(item: QueueItem, dateRange: DateRangeKey) {
-  if (dateRange === 'today') {
-    return item.dueBucket === 'today' || item.dueBucket === 'overdue';
-  }
-
-  if (dateRange === 'this-week') {
-    return item.dueBucket === 'today' || item.dueBucket === 'this-week' || item.dueBucket === 'overdue';
-  }
-
-  return true;
-}
-
-function getKpis(queue: QueueItem[]): KpiItem[] {
-  const pendingReviewCount = queue.filter((item) => item.status === 'PENDING_REVIEW').length;
-  const inProductionQueue = queue.filter((item) => item.status === 'ASSIGNED' || item.status === 'IN_PRODUCTION');
-  const itemsInProgress = inProductionQueue.reduce(
-    (total, item) => total + Math.max(item.total - item.completed, 0),
-    0,
-  );
-  const unavailableItems = queue.reduce((total, item) => total + (item.unavailableItems ?? 0), 0);
-
-  return [
-    { description: 'Requests waiting for production review', icon: IconClock, label: 'Pending Review', note: 'Matching selected filters', path: '/production/requests', tone: 'amber', value: String(pendingReviewCount) },
-    { description: 'Production requests currently active', icon: IconClockCog, label: 'In Production', note: 'Matching selected filters', path: '/production/requests', tone: 'neutral', value: String(inProductionQueue.length) },
-    { description: 'Item-level execution currently active', icon: IconTool, label: 'Items In Progress', note: 'Remaining units in active requests', path: '/production/requests', tone: 'blue', value: String(itemsInProgress) },
-    { description: 'Unavailable or cancelled item paths needing Sales/customer coordination', icon: IconBan, label: 'Unavailable Items', note: 'Matching selected filters', path: '/production/blocked-issues', tone: 'red', value: String(unavailableItems) },
-  ];
-}
+const TAB_STATUS_MAP: Record<Exclude<QueueTab, 'All Queue'>, string[]> = {
+  'Pending Review': ['PENDING_REVIEW'],
+  'In Production': ['ASSIGNED', 'IN_PRODUCTION'],
+  'Ready to Complete': ['READY_TO_COMPLETE'],
+  Completed: ['COMPLETED'],
+};
 
 export function ProductionDashbroad() {
   const [activeTab, setActiveTab] = useState<QueueTab>('All Queue');
@@ -110,30 +64,48 @@ export function ProductionDashbroad() {
   const [queueScope, setQueueScope] = useState<QueueScopeKey>('all');
   const [lastRefreshAt, setLastRefreshAt] = useState(() => new Date());
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const currentUserQuery = useCurrentUser();
-  const scopedQueue = useMemo(
-    () =>
-      productionQueue.filter(
-        (item) =>
-          matchesDateRange(item, dateRange)
-          && (queueScope === 'all' || item.assignedToCurrentUser),
-      ),
-    [dateRange, queueScope],
+
+  const apiScope: DashboardScope = queueScope === 'assigned' ? 'mine' : 'all';
+  const apiDateRange = toApiDateRange(dateRange);
+  const queueQuery = useProductionQueue({
+    scope: apiScope,
+    dateRange: apiDateRange,
+    page: 1,
+    limit: 50,
+  });
+  const kpisQuery = useProductionDashboardKpis({
+    scope: apiScope,
+    dateRange: apiDateRange,
+  });
+
+  const allItems = queueQuery.data?.items ?? [];
+  const tabCounts = useMemo(() => getTabCounts(allItems), [allItems]);
+  const activeQueue = useMemo(() => {
+    if (activeTab === 'All Queue') {
+      return allItems;
+    }
+
+    const statuses = TAB_STATUS_MAP[activeTab];
+    return allItems.filter((item) => statuses.includes(item.status));
+  }, [activeTab, allItems]);
+  const visibleKpis = useMemo(
+    () => mapProductionKpis(kpisQuery.data, DATE_RANGE_LABEL[dateRange]),
+    [dateRange, kpisQuery.data],
   );
-  const activeQueue = useMemo(
-    () => scopedQueue.filter((item) => item.tabs.includes(activeTab)),
-    [activeTab, scopedQueue],
-  );
-  const visibleKpis = useMemo(() => getKpis(scopedQueue), [scopedQueue]);
   const refreshTime = new Intl.DateTimeFormat('en-US', { hour: '2-digit', minute: '2-digit' }).format(lastRefreshAt);
-  const userName = currentUserQuery.data?.fullName ?? 'Production Staff';
+  const isLoading = queueQuery.isLoading || kpisQuery.isLoading;
+  const loadError = queueQuery.error
+    ? getDashboardServiceResultMessage(queueQuery.error)
+    : kpisQuery.error
+      ? getDashboardServiceResultMessage(kpisQuery.error)
+      : null;
 
   async function handleRefresh() {
     if (isRefreshing) return;
 
     setIsRefreshing(true);
     try {
-      await currentUserQuery.refetch();
+      await Promise.all([queueQuery.refetch(), kpisQuery.refetch()]);
       setLastRefreshAt(new Date());
     } finally {
       setIsRefreshing(false);
@@ -209,7 +181,7 @@ export function ProductionDashbroad() {
               {queueTabs.map((tab) => (
                 <button aria-selected={activeTab === tab} key={tab} role="tab" type="button" onClick={() => setActiveTab(tab)}>
                   {tab}
-                  <em>{scopedQueue.filter((item) => item.tabs.includes(tab)).length}</em>
+                  <em>{tabCounts[tab]}</em>
                 </button>
               ))}
             </div>
@@ -224,27 +196,139 @@ export function ProductionDashbroad() {
                 <span className="production-ops-queue-col-center">Status</span>
                 <span />
               </div>
+              {isLoading ? <div className="production-ops-queue-empty">Loading production queue...</div> : null}
+              {loadError ? <div className="production-ops-queue-empty">{loadError}</div> : null}
+              {!isLoading && !loadError && activeQueue.length === 0 ? (
+                <div className="production-ops-queue-empty">No production work matches the selected filters.</div>
+              ) : null}
               {activeQueue.map((item) => (
-                <div className="production-ops-queue-row" key={item.request}>
-                  <strong title={`${item.request} · ${item.project}`}>{item.project}</strong>
-                  <span>{item.assignedToCurrentUser ? userName : item.assigned}</span>
-                  <span>{item.phase}</span>
-                  <span className={priorityClass(item.priority)}>{item.priority}</span>
+                <div className="production-ops-queue-row" key={item.id}>
+                  <strong title={`${item.id} · ${formatProjectLabel(item)}`}>{formatProjectLabel(item)}</strong>
+                  <span>{item.assigneeName || 'Unassigned'}</span>
+                  <span>{item.phase || '-'}</span>
+                  <span className={priorityClass(item.priority)}>{formatPriorityLabel(item.priority)}</span>
                   <span>{item.action}</span>
-                  <span>{item.due}</span>
+                  <span>{formatDueLabel(item.dueAt, item.dueBucket)}</span>
                   <em title={item.status}>{formatStatusLabel(item.status)}</em>
-                  <Link aria-label={`Open ${item.project}`} className="production-ops-queue-open" title="Open" to={item.path}>
+                  <Link
+                    aria-label={`Open ${item.projectCode}`}
+                    className="production-ops-queue-open"
+                    title="Open"
+                    to={resolveProductionActionPath(item)}
+                  >
                     <IconChevronRight size={18} stroke={2} />
                   </Link>
                 </div>
               ))}
-              {activeQueue.length === 0 ? (
-                <div className="production-ops-queue-empty">No production work matches the selected filters.</div>
-              ) : null}
             </div>
           </article>
         </section>
       </div>
     </ProductionLayout>
   );
+}
+
+function getTabCounts(items: DashboardQueueItemDto[]): Record<QueueTab, number> {
+  return {
+    'All Queue': items.length,
+    'Pending Review': items.filter((item) => TAB_STATUS_MAP['Pending Review'].includes(item.status)).length,
+    'In Production': items.filter((item) => TAB_STATUS_MAP['In Production'].includes(item.status)).length,
+    'Ready to Complete': items.filter((item) => TAB_STATUS_MAP['Ready to Complete'].includes(item.status)).length,
+    Completed: items.filter((item) => TAB_STATUS_MAP.Completed.includes(item.status)).length,
+  };
+}
+
+function mapProductionKpis(data: ProductionDashboardKpisDto | undefined, rangeLabel: string): KpiItem[] {
+  return [
+    {
+      description: 'Requests waiting for production review',
+      icon: IconClock,
+      label: 'Pending Review',
+      note: rangeLabel,
+      path: '/production/requests',
+      tone: 'amber',
+      value: String(data?.pendingReview ?? 0),
+    },
+    {
+      description: 'Production requests currently active',
+      icon: IconClockCog,
+      label: 'In Production',
+      note: rangeLabel,
+      path: '/production/requests',
+      tone: 'neutral',
+      value: String(data?.inProduction ?? 0),
+    },
+    {
+      description: 'Requests ready to complete',
+      icon: IconTool,
+      label: 'Ready To Complete',
+      note: rangeLabel,
+      path: '/production/requests',
+      tone: 'blue',
+      value: String(data?.readyToComplete ?? 0),
+    },
+    {
+      description: 'Overdue production tasks',
+      icon: IconBan,
+      label: 'Overdue Tasks',
+      note: rangeLabel,
+      path: '/production/blocked-issues',
+      tone: 'red',
+      value: String(data?.overdueTasks ?? 0),
+    },
+  ];
+}
+
+function toApiDateRange(dateRange: DateRangeKey): DashboardDateRange {
+  if (dateRange === 'today') return 'today';
+  if (dateRange === 'this-week') return 'thisWeek';
+  return 'thisMonth';
+}
+
+function priorityClass(priority: DashboardPriority) {
+  return `production-ops-priority production-ops-priority-${priority.toLowerCase()}`;
+}
+
+function formatProjectLabel(item: DashboardQueueItemDto) {
+  return `${item.projectCode} ${item.projectName}`.trim();
+}
+
+function formatPriorityLabel(priority: DashboardPriority) {
+  return priority.charAt(0) + priority.slice(1).toLowerCase();
+}
+
+function formatStatusLabel(status: string) {
+  return status
+    .toLowerCase()
+    .split('_')
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
+}
+
+function formatDueLabel(dueAt: string | null, dueBucket: DashboardDueBucket | null) {
+  if (dueBucket === 'OVERDUE') return 'Overdue';
+  if (dueBucket === 'TODAY') return 'Today';
+  if (dueBucket === 'THIS_WEEK') return 'This week';
+  if (dueBucket === 'LATER') return dueAt ? formatShortDate(dueAt) : 'Later';
+  if (dueAt) return formatShortDate(dueAt);
+  return '-';
+}
+
+function formatShortDate(value: string) {
+  return new Intl.DateTimeFormat('en-US', { month: 'short', day: '2-digit' }).format(new Date(value));
+}
+
+function resolveProductionActionPath(item: DashboardQueueItemDto) {
+  const path = item.actionPath || '';
+  const requestMatch = path.match(/^\/production-requests\/([^/]+)/);
+
+  if (requestMatch?.[1]) {
+    return `/production/requests/${requestMatch[1]}`;
+  }
+
+  if (item.id) {
+    return `/production/requests/${item.id}`;
+  }
+
+  return path.startsWith('/') ? path : '/production/requests';
 }

@@ -3,34 +3,36 @@ import {
   IconArrowRight,
   IconChevronRight,
   IconCreditCard,
-  IconFileInvoice,
   IconFilter,
   IconFolderOpen,
-  IconMessageCircle,
   IconProgressCheck,
   IconRefresh,
   IconShieldExclamation,
   IconUserCheck,
   type Icon,
 } from '@tabler/icons-react';
-import { useQueries } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 
 import { SaleNavbar, SaleSidebar } from '@/features/SalePages/salecomponents';
-import { getAccountById, type AccountDto } from '@/services/api';
+import type {
+  DashboardDateRange,
+  DashboardDueBucket,
+  DashboardPriority,
+  DashboardQueueGroup,
+  DashboardQueueItemDto,
+  DashboardScope,
+  SalesDashboardKpisDto,
+} from '@/services/api/dashboard';
 import {
-  getProjectServiceResultMessage,
-  type ProjectListItemDto,
-  type ProjectStatus,
-} from '@/services/api/projects';
-import { useCurrentUser, useProjectList } from '@/services/queries';
+  getDashboardServiceResultMessage,
+  useSalesActionQueue,
+  useSalesDashboardKpis,
+} from '@/services/queries';
 
 import './SaleDashbroad.css';
 
 type DateRangeKey = 'today' | 'this-week' | 'this-month';
 type ScopeKey = 'my-projects' | 'team';
-type QueueGroup = 'Intake' | 'Proposal and Quotation' | 'Payment and Production' | 'Delivery and Completion';
-type QueuePriority = 'High' | 'Medium' | 'Low';
 
 type KpiItem = {
   change: string;
@@ -42,20 +44,12 @@ type KpiItem = {
   value: string;
 };
 
-type QueueItem = {
-  action: string;
-  assignee: string;
-  customer: string;
-  due: string;
-  group: QueueGroup;
-  path: string;
-  phase: string;
-  priority: QueuePriority;
-  project: string;
-  status: string;
-};
-
-const queueGroups: QueueGroup[] = ['Intake', 'Proposal and Quotation', 'Payment and Production', 'Delivery and Completion'];
+const DEFAULT_SALES_GROUPS: DashboardQueueGroup[] = [
+  'Intake',
+  'Proposal and Quotation',
+  'Order and Payment',
+  'Delivery',
+];
 
 const DATE_RANGE_LABEL: Record<DateRangeKey, string> = {
   today: 'Today',
@@ -63,110 +57,51 @@ const DATE_RANGE_LABEL: Record<DateRangeKey, string> = {
   'this-month': 'This month',
 };
 
-const ACTIVE_STATUSES: ProjectStatus[] = [
-  'SUBMITTED',
-  'IN_CONSULTATION',
-  'NEED_BASIC_INFORMATION',
-  'WAITING_FOR_DESIGNER_ASSIGNMENT',
-  'MEASUREMENT_REQUIRED',
-  'SPACE_VERIFIED',
-  'PROPOSAL_CONSULTING',
-  'PROPOSAL_SELECTED',
-  'QUOTATION_SENT',
-  'QUOTATION_REVISION_REQUESTED',
-  'ORDER_CONFIRMED',
-  'IN_PRODUCTION',
-  'READY_FOR_DELIVERY',
-  'DELIVERING',
-];
-
-const WAITING_CUSTOMER_STATUSES: ProjectStatus[] = [
-  'NEED_BASIC_INFORMATION',
-  'PROPOSAL_CONSULTING',
-  'QUOTATION_SENT',
-  'QUOTATION_REVISION_REQUESTED',
-];
-
-const WAITING_INTERNAL_STATUSES: ProjectStatus[] = [
-  'WAITING_FOR_DESIGNER_ASSIGNMENT',
-  'MEASUREMENT_REQUIRED',
-  'SPACE_VERIFIED',
-  'PROPOSAL_SELECTED',
-  'IN_PRODUCTION',
-];
-
-const QUOTATION_PENDING_STATUSES: ProjectStatus[] = ['QUOTATION_SENT', 'QUOTATION_REVISION_REQUESTED'];
-const PAYMENT_FOLLOWUP_STATUSES: ProjectStatus[] = ['ORDER_CONFIRMED', 'DELIVERED'];
-const AT_RISK_STATUSES: ProjectStatus[] = ['NEED_BASIC_INFORMATION', 'REJECTED'];
-
 export function SaleDashbroad() {
-  const [activeGroup, setActiveGroup] = useState<QueueGroup>('Intake');
+  const [activeGroup, setActiveGroup] = useState<DashboardQueueGroup>('Intake');
   const [dateRange, setDateRange] = useState<DateRangeKey>('this-week');
   const [scope, setScope] = useState<ScopeKey>('my-projects');
   const [lastRefreshAt, setLastRefreshAt] = useState(() => new Date());
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const currentUserQuery = useCurrentUser();
-  const currentUser = currentUserQuery.data;
-  const isMyScope = scope === 'my-projects';
-  const projectsQuery = useProjectList(
-    {
-      assignedSalesId: isMyScope ? currentUser?.accountId : null,
-      page: 1,
-      limit: 100,
-    },
-    { enabled: isMyScope ? Boolean(currentUser?.accountId) : true },
-  );
-  const projects = useMemo(() => projectsQuery.data?.items ?? [], [projectsQuery.data?.items]);
-  const visibleProjects = useMemo(
-    () => projects.filter((project) => isInDateRange(project.submittedAt, dateRange)),
-    [dateRange, projects],
-  );
-  const accountIds = useMemo(
-    () =>
-      Array.from(
-        new Set(
-          visibleProjects
-            .flatMap((project) => [project.customerId, project.assignedSalesId])
-            .filter((accountId): accountId is string => Boolean(accountId)),
-        ),
-      ),
-    [visibleProjects],
-  );
-  const accountQueries = useQueries({
-    queries: accountIds.map((accountId) => ({
-      queryKey: ['accounts', 'detail', accountId],
-      queryFn: () => getAccountById(accountId),
-      enabled: Boolean(accountId),
-      staleTime: 5 * 60 * 1000,
-    })),
+
+  const apiScope: DashboardScope = scope === 'my-projects' ? 'mine' : 'team';
+  const apiDateRange = toApiDateRange(dateRange);
+  const queueQuery = useSalesActionQueue({
+    scope: apiScope,
+    group: activeGroup,
+    dateRange: apiDateRange,
+    page: 1,
+    limit: 20,
   });
-  const accountById = useMemo(() => {
-    return accountQueries.reduce<Record<string, AccountDto>>((lookup, query, index) => {
-      const account = query.data;
+  const kpisQuery = useSalesDashboardKpis({
+    scope: apiScope,
+    dateRange: apiDateRange,
+  });
 
-      if (account) {
-        lookup[accountIds[index]] = account;
-      }
-
-      return lookup;
-    }, {});
-  }, [accountIds, accountQueries]);
-  const kpis = useMemo(() => getKpis(visibleProjects, DATE_RANGE_LABEL[dateRange]), [dateRange, visibleProjects]);
-  const actionQueue = useMemo(
-    () => visibleProjects.map((project) => toQueueItem(project, accountById, currentUser?.fullName ?? 'Unassigned')),
-    [accountById, currentUser?.fullName, visibleProjects],
+  const queueItems = queueQuery.data?.items ?? [];
+  const countsByGroup = queueQuery.data?.countsByGroup ?? {};
+  const queueGroups = useMemo(() => {
+    const fromApi = Object.keys(countsByGroup);
+    return fromApi.length > 0 ? fromApi : DEFAULT_SALES_GROUPS;
+  }, [countsByGroup]);
+  const kpis = useMemo(
+    () => mapSalesKpis(kpisQuery.data, DATE_RANGE_LABEL[dateRange]),
+    [dateRange, kpisQuery.data],
   );
-  const activeQueue = actionQueue.filter((item) => item.group === activeGroup);
   const refreshTime = new Intl.DateTimeFormat('en-US', { hour: '2-digit', minute: '2-digit' }).format(lastRefreshAt);
-  const isLoading = currentUserQuery.isLoading || projectsQuery.isLoading;
-  const loadError = getDashboardLoadError(currentUserQuery.isError, projectsQuery.isError, projectsQuery.error);
+  const isLoading = queueQuery.isLoading || kpisQuery.isLoading;
+  const loadError = queueQuery.error
+    ? getDashboardServiceResultMessage(queueQuery.error)
+    : kpisQuery.error
+      ? getDashboardServiceResultMessage(kpisQuery.error)
+      : null;
 
   async function handleRefresh() {
     if (isRefreshing) return;
 
     setIsRefreshing(true);
     try {
-      await Promise.all([currentUserQuery.refetch(), projectsQuery.refetch()]);
+      await Promise.all([queueQuery.refetch(), kpisQuery.refetch()]);
       setLastRefreshAt(new Date());
     } finally {
       setIsRefreshing(false);
@@ -254,7 +189,7 @@ export function SaleDashbroad() {
                     onClick={() => setActiveGroup(group)}
                   >
                     {group}
-                    <em>{actionQueue.filter((item) => item.group === group).length}</em>
+                    <em>{countsByGroup[group] ?? 0}</em>
                   </button>
                 ))}
               </div>
@@ -273,22 +208,27 @@ export function SaleDashbroad() {
                   <div className="sales-ops-queue-empty">Loading action queue...</div>
                 ) : null}
                 {loadError ? <div className="sales-ops-queue-empty sales-ops-queue-empty-error">{loadError}</div> : null}
-                {!isLoading && !loadError && activeQueue.length === 0 ? (
+                {!isLoading && !loadError && queueItems.length === 0 ? (
                   <div className="sales-ops-queue-empty">
                     No actions in this phase for {DATE_RANGE_LABEL[dateRange].toLowerCase()}
-                    {isMyScope ? ' on your assigned projects' : ' across the team'}.
+                    {scope === 'my-projects' ? ' on your assigned projects' : ' across the team'}.
                   </div>
                 ) : null}
-                {activeQueue.map((item) => (
-                  <div className="sales-ops-queue-row" key={`${item.project}-${item.status}`}>
-                    <strong>{item.project}</strong>
-                    <span>{item.customer}</span>
-                    <span>{item.phase}</span>
-                    <span className={getPriorityClass(item.priority)}>{item.priority}</span>
+                {queueItems.map((item) => (
+                  <div className="sales-ops-queue-row" key={item.id}>
+                    <strong title={item.warning ?? undefined}>{formatProjectLabel(item)}</strong>
+                    <span>{item.customerName || '-'}</span>
+                    <span>{item.phase || '-'}</span>
+                    <span className={getPriorityClass(item.priority)}>{formatPriorityLabel(item.priority)}</span>
                     <span>{item.action}</span>
-                    <span>{item.due}</span>
+                    <span>{formatDueLabel(item.dueAt, item.dueBucket)}</span>
                     <em title={item.status}>{formatStatusLabel(item.status)}</em>
-                    <Link aria-label={`Open ${item.project}`} className="sales-ops-queue-open" title="Open" to={item.path}>
+                    <Link
+                      aria-label={`Open ${item.projectCode}`}
+                      className="sales-ops-queue-open"
+                      title="Open"
+                      to={resolveSalesActionPath(item)}
+                    >
                       <IconChevronRight size={18} stroke={2} />
                     </Link>
                   </div>
@@ -302,15 +242,7 @@ export function SaleDashbroad() {
   );
 }
 
-function getDashboardLoadError(userFailed: boolean, projectsFailed: boolean, projectError: unknown) {
-  if (userFailed) return 'Cannot load current sales account.';
-  if (projectsFailed) return getProjectServiceResultMessage(projectError);
-  return null;
-}
-
-function getKpis(projects: ProjectListItemDto[], rangeLabel: string): KpiItem[] {
-  const countBy = (statuses: ProjectStatus[]) => projects.filter((project) => statuses.includes(project.status)).length;
-
+function mapSalesKpis(data: SalesDashboardKpisDto | undefined, rangeLabel: string): KpiItem[] {
   return [
     {
       change: rangeLabel,
@@ -319,7 +251,7 @@ function getKpis(projects: ProjectListItemDto[], rangeLabel: string): KpiItem[] 
       label: 'New Project Requests',
       path: '/sales/project-requests',
       tone: 'amber',
-      value: String(countBy(['SUBMITTED'])),
+      value: String(data?.newRequests ?? 0),
     },
     {
       change: rangeLabel,
@@ -328,34 +260,16 @@ function getKpis(projects: ProjectListItemDto[], rangeLabel: string): KpiItem[] 
       label: 'Active Projects',
       path: '/sales/assigned-projects',
       tone: 'blue',
-      value: String(countBy(ACTIVE_STATUSES)),
+      value: String(data?.activeProjects ?? 0),
     },
     {
       change: rangeLabel,
       description: 'Information, proposal, or quotation waiting on customer',
-      icon: IconMessageCircle,
+      icon: IconUserCheck,
       label: 'Waiting for Customer',
       path: '/sales/assigned-projects',
       tone: 'neutral',
-      value: String(countBy(WAITING_CUSTOMER_STATUSES)),
-    },
-    {
-      change: rangeLabel,
-      description: 'Designer or production action needed',
-      icon: IconUserCheck,
-      label: 'Waiting for Internal Team',
-      path: '/sales/assigned-projects',
-      tone: 'neutral',
-      value: String(countBy(WAITING_INTERNAL_STATUSES)),
-    },
-    {
-      change: rangeLabel,
-      description: 'Quotations sent but not accepted or rejected',
-      icon: IconFileInvoice,
-      label: 'Quotations Pending Decision',
-      path: '/sales/quotations',
-      tone: 'amber',
-      value: String(countBy(QUOTATION_PENDING_STATUSES)),
+      value: String(data?.waitingCustomer ?? 0),
     },
     {
       change: rangeLabel,
@@ -364,157 +278,32 @@ function getKpis(projects: ProjectListItemDto[], rangeLabel: string): KpiItem[] 
       label: 'Payments Requiring Follow-up',
       path: '/sales/orders',
       tone: 'red',
-      value: String(countBy(PAYMENT_FOLLOWUP_STATUSES)),
+      value: String(data?.paymentFollowUp ?? 0),
     },
     {
       change: rangeLabel,
       description: 'Overdue, blocked, or missing required action',
       icon: IconShieldExclamation,
-      label: 'At-Risk Projects',
+      label: 'Overdue Tasks',
       path: '/sales/assigned-projects',
       tone: 'red',
-      value: String(countBy(AT_RISK_STATUSES)),
+      value: String(data?.overdueTasks ?? 0),
     },
   ];
 }
 
-function toQueueItem(
-  project: ProjectListItemDto,
-  accountById: Record<string, AccountDto>,
-  fallbackAssignee: string,
-): QueueItem {
-  const customer = accountById[project.customerId];
-  const sales = project.assignedSalesId ? accountById[project.assignedSalesId] : null;
-  const meta = getQueueMeta(project.status);
-
-  return {
-    action: meta.action,
-    assignee: sales?.fullName ?? fallbackAssignee,
-    customer: customer?.fullName ?? 'Unknown customer',
-    due: formatSubmittedDue(project.submittedAt),
-    group: meta.group,
-    path: meta.path(project.projectId),
-    phase: meta.phase,
-    priority: meta.priority,
-    project: `${project.projectCode} ${project.projectName}`,
-    status: project.status,
-  };
+function toApiDateRange(dateRange: DateRangeKey): DashboardDateRange {
+  if (dateRange === 'today') return 'today';
+  if (dateRange === 'this-week') return 'thisWeek';
+  return 'thisMonth';
 }
 
-function getQueueMeta(status: ProjectStatus): {
-  action: string;
-  group: QueueGroup;
-  path: (projectId: string) => string;
-  phase: string;
-  priority: QueuePriority;
-} {
-  if (status === 'SUBMITTED') {
-    return { action: 'Review request', group: 'Intake', path: (id) => `/sales/project-requests/${id}`, phase: 'Request intake', priority: 'High' };
-  }
-  if (status === 'NEED_BASIC_INFORMATION') {
-    return { action: 'Follow missing information', group: 'Intake', path: (id) => `/sales/project-requests/${id}`, phase: 'Information check', priority: 'High' };
-  }
-  if (status === 'IN_CONSULTATION') {
-    return { action: 'Confirm requirements', group: 'Intake', path: (id) => `/sales/assigned-projects/${id}`, phase: 'Consultation', priority: 'Medium' };
-  }
-  if (status === 'WAITING_FOR_DESIGNER_ASSIGNMENT') {
-    return { action: 'Assign designer', group: 'Intake', path: (id) => `/sales/assigned-projects/${id}`, phase: 'Designer assignment', priority: 'High' };
-  }
-  if (status === 'MEASUREMENT_REQUIRED') {
-    return { action: 'Schedule measurement', group: 'Intake', path: (id) => `/sales/assigned-projects/${id}`, phase: 'Measurement', priority: 'High' };
-  }
-  if (status === 'SPACE_VERIFIED') {
-    return { action: 'Start proposal consulting', group: 'Intake', path: (id) => `/sales/assigned-projects/${id}`, phase: 'Consultation', priority: 'Medium' };
-  }
-  if (status === 'PROPOSAL_CONSULTING') {
-    return { action: 'Follow proposal review', group: 'Proposal and Quotation', path: (id) => `/sales/assigned-projects/${id}`, phase: 'Proposal consulting', priority: 'Medium' };
-  }
-  if (status === 'PROPOSAL_SELECTED') {
-    return { action: 'Prepare quotation', group: 'Proposal and Quotation', path: () => `/sales/quotations`, phase: 'Quotation draft', priority: 'High' };
-  }
-  if (status === 'QUOTATION_SENT') {
-    return { action: 'Follow quotation decision', group: 'Proposal and Quotation', path: () => '/sales/quotations', phase: 'Quotation sent', priority: 'Medium' };
-  }
-  if (status === 'QUOTATION_REVISION_REQUESTED') {
-    return { action: 'Revise quotation', group: 'Proposal and Quotation', path: () => '/sales/quotations', phase: 'Quotation revision', priority: 'High' };
-  }
-  if (status === 'ORDER_CONFIRMED') {
-    return { action: 'Follow payment and production', group: 'Payment and Production', path: () => '/sales/orders', phase: 'Order confirmed', priority: 'Medium' };
-  }
-  if (status === 'IN_PRODUCTION') {
-    return { action: 'Monitor production', group: 'Payment and Production', path: () => '/sales/orders', phase: 'In production', priority: 'Medium' };
-  }
-  if (status === 'READY_FOR_DELIVERY') {
-    return { action: 'Create delivery schedule', group: 'Delivery and Completion', path: () => '/sales/tracking', phase: 'Ready for delivery', priority: 'Medium' };
-  }
-  if (status === 'DELIVERING') {
-    return { action: 'Track delivery', group: 'Delivery and Completion', path: () => '/sales/tracking', phase: 'Delivering', priority: 'Medium' };
-  }
-  if (status === 'DELIVERED') {
-    return { action: 'Prepare remaining payment', group: 'Delivery and Completion', path: () => '/sales/orders', phase: 'Delivered', priority: 'High' };
-  }
-  if (status === 'COMPLETED') {
-    return { action: 'Review completed project', group: 'Delivery and Completion', path: (id) => `/sales/assigned-projects/${id}`, phase: 'Completed', priority: 'Low' };
-  }
-
-  return { action: 'Review project', group: 'Intake', path: (id) => `/sales/assigned-projects/${id}`, phase: 'Closed', priority: 'Low' };
+function formatProjectLabel(item: DashboardQueueItemDto) {
+  return `${item.projectCode} ${item.projectName}`.trim();
 }
 
-function isInDateRange(iso: string, range: DateRangeKey) {
-  const submittedAt = new Date(iso);
-
-  if (Number.isNaN(submittedAt.getTime())) {
-    return false;
-  }
-
-  const start = getDateRangeStart(range);
-  const end = new Date();
-  end.setHours(23, 59, 59, 999);
-
-  return submittedAt >= start && submittedAt <= end;
-}
-
-function getDateRangeStart(range: DateRangeKey) {
-  const start = new Date();
-  start.setHours(0, 0, 0, 0);
-
-  if (range === 'today') {
-    return start;
-  }
-
-  if (range === 'this-week') {
-    const weekday = start.getDay();
-    const daysFromMonday = weekday === 0 ? 6 : weekday - 1;
-    start.setDate(start.getDate() - daysFromMonday);
-    return start;
-  }
-
-  start.setDate(1);
-  return start;
-}
-
-function formatSubmittedDue(iso: string) {
-  const submittedAt = new Date(iso);
-
-  if (Number.isNaN(submittedAt.getTime())) {
-    return '-';
-  }
-
-  const startOfToday = new Date();
-  startOfToday.setHours(0, 0, 0, 0);
-  const startOfSubmitted = new Date(submittedAt);
-  startOfSubmitted.setHours(0, 0, 0, 0);
-  const dayDiff = Math.round((startOfToday.getTime() - startOfSubmitted.getTime()) / 86_400_000);
-
-  if (dayDiff <= 0) return 'Today';
-  if (dayDiff === 1) return 'Yesterday';
-  if (dayDiff < 7) return `${dayDiff} days ago`;
-
-  return new Intl.DateTimeFormat('en-US', { month: 'short', day: '2-digit' }).format(submittedAt);
-}
-
-function getPriorityClass(priority: QueuePriority) {
-  return `sales-ops-priority sales-ops-priority-${priority.toLowerCase()}`;
+function formatPriorityLabel(priority: DashboardPriority) {
+  return priority.charAt(0) + priority.slice(1).toLowerCase();
 }
 
 function formatStatusLabel(value: string) {
@@ -523,4 +312,47 @@ function formatStatusLabel(value: string) {
     .split('_')
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(' ');
+}
+
+function formatDueLabel(dueAt: string | null, dueBucket: DashboardDueBucket | null) {
+  if (dueBucket === 'OVERDUE') return 'Overdue';
+  if (dueBucket === 'TODAY') return 'Today';
+  if (dueBucket === 'THIS_WEEK') return 'This week';
+  if (dueBucket === 'LATER') return dueAt ? formatShortDate(dueAt) : 'Later';
+  if (dueAt) return formatShortDate(dueAt);
+  return '-';
+}
+
+function formatShortDate(value: string) {
+  return new Intl.DateTimeFormat('en-US', { month: 'short', day: '2-digit' }).format(new Date(value));
+}
+
+function getPriorityClass(priority: DashboardPriority) {
+  return `sales-ops-priority sales-ops-priority-${priority.toLowerCase()}`;
+}
+
+function resolveSalesActionPath(item: DashboardQueueItemDto) {
+  const path = item.actionPath || '';
+
+  if (path.startsWith('/orders/')) {
+    return '/sales/orders';
+  }
+
+  const projectMatch = path.match(/^\/projects\/([^/]+)/);
+  if (projectMatch?.[1]) {
+    const projectId = projectMatch[1];
+    if (item.group === 'Intake' || item.status === 'SUBMITTED' || item.status === 'NEED_BASIC_INFORMATION') {
+      return `/sales/project-requests/${projectId}`;
+    }
+    return `/sales/assigned-projects/${projectId}`;
+  }
+
+  if (item.projectId) {
+    if (item.group === 'Intake' || item.status === 'SUBMITTED' || item.status === 'NEED_BASIC_INFORMATION') {
+      return `/sales/project-requests/${item.projectId}`;
+    }
+    return `/sales/assigned-projects/${item.projectId}`;
+  }
+
+  return path.startsWith('/') ? path : '/sales/assigned-projects';
 }
