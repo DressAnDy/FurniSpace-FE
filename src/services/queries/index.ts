@@ -64,10 +64,21 @@ export {
   useWithdrawCustomizationRequestVersion,
 } from './useCustomizationRequests';
 export {
+  dashboardQueryKeys,
+  getDashboardServiceResultMessage,
+  useDesignerDashboardKpis,
+  useDesignerWorkQueue,
+  useProductionDashboardKpis,
+  useProductionQueue,
+  useSalesActionQueue,
+  useSalesDashboardKpis,
+} from './useDashboard';
+export {
   projectQueryKeys,
   useAdminProjectWorkflow,
   useAssignDesignerToProject,
   useAssignSalesToProject,
+  useCompleteProject,
   useCreateProject,
   useMarkReadyForDesignerAssignment,
   useMarkSpaceVerified,

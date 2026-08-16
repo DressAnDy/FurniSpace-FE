@@ -7,18 +7,25 @@ import {
   IconFileUpload,
   IconFilter,
   IconFlag,
-  IconLayoutDashboard,
-  IconPencilCog,
   IconRefresh,
-  IconStack2,
-  IconUserCheck,
   IconX,
   type Icon,
 } from '@tabler/icons-react';
 import { Link } from 'react-router-dom';
 
 import { DesignerLayout } from '@/features/DesignerPages/designercomponents';
-import { useCurrentUser } from '@/services/queries';
+import type {
+  DashboardDateRange,
+  DashboardDueBucket,
+  DashboardPriority,
+  DashboardQueueItemDto,
+  DesignerDashboardKpisDto,
+} from '@/services/api/dashboard';
+import {
+  getDashboardServiceResultMessage,
+  useDesignerDashboardKpis,
+  useDesignerWorkQueue,
+} from '@/services/queries';
 
 import './DesignerDashbroad.css';
 
@@ -35,25 +42,6 @@ type KpiItem = {
 type DateRangeKey = 'today' | 'this-week' | 'this-month';
 type ProjectFilterKey = 'assigned' | 'overdue' | 'customization';
 
-type WorkGroup = 'Project Preparation' | 'Proposal Work' | 'Customization Work';
-
-type WorkItem = {
-  action: string;
-  due: string;
-  dueBucket: 'today' | 'this-week' | 'later' | 'overdue';
-  group: WorkGroup;
-  lastUpdated: string;
-  path: string;
-  priority: 'High' | 'Medium' | 'Low';
-  project: string;
-  state: string;
-  target: string;
-  type: string;
-  warning: string;
-};
-
-const workGroups: WorkGroup[] = ['Project Preparation', 'Proposal Work', 'Customization Work'];
-
 const DATE_RANGE_LABEL: Record<DateRangeKey, string> = {
   today: 'Today',
   'this-week': 'This week',
@@ -66,113 +54,63 @@ const PROJECT_FILTER_LABEL: Record<ProjectFilterKey, string> = {
   customization: 'Customization work',
 };
 
-// Mocked until designer dashboard aggregation endpoints are available.
-const kpis: KpiItem[] = [
-  { description: 'Projects assigned to current designer', icon: IconLayoutDashboard, label: 'Assigned Projects', note: '+2 this week', path: '/designer/assigned-projects', tone: 'blue', value: '7' },
-  { description: 'Assigned but not opened yet', icon: IconUserCheck, label: 'New Assignments', note: '1 urgent', path: '/designer/assigned-projects', tone: 'amber', value: '3' },
-  { description: 'Projects still needing measurement or files', icon: IconFileUpload, label: 'Measurement Required', note: '2 due today', path: '/designer/schedules', tone: 'red', value: '4' },
-  { description: 'Proposal drafts not yet published', icon: IconStack2, label: 'Draft Proposals', note: '3 missing scene data', path: '/designer/assigned-projects', tone: 'neutral', value: '6' },
-  { description: 'Customer requested proposal revisions', icon: IconEditCircle, label: 'Revision Requests', note: '2 open', path: '/designer/assigned-projects', tone: 'amber', value: '3' },
-  { description: 'Customization requests needing design review', icon: IconPencilCog, label: 'Customization Reviews', note: '1 production issue', path: '/designer/assigned-projects', tone: 'blue', value: '5' },
-  { description: 'Proposals passing checks and ready to publish', icon: IconChecklist, label: 'Ready to Publish', note: '2 waiting', path: '/designer/assigned-projects', tone: 'green', value: '2' },
-  { description: 'Design tasks past due date', icon: IconFlag, label: 'Overdue Design Tasks', note: '3 high priority', path: '/designer/assigned-projects', tone: 'red', value: '5' },
-];
-
-const workQueue: WorkItem[] = [
-  { action: 'Open project brief', due: 'Today 11:00', dueBucket: 'today', group: 'Project Preparation', lastUpdated: '28m ago', path: '/designer/assigned-projects', priority: 'High', project: 'PRJ-2026-184 Bean & Brew', state: 'Assigned', target: 'New assignment', type: 'Assignment', warning: 'Not opened' },
-  { action: 'Upload files', due: 'Today 16:30', dueBucket: 'today', group: 'Project Preparation', lastUpdated: '1h ago', path: '/designer/schedules', priority: 'High', project: 'PRJ-2026-181 Luma Cafe', state: 'Measurement scheduled', target: 'Site measurement', type: 'Measurement', warning: 'Files missing' },
-  { action: 'Verify space', due: 'Tomorrow', dueBucket: 'this-week', group: 'Project Preparation', lastUpdated: 'Yesterday', path: '/designer/assigned-projects', priority: 'Medium', project: 'PRJ-2026-180 Atelier Home', state: 'Files uploaded', target: 'Ground floor', type: 'Space verification', warning: 'Pending check' },
-  { action: 'Create first proposal', due: 'Today', dueBucket: 'today', group: 'Proposal Work', lastUpdated: '45m ago', path: '/designer/assigned-projects', priority: 'High', project: 'PRJ-2026-176 Nova Work Lounge', state: 'Space verified', target: 'Initial proposal', type: 'Proposal', warning: 'No proposal yet' },
-  { action: 'Open Room Planner', due: 'Tomorrow', dueBucket: 'this-week', group: 'Proposal Work', lastUpdated: '2h ago', path: '/designer/assigned-projects', priority: 'Medium', project: 'PRJ-2026-174 Urban Threads', state: 'Draft proposal', target: 'Scene v1', type: 'Room Planner', warning: 'Missing preview' },
-  { action: 'Publish proposal', due: '1 day overdue', dueBucket: 'overdue', group: 'Proposal Work', lastUpdated: 'Yesterday', path: '/designer/assigned-projects', priority: 'High', project: 'PRJ-2026-169 Green Bowl', state: 'Ready for review', target: 'Proposal v2', type: 'Proposal', warning: 'Ready not published' },
-  { action: 'Review request', due: 'Today', dueBucket: 'today', group: 'Customization Work', lastUpdated: '34m ago', path: '/designer/assigned-projects', priority: 'High', project: 'PRJ-2026-166 Studio Nine', state: 'Designer review pending', target: 'CUS-2048', type: 'Customization', warning: 'Production issue returned' },
-  { action: 'Apply accepted version', due: 'Tomorrow', dueBucket: 'this-week', group: 'Customization Work', lastUpdated: '3h ago', path: '/designer/assigned-projects', priority: 'Medium', project: 'PRJ-2026-160 Oak & Steel', state: 'Customer accepted', target: 'CUS-2032', type: 'Customization', warning: 'Not applied to scene' },
-];
-
 const ALL_PRIORITIES = 'All priorities';
-const ALL_WORK_TYPES = 'All work types';
-
-const priorityOptions = [ALL_PRIORITIES, 'High', 'Medium', 'Low'];
-
-function priorityClass(priority: WorkItem['priority']) {
-  return `designer-ops-priority designer-ops-priority-${priority.toLowerCase()}`;
-}
-
-function matchesDateRange(item: WorkItem, dateRange: DateRangeKey) {
-  if (dateRange === 'today') {
-    return item.dueBucket === 'today' || item.dueBucket === 'overdue';
-  }
-
-  if (dateRange === 'this-week') {
-    return item.dueBucket === 'today' || item.dueBucket === 'this-week' || item.dueBucket === 'overdue';
-  }
-
-  return true;
-}
-
-function matchesProjectFilter(item: WorkItem, projectFilter: ProjectFilterKey) {
-  if (projectFilter === 'overdue') {
-    return item.dueBucket === 'overdue' || item.priority === 'High';
-  }
-
-  if (projectFilter === 'customization') {
-    return item.group === 'Customization Work';
-  }
-
-  return true;
-}
-
-function getVisibleKpis(projectFilter: ProjectFilterKey, dateRange: DateRangeKey) {
-  const rangeNote = DATE_RANGE_LABEL[dateRange];
-  const scopedKpis =
-    projectFilter === 'customization'
-      ? kpis.filter((item) => ['Customization Reviews', 'Revision Requests', 'Assigned Projects'].includes(item.label))
-      : projectFilter === 'overdue'
-        ? kpis.filter((item) => ['Overdue Design Tasks', 'Measurement Required', 'New Assignments', 'Assigned Projects'].includes(item.label))
-        : kpis.slice(0, 6);
-
-  return scopedKpis.map((item) => ({
-    ...item,
-    note: `${item.note} · ${rangeNote}`,
-  }));
-}
+const priorityOptions = [ALL_PRIORITIES, 'HIGH', 'MEDIUM', 'LOW'];
+const DEFAULT_DESIGNER_GROUPS: string[] = ['Design'];
 
 export function DesignerDashbroad() {
-  const [activeGroup, setActiveGroup] = useState<WorkGroup>('Project Preparation');
+  const [activeGroup, setActiveGroup] = useState<string>('Design');
   const [dateRange, setDateRange] = useState<DateRangeKey>('this-week');
   const [projectFilter, setProjectFilter] = useState<ProjectFilterKey>('assigned');
   const [priorityFilter, setPriorityFilter] = useState(ALL_PRIORITIES);
-  const [typeFilter, setTypeFilter] = useState(ALL_WORK_TYPES);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [lastRefreshAt, setLastRefreshAt] = useState(() => new Date());
   const [isRefreshing, setIsRefreshing] = useState(false);
   const filterMenuRef = useRef<HTMLDivElement | null>(null);
-  const currentUserQuery = useCurrentUser();
-  const refreshTime = new Intl.DateTimeFormat('en-US', { hour: '2-digit', minute: '2-digit' }).format(lastRefreshAt);
-  const scopedQueue = useMemo(
-    () =>
-      workQueue.filter(
-        (item) => matchesDateRange(item, dateRange) && matchesProjectFilter(item, projectFilter),
-      ),
-    [dateRange, projectFilter],
-  );
-  const visibleKpis = useMemo(() => getVisibleKpis(projectFilter, dateRange), [dateRange, projectFilter]);
-  const groupWork = useMemo(() => scopedQueue.filter((item) => item.group === activeGroup), [activeGroup, scopedQueue]);
-  const typeOptions = useMemo(
-    () => [ALL_WORK_TYPES, ...Array.from(new Set(groupWork.map((item) => item.type))).sort((first, second) => first.localeCompare(second))],
-    [groupWork],
-  );
-  const activeWork = useMemo(
-    () =>
-      groupWork.filter((item) => {
-        const matchesPriority = priorityFilter === ALL_PRIORITIES || item.priority === priorityFilter;
-        const matchesType = typeFilter === ALL_WORK_TYPES || item.type === typeFilter;
 
-        return matchesPriority && matchesType;
-      }),
-    [groupWork, priorityFilter, typeFilter],
+  const apiDateRange = toApiDateRange(dateRange);
+  const apiPriority = priorityFilter === ALL_PRIORITIES ? null : (priorityFilter as DashboardPriority);
+  const queueQuery = useDesignerWorkQueue({
+    scope: 'mine',
+    group: activeGroup,
+    dateRange: apiDateRange,
+    priority: apiPriority,
+    page: 1,
+    limit: 20,
+  });
+  const kpisQuery = useDesignerDashboardKpis({
+    scope: 'mine',
+    dateRange: apiDateRange,
+  });
+
+  const queueItems = useMemo(() => {
+    const items = queueQuery.data?.items ?? [];
+    if (projectFilter === 'overdue') {
+      return items.filter((item) => item.dueBucket === 'OVERDUE' || item.priority === 'HIGH');
+    }
+    if (projectFilter === 'customization') {
+      return items.filter((item) => /custom/i.test(item.phase) || /custom/i.test(item.action) || /custom/i.test(item.group));
+    }
+    return items;
+  }, [projectFilter, queueQuery.data?.items]);
+
+  const countsByGroup = useMemo(() => queueQuery.data?.countsByGroup ?? {}, [queueQuery.data?.countsByGroup]);
+  const workGroups = useMemo(() => {
+    const fromApi = Object.keys(countsByGroup);
+    return fromApi.length > 0 ? fromApi : DEFAULT_DESIGNER_GROUPS;
+  }, [countsByGroup]);
+  const visibleKpis = useMemo(
+    () => mapDesignerKpis(kpisQuery.data, DATE_RANGE_LABEL[dateRange]),
+    [dateRange, kpisQuery.data],
   );
-  const activeFilterCount = Number(priorityFilter !== ALL_PRIORITIES) + Number(typeFilter !== ALL_WORK_TYPES);
+  const refreshTime = new Intl.DateTimeFormat('en-US', { hour: '2-digit', minute: '2-digit' }).format(lastRefreshAt);
+  const isLoading = queueQuery.isLoading || kpisQuery.isLoading;
+  const loadError = queueQuery.error
+    ? getDashboardServiceResultMessage(queueQuery.error)
+    : kpisQuery.error
+      ? getDashboardServiceResultMessage(kpisQuery.error)
+      : null;
+  const activeFilterCount = Number(priorityFilter !== ALL_PRIORITIES);
   const hasActiveFilters = activeFilterCount > 0;
   const primaryActionLabel =
     projectFilter === 'customization'
@@ -182,23 +120,14 @@ export function DesignerDashbroad() {
         : 'Open Assigned Projects';
 
   useEffect(() => {
-    setTypeFilter(ALL_WORK_TYPES);
-  }, [activeGroup, dateRange, projectFilter]);
-
-  useEffect(() => {
-    if (projectFilter === 'customization') {
-      setActiveGroup((current) => (current === 'Customization Work' ? current : 'Customization Work'));
-      return;
-    }
-
     setActiveGroup((current) => {
-      if (scopedQueue.some((item) => item.group === current)) {
+      if (workGroups.includes(current)) {
         return current;
       }
 
-      return workGroups.find((group) => scopedQueue.some((item) => item.group === group)) ?? current;
+      return workGroups[0] ?? current;
     });
-  }, [projectFilter, scopedQueue]);
+  }, [workGroups]);
 
   useEffect(() => {
     if (!isFilterOpen) {
@@ -228,7 +157,6 @@ export function DesignerDashbroad() {
 
   function clearWorkFilters() {
     setPriorityFilter(ALL_PRIORITIES);
-    setTypeFilter(ALL_WORK_TYPES);
   }
 
   async function handleRefresh() {
@@ -236,7 +164,7 @@ export function DesignerDashbroad() {
 
     setIsRefreshing(true);
     try {
-      await currentUserQuery.refetch();
+      await Promise.all([queueQuery.refetch(), kpisQuery.refetch()]);
       setLastRefreshAt(new Date());
     } finally {
       setIsRefreshing(false);
@@ -336,16 +264,7 @@ export function DesignerDashbroad() {
                       <span>Priority</span>
                       <select value={priorityFilter} onChange={(event) => setPriorityFilter(event.target.value)}>
                         {priorityOptions.map((option) => (
-                          <option key={option} value={option}>{option}</option>
-                        ))}
-                      </select>
-                    </label>
-
-                    <label>
-                      <span>Work type</span>
-                      <select value={typeFilter} onChange={(event) => setTypeFilter(event.target.value)}>
-                        {typeOptions.map((option) => (
-                          <option key={option} value={option}>{option}</option>
+                          <option key={option} value={option}>{option === ALL_PRIORITIES ? option : formatPriorityLabel(option as DashboardPriority)}</option>
                         ))}
                       </select>
                     </label>
@@ -367,13 +286,7 @@ export function DesignerDashbroad() {
               <div className="designer-ops-active-filters">
                 {priorityFilter !== ALL_PRIORITIES ? (
                   <button type="button" onClick={() => setPriorityFilter(ALL_PRIORITIES)}>
-                    Priority: {priorityFilter}
-                    <IconX size={14} />
-                  </button>
-                ) : null}
-                {typeFilter !== ALL_WORK_TYPES ? (
-                  <button type="button" onClick={() => setTypeFilter(ALL_WORK_TYPES)}>
-                    Type: {typeFilter}
+                    Priority: {formatPriorityLabel(priorityFilter as DashboardPriority)}
                     <IconX size={14} />
                   </button>
                 ) : null}
@@ -382,42 +295,51 @@ export function DesignerDashbroad() {
                 </button>
               </div>
             ) : null}
+
             <div className="designer-ops-tabs" role="tablist" aria-label="Design work groups">
               {workGroups.map((group) => (
                 <button aria-selected={activeGroup === group} key={group} role="tab" type="button" onClick={() => setActiveGroup(group)}>
                   {group}
-                  <em>{scopedQueue.filter((item) => item.group === group).length}</em>
+                  <em>{countsByGroup[group] ?? 0}</em>
                 </button>
               ))}
             </div>
+
             <div className="designer-ops-queue-table">
               <div className="designer-ops-queue-head">
                 <span>Project</span>
-                <span>Work type</span>
-                <span>Target</span>
+                <span>Phase</span>
+                <span>Warning</span>
                 <span className="designer-ops-queue-col-center">Priority</span>
                 <span>Action</span>
                 <span>Due</span>
                 <span className="designer-ops-queue-col-center">Status</span>
                 <span />
               </div>
-              {activeWork.length === 0 ? (
+              {isLoading ? <div className="designer-ops-queue-empty">Loading design work queue...</div> : null}
+              {loadError ? <div className="designer-ops-queue-empty">{loadError}</div> : null}
+              {!isLoading && !loadError && queueItems.length === 0 ? (
                 <div className="designer-ops-queue-empty">
                   {hasActiveFilters || dateRange !== 'this-month' || projectFilter !== 'assigned'
                     ? `No work items match ${DATE_RANGE_LABEL[dateRange].toLowerCase()} · ${PROJECT_FILTER_LABEL[projectFilter]}.`
                     : 'No work items in this phase.'}
                 </div>
               ) : null}
-              {activeWork.map((item) => (
-                <div className="designer-ops-queue-row" key={`${item.project}-${item.action}`}>
-                  <strong>{item.project}</strong>
-                  <span>{item.type}</span>
-                  <span>{item.target}</span>
-                  <span className={priorityClass(item.priority)}>{item.priority}</span>
+              {queueItems.map((item) => (
+                <div className="designer-ops-queue-row" key={item.id}>
+                  <strong>{formatProjectLabel(item)}</strong>
+                  <span>{item.phase || '-'}</span>
+                  <span>{item.warning || '-'}</span>
+                  <span className={priorityClass(item.priority)}>{formatPriorityLabel(item.priority)}</span>
                   <span>{item.action}</span>
-                  <span>{item.due}</span>
-                  <em title={item.state}>{item.state}</em>
-                  <Link aria-label={`Open ${item.project}`} className="designer-ops-queue-open" title="Open" to={item.path}>
+                  <span>{formatDueLabel(item.dueAt, item.dueBucket)}</span>
+                  <em title={item.status}>{formatStatusLabel(item.status)}</em>
+                  <Link
+                    aria-label={`Open ${item.projectCode}`}
+                    className="designer-ops-queue-open"
+                    title="Open"
+                    to={resolveDesignerActionPath(item)}
+                  >
                     <IconChevronRight size={18} stroke={2} />
                   </Link>
                 </div>
@@ -428,4 +350,99 @@ export function DesignerDashbroad() {
       </div>
     </DesignerLayout>
   );
+}
+
+function mapDesignerKpis(data: DesignerDashboardKpisDto | undefined, rangeLabel: string): KpiItem[] {
+  return [
+    {
+      description: 'Projects still needing measurement or files',
+      icon: IconFileUpload,
+      label: 'Measurement Due',
+      note: rangeLabel,
+      path: '/designer/schedules',
+      tone: 'red',
+      value: String(data?.measurementDue ?? 0),
+    },
+    {
+      description: 'Proposal drafts currently in progress',
+      icon: IconChecklist,
+      label: 'Proposals In Progress',
+      note: rangeLabel,
+      path: '/designer/assigned-projects',
+      tone: 'blue',
+      value: String(data?.proposalsInProgress ?? 0),
+    },
+    {
+      description: 'Customer requested proposal revisions',
+      icon: IconEditCircle,
+      label: 'Revision Requests',
+      note: rangeLabel,
+      path: '/designer/assigned-projects',
+      tone: 'amber',
+      value: String(data?.revisionRequested ?? 0),
+    },
+    {
+      description: 'Design tasks past due date',
+      icon: IconFlag,
+      label: 'Overdue Design Tasks',
+      note: rangeLabel,
+      path: '/designer/assigned-projects',
+      tone: 'red',
+      value: String(data?.overdueTasks ?? 0),
+    },
+  ];
+}
+
+function toApiDateRange(dateRange: DateRangeKey): DashboardDateRange {
+  if (dateRange === 'today') return 'today';
+  if (dateRange === 'this-week') return 'thisWeek';
+  return 'thisMonth';
+}
+
+function priorityClass(priority: DashboardPriority) {
+  return `designer-ops-priority designer-ops-priority-${priority.toLowerCase()}`;
+}
+
+function formatProjectLabel(item: DashboardQueueItemDto) {
+  return `${item.projectCode} ${item.projectName}`.trim();
+}
+
+function formatPriorityLabel(priority: DashboardPriority) {
+  return priority.charAt(0) + priority.slice(1).toLowerCase();
+}
+
+function formatStatusLabel(value: string) {
+  return value
+    .toLowerCase()
+    .split('_')
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
+}
+
+function formatDueLabel(dueAt: string | null, dueBucket: DashboardDueBucket | null) {
+  if (dueBucket === 'OVERDUE') return 'Overdue';
+  if (dueBucket === 'TODAY') return 'Today';
+  if (dueBucket === 'THIS_WEEK') return 'This week';
+  if (dueBucket === 'LATER') return dueAt ? formatShortDate(dueAt) : 'Later';
+  if (dueAt) return formatShortDate(dueAt);
+  return '-';
+}
+
+function formatShortDate(value: string) {
+  return new Intl.DateTimeFormat('en-US', { month: 'short', day: '2-digit' }).format(new Date(value));
+}
+
+function resolveDesignerActionPath(item: DashboardQueueItemDto) {
+  const path = item.actionPath || '';
+  const projectMatch = path.match(/^\/projects\/([^/]+)/);
+
+  if (projectMatch?.[1]) {
+    return `/designer/assigned-projects/${projectMatch[1]}`;
+  }
+
+  if (item.projectId) {
+    return `/designer/assigned-projects/${item.projectId}`;
+  }
+
+  return path.startsWith('/') ? path : '/designer/assigned-projects';
 }

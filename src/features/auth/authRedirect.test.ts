@@ -6,8 +6,8 @@ describe('getPostLoginPath', () => {
   it.each([
     ['ADMIN', '/admin/dashbroad'],
     ['ROLE_SALE', '/sale/dashbroad'],
-    ['designer', '/designer/assigned-projects'],
-    ['ROLE-DESIGNER', '/designer/assigned-projects'],
+    ['designer', '/designer/dashbroad'],
+    ['ROLE-DESIGNER', '/designer/dashbroad'],
     ['PRODUCTION', '/production/dashbroad'],
     ['ROLE_PRODUCTION', '/production/dashbroad'],
     ['CUSTOMER', '/customer/dashboard'],
