@@ -48,8 +48,7 @@ export type DashboardQueueGroup =
   | 'Proposal and Quotation'
   | 'Order and Payment'
   | 'Delivery'
-  | 'Production'
-  | (string & {});
+  | 'Production';
 
 export type DashboardQueueItemDto = {
   id: string;
@@ -58,7 +57,7 @@ export type DashboardQueueItemDto = {
   projectName: string;
   customerName: string;
   assigneeName: string | null;
-  group: DashboardQueueGroup;
+  group: DashboardQueueGroup | string;
   phase: string;
   status: string;
   priority: DashboardPriority;

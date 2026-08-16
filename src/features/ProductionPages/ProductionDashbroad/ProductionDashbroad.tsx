@@ -78,7 +78,7 @@ export function ProductionDashbroad() {
     dateRange: apiDateRange,
   });
 
-  const allItems = queueQuery.data?.items ?? [];
+  const allItems = useMemo(() => queueQuery.data?.items ?? [], [queueQuery.data?.items]);
   const tabCounts = useMemo(() => getTabCounts(allItems), [allItems]);
   const activeQueue = useMemo(() => {
     if (activeTab === 'All Queue') {

@@ -95,7 +95,7 @@ export function DesignerDashbroad() {
     return items;
   }, [projectFilter, queueQuery.data?.items]);
 
-  const countsByGroup = queueQuery.data?.countsByGroup ?? {};
+  const countsByGroup = useMemo(() => queueQuery.data?.countsByGroup ?? {}, [queueQuery.data?.countsByGroup]);
   const workGroups = useMemo(() => {
     const fromApi = Object.keys(countsByGroup);
     return fromApi.length > 0 ? fromApi : DEFAULT_DESIGNER_GROUPS;

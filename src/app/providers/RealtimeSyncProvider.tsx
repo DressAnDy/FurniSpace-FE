@@ -1,26 +1,8 @@
-import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react';
+import { useCallback, useMemo, useState, type ReactNode } from 'react';
 
+import { RealtimeSyncContext } from '@/app/providers/realtimeSyncContext';
 import type { RealtimeNotificationPayload } from '@/services/api/notifications';
 import { useCurrentUser, useNotificationRealtime, usePaymentRealtime } from '@/services/queries';
-
-type RealtimeSyncContextValue = {
-  acknowledgeInAppNotification: (notificationId: string) => void;
-  lastInAppNotification: RealtimeNotificationPayload | null;
-};
-
-const RealtimeSyncContext = createContext<RealtimeSyncContextValue>({
-  acknowledgeInAppNotification: () => undefined,
-  lastInAppNotification: null,
-});
-
-export function useRealtimeInAppNotification() {
-  return useContext(RealtimeSyncContext).lastInAppNotification;
-}
-
-/** Clears the pending payload so remounting consumers do not replay the same toast. */
-export function useAcknowledgeInAppNotification() {
-  return useContext(RealtimeSyncContext).acknowledgeInAppNotification;
-}
 
 /**
  * Mounts Notification + Payment hubs once for the signed-in user.

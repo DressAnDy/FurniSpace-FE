@@ -79,7 +79,7 @@ export function SaleDashbroad() {
   });
 
   const queueItems = queueQuery.data?.items ?? [];
-  const countsByGroup = queueQuery.data?.countsByGroup ?? {};
+  const countsByGroup = useMemo(() => queueQuery.data?.countsByGroup ?? {}, [queueQuery.data?.countsByGroup]);
   const queueGroups = useMemo(() => {
     const fromApi = Object.keys(countsByGroup);
     return fromApi.length > 0 ? fromApi : DEFAULT_SALES_GROUPS;
