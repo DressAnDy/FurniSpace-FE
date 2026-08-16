@@ -18,7 +18,6 @@ import type {
   DashboardDateRange,
   DashboardDueBucket,
   DashboardPriority,
-  DashboardQueueGroup,
   DashboardQueueItemDto,
   DesignerDashboardKpisDto,
 } from '@/services/api/dashboard';
@@ -57,10 +56,10 @@ const PROJECT_FILTER_LABEL: Record<ProjectFilterKey, string> = {
 
 const ALL_PRIORITIES = 'All priorities';
 const priorityOptions = [ALL_PRIORITIES, 'HIGH', 'MEDIUM', 'LOW'];
-const DEFAULT_DESIGNER_GROUPS: DashboardQueueGroup[] = ['Design'];
+const DEFAULT_DESIGNER_GROUPS: string[] = ['Design'];
 
 export function DesignerDashbroad() {
-  const [activeGroup, setActiveGroup] = useState<DashboardQueueGroup>('Design');
+  const [activeGroup, setActiveGroup] = useState<string>('Design');
   const [dateRange, setDateRange] = useState<DateRangeKey>('this-week');
   const [projectFilter, setProjectFilter] = useState<ProjectFilterKey>('assigned');
   const [priorityFilter, setPriorityFilter] = useState(ALL_PRIORITIES);

@@ -18,7 +18,6 @@ import type {
   DashboardDateRange,
   DashboardDueBucket,
   DashboardPriority,
-  DashboardQueueGroup,
   DashboardQueueItemDto,
   DashboardScope,
   SalesDashboardKpisDto,
@@ -44,7 +43,7 @@ type KpiItem = {
   value: string;
 };
 
-const DEFAULT_SALES_GROUPS: DashboardQueueGroup[] = [
+const DEFAULT_SALES_GROUPS: string[] = [
   'Intake',
   'Proposal and Quotation',
   'Order and Payment',
@@ -58,7 +57,7 @@ const DATE_RANGE_LABEL: Record<DateRangeKey, string> = {
 };
 
 export function SaleDashbroad() {
-  const [activeGroup, setActiveGroup] = useState<DashboardQueueGroup>('Intake');
+  const [activeGroup, setActiveGroup] = useState<string>('Intake');
   const [dateRange, setDateRange] = useState<DateRangeKey>('this-week');
   const [scope, setScope] = useState<ScopeKey>('my-projects');
   const [lastRefreshAt, setLastRefreshAt] = useState(() => new Date());
