@@ -103,7 +103,6 @@ export function usePaymentRealtime(input: {
   const { enabled = true, onPaymentUpdated, paymentId } = input;
   const queryClient = useQueryClient();
   const onPaymentUpdatedRef = useRef(onPaymentUpdated);
-  const paymentIdRef = useRef(paymentId);
   const hubUrl = useMemo(() => getPaymentHubUrl(), []);
 
   useEffect(() => {
@@ -111,56 +110,132 @@ export function usePaymentRealtime(input: {
   }, [onPaymentUpdated]);
 
   useEffect(() => {
-    paymentIdRef.current = paymentId;
-  }, [paymentId]);
-
-  useEffect(() => {
     if (!enabled) {
       return undefined;
     }
 
-    const connection = new signalR.HubConnectionBuilder()
-      .withUrl(hubUrl, {
-        accessTokenFactory: () => getStoredAccessToken() ?? '',
-        withCredentials: true,
-      })
-      .withAutomaticReconnect()
-      .build();
-
-    let isDisposed = false;
-
-    const joinPayment = async () => {
-      if (isDisposed || connection.state !== signalR.HubConnectionState.Connected || !paymentIdRef.current) {
-        return;
-      }
-
-      await connection.invoke('JoinPayment', paymentIdRef.current);
+    const listener: PaymentRealtimeListener = (payload) => {
+      onPaymentUpdatedRef.current?.(payload);
     };
 
-    connection.on('payment.updated', (payload: PaymentUpdatedRealtimeDto) => {
-      updatePaymentFromRealtime(queryClient, payload);
-      onPaymentUpdatedRef.current?.(payload);
-    });
-
-    connection.onreconnected(() => {
-      void joinPayment();
-    });
-
-    const startPromise = connection.start().then(joinPayment).catch(() => undefined);
+    const hub = acquirePaymentHub(hubUrl, queryClient);
+    hub.listeners.add(listener);
+    void joinSharedPayment(hub, paymentId);
 
     return () => {
-      const currentPaymentId = paymentIdRef.current;
-
-      isDisposed = true;
-
-      if (connection.state === signalR.HubConnectionState.Connected && currentPaymentId) {
-        void connection.invoke('LeavePayment', currentPaymentId).catch(() => undefined);
-      }
-
-      connection.off('payment.updated');
-      void startPromise.finally(() => connection.stop());
+      hub.listeners.delete(listener);
+      void leaveSharedPayment(hub, paymentId);
+      releasePaymentHub(hub);
     };
   }, [enabled, hubUrl, paymentId, queryClient]);
+}
+
+type PaymentRealtimeListener = (payload: PaymentUpdatedRealtimeDto) => void;
+
+type SharedPaymentHub = {
+  connection: signalR.HubConnection;
+  holderCount: number;
+  joinedPaymentIds: Map<string, number>;
+  listeners: Set<PaymentRealtimeListener>;
+  startPromise: Promise<void>;
+};
+
+let sharedPaymentHub: SharedPaymentHub | null = null;
+
+function acquirePaymentHub(hubUrl: string, queryClient: ReturnType<typeof useQueryClient>) {
+  if (sharedPaymentHub) {
+    sharedPaymentHub.holderCount += 1;
+    return sharedPaymentHub;
+  }
+
+  const connection = new signalR.HubConnectionBuilder()
+    .withUrl(hubUrl, {
+      accessTokenFactory: () => getStoredAccessToken() ?? '',
+      withCredentials: true,
+    })
+    .withAutomaticReconnect()
+    .configureLogging(signalR.LogLevel.Warning)
+    .build();
+
+  const listeners = new Set<PaymentRealtimeListener>();
+
+  connection.on('payment.updated', (payload: PaymentUpdatedRealtimeDto) => {
+    updatePaymentFromRealtime(queryClient, payload);
+    listeners.forEach((listener) => listener(payload));
+  });
+
+  connection.onreconnected(() => {
+    if (!sharedPaymentHub) {
+      return;
+    }
+
+    for (const joinedPaymentId of sharedPaymentHub.joinedPaymentIds.keys()) {
+      void connection.invoke('JoinPayment', joinedPaymentId).catch(() => undefined);
+    }
+  });
+
+  sharedPaymentHub = {
+    connection,
+    holderCount: 1,
+    joinedPaymentIds: new Map(),
+    listeners,
+    startPromise: connection.start().catch(() => undefined),
+  };
+
+  return sharedPaymentHub;
+}
+
+function releasePaymentHub(hub: SharedPaymentHub) {
+  hub.holderCount -= 1;
+
+  if (hub.holderCount > 0 || sharedPaymentHub !== hub) {
+    return;
+  }
+
+  sharedPaymentHub = null;
+  hub.connection.off('payment.updated');
+  void hub.startPromise.finally(() => {
+    void hub.connection.stop();
+  });
+}
+
+async function joinSharedPayment(hub: SharedPaymentHub, paymentId?: string | null) {
+  if (!paymentId) {
+    return;
+  }
+
+  const nextCount = (hub.joinedPaymentIds.get(paymentId) ?? 0) + 1;
+  hub.joinedPaymentIds.set(paymentId, nextCount);
+
+  if (nextCount > 1) {
+    return;
+  }
+
+  await hub.startPromise;
+
+  if (hub.connection.state === signalR.HubConnectionState.Connected) {
+    await hub.connection.invoke('JoinPayment', paymentId).catch(() => undefined);
+  }
+}
+
+async function leaveSharedPayment(hub: SharedPaymentHub, paymentId?: string | null) {
+  if (!paymentId) {
+    return;
+  }
+
+  const currentCount = hub.joinedPaymentIds.get(paymentId) ?? 0;
+
+  if (currentCount <= 1) {
+    hub.joinedPaymentIds.delete(paymentId);
+
+    if (hub.connection.state === signalR.HubConnectionState.Connected) {
+      await hub.connection.invoke('LeavePayment', paymentId).catch(() => undefined);
+    }
+
+    return;
+  }
+
+  hub.joinedPaymentIds.set(paymentId, currentCount - 1);
 }
 
 function updatePaymentFromRealtime(queryClient: ReturnType<typeof useQueryClient>, payload: PaymentUpdatedRealtimeDto) {
