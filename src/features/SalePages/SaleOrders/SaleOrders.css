@@ -202,6 +202,48 @@
   font-style: normal;
 }
 
+.sale-orders-project-pagination {
+  align-items: center;
+  border-top: 1px solid rgba(139, 111, 71, 0.12);
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+  margin-top: 2px;
+  padding-top: 12px;
+}
+
+.sale-orders-project-pagination span {
+  color: #6b6b6b;
+  flex: 1;
+  font-size: 12px;
+  font-weight: 600;
+  text-align: center;
+}
+
+.sale-orders-project-pagination button {
+  background: #ffffff;
+  border: 1px solid rgba(139, 111, 71, 0.2);
+  border-radius: 8px;
+  color: #6f5636;
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  min-height: 32px;
+  padding: 0 10px;
+}
+
+.sale-orders-project-pagination button:hover:not(:disabled) {
+  background: #8b6f47;
+  border-color: #8b6f47;
+  color: #ffffff;
+}
+
+.sale-orders-project-pagination button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
 .sale-orders-workspace {
   min-width: 0;
 }

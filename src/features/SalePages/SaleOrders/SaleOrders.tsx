@@ -23,6 +23,8 @@ import { aggregateDuplicateItems } from '@/shared/utils/itemAggregation';
 
 import './SaleOrders.css';
 
+const PROJECT_PAGE_SIZE = 4;
+
 const orderProjectStatuses = new Set([
   'ORDER_CONFIRMED',
   'IN_PRODUCTION',
@@ -35,6 +37,7 @@ const orderProjectStatuses = new Set([
 export function SaleOrders() {
   const [selectedProjectId, setSelectedProjectId] = useState('');
   const [selectedOrderId, setSelectedOrderId] = useState('');
+  const [projectPage, setProjectPage] = useState(1);
   const [message, setMessage] = useState<{ tone: 'error' | 'success'; text: string } | null>(null);
   const currentUserQuery = useCurrentUser();
   const currentUser = currentUserQuery.data;
@@ -48,6 +51,12 @@ export function SaleOrders() {
   );
   const projects = useMemo(() => projectsQuery.data?.items ?? [], [projectsQuery.data?.items]);
   const orderProjects = useMemo(() => getOrderProjects(projects), [projects]);
+  const projectTotalPages = Math.max(1, Math.ceil(orderProjects.length / PROJECT_PAGE_SIZE));
+  const currentProjectPage = Math.min(projectPage, projectTotalPages);
+  const pagedOrderProjects = useMemo(
+    () => orderProjects.slice((currentProjectPage - 1) * PROJECT_PAGE_SIZE, currentProjectPage * PROJECT_PAGE_SIZE),
+    [currentProjectPage, orderProjects],
+  );
   const selectedProject = orderProjects.find((project) => project.projectId === selectedProjectId) ?? null;
   const projectDetailQuery = useProjectDetail(selectedProjectId || undefined);
   const ordersQuery = useProjectOrders(selectedProjectId, { enabled: Boolean(selectedProjectId) });
@@ -66,6 +75,12 @@ export function SaleOrders() {
       setSelectedProjectId(orderProjects[0].projectId);
     }
   }, [orderProjects, selectedProjectId]);
+
+  useEffect(() => {
+    if (projectPage > projectTotalPages) {
+      setProjectPage(projectTotalPages);
+    }
+  }, [projectPage, projectTotalPages]);
 
   useEffect(() => {
     if (!selectedOrderId && orders.length > 0) {
@@ -105,7 +120,7 @@ export function SaleOrders() {
               {projectsQuery.isLoading ? <p className="sale-orders-muted">Loading projects...</p> : null}
               {!projectsQuery.isLoading && orderProjects.length === 0 ? <p className="sale-orders-muted">No order project is available.</p> : null}
               <div className="sale-orders-project-list">
-                {orderProjects.map((project) => (
+                {pagedOrderProjects.map((project) => (
                   <button
                     className={project.projectId === selectedProjectId ? 'is-active' : ''}
                     key={project.projectId}
@@ -122,6 +137,27 @@ export function SaleOrders() {
                   </button>
                 ))}
               </div>
+              {orderProjects.length > 0 ? (
+                <div className="sale-orders-project-pagination">
+                  <button
+                    type="button"
+                    disabled={currentProjectPage <= 1}
+                    onClick={() => setProjectPage((current) => Math.max(1, current - 1))}
+                  >
+                    Previous
+                  </button>
+                  <span>
+                    Page {currentProjectPage} / {projectTotalPages}
+                  </span>
+                  <button
+                    type="button"
+                    disabled={currentProjectPage >= projectTotalPages}
+                    onClick={() => setProjectPage((current) => Math.min(projectTotalPages, current + 1))}
+                  >
+                    Next
+                  </button>
+                </div>
+              ) : null}
             </aside>
 
             <section className="sale-orders-workspace">
