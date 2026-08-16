@@ -38,6 +38,7 @@ export type ServiceResult<T> = {
   message?: string;
   data: T;
   errors?: string[];
+  errorCode?: string;
 };
 
 export type ProjectStatus =
@@ -230,6 +231,12 @@ export type UpdateProjectStatusData = {
   updatedAt: string;
 };
 
+export type ProjectCompletionDto = {
+  projectId: string;
+  projectStatus: Extract<ProjectStatus, 'COMPLETED'>;
+  completedAt?: string | null;
+};
+
 export type ReopenProposalData = {
   projectId: string;
   status: ProjectStatus;
@@ -317,6 +324,10 @@ export function getProjectServiceResultMessage(error: unknown) {
 
   if (result.errors?.length) {
     return result.errors.join('\n');
+  }
+
+  if (result.errorCode) {
+    return getProjectErrorCodeMessage(result.errorCode);
   }
 
   return result.message || 'Request failed. Please try again.';
@@ -434,6 +445,12 @@ export async function updateProjectStatus(input: UpdateProjectStatusInput) {
   return response.data.data;
 }
 
+export async function completeProject(projectId: string) {
+  const response = await projectApiClient.patch<ServiceResult<ProjectCompletionDto>>(`/projects/${projectId}/complete`);
+
+  return response.data.data;
+}
+
 export async function reopenProjectProposal(projectId: string) {
   const response = await projectApiClient.post<ServiceResult<ReopenProposalData>>(`/projects/${projectId}/reopen-proposal`);
 
@@ -545,4 +562,15 @@ function clearMultipartContentType(headers: unknown) {
 
   delete headerBag['Content-Type'];
   delete headerBag['content-type'];
+}
+
+function getProjectErrorCodeMessage(errorCode: string) {
+  const messages: Record<string, string> = {
+    PROJECT_NOT_DELIVERED: 'Dự án chưa ở trạng thái đã giao hàng.',
+    RELATED_ORDER_NOT_COMPLETED: 'Đơn hàng liên quan chưa hoàn tất. Vui lòng chờ thanh toán cuối được xác nhận hoặc hoàn tất đơn hàng zero-remaining.',
+    RELATED_ORDER_NOT_FOUND: 'Không tìm thấy đơn hàng liên quan đến dự án.',
+    DELIVERY_NOT_CONFIRMED: 'Khách hàng chưa xác nhận nhận hàng hoặc vẫn còn hạng mục chưa giao.',
+  };
+
+  return messages[errorCode] ?? 'Request failed. Please try again.';
 }

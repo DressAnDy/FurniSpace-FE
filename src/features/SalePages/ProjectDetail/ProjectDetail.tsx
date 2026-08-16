@@ -1,11 +1,13 @@
-import { IconArrowLeft, IconBan, IconInfoCircle, IconLoader2, IconRefresh, IconX } from '@tabler/icons-react';
-import { FormEvent, useEffect, useState } from 'react';
+import { IconArrowLeft, IconBan, IconCircleCheck, IconInfoCircle, IconLoader2, IconRefresh, IconX } from '@tabler/icons-react';
+import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 
 import { ProjectStatusBadge, ProjectTimeline, SaleNavbar, SaleSidebar } from '@/features/SalePages/salecomponents';
+import type { OrderListItemDto } from '@/services/api/orders';
 import type { ProjectDto, ProjectStatus } from '@/services/api/projects';
 import { getProjectServiceResultMessage } from '@/services/api/projects';
-import { useAssignSalesToProject, useProjectDetail, useRejectProject, useReopenProjectProposal, useRequestProjectInformation } from '@/services/queries/useProjects';
+import { useProjectOrders } from '@/services/queries/useOrders';
+import { useAssignSalesToProject, useCompleteProject, useProjectDetail, useRejectProject, useReopenProjectProposal, useRequestProjectInformation } from '@/services/queries/useProjects';
 
 import { ChatTab, FilesAttachmentsTab, OverviewTab, ProjectMemberTab, SchedulesTab } from './tabs';
 import { ProjectStartFeePanel } from './components/ProjectStartFeePanel';
@@ -74,8 +76,11 @@ export function ProjectDetail() {
   const requestInformationMutation = useRequestProjectInformation();
   const rejectProjectMutation = useRejectProject();
   const reopenProposalMutation = useReopenProjectProposal();
-  const project = projectQuery.data;
+  const completeProjectMutation = useCompleteProject();
   const isAssignedProjectRoute = location.pathname.startsWith('/sales/assigned-projects');
+  const projectOrdersQuery = useProjectOrders(projectId, { enabled: Boolean(projectId) && isAssignedProjectRoute });
+  const project = projectQuery.data;
+  const relatedOrder = useMemo(() => getPrimaryRelatedOrder(projectOrdersQuery.data?.items ?? []), [projectOrdersQuery.data?.items]);
   const activeSidebarLabel = isAssignedProjectRoute ? 'Assigned Projects' : 'Project Request Queue';
   const hasConsultationAccess = Boolean(project && project.status !== 'SUBMITTED');
   const visibleTabs = hasConsultationAccess ? (isAssignedProjectRoute ? assignedProjectTabs : baseTabs) : reviewTabs;
@@ -152,6 +157,21 @@ export function ProjectDetail() {
       await reopenProposalMutation.mutateAsync(project.projectId);
       setStatusMessage('Project reopened to proposal consulting.');
       projectQuery.refetch();
+    } catch (error) {
+      setStatusMessage(getProjectServiceResultMessage(error));
+    }
+  }
+
+  async function handleCompleteProject() {
+    setStatusMessage('');
+
+    if (!project) return;
+
+    try {
+      const result = await completeProjectMutation.mutateAsync(project.projectId);
+      setStatusMessage(`Project marked as ${formatStatusLabel(result.projectStatus)}.`);
+      void projectQuery.refetch();
+      void projectOrdersQuery.refetch();
     } catch (error) {
       setStatusMessage(getProjectServiceResultMessage(error));
     }
@@ -242,7 +262,7 @@ export function ProjectDetail() {
                         </button>
                       ) : null}
                     </div>
-                    {statusMessage ? <p className={statusMessage.toLowerCase().includes('success') ? 'project-detail-status-message' : 'project-detail-status-message project-detail-status-message-error'}>{statusMessage}</p> : null}
+                    {statusMessage ? <p className={isSuccessStatusMessage(statusMessage) ? 'project-detail-status-message' : 'project-detail-status-message project-detail-status-message-error'}>{statusMessage}</p> : null}
                   </div>
                 ) : null}
                 {canReopenProjectProposal(project.status) ? (
@@ -261,7 +281,7 @@ export function ProjectDetail() {
           </section>
 
           {statusMessage && !isRequestInfoModalOpen ? (
-            <section className={statusMessage.toLowerCase().includes('success') || statusMessage.toLowerCase().includes('reopened') ? 'project-detail-status-banner' : 'project-detail-status-banner project-detail-status-banner-error'}>
+            <section className={isSuccessStatusMessage(statusMessage) ? 'project-detail-status-banner' : 'project-detail-status-banner project-detail-status-banner-error'}>
               {statusMessage}
             </section>
           ) : null}
@@ -279,6 +299,15 @@ export function ProjectDetail() {
           {project ? (
             <>
               <ProjectTimeline currentStep={statusStepMap[project.status] ?? 'Submitted'} steps={getTimelineSteps(project.status)} dates={getTimelineDates(project)} />
+              {isAssignedProjectRoute && isPostDeliveryProject(project.status) ? (
+                <ProjectCompletionPanel
+                  isCompleting={completeProjectMutation.isPending}
+                  isLoadingOrder={projectOrdersQuery.isLoading}
+                  order={relatedOrder}
+                  projectStatus={project.status}
+                  onComplete={() => void handleCompleteProject()}
+                />
+              ) : null}
               {isAssignedProjectRoute && !project.assignedDesignerId ? <ProjectStartFeePanel projectId={project.projectId} /> : null}
 
               <section className="project-detail-tabs-section">
@@ -325,7 +354,7 @@ export function ProjectDetail() {
                     onChange={(event) => setRequestInfoMessage(event.target.value)}
                   />
                 </label>
-                {statusMessage && !statusMessage.toLowerCase().includes('success') ? (
+                {statusMessage && !isSuccessStatusMessage(statusMessage) ? (
                   <p className="project-detail-request-modal-error">{statusMessage}</p>
                 ) : null}
                 <div className="project-detail-request-modal-actions">
@@ -377,6 +406,92 @@ function formatDate(value: string) {
 
 function canRequestMoreInformation(status: ProjectStatus) {
   return status === 'IN_CONSULTATION';
+}
+
+function isSuccessStatusMessage(message: string) {
+  const normalized = message.toLowerCase();
+
+  return normalized.includes('success')
+    || normalized.includes('reopened')
+    || normalized.includes('marked as completed');
+}
+
+function formatStatusLabel(value: string) {
+  return value
+    .toLowerCase()
+    .split('_')
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
+}
+
+function getPrimaryRelatedOrder(orders: OrderListItemDto[]) {
+  return [...orders].sort((left, right) => new Date(right.createdAt ?? '').getTime() - new Date(left.createdAt ?? '').getTime())[0] ?? null;
+}
+
+function isPostDeliveryProject(status: ProjectStatus) {
+  return status === 'DELIVERED' || status === 'COMPLETED';
+}
+
+function ProjectCompletionPanel({
+  isCompleting,
+  isLoadingOrder,
+  onComplete,
+  order,
+  projectStatus,
+}: {
+  isCompleting: boolean;
+  isLoadingOrder: boolean;
+  onComplete: () => void;
+  order: OrderListItemDto | null;
+  projectStatus: ProjectStatus;
+}) {
+  const canCompleteProject = projectStatus === 'DELIVERED' && order?.status === 'COMPLETED';
+  const message = getProjectCompletionMessage(projectStatus, order, isLoadingOrder);
+
+  return (
+    <section className="project-detail-completion-card">
+      <div>
+        <span className="project-detail-completion-kicker">Project completion</span>
+        <h3>{projectStatus === 'COMPLETED' ? 'Project completed' : 'Post-delivery review'}</h3>
+        <p>{message}</p>
+      </div>
+      <div className="project-detail-completion-actions">
+        {order ? (
+          <span className={`project-detail-order-status project-detail-order-status-${(order.status ?? 'CREATED').toLowerCase()}`}>
+            Order: {formatStatusLabel(order.status ?? 'CREATED')}
+          </span>
+        ) : null}
+        <button disabled={!canCompleteProject || isCompleting} type="button" onClick={onComplete}>
+          {isCompleting ? <IconLoader2 className="project-detail-decision-spinner" size={16} stroke={2} /> : <IconCircleCheck size={16} stroke={2} />}
+          <span>{projectStatus === 'COMPLETED' ? 'Completed' : isCompleting ? 'Completing...' : 'Complete Project'}</span>
+        </button>
+      </div>
+    </section>
+  );
+}
+
+function getProjectCompletionMessage(projectStatus: ProjectStatus, order: OrderListItemDto | null, isLoadingOrder: boolean) {
+  if (projectStatus === 'COMPLETED') {
+    return 'Project has been confirmed as completed.';
+  }
+
+  if (isLoadingOrder) {
+    return 'Checking related order before project completion.';
+  }
+
+  if (!order) {
+    return 'No related order was found for this project.';
+  }
+
+  if (order.status === 'COMPLETED') {
+    return 'The order is completed. Sales can now mark this project as completed.';
+  }
+
+  if (order.status === 'FINAL_PAYMENT_PENDING') {
+    return 'Waiting for final payment confirmation before project completion.';
+  }
+
+  return `Order is currently ${formatStatusLabel(order.status ?? 'CREATED')}. Complete the order flow before closing this project.`;
 }
 
 function canRejectProject(status: ProjectStatus) {

@@ -28,6 +28,7 @@ export type NotificationType =
   | 'ProjectScheduleCancelled'
   | 'ProposalPublished'
   | 'ProjectChatMessageSent'
+  | 'OrderCompleted'
   | string;
 
 export type ServiceResult<T> = {

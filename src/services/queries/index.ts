@@ -68,6 +68,7 @@ export {
   useAdminProjectWorkflow,
   useAssignDesignerToProject,
   useAssignSalesToProject,
+  useCompleteProject,
   useCreateProject,
   useMarkReadyForDesignerAssignment,
   useMarkSpaceVerified,

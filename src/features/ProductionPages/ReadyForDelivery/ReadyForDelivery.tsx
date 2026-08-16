@@ -17,6 +17,7 @@ export function ReadyForDelivery() {
   const [selectedProductionRequestId, setSelectedProductionRequestId] = useState('');
   const [requestPage, setRequestPage] = useState(1);
   const [message, setMessage] = useState<{ tone: 'error' | 'success'; text: string } | null>(null);
+  const [zeroCompletedDeliveryOrderIds, setZeroCompletedDeliveryOrderIds] = useState<Set<string>>(() => new Set());
   const readyRequestsQuery = useProductionRequests({ status: 'COMPLETED' });
   const readyRequests = useMemo(() => readyRequestsQuery.data?.items ?? [], [readyRequestsQuery.data?.items]);
   const requestPageSize = 4;
@@ -48,6 +49,13 @@ export function ReadyForDelivery() {
   const confirmedDeliverySchedule = deliverySchedulesQuery.data?.items.some((schedule) => schedule.status === 'CONFIRMED') ?? false;
   const readyCount = readyRequests.length;
   const deliveringCount = readyRequests.filter((request) => request.orderId === order?.orderId && order?.status === 'DELIVERING').length;
+  const hasPendingDeliveryItems = deliverableItems.some((item) => item.status !== 'DELIVERED');
+  const shouldShowCompleteDeliveryButton = Boolean(
+    order?.status === 'DELIVERING'
+      && order.orderId
+      && hasPendingDeliveryItems
+      && !zeroCompletedDeliveryOrderIds.has(order.orderId),
+  );
 
   useEffect(() => {
     if (!selectedProductionRequestId && readyRequests.length > 0) {
@@ -79,6 +87,9 @@ export function ReadyForDelivery() {
     try {
       const result = await completeDeliveryMutation.mutateAsync(order.orderId);
       setMessage({ tone: 'success', text: `Delivery completed for ${result.deliveredItemCount} item(s). Waiting for customer confirmation.` });
+      if (result.deliveredItemCount === 0) {
+        setZeroCompletedDeliveryOrderIds((current) => new Set(current).add(order.orderId));
+      }
       void orderDetailQuery.refetch();
     } catch (error) {
       setMessage({ tone: 'error', text: getOrderServiceResultMessage(error) });
@@ -185,7 +196,7 @@ export function ReadyForDelivery() {
                   Start Delivery
                 </button>
               ) : null}
-              {order?.status === 'DELIVERING' ? (
+              {shouldShowCompleteDeliveryButton ? (
                 <button
                   disabled={completeDeliveryMutation.isPending}
                   type="button"

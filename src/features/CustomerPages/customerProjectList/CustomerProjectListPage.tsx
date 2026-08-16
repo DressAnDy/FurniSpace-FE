@@ -266,7 +266,7 @@ function getProjectStage(status: ProjectListItemDto['status']) {
     IN_PRODUCTION: { label: 'In Production', tone: 'stone' },
     READY_FOR_DELIVERY: { label: 'Ready For Delivery', tone: 'green' },
     DELIVERING: { label: 'Delivering', tone: 'green' },
-    DELIVERED: { label: 'Delivered', tone: 'green' },
+    DELIVERED: { label: 'Awaiting Completion', tone: 'green' },
     COMPLETED: { label: 'Completed', tone: 'green' },
     REJECTED: { label: 'Rejected', tone: 'stone' },
   };
