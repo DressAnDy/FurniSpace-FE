@@ -18,7 +18,7 @@ import {
   useProjectList,
   useProjectOrders,
 } from '@/services/queries';
-import { getLocalDateInputValue, getMinimumEndDateInputValue, validateOptionalFutureDateRange } from '@/shared/utils/dateValidation';
+import { getDefaultPaymentExpiredAt, getLocalDateInputValue, getMinimumEndDateInputValue, validateOptionalFutureDateRange } from '@/shared/utils/dateValidation';
 import { aggregateDuplicateItems } from '@/shared/utils/itemAggregation';
 
 import './SaleOrders.css';
@@ -198,7 +198,11 @@ export function SaleOrders() {
                     onCreateDepositPayment={async () => {
                       setMessage(null);
                       try {
-                        await createDepositPaymentMutation.mutateAsync({ orderId: order.orderId, note: 'Sales-created deposit payment.' });
+                        await createDepositPaymentMutation.mutateAsync({
+                          orderId: order.orderId,
+                          expiredAt: getDefaultPaymentExpiredAt(),
+                          note: 'Sales-created deposit payment.',
+                        });
                         setMessage({ tone: 'success', text: 'Deposit payment created or reused.' });
                         void ordersQuery.refetch();
                         void orderDetailQuery.refetch();

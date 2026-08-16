@@ -276,7 +276,7 @@ export async function markProductionRequestFeasible(productionRequestId: string,
 }
 
 export async function startProductionRequest(productionRequestId: string) {
-  const response = await productionApiClient.patch<ServiceResult<ProductionRequestTransitionResultDto>>(
+  const response = await productionApiClient.post<ServiceResult<ProductionRequestTransitionResultDto>>(
     `/production-requests/${productionRequestId}/start`,
     {},
   );

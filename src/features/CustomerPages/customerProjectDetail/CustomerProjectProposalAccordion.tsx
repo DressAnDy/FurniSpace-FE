@@ -15,6 +15,7 @@ import {
   useProposalDetail,
   useProposalItems,
   useProposalScenes,
+  useRequestProposalRevision,
   useSubmitCustomizationRequest,
 } from '@/services/queries';
 import { aggregateDuplicateItems } from '@/shared/utils/itemAggregation';
@@ -91,8 +92,10 @@ function CustomerProjectProposalPanel({
   const [customizationHeight, setCustomizationHeight] = useState('');
   const [customizationDepth, setCustomizationDepth] = useState('');
   const [modelPreviewVersion, setModelPreviewVersion] = useState<CustomizationRequestVersionDto | null>(null);
+  const [revisionNote, setRevisionNote] = useState('');
   const submitCustomizationMutation = useSubmitCustomizationRequest();
   const acceptCustomizationMutation = useAcceptCustomizationRequestVersion();
+  const requestRevisionMutation = useRequestProposalRevision();
   const proposalQuery = useProposalDetail(proposal.proposalId, { enabled: true });
   const customizationRequestsQuery = useProjectCustomizationRequests(
     {
@@ -121,6 +124,7 @@ function CustomerProjectProposalPanel({
   );
 
   const backendProposal = proposalQuery.data;
+  const currentProposal = backendProposal ?? proposal;
   const scenes = useMemo(
     () => scenesQuery.data?.items ?? backendProposal?.scenes ?? [],
     [backendProposal?.scenes, scenesQuery.data?.items],
@@ -242,7 +246,7 @@ function CustomerProjectProposalPanel({
         customizationRequestId: request.customizationRequestId,
         customizationRequestVersionId: version.customizationRequestVersionId,
       });
-      setCustomizationMessage('Custom version accepted. The proposal items will be refreshed with this version.');
+      setCustomizationMessage('Custom version accepted. The designer can reopen the proposal and apply this custom product version.');
       void customizationRequestsQuery.refetch();
       void proposalQuery.refetch();
       void itemsQuery.refetch();
@@ -251,8 +255,39 @@ function CustomerProjectProposalPanel({
     }
   }
 
+  async function requestRevision(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setCustomizationMessage('');
+
+    const trimmedRevisionNote = revisionNote.trim();
+
+    if (!trimmedRevisionNote) {
+      setCustomizationMessage('Please enter revision feedback before sending it to the designer.');
+      return;
+    }
+
+    try {
+      await requestRevisionMutation.mutateAsync({
+        proposalId: currentProposal.proposalId,
+        revisionNote: trimmedRevisionNote,
+      });
+      setRevisionNote('');
+      setCustomizationMessage('Revision request sent to the designer.');
+      void proposalQuery.refetch();
+    } catch (error) {
+      setCustomizationMessage(getProposalServiceResultMessage(error));
+    }
+  }
+
   return (
     <div className="customer-project-detail-proposal-panel">
+      {currentProposal.status === 'REVISION_REQUESTED' && currentProposal.revisionNote ? (
+        <section className="customer-proposal-detail-card customer-proposal-detail-revision-note">
+          <h2>Revision Feedback Sent</h2>
+          <p>{currentProposal.revisionNote}</p>
+        </section>
+      ) : null}
+
       <section className="customer-proposal-detail-card customer-proposal-detail-scenes">
         <div className="customer-proposal-detail-section-heading">
           <div>
@@ -300,7 +335,7 @@ function CustomerProjectProposalPanel({
                     <ProposalItemRow
                       item={item}
                       key={item.proposalItemId}
-                      proposalStatus={proposal.status}
+                      proposalStatus={currentProposal.status}
                       onCustomize={() => {
                         setCustomizingItemId(item.proposalItemId);
                         setCustomizationMessage('');
@@ -338,6 +373,31 @@ function CustomerProjectProposalPanel({
           </>
         ) : null}
       </section>
+
+      {currentProposal.status === 'PUBLISHED' ? (
+        <section className="customer-proposal-detail-card customer-proposal-detail-revision-form">
+          <div className="customer-proposal-detail-section-heading">
+            <div>
+              <h2>Request Proposal Revision</h2>
+              <p>Send design feedback to the designer before selecting the final proposal.</p>
+            </div>
+          </div>
+          <form className="customer-proposal-detail-customization-form" onSubmit={requestRevision}>
+            <textarea
+              required
+              rows={3}
+              value={revisionNote}
+              placeholder="Describe what the designer should revise in this proposal."
+              onChange={(event) => setRevisionNote(event.target.value)}
+            />
+            <div>
+              <button disabled={requestRevisionMutation.isPending || !revisionNote.trim()} type="submit">
+                {requestRevisionMutation.isPending ? 'Sending...' : 'Send Revision Request'}
+              </button>
+            </div>
+          </form>
+        </section>
+      ) : null}
 
       {shouldShowCustomizationVersions ? (
         <section className="customer-proposal-detail-card customer-proposal-detail-custom-version-review">

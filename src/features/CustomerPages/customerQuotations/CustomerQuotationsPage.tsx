@@ -25,6 +25,7 @@ import {
   useRejectQuotation,
   useRequestQuotationRevision,
 } from '@/services/queries';
+import { getDefaultPaymentExpiredAt } from '@/shared/utils/dateValidation';
 import { aggregateDuplicateItems } from '@/shared/utils/itemAggregation';
 
 import './CustomerQuotationsPage.css';
@@ -113,6 +114,7 @@ export function CustomerQuotationsPage() {
     try {
       const payment = await depositMutation.mutateAsync({
         orderId: selectedQuotationOrder.orderId,
+        expiredAt: getDefaultPaymentExpiredAt(),
         note: 'Customer deposit payment from quotation.',
       });
 

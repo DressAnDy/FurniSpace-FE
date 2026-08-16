@@ -364,6 +364,37 @@
   opacity: 0.62;
 }
 
+.customer-3d-preview-revision-button {
+  display: inline-flex;
+  min-height: 38px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(139, 111, 71, 0.28);
+  border-radius: 999px;
+  background: #fff7ed;
+  color: #7c2d12;
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  padding: 0 16px;
+  text-transform: uppercase;
+  transition: background 180ms ease, border-color 180ms ease, box-shadow 180ms ease, transform 180ms ease;
+}
+
+.customer-3d-preview-revision-button:hover:not(:disabled) {
+  border-color: rgba(139, 111, 71, 0.45);
+  background: #ffedd5;
+  box-shadow: 0 8px 18px rgba(139, 111, 71, 0.14);
+  transform: translateY(-1px);
+}
+
+.customer-3d-preview-revision-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.48;
+}
+
 .customer-3d-preview-icon-button {
   width: 40px;
   height: 40px;
@@ -1134,6 +1165,144 @@
 .customer-3d-preview-chat-body .project-chat-panel-list,
 .customer-3d-preview-chat-body .project-chat-panel-thread {
   min-height: 0;
+}
+
+.customer-3d-preview-revision-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 85;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+
+.customer-3d-preview-revision-backdrop {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  background: rgba(17, 17, 17, 0.48);
+  cursor: pointer;
+}
+
+.customer-3d-preview-revision-dialog {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  width: min(520px, 100%);
+  overflow: hidden;
+  flex-direction: column;
+  border: 1px solid rgba(139, 111, 71, 0.16);
+  border-radius: 14px;
+  background: #ffffff;
+  box-shadow: 0 24px 64px rgba(17, 17, 17, 0.28);
+}
+
+.customer-3d-preview-revision-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  border-bottom: 1px solid rgba(139, 111, 71, 0.14);
+  padding: 18px 20px;
+}
+
+.customer-3d-preview-revision-header div {
+  display: grid;
+  min-width: 0;
+  gap: 5px;
+}
+
+.customer-3d-preview-revision-header strong {
+  color: #2d2d2d;
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.customer-3d-preview-revision-header span {
+  overflow: hidden;
+  color: #6b6b6b;
+  font-size: 13px;
+  line-height: 1.4;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.customer-3d-preview-revision-header button {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid rgba(139, 111, 71, 0.15);
+  border-radius: 8px;
+  background: #faf9f7;
+  color: #2d2d2d;
+  cursor: pointer;
+}
+
+.customer-3d-preview-revision-form {
+  display: grid;
+  gap: 14px;
+  padding: 20px;
+}
+
+.customer-3d-preview-revision-form label {
+  display: grid;
+  gap: 8px;
+}
+
+.customer-3d-preview-revision-form label span {
+  color: #57534e;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.customer-3d-preview-revision-form textarea {
+  min-height: 132px;
+  resize: vertical;
+  border: 1px solid rgba(139, 111, 71, 0.18);
+  border-radius: 10px;
+  color: #2d2d2d;
+  font: inherit;
+  line-height: 1.5;
+  padding: 12px;
+}
+
+.customer-3d-preview-revision-message {
+  margin: 0;
+  color: #7c2d12;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.customer-3d-preview-revision-form > div {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.customer-3d-preview-revision-form button {
+  min-height: 40px;
+  border: 1px solid rgba(139, 111, 71, 0.18);
+  border-radius: 8px;
+  background: #ffffff;
+  color: #57534e;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 700;
+  padding: 0 14px;
+}
+
+.customer-3d-preview-revision-form button[type="submit"] {
+  border-color: #8b6f47;
+  background: #8b6f47;
+  color: #ffffff;
+}
+
+.customer-3d-preview-revision-form button:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
 }
 
 .customer-3d-preview-chat-body .project-chat-panel-messages {

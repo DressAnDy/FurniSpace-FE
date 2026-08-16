@@ -9,6 +9,7 @@ import {
   getProposalScenes,
   getRoomPlannerScene,
   publishProposal,
+  reopenProposalForEditing,
   requestProposalRevision,
   resolveRoomPlannerSceneProducts,
   saveRoomPlannerScene,
@@ -22,6 +23,7 @@ import {
   type ProposalListParams,
   type ProposalItemListParams,
   type ProposalSceneListParams,
+  type RequestProposalRevisionInput,
   type RoomPlannerResolvedProductsData,
   type SaveRoomPlannerSceneInput,
   type SyncProposalItemsFromSceneInput,
@@ -116,11 +118,26 @@ export function useRequestProposalRevision() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (input: ProposalDecisionInput) => requestProposalRevision(input),
+    mutationFn: (input: RequestProposalRevisionInput) => requestProposalRevision(input),
     onSuccess: (proposal) => {
       void queryClient.invalidateQueries({ queryKey: proposalQueryKeys.all });
       void queryClient.invalidateQueries({ queryKey: proposalQueryKeys.detail(proposal.proposalId) });
       void queryClient.invalidateQueries({ queryKey: proposalQueryKeys.byProject({ projectId: proposal.projectId }) });
+      void queryClient.invalidateQueries({ queryKey: ['projects'] });
+      void queryClient.invalidateQueries({ queryKey: ['notifications'] });
+    },
+  });
+}
+
+export function useReopenProposalForEditing() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (proposalId: string) => reopenProposalForEditing(proposalId),
+    onSuccess: (result) => {
+      void queryClient.invalidateQueries({ queryKey: proposalQueryKeys.all });
+      void queryClient.invalidateQueries({ queryKey: proposalQueryKeys.detail(result.proposalId) });
+      void queryClient.invalidateQueries({ queryKey: proposalQueryKeys.byProject({ projectId: result.projectId }) });
       void queryClient.invalidateQueries({ queryKey: ['projects'] });
       void queryClient.invalidateQueries({ queryKey: ['notifications'] });
     },

@@ -23,6 +23,12 @@ const statusOptions: Array<ProjectStatus | typeof ALL_STATUS> = [
   'PROPOSAL_SELECTED',
   'QUOTATION_SENT',
   'QUOTATION_REVISION_REQUESTED',
+  'ORDER_CONFIRMED',
+  'IN_PRODUCTION',
+  'READY_FOR_DELIVERY',
+  'DELIVERING',
+  'DELIVERED',
+  'COMPLETED',
 ];
 
 export function DesignerAssignedProjects() {

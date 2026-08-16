@@ -208,6 +208,7 @@ export {
   useProposalItems,
   useProposalScenes,
   usePublishProposal,
+  useReopenProposalForEditing,
   useRequestProposalRevision,
   useRoomPlannerResolvedProducts,
   useRoomPlannerScene,

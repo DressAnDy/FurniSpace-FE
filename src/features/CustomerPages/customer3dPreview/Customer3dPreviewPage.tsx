@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { type FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 import {
   IconChevronDown,
   IconChevronLeft,
@@ -37,6 +37,7 @@ import {
   useProposalDetail,
   useProposalItems,
   useProposalScenes,
+  useRequestProposalRevision,
   useRoomPlannerResolvedProducts,
   useRoomPlannerScene,
   useSelectFinalProposal,
@@ -56,13 +57,16 @@ export function Customer3dPreviewPage() {
   const [activeLevel, setActiveLevel] = useState<BuildingLevelVisibility>('all');
   const [sidePanelMode, setSidePanelMode] = useState<SidePanelMode>(null);
   const [isChatModalOpen, setIsChatModalOpen] = useState(false);
+  const [isRevisionModalOpen, setIsRevisionModalOpen] = useState(false);
   const [isProposalsMenuOpen, setIsProposalsMenuOpen] = useState(false);
   const [isSceneLevelsMenuOpen, setIsSceneLevelsMenuOpen] = useState(false);
+  const [revisionNote, setRevisionNote] = useState('');
   const [selectedObjectId, setSelectedObjectId] = useState<string | null>(null);
   const [decisionMessage, setDecisionMessage] = useState('');
   const [selectedProjectId, setSelectedProjectId] = useState(() => projectIdFromUrl);
   const [selectedProposalId, setSelectedProposalId] = useState<string | null>(() => proposalIdFromUrl || null);
   const [selectedSceneId, setSelectedSceneId] = useState<string | null>(() => sceneIdFromUrl || null);
+  const requestRevisionMutation = useRequestProposalRevision();
   const selectFinalProposalMutation = useSelectFinalProposal();
 
   const projectsQuery = useProjectList({ page: 1, limit: 50 });
@@ -91,6 +95,7 @@ export function Customer3dPreviewPage() {
     { enabled: Boolean(selectedProposal?.projectId && selectedProposal?.proposalId) },
   );
   const customizationBlocker = getProposalSelectionCustomizationBlocker(customizationRequestsQuery.data?.items ?? []);
+  const canRequestRevision = selectedProposal?.status === 'PUBLISHED';
   const canSelectProposal = selectedProposal?.status === 'PUBLISHED' && !customizationBlocker;
   const scenesQuery = useProposalScenes(
     selectedProposal
@@ -326,20 +331,21 @@ export function Customer3dPreviewPage() {
   }, [isProposalsMenuOpen, isSceneLevelsMenuOpen]);
 
   useEffect(() => {
-    if (!isChatModalOpen) {
+    if (!isChatModalOpen && !isRevisionModalOpen) {
       return undefined;
     }
 
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key === 'Escape') {
         setIsChatModalOpen(false);
+        setIsRevisionModalOpen(false);
       }
     }
 
     document.addEventListener('keydown', handleKeyDown);
 
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [isChatModalOpen]);
+  }, [isChatModalOpen, isRevisionModalOpen]);
 
   function selectProposalFromMenu(proposal: ProposalDto) {
     setSelectedProposalId(proposal.proposalId);
@@ -368,6 +374,37 @@ export function Customer3dPreviewPage() {
           ? 'Proposal selected successfully. A draft quotation has been created for Sales review.'
           : 'Proposal selected successfully. Sales can now review the quotation flow.',
       );
+    } catch (error) {
+      setDecisionMessage(getProposalServiceResultMessage(error));
+    }
+  }
+
+  async function requestProposalRevision(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setDecisionMessage('');
+
+    if (!selectedProposal || !canRequestRevision) {
+      setDecisionMessage('Only published proposals can receive a revision request.');
+      return;
+    }
+
+    const trimmedRevisionNote = revisionNote.trim();
+
+    if (!trimmedRevisionNote) {
+      setDecisionMessage('Please enter revision feedback before sending it to the designer.');
+      return;
+    }
+
+    try {
+      await requestRevisionMutation.mutateAsync({
+        proposalId: selectedProposal.proposalId,
+        revisionNote: trimmedRevisionNote,
+      });
+      setRevisionNote('');
+      setIsRevisionModalOpen(false);
+      setDecisionMessage('Revision request sent to the designer.');
+      void proposalsQuery.refetch();
+      void proposalDetailQuery.refetch();
     } catch (error) {
       setDecisionMessage(getProposalServiceResultMessage(error));
     }
@@ -518,6 +555,23 @@ export function Customer3dPreviewPage() {
               status={selectedProposal?.status}
               onSelect={() => void selectProposal()}
             />
+            {selectedProposal ? (
+              <button
+                className="customer-3d-preview-revision-button"
+                disabled={!canRequestRevision || requestRevisionMutation.isPending}
+                title={canRequestRevision ? 'Send design feedback to the designer.' : 'Revision requests are available for published proposals.'}
+                type="button"
+                onClick={() => {
+                  setDecisionMessage('');
+                  setIsRevisionModalOpen(true);
+                  setIsChatModalOpen(false);
+                  setIsProposalsMenuOpen(false);
+                  setIsSceneLevelsMenuOpen(false);
+                }}
+              >
+                Request Proposal Revision
+              </button>
+            ) : null}
             <button
               className="customer-3d-preview-icon-button"
               type="button"
@@ -642,6 +696,42 @@ export function Customer3dPreviewPage() {
           </section>
         </div>
       ) : null}
+
+      {isRevisionModalOpen && selectedProposal ? (
+        <div className="customer-3d-preview-revision-modal" role="dialog" aria-modal="true" aria-label="Request proposal revision">
+          <button className="customer-3d-preview-revision-backdrop" type="button" aria-label="Close revision request" onClick={() => setIsRevisionModalOpen(false)} />
+          <section className="customer-3d-preview-revision-dialog">
+            <header className="customer-3d-preview-revision-header">
+              <div>
+                <strong>Request Proposal Revision</strong>
+                <span>{selectedProposal.proposalName}</span>
+              </div>
+              <button type="button" aria-label="Close revision request" onClick={() => setIsRevisionModalOpen(false)}>
+                <IconX size={18} stroke={1.8} />
+              </button>
+            </header>
+            <form className="customer-3d-preview-revision-form" onSubmit={(event) => void requestProposalRevision(event)}>
+              <label>
+                <span>Revision feedback</span>
+                <textarea
+                  required
+                  rows={5}
+                  value={revisionNote}
+                  placeholder="Describe what the designer should revise in this proposal."
+                  onChange={(event) => setRevisionNote(event.target.value)}
+                />
+              </label>
+              {decisionMessage ? <p className="customer-3d-preview-revision-message">{decisionMessage}</p> : null}
+              <div>
+                <button type="button" onClick={() => setIsRevisionModalOpen(false)}>Cancel</button>
+                <button disabled={requestRevisionMutation.isPending || !revisionNote.trim()} type="submit">
+                  {requestRevisionMutation.isPending ? 'Sending...' : 'Send Revision Request'}
+                </button>
+              </div>
+            </form>
+          </section>
+        </div>
+      ) : null}
     </main>
   );
 }
@@ -698,7 +788,7 @@ function ProposalStatusAction({
 }
 
 function getCustomerProposalDisplayStatus(status?: ProposalDto['status'] | null) {
-  if (status === 'PUBLISHED' || status === 'SELECTED' || status === 'REJECTED') {
+  if (status === 'PUBLISHED' || status === 'REVISION_REQUESTED' || status === 'SELECTED' || status === 'REJECTED') {
     return status;
   }
 

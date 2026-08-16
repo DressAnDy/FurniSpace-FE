@@ -13,7 +13,6 @@ import './CustomerProjectRequestPage.css';
 import { CustomerNavbar } from '@/features/CustomerPages/customercomponents';
 import {
   getProjectServiceResultMessage,
-  normalizeOptionalNumber,
   normalizeOptionalText,
   normalizeRequiredText,
 } from '@/services/api/projects';
@@ -23,6 +22,7 @@ import {
   PROJECT_BUDGET_MAX,
   PROJECT_BUDGET_MIN,
   getProjectSpaceAndBudgetFieldErrors,
+  parseOptionalProjectRequestNumber,
   validateProjectSpaceAndBudget,
   type ProjectRequestFieldErrors,
   type ProjectRequestFieldName,
@@ -58,10 +58,10 @@ export function CustomerProjectRequestPage() {
 
     const formData = new FormData(form);
     const nextErrors = getProjectSpaceAndBudgetFieldErrors({
-      totalAreaSqm: normalizeOptionalNumber(formData.get('totalAreaSqm')),
-      numberOfFloors: normalizeOptionalNumber(formData.get('numberOfFloors')),
-      budgetMin: normalizeOptionalNumber(formData.get('budgetMin')),
-      budgetMax: normalizeOptionalNumber(formData.get('budgetMax')),
+      totalAreaSqm: parseOptionalProjectRequestNumber(formData.get('totalAreaSqm')),
+      numberOfFloors: parseOptionalProjectRequestNumber(formData.get('numberOfFloors')),
+      budgetMin: parseOptionalProjectRequestNumber(formData.get('budgetMin')),
+      budgetMax: parseOptionalProjectRequestNumber(formData.get('budgetMax')),
     });
 
     setFieldErrors((current) => {
@@ -101,10 +101,10 @@ export function CustomerProjectRequestPage() {
       'Target completion date',
     );
     const spaceAndBudget = validateProjectSpaceAndBudget({
-      totalAreaSqm: normalizeOptionalNumber(formData.get('totalAreaSqm')),
-      numberOfFloors: normalizeOptionalNumber(formData.get('numberOfFloors')),
-      budgetMin: normalizeOptionalNumber(formData.get('budgetMin')),
-      budgetMax: normalizeOptionalNumber(formData.get('budgetMax')),
+      totalAreaSqm: parseOptionalProjectRequestNumber(formData.get('totalAreaSqm')),
+      numberOfFloors: parseOptionalProjectRequestNumber(formData.get('numberOfFloors')),
+      budgetMin: parseOptionalProjectRequestNumber(formData.get('budgetMin')),
+      budgetMax: parseOptionalProjectRequestNumber(formData.get('budgetMax')),
     });
 
     const nextFieldErrors: ProjectRequestFieldErrors = {};
@@ -220,9 +220,10 @@ export function CustomerProjectRequestPage() {
                     className={fieldErrors.totalAreaSqm ? 'customer-project-request-input-invalid' : undefined}
                     min="0"
                     name="totalAreaSqm"
+                    inputMode="decimal"
                     placeholder="e.g., 120"
                     step="0.1"
-                    type="number"
+                    type="text"
                     onChange={(event) => syncSpaceAndBudgetFieldErrors(event.currentTarget.form)}
                   />
                 </Field>
@@ -232,9 +233,10 @@ export function CustomerProjectRequestPage() {
                     className={fieldErrors.numberOfFloors ? 'customer-project-request-input-invalid' : undefined}
                     min="1"
                     name="numberOfFloors"
+                    inputMode="numeric"
                     placeholder="e.g., 1"
                     step="1"
-                    type="number"
+                    type="text"
                     onChange={(event) => syncSpaceAndBudgetFieldErrors(event.currentTarget.form)}
                   />
                 </Field>
@@ -251,8 +253,9 @@ export function CustomerProjectRequestPage() {
                       max={PROJECT_BUDGET_MAX}
                       min={PROJECT_BUDGET_MIN}
                       name="budgetMin"
+                      inputMode="decimal"
                       placeholder={`e.g., ${PROJECT_BUDGET_MIN}`}
-                      type="number"
+                      type="text"
                       onChange={(event) => syncSpaceAndBudgetFieldErrors(event.currentTarget.form)}
                     />
                     <span aria-hidden="true" className="customer-project-request-input-suffix">
@@ -268,8 +271,9 @@ export function CustomerProjectRequestPage() {
                       max={PROJECT_BUDGET_MAX}
                       min={PROJECT_BUDGET_MIN}
                       name="budgetMax"
+                      inputMode="decimal"
                       placeholder={`e.g., ${PROJECT_BUDGET_MAX}`}
-                      type="number"
+                      type="text"
                       onChange={(event) => syncSpaceAndBudgetFieldErrors(event.currentTarget.form)}
                     />
                     <span aria-hidden="true" className="customer-project-request-input-suffix">
