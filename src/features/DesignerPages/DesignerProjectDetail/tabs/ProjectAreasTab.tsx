@@ -1,5 +1,5 @@
 import { IconEdit, IconPlus, IconRulerMeasure, IconX } from '@tabler/icons-react';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 
 import { getProjectAreaServiceResultMessage, type ProjectAreaDto, type ProjectAreaStatus, type ProjectAreaWriteInput } from '@/services/api/projectAreas';
 import type { ProjectDto } from '@/services/api/projects';
@@ -62,7 +62,7 @@ export function ProjectAreasTab({ project }: Readonly<ProjectAreasTabProps>) {
   });
   const createAreaMutation = useCreateProjectArea();
   const updateAreaMutation = useUpdateProjectArea();
-  const areas = areasQuery.data ?? [];
+  const areas = useMemo(() => getAreasOldestFirst(areasQuery.data ?? []), [areasQuery.data]);
   const isEditingArea = Boolean(editingAreaId);
   const isSavingArea = createAreaMutation.isPending || updateAreaMutation.isPending;
 
@@ -313,6 +313,18 @@ function ProjectAreaItem({ area, onUpdate }: Readonly<{ area: ProjectAreaDto; on
       </button>
     </article>
   );
+}
+
+function getAreasOldestFirst(areas: ProjectAreaDto[]) {
+  return [...areas].sort((first, second) => {
+    const createdAtDifference = new Date(first.createdAt).getTime() - new Date(second.createdAt).getTime();
+
+    if (createdAtDifference !== 0) {
+      return createdAtDifference;
+    }
+
+    return first.areaName.localeCompare(second.areaName);
+  });
 }
 
 function getAreaFieldErrors(draft: AreaDraft): AreaFieldErrors {

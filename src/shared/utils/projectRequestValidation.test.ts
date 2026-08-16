@@ -4,6 +4,7 @@ import {
   PROJECT_BUDGET_MAX,
   PROJECT_BUDGET_MIN,
   getProjectSpaceAndBudgetFieldErrors,
+  parseOptionalProjectRequestNumber,
   validateOptionalBudgetMax,
   validateOptionalBudgetMin,
   validateOptionalNonNegativeInteger,
@@ -14,6 +15,15 @@ import {
 } from './projectRequestValidation';
 
 describe('projectRequestValidation', () => {
+  it('parses optional project request numbers strictly', () => {
+    expect(parseOptionalProjectRequestNumber('')).toBeNull();
+    expect(parseOptionalProjectRequestNumber('  ')).toBeNull();
+    expect(parseOptionalProjectRequestNumber('120.5')).toBe(120.5);
+    expect(parseOptionalProjectRequestNumber('120,5')).toBe(120.5);
+    expect(Number.isNaN(parseOptionalProjectRequestNumber('abc'))).toBe(true);
+    expect(Number.isNaN(parseOptionalProjectRequestNumber('12abc'))).toBe(true);
+  });
+
   it('rejects negative total area and zero/negative floors', () => {
     expect(validateOptionalNonNegativeNumber(-1, 'Total Area (sqm)').ok).toBe(false);
     expect(validateOptionalNonNegativeNumber(0, 'Total Area (sqm)')).toEqual({ ok: true, value: 0 });
@@ -63,13 +73,13 @@ describe('projectRequestValidation', () => {
   it('collects every invalid field at once', () => {
     expect(
       getProjectSpaceAndBudgetFieldErrors({
-        totalAreaSqm: -5,
+        totalAreaSqm: Number.NaN,
         numberOfFloors: 0,
         budgetMin: 10,
         budgetMax: PROJECT_BUDGET_MAX + 1,
       }),
     ).toEqual({
-      totalAreaSqm: 'Total Area (sqm) cannot be negative.',
+      totalAreaSqm: 'Total Area (sqm) must be a valid number.',
       numberOfFloors: 'Number of Floors must be an integer greater than 0.',
       budgetMin: 'Minimum Budget must be at least 100,000.',
       budgetMax: 'Maximum Budget cannot exceed 1,000,000,000.',

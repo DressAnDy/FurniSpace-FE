@@ -7,7 +7,7 @@ import type { ProjectDto, ProjectStatus } from '@/services/api/projects';
 import { getProjectServiceResultMessage } from '@/services/api/projects';
 import { useAssignSalesToProject, useProjectDetail, useRejectProject, useReopenProjectProposal, useRequestProjectInformation } from '@/services/queries/useProjects';
 
-import { ChatTab, CustomerInfoTab, FilesAttachmentsTab, OverviewTab, SchedulesTab } from './tabs';
+import { ChatTab, FilesAttachmentsTab, OverviewTab, ProjectMemberTab, SchedulesTab } from './tabs';
 import { ProjectStartFeePanel } from './components/ProjectStartFeePanel';
 import './ProjectDetail.css';
 
@@ -17,12 +17,12 @@ export type ProjectDetailProject = ProjectDto;
 
 const reviewTabs: Array<{ id: ProjectDetailTab; label: string }> = [
   { id: 'overview', label: 'Overview' },
-  { id: 'customer', label: 'Customer Info' },
+  { id: 'customer', label: 'Project Member' },
 ];
 
 const baseTabs: Array<{ id: ProjectDetailTab; label: string }> = [
   { id: 'overview', label: 'Overview' },
-  { id: 'customer', label: 'Customer Info' },
+  { id: 'customer', label: 'Project Member' },
   { id: 'files', label: 'Files & Attachments' },
   { id: 'chat', label: 'Chat' },
 ];
@@ -159,8 +159,8 @@ export function ProjectDetail() {
 
   const renderActiveTab = () => {
     if (!project) return null;
-    if (activeTab === 'overview') return <OverviewTab project={project} showAssignedTeam={isAssignedProjectRoute} />;
-    if (activeTab === 'customer') return <CustomerInfoTab project={project} />;
+    if (activeTab === 'overview') return <OverviewTab project={project} />;
+    if (activeTab === 'customer') return <ProjectMemberTab project={project} canManageAssignment={isAssignedProjectRoute} />;
     if (activeTab === 'files') return <FilesAttachmentsTab projectId={project.projectId} />;
     if (activeTab === 'schedules' && isAssignedProjectRoute) return <SchedulesTab project={project} />;
     return <ChatTab project={project} />;

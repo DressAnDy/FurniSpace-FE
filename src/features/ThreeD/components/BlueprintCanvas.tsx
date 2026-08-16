@@ -1,5 +1,5 @@
 import type { PointerEvent, WheelEvent } from 'react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import type {
   BlueprintPoint,
@@ -98,8 +98,100 @@ type ItemEditorMenuState = {
   y: number;
 };
 
+type OpeningItemType = 'door' | 'window' | 'opening';
+type EditorMenuPlacement = Pick<ItemEditorMenuState, 'x' | 'y'>;
+
+type MetricStepperInputProps = {
+  ariaLabel: string;
+  min?: number;
+  onChange: (value: number) => void;
+  step?: number;
+  value: number;
+};
+
 function clamp(value: number, min: number, max: number) {
   return Math.min(Math.max(value, min), max);
+}
+
+function formatMetricInput(value: number) {
+  return Number.isInteger(value) ? String(value) : String(Number(value.toFixed(2)));
+}
+
+function sanitizeDecimalInput(value: string) {
+  let hasDecimalPoint = false;
+  let nextValue = '';
+
+  for (const character of value.replace(',', '.')) {
+    if (character >= '0' && character <= '9') {
+      nextValue += character;
+      continue;
+    }
+
+    if (character === '.' && !hasDecimalPoint) {
+      hasDecimalPoint = true;
+      nextValue += character;
+    }
+  }
+
+  return nextValue;
+}
+
+function MetricStepperInput({
+  ariaLabel,
+  min = 0,
+  onChange,
+  step = 0.25,
+  value,
+}: MetricStepperInputProps) {
+  const [draftValue, setDraftValue] = useState(formatMetricInput(value));
+
+  useEffect(() => {
+    setDraftValue(formatMetricInput(value));
+  }, [value]);
+
+  function commitDraft(nextDraftValue: string) {
+    if (!nextDraftValue || nextDraftValue === '.') {
+      return;
+    }
+
+    const parsedValue = Number(nextDraftValue);
+
+    if (Number.isFinite(parsedValue)) {
+      onChange(Number(Math.max(min, parsedValue).toFixed(2)));
+    }
+  }
+
+  return (
+    <input
+      aria-label={ariaLabel}
+      inputMode="decimal"
+      min={min}
+      type="text"
+      value={draftValue}
+      onBlur={() => setDraftValue(formatMetricInput(value))}
+      onChange={(event) => {
+        const sanitizedValue = sanitizeDecimalInput(event.target.value);
+
+        setDraftValue(sanitizedValue);
+        commitDraft(sanitizedValue);
+      }}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter') {
+          event.currentTarget.blur();
+        }
+
+        if (event.key === 'ArrowDown') {
+          event.preventDefault();
+          onChange(Number(Math.max(min, value - step).toFixed(2)));
+        }
+
+        if (event.key === 'ArrowUp') {
+          event.preventDefault();
+          onChange(Number(Math.max(min, value + step).toFixed(2)));
+        }
+      }}
+    />
+  );
 }
 
 function isBlueprintSurface(target: EventTarget | null) {
@@ -224,6 +316,22 @@ export function BlueprintCanvas({
     };
   }
 
+  function getEditorMenuPlacement(event: PointerEvent<SVGElement>): EditorMenuPlacement | null {
+    const svg = event.currentTarget instanceof SVGSVGElement
+      ? event.currentTarget
+      : event.currentTarget.ownerSVGElement;
+    const bounds = svg?.getBoundingClientRect();
+
+    if (!bounds) {
+      return null;
+    }
+
+    return {
+      x: clamp(event.clientX - bounds.left + 12, 12, Math.max(bounds.width - 250, 12)),
+      y: clamp(event.clientY - bounds.top + 12, 12, Math.max(bounds.height - 270, 12)),
+    };
+  }
+
   function handlePointerMove(event: PointerEvent<SVGSVGElement>) {
     if (isPanning && panStart && !dragPoint && !dragWall && !dragOpening) {
       setViewOffset({
@@ -302,6 +410,60 @@ export function BlueprintCanvas({
         };
   }
 
+  function addOpeningItemToWall(
+    itemType: OpeningItemType,
+    wallId: string,
+    offset: number,
+    menuPlacement?: EditorMenuPlacement | null,
+  ) {
+    if (!layout) {
+      return;
+    }
+
+    const beforeItems = itemType === 'door'
+      ? layout.doors
+      : itemType === 'window'
+        ? layout.windows
+        : layout.openings;
+    const beforeIds = new Set(beforeItems.map((item) => item.id));
+    const nextLayout = itemType === 'door'
+      ? addDoorToWall(layout, wallId, offset)
+      : itemType === 'window'
+        ? addWindowToWall(layout, wallId, offset)
+        : addOpeningToWall(layout, wallId, offset);
+    const afterItems = itemType === 'door'
+      ? nextLayout.doors
+      : itemType === 'window'
+        ? nextLayout.windows
+        : nextLayout.openings;
+    const createdItem = afterItems.find((item) => !beforeIds.has(item.id));
+
+    if (!createdItem) {
+      onMessage?.('Not enough clear wall space for this item.');
+      return;
+    }
+
+    onLayoutChange(nextLayout);
+    onSelectItem({ id: createdItem.id, type: itemType });
+    setItemEditorMenu(menuPlacement ? {
+      itemId: createdItem.id,
+      itemType,
+      ...menuPlacement,
+    } : null);
+
+    if (itemType === 'door') {
+      onMessage?.('Door added to wall.');
+      return;
+    }
+
+    if (itemType === 'window') {
+      onMessage?.('Window added to wall.');
+      return;
+    }
+
+    onMessage?.('Opening added to wall.');
+  }
+
   function handleBlueprintSurfacePointerDown(event: PointerEvent<SVGSVGElement>) {
     setItemEditorMenu(null);
     if (!isBlueprintSurface(event.target)) {
@@ -356,21 +518,19 @@ export function BlueprintCanvas({
       }
 
       const offset = getPointOffsetOnWall(nearestWall.wall, layout.points, clickedPoint);
+      const menuPlacement = getEditorMenuPlacement(event);
 
       if (activeTool === 'door') {
-        onLayoutChange(addDoorToWall(layout, nearestWall.wall.id, offset));
-        onMessage?.('Door added to wall.');
+        addOpeningItemToWall('door', nearestWall.wall.id, offset, menuPlacement);
         return;
       }
 
       if (activeTool === 'window') {
-        onLayoutChange(addWindowToWall(layout, nearestWall.wall.id, offset));
-        onMessage?.('Window added to wall.');
+        addOpeningItemToWall('window', nearestWall.wall.id, offset, menuPlacement);
         return;
       }
 
-      onLayoutChange(addOpeningToWall(layout, nearestWall.wall.id, offset));
-      onMessage?.('Opening added to wall.');
+      addOpeningItemToWall('opening', nearestWall.wall.id, offset, menuPlacement);
       return;
     }
 
@@ -396,23 +556,17 @@ export function BlueprintCanvas({
     const offset = getPointOffsetOnWall(wall, layout.points, fromPointer(event));
 
     if (event.button === 0 && activeTool === 'door') {
-      onLayoutChange(addDoorToWall(layout, wall.id, offset));
-      onSelectItem({ id: wall.id, type: 'wall' });
-      onMessage?.('Door added to wall.');
+      addOpeningItemToWall('door', wall.id, offset, getEditorMenuPlacement(event));
       return;
     }
 
     if (event.button === 0 && activeTool === 'window') {
-      onLayoutChange(addWindowToWall(layout, wall.id, offset));
-      onSelectItem({ id: wall.id, type: 'wall' });
-      onMessage?.('Window added to wall.');
+      addOpeningItemToWall('window', wall.id, offset, getEditorMenuPlacement(event));
       return;
     }
 
     if (event.button === 0 && activeTool === 'opening') {
-      onLayoutChange(addOpeningToWall(layout, wall.id, offset));
-      onSelectItem({ id: wall.id, type: 'wall' });
-      onMessage?.('Opening added to wall.');
+      addOpeningItemToWall('opening', wall.id, offset, getEditorMenuPlacement(event));
       return;
     }
 
@@ -665,6 +819,19 @@ export function BlueprintCanvas({
                 x: center.x + normal.x * wall.thickness * 1.8,
                 y: center.y + normal.y * wall.thickness * 1.8,
               });
+              const doorSwingSide = openingItem.type === 'DOOR' && openingItem.swingDirection === 'IN_RIGHT' ? -1 : 1;
+              const doorLeafEnd = openingItem.type === 'DOOR'
+                ? toSvgPoint({
+                    x: center.x - direction.x * halfWidth + normal.x * openingItem.width * doorSwingSide,
+                    y: center.y - direction.y * halfWidth + normal.y * openingItem.width * doorSwingSide,
+                  })
+                : null;
+              const doorArcControl = openingItem.type === 'DOOR'
+                ? toSvgPoint({
+                    x: center.x + direction.x * halfWidth + normal.x * openingItem.width * doorSwingSide,
+                    y: center.y + direction.y * halfWidth + normal.y * openingItem.width * doorSwingSide,
+                  })
+                : null;
               const itemType = openingItem.type.toLowerCase() as 'door' | 'window' | 'opening';
               const isSelected = selectedItem?.type === itemType && selectedItem.id === openingItem.id;
 
@@ -686,8 +853,13 @@ export function BlueprintCanvas({
 
                     if (event.button === 0) {
                       const snapshot = getDragSnapshot();
+                      const menuPlacement = getEditorMenuPlacement(event);
                       event.currentTarget.setPointerCapture(event.pointerId);
-                      setItemEditorMenu(null);
+                      setItemEditorMenu(menuPlacement ? {
+                        itemId: openingItem.id,
+                        itemType,
+                        ...menuPlacement,
+                      } : null);
                       setDragOpening({
                         itemId: openingItem.id,
                         itemType,
@@ -722,10 +894,19 @@ export function BlueprintCanvas({
                     y2={end.y}
                   />
                   {openingItem.type === 'DOOR' && (
-                    <path
-                      className="blueprint-door-arc"
-                      d={`M ${start.x} ${start.y} Q ${symbolCenter.x} ${symbolCenter.y} ${end.x} ${end.y}`}
-                    />
+                    <>
+                      <line
+                        className="blueprint-door-leaf"
+                        x1={start.x}
+                        x2={doorLeafEnd?.x ?? start.x}
+                        y1={start.y}
+                        y2={doorLeafEnd?.y ?? start.y}
+                      />
+                      <path
+                        className="blueprint-door-arc"
+                        d={`M ${end.x} ${end.y} Q ${doorArcControl?.x ?? symbolCenter.x} ${doorArcControl?.y ?? symbolCenter.y} ${doorLeafEnd?.x ?? start.x} ${doorLeafEnd?.y ?? start.y}`}
+                      />
+                    </>
                   )}
                   {openingItem.type === 'WINDOW' && (
                     <rect
@@ -803,7 +984,12 @@ export function BlueprintCanvas({
               >
                 &lsaquo;
               </button>
-              <span>{formatMeters(contextWall.height)}</span>
+              <MetricStepperInput
+                ariaLabel="Wall height"
+                min={0}
+                value={contextWall.height}
+                onChange={(value) => onLayoutChange(updateWall(layout, contextWall.id, { height: value }))}
+              />
               <button
                 aria-label="Increase wall height"
                 type="button"
@@ -827,7 +1013,13 @@ export function BlueprintCanvas({
               >
                 &lsaquo;
               </button>
-              <span>{formatMeters(contextWall.thickness)}</span>
+              <MetricStepperInput
+                ariaLabel="Wall thickness"
+                min={0.1}
+                step={0.05}
+                value={contextWall.thickness}
+                onChange={(value) => onLayoutChange(updateWall(layout, contextWall.id, { thickness: value }))}
+              />
               <button
                 aria-label="Increase wall thickness"
                 type="button"
@@ -875,7 +1067,17 @@ export function BlueprintCanvas({
                 >
                   &lsaquo;
                 </button>
-                <span>{formatMeters(contextOpening[dimension])}</span>
+                <MetricStepperInput
+                  ariaLabel={`${dimension} value`}
+                  min={0.5}
+                  value={contextOpening[dimension]}
+                  onChange={(value) => onLayoutChange(updateOpeningItem(
+                    layout,
+                    contextOpening.type.toLowerCase() as 'door' | 'window' | 'opening',
+                    contextOpening.id,
+                    { [dimension]: value },
+                  ))}
+                />
                 <button
                   aria-label={`Increase ${dimension}`}
                   type="button"
@@ -901,7 +1103,16 @@ export function BlueprintCanvas({
                 >
                   &lsaquo;
                 </button>
-                <span>{formatMeters(contextOpening.sillHeight)}</span>
+                <MetricStepperInput
+                  ariaLabel="Window floor offset"
+                  min={0}
+                  value={contextOpening.sillHeight}
+                  onChange={(value) => onLayoutChange(updateWindowSillHeight(
+                    layout,
+                    contextOpening.id,
+                    value,
+                  ))}
+                />
                 <button
                   aria-label="Increase floor offset"
                   type="button"
@@ -927,7 +1138,7 @@ export function BlueprintCanvas({
                 contextOpening.swingDirection === 'IN_LEFT' ? 'IN_RIGHT' : 'IN_LEFT',
               ))}
             >
-              Flip Hinge
+              Flip In/Out
             </button>
           )}
           <button

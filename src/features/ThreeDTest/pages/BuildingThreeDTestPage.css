@@ -682,11 +682,21 @@
 }
 
 .building-scale-controls span,
+.building-scale-controls input,
 .building-scale-controls output {
   color: var(--building-muted);
   font-size: 12px;
   font-weight: 800;
   text-align: center;
+}
+
+.building-scale-controls input {
+  background: #ffffff;
+  border: 1px solid var(--building-border);
+  color: var(--building-text);
+  height: 28px;
+  min-width: 0;
+  padding: 0 6px;
 }
 
 .building-scale-controls button {

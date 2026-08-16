@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { IconBuilding, IconRotateClockwise } from '@tabler/icons-react';
-import { Link as RouterLink, useLocation, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 
 import { BlueprintCanvas } from '@/features/ThreeD/components/BlueprintCanvas';
 import type { BlueprintTool, RoomLayoutState, SelectedRoomItem } from '@/features/ThreeD/types/roomLayout.types';
@@ -27,6 +27,9 @@ const blueprintTools: Array<{ label: string; value: BlueprintTool }> = [
   { label: 'Window', value: 'window' },
   { label: 'Opening', value: 'opening' },
 ];
+const SHOW_SITE_CONTROLS = false;
+const SHOW_FRONT_YARD_CONTROLS = false;
+const SHOW_BUILDING_FOOTPRINT_CONTROLS = false;
 
 type BuildingBlueprintRouteState = {
   areas?: unknown[];
@@ -580,6 +583,7 @@ function NumberField({ label, max, min = 0, onChange, step = 0.1, value }: Numbe
 export function BuildingBlueprintTestPage() {
   const { sceneId } = useParams();
   const location = useLocation();
+  const navigate = useNavigate();
   const routeState = location.state as BuildingBlueprintRouteState | null;
   const { resetSceneData, sceneData, setRemoteSceneData, setSceneData, shouldKeepSceneDraft } = useBuildingTestSceneState(sceneId);
   const hasLocalSceneEditsRef = useRef(false);
@@ -607,10 +611,7 @@ export function BuildingBlueprintTestPage() {
     [sceneData.building.levels],
   );
   const levelTabs = useMemo<Array<{ label: string; value: BuildingLevelVisibility }>>(
-    () => [
-      { label: 'Yard', value: 'site' },
-      ...sortedLevels.map((level) => ({ label: level.label, value: level.id })),
-    ],
+    () => sortedLevels.map((level) => ({ label: level.label, value: level.id })),
     [sortedLevels],
   );
   const activeLevel = sortedLevels.find((level) => level.id === activeLayer) ?? null;
@@ -628,14 +629,14 @@ export function BuildingBlueprintTestPage() {
     : null;
 
   useEffect(() => {
-    if (activeLayer === 'site') {
-      return;
-    }
-
-    if (!sceneData.building.levels.some((level) => level.id === activeLayer)) {
-      setActiveLayer(sceneData.building.levels[0]?.id ?? 'site');
+    if (activeLayer === 'site' || !sceneData.building.levels.some((level) => level.id === activeLayer)) {
+      setActiveLayer(sceneData.building.levels[0]?.id ?? 'ground');
     }
   }, [activeLayer, sceneData.building.levels]);
+
+  useEffect(() => {
+    setSelectedItem(null);
+  }, [activeLayer]);
 
   function worldXToSvg(x: number) {
     return bounds.centerX + x * bounds.scale;
@@ -672,7 +673,21 @@ export function BuildingBlueprintTestPage() {
   }
 
   function handleBlueprintLayoutChange(layout: RoomLayoutState) {
+    if (!currentLevelId) {
+      return;
+    }
+
     updateSceneDraft((scene) => updateLevelLayout(scene, currentLevelId as BuildingLevel['id'], layout));
+  }
+
+  function openThreeDPlanner() {
+    const nextScene = centerAndFitFloorStackOnSite(sceneData);
+
+    hasLocalSceneEditsRef.current = true;
+    setSceneData(nextScene);
+    navigate(sceneId ? `/proposal-scenes/${sceneId}/room-planner` : '/3d-building-test', {
+      state: routeState ?? undefined,
+    });
   }
 
   useEffect(() => {
@@ -695,12 +710,9 @@ export function BuildingBlueprintTestPage() {
           <h1>Layered campus layout</h1>
         </div>
         <nav>
-          <RouterLink
-            state={routeState ?? undefined}
-            to={sceneId ? `/proposal-scenes/${sceneId}/room-planner` : '/3d-building-test'}
-          >
+          <button type="button" onClick={openThreeDPlanner}>
             Open 3D
-          </RouterLink>
+          </button>
           <button type="button" onClick={resetSceneData}>
             <IconRotateClockwise size={15} />
             Reset Blueprint
@@ -757,6 +769,7 @@ export function BuildingBlueprintTestPage() {
             </section>
           ) : null}
 
+          {SHOW_SITE_CONTROLS ? (
           <section className="building-blueprint-panel">
             <div className="building-blueprint-panel-heading">
               <strong>Site</strong>
@@ -784,7 +797,7 @@ export function BuildingBlueprintTestPage() {
               <button className="blueprint-align-button" type="button" onClick={() => setSceneData(centerAndFitFloorStackOnSite)}>
                 Center + Fit Site
               </button>
-              {frontYard ? (
+              {SHOW_FRONT_YARD_CONTROLS && frontYard ? (
                 <>
                   <NumberField
                     label="Yard width"
@@ -849,14 +862,16 @@ export function BuildingBlueprintTestPage() {
                     Remove Yard
                   </button>
                 </>
-              ) : (
+              ) : SHOW_FRONT_YARD_CONTROLS ? (
                 <button className="blueprint-add-button" type="button" onClick={() => setSceneData(addFrontYard)}>
                   Add Front Yard
                 </button>
-              )}
+              ) : null}
             </div>
           </section>
+          ) : null}
 
+          {SHOW_BUILDING_FOOTPRINT_CONTROLS ? (
           <section className="building-blueprint-panel">
             <div className="building-blueprint-panel-heading">
               <strong>Building Footprint</strong>
@@ -892,6 +907,7 @@ export function BuildingBlueprintTestPage() {
               </button>
             </div>
           </section>
+          ) : null}
 
           <section className="building-blueprint-panel">
             <div className="building-blueprint-panel-heading">
