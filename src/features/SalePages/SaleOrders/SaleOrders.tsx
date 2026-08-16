@@ -302,6 +302,8 @@ function OrderDetailPanel({
     setAssignedTo((current) => current || productionStaff.find((staff) => staff.isAvailable)?.accountId || productionStaff[0]?.accountId || '');
   }, [productionStaff]);
 
+  const selectedProductionStaff = productionStaff.find((staff) => staff.accountId === assignedTo) ?? null;
+
   return (
     <section className="sale-orders-detail">
       <header>
@@ -333,7 +335,7 @@ function OrderDetailPanel({
       ) : null}
       {order.status === 'DEPOSIT_PAID' ? (
         <form
-          className="sale-orders-flow-panel"
+          className="sale-orders-flow-panel sale-orders-flow-panel-production"
           onSubmit={(event) => {
             event.preventDefault();
             setProductionDateMessage('');
@@ -359,17 +361,32 @@ function OrderDetailPanel({
           }}
         >
           <header>
-            <h3>Production Assignment</h3>
+            <div>
+              <h3>Production Assignment</h3>
+              <p>Choose a staff member, priority, and estimated schedule, then create the production request.</p>
+            </div>
           </header>
-          <div className="sale-orders-form-grid">
+          <div className="sale-orders-form-grid sale-orders-form-grid-production">
             <label>
               <span>Staff</span>
-              <select value={assignedTo} onChange={(event) => setAssignedTo(event.target.value)}>
+              <select
+                title={selectedProductionStaff?.fullName ?? 'Unassigned'}
+                value={assignedTo}
+                onChange={(event) => setAssignedTo(event.target.value)}
+              >
                 <option value="">Unassigned</option>
                 {productionStaff.map((staff) => (
-                  <option key={staff.accountId} value={staff.accountId}>{staff.fullName} - {staff.activeRequestCount} active</option>
+                  <option key={staff.accountId} value={staff.accountId}>{staff.fullName}</option>
                 ))}
               </select>
+              {selectedProductionStaff ? (
+                <em className="sale-orders-staff-meta">
+                  {selectedProductionStaff.activeRequestCount} active
+                  {!selectedProductionStaff.isAvailable ? ' · unavailable' : ''}
+                </em>
+              ) : (
+                <em className="sale-orders-staff-meta">No staff selected</em>
+              )}
             </label>
             <label>
               <span>Priority</span>
@@ -415,10 +432,12 @@ function OrderDetailPanel({
             </label>
           </div>
           {productionDateMessage ? <p className="sale-orders-action-note">{productionDateMessage}</p> : null}
-          <button disabled={isCreatingProduction} type="submit">
-            <IconUserPlus size={16} />
-            {isCreatingProduction ? 'Assigning...' : 'Create Production Request'}
-          </button>
+          <div className="sale-orders-production-actions">
+            <button disabled={isCreatingProduction} type="submit">
+              <IconUserPlus size={16} />
+              {isCreatingProduction ? 'Assigning...' : 'Create Production Request'}
+            </button>
+          </div>
         </form>
       ) : null}
       {order.status === 'DELIVERED' || order.status === 'FINAL_PAYMENT_PENDING' || order.status === 'COMPLETED' ? (
