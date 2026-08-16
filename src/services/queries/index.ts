@@ -120,14 +120,14 @@ export {
 export {
   orderQueryKeys,
   useCompleteOrder,
-  useConfirmOrderItemDelivery,
+  useCompleteOrderDelivery,
+  useConfirmOrderDelivery,
   useCreateOrderDepositPayment,
   useCreateOrderRemainingPayment,
   useOrderDetail,
   usePrepareOrderFinalPayment,
   useProjectOrders,
   useStartOrderDelivery,
-  useUpdateOrderItemDeliveredQuantity,
 } from './useOrders';
 export {
   paymentQueryKeys,

@@ -6,6 +6,7 @@ import {
 } from '@tabler/icons-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
+import { useLocation } from 'react-router-dom';
 
 import { CustomerNavbar } from '@/features/CustomerPages/customercomponents';
 import { formatChatTime, formatFileSize, formatUnreadBadge, getChatParticipant, getInitials, getMessageContent } from '@/features/projectChat/chatUi';
@@ -30,6 +31,7 @@ import './CustomerChatPage.css';
 
 export function CustomerChatPage() {
   const queryClient = useQueryClient();
+  const location = useLocation();
   const currentUserQuery = useCurrentUser();
   const [searchKeyword, setSearchKeyword] = useState('');
   const [activeProjectId, setActiveProjectId] = useState('');
@@ -39,6 +41,8 @@ export function CustomerChatPage() {
   const messagesListRef = useRef<HTMLDivElement | null>(null);
   const projectsQuery = useProjectList({ page: 1, limit: 50 });
   const projects = useMemo(() => projectsQuery.data?.items ?? [], [projectsQuery.data?.items]);
+  const requestedProjectId = new URLSearchParams(location.search).get('projectId');
+  const requestedChatId = new URLSearchParams(location.search).get('chatId');
   const activeProject = projects.find((project) => project.projectId === activeProjectId) ?? projects[0] ?? null;
   const activeProjectAssignedDesignerId = activeProject?.assignedDesignerId;
   const activeProjectProjectId = activeProject?.projectId;
@@ -87,16 +91,26 @@ export function CustomerChatPage() {
   const sendTextMutation = useSendProjectChatTextMessage();
 
   useEffect(() => {
+    if (requestedProjectId && projects.some((project) => project.projectId === requestedProjectId)) {
+      setActiveProjectId(requestedProjectId);
+      return;
+    }
+
     if (!activeProjectId && projects.length > 0) {
       setActiveProjectId(projects[0].projectId);
     }
-  }, [activeProjectId, projects]);
+  }, [activeProjectId, projects, requestedProjectId]);
 
   useEffect(() => {
+    if (requestedChatId && filteredConversations.some((chat) => chat.chatId === requestedChatId)) {
+      setActiveChatId(requestedChatId);
+      return;
+    }
+
     if (activeConversation && activeConversation.chatId !== activeChatId) {
       setActiveChatId(activeConversation.chatId);
     }
-  }, [activeChatId, activeConversation]);
+  }, [activeChatId, activeConversation, filteredConversations, requestedChatId]);
 
   useEffect(() => {
     if (!activeProjectProjectId) {

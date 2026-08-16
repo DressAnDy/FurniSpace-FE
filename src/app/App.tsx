@@ -31,7 +31,7 @@ import { ProjectFeedback } from '@/features/CustomerPages/Feedback';
 import { Tracking } from '@/features/CustomerPages/Tracking';
 import { DesignerAssignedProjects } from '@/features/DesignerPages/DesignerAssignedProjects';
 import { DesignerDashbroad } from '@/features/DesignerPages/DesignerDashbroad';
-import { DesignerProductLibrary, DesignerCreateProductVersionPage } from '@/features/DesignerPages/DesignerProductLibrary';
+import { DesignerProductLibrary } from '@/features/DesignerPages/DesignerProductLibrary';
 import { DesignerProjectDetail } from '@/features/DesignerPages/DesignerProjectDetail';
 import { DesignerProposalWorkspace } from '@/features/DesignerPages/DesignerProposalWorkspace';
 import { DesignerSchedules } from '@/features/DesignerPages/DesignerSchedules';
@@ -42,7 +42,6 @@ import { ProjectDetailPage } from '@/features/MainPages/projectDetail';
 import { ProjectListReviewPage } from '@/features/MainPages/projectListReview';
 import { UserProfilePage } from '@/features/MainPages/userProfile';
 import { BlockedIssues } from '@/features/ProductionPages/BlockedIssues';
-import { MyProductionTasks } from '@/features/ProductionPages/MyProductionTasks';
 import { ProductionCustomizationRequests } from '@/features/ProductionPages/ProductionCustomizationRequests';
 import { ProductionDashbroad } from '@/features/ProductionPages/ProductionDashbroad';
 import { ProductionRequestDetail } from '@/features/ProductionPages/ProductionRequestDetail';
@@ -172,7 +171,7 @@ export default function App() {
                   <Route path="/designer/assigned-projects" element={<DesignerAssignedProjects />} />
                   <Route path="/designer/assigned-projects/:projectId" element={<DesignerProjectDetail />} />
                   <Route path="/designer/product-library" element={<DesignerProductLibrary />} />
-                  <Route path="/designer/product-library/:productId/versions/create" element={<DesignerCreateProductVersionPage />} />
+                  <Route path="/designer/product-library/:productId/versions/create" element={<Navigate to="/designer/product-library" replace />} />
                   <Route path="/designer/schedules" element={<DesignerSchedules />} />
                   <Route path="/designer/projects/:projectId/proposals/new" element={<DesignerProposalWorkspace />} />
                   <Route path="/designer/projects/:projectId/proposals/:proposalId" element={<DesignerProposalWorkspace />} />
@@ -187,7 +186,7 @@ export default function App() {
                   <Route path="/production/customization-requests" element={<ProductionCustomizationRequests />} />
                   <Route path="/production/requests" element={<ProductionRequests />} />
                   <Route path="/production/requests/:productionRequestId" element={<ProductionRequestDetail />} />
-                  <Route path="/production/my-tasks" element={<MyProductionTasks />} />
+                  <Route path="/production/my-tasks" element={<Navigate to="/production/requests" replace />} />
                   <Route path="/production/blocked-issues" element={<BlockedIssues />} />
                   <Route path="/production/ready-for-delivery" element={<ReadyForDelivery />} />
                   <Route path="/production/settings" element={<Navigate to="/production/dashboard" replace />} />

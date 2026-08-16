@@ -39,8 +39,6 @@
 .designer-product-summary span { border-radius: 999px; background: #f4f4f5; padding: 3px 7px; color: #52525b; font-size: 10px; font-weight: 700; }
 .designer-product-open-button { display: inline-flex; width: 100%; height: 34px; align-items: center; justify-content: center; gap: 5px; border: 0; border-radius: 9px; background: #18181b; color: #fff; cursor: pointer; font-size: 12px; font-weight: 700; margin-top: 10px; transition: background 160ms ease; }
 .designer-product-open-button:hover { background: #9a713b; }
-.designer-product-create-version-button { display: inline-flex; height: 38px; flex: 0 0 auto; align-items: center; justify-content: center; gap: 6px; border: 0; border-radius: 10px; background: #18181b; color: #fff; cursor: pointer; font-size: 12px; font-weight: 800; padding: 0 16px; white-space: nowrap; transition: background 160ms ease; }
-.designer-product-create-version-button:hover { background: #9a713b; }
 .designer-create-version-shell { max-width: 920px; }
 
 .designer-product-version-panel { display: flex; flex-direction: column; gap: 14px; }
@@ -86,8 +84,6 @@
 .designer-product-icon-button { display: grid; width: 28px; height: 28px; flex: 0 0 auto; place-items: center; border: 0; border-radius: 50%; background: #f4f4f5; color: #52525b; }
 .designer-product-asset-button { display: inline-flex; height: 29px; align-items: center; gap: 4px; border: 1px solid #e4e4e7; border-radius: 999px; background: #fff; color: #52525b; cursor: pointer; font: inherit; font-size: 10.5px; font-weight: 800; padding: 0 8px; transition: background 150ms ease, border-color 150ms ease, color 150ms ease; }
 .designer-product-asset-button:hover { border-color: #dcc7a6; background: #fffaf3; color: #6f5636; }
-.designer-product-add-button { display: inline-flex; height: 29px; align-items: center; gap: 4px; border: 0; border-radius: 999px; background: #c7a15f; padding: 0 9px; color: #171717; cursor: pointer; font: inherit; font-size: 10.5px; font-weight: 800; transition: background 150ms ease; }
-.designer-product-add-button:hover { background: #b98f4d; }
 .designer-product-version-state { border: 1px dashed #e4e4e7; border-radius: 8px; padding: 12px; color: #6b6b73; font-size: 12px; text-align: center; }
 
 .designer-product-model-modal-overlay { position: fixed; z-index: 40; inset: 0; display: grid; place-items: center; backdrop-filter: blur(3px); background: rgba(24,24,27,0.48); padding: 24px; }
@@ -116,7 +112,7 @@
 .designer-products-pagination button:disabled { cursor: not-allowed; opacity: 0.45; }
 
 @media (max-width: 1280px) { .designer-products-grid { grid-template-columns: repeat(3,minmax(210px,1fr)); } }
-@media (max-width: 860px) { .designer-products-grid,.designer-product-version-grid { grid-template-columns: 1fr; } .designer-product-version-summary-card { grid-template-columns: 1fr; text-align: left; } .designer-product-create-version-button { width: 100%; } }
+@media (max-width: 860px) { .designer-products-grid,.designer-product-version-grid { grid-template-columns: 1fr; } .designer-product-version-summary-card { grid-template-columns: 1fr; text-align: left; } }
 @media (max-width: 680px) {
   .designer-products-grid { grid-template-columns: 1fr; }
   .designer-products-pagination { align-items: stretch; flex-direction: column; }

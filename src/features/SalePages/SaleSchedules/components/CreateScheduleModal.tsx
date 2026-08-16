@@ -42,6 +42,9 @@ export function CreateScheduleModal({ editingSchedule, isOpen, projects, onClose
     ? projects.find((project) => project.projectId === editingSchedule.projectId)
     : projects.find((project) => project.projectId === selectedProjectId);
   const selectedProjectDetailQuery = useProjectDetail(selectedProjectId || undefined);
+  const targetCompletionDateTimeMax = selectedProjectDetailQuery.data?.targetCompletionDate
+    ? `${selectedProjectDetailQuery.data.targetCompletionDate}T23:59`
+    : undefined;
 
   useEffect(() => {
     setMessage('');
@@ -109,6 +112,10 @@ export function CreateScheduleModal({ editingSchedule, isOpen, projects, onClose
     });
     if (!dateRange.ok) {
       setMessage(dateRange.message);
+      return;
+    }
+    if (selectedProjectDetailQuery.data?.targetCompletionDate && isScheduleAfterTarget(scheduledStart, scheduledEnd, selectedProjectDetailQuery.data.targetCompletionDate)) {
+      setMessage('Schedule date cannot be after project target completion date.');
       return;
     }
 
@@ -215,6 +222,7 @@ export function CreateScheduleModal({ editingSchedule, isOpen, projects, onClose
               <span>Start Date & Time</span>
               <input
                 min={editingSchedule ? undefined : getLocalDateTimeInputValue()}
+                max={targetCompletionDateTimeMax}
                 name="scheduledStart"
                 required
                 type="datetime-local"
@@ -232,6 +240,7 @@ export function CreateScheduleModal({ editingSchedule, isOpen, projects, onClose
               <input
                 disabled={!scheduledStart}
                 min={getMinimumEndDateTimeInputValue(scheduledStart)}
+                max={targetCompletionDateTimeMax}
                 name="scheduledEnd"
                 type="datetime-local"
                 value={scheduledEnd}
@@ -298,4 +307,10 @@ function formatEnumLabel(value: string) {
     .split('_')
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(' ');
+}
+
+function isScheduleAfterTarget(startValue: string, endValue: string, targetCompletionDate: string) {
+  const maxDateTime = `${targetCompletionDate}T23:59`;
+
+  return startValue > maxDateTime || Boolean(endValue && endValue > maxDateTime);
 }

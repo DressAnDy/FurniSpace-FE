@@ -372,7 +372,7 @@
 
 .project-timeline-header {
   margin: 0;
-  padding: 24px 24px 8px;
+  padding: 16px 24px 0;
 }
 
 .project-timeline-header h3 {
@@ -387,7 +387,7 @@
   display: flex;
   align-items: flex-start;
   overflow-x: auto;
-  padding: 24px;
+  padding: 12px 24px 16px;
 }
 
 .project-timeline-step {

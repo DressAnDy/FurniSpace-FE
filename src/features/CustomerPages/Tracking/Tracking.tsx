@@ -16,7 +16,7 @@ import {
 import { getOrderServiceResultMessage, type OrderItemDto, type OrderItemStatus, type OrderStatus } from '@/services/api/orders';
 import type { ProjectStatus } from '@/services/api/projects';
 import {
-  useConfirmOrderItemDelivery,
+  useConfirmOrderDelivery,
   useOrderDetail,
   useProjectList,
   useProjectOrders,
@@ -62,7 +62,7 @@ export function Tracking() {
   const selectedOrder = orders.find((order) => order.orderId === selectedOrderId) ?? orders[0] ?? null;
   const orderDetailQuery = useOrderDetail(selectedOrderId, { enabled: Boolean(selectedOrderId) });
   const order = orderDetailQuery.data ?? null;
-  const confirmDeliveryMutation = useConfirmOrderItemDelivery();
+  const confirmDeliveryMutation = useConfirmOrderDelivery();
   const productionItems = useMemo(() => order?.items ?? [], [order?.items]);
   const deliveryItemGroups = useMemo(
     () => groupOrderItemsByName(productionItems.filter((item) => (item.quantity ?? 0) > 0 && item.status !== 'UNAVAILABLE' && item.status !== 'CANCELLED')),
@@ -87,16 +87,12 @@ export function Tracking() {
     }
   }, [orders, selectedOrderId]);
 
-  async function confirmDeliveryGroup(items: OrderItemDto[]) {
+  async function confirmDelivery() {
+    if (!order) return;
     setMessage(null);
 
     try {
-      const confirmableItems = items.filter((item) => canConfirmDelivery(order?.status, item));
-
-      for (const item of confirmableItems) {
-        await confirmDeliveryMutation.mutateAsync(item.orderItemId);
-      }
-
+      await confirmDeliveryMutation.mutateAsync(order.orderId);
       setMessage({ tone: 'success', text: 'Delivery confirmed.' });
       void orderDetailQuery.refetch();
     } catch (error) {
@@ -147,7 +143,16 @@ export function Tracking() {
           <div className="customer-tracking-meta-row">
             <Field label="Project code" value={selectedProject?.projectCode ?? '-'} />
             <Field label="Order status" value={formatEnumLabel(order?.status ?? selectedProject?.status ?? 'UNKNOWN')} />
+            <Field label="Customer confirmed" value={order?.customerConfirmedDeliveryAt ? formatDateTime(order.customerConfirmedDeliveryAt) : 'Not yet'} />
           </div>
+          <button
+            className="customer-workspace-link"
+            disabled={!canConfirmDeliveryOrder(order) || confirmDeliveryMutation.isPending}
+            type="button"
+            onClick={() => void confirmDelivery()}
+          >
+            {confirmDeliveryMutation.isPending ? 'Confirming...' : order?.customerConfirmedDeliveryAt ? 'Delivery confirmed' : 'Confirm Delivery'}
+          </button>
         </article>
 
         <section className="customer-workspace-summary-grid">
@@ -170,11 +175,9 @@ export function Tracking() {
           <div className="customer-tracking-delivery-list">
             {deliveryItemGroups.map((group) => (
               <DeliveryItemRow
-                confirmPending={confirmDeliveryMutation.isPending}
                 group={group}
                 key={group.key}
                 orderStatus={order?.status}
-                onConfirm={() => void confirmDeliveryGroup(group.items)}
               />
             ))}
           </div>
@@ -185,18 +188,13 @@ export function Tracking() {
 }
 
 function DeliveryItemRow({
-  confirmPending,
   group,
-  onConfirm,
   orderStatus,
 }: {
-  confirmPending: boolean;
   group: OrderItemGroup;
-  onConfirm: () => void;
   orderStatus?: OrderStatus | null;
 }) {
   const status = getGroupStatus(group, orderStatus);
-  const canConfirm = canConfirmDeliveryGroup(orderStatus, group);
 
   return (
     <article className={`customer-tracking-delivery-row customer-tracking-delivery-row-${status.toLowerCase()}`}>
@@ -205,13 +203,10 @@ function DeliveryItemRow({
         <span>{group.quantity} item(s) total</span>
       </div>
       <div className="customer-tracking-progress">
-        <span>{group.deliveredQuantity}/{group.quantity} delivered</span>
-        <div aria-hidden="true"><i style={{ width: `${getDeliveryPercent(group)}%` }} /></div>
+        <span>{group.deliveredAt ? `Delivered ${formatDateTime(group.deliveredAt)}` : 'Waiting for full-order delivery'}</span>
+        <div aria-hidden="true"><i style={{ width: `${status === 'DELIVERED' ? 100 : 0}%` }} /></div>
       </div>
       <CustomerStatusBadge label={itemStatusLabels[status] ?? formatEnumLabel(status)} status={status} />
-      <button disabled={!canConfirm || confirmPending} type="button" onClick={onConfirm}>
-        {confirmPending ? 'Confirming...' : group.confirmedQuantity >= group.quantity ? 'Confirmed' : 'Confirm received'}
-      </button>
       {group.hasAttention ? (
         <p className="customer-tracking-row-note">This item needs team attention before delivery can continue.</p>
       ) : null}
@@ -232,23 +227,16 @@ function countItems(items: OrderItemDto[], status: OrderItemStatus) {
   return items.filter((item) => item.status === status).length;
 }
 
-function canConfirmDelivery(orderStatus: OrderStatus | null | undefined, item: OrderItemDto) {
-  if (orderStatus !== 'DELIVERING') return false;
-  if (item.status === 'DELIVERED' || item.status === 'UNAVAILABLE' || item.status === 'CANCELLED') return false;
+function canConfirmDeliveryOrder(order: { status?: OrderStatus | null; customerConfirmedDeliveryAt?: string | null; items: OrderItemDto[] } | null) {
+  if (!order || order.status !== 'DELIVERING' || order.customerConfirmedDeliveryAt) return false;
 
-  const quantity = item.quantity ?? 0;
-
-  return quantity > 0 && (item.deliveredQuantity ?? 0) >= quantity;
-}
-
-function canConfirmDeliveryGroup(orderStatus: OrderStatus | null | undefined, group: OrderItemGroup) {
-  return group.items.some((item) => canConfirmDelivery(orderStatus, item))
-    && group.items.every((item) => item.status === 'DELIVERED' || canConfirmDelivery(orderStatus, item));
+  return order.items
+    .filter((item) => (item.quantity ?? 0) > 0 && item.status !== 'UNAVAILABLE' && item.status !== 'CANCELLED')
+    .every((item) => item.status === 'DELIVERED');
 }
 
 type OrderItemGroup = {
-  confirmedQuantity: number;
-  deliveredQuantity: number;
+  deliveredAt?: string | null;
   hasAttention: boolean;
   items: OrderItemDto[];
   key: string;
@@ -273,10 +261,13 @@ function groupOrderItemsByName(items: OrderItemDto[]): OrderItemGroup[] {
 
   return Array.from(groupsByKey.entries()).map(([key, groupItems]) => {
     const statuses = Array.from(new Set(groupItems.map((item) => item.status ?? 'PENDING')));
+    const deliveredDates = groupItems
+      .map((item) => item.deliveredAt)
+      .filter((value): value is string => Boolean(value))
+      .sort();
 
     return {
-      confirmedQuantity: groupItems.reduce((total, item) => total + (item.status === 'DELIVERED' ? item.quantity ?? 0 : 0), 0),
-      deliveredQuantity: sumItemNumbers(groupItems, 'deliveredQuantity'),
+      deliveredAt: deliveredDates[deliveredDates.length - 1],
       hasAttention: groupItems.some((item) => isBlockedOrUnavailable(item.status)),
       items: groupItems,
       key,
@@ -287,7 +278,7 @@ function groupOrderItemsByName(items: OrderItemDto[]): OrderItemGroup[] {
   });
 }
 
-function sumItemNumbers(items: OrderItemDto[], field: 'deliveredQuantity' | 'quantity') {
+function sumItemNumbers(items: OrderItemDto[], field: 'quantity') {
   return items.reduce((total, item) => total + (item[field] ?? 0), 0);
 }
 
@@ -307,8 +298,7 @@ function getCustomerItemStatus(item: OrderItemDto, orderStatus?: OrderStatus | n
 
 function getGroupStatus(group: OrderItemGroup, orderStatus?: OrderStatus | null) {
   if (group.hasAttention) return 'ATTENTION';
-  if (group.confirmedQuantity >= group.quantity && group.quantity > 0) return 'DELIVERED';
-  if (group.deliveredQuantity >= group.quantity && group.quantity > 0) return 'DELIVERING';
+  if (group.items.every((item) => item.status === 'DELIVERED')) return 'DELIVERED';
 
   const statuses = new Set(group.items.map((item) => getCustomerItemStatus(item, orderStatus)));
 
@@ -320,12 +310,6 @@ function getGroupStatus(group: OrderItemGroup, orderStatus?: OrderStatus | null)
   return 'PENDING';
 }
 
-function getDeliveryPercent(group: OrderItemGroup) {
-  if (group.quantity <= 0) return 0;
-
-  return Math.min(100, Math.round((group.deliveredQuantity / group.quantity) * 100));
-}
-
 function getOrderItemName(item: Pick<OrderItemDto, 'itemName' | 'productNameSnapshot'>) {
   return item.itemName ?? item.productNameSnapshot ?? '-';
 }
@@ -333,11 +317,21 @@ function getOrderItemName(item: Pick<OrderItemDto, 'itemName' | 'productNameSnap
 function getTrackingMessage(status?: string | null) {
   if (status === 'IN_PRODUCTION') return 'Your order is currently in production. Item statuses below show what is being worked on.';
   if (status === 'READY_FOR_DELIVERY') return 'Production is complete and the team is preparing delivery coordination.';
-  if (status === 'DELIVERING') return 'Delivery is in progress. Items can be confirmed once fully delivered.';
+  if (status === 'DELIVERING') return 'Delivery is in progress. Confirm once the whole order has arrived.';
   if (status === 'DELIVERED') return 'Delivery has been completed and final payment or completion may be pending.';
   if (status === 'COMPLETED') return 'This project has been completed.';
 
   return 'Production tracking will appear after your order enters the production flow.';
+}
+
+function formatDateTime(value: string) {
+  return new Intl.DateTimeFormat('vi-VN', {
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  }).format(new Date(value));
 }
 
 function formatEnumLabel(value: string) {

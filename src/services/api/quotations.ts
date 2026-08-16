@@ -278,8 +278,8 @@ function getQuotationApiBaseUrl() {
 
 function getQuotationItemFinancialsPayload(input: Omit<UpdateQuotationItemFinancialsInput, 'quotationId'>) {
   return {
-    quantity: input.quantity ?? null,
-    unitPrice: input.unitPrice ?? null,
-    discountAmount: input.discountAmount ?? null,
+    ...(input.quantity !== undefined ? { quantity: input.quantity } : {}),
+    ...(input.unitPrice !== undefined ? { unitPrice: input.unitPrice } : {}),
+    ...(input.discountAmount !== undefined ? { discountAmount: input.discountAmount } : {}),
   };
 }
