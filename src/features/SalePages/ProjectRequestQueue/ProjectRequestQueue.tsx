@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 
 import { SaleNavbar, SaleSidebar } from '@/features/SalePages/salecomponents';
 import { getAccountById, type AccountDto } from '@/services/api';
+import { getProjectServiceResultMessage } from '@/services/api/projects';
 import { useAssignSalesToProject, useStaffProjectQueue } from '@/services/queries/useProjects';
 
 import './ProjectRequestQueue.css';
@@ -14,6 +15,7 @@ export function ProjectRequestQueue() {
   const [keyword, setKeyword] = useState('');
   const [status, setStatus] = useState('Status');
   const [businessType, setBusinessType] = useState('Business Type');
+  const [actionMessage, setActionMessage] = useState('');
   const assignSalesMutation = useAssignSalesToProject();
   const projectQueueQuery = useStaffProjectQueue({
     search: keyword,
@@ -70,6 +72,23 @@ export function ProjectRequestQueue() {
     });
   }, [businessType, customerById, keyword, projectRequests, status]);
 
+  async function acceptForConsultation(request: { projectId: string; status: string }) {
+    setActionMessage('');
+
+    try {
+      await assignSalesMutation.mutateAsync({
+        projectId: request.projectId,
+        note:
+          request.status === 'NEED_BASIC_INFORMATION'
+            ? 'Customer provided additional basic information. Sales accepted the project for consultation.'
+            : 'Sales accepted the submitted project for consultation.',
+      });
+      navigate(`/sales/assigned-projects/${request.projectId}`);
+    } catch (error) {
+      setActionMessage(getProjectServiceResultMessage(error));
+    }
+  }
+
   return (
     <div className="project-request-queue-shell">
       <SaleSidebar activeLabel="Project Request Queue" />
@@ -99,6 +118,8 @@ export function ProjectRequestQueue() {
               <FilterSelect value={businessType} onChange={setBusinessType} options={['Business Type', 'Cafe', 'Fashion Store', 'Office', 'Retail', 'Restaurant']} />
             </div>
           </section>
+
+          {actionMessage ? <section className="project-request-queue-message">{actionMessage}</section> : null}
 
           <section className="project-request-queue-table-card">
             <div className="project-request-table-scroll">
@@ -153,15 +174,7 @@ export function ProjectRequestQueue() {
                             <button
                               type="button"
                               disabled={assignSalesMutation.isPending}
-                              onClick={() =>
-                                assignSalesMutation.mutate({
-                                  projectId: request.projectId,
-                                  note:
-                                    request.status === 'NEED_BASIC_INFORMATION'
-                                      ? 'Customer provided additional basic information. Sales accepted the project for consultation.'
-                                      : 'Sales accepted the submitted project for consultation.',
-                                })
-                              }
+                              onClick={() => void acceptForConsultation(request)}
                             >
                               Accept for Consultation
                             </button>

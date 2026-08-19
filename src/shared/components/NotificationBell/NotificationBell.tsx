@@ -22,6 +22,8 @@ type NotificationBellProps = {
   className?: string;
 };
 
+const shownToastStoragePrefix = 'furnispace:notification-toast-shown';
+
 export function NotificationBell({ buttonClassName, className }: NotificationBellProps) {
   const navigate = useNavigate();
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -36,14 +38,52 @@ export function NotificationBell({ buttonClassName, className }: NotificationBel
   const notifications = notificationsQuery.data?.items ?? [];
   const formattedUnreadCount = unreadCount > 99 ? '99+' : unreadCount.toString();
   const [realtimeMessage, setRealtimeMessage] = useState<typeof lastInAppNotification>(null);
+  const pendingRealtimeMessageRef = useRef<typeof lastInAppNotification>(null);
+  const userToastScope = user?.accountId ?? null;
 
   useEffect(() => {
-    if (!lastInAppNotification?.notificationId) {
+    const notificationId = lastInAppNotification?.notificationId;
+
+    if (!notificationId || !userToastScope || hasShownNotificationToast(userToastScope, notificationId)) {
       return;
     }
 
-    setRealtimeMessage(lastInAppNotification);
-  }, [lastInAppNotification]);
+    if (document.visibilityState === 'visible') {
+      markNotificationToastShown(userToastScope, notificationId);
+      setRealtimeMessage(lastInAppNotification);
+      return;
+    }
+
+    pendingRealtimeMessageRef.current = lastInAppNotification;
+  }, [lastInAppNotification, userToastScope]);
+
+  useEffect(() => {
+    function showPendingMessageOnce() {
+      const pendingMessage = pendingRealtimeMessageRef.current;
+      const notificationId = pendingMessage?.notificationId;
+
+      if (!notificationId || !userToastScope || document.visibilityState !== 'visible') {
+        return;
+      }
+
+      pendingRealtimeMessageRef.current = null;
+
+      if (hasShownNotificationToast(userToastScope, notificationId)) {
+        return;
+      }
+
+      markNotificationToastShown(userToastScope, notificationId);
+      setRealtimeMessage(pendingMessage);
+    }
+
+    document.addEventListener('visibilitychange', showPendingMessageOnce);
+
+    if (document.visibilityState === 'visible') {
+      showPendingMessageOnce();
+    }
+
+    return () => document.removeEventListener('visibilitychange', showPendingMessageOnce);
+  }, [userToastScope]);
 
   useEffect(() => {
     if (!realtimeMessage) {
@@ -305,6 +345,34 @@ function normalizeRole(role?: string) {
   const normalized = role.trim().toUpperCase();
 
   return normalized === 'SALE' ? 'SALES' : normalized;
+}
+
+function getShownToastStorageKey(scope: string) {
+  return `${shownToastStoragePrefix}:${scope}`;
+}
+
+function hasShownNotificationToast(scope: string, notificationId: string) {
+  try {
+    const shownIds = JSON.parse(window.localStorage.getItem(getShownToastStorageKey(scope)) ?? '[]');
+
+    return Array.isArray(shownIds) && shownIds.includes(notificationId);
+  } catch {
+    return false;
+  }
+}
+
+function markNotificationToastShown(scope: string, notificationId: string) {
+  try {
+    const storageKey = getShownToastStorageKey(scope);
+    const shownIds = JSON.parse(window.localStorage.getItem(storageKey) ?? '[]');
+    const nextShownIds = Array.isArray(shownIds)
+      ? [notificationId, ...shownIds.filter((id): id is string => typeof id === 'string' && id !== notificationId)].slice(0, 80)
+      : [notificationId];
+
+    window.localStorage.setItem(storageKey, JSON.stringify(nextShownIds));
+  } catch {
+    return;
+  }
 }
 
 function formatNotificationTime(value: string | null) {

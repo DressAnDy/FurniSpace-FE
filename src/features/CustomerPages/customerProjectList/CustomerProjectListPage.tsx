@@ -195,13 +195,6 @@ function ProjectCard({ onOpenChat, onPaymentCompleted, project }: ProjectCardPro
           <strong>{stage.label}</strong>
         </div>
 
-        {projectStartFeePayment ? (
-          <div className={`customer-project-start-fee ${canPayStartFee ? 'customer-project-start-fee-due' : ''}`}>
-            <span>Project Start Fee</span>
-            <strong>{formatPaymentStatus(startFeePaymentStatus)}</strong>
-          </div>
-        ) : null}
-
         <div className="customer-project-list-actions">
           <button
             type="button"
@@ -326,14 +319,4 @@ function normalizeLegacyPaymentStatus(status: string) {
   if (status === 'PARTIALLY_PAID' || status === 'LEGACY_PARTIALLY_PAID') return 'PAID';
 
   return status;
-}
-
-function formatPaymentStatus(status?: string | null) {
-  if (!status) return 'Not created';
-
-  return status
-    .toLowerCase()
-    .split('_')
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(' ');
 }

@@ -224,10 +224,10 @@ export function ProductionRequests() {
                     <td>
                       <div className="production-workspace-row-actions">
                         <Link to={`/production/requests/${request.productionRequestId}`}>View Detail</Link>
-                        {productionRequestAllowedActions[request.status].slice(0, 2).map((action) => (
+                        {productionRequestAllowedActions[request.status].filter((action) => action !== 'Cancel').slice(0, 2).map((action) => (
                           <button
                             className="is-secondary"
-                            disabled={markFeasibleMutation.isPending || startMutation.isPending || action === 'Cancel'}
+                            disabled={markFeasibleMutation.isPending || startMutation.isPending}
                             key={action}
                             type="button"
                             onClick={() => void runQuickAction(action, request.productionRequestId)}
