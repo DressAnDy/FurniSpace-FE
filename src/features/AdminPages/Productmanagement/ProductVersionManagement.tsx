@@ -63,7 +63,7 @@ export function ProductVersionManagement() {
   const productQuery = useProductDetail(productId);
   const setDefaultMutation = useSetDefaultProductVersion(productId);
   const product = productQuery.data;
-  const versions = product?.versions ?? [];
+  const versions = useMemo(() => product?.versions ?? [], [product?.versions]);
   const versionBuckets = useMemo(() => ({
     customize: versions.filter(isCustomizeVersion),
     system: versions.filter((version) => !isCustomizeVersion(version)),

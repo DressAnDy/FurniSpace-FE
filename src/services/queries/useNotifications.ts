@@ -153,6 +153,7 @@ export function useNotificationRealtime(input: {
         withCredentials: true,
       })
       .withAutomaticReconnect()
+      .configureLogging(signalR.LogLevel.Warning)
       .build();
 
     const handleInAppNotification = (payload: RealtimeNotificationPayload) => {
@@ -179,12 +180,6 @@ export function useNotificationRealtime(input: {
 
     let isDisposed = false;
 
-    const stopConnection = () => {
-      if (connection.state === signalR.HubConnectionState.Connected || connection.state === signalR.HubConnectionState.Reconnecting) {
-        void connection.stop();
-      }
-    };
-
     const startPromise = connection.start().catch(() => undefined);
 
     return () => {
@@ -196,16 +191,19 @@ export function useNotificationRealtime(input: {
         connection.off(eventName, handleRealtimeOnlyNotification);
       });
 
-      if (connection.state === signalR.HubConnectionState.Connecting) {
-        void startPromise.finally(() => {
-          if (isDisposed) {
-            stopConnection();
-          }
-        });
-        return;
-      }
+      void startPromise.finally(() => {
+        if (!isDisposed) {
+          return;
+        }
 
-      stopConnection();
+        if (
+          connection.state === signalR.HubConnectionState.Connected
+          || connection.state === signalR.HubConnectionState.Connecting
+          || connection.state === signalR.HubConnectionState.Reconnecting
+        ) {
+          void connection.stop();
+        }
+      });
     };
   }, [enabled, hubUrl, queryClient]);
 }

@@ -5,6 +5,7 @@ export * from './adminFinancial';
 export * from './businessTypes';
 export * from './categories';
 export * from './customizationRequests';
+export * from './dashboard';
 export * from './production';
 export * from './products';
 export * from './projectAreas';

@@ -10,7 +10,7 @@ export function getPostLoginPath(role?: string) {
   }
 
   if (normalizedRole.includes('DESIGNER')) {
-    return '/designer/assigned-projects';
+    return '/designer/dashbroad';
   }
 
   if (normalizedRole.includes('PRODUCTION')) {

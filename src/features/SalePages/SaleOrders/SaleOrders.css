@@ -5,7 +5,7 @@
   min-height: 100vh;
   background: #faf9f7;
   color: #2d2d2d;
-  font-family: Inter, "DM Sans", Arial, sans-serif;
+  font-family: "Be Vietnam Pro", Inter, "DM Sans", Arial, sans-serif;
 }
 
 .sale-orders-content {
@@ -198,7 +198,9 @@
 
 .sale-orders-project-list strong {
   font-size: 13px;
-  font-weight: 800;
+  font-weight: 700;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
 }
 
 .sale-orders-project-list span,
@@ -206,6 +208,7 @@
   color: #6b6b6b;
   font-size: 12px;
   font-style: normal;
+  line-height: 1.45;
 }
 
 .sale-orders-project-pagination {

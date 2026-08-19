@@ -2,7 +2,7 @@ import { IconBell, IconCheck, IconLoader2 } from '@tabler/icons-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
-import { useRealtimeInAppNotification } from '@/app/providers/RealtimeSyncProvider';
+import { useRealtimeInAppNotification } from '@/app/providers/realtimeSyncContext';
 import {
   getNotificationServiceResultMessage,
   type NotificationDto,
