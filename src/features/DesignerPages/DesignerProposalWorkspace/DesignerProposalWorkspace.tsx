@@ -115,7 +115,7 @@ export function DesignerProposalWorkspace() {
   const updateProposalSceneMutation = useUpdateProposalScene();
   const project = projectQuery.data;
   const proposal = proposalQuery.data;
-  const areas = useMemo(() => areasQuery.data ?? [], [areasQuery.data]);
+  const areas = useMemo(() => getAreasByFloor(areasQuery.data ?? []), [areasQuery.data]);
   const scenes = useMemo(
     () => scenesQuery.data?.items ?? proposal?.scenes ?? [],
     [proposal?.scenes, scenesQuery.data?.items],
@@ -245,11 +245,18 @@ export function DesignerProposalWorkspace() {
   }
 
   function openRoomPlanner(scene: ProposalSceneDto) {
+    const sceneAreaIds = getSceneAreaIds(scene);
+    const fullSceneAreas = sceneAreaIds.length > 0
+      ? sceneAreaIds
+          .map((areaId) => areas.find((area) => area.projectAreaId === areaId))
+          .filter((area): area is ProjectAreaDto => Boolean(area))
+      : areas;
+
     navigate(`/proposal-scenes/${scene.sceneId}/room-planner`, {
       state: {
         mode: 'create-proposal',
-        projectAreaIds: getSceneAreaIds(scene),
-        areas: scene.areas ?? areas,
+        projectAreaIds: sceneAreaIds,
+        areas: fullSceneAreas,
         projectId,
         proposalId: activeProposalId,
         returnTo: `/designer/projects/${projectId}/proposals/${activeProposalId}`,
@@ -964,6 +971,20 @@ function formatEnumLabel(value: string) {
     .split('_')
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(' ');
+}
+
+function getAreasByFloor<T extends { areaName: string; floorNumber: number | null }>(areas: T[]) {
+  return [...areas].sort((first, second) => {
+    const floorDifference = getSortableFloor(first.floorNumber) - getSortableFloor(second.floorNumber);
+
+    if (floorDifference !== 0) return floorDifference;
+
+    return first.areaName.localeCompare(second.areaName);
+  });
+}
+
+function getSortableFloor(floorNumber: number | null) {
+  return typeof floorNumber === 'number' ? floorNumber : Number.MAX_SAFE_INTEGER;
 }
 
 function isEditableProposalStatus(status?: ProposalDetailDto['status'] | null) {

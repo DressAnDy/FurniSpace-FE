@@ -320,3 +320,4 @@ function normalizeLegacyPaymentStatus(status: string) {
 
   return status;
 }
+

@@ -29,6 +29,18 @@ export type BuildingPlacementSurface = {
 
 export type BuildingSurfaceType = BuildingPlacementSurface['type'] | 'WALL' | 'CEILING' | 'OBJECT';
 
+export type BuildingFloorOpening = {
+  depth: number;
+  id: string;
+  label: string;
+  position: {
+    x: number;
+    z: number;
+  };
+  type: 'STAIR';
+  width: number;
+};
+
 export type BuildingLevel = {
   depth: number;
   elevation: number;
@@ -36,6 +48,7 @@ export type BuildingLevel = {
     x: number;
     z: number;
   };
+  floorOpenings?: BuildingFloorOpening[];
   height: number;
   id: BuildingLevelId;
   label: string;

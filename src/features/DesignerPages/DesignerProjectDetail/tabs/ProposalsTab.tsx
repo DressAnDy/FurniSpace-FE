@@ -39,7 +39,7 @@ export function ProposalsTab({ project }: Readonly<ProposalsTabProps>) {
     limit: 20,
   });
   const proposals = proposalsQuery.data?.items ?? [];
-  const areas = areasQuery.data ?? [];
+  const areas = getAreasByFloor(areasQuery.data ?? []);
   const canCreateProposal = isProposalDraftingStatus(project.status);
 
   function openProposalSetup() {
@@ -403,6 +403,20 @@ function isEditableProposalStatus(status: ProposalDto['status']) {
 
 function isProposalDraftingStatus(status: string) {
   return normalizeStatus(status) === 'PROPOSAL_CONSULTING';
+}
+
+function getAreasByFloor<T extends { areaName: string; floorNumber: number | null }>(areas: T[]) {
+  return [...areas].sort((first, second) => {
+    const floorDifference = getSortableFloor(first.floorNumber) - getSortableFloor(second.floorNumber);
+
+    if (floorDifference !== 0) return floorDifference;
+
+    return first.areaName.localeCompare(second.areaName);
+  });
+}
+
+function getSortableFloor(floorNumber: number | null) {
+  return typeof floorNumber === 'number' ? floorNumber : Number.MAX_SAFE_INTEGER;
 }
 
 function normalizeStatus(status: string) {

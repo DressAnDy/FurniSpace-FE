@@ -178,6 +178,29 @@
   font-size: 11px;
 }
 
+.blueprint-stair-opening-fields {
+  background: #f7faf9;
+  border: 1px solid var(--blueprint-border);
+  display: grid;
+  gap: 8px;
+  grid-column: 1 / -1;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin: 0;
+  padding: 9px;
+}
+
+.blueprint-stair-opening-fields > strong {
+  color: var(--blueprint-muted);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.blueprint-stair-opening-fields > strong {
+  grid-column: 1 / -1;
+}
+
 .blueprint-floor-actions {
   display: grid;
   gap: 8px;
@@ -210,10 +233,25 @@
   gap: 5px;
 }
 
-.blueprint-number-field span {
+.blueprint-number-field span,
+.blueprint-readonly-field span {
   color: var(--blueprint-muted);
   font-size: 12px;
   font-weight: 700;
+}
+
+.blueprint-readonly-field {
+  background: #f7faf9;
+  border: 1px solid var(--blueprint-border);
+  display: grid;
+  gap: 5px;
+  min-height: 55px;
+  padding: 8px 9px;
+}
+
+.blueprint-readonly-field strong {
+  color: var(--blueprint-text);
+  font-size: 14px;
 }
 
 .blueprint-number-field input {
@@ -247,7 +285,6 @@
   left: 16px;
   pointer-events: none;
   position: absolute;
-  right: 16px;
   top: 16px;
   z-index: 2;
 }
@@ -272,6 +309,38 @@
   color: var(--blueprint-muted);
   font-size: 12px;
   margin-top: 2px;
+}
+
+.building-blueprint-toolbar-area-info {
+  display: grid;
+  gap: 7px 14px;
+  grid-template-columns: repeat(4, max-content);
+  margin: 10px 0 0;
+  padding: 0;
+}
+
+.building-blueprint-toolbar-area-info div {
+  display: grid;
+  gap: 2px;
+}
+
+.building-blueprint-toolbar-area-info dt {
+  color: var(--blueprint-muted);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.building-blueprint-toolbar-area-info dd {
+  color: var(--blueprint-text);
+  font-size: 12px;
+  font-weight: 800;
+  margin: 0;
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .building-blueprint-canvas {

@@ -851,6 +851,19 @@
   box-shadow: 0 8px 20px rgba(128, 85, 38, 0.28);
 }
 
+.building-test-header nav .building-test-publish-button {
+  background: linear-gradient(135deg, #2d7c7d, #0f595f);
+  border-color: #0f595f;
+  box-shadow: 0 6px 16px rgba(15, 89, 95, 0.24);
+  color: #ffffff;
+  font-weight: 800;
+}
+
+.building-test-header nav .building-test-publish-button:not(:disabled):hover {
+  background: linear-gradient(135deg, #246e70, #0b4b51);
+  box-shadow: 0 8px 20px rgba(11, 75, 81, 0.3);
+}
+
 .building-test-header nav .building-test-reset-button {
   background: #ffffff;
   color: #765f49;

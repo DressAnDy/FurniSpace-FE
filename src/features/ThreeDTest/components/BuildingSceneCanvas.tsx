@@ -117,17 +117,46 @@ function getSceneProductLoadLocks(scene: Scene) {
 }
 
 function setRootPosition(root: TransformNode, position: Vector3State) {
+  setRootRenderPosition(root, toRenderPosition(position));
+}
+
+function setRootRenderPosition(root: TransformNode, position: Vector3State) {
   const groundOffset = Number(root.metadata?.groundOffsetY ?? 0);
   root.position = new Vector3(position.x, position.y + groundOffset, position.z);
 }
 
 function getAnchorPosition(root: TransformNode): Vector3State {
+  return toLogicalPosition(getRenderAnchorPosition(root));
+}
+
+function getRenderAnchorPosition(root: TransformNode): Vector3State {
   const groundOffset = Number(root.metadata?.groundOffsetY ?? 0);
 
   return {
     x: Number(root.position.x.toFixed(2)),
     y: Number((root.position.y - groundOffset).toFixed(2)),
     z: Number(root.position.z.toFixed(2)),
+  };
+}
+
+function toRenderPosition(position: Vector3State): Vector3State {
+  return {
+    ...position,
+    z: Number((-position.z).toFixed(2)),
+  };
+}
+
+function toLogicalPosition(position: Vector3State): Vector3State {
+  return {
+    ...position,
+    z: Number((-position.z).toFixed(2)),
+  };
+}
+
+function toRenderRotation(rotation: Vector3State): Vector3State {
+  return {
+    ...rotation,
+    y: -rotation.y,
   };
 }
 
@@ -165,7 +194,9 @@ async function loadProduct(scene: Scene, product: PlacedBuildingProduct) {
   const existingRoot = getProductRoot(scene, product.sceneObjectId);
 
   if (existingRoot) {
-    existingRoot.rotation = new Vector3(product.rotation.x, product.rotation.y, product.rotation.z);
+    const renderRotation = toRenderRotation(product.rotation);
+
+    existingRoot.rotation = new Vector3(renderRotation.x, renderRotation.y, renderRotation.z);
     existingRoot.scaling = new Vector3(product.scale?.x ?? 1, product.scale?.y ?? 1, product.scale?.z ?? 1);
     existingRoot.metadata = {
       ...(existingRoot.metadata ?? {}),
@@ -186,8 +217,10 @@ async function loadProduct(scene: Scene, product: PlacedBuildingProduct) {
     source: 'building-test-product',
     surfaceId: product.surfaceId,
   };
-  root.position = new Vector3(product.position.x, product.position.y, product.position.z);
-  root.rotation = new Vector3(product.rotation.x, product.rotation.y, product.rotation.z);
+  const renderRotation = toRenderRotation(product.rotation);
+
+  root.position = new Vector3(product.position.x, product.position.y, -product.position.z);
+  root.rotation = new Vector3(renderRotation.x, renderRotation.y, renderRotation.z);
   root.scaling = new Vector3(product.scale?.x ?? 1, product.scale?.y ?? 1, product.scale?.z ?? 1);
 
   result.rootNodes.forEach((node) => {
@@ -430,11 +463,11 @@ export function BuildingSceneCanvas({
 
             onProductDrop(
               model,
-              {
+              toLogicalPosition({
                 x: Number(surfacePick.point.x.toFixed(2)),
                 y: Number(surfacePick.surface.elevation.toFixed(2)),
                 z: Number(surfacePick.point.z.toFixed(2)),
-              },
+              }),
               surfacePick.surface.id,
               surfacePick.surface.levelId,
             );
@@ -474,7 +507,7 @@ export function BuildingSceneCanvas({
 
               dragRef.current = {
                 hasMoved: false,
-                lastValidPosition: getAnchorPosition(root),
+                lastValidPosition: getRenderAnchorPosition(root),
                 levelId,
                 sceneObjectId,
                 surfaceId,
@@ -531,7 +564,7 @@ export function BuildingSceneCanvas({
                   })
                 : desiredPosition;
 
-              setRootPosition(root, nextPosition);
+              setRootRenderPosition(root, nextPosition);
               dragRef.current = {
                 ...drag,
                 hasMoved: drag.hasMoved || !arePositionsEqual(nextPosition, drag.lastValidPosition),
