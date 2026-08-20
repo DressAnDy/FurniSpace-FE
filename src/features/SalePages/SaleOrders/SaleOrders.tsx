@@ -317,12 +317,12 @@ function OrderDetailPanel({
         <span className={`sale-orders-status sale-orders-status-${statusClass(order.status)}`}>{formatEnumLabel(order.status ?? 'UNKNOWN')}</span>
       </header>
       <div className="sale-orders-money-grid">
-        <MoneyValue label="Original Total" value={formatMoney(order.originalTotalAmount)} />
-        <MoneyValue label={`VAT ${formatPercentRate(order.vatRate)}`} value={formatMoney(order.vatAmount)} />
-        <MoneyValue label="Final Total" value={formatMoney(order.finalTotalAmount)} />
+        <MoneyValue label="Tiền chưa VAT" value={formatMoney(order.originalTotalAmount)} />
+        <MoneyValue label="VAT" value={formatMoney(order.vatAmount)} />
+        <MoneyValue label="Tiền sau VAT" value={formatMoney(order.finalTotalAmount)} />
         <MoneyValue label="Deposit" value={formatMoney(order.depositAmount)} />
         <MoneyValue label="Paid" value={formatMoney(order.paidAmount)} />
-        <MoneyValue label="Remaining" value={formatMoney(order.remainingAmount)} />
+        <MoneyValue label="Remain" value={formatMoney(order.remainingAmount)} />
       </div>
       {order.status === 'CREATED' || order.status === 'DEPOSIT_PENDING' ? (
         <div className="sale-orders-flow-panel">
@@ -452,7 +452,6 @@ function OrderDetailPanel({
           <header>
             <div>
               <h3>Final Payment</h3>
-              <p>Prepare final payment phase and create/reuse the remaining payment when the backend reports a balance. Paid remaining payments complete the order automatically.</p>
             </div>
           </header>
           {showFinalPaymentActions ? (
@@ -537,12 +536,6 @@ function formatMoney(value?: number | null) {
   if (typeof value !== 'number') return '-';
 
   return `${new Intl.NumberFormat('vi-VN').format(value)} VND`;
-}
-
-function formatPercentRate(value?: number | null) {
-  if (typeof value !== 'number') return '-';
-
-  return `${new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 2 }).format(value * 100)}%`;
 }
 
 function getCompleteOrderBlocker(order: OrderDetailDto) {

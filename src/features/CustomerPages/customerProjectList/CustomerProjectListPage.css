@@ -439,38 +439,6 @@
   font-size: 14px;
 }
 
-.customer-project-start-fee {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin-top: 14px;
-  border: 1px solid rgba(139, 111, 71, 0.15);
-  border-radius: 8px;
-  background: #faf9f7;
-  padding: 10px 12px;
-}
-
-.customer-project-start-fee-due {
-  border-color: rgba(139, 111, 71, 0.36);
-  background: #fffaf2;
-}
-
-.customer-project-start-fee span {
-  color: #6b6b6b;
-  font-size: 12px;
-}
-
-.customer-project-start-fee strong {
-  border-radius: 999px;
-  background: #f5f1ec;
-  color: #8b6f47;
-  font-size: 12px;
-  font-weight: 800;
-  line-height: 16px;
-  padding: 5px 9px;
-}
-
 .customer-project-list-actions {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;

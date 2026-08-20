@@ -52,7 +52,8 @@ export type SelectedRoomItem =
   | { id: string; type: 'wall' }
   | { id: string; type: 'door' }
   | { id: string; type: 'window' }
-  | { id: string; type: 'opening' };
+  | { id: string; type: 'opening' }
+  | { id: string; type: 'floor-hole' };
 
 export type RoomMaterialSelection = {
   fallbackColor: string;
@@ -95,6 +96,8 @@ export type BlueprintTool =
   | 'door'
   | 'window'
   | 'opening'
+  | 'node'
+  | 'floor-hole'
   | 'ceiling'
   | 'hide-labels'
   | 'save';

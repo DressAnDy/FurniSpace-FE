@@ -13,6 +13,7 @@ import {
   IconRefresh,
   IconRulerMeasure,
   IconSearch,
+  IconSend,
   IconX,
 } from '@tabler/icons-react';
 import { Link as RouterLink, useLocation, useParams } from 'react-router-dom';
@@ -57,7 +58,9 @@ import {
   useProductList,
   useProductVersionDetail,
   useProjectCustomizationRequests,
+  useProjectAreas,
   useProjectCatalogProducts,
+  usePublishProposal,
   useProposalDetail,
   useRoomPlannerScene,
   useSaveRoomPlannerScene,
@@ -314,6 +317,50 @@ function applyProposalItemIds(products: PlacedBuildingProduct[], items: Proposal
   }));
 }
 
+function createAreaTemplateKey(areas: BuildingProjectFloorAreaSource[]) {
+  return areas
+    .map((area) => [
+      area.projectAreaId,
+      area.areaName,
+      area.width ?? '',
+      area.length ?? '',
+      area.height ?? '',
+    ].join(':'))
+    .join('|');
+}
+
+function toBuildingProjectFloorAreaSource(area: BuildingProjectFloorAreaSource): BuildingProjectFloorAreaSource {
+  return {
+    areaName: area.areaName,
+    floorNumber: area.floorNumber ?? null,
+    height: area.height ?? null,
+    length: area.length ?? null,
+    projectAreaId: area.projectAreaId,
+    width: area.width ?? null,
+  };
+}
+
+function getSceneProjectAreaIds(
+  routeState: BuildingRoomPlannerRouteState | null,
+  roomPlannerScene: ReturnType<typeof useRoomPlannerScene>['data'],
+) {
+  if (routeState?.projectAreaIds?.length) {
+    return routeState.projectAreaIds;
+  }
+
+  if (roomPlannerScene?.projectAreaIds?.length) {
+    return roomPlannerScene.projectAreaIds;
+  }
+
+  const roomPlannerAreaIds = roomPlannerScene?.areas?.map((area) => area.projectAreaId).filter(Boolean) ?? [];
+
+  if (roomPlannerAreaIds.length) {
+    return roomPlannerAreaIds;
+  }
+
+  return roomPlannerScene?.projectAreaId ? [roomPlannerScene.projectAreaId] : [];
+}
+
 export function BuildingThreeDTestPage() {
   const { sceneId } = useParams();
   const location = useLocation();
@@ -331,6 +378,7 @@ export function BuildingThreeDTestPage() {
   const roomPlannerSceneQuery = useRoomPlannerScene(sceneId, { enabled: Boolean(sceneId) });
   const saveRoomPlannerSceneMutation = useSaveRoomPlannerScene();
   const syncProposalItemsMutation = useSyncProposalItemsFromScene();
+  const publishProposalMutation = usePublishProposal();
   const currentProposalId = routeState?.proposalId ?? roomPlannerSceneQuery.data?.proposalId ?? null;
   const proposalDetailQuery = useProposalDetail(currentProposalId ?? undefined, { enabled: Boolean(currentProposalId) });
   const currentProjectId = routeState?.projectId ?? proposalDetailQuery.data?.projectId ?? null;
@@ -338,6 +386,10 @@ export function BuildingThreeDTestPage() {
   const businessTypesQuery = useBusinessTypeList({ page: 1, limit: 100 });
   const customizationRequestsQuery = useProjectCustomizationRequests(
     currentProjectId ? { projectId: currentProjectId } : undefined,
+    { enabled: Boolean(currentProjectId) },
+  );
+  const projectAreasQuery = useProjectAreas(
+    currentProjectId ? { projectId: currentProjectId, includeCancelled: false } : undefined,
     { enabled: Boolean(currentProjectId) },
   );
   const [selectedBusinessTypeIds, setSelectedBusinessTypeIds] = useState<number[]>([]);
@@ -410,6 +462,7 @@ export function BuildingThreeDTestPage() {
   const skipNextDraftPersistRef = useRef(false);
   const appliedRemoteProductsKeyRef = useRef<string | null>(null);
   const appliedRemoteSceneKeyRef = useRef<string | null>(null);
+  const appliedAreaTemplateRef = useRef<string | null>(null);
 
   const catalogModels = useMemo(() => {
     const models = new Map<string, BuildingProductModel>();
@@ -513,6 +566,25 @@ export function BuildingThreeDTestPage() {
       .filter((product) => !selectedCategoryId || product.categoryId === selectedCategoryId)
       .filter((product) => matchesBusinessTypes(product.businessTypeIds, selectedBusinessTypeIds))
       .length;
+  const sceneProjectAreaIds = useMemo(
+    () => getSceneProjectAreaIds(routeState, roomPlannerSceneQuery.data),
+    [routeState, roomPlannerSceneQuery.data],
+  );
+  const templateAreas = useMemo<BuildingProjectFloorAreaSource[]>(() => {
+    if (routeState?.areas?.length) {
+      return routeState.areas;
+    }
+
+    const fetchedAreas = projectAreasQuery.data ?? [];
+    const selectedAreaIds = new Set(sceneProjectAreaIds);
+
+    return selectedAreaIds.size > 0
+      ? sceneProjectAreaIds
+          .map((areaId) => fetchedAreas.find((area) => area.projectAreaId === areaId))
+          .filter((area): area is NonNullable<typeof area> => Boolean(area))
+          .map(toBuildingProjectFloorAreaSource)
+      : fetchedAreas.map(toBuildingProjectFloorAreaSource);
+  }, [projectAreasQuery.data, routeState?.areas, sceneProjectAreaIds]);
 
   useEffect(() => {
     if (!message) {
@@ -527,12 +599,46 @@ export function BuildingThreeDTestPage() {
   }, [message]);
 
   useEffect(() => {
-    if (sceneId || !routeState?.areas?.length) {
+    if (sceneId || !templateAreas.length) {
       return;
     }
 
-    setSceneData(createBuildingTestSceneFromProjectFloorAreas(routeState.areas));
-  }, [routeState?.areas, sceneId, setSceneData]);
+    setSceneData(createBuildingTestSceneFromProjectFloorAreas(templateAreas));
+  }, [templateAreas, sceneId, setSceneData]);
+
+  useEffect(() => {
+    if (!sceneId || !templateAreas.length || roomPlannerSceneQuery.isLoading || projectAreasQuery.isLoading) {
+      return;
+    }
+
+    const hydratedScene = roomPlannerSceneQuery.data
+      ? hydrateBuildingRoomPlannerPayload(roomPlannerSceneQuery.data)
+      : null;
+
+    if (hydratedScene?.sceneData || shouldKeepSceneDraft(roomPlannerSceneQuery.data?.lastSavedAt ?? null)) {
+      return;
+    }
+
+    const templateKey = createAreaTemplateKey(templateAreas);
+
+    if (appliedAreaTemplateRef.current === templateKey) {
+      return;
+    }
+
+    appliedAreaTemplateRef.current = templateKey;
+    setRemoteSceneData(
+      createBuildingTestSceneFromProjectFloorAreas(templateAreas),
+      roomPlannerSceneQuery.data?.lastSavedAt ?? null,
+    );
+  }, [
+    projectAreasQuery.isLoading,
+    roomPlannerSceneQuery.data,
+    roomPlannerSceneQuery.isLoading,
+    sceneId,
+    setRemoteSceneData,
+    shouldKeepSceneDraft,
+    templateAreas,
+  ]);
 
   useEffect(() => {
     if (!routeState?.transientPlacedProducts) {
@@ -715,7 +821,9 @@ export function BuildingThreeDTestPage() {
   const canSaveRoomPlannerStatus =
     !proposalDetailQuery.data?.status ||
     ROOM_PLANNER_SAVE_STATUSES.includes(proposalDetailQuery.data.status as (typeof ROOM_PLANNER_SAVE_STATUSES)[number]);
+  const canPublishRoomPlanner = Boolean(currentProposalId && canSaveRoomPlannerStatus);
   const isSavingRoomPlanner = saveRoomPlannerSceneMutation.isPending || syncProposalItemsMutation.isPending;
+  const isPublishingRoomPlanner = isSavingRoomPlanner || publishProposalMutation.isPending;
   const returnProjectId = routeState?.projectId ?? roomPlannerSceneQuery.data?.projectId ?? proposalDetailQuery.data?.projectId;
   const returnProposalId = routeState?.proposalId ?? roomPlannerSceneQuery.data?.proposalId ?? currentProposalId;
   const proposalReturnPath = routeState?.returnTo ??
@@ -977,18 +1085,20 @@ export function BuildingThreeDTestPage() {
     setMessage('Prototype scene reset.');
   }
 
-  async function saveScene() {
+  async function saveScene(options?: { silent?: boolean }) {
     if (!sceneId) {
       setMessage('Open this planner from a proposal scene before saving to backend.');
-      return;
+      return false;
     }
 
     if (!canSaveRoomPlannerStatus) {
       setMessage(`Room Planner can be saved only when proposal is ${ROOM_PLANNER_SAVE_STATUSES.join(', ')}.`);
-      return;
+      return false;
     }
 
-    setMessage('');
+    if (!options?.silent) {
+      setMessage('');
+    }
 
     try {
       const buildPayload = (products: PlacedBuildingProduct[]) => createBuildingRoomPlannerPayload({
@@ -1021,12 +1131,48 @@ export function BuildingThreeDTestPage() {
         }
 
         clearPlacedProductsDraft();
-        setMessage(`Saved and synced ${syncResult.items.length} proposal item(s) at ${new Date(result.lastSavedAt).toLocaleString()}.`);
-        return;
+        if (!options?.silent) {
+          setMessage(`Saved and synced ${syncResult.items.length} proposal item(s) at ${new Date(result.lastSavedAt).toLocaleString()}.`);
+        }
+        return true;
       }
 
       clearPlacedProductsDraft();
-      setMessage(`Saved at ${new Date(result.lastSavedAt).toLocaleString()}. Open from a proposal to sync proposal items.`);
+      if (!options?.silent) {
+        setMessage(`Saved at ${new Date(result.lastSavedAt).toLocaleString()}. Open from a proposal to sync proposal items.`);
+      }
+      return true;
+    } catch (error) {
+      setMessage(getProposalServiceResultMessage(error));
+      return false;
+    }
+  }
+
+  async function publishRoomPlanner() {
+    if (!currentProposalId) {
+      setMessage('Open this planner from a proposal before publishing.');
+      return;
+    }
+
+    if (!canPublishRoomPlanner) {
+      setMessage(`Proposal can be published only when it is ${ROOM_PLANNER_SAVE_STATUSES.join(', ')}.`);
+      return;
+    }
+
+    setMessage('Saving room planner before publishing...');
+
+    const saved = await saveScene({ silent: true });
+
+    if (!saved) {
+      return;
+    }
+
+    try {
+      await publishProposalMutation.mutateAsync({
+        proposalId: currentProposalId,
+        note: 'Published from designer room planner.',
+      });
+      setMessage('Room planner saved and proposal published successfully.');
     } catch (error) {
       setMessage(getProposalServiceResultMessage(error));
     }
@@ -1083,6 +1229,16 @@ export function BuildingThreeDTestPage() {
           >
             <IconDeviceFloppy size={17} />
             <span>{isSavingRoomPlanner ? 'Saving...' : 'Save design'}</span>
+          </button>
+          <button
+            className="building-test-publish-button"
+            disabled={!canPublishRoomPlanner || isPublishingRoomPlanner}
+            title={!currentProposalId ? 'Open this planner from a proposal to publish.' : undefined}
+            type="button"
+            onClick={() => void publishRoomPlanner()}
+          >
+            <IconSend size={17} />
+            <span>{publishProposalMutation.isPending ? 'Publishing...' : 'Publish'}</span>
           </button>
           <button className="building-test-reset-button" type="button" onClick={resetScene}>
             <IconRefresh size={17} />

@@ -22,7 +22,6 @@ import {
   useProposalDetail,
   useProjectQuotations,
   useQuotationDetail,
-  useRejectQuotation,
   useRequestQuotationRevision,
 } from '@/services/queries';
 import { getDefaultPaymentExpiredAt } from '@/shared/utils/dateValidation';
@@ -45,7 +44,6 @@ export function CustomerQuotationsPage() {
   const [selectedProjectId, setSelectedProjectId] = useState('');
   const [selectedQuotationId, setSelectedQuotationId] = useState('');
   const [revisionReason, setRevisionReason] = useState('');
-  const [rejectReason, setRejectReason] = useState('');
   const [activePayment, setActivePayment] = useState<PaymentDetailDto | null>(null);
   const [message, setMessage] = useState<{ tone: 'error' | 'success'; text: string } | null>(null);
   const projectsQuery = useProjectList({ page: 1, limit: 50 });
@@ -73,7 +71,6 @@ export function CustomerQuotationsPage() {
   const acceptMutation = useAcceptQuotation();
   const depositMutation = useCreateOrderDepositPayment();
   const revisionMutation = useRequestQuotationRevision();
-  const rejectMutation = useRejectQuotation();
 
   useEffect(() => {
     if (!selectedProjectId && quotationProjects.length > 0) {
@@ -149,30 +146,6 @@ export function CustomerQuotationsPage() {
     }
   }
 
-  async function rejectQuotation(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-
-    if (!selectedQuotation) return;
-
-    if (!rejectReason.trim()) {
-      setMessage({ tone: 'error', text: 'Please provide a reason before rejecting this quotation.' });
-      return;
-    }
-
-    setMessage(null);
-
-    try {
-      await rejectMutation.mutateAsync({
-        quotationId: selectedQuotation.quotationId,
-        rejectReason,
-      });
-      setRejectReason('');
-      setMessage({ tone: 'success', text: 'Quotation rejected.' });
-    } catch (error) {
-      setMessage({ tone: 'error', text: getQuotationServiceResultMessage(error) });
-    }
-  }
-
   return (
     <main className="customer-quotations-page">
       <CustomerNavbar activeLabel="Quotations" classPrefix="customer-quotations" />
@@ -242,14 +215,10 @@ export function CustomerQuotationsPage() {
                 order={selectedQuotationOrder}
                 quotation={selectedQuotation}
                 proposalName={selectedProposalName}
-                rejectPending={rejectMutation.isPending}
-                rejectReason={rejectReason}
                 revisionPending={revisionMutation.isPending}
                 revisionReason={revisionReason}
                 onAccept={() => void acceptQuotation()}
                 onCreateDeposit={() => void createDepositPayment()}
-                onReject={(event) => void rejectQuotation(event)}
-                onRejectReasonChange={setRejectReason}
                 onRequestRevision={(event) => void requestRevision(event)}
                 onRevisionReasonChange={setRevisionReason}
               />
@@ -280,15 +249,11 @@ function QuotationDetail({
   depositPending,
   onAccept,
   onCreateDeposit,
-  onReject,
-  onRejectReasonChange,
   onRequestRevision,
   onRevisionReasonChange,
   quotation,
   order,
   proposalName,
-  rejectPending,
-  rejectReason,
   revisionPending,
   revisionReason,
 }: {
@@ -296,15 +261,11 @@ function QuotationDetail({
   depositPending: boolean;
   onAccept: () => void;
   onCreateDeposit: () => void;
-  onReject: (event: FormEvent<HTMLFormElement>) => void;
-  onRejectReasonChange: (value: string) => void;
   onRequestRevision: (event: FormEvent<HTMLFormElement>) => void;
   onRevisionReasonChange: (value: string) => void;
   proposalName: string;
   quotation: QuotationDto & { items?: QuotationItemDto[] };
   order: OrderListItemDto | null;
-  rejectPending: boolean;
-  rejectReason: string;
   revisionPending: boolean;
   revisionReason: string;
 }) {
@@ -403,12 +364,11 @@ function QuotationDetail({
         </table>
       </div>
 
-      {quotation.salesNote || quotation.customerNote || quotation.revisionReason || quotation.rejectReason ? (
+      {quotation.salesNote || quotation.customerNote || quotation.revisionReason ? (
         <div className="customer-quotations-note-grid">
           <NoteBlock label="Sales Note" value={quotation.salesNote} />
           <NoteBlock label="Customer Note" value={quotation.customerNote} />
           <NoteBlock label="Revision Reason" value={quotation.revisionReason} />
-          <NoteBlock label="Reject Reason" value={quotation.rejectReason} />
         </div>
       ) : null}
 
@@ -423,13 +383,6 @@ function QuotationDetail({
             <button disabled={revisionPending} type="submit">
               <IconRefresh size={15} stroke={1.8} />
               {revisionPending ? 'Sending...' : 'Request Revision'}
-            </button>
-          </form>
-          <form onSubmit={onReject}>
-            <strong>Reject Quotation</strong>
-            <textarea value={rejectReason} rows={2} placeholder="Reason for rejecting this quotation" onChange={(event) => onRejectReasonChange(event.target.value)} />
-            <button disabled={rejectPending} type="submit">
-              {rejectPending ? 'Rejecting...' : 'Reject Quotation'}
             </button>
           </form>
         </section>
