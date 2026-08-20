@@ -206,10 +206,15 @@
   display: grid;
   max-width: min(360px, calc(100vw - 32px));
   gap: 4px;
-  border: 1px solid rgba(139, 111, 71, 0.16);
+  border: 1px solid rgba(247, 202, 107, 0.72);
   border-radius: 12px;
-  background: #ffffff;
-  box-shadow: 0 20px 45px rgba(45, 45, 45, 0.16);
+  background:
+    linear-gradient(#ffffff, #ffffff) padding-box,
+    linear-gradient(135deg, rgba(255, 244, 190, 0.95), rgba(201, 162, 77, 0.72), rgba(255, 255, 255, 0.88)) border-box;
+  box-shadow:
+    0 0 0 3px rgba(247, 202, 107, 0.18),
+    0 0 22px rgba(247, 202, 107, 0.32),
+    0 20px 45px rgba(45, 45, 45, 0.16);
   padding: 13px 15px;
 }
 

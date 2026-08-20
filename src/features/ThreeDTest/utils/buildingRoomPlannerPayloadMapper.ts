@@ -9,7 +9,9 @@ import type {
 } from '@/features/ThreeDTest/schemas/buildingScene.types';
 import {
   createDefaultBuildingTestScene,
+  createRectLevelLayout,
   createLevelFloorSurface,
+  getLevelCenter,
 } from '@/features/ThreeDTest/utils/buildingTestSceneFactory';
 
 type BlueprintLayoutDocument = {
@@ -232,6 +234,7 @@ function getPointBounds(points: RoomLayoutState['points']) {
 function hydrateFloorLayout(
   floor: BlueprintFloorDocument,
   fallbackLevel: BuildingLevel,
+  buildingPosition: Vector3State,
   metadataLayout: RoomLayoutState | null | undefined,
 ): RoomLayoutState {
   const points = floor.points?.map((point) => ({ id: point.pointId, x: point.x, y: point.z })) ?? [];
@@ -247,7 +250,36 @@ function hydrateFloorLayout(
   })).filter((wall) => wall.startPointId && wall.endPointId) ?? [];
 
   if (!points.length || !floorWalls.length) {
-    return metadataLayout ?? {
+    const metadataHasDrawableBox = Boolean(metadataLayout?.points.length && metadataLayout.walls.length);
+
+    if (metadataLayout && metadataHasDrawableBox) {
+      return metadataLayout;
+    }
+
+    const defaultScene = createDefaultBuildingTestScene();
+    const center = getLevelCenter({
+      ...defaultScene,
+      building: {
+        ...defaultScene.building,
+        levels: [fallbackLevel],
+        position: buildingPosition,
+      },
+    }, fallbackLevel);
+    const width = metadataLayout
+      ? Math.max(getPointBounds(metadataLayout.points)?.width ?? fallbackLevel.width, 1)
+      : fallbackLevel.width;
+    const depth = metadataLayout
+      ? Math.max(getPointBounds(metadataLayout.points)?.depth ?? fallbackLevel.depth, 1)
+      : fallbackLevel.depth;
+
+    return createRectLevelLayout(
+      floor.id || fallbackLevel.id,
+      width,
+      depth,
+      center.x,
+      center.z,
+      wallHeight,
+    ) ?? {
       doors: [],
       floorMaterialId: 'wood-floor',
       openings: [],
@@ -490,13 +522,13 @@ function normalizeHydratedLevelStack(levels: BuildingLevel[]) {
     }
 
     const minimumElevation = getNextStackElevation(previousLevel);
-    const isFlattenedIntoPreviousLevel = rawElevation <= previousLevel.elevation + LEVEL_STACK_ELEVATION_EPSILON;
+    const isTooCloseToPreviousLevel = rawElevation < minimumElevation - LEVEL_STACK_ELEVATION_EPSILON;
 
     return [
       ...stackedLevels,
       {
         ...level,
-        elevation: isFlattenedIntoPreviousLevel ? Number(minimumElevation.toFixed(3)) : rawElevation,
+        elevation: isTooCloseToPreviousLevel ? Number(minimumElevation.toFixed(3)) : rawElevation,
       },
     ];
   }, []);
@@ -542,13 +574,25 @@ function hydrateSceneData(payload: HydrateBuildingPayload): BuildingTestScene | 
   const rawLevels = floors.map((floor, index) => {
     const fallbackLevel = defaultScene.building.levels[index] ?? defaultScene.building.levels[0];
     const metadataLevel = metadataBuilding?.levels?.[index];
-    const layout = hydrateFloorLayout(floor, fallbackLevel, metadataLevel?.layout);
+    const levelFallback = {
+      ...fallbackLevel,
+      depth: metadataLevel?.depth ?? fallbackLevel.depth,
+      footprintOffset: metadataLevel?.footprintOffset ?? fallbackLevel.footprintOffset,
+      height: metadataLevel?.height ?? fallbackLevel.height,
+      id: floor.id || metadataLevel?.id || fallbackLevel.id,
+      label: floor.name ?? metadataLevel?.label ?? fallbackLevel.label,
+      projectAreaId: floor.projectAreaId ?? metadataLevel?.projectAreaId ?? fallbackLevel.projectAreaId,
+      wallHeight: metadataLevel?.wallHeight ?? fallbackLevel.wallHeight,
+      width: metadataLevel?.width ?? fallbackLevel.width,
+    };
+    const layout = hydrateFloorLayout(floor, levelFallback, buildingPosition, metadataLevel?.layout);
     const pointBounds = getPointBounds(layout.points);
 
     return {
       ...fallbackLevel,
       depth: pointBounds ? Math.max(pointBounds.depth, 1) : metadataLevel?.depth ?? fallbackLevel.depth,
       elevation: floor.elevation ?? metadataLevel?.elevation ?? fallbackLevel.elevation,
+      floorOpenings: metadataLevel?.floorOpenings ?? fallbackLevel.floorOpenings ?? [],
       footprintOffset: pointBounds
         ? {
             x: pointBounds.centerX - buildingPosition.x,

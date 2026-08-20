@@ -546,6 +546,62 @@ export function movePoint(
   };
 }
 
+export function insertNodeOnWall(
+  layout: RoomLayoutState,
+  wallId: string,
+  point: Pick<BlueprintPoint, 'x' | 'y'>,
+) {
+  const wall = layout.walls.find((candidate) => candidate.id === wallId);
+
+  if (!wall) {
+    return layout;
+  }
+
+  const wallLength = getWallLength(wall, layout.points);
+  const offset = getPointOffsetOnWall(wall, layout.points, point);
+
+  if (offset < 0.35 || wallLength - offset < 0.35) {
+    return layout;
+  }
+
+  const nextPointId = getNextNumericId(layout.points, 'p');
+  const nextWallId = getNextNumericId(layout.walls, 'w');
+  const nextPoint = {
+    id: nextPointId,
+    x: Number(point.x.toFixed(2)),
+    y: Number(point.y.toFixed(2)),
+  };
+  const firstWall = {
+    ...wall,
+    endPointId: nextPointId,
+  };
+  const secondWall = {
+    ...wall,
+    id: nextWallId,
+    startPointId: nextPointId,
+  };
+  const remapOpening = <T extends RoomOpeningItem>(item: T): T => {
+    if (item.wallId !== wallId || item.offset <= offset) {
+      return item;
+    }
+
+    return {
+      ...item,
+      offset: Number((item.offset - offset).toFixed(2)),
+      wallId: nextWallId,
+    };
+  };
+
+  return normalizeDoorAndOpeningDimensions({
+    ...layout,
+    doors: layout.doors.map(remapOpening) as typeof layout.doors,
+    openings: layout.openings.map(remapOpening) as typeof layout.openings,
+    points: [...layout.points, nextPoint],
+    walls: layout.walls.flatMap((candidate) => (candidate.id === wallId ? [firstWall, secondWall] : [candidate])),
+    windows: layout.windows.map(remapOpening) as typeof layout.windows,
+  }, new Set([wallId, nextWallId]));
+}
+
 export function deleteOpeningItem(
   layout: RoomLayoutState,
   itemType: 'door' | 'window' | 'opening',

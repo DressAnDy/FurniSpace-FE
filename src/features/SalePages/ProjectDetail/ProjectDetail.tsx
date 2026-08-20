@@ -42,8 +42,14 @@ const timelineSteps = [
   'Measurement Required',
   'Space Verified',
   'Proposal Consulting',
+  'Proposal Selected',
   'Quotation Sent',
+  'Quotation Revision Requested',
   'Order Confirmed',
+  'In Production',
+  'Ready For Delivery',
+  'Delivering',
+  'Delivered',
   'Completed',
 ];
 
@@ -57,8 +63,14 @@ const statusStepMap: Record<string, string> = {
   MEASUREMENT_REQUIRED: 'Measurement Required',
   SPACE_VERIFIED: 'Space Verified',
   PROPOSAL_CONSULTING: 'Proposal Consulting',
+  PROPOSAL_SELECTED: 'Proposal Selected',
   QUOTATION_SENT: 'Quotation Sent',
+  QUOTATION_REVISION_REQUESTED: 'Quotation Revision Requested',
   ORDER_CONFIRMED: 'Order Confirmed',
+  IN_PRODUCTION: 'In Production',
+  READY_FOR_DELIVERY: 'Ready For Delivery',
+  DELIVERING: 'Delivering',
+  DELIVERED: 'Delivered',
   REJECTED: 'Rejected',
   COMPLETED: 'Completed',
 };
@@ -143,6 +155,23 @@ export function ProjectDetail() {
       setIsRequestInfoModalOpen(false);
       setRequestInfoMessage('');
       setStatusMessage('Project status updated successfully.');
+    } catch (error) {
+      setStatusMessage(getProjectServiceResultMessage(error));
+    }
+  }
+
+  async function handleAcceptForConsultation() {
+    setStatusMessage('');
+
+    if (!project) return;
+
+    try {
+      await assignSalesMutation.mutateAsync({
+        projectId: project.projectId,
+        note: getAcceptForConsultationNote(project.status),
+      });
+      await projectQuery.refetch();
+      navigate(`/sales/assigned-projects/${project.projectId}`, { replace: true });
     } catch (error) {
       setStatusMessage(getProjectServiceResultMessage(error));
     }
@@ -251,12 +280,7 @@ export function ProjectDetail() {
                         <button
                           type="button"
                           disabled={assignSalesMutation.isPending}
-                          onClick={() =>
-                            assignSalesMutation.mutate({
-                              projectId: project.projectId,
-                              note: getAcceptForConsultationNote(project.status),
-                            })
-                          }
+                          onClick={() => void handleAcceptForConsultation()}
                         >
                           {assignSalesMutation.isPending ? 'Accepting...' : 'Accept for Consultation'}
                         </button>
@@ -298,7 +322,7 @@ export function ProjectDetail() {
 
           {project ? (
             <>
-              <ProjectTimeline currentStep={statusStepMap[project.status] ?? 'Submitted'} steps={getTimelineSteps(project.status)} dates={getTimelineDates(project)} />
+              <ProjectTimeline currentStep={getTimelineCurrentStep(project.status)} steps={getTimelineSteps(project.status)} dates={getTimelineDates(project)} />
               {isAssignedProjectRoute && isPostDeliveryProject(project.status) ? (
                 <ProjectCompletionPanel
                   isCompleting={completeProjectMutation.isPending}
@@ -392,8 +416,15 @@ function getTimelineDates(project: ProjectDto) {
   return dates;
 }
 
+function getTimelineCurrentStep(status: ProjectStatus) {
+  return statusStepMap[status] ?? formatStatusLabel(status);
+}
+
 function getTimelineSteps(status: ProjectStatus) {
-  return status === 'REJECTED' ? rejectedTimelineSteps : timelineSteps;
+  const steps = status === 'REJECTED' ? rejectedTimelineSteps : timelineSteps;
+  const currentStep = getTimelineCurrentStep(status);
+
+  return steps.includes(currentStep) ? steps : [...steps, currentStep];
 }
 
 function formatDate(value: string) {

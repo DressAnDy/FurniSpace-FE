@@ -102,7 +102,7 @@ export function ProjectMemberTab({ project, canManageAssignment = false }: Proje
     <section className="project-detail-card project-detail-tab-panel project-detail-member-card">
       <header>
         <h3>Project Members</h3>
-        <p>Customer, sales, designer, and production ownership for this project.</p>
+        <p>Customer, sales, and designer ownership for this project.</p>
       </header>
 
       {isLoadingMembers ? <p className="project-detail-muted">Loading project members...</p> : null}
@@ -118,7 +118,6 @@ export function ProjectMemberTab({ project, canManageAssignment = false }: Proje
           placeholder="Unassigned"
           avatarClassName="project-detail-team-avatar-designer"
         />
-        <ProjectMemberCard label="Production" fallbackId={null} account={null} placeholder="Not assigned yet" />
       </div>
 
       {canManageAssignment && !project.assignedDesignerId ? <div className="project-detail-section-divider" /> : null}

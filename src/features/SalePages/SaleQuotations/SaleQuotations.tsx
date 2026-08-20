@@ -198,7 +198,7 @@ export function SaleQuotations() {
           : {
             quotationId: selectedQuotation.quotationId,
             validUntil: selectedQuotation.validUntil ?? null,
-            depositAmount: selectedQuotation.depositAmount ?? null,
+            depositAmount: getQuotationDepositAmount(selectedQuotation),
             salesNote: selectedQuotation.salesNote ?? null,
           };
 
@@ -586,7 +586,7 @@ export function SaleQuotations() {
                 </div>
                 <div>
                   <span>Deposit</span>
-                  <strong>{formatMoney(selectedQuotationForActions?.depositAmount ?? selectedQuotation.depositAmount)}</strong>
+                  <strong>{formatMoney(selectedQuotationForActions?.depositAmount ?? getQuotationDepositAmount(selectedQuotation))}</strong>
                 </div>
                 <div className="sale-quotations-total">
                   <span>Total Amount</span>
@@ -606,7 +606,7 @@ export function SaleQuotations() {
                   </label>
                   <label>
                     <span>Deposit Amount</span>
-                    <input inputMode="decimal" value={depositAmount} onChange={(event) => setDepositAmount(event.target.value)} placeholder="Required before sending" />
+                    <input inputMode="decimal" value={depositAmount} onChange={(event) => setDepositAmount(event.target.value)} placeholder="Auto 30% of total if unavailable" />
                   </label>
                   <button disabled={updateQuotationMutation.isPending} type="submit">
                     {updateQuotationMutation.isPending ? 'Saving...' : 'Save Quotation Details'}
@@ -730,14 +730,21 @@ function getSavedQuotationSnapshot(
   quotation: (QuotationDto & { items?: unknown[] }) | undefined,
   snapshot: SavedQuotationHeaderSnapshot | null,
 ) {
-  if (!quotation || snapshot?.quotationId !== quotation.quotationId) {
+  if (!quotation) {
     return quotation;
+  }
+
+  if (snapshot?.quotationId !== quotation.quotationId) {
+    return {
+      ...quotation,
+      depositAmount: getQuotationDepositAmount(quotation),
+    };
   }
 
   return {
     ...quotation,
     validUntil: snapshot.validUntil ?? quotation.validUntil,
-    depositAmount: snapshot.depositAmount ?? quotation.depositAmount,
+    depositAmount: snapshot.depositAmount ?? getQuotationDepositAmount(quotation),
   };
 }
 
@@ -783,6 +790,22 @@ function validateDepositAmount(value: string | number | null | undefined, totalA
   }
 
   return { ok: true as const, value: deposit };
+}
+
+function getQuotationDepositAmount(quotation: Pick<QuotationDto, 'depositAmount' | 'totalAmount'>) {
+  if (typeof quotation.depositAmount === 'number' && Number.isFinite(quotation.depositAmount) && quotation.depositAmount > 0) {
+    return quotation.depositAmount;
+  }
+
+  return calculateDefaultDepositAmount(quotation.totalAmount);
+}
+
+function calculateDefaultDepositAmount(totalAmount?: number | null) {
+  if (typeof totalAmount !== 'number' || !Number.isFinite(totalAmount) || totalAmount <= 0) {
+    return null;
+  }
+
+  return Math.ceil((totalAmount * 0.3) / 1000) * 1000;
 }
 
 function normalizeNumber(value: string) {

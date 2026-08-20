@@ -23,6 +23,7 @@ import {
   getWallLength,
   getWallNormal,
   getPointOffsetOnWall,
+  insertNodeOnWall,
   movePoint,
   moveWallAlongNormal,
   updateOpeningItem,
@@ -34,9 +35,25 @@ import {
 export type BlueprintCanvasProps = {
   activeTool: BlueprintTool;
   floorFillColor: string;
+  floorOpenings?: Array<{
+    depth: number;
+    id: string;
+    label: string;
+    position: {
+      x: number;
+      z: number;
+    };
+    width: number;
+  }>;
   hideLabels: boolean;
   layout: RoomLayoutState | null;
   onLayoutChange: (layout: RoomLayoutState) => void;
+  onFloorOpeningAdd?: (position: { x: number; z: number }) => void;
+  onFloorOpeningDelete?: (openingId: string) => void;
+  onFloorOpeningUpdate?: (
+    openingId: string,
+    update: Partial<{ depth: number; position: { x: number; z: number }; width: number }>,
+  ) => void;
   onMessage?: (message: string) => void;
   onSelectItem: (item: SelectedRoomItem | null) => void;
   readOnly?: boolean;
@@ -91,9 +108,15 @@ type DragOpeningState = {
   wallId: string;
 };
 
+type DragFloorOpeningState = {
+  openingId: string;
+  transform: CanvasTransform;
+  viewOffset: ViewOffset;
+};
+
 type ItemEditorMenuState = {
   itemId: string;
-  itemType: 'wall' | 'door' | 'window' | 'opening';
+  itemType: 'wall' | 'door' | 'window' | 'opening' | 'floor-hole';
   x: number;
   y: number;
 };
@@ -226,9 +249,13 @@ function getDistanceToSegment(
 export function BlueprintCanvas({
   activeTool,
   floorFillColor,
+  floorOpenings = [],
   hideLabels,
   layout,
   onLayoutChange,
+  onFloorOpeningAdd,
+  onFloorOpeningDelete,
+  onFloorOpeningUpdate,
   onMessage,
   onSelectItem,
   readOnly = false,
@@ -239,6 +266,7 @@ export function BlueprintCanvas({
   const [dragPoint, setDragPoint] = useState<DragPointState | null>(null);
   const [dragWall, setDragWall] = useState<DragWallState | null>(null);
   const [dragOpening, setDragOpening] = useState<DragOpeningState | null>(null);
+  const [dragFloorOpening, setDragFloorOpening] = useState<DragFloorOpeningState | null>(null);
   const [itemEditorMenu, setItemEditorMenu] = useState<ItemEditorMenuState | null>(null);
   const [isPanning, setIsPanning] = useState(false);
   const [pendingWallStart, setPendingWallStart] = useState<Pick<BlueprintPoint, 'x' | 'y'> | null>(null);
@@ -272,8 +300,8 @@ export function BlueprintCanvas({
     };
   }, [layout, zoom]);
 
-  const activeTransform = dragPoint?.transform ?? dragWall?.transform ?? dragOpening?.transform ?? autoTransform;
-  const activeViewOffset = dragPoint?.viewOffset ?? dragWall?.viewOffset ?? dragOpening?.viewOffset ?? viewOffset;
+  const activeTransform = dragPoint?.transform ?? dragWall?.transform ?? dragOpening?.transform ?? dragFloorOpening?.transform ?? autoTransform;
+  const activeViewOffset = dragPoint?.viewOffset ?? dragWall?.viewOffset ?? dragOpening?.viewOffset ?? dragFloorOpening?.viewOffset ?? viewOffset;
 
   function toSvgPoint(point: Pick<BlueprintPoint, 'x' | 'y'>) {
     return {
@@ -333,7 +361,7 @@ export function BlueprintCanvas({
   }
 
   function handlePointerMove(event: PointerEvent<SVGSVGElement>) {
-    if (isPanning && panStart && !dragPoint && !dragWall && !dragOpening) {
+    if (isPanning && panStart && !dragPoint && !dragWall && !dragOpening && !dragFloorOpening) {
       setViewOffset({
         x: panStart.x + event.clientX - panStart.pointerX,
         y: panStart.y + event.clientY - panStart.pointerY,
@@ -345,7 +373,7 @@ export function BlueprintCanvas({
       return;
     }
 
-    const activeDrag = dragPoint ?? dragWall ?? dragOpening;
+    const activeDrag = dragPoint ?? dragWall ?? dragOpening ?? dragFloorOpening;
     const nextPoint = activeDrag
       ? fromPointer(event, activeDrag.transform, activeDrag.viewOffset)
       : fromPointer(event);
@@ -373,6 +401,16 @@ export function BlueprintCanvas({
         dragOpening.itemId,
         { offset: getPointOffsetOnWall(wall, layout.points, nextPoint) },
       ));
+      return;
+    }
+
+    if (dragFloorOpening) {
+      onFloorOpeningUpdate?.(dragFloorOpening.openingId, {
+        position: {
+          x: Number(clamp(nextPoint.x, MIN_LAYOUT_COORDINATE, MAX_LAYOUT_COORDINATE).toFixed(2)),
+          z: Number(clamp(nextPoint.y, MIN_LAYOUT_COORDINATE, MAX_LAYOUT_COORDINATE).toFixed(2)),
+        },
+      });
       return;
     }
 
@@ -497,7 +535,18 @@ export function BlueprintCanvas({
       return;
     }
 
-    if (activeTool === 'door' || activeTool === 'window' || activeTool === 'opening') {
+    if (activeTool === 'floor-hole') {
+      const clickedPoint = fromPointer(event);
+
+      onFloorOpeningAdd?.({
+        x: Number(clamp(clickedPoint.x, MIN_LAYOUT_COORDINATE, MAX_LAYOUT_COORDINATE).toFixed(2)),
+        z: Number(clamp(clickedPoint.y, MIN_LAYOUT_COORDINATE, MAX_LAYOUT_COORDINATE).toFixed(2)),
+      });
+      onMessage?.('Floor hole added. Adjust its size and position in Floor Stack.');
+      return;
+    }
+
+    if (activeTool === 'door' || activeTool === 'window' || activeTool === 'opening' || activeTool === 'node') {
       const clickedPoint = fromPointer(event);
       const maxDistance = Math.max(0.28, 24 / activeTransform.scale);
       const nearestWall = layout.walls
@@ -513,7 +562,13 @@ export function BlueprintCanvas({
         .sort((left, right) => left.distance - right.distance)[0];
 
       if (!nearestWall || nearestWall.distance > maxDistance) {
-        onMessage?.('Click closer to a wall to add this item.');
+        onMessage?.(activeTool === 'node' ? 'Click closer to a wall edge to add a node.' : 'Click closer to a wall to add this item.');
+        return;
+      }
+
+      if (activeTool === 'node') {
+        onLayoutChange(insertNodeOnWall(layout, nearestWall.wall.id, clickedPoint));
+        onMessage?.('Node added. Drag the new point to adjust the wall angle.');
         return;
       }
 
@@ -570,6 +625,12 @@ export function BlueprintCanvas({
       return;
     }
 
+    if (event.button === 0 && activeTool === 'node') {
+      onLayoutChange(insertNodeOnWall(layout, wall.id, fromPointer(event)));
+      onMessage?.('Node added. Drag the new point to adjust the wall angle.');
+      return;
+    }
+
     onSelectItem({ id: wall.id, type: 'wall' });
 
     if (activeTool !== 'select' || readOnly) {
@@ -617,6 +678,7 @@ export function BlueprintCanvas({
     setDragPoint(null);
     setDragWall(null);
     setDragOpening(null);
+    setDragFloorOpening(null);
     setIsPanning(false);
     setPanStart(null);
   }
@@ -642,19 +704,22 @@ export function BlueprintCanvas({
   const canvasClassName = [
     'blueprint-canvas',
     `is-tool-${activeTool}`,
-    dragWall || dragOpening ? 'is-moving-item' : '',
+    dragWall || dragOpening || dragFloorOpening ? 'is-moving-item' : '',
     pendingWallStart ? 'is-drawing-wall' : '',
   ].filter(Boolean).join(' ');
-  const contextOpening = itemEditorMenu && itemEditorMenu.itemType !== 'wall' && layout
+  const contextOpening = itemEditorMenu && itemEditorMenu.itemType !== 'wall' && itemEditorMenu.itemType !== 'floor-hole' && layout
     ? [...layout.doors, ...layout.windows, ...layout.openings]
         .find((item) => item.id === itemEditorMenu.itemId) ?? null
     : null;
   const contextWall = itemEditorMenu?.itemType === 'wall' && layout
     ? layout.walls.find((wall) => wall.id === itemEditorMenu.itemId) ?? null
     : null;
+  const contextFloorOpening = itemEditorMenu?.itemType === 'floor-hole'
+    ? floorOpenings.find((opening) => opening.id === itemEditorMenu.itemId) ?? null
+    : null;
 
   function adjustOpeningDimension(dimension: 'height' | 'width', delta: number) {
-    if (!layout || !itemEditorMenu || itemEditorMenu.itemType === 'wall' || !contextOpening) {
+    if (!layout || !itemEditorMenu || itemEditorMenu.itemType === 'wall' || itemEditorMenu.itemType === 'floor-hole' || !contextOpening) {
       return;
     }
 
@@ -767,6 +832,46 @@ export function BlueprintCanvas({
             {closedBoundary.length >= 3 && (
               <polygon className="blueprint-room-fill blueprint-click-surface" fill={floorFillColor} points={polygonPoints} />
             )}
+            {floorOpenings.map((opening) => {
+              const center = toSvgPoint({ x: opening.position.x, y: opening.position.z });
+              const openingWidth = opening.width * activeTransform.scale;
+              const openingDepth = opening.depth * activeTransform.scale;
+              const isSelected = selectedItem?.type === 'floor-hole' && selectedItem.id === opening.id;
+
+              return (
+                <g
+                  className={isSelected ? 'blueprint-floor-opening is-selected' : 'blueprint-floor-opening'}
+                  key={opening.id}
+                  onPointerDown={(event) => {
+                    const menuPlacement = getEditorMenuPlacement(event);
+                    const snapshot = getDragSnapshot();
+
+                    event.stopPropagation();
+                    event.currentTarget.setPointerCapture(event.pointerId);
+                    onSelectItem({ id: opening.id, type: 'floor-hole' });
+                    setItemEditorMenu(menuPlacement ? {
+                      itemId: opening.id,
+                      itemType: 'floor-hole',
+                      ...menuPlacement,
+                    } : null);
+                    setDragFloorOpening({
+                      openingId: opening.id,
+                      transform: snapshot.transform,
+                      viewOffset: snapshot.viewOffset,
+                    });
+                  }}
+                >
+                  <rect
+                    height={openingDepth}
+                    rx={2}
+                    width={openingWidth}
+                    x={center.x - openingWidth / 2}
+                    y={center.y - openingDepth / 2}
+                  />
+                  <text x={center.x} y={center.y}>{opening.label}</text>
+                </g>
+              );
+            })}
             {layout.walls.map((wall) => {
               const start = toSvgPoint(getPointById(layout.points, wall.startPointId));
               const end = toSvgPoint(getPointById(layout.points, wall.endPointId));
@@ -1042,6 +1147,62 @@ export function BlueprintCanvas({
             }}
           >
             Delete Wall
+          </button>
+        </div>
+      )}
+      {itemEditorMenu?.itemType === 'floor-hole' && contextFloorOpening && (
+        <div
+          className="blueprint-opening-menu"
+          role="dialog"
+          aria-label="Edit floor hole"
+          style={{ left: itemEditorMenu.x, top: itemEditorMenu.y }}
+          onPointerDown={(event) => event.stopPropagation()}
+        >
+          <div className="blueprint-opening-menu-header">
+            <strong>Edit Floor Hole</strong>
+            <button aria-label="Close editor" type="button" onClick={() => setItemEditorMenu(null)}>x</button>
+          </div>
+          {(['width', 'depth'] as const).map((dimension) => (
+            <div className="blueprint-opening-stepper" key={dimension}>
+              <div>
+                <button
+                  aria-label={`Decrease ${dimension}`}
+                  type="button"
+                  onClick={() => onFloorOpeningUpdate?.(contextFloorOpening.id, {
+                    [dimension]: Math.max(0.5, contextFloorOpening[dimension] - 0.25),
+                  })}
+                >
+                  &lsaquo;
+                </button>
+                <MetricStepperInput
+                  ariaLabel={`Floor hole ${dimension}`}
+                  min={0.5}
+                  value={contextFloorOpening[dimension]}
+                  onChange={(value) => onFloorOpeningUpdate?.(contextFloorOpening.id, { [dimension]: value })}
+                />
+                <button
+                  aria-label={`Increase ${dimension}`}
+                  type="button"
+                  onClick={() => onFloorOpeningUpdate?.(contextFloorOpening.id, {
+                    [dimension]: contextFloorOpening[dimension] + 0.25,
+                  })}
+                >
+                  &rsaquo;
+                </button>
+              </div>
+              <label>{dimension.charAt(0).toUpperCase() + dimension.slice(1)}</label>
+            </div>
+          ))}
+          <button
+            className="blueprint-opening-menu-action is-danger"
+            type="button"
+            onClick={() => {
+              onFloorOpeningDelete?.(contextFloorOpening.id);
+              onSelectItem(null);
+              setItemEditorMenu(null);
+            }}
+          >
+            Delete
           </button>
         </div>
       )}

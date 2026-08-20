@@ -19,8 +19,13 @@ import type {
   BuildingTestScene,
   PlacedBuildingProduct,
 } from '@/features/ThreeDTest/schemas/buildingScene.types';
-import { createBuildingLevel, createLevelFloorSurface, getLevelCenter } from '@/features/ThreeDTest/utils/buildingTestSceneFactory';
-import { useRoomPlannerScene } from '@/services/queries';
+import {
+  createBuildingTestSceneFromProjectFloorAreas,
+  createRectLevelLayout,
+  getLevelCenter,
+  type BuildingProjectFloorAreaSource,
+} from '@/features/ThreeDTest/utils/buildingTestSceneFactory';
+import { useProjectAreas, useProposalDetail, useRoomPlannerScene } from '@/services/queries';
 
 import '@/features/ThreeD/pages/ThreeDTestPage.css';
 import './BuildingBlueprintTestPage.css';
@@ -31,13 +36,17 @@ const blueprintTools: Array<{ label: string; value: BlueprintTool }> = [
   { label: 'Door', value: 'door' },
   { label: 'Window', value: 'window' },
   { label: 'Opening', value: 'opening' },
+  { label: 'Node', value: 'node' },
+  { label: 'Floor Hole', value: 'floor-hole' },
 ];
 const SHOW_SITE_CONTROLS = false;
 const SHOW_FRONT_YARD_CONTROLS = false;
 const SHOW_BUILDING_FOOTPRINT_CONTROLS = false;
+const LEVEL_STACK_VERTICAL_GAP = 0.3;
+const LINKED_AREA_LAYOUT_SYNC_TOLERANCE = 0.05;
 
 type BuildingBlueprintRouteState = {
-  areas?: unknown[];
+  areas?: BuildingProjectFloorAreaSource[];
   mode?: 'create-proposal';
   projectAreaIds?: string[];
   projectId?: string;
@@ -66,6 +75,50 @@ function roundMetric(value: number) {
 
 function formatNumberInput(value: number) {
   return Number.isInteger(value) ? String(value) : String(Number(value.toFixed(3)));
+}
+
+function createAreaTemplateKey(areas: BuildingProjectFloorAreaSource[]) {
+  return areas
+    .map((area) => [
+      area.projectAreaId,
+      area.areaName,
+      area.width ?? '',
+      area.length ?? '',
+      area.height ?? '',
+    ].join(':'))
+    .join('|');
+}
+
+function toBuildingProjectFloorAreaSource(area: BuildingProjectFloorAreaSource): BuildingProjectFloorAreaSource {
+  return {
+    areaName: area.areaName,
+    floorNumber: area.floorNumber ?? null,
+    height: area.height ?? null,
+    length: area.length ?? null,
+    projectAreaId: area.projectAreaId,
+    width: area.width ?? null,
+  };
+}
+
+function getSceneProjectAreaIds(
+  routeState: BuildingBlueprintRouteState | null,
+  roomPlannerScene: ReturnType<typeof useRoomPlannerScene>['data'],
+) {
+  if (routeState?.projectAreaIds?.length) {
+    return routeState.projectAreaIds;
+  }
+
+  if (roomPlannerScene?.projectAreaIds?.length) {
+    return roomPlannerScene.projectAreaIds;
+  }
+
+  const roomPlannerAreaIds = roomPlannerScene?.areas?.map((area) => area.projectAreaId).filter(Boolean) ?? [];
+
+  if (roomPlannerAreaIds.length) {
+    return roomPlannerAreaIds;
+  }
+
+  return roomPlannerScene?.projectAreaId ? [roomPlannerScene.projectAreaId] : [];
 }
 
 function parseNumberInput(value: string, fallback: number) {
@@ -229,6 +282,33 @@ function addBalconyForLevel(scene: BuildingTestScene, levelId: string) {
   };
 }
 
+function getLevelStackStep(level: BuildingLevel) {
+  return Math.max(level.height, level.wallHeight, 2.4) + LEVEL_STACK_VERTICAL_GAP;
+}
+
+function normalizeLevelStackClearance(levels: BuildingLevel[]) {
+  const sortedLevels = [...levels].sort((first, second) => first.elevation - second.elevation);
+  const nextElevationsById = new Map<BuildingLevel['id'], number>();
+
+  sortedLevels.forEach((level, index) => {
+    if (index === 0) {
+      nextElevationsById.set(level.id, level.elevation);
+      return;
+    }
+
+    const previousLevel = sortedLevels[index - 1];
+    const previousElevation = nextElevationsById.get(previousLevel.id) ?? previousLevel.elevation;
+    const minimumElevation = roundMetric(previousElevation + getLevelStackStep(previousLevel));
+
+    nextElevationsById.set(level.id, Math.max(level.elevation, minimumElevation));
+  });
+
+  return levels.map((level) => ({
+    ...level,
+    elevation: nextElevationsById.get(level.id) ?? level.elevation,
+  }));
+}
+
 function syncBuildingShell(scene: BuildingTestScene, update: Partial<BuildingTestScene['building']>) {
   const previousPosition = scene.building.position;
   const nextBuilding = {
@@ -345,7 +425,7 @@ function updateLevel(
   });
 
   return syncBuildingShell(scene, {
-    levels: nextLevels,
+    levels: normalizeLevelStackClearance(nextLevels),
   });
 }
 
@@ -486,19 +566,156 @@ function resizeLevel(scene: BuildingTestScene, levelId: BuildingLevel['id'], upd
   });
 }
 
+function createStairOpeningId(level: BuildingLevel) {
+  const existingIds = new Set((level.floorOpenings ?? []).map((opening) => opening.id));
+  let index = existingIds.size + 1;
+  let candidate = `stair-opening-${index}`;
+
+  while (existingIds.has(candidate)) {
+    index += 1;
+    candidate = `stair-opening-${index}`;
+  }
+
+  return candidate;
+}
+
+function addStairOpening(scene: BuildingTestScene, levelId: BuildingLevel['id']) {
+  const targetLevel = scene.building.levels.find((level) => level.id === levelId);
+
+  if (!targetLevel) {
+    return scene;
+  }
+
+  const levelCenter = getLevelCenter(scene, targetLevel);
+
+  return updateLevel(scene, levelId, (level) => ({
+    ...level,
+    floorOpenings: [
+      ...(level.floorOpenings ?? []),
+      {
+        depth: Math.min(Math.max(level.depth * 0.22, 1.2), Math.max(level.depth - 1, 1.2)),
+        id: createStairOpeningId(level),
+        label: 'Stair opening',
+        position: {
+          x: roundMetric(levelCenter.x + Math.min(level.width * 0.2, 2)),
+          z: levelCenter.z,
+        },
+        type: 'STAIR',
+        width: Math.min(Math.max(level.width * 0.18, 1.2), Math.max(level.width - 1, 1.2)),
+      },
+    ],
+  }));
+}
+
+function addFloorOpeningAtPosition(
+  scene: BuildingTestScene,
+  levelId: BuildingLevel['id'],
+  position: { x: number; z: number },
+) {
+  const targetLevel = scene.building.levels.find((level) => level.id === levelId);
+
+  if (!targetLevel) {
+    return scene;
+  }
+
+  const levelCenter = getLevelCenter(scene, targetLevel);
+  const width = Math.min(Math.max(targetLevel.width * 0.18, 1.2), Math.max(targetLevel.width - 1, 1.2));
+  const depth = Math.min(Math.max(targetLevel.depth * 0.22, 1.2), Math.max(targetLevel.depth - 1, 1.2));
+  const maxOffsetX = Math.max((targetLevel.width - width) / 2, 0);
+  const maxOffsetZ = Math.max((targetLevel.depth - depth) / 2, 0);
+  const offsetX = clamp(position.x - levelCenter.x, -maxOffsetX, maxOffsetX);
+  const offsetZ = clamp(position.z - levelCenter.z, -maxOffsetZ, maxOffsetZ);
+
+  return updateLevel(scene, levelId, (level) => ({
+    ...level,
+    floorOpenings: [
+      ...(level.floorOpenings ?? []),
+      {
+        depth,
+        id: createStairOpeningId(level),
+        label: 'Floor hole',
+        position: {
+          x: roundMetric(levelCenter.x + offsetX),
+          z: roundMetric(levelCenter.z + offsetZ),
+        },
+        type: 'STAIR',
+        width,
+      },
+    ],
+  }));
+}
+
+function updateStairOpening(
+  scene: BuildingTestScene,
+  levelId: BuildingLevel['id'],
+  openingId: string,
+  update: Partial<{ depth: number; offsetX: number; offsetZ: number; width: number }>,
+) {
+  const targetLevel = scene.building.levels.find((level) => level.id === levelId);
+
+  if (!targetLevel) {
+    return scene;
+  }
+
+  const levelCenter = getLevelCenter(scene, targetLevel);
+
+  return updateLevel(scene, levelId, (level) => ({
+    ...level,
+    floorOpenings: (level.floorOpenings ?? []).map((opening) =>
+      {
+        if (opening.id !== openingId) {
+          return opening;
+        }
+
+        const width = update.width === undefined ? opening.width : roundMetric(clamp(update.width, 0.6, Math.max(level.width - 0.6, 0.6)));
+        const depth = update.depth === undefined ? opening.depth : roundMetric(clamp(update.depth, 0.6, Math.max(level.depth - 0.6, 0.6)));
+        const maxOffsetX = Math.max((level.width - width) / 2, 0);
+        const maxOffsetZ = Math.max((level.depth - depth) / 2, 0);
+        const currentOffsetX = opening.position.x - levelCenter.x;
+        const currentOffsetZ = opening.position.z - levelCenter.z;
+        const offsetX = roundMetric(clamp(update.offsetX ?? currentOffsetX, -maxOffsetX, maxOffsetX));
+        const offsetZ = roundMetric(clamp(update.offsetZ ?? currentOffsetZ, -maxOffsetZ, maxOffsetZ));
+
+        return {
+          ...opening,
+          depth,
+          position: {
+            x: roundMetric(levelCenter.x + offsetX),
+            z: roundMetric(levelCenter.z + offsetZ),
+          },
+          width,
+        };
+      }
+    ),
+  }));
+}
+
+function removeStairOpening(scene: BuildingTestScene, levelId: BuildingLevel['id'], openingId: string) {
+  return updateLevel(scene, levelId, (level) => ({
+    ...level,
+    floorOpenings: (level.floorOpenings ?? []).filter((opening) => opening.id !== openingId),
+  }));
+}
+
 function updateLevelLayout(scene: BuildingTestScene, levelId: BuildingLevel['id'], layout: RoomLayoutState) {
   const size = getLayoutSize(layout);
 
   return updateLevel(scene, levelId, (level) => ({
     ...level,
-    depth: roundMetric(size.depth),
+    depth: level.projectAreaId ? level.depth : roundMetric(size.depth),
     footprintOffset: {
       x: roundMetric(size.centerX - scene.building.position.x),
       z: roundMetric(size.centerZ - scene.building.position.z),
     },
-    layout,
-    wallHeight: layout.wallHeight,
-    width: roundMetric(size.width),
+    layout: level.projectAreaId
+      ? {
+          ...layout,
+          wallHeight: level.wallHeight,
+          walls: layout.walls.map((wall) => ({ ...wall, height: level.wallHeight })),
+        }
+      : layout,
+    wallHeight: level.projectAreaId ? level.wallHeight : layout.wallHeight,
+    width: level.projectAreaId ? level.width : roundMetric(size.width),
   }));
 }
 
@@ -533,6 +750,63 @@ function createLevelBox(scene: BuildingTestScene, levelId: BuildingLevel['id']) 
   return updateLevelLayout(scene, levelId, shiftedLayout);
 }
 
+function resetLevelToAreaBox(scene: BuildingTestScene, levelId: BuildingLevel['id']) {
+  const level = scene.building.levels.find((candidate) => candidate.id === levelId);
+
+  if (!level) {
+    return scene;
+  }
+
+  const center = getLevelCenter(scene, level);
+  const layout = createRectLevelLayout(level.id, level.width, level.depth, center.x, center.z, level.wallHeight);
+
+  return updateLevelLayout(scene, levelId, layout);
+}
+
+function copyLowerLevelLayout(scene: BuildingTestScene, levelId: BuildingLevel['id']) {
+  const sortedLevels = [...scene.building.levels].sort((first, second) => first.elevation - second.elevation);
+  const levelIndex = sortedLevels.findIndex((level) => level.id === levelId);
+  const targetLevel = sortedLevels[levelIndex];
+  const lowerLevel = levelIndex > 0 ? sortedLevels[levelIndex - 1] : null;
+
+  if (!targetLevel || !lowerLevel?.layout) {
+    return scene;
+  }
+
+  const targetCenter = getLevelCenter(scene, targetLevel);
+  const copiedLayout = resizeLevelLayout(lowerLevel.layout, targetLevel.width, targetLevel.depth);
+
+  if (!copiedLayout) {
+    return scene;
+  }
+
+  const copiedSize = getLayoutSize(copiedLayout);
+  const shiftedLayout = translateLayout(
+    {
+      ...copiedLayout,
+      wallHeight: targetLevel.wallHeight,
+      walls: copiedLayout.walls.map((wall) => ({
+        ...wall,
+        id: `${targetLevel.id}-${wall.id}`,
+        endPointId: `${targetLevel.id}-${wall.endPointId}`,
+        height: targetLevel.wallHeight,
+        startPointId: `${targetLevel.id}-${wall.startPointId}`,
+      })),
+      points: copiedLayout.points.map((point) => ({
+        ...point,
+        id: `${targetLevel.id}-${point.id}`,
+      })),
+      doors: copiedLayout.doors.map((door) => ({ ...door, id: `${targetLevel.id}-${door.id}`, wallId: `${targetLevel.id}-${door.wallId}` })),
+      openings: copiedLayout.openings.map((opening) => ({ ...opening, id: `${targetLevel.id}-${opening.id}`, wallId: `${targetLevel.id}-${opening.wallId}` })),
+      windows: copiedLayout.windows.map((windowOpening) => ({ ...windowOpening, id: `${targetLevel.id}-${windowOpening.id}`, wallId: `${targetLevel.id}-${windowOpening.wallId}` })),
+    },
+    roundMetric(targetCenter.x - copiedSize.centerX),
+    roundMetric(targetCenter.z - copiedSize.centerZ),
+  );
+
+  return updateLevelLayout(scene, levelId, shiftedLayout ?? copiedLayout);
+}
+
 function alignLevelToBase(scene: BuildingTestScene, levelId: string) {
   const baseLevel = scene.building.levels[0];
 
@@ -542,50 +816,8 @@ function alignLevelToBase(scene: BuildingTestScene, levelId: string) {
 
   return updateLevel(scene, levelId, (level) => ({
     ...level,
-    depth: baseLevel.depth,
     footprintOffset: { x: 0, z: 0 },
-    width: baseLevel.width,
   }));
-}
-
-function createNextLevelId(levels: BuildingLevel[]) {
-  let index = levels.length + 1;
-  let candidate = `level-${index}`;
-  const ids = new Set(levels.map((level) => level.id));
-
-  while (ids.has(candidate)) {
-    index += 1;
-    candidate = `level-${index}`;
-  }
-
-  return candidate;
-}
-
-function addBuildingFloor(scene: BuildingTestScene) {
-  const sortedLevels = [...scene.building.levels].sort((first, second) => first.elevation - second.elevation);
-  const previousLevel = sortedLevels[sortedLevels.length - 1];
-  const levelIndex = sortedLevels.length;
-  const id = createNextLevelId(scene.building.levels);
-  const nextLevel = createBuildingLevel(
-    id,
-    levelIndex,
-    previousLevel?.width ?? scene.building.width,
-    previousLevel?.depth ?? scene.building.depth,
-    scene.building.position,
-  );
-  const adjustedLevel = {
-    ...nextLevel,
-    elevation: previousLevel ? roundMetric(previousLevel.elevation + previousLevel.height + 0.3) : nextLevel.elevation,
-  };
-
-  return syncBuildingShell({
-    ...scene,
-    building: {
-      ...scene.building,
-      levels: [...scene.building.levels, adjustedLevel],
-    },
-    surfaces: [...scene.surfaces, createLevelFloorSurface(adjustedLevel, scene.building.position)],
-  }, {});
 }
 
 function removeBuildingFloor(scene: BuildingTestScene, levelId: string) {
@@ -601,6 +833,81 @@ function removeBuildingFloor(scene: BuildingTestScene, levelId: string) {
     },
     surfaces: scene.surfaces.filter((surface) => surface.levelId !== levelId),
   }, {});
+}
+
+function syncLinkedLevelDimensionsFromAreas(
+  scene: BuildingTestScene,
+  areaByProjectAreaId: Map<string, BuildingProjectFloorAreaSource>,
+) {
+  if (areaByProjectAreaId.size === 0) {
+    return scene;
+  }
+
+  const nextLevels = scene.building.levels.map((level) => {
+    const area = level.projectAreaId ? areaByProjectAreaId.get(level.projectAreaId) : undefined;
+
+    if (!area) {
+      return level;
+    }
+
+    const width = typeof area.width === 'number' ? Math.max(area.width, 4) : level.width;
+    const depth = typeof area.length === 'number' ? Math.max(area.length, 4) : level.depth;
+    const height = typeof area.height === 'number' ? Math.max(area.height, 2.4) : level.height;
+    const wallHeight = typeof area.height === 'number' ? Math.max(area.height - 0.25, 1.8) : level.wallHeight;
+    const layoutSize = level.layout ? getLayoutSize(level.layout) : null;
+    const shouldResizeLayout =
+      !layoutSize ||
+      Math.abs(layoutSize.width - width) > LINKED_AREA_LAYOUT_SYNC_TOLERANCE ||
+      Math.abs(layoutSize.depth - depth) > LINKED_AREA_LAYOUT_SYNC_TOLERANCE;
+    const levelCenter = getLevelCenter(scene, level);
+    const resizedLayout = shouldResizeLayout
+      ? resizeLevelLayout(level.layout, width, depth) ?? createRectLevelLayout(level.id, width, depth, levelCenter.x, levelCenter.z, wallHeight)
+      : level.layout;
+
+    return {
+      ...level,
+      depth,
+      height,
+      label: area.areaName || level.label,
+      layout: resizedLayout
+        ? {
+            ...resizedLayout,
+            wallHeight,
+            walls: resizedLayout.walls.map((wall) => ({ ...wall, height: wallHeight })),
+          }
+        : resizedLayout,
+      wallHeight,
+      width,
+    };
+  });
+
+  return syncBuildingShell(scene, {
+    levels: normalizeLevelStackClearance(nextLevels),
+  });
+}
+
+function formatOptionalMetric(value: number | null | undefined, unit: string) {
+  return typeof value === 'number' ? `${roundMetric(value)}${unit}` : '-';
+}
+
+function getLevelAreaInfo(
+  areaByProjectAreaId: Map<string, BuildingProjectFloorAreaSource>,
+  level: BuildingLevel,
+) {
+  const area = level.projectAreaId ? areaByProjectAreaId.get(level.projectAreaId) : undefined;
+
+  return {
+    areaName: area?.areaName ?? level.label,
+    floorNumber: area?.floorNumber,
+    height: area?.height ?? level.height,
+    length: area?.length ?? level.depth,
+    projectAreaId: level.projectAreaId ?? null,
+    width: area?.width ?? level.width,
+  };
+}
+
+function hasAreaDimensions(areaInfo: ReturnType<typeof getLevelAreaInfo>) {
+  return typeof areaInfo.width === 'number' || typeof areaInfo.length === 'number' || typeof areaInfo.height === 'number';
 }
 
 function NumberField({ label, max, min = 0, onChange, step = 0.1, value }: NumberFieldProps) {
@@ -643,6 +950,15 @@ function NumberField({ label, max, min = 0, onChange, step = 0.1, value }: Numbe
   );
 }
 
+function ReadonlyMetricField({ label, value }: Readonly<{ label: string; value: string }>) {
+  return (
+    <div className="blueprint-readonly-field">
+      <span>{label}</span>
+      <strong>{value}</strong>
+    </div>
+  );
+}
+
 export function BuildingBlueprintTestPage() {
   const { sceneId } = useParams();
   const location = useLocation();
@@ -650,7 +966,17 @@ export function BuildingBlueprintTestPage() {
   const routeState = location.state as BuildingBlueprintRouteState | null;
   const { resetSceneData, sceneData, setRemoteSceneData, setSceneData, shouldKeepSceneDraft } = useBuildingTestSceneState(sceneId);
   const hasLocalSceneEditsRef = useRef(false);
+  const appliedAreaTemplateRef = useRef<string | null>(null);
   const roomPlannerSceneQuery = useRoomPlannerScene(sceneId, { enabled: Boolean(sceneId) });
+  const currentProposalId = routeState?.proposalId ?? roomPlannerSceneQuery.data?.proposalId ?? null;
+  const proposalDetailQuery = useProposalDetail(currentProposalId ?? undefined, {
+    enabled: Boolean(currentProposalId && !roomPlannerSceneQuery.data?.projectId),
+  });
+  const currentProjectId = routeState?.projectId ?? roomPlannerSceneQuery.data?.projectId ?? proposalDetailQuery.data?.projectId ?? null;
+  const projectAreasQuery = useProjectAreas(
+    currentProjectId ? { projectId: currentProjectId, includeCancelled: false } : undefined,
+    { enabled: Boolean(currentProjectId) },
+  );
   const [activeLayer, setActiveLayer] = useState<BuildingLevelVisibility>('ground');
   const [activeTool, setActiveTool] = useState<BlueprintTool>('select');
   const [selectedItem, setSelectedItem] = useState<SelectedRoomItem | null>(null);
@@ -690,12 +1016,65 @@ export function BuildingBlueprintTestPage() {
         z: roundMetric(frontYard.position.z - frontYardBasePlacement.z),
       }
     : null;
+  const sceneProjectAreaIds = useMemo(
+    () => getSceneProjectAreaIds(routeState, roomPlannerSceneQuery.data),
+    [routeState, roomPlannerSceneQuery.data],
+  );
+  const templateAreas = useMemo<BuildingProjectFloorAreaSource[]>(() => {
+    if (routeState?.areas?.length) {
+      return routeState.areas;
+    }
+
+    const fetchedAreas = projectAreasQuery.data ?? [];
+    const selectedAreaIds = new Set(sceneProjectAreaIds);
+
+    return selectedAreaIds.size > 0
+      ? sceneProjectAreaIds
+          .map((areaId) => fetchedAreas.find((area) => area.projectAreaId === areaId))
+          .filter((area): area is NonNullable<typeof area> => Boolean(area))
+          .map(toBuildingProjectFloorAreaSource)
+      : fetchedAreas.map(toBuildingProjectFloorAreaSource);
+  }, [projectAreasQuery.data, routeState?.areas, sceneProjectAreaIds]);
+  const areaByProjectAreaId = useMemo(
+    () => new Map(templateAreas.map((area) => [area.projectAreaId, area])),
+    [templateAreas],
+  );
 
   useEffect(() => {
     if (activeLayer === 'site' || !sceneData.building.levels.some((level) => level.id === activeLayer)) {
       setActiveLayer(sceneData.building.levels[0]?.id ?? 'ground');
     }
   }, [activeLayer, sceneData.building.levels]);
+
+  useEffect(() => {
+    if (areaByProjectAreaId.size === 0) {
+      return;
+    }
+
+    if (roomPlannerSceneQuery.isLoading) {
+      return;
+    }
+
+    const nextScene = syncLinkedLevelDimensionsFromAreas(sceneData, areaByProjectAreaId);
+
+    if (nextScene === sceneData || JSON.stringify(nextScene.building.levels) === JSON.stringify(sceneData.building.levels)) {
+      return;
+    }
+
+    if (hasLocalSceneEditsRef.current) {
+      setSceneData(nextScene);
+      return;
+    }
+
+    setRemoteSceneData(nextScene, roomPlannerSceneQuery.data?.lastSavedAt ?? null);
+  }, [
+    areaByProjectAreaId,
+    roomPlannerSceneQuery.data?.lastSavedAt,
+    roomPlannerSceneQuery.isLoading,
+    sceneData,
+    setRemoteSceneData,
+    setSceneData,
+  ]);
 
   useEffect(() => {
     setSelectedItem(null);
@@ -729,6 +1108,7 @@ export function BuildingBlueprintTestPage() {
   const underlayLayout = underlayLevel?.layout ?? null;
   const activeLayerLabel = levelTabs.find((tab) => tab.value === activeLayer)?.label ?? 'Layer';
   const activeToolLabel = blueprintTools.find((tool) => tool.value === activeTool)?.label ?? 'Tool';
+  const activeAreaInfo = activeLevel ? getLevelAreaInfo(areaByProjectAreaId, activeLevel) : null;
 
   function updateSceneDraft(update: Parameters<typeof setSceneData>[0]) {
     hasLocalSceneEditsRef.current = true;
@@ -741,6 +1121,49 @@ export function BuildingBlueprintTestPage() {
     }
 
     updateSceneDraft((scene) => updateLevelLayout(scene, currentLevelId as BuildingLevel['id'], layout));
+  }
+
+  function handleFloorOpeningAdd(position: { x: number; z: number }) {
+    if (!currentLevelId) {
+      return;
+    }
+
+    updateSceneDraft((scene) => addFloorOpeningAtPosition(scene, currentLevelId as BuildingLevel['id'], position));
+  }
+
+  function handleFloorOpeningUpdate(
+    openingId: string,
+    update: Partial<{ depth: number; position: { x: number; z: number }; width: number }>,
+  ) {
+    if (!currentLevelId) {
+      return;
+    }
+
+    updateSceneDraft((scene) => {
+      const level = scene.building.levels.find((candidate) => candidate.id === currentLevelId);
+      const opening = level?.floorOpenings?.find((candidate) => candidate.id === openingId);
+
+      if (!level || !opening) {
+        return scene;
+      }
+
+      const levelCenter = getLevelCenter(scene, level);
+      return updateStairOpening(scene, currentLevelId as BuildingLevel['id'], openingId, {
+        depth: update.depth,
+        offsetX: update.position ? update.position.x - levelCenter.x : undefined,
+        offsetZ: update.position ? update.position.z - levelCenter.z : undefined,
+        width: update.width,
+      });
+    });
+  }
+
+  function handleFloorOpeningDelete(openingId: string) {
+    if (!currentLevelId) {
+      return;
+    }
+
+    updateSceneDraft((scene) => removeStairOpening(scene, currentLevelId as BuildingLevel['id'], openingId));
+    setSelectedItem((currentItem) => currentItem?.type === 'floor-hole' && currentItem.id === openingId ? null : currentItem);
   }
 
   function openThreeDPlanner() {
@@ -764,6 +1187,39 @@ export function BuildingBlueprintTestPage() {
       setRemoteSceneData(hydratedScene.sceneData, roomPlannerSceneQuery.data.lastSavedAt);
     }
   }, [roomPlannerSceneQuery.data, setRemoteSceneData, shouldKeepSceneDraft]);
+
+  useEffect(() => {
+    if (!templateAreas.length || roomPlannerSceneQuery.isLoading || projectAreasQuery.isLoading || hasLocalSceneEditsRef.current) {
+      return;
+    }
+
+    const hydratedScene = roomPlannerSceneQuery.data
+      ? hydrateBuildingRoomPlannerPayload(roomPlannerSceneQuery.data)
+      : null;
+
+    if (hydratedScene?.sceneData || shouldKeepSceneDraft(roomPlannerSceneQuery.data?.lastSavedAt ?? null)) {
+      return;
+    }
+
+    const templateKey = createAreaTemplateKey(templateAreas);
+
+    if (appliedAreaTemplateRef.current === templateKey) {
+      return;
+    }
+
+    appliedAreaTemplateRef.current = templateKey;
+    setRemoteSceneData(
+      centerAndFitFloorStackOnSite(createBuildingTestSceneFromProjectFloorAreas(templateAreas)),
+      roomPlannerSceneQuery.data?.lastSavedAt ?? null,
+    );
+  }, [
+    projectAreasQuery.isLoading,
+    roomPlannerSceneQuery.data,
+    roomPlannerSceneQuery.isLoading,
+    setRemoteSceneData,
+    shouldKeepSceneDraft,
+    templateAreas,
+  ]);
 
   return (
     <main className="building-blueprint-page">
@@ -980,6 +1436,10 @@ export function BuildingBlueprintTestPage() {
             <div className="blueprint-field-grid">
               {sortedLevels.map((level, index) => {
                 const balcony = sceneData.surfaces.find((surface) => surface.id === `${level.id}-balcony`);
+                const areaInfo = getLevelAreaInfo(areaByProjectAreaId, level);
+                const isDimensionLocked = Boolean(level.projectAreaId) && hasAreaDimensions(areaInfo);
+                const levelCenter = getLevelCenter(sceneData, level);
+                const stairOpening = level.floorOpenings?.[0] ?? null;
 
                 return (
                   <div className="blueprint-floor-card" key={level.id}>
@@ -987,27 +1447,38 @@ export function BuildingBlueprintTestPage() {
                       <strong>{level.label}</strong>
                       <span>{level.projectAreaId ? 'Linked project area' : 'Manual floor'}</span>
                     </div>
-                  <NumberField
-                    label="Width"
-                    min={4}
-                    value={level.width}
-                    onChange={(value) => setSceneData((scene) => resizeLevel(scene, level.id, { width: value }))}
-                  />
-                  <NumberField
-                    label="Depth"
-                    min={4}
-                    value={level.depth}
-                    onChange={(value) => setSceneData((scene) => resizeLevel(scene, level.id, { depth: value }))}
-                  />
+                  {isDimensionLocked ? (
+                    <>
+                      <ReadonlyMetricField label="Width" value={formatOptionalMetric(areaInfo.width, 'm')} />
+                      <ReadonlyMetricField label="Depth" value={formatOptionalMetric(areaInfo.length, 'm')} />
+                    </>
+                  ) : (
+                    <>
+                      <NumberField
+                        label="Width"
+                        min={4}
+                        value={level.width}
+                        onChange={(value) => setSceneData((scene) => resizeLevel(scene, level.id, { width: value }))}
+                      />
+                      <NumberField
+                        label="Depth"
+                        min={4}
+                        value={level.depth}
+                        onChange={(value) => setSceneData((scene) => resizeLevel(scene, level.id, { depth: value }))}
+                      />
+                    </>
+                  )}
                   <NumberField
                     label="Offset X"
-                    min={-6}
+                    max={50}
+                    min={-50}
                     value={level.footprintOffset.x}
                     onChange={(value) => setSceneData((scene) => updateLevel(scene, level.id, (currentLevel) => ({ ...currentLevel, footprintOffset: { ...currentLevel.footprintOffset, x: value } })))}
                   />
                   <NumberField
                     label="Offset Z"
-                    min={-6}
+                    max={50}
+                    min={-50}
                     value={level.footprintOffset.z}
                     onChange={(value) => setSceneData((scene) => updateLevel(scene, level.id, (currentLevel) => ({ ...currentLevel, footprintOffset: { ...currentLevel.footprintOffset, z: value } })))}
                   />
@@ -1017,18 +1488,66 @@ export function BuildingBlueprintTestPage() {
                     value={level.elevation}
                     onChange={(value) => setSceneData((scene) => updateLevel(scene, level.id, (currentLevel) => ({ ...currentLevel, elevation: value })))}
                   />
-                  <NumberField
-                    label="Wall height"
-                    min={1.8}
-                    value={level.wallHeight}
-                    onChange={(value) => setSceneData((scene) => updateLevel(scene, level.id, (currentLevel) => ({ ...currentLevel, wallHeight: value })))}
-                  />
+                  {isDimensionLocked ? (
+                    <ReadonlyMetricField label="Wall height" value={formatOptionalMetric(level.wallHeight, 'm')} />
+                  ) : (
+                    <NumberField
+                      label="Wall height"
+                      min={1.8}
+                      value={level.wallHeight}
+                      onChange={(value) => setSceneData((scene) => updateLevel(scene, level.id, (currentLevel) => ({ ...currentLevel, wallHeight: value })))}
+                    />
+                  )}
+                    {stairOpening ? (
+                      <div className="blueprint-stair-opening-fields">
+                        <strong>Stair hole</strong>
+                        <NumberField
+                          label="Hole width"
+                          max={Math.max(level.width - 0.6, 0.6)}
+                          min={0.6}
+                          value={stairOpening.width}
+                          onChange={(value) => setSceneData((scene) => updateStairOpening(scene, level.id, stairOpening.id, { width: value }))}
+                        />
+                        <NumberField
+                          label="Hole depth"
+                          max={Math.max(level.depth - 0.6, 0.6)}
+                          min={0.6}
+                          value={stairOpening.depth}
+                          onChange={(value) => setSceneData((scene) => updateStairOpening(scene, level.id, stairOpening.id, { depth: value }))}
+                        />
+                        <NumberField
+                          label="Hole offset X"
+                          max={Math.max((level.width - stairOpening.width) / 2, 0)}
+                          min={-Math.max((level.width - stairOpening.width) / 2, 0)}
+                          value={roundMetric(stairOpening.position.x - levelCenter.x)}
+                          onChange={(value) => setSceneData((scene) => updateStairOpening(scene, level.id, stairOpening.id, { offsetX: value }))}
+                        />
+                        <NumberField
+                          label="Hole offset Z"
+                          max={Math.max((level.depth - stairOpening.depth) / 2, 0)}
+                          min={-Math.max((level.depth - stairOpening.depth) / 2, 0)}
+                          value={roundMetric(stairOpening.position.z - levelCenter.z)}
+                          onChange={(value) => setSceneData((scene) => updateStairOpening(scene, level.id, stairOpening.id, { offsetZ: value }))}
+                        />
+                      </div>
+                    ) : null}
                     <div className="blueprint-floor-actions">
+                      <button className="blueprint-align-button" type="button" onClick={() => setActiveLayer(level.id)}>
+                        Edit Floor Layout
+                      </button>
                       {index > 0 ? (
-                        <button className="blueprint-align-button" type="button" onClick={() => setSceneData((scene) => alignLevelToBase(scene, level.id))}>
-                          Align to Floor 1
-                        </button>
+                        <>
+                          <button className="blueprint-align-button" type="button" onClick={() => setSceneData((scene) => alignLevelToBase(scene, level.id))}>
+                            Align Position to Floor 1
+                          </button>
+                          <button className="blueprint-align-button" type="button" onClick={() => setSceneData((scene) => copyLowerLevelLayout(scene, level.id))}>
+                            Copy Lower Layout
+                          </button>
+                        </>
                       ) : null}
+                      <button className="blueprint-align-button" type="button" onClick={() => setSceneData((scene) => resetLevelToAreaBox(scene, level.id))}>
+                        Reset Area Box
+                      </button>
                       {balcony ? (
                         <button className="blueprint-remove-button" type="button" onClick={() => setSceneData((scene) => removeSurface(scene, `${level.id}-balcony`))}>
                           Remove Balcony
@@ -1036,6 +1555,15 @@ export function BuildingBlueprintTestPage() {
                       ) : (
                         <button className="blueprint-add-button" type="button" onClick={() => setSceneData((scene) => addBalconyForLevel(scene, level.id))}>
                           Add Balcony
+                        </button>
+                      )}
+                      {stairOpening ? (
+                        <button className="blueprint-remove-button" type="button" onClick={() => setSceneData((scene) => removeStairOpening(scene, level.id, stairOpening.id))}>
+                          Remove Stair Hole
+                        </button>
+                      ) : (
+                        <button className="blueprint-add-button" type="button" onClick={() => setSceneData((scene) => addStairOpening(scene, level.id))}>
+                          Add Stair Hole
                         </button>
                       )}
                       {sceneData.building.levels.length > 1 ? (
@@ -1047,9 +1575,6 @@ export function BuildingBlueprintTestPage() {
                   </div>
                 );
               })}
-              <button className="blueprint-add-button" type="button" onClick={() => setSceneData(addBuildingFloor)}>
-                Add Floor
-              </button>
             </div>
           </section>
         </aside>
@@ -1059,6 +1584,14 @@ export function BuildingBlueprintTestPage() {
             <div>
               <strong>{levelTabs.find((tab) => tab.value === activeLayer)?.label ?? activeLayer} Plan</strong>
               <span>Parametric test blueprint shared with the 3D prototype.</span>
+              {activeAreaInfo ? (
+                <dl className="building-blueprint-toolbar-area-info">
+                  <div><dt>Area</dt><dd>{activeAreaInfo.areaName}</dd></div>
+                  <div><dt>Floor</dt><dd>{activeAreaInfo.floorNumber ?? activeLevelIndex + 1}</dd></div>
+                  <div><dt>Size</dt><dd>{formatOptionalMetric(activeAreaInfo.width, 'm')} x {formatOptionalMetric(activeAreaInfo.length, 'm')}</dd></div>
+                  <div><dt>Height</dt><dd>{formatOptionalMetric(activeAreaInfo.height, 'm')}</dd></div>
+                </dl>
+              ) : null}
             </div>
           </div>
 
@@ -1066,12 +1599,16 @@ export function BuildingBlueprintTestPage() {
             <BlueprintCanvas
               activeTool={activeTool}
               floorFillColor="#d8c5a9"
+              floorOpenings={activeLevel?.floorOpenings ?? []}
               hideLabels={false}
               layout={currentLayout}
               selectedItem={selectedItem}
               underlay={underlayLayout ? { label: `${underlayLevel?.label ?? 'Lower floor'} underlay`, layout: underlayLayout } : null}
               wallFillColor="#f1eee7"
               onLayoutChange={handleBlueprintLayoutChange}
+              onFloorOpeningAdd={handleFloorOpeningAdd}
+              onFloorOpeningDelete={handleFloorOpeningDelete}
+              onFloorOpeningUpdate={handleFloorOpeningUpdate}
               onMessage={setBlueprintMessage}
               onSelectItem={setSelectedItem}
             />
