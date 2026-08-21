@@ -41,6 +41,7 @@ import { ProductListPreviewPage } from '@/features/MainPages/productListPreview'
 import { ProjectDetailPage } from '@/features/MainPages/projectDetail';
 import { ProjectListReviewPage } from '@/features/MainPages/projectListReview';
 import { UserProfilePage } from '@/features/MainPages/userProfile';
+import { PaymentCancelPage, PaymentResultPage } from '@/features/payments';
 import { BlockedIssues } from '@/features/ProductionPages/BlockedIssues';
 import { ProductionCustomizationRequests } from '@/features/ProductionPages/ProductionCustomizationRequests';
 import { ProductionDashbroad } from '@/features/ProductionPages/ProductionDashbroad';
@@ -82,6 +83,8 @@ export default function App() {
                 <Route path="/projects/detail" element={<ProjectDetailPage />} />
                 <Route path="/user-profile" element={<UserProfilePage />} />
                 <Route path="/viewer3d" element={<ViewerDemoPage />} />
+                <Route path="/payments/result" element={<PaymentResultPage />} />
+                <Route path="/payments/cancel" element={<PaymentCancelPage />} />
                 <Route path="/3d-lab" element={<ThreeDTestPage />} />
                 <Route path="/3d-building-test" element={<BuildingThreeDTestPage />} />
                 <Route path="/3d-building-test/blueprint" element={<BuildingBlueprintTestPage />} />

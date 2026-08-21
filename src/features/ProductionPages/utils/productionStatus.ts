@@ -16,8 +16,7 @@ export const getCustomizationStatusLabel = (status: string) => {
 
 export const getProductionRequestStatusLabel = (status: string) => {
   const labels: Record<string, string> = {
-    PENDING_REVIEW: 'Pending Review',
-    FEASIBLE: 'Feasible',
+    PENDING: 'Pending',
     IN_PRODUCTION: 'In Production',
     COMPLETED: 'Completed',
     CANCELLED: 'Cancelled',
@@ -47,7 +46,6 @@ export const getProductionStatusTone = (status: string) => {
   }
 
   if (
-    status === 'PENDING_REVIEW' ||
     status === 'PENDING' ||
     status === 'UNKNOWN'
   ) {
@@ -58,8 +56,7 @@ export const getProductionStatusTone = (status: string) => {
 };
 
 export const productionRequestAllowedActions: Record<string, string[]> = {
-  PENDING_REVIEW: ['Mark Feasible', 'Cancel'],
-  FEASIBLE: ['Start Production'],
+  PENDING: ['Start Production', 'Cancel'],
   IN_PRODUCTION: ['Complete'],
   COMPLETED: [],
   CANCELLED: [],

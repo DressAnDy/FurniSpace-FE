@@ -7,7 +7,6 @@ import {
   getAvailableProductionStaff,
   getProductionRequestById,
   getProductionRequests,
-  markProductionRequestFeasible,
   startProductionRequest,
   updateProductionItemStatus,
   type AssignProductionRequestInput,
@@ -64,18 +63,6 @@ export function useAssignProductionRequest() {
 
   return useMutation({
     mutationFn: (input: AssignProductionRequestInput) => assignProductionRequest(input),
-    onSuccess: (result) => {
-      invalidateProductionCaches(queryClient, result.productionRequestId);
-    },
-  });
-}
-
-export function useMarkProductionRequestFeasible() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: (input: { productionRequestId: string; note?: string | null }) =>
-      markProductionRequestFeasible(input.productionRequestId, input.note),
     onSuccess: (result) => {
       invalidateProductionCaches(queryClient, result.productionRequestId);
     },

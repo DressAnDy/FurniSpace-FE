@@ -180,6 +180,7 @@ export function CustomerOrdersPage() {
                     void orderDetailQuery.refetch();
                     void ordersQuery.refetch();
                     void projectsQuery.refetch();
+                    void remainingPaymentsQuery.refetch();
                   } catch (error) {
                     setMessage({ tone: 'error', text: getOrderServiceResultMessage(error) });
                   }
@@ -195,7 +196,12 @@ export function CustomerOrdersPage() {
               payment={activePayment}
               title="Order Payment"
               onClose={() => setActivePayment(null)}
-              onPaid={() => void orderDetailQuery.refetch()}
+              onPaid={() => {
+                void orderDetailQuery.refetch();
+                void ordersQuery.refetch();
+                void projectsQuery.refetch();
+                void remainingPaymentsQuery.refetch();
+              }}
             />
           </section>
         </section>
@@ -235,12 +241,19 @@ function OrderDetailCard({
       </div>
 
       <div className="customer-orders-actions">
-        <button disabled={order.status !== 'FINAL_PAYMENT_PENDING' || !remainingPayment} type="button" onClick={() => remainingPayment && onOpenRemainingPayment(remainingPayment)}>
-          Pay Remaining
-        </button>
-        <button disabled={!canConfirmOrderDelivery(order) || confirmDeliveryPending} type="button" onClick={() => void onConfirmDelivery()}>
-          {confirmDeliveryPending ? 'Confirming...' : order.customerConfirmedDeliveryAt ? 'Delivery Confirmed' : 'Confirm Delivery'}
-        </button>
+        {order.status === 'FINAL_PAYMENT_PENDING' && remainingPayment ? (
+          <button type="button" onClick={() => onOpenRemainingPayment(remainingPayment)}>
+            Pay Remaining
+          </button>
+        ) : null}
+        {canConfirmOrderDelivery(order) ? (
+          <button disabled={confirmDeliveryPending} type="button" onClick={() => void onConfirmDelivery()}>
+            {confirmDeliveryPending ? 'Confirming...' : 'Confirm Delivery'}
+          </button>
+        ) : null}
+        {order.status === 'FINAL_PAYMENT_PENDING' && !remainingPayment && (order.remainingAmount ?? 0) > 0 ? (
+          <span>Remaining payment is being prepared.</span>
+        ) : null}
       </div>
 
       <div className="customer-orders-table-wrap">

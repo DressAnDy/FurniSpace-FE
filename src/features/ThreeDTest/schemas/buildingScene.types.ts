@@ -51,6 +51,7 @@ export type BuildingLevel = {
   floorOpenings?: BuildingFloorOpening[];
   height: number;
   id: BuildingLevelId;
+  isSpecialLayout?: boolean | null;
   label: string;
   layout?: RoomLayoutState | null;
   projectAreaId?: string | null;

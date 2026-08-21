@@ -252,13 +252,25 @@ export async function generateSePayVietQr(paymentId: string) {
 }
 
 export async function createPayOsPaymentLink(input: CreatePayOsPaymentLinkInput) {
+  const returnUrl = input.returnUrl?.trim();
+  const cancelUrl = input.cancelUrl?.trim();
+  const payload: { amount?: number | null; returnUrl?: string; cancelUrl?: string } = {};
+
+  if (typeof input.amount === 'number') {
+    payload.amount = input.amount;
+  }
+
+  if (returnUrl) {
+    payload.returnUrl = returnUrl;
+  }
+
+  if (cancelUrl) {
+    payload.cancelUrl = cancelUrl;
+  }
+
   const response = await paymentApiClient.post<ServiceResult<PayOsPaymentLinkResponseDto>>(
     `/api/payments/${input.paymentId}/payos/payment-link`,
-    {
-      amount: input.amount ?? null,
-      returnUrl: input.returnUrl?.trim() || null,
-      cancelUrl: input.cancelUrl?.trim() || null,
-    },
+    payload,
   );
 
   return response.data.data;

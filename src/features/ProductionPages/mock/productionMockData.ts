@@ -243,7 +243,7 @@ export const mockProductionRequests: ProductionRequest[] = [
     orderCode: 'ORD-2026-004',
     assignedTo: 'PD-003',
     assignedToName: 'Dang Linh Production',
-    status: 'FEASIBLE',
+    status: 'PENDING',
     priority: 'URGENT',
     estimatedStartDate: '2026-07-26',
     estimatedCompletionDate: '2026-08-01',

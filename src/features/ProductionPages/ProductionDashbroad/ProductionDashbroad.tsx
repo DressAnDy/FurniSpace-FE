@@ -39,11 +39,11 @@ type KpiItem = {
   value: string;
 };
 
-type QueueTab = 'All Queue' | 'Pending Review' | 'In Production' | 'Ready to Complete' | 'Completed';
+type QueueTab = 'All Queue' | 'Pending' | 'In Production' | 'Ready to Complete' | 'Completed';
 type DateRangeKey = 'today' | 'this-week' | 'this-month';
 type QueueScopeKey = 'all' | 'assigned';
 
-const queueTabs: QueueTab[] = ['All Queue', 'Pending Review', 'In Production', 'Ready to Complete', 'Completed'];
+const queueTabs: QueueTab[] = ['All Queue', 'Pending', 'In Production', 'Ready to Complete', 'Completed'];
 
 const DATE_RANGE_LABEL: Record<DateRangeKey, string> = {
   today: 'Today',
@@ -52,7 +52,7 @@ const DATE_RANGE_LABEL: Record<DateRangeKey, string> = {
 };
 
 const TAB_STATUS_MAP: Record<Exclude<QueueTab, 'All Queue'>, string[]> = {
-  'Pending Review': ['PENDING_REVIEW'],
+  Pending: ['PENDING'],
   'In Production': ['ASSIGNED', 'IN_PRODUCTION'],
   'Ready to Complete': ['READY_TO_COMPLETE'],
   Completed: ['COMPLETED'],
@@ -231,7 +231,7 @@ export function ProductionDashbroad() {
 function getTabCounts(items: DashboardQueueItemDto[]): Record<QueueTab, number> {
   return {
     'All Queue': items.length,
-    'Pending Review': items.filter((item) => TAB_STATUS_MAP['Pending Review'].includes(item.status)).length,
+    Pending: items.filter((item) => TAB_STATUS_MAP.Pending.includes(item.status)).length,
     'In Production': items.filter((item) => TAB_STATUS_MAP['In Production'].includes(item.status)).length,
     'Ready to Complete': items.filter((item) => TAB_STATUS_MAP['Ready to Complete'].includes(item.status)).length,
     Completed: items.filter((item) => TAB_STATUS_MAP.Completed.includes(item.status)).length,
@@ -241,9 +241,9 @@ function getTabCounts(items: DashboardQueueItemDto[]): Record<QueueTab, number> 
 function mapProductionKpis(data: ProductionDashboardKpisDto | undefined, rangeLabel: string): KpiItem[] {
   return [
     {
-      description: 'Requests waiting for production review',
+      description: 'Requests waiting to start production',
       icon: IconClock,
-      label: 'Pending Review',
+      label: 'Pending',
       note: rangeLabel,
       path: '/production/requests',
       tone: 'amber',

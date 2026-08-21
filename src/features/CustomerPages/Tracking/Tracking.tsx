@@ -145,14 +145,16 @@ export function Tracking() {
             <Field label="Order status" value={formatEnumLabel(order?.status ?? selectedProject?.status ?? 'UNKNOWN')} />
             <Field label="Customer confirmed" value={order?.customerConfirmedDeliveryAt ? formatDateTime(order.customerConfirmedDeliveryAt) : 'Not yet'} />
           </div>
-          <button
-            className="customer-workspace-link"
-            disabled={!canConfirmDeliveryOrder(order) || confirmDeliveryMutation.isPending}
-            type="button"
-            onClick={() => void confirmDelivery()}
-          >
-            {confirmDeliveryMutation.isPending ? 'Confirming...' : order?.customerConfirmedDeliveryAt ? 'Delivery confirmed' : 'Confirm Delivery'}
-          </button>
+          {canConfirmDeliveryOrder(order) ? (
+            <button
+              className="customer-workspace-link"
+              disabled={confirmDeliveryMutation.isPending}
+              type="button"
+              onClick={() => void confirmDelivery()}
+            >
+              {confirmDeliveryMutation.isPending ? 'Confirming...' : 'Confirm Delivery'}
+            </button>
+          ) : null}
         </article>
 
         <section className="customer-workspace-summary-grid">
