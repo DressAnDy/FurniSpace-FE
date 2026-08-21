@@ -105,8 +105,12 @@ export type ProposalSceneAreaDto = {
   areaName: string;
   areaType?: string | null;
   floorNumber?: number | null;
+  height?: number | null;
+  isSpecialLayout?: boolean | null;
+  length?: number | null;
   sortOrder: number;
   status?: string | null;
+  width?: number | null;
 };
 
 export type ProposalSceneListData = {

@@ -19,7 +19,7 @@ import {
 } from '@/services/queries';
 
 import './SaleQuotations.css';
-import { getLocalDateInputValue, validateRequiredFutureDate } from '@/shared/utils/dateValidation';
+import { getMinimumEndDateInputValue, getLocalDateInputValue, validateRequiredFutureDate } from '@/shared/utils/dateValidation';
 
 const statusOptions: Array<{ label: string; value: QuotationStatus | null }> = [
   { label: 'All', value: null },
@@ -31,6 +31,7 @@ const statusOptions: Array<{ label: string; value: QuotationStatus | null }> = [
 ];
 
 const pendingQuotationProjectStatuses = new Set<ProjectStatus>(['PROPOSAL_SELECTED']);
+const QUOTATION_VALID_UNTIL_DAYS = 3;
 
 const finalizedQuotationProjectStatuses = new Set<ProjectStatus>([
   'QUOTATION_SENT',
@@ -74,7 +75,6 @@ export function SaleQuotations() {
   const [selectedProjectId, setSelectedProjectId] = useState('');
   const [selectedStatus, setSelectedStatus] = useState<QuotationStatus | null>(null);
   const [selectedQuotationId, setSelectedQuotationId] = useState('');
-  const [validUntil, setValidUntil] = useState('');
   const [salesNote, setSalesNote] = useState('');
   const [depositAmount, setDepositAmount] = useState('');
   const [savedHeaderSnapshot, setSavedHeaderSnapshot] = useState<SavedQuotationHeaderSnapshot | null>(null);
@@ -192,22 +192,18 @@ export function SaleQuotations() {
 
   useEffect(() => {
     if (selectedQuotation) {
-      const savedHeader =
-        savedHeaderSnapshot?.quotationId === selectedQuotation.quotationId
-          ? savedHeaderSnapshot
-          : {
-            quotationId: selectedQuotation.quotationId,
-            validUntil: selectedQuotation.validUntil ?? null,
-            depositAmount: getQuotationDepositAmount(selectedQuotation),
-            salesNote: selectedQuotation.salesNote ?? null,
-          };
+      const savedHeader = {
+        quotationId: selectedQuotation.quotationId,
+        validUntil: getDefaultQuotationValidUntil(),
+        depositAmount: getQuotationDepositAmount(selectedQuotation),
+        salesNote: selectedQuotation.salesNote ?? null,
+      };
 
-      setValidUntil(toDateInputValue(savedHeader.validUntil));
       setSalesNote(savedHeader.salesNote ?? '');
-      setDepositAmount(String(savedHeader.depositAmount ?? ''));
+      setDepositAmount(String(getQuotationDepositAmount(selectedQuotation) ?? ''));
       setSavedHeaderSnapshot(savedHeader);
     }
-  }, [savedHeaderSnapshot, selectedQuotation]);
+  }, [selectedQuotation]);
 
   useEffect(() => {
     setFinancialDrafts(getFinancialDrafts(selectedQuotation?.items ?? []));
@@ -220,7 +216,8 @@ export function SaleQuotations() {
 
     setMessage(null);
 
-    const validUntilResult = validateRequiredFutureDate(validUntil, 'Quotation valid-until date');
+    const defaultValidUntil = getDefaultQuotationValidUntil();
+    const validUntilResult = validateRequiredFutureDate(defaultValidUntil, 'Quotation valid-until date');
     if (!validUntilResult.ok) {
       setMessage({ tone: 'error', text: validUntilResult.message });
       return;
@@ -242,17 +239,15 @@ export function SaleQuotations() {
         depositAmount: depositValidation.value,
       });
       const savedDepositAmount = updatedQuotation.depositAmount ?? depositValidation.value;
-      const savedValidUntil = updatedQuotation.validUntil ?? validUntilResult.value;
       const savedSalesNote = updatedQuotation.salesNote ?? salesNote;
 
       setSavedHeaderSnapshot({
         quotationId: selectedQuotation.quotationId,
-        validUntil: savedValidUntil,
+        validUntil: updatedQuotation.validUntil ?? validUntilResult.value,
         depositAmount: savedDepositAmount,
         salesNote: savedSalesNote,
       });
       setDepositAmount(String(savedDepositAmount));
-      setValidUntil(toDateInputValue(savedValidUntil));
       setSalesNote(savedSalesNote);
       void quotationDetailQuery.refetch();
       setMessage({ tone: 'success', text: 'Quotation header updated.' });
@@ -281,7 +276,7 @@ export function SaleQuotations() {
     setMessage(null);
 
     try {
-      await bulkFinancialsMutation.mutateAsync({
+      const updatedQuotation = await bulkFinancialsMutation.mutateAsync({
         quotationId: selectedQuotation.quotationId,
         items: items.map((item) => {
           const draft = financialDrafts[item.quotationItemId] ?? getFinancialDraft(item);
@@ -292,6 +287,18 @@ export function SaleQuotations() {
           };
         }),
       });
+      const refreshedQuotation = await quotationDetailQuery.refetch();
+      const quotationAfterSave = refreshedQuotation.data ?? updatedQuotation;
+      const nextDepositAmount = getQuotationDepositAmount(quotationAfterSave);
+      const nextValidUntil = getDefaultQuotationValidUntil();
+
+      setSavedHeaderSnapshot({
+        quotationId: selectedQuotation.quotationId,
+        validUntil: nextValidUntil,
+        depositAmount: nextDepositAmount,
+        salesNote: quotationAfterSave.salesNote ?? salesNote,
+      });
+      setDepositAmount(String(nextDepositAmount ?? ''));
       setMessage({ tone: 'success', text: 'Quotation item financials updated.' });
     } catch (error) {
       setMessage({ tone: 'error', text: getQuotationServiceResultMessage(error) });
@@ -305,7 +312,10 @@ export function SaleQuotations() {
 
     try {
       if (action === 'send') {
-        const quotationForAction = getSavedQuotationSnapshot(selectedQuotation, savedHeaderSnapshot) ?? selectedQuotation;
+        const quotationForAction = {
+          ...(getSavedQuotationSnapshot(selectedQuotation, savedHeaderSnapshot) ?? selectedQuotation),
+          validUntil: getDefaultQuotationValidUntil(),
+        };
         const blockedReason = getSendBlockedReason(quotationForAction);
         if (blockedReason) {
           setMessage({ tone: 'error', text: blockedReason });
@@ -317,6 +327,20 @@ export function SaleQuotations() {
           setMessage({ tone: 'error', text: validUntilResult.message });
           return;
         }
+        const depositValidation = validateDepositAmount(depositAmount, quotationForAction.totalAmount);
+        if (!depositValidation.ok) {
+          setMessage({ tone: 'error', text: depositValidation.message });
+          return;
+        }
+
+        await updateQuotationMutation.mutateAsync({
+          quotationId: selectedQuotation.quotationId,
+          validUntil: validUntilResult.value,
+          customerNote: selectedQuotation.customerNote ?? null,
+          salesNote,
+          revisionReason: selectedQuotation.revisionReason ?? null,
+          depositAmount: depositValidation.value,
+        });
         await sendQuotationMutation.mutateAsync(selectedQuotation.quotationId);
         setMessage({ tone: 'success', text: 'Quotation sent to customer.' });
       } else if (action === 'revise') {
@@ -597,10 +621,6 @@ export function SaleQuotations() {
               {canEditHeader(selectedQuotation.status) ? (
                 <form className="sale-quotations-edit-form" onSubmit={updateHeader}>
                   <label>
-                    <span>Quotation Valid Until</span>
-                    <input min={getLocalDateInputValue()} required type="date" value={validUntil} onChange={(event) => setValidUntil(event.target.value)} />
-                  </label>
-                  <label>
                     <span>Sales Note</span>
                     <input type="text" value={salesNote} onChange={(event) => setSalesNote(event.target.value)} placeholder="Note shown with the quotation" />
                   </label>
@@ -806,6 +826,10 @@ function calculateDefaultDepositAmount(totalAmount?: number | null) {
   }
 
   return Math.ceil((totalAmount * 0.3) / 1000) * 1000;
+}
+
+function getDefaultQuotationValidUntil() {
+  return getMinimumEndDateInputValue(getLocalDateInputValue(), QUOTATION_VALID_UNTIL_DAYS);
 }
 
 function normalizeNumber(value: string) {
@@ -1142,22 +1166,6 @@ function formatDate(value: string) {
     month: 'short',
     year: 'numeric',
   }).format(new Date(value));
-}
-
-function toDateInputValue(value?: string | null) {
-  if (!value) return '';
-
-  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
-    return value;
-  }
-
-  const parsedDate = new Date(value);
-
-  if (Number.isNaN(parsedDate.getTime())) {
-    return '';
-  }
-
-  return parsedDate.toISOString().slice(0, 10);
 }
 
 function formatMoney(value?: number | null) {

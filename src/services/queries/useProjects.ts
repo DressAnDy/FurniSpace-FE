@@ -8,11 +8,13 @@ import {
   getAdminProjectWorkflow,
   getProjectById,
   getProjectFiles,
+  getProjectPhaseDeadlines,
   getProjects,
   reopenProjectProposal,
   requestProjectInformation,
   updateProjectStatus,
   updateProjectBasicInformation,
+  updateProjectPhaseDeadlines,
   uploadProjectFile,
   type CreateProjectInput,
   type AssignDesignerInput,
@@ -23,6 +25,7 @@ import {
   type FileType,
   type FileVisibility,
   type UpdateProjectBasicInformationInput,
+  type UpdateProjectPhaseDeadlinesInput,
   type UpdateProjectStatusInput,
 } from '@/services/api/projects';
 import { projectChatQueryKeys } from './useProjectChats';
@@ -32,6 +35,7 @@ export const projectQueryKeys = {
   list: (params?: ProjectListParams) => ['projects', 'list', params] as const,
   detail: (projectId: string) => ['projects', 'detail', projectId] as const,
   workflow: (projectId: string) => ['projects', 'workflow', projectId] as const,
+  phaseDeadlines: (projectId: string) => ['projects', 'phase-deadlines', projectId] as const,
   files: (params: ProjectFileListParams) => ['projects', 'files', params] as const,
   staffQueue: (params?: Pick<ProjectListParams, 'search' | 'page' | 'limit'>) => ['projects', 'staff-queue', params] as const,
 };
@@ -57,6 +61,14 @@ export function useAdminProjectWorkflow(projectId?: string) {
     queryKey: projectQueryKeys.workflow(projectId ?? ''),
     queryFn: () => getAdminProjectWorkflow(projectId ?? ''),
     enabled: Boolean(projectId),
+  });
+}
+
+export function useProjectPhaseDeadlines(projectId?: string, options?: { enabled?: boolean }) {
+  return useQuery({
+    queryKey: projectQueryKeys.phaseDeadlines(projectId ?? ''),
+    queryFn: () => getProjectPhaseDeadlines(projectId ?? ''),
+    enabled: Boolean(projectId) && (options?.enabled ?? true),
   });
 }
 
@@ -122,6 +134,20 @@ export function useUpdateProjectBasicInformation() {
       void queryClient.invalidateQueries({ queryKey: projectQueryKeys.all });
       void queryClient.invalidateQueries({ queryKey: projectQueryKeys.detail(data.projectId) });
       void queryClient.invalidateQueries({ queryKey: ['notifications'] });
+    },
+  });
+}
+
+export function useUpdateProjectPhaseDeadlines() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (input: UpdateProjectPhaseDeadlinesInput) => updateProjectPhaseDeadlines(input),
+    onSuccess: (data) => {
+      void queryClient.invalidateQueries({ queryKey: projectQueryKeys.phaseDeadlines(data.projectId) });
+      void queryClient.invalidateQueries({ queryKey: projectQueryKeys.detail(data.projectId) });
+      void queryClient.invalidateQueries({ queryKey: projectQueryKeys.workflow(data.projectId) });
+      void queryClient.invalidateQueries({ queryKey: ['dashboard'] });
     },
   });
 }

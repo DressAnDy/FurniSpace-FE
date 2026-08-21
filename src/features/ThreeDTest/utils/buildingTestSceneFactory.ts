@@ -42,6 +42,7 @@ export type BuildingProjectFloorAreaSource = {
   areaName: string;
   floorNumber?: number | null;
   height?: number | null;
+  isSpecialLayout?: boolean | null;
   length?: number | null;
   projectAreaId: string;
   width?: number | null;
@@ -139,6 +140,7 @@ export function createBuildingLevel(
     footprintOffset: { x: 0, z: 0 },
     height: DEFAULT_LEVEL_HEIGHT,
     id,
+    isSpecialLayout: false,
     label: `Floor ${levelIndex + 1}`,
     layout,
     projectAreaId: projectAreaId ?? null,
@@ -181,8 +183,9 @@ export function createBuildingTestSceneFromProjectFloorAreas(
   }
 
   const levels = floorAreas.map((area, index) => {
-    const width = Math.max(area.width ?? baseScene.building.width, 4);
-    const depth = Math.max(area.length ?? baseScene.building.depth, 4);
+    const isSpecialLayout = area.isSpecialLayout === true;
+    const width = Math.max(isSpecialLayout ? baseScene.building.width : area.width ?? baseScene.building.width, 4);
+    const depth = Math.max(isSpecialLayout ? baseScene.building.depth : area.length ?? baseScene.building.depth, 4);
     const levelId = `floor-area-${area.projectAreaId}`;
     const wallHeight = Math.max((area.height ?? 3) - 0.25, 1.8);
     const level = createBuildingLevel(
@@ -197,6 +200,7 @@ export function createBuildingTestSceneFromProjectFloorAreas(
     return {
       ...level,
       height: Math.max(area.height ?? level.height, 2.4),
+      isSpecialLayout,
       label: area.areaName || `Floor ${index + 1}`,
       layout: level.layout
         ? {

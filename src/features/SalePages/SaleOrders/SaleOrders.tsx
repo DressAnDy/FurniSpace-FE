@@ -9,11 +9,9 @@ import {
   useAvailableProductionStaff,
   useCompleteOrder,
   useCreateOrderDepositPayment,
-  useCreateOrderRemainingPayment,
   useCreateProductionRequest,
   useCurrentUser,
   useOrderDetail,
-  usePrepareOrderFinalPayment,
   useProjectDetail,
   useProjectList,
   useProjectOrders,
@@ -66,8 +64,6 @@ export function SaleOrders() {
   const productionStaffQuery = useAvailableProductionStaff({ projectId: selectedProjectId }, { enabled: Boolean(selectedProjectId) });
   const createProductionRequestMutation = useCreateProductionRequest();
   const createDepositPaymentMutation = useCreateOrderDepositPayment();
-  const prepareFinalPaymentMutation = usePrepareOrderFinalPayment();
-  const remainingPaymentMutation = useCreateOrderRemainingPayment();
   const completeOrderMutation = useCompleteOrder();
 
   useEffect(() => {
@@ -174,8 +170,6 @@ export function SaleOrders() {
                     isCompleting={completeOrderMutation.isPending}
                     isCreatingDepositPayment={createDepositPaymentMutation.isPending}
                     isCreatingProduction={createProductionRequestMutation.isPending}
-                    isCreatingRemainingPayment={remainingPaymentMutation.isPending}
-                    isPreparingFinalPayment={prepareFinalPaymentMutation.isPending}
                     order={order}
                     projectTargetCompletionDate={projectDetailQuery.data?.targetCompletionDate ?? null}
                     productionStaff={productionStaffQuery.data ?? []}
@@ -221,30 +215,6 @@ export function SaleOrders() {
                         setMessage({ tone: 'error', text: getProductionServiceResultMessage(error) });
                       }
                     }}
-                    onPrepareAndCreateRemainingPayment={async () => {
-                      setMessage(null);
-                      try {
-                        if (order.status === 'FINAL_PAYMENT_PENDING') {
-                          await remainingPaymentMutation.mutateAsync({ orderId: order.orderId, note: 'Remaining payment for completed delivery.' });
-                          setMessage({ tone: 'success', text: 'Remaining payment created.' });
-                          void orderDetailQuery.refetch();
-                          return;
-                        }
-
-                        const result = await prepareFinalPaymentMutation.mutateAsync(order.orderId);
-
-                        if (result.requiresRemainingPayment) {
-                          await remainingPaymentMutation.mutateAsync({ orderId: order.orderId, note: 'Remaining payment for completed delivery.' });
-                          setMessage({ tone: 'success', text: 'Final payment prepared and remaining payment created.' });
-                        } else {
-                          setMessage({ tone: 'success', text: 'No remaining payment is required. Order is ready to complete.' });
-                        }
-
-                        void orderDetailQuery.refetch();
-                      } catch (error) {
-                        setMessage({ tone: 'error', text: getOrderServiceResultMessage(error) });
-                      }
-                    }}
                   />
                 ) : ordersQuery.isLoading ? (
                   <p className="sale-orders-muted">Loading orders...</p>
@@ -264,12 +234,9 @@ function OrderDetailPanel({
   isCompleting,
   isCreatingDepositPayment,
   isCreatingProduction,
-  isCreatingRemainingPayment,
-  isPreparingFinalPayment,
   onCompleteOrder,
   onCreateDepositPayment,
   onCreateProduction,
-  onPrepareAndCreateRemainingPayment,
   order,
   projectTargetCompletionDate,
   productionStaff,
@@ -277,12 +244,9 @@ function OrderDetailPanel({
   isCompleting: boolean;
   isCreatingDepositPayment: boolean;
   isCreatingProduction: boolean;
-  isCreatingRemainingPayment: boolean;
-  isPreparingFinalPayment: boolean;
   onCompleteOrder: () => void;
   onCreateDepositPayment: () => void;
   onCreateProduction: (input: { assignedTo?: string | null; priority: 'LOW' | 'MEDIUM' | 'NORMAL' | 'HIGH' | 'URGENT'; estimatedStartDate?: string | null; estimatedCompletionDate?: string | null; note?: string | null }) => void;
-  onPrepareAndCreateRemainingPayment: () => void;
   order: OrderDetailDto;
   projectTargetCompletionDate?: string | null;
   productionStaff: Array<{ accountId: string; fullName: string; activeRequestCount: number; isAvailable: boolean }>;
@@ -300,10 +264,8 @@ function OrderDetailPanel({
     && (order.remainingAmount ?? 0) <= 0
     && Boolean(order.customerConfirmedDeliveryAt);
   const isOrderCompleted = order.status === 'COMPLETED';
-  const canPrepareOrCreateRemainingPayment = order.status === 'DELIVERED'
-    || (order.status === 'FINAL_PAYMENT_PENDING' && (order.remainingAmount ?? 0) > 0);
   const completeOrderBlocker = getCompleteOrderBlocker(order);
-  const showFinalPaymentActions = order.status === 'DELIVERED';
+  const showFinalPaymentPanel = order.status === 'DELIVERED' || order.status === 'FINAL_PAYMENT_PENDING' || order.status === 'COMPLETED';
 
   useEffect(() => {
     setAssignedTo((current) => current || productionStaff.find((staff) => staff.isAvailable)?.accountId || productionStaff[0]?.accountId || '');
@@ -447,24 +409,17 @@ function OrderDetailPanel({
           </div>
         </form>
       ) : null}
-      {order.status === 'DELIVERED' || order.status === 'FINAL_PAYMENT_PENDING' || order.status === 'COMPLETED' ? (
+      {showFinalPaymentPanel ? (
         <div className="sale-orders-flow-panel">
           <header>
             <div>
               <h3>Final Payment</h3>
+              <p>{getFinalPaymentFlowMessage(order)}</p>
             </div>
           </header>
-          {showFinalPaymentActions ? (
+          {canCompleteOrder ? (
             <>
               <div className="sale-orders-actions">
-                <button
-                  disabled={isOrderCompleted || !canPrepareOrCreateRemainingPayment || isPreparingFinalPayment || isCreatingRemainingPayment}
-                  type="button"
-                  onClick={onPrepareAndCreateRemainingPayment}
-                >
-                  <IconSettings size={16} />
-                  {isPreparingFinalPayment || isCreatingRemainingPayment ? 'Processing...' : 'Prepare & Create Remaining Payment'}
-                </button>
                 <button disabled={isOrderCompleted || !canCompleteOrder || Boolean(completeOrderBlocker) || isCompleting} type="button" onClick={onCompleteOrder}>
                   <IconCircleCheck size={16} />
                   {isCompleting ? 'Completing...' : 'Complete Zero-Remaining Order'}
@@ -541,11 +496,20 @@ function formatMoney(value?: number | null) {
 function getCompleteOrderBlocker(order: OrderDetailDto) {
   if (order.status === 'COMPLETED') return 'This order has already been completed.';
   if (order.status !== 'DELIVERED' && order.status !== 'FINAL_PAYMENT_PENDING') return null;
-  if (order.status === 'DELIVERED') return 'Prepare the final payment phase before completing a zero-remaining order.';
+  if (order.status === 'DELIVERED') return 'Waiting for customer delivery confirmation. Remaining payment is created by backend after confirmation.';
   if ((order.remainingAmount ?? 0) > 0) return 'Waiting for customer final payment. The backend will complete this order automatically after payment is confirmed.';
   if (!order.customerConfirmedDeliveryAt) return 'Order is waiting for customer delivery confirmation.';
 
   return null;
+}
+
+function getFinalPaymentFlowMessage(order: OrderDetailDto) {
+  if (order.status === 'COMPLETED') return 'This order is completed.';
+  if (order.status === 'DELIVERED') return 'Customer confirmation will trigger remaining payment creation when needed.';
+  if ((order.remainingAmount ?? 0) > 0) return 'Remaining payment is pending. Customer can pay it from their order screen.';
+  if (order.status === 'FINAL_PAYMENT_PENDING') return 'No remaining amount is due. Complete the order if customer delivery was confirmed.';
+
+  return 'Final payment is handled after full-order delivery confirmation.';
 }
 
 function isDateRangeAfterTarget(startDate: string | null, endDate: string | null, targetCompletionDate: string) {

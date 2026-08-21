@@ -84,6 +84,7 @@ export {
   useMarkSpaceVerified,
   useProjectDetail,
   useProjectFiles,
+  useProjectPhaseDeadlines,
   useProjectList,
   useRejectProject,
   useReopenProjectProposal,
@@ -91,6 +92,7 @@ export {
   useStartProposalConsulting,
   useStaffProjectQueue,
   useUpdateProjectBasicInformation,
+  useUpdateProjectPhaseDeadlines,
   useUpdateProjectStatus,
   useUploadProjectFile,
 } from './useProjects';
@@ -187,7 +189,6 @@ export {
   useAvailableProductionStaff,
   useCompleteProductionRequest,
   useCreateProductionRequest,
-  useMarkProductionRequestFeasible,
   useProductionRequestDetail,
   useProductionRequests,
   useStartProductionRequest,

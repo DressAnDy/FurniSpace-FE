@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { getProjectAreaServiceResultMessage, type ProjectAreaDto, type ProjectAreaStatus, type ProjectAreaWriteInput } from '@/services/api/projectAreas';
 import type { ProjectDto } from '@/services/api/projects';
 import { useCreateProjectArea, useProjectAreas, useUpdateProjectArea } from '@/services/queries';
-import { validateOptionalNonNegativeInteger, validateOptionalPositiveNumber } from '@/shared/utils/projectRequestValidation';
+import { validateOptionalPositiveNumber } from '@/shared/utils/projectRequestValidation';
 
 type ProjectAreasTabProps = {
   project: ProjectDto;
@@ -12,28 +12,32 @@ type ProjectAreasTabProps = {
 
 type AreaDraft = {
   areaName: string;
+  areaSqm: string;
   currentCondition: string;
   description: string;
   floorNumber: string;
   height: string;
+  isSpecialLayout: boolean;
   length: string;
   requirementNote: string;
   status: ProjectAreaStatus;
   width: string;
 };
 
-type NumericAreaField = 'floorNumber' | 'width' | 'length' | 'height';
+type NumericAreaField = 'areaSqm' | 'width' | 'length' | 'height';
 
-type AreaFieldErrors = Partial<Record<'areaName' | NumericAreaField, string>>;
+type AreaFieldErrors = Partial<Record<'areaName' | 'floorNumber' | NumericAreaField, string>>;
 
 const LOCKED_AREA_STATUS: ProjectAreaStatus = 'VERIFIED';
 
 const DEFAULT_AREA_DRAFT: AreaDraft = {
   areaName: '',
+  areaSqm: '',
   currentCondition: '',
   description: '',
   floorNumber: '',
   height: '',
+  isSpecialLayout: false,
   length: '',
   requirementNote: '',
   status: LOCKED_AREA_STATUS,
@@ -41,7 +45,7 @@ const DEFAULT_AREA_DRAFT: AreaDraft = {
 };
 
 const NUMERIC_FIELD_LABELS: Record<NumericAreaField, string> = {
-  floorNumber: 'Floor',
+  areaSqm: 'Area (m2)',
   width: 'Width (m)',
   length: 'Length (m)',
   height: 'Height (m)',
@@ -63,6 +67,8 @@ export function ProjectAreasTab({ project }: Readonly<ProjectAreasTabProps>) {
   const isEditingArea = Boolean(editingAreaId);
   const isSavingArea = createAreaMutation.isPending || updateAreaMutation.isPending;
   const calculatedAreaSqm = getDraftAreaSqm(areaDraft);
+  const assignedFloorNumber = getAssignedFloorNumber(areaDraft, areas, editingAreaId, project);
+  const floorAssignmentError = assignedFloorNumber === null ? getFloorAssignmentError(areas, editingAreaId, project) ?? 'No available floor for this project.' : null;
   const areaLimitError = useMemo(
     () => getAreaLimitError(areaDraft, areas, editingAreaId, project),
     [areaDraft, areas, editingAreaId, project],
@@ -96,13 +102,12 @@ export function ProjectAreasTab({ project }: Readonly<ProjectAreasTabProps>) {
   }
 
   function updateNumericDraft(field: NumericAreaField, rawValue: string) {
-    const sanitized = field === 'floorNumber' ? sanitizeIntegerInput(rawValue) : sanitizeDecimalInput(rawValue);
-    updateDraft(field, sanitized);
+    updateDraft(field, sanitizeDecimalInput(rawValue));
   }
 
   async function saveArea() {
     const areaName = areaDraft.areaName.trim();
-    const nextFieldErrors = getAreaFieldErrors(areaDraft, areas, editingAreaId, project);
+    const nextFieldErrors = getAreaFieldErrors(areaDraft, areas, editingAreaId, project, assignedFloorNumber);
 
     setFieldErrors(nextFieldErrors);
     setMessage('');
@@ -125,11 +130,12 @@ export function ProjectAreasTab({ project }: Readonly<ProjectAreasTabProps>) {
         projectId: project.projectId,
         areaName,
         areaType: 'FLOOR',
-        areaSqm: calculatedAreaSqm,
+        areaSqm: areaDraft.isSpecialLayout ? parseOptionalNumber(areaDraft.areaSqm) : calculatedAreaSqm,
         currentCondition: areaDraft.currentCondition,
         description: areaDraft.description,
-        floorNumber: parseOptionalNumber(areaDraft.floorNumber),
+        floorNumber: assignedFloorNumber,
         height: parseOptionalNumber(areaDraft.height),
+        isSpecialLayout: areaDraft.isSpecialLayout,
         length: parseOptionalNumber(areaDraft.length),
         requirementNote: areaDraft.requirementNote,
         status: LOCKED_AREA_STATUS,
@@ -197,24 +203,32 @@ export function ProjectAreasTab({ project }: Readonly<ProjectAreasTabProps>) {
               onChange={(event) => updateDraft('areaName', event.target.value)}
               />
             </label>
-            <NumericAreaInput
-              error={fieldErrors.floorNumber}
-              inputMode="numeric"
-              label="Floor"
-              value={areaDraft.floorNumber}
-              onChange={(value) => updateNumericDraft('floorNumber', value)}
-            />
+            <label>
+              <span>Layout Mode</span>
+              <select
+                value={areaDraft.isSpecialLayout ? 'special' : 'standard'}
+                onChange={(event) => updateDraft('isSpecialLayout', event.target.value === 'special')}
+              >
+                <option value="standard">Standard rectangle</option>
+                <option value="special">Special layout</option>
+              </select>
+            </label>
+            <div className={`designer-project-area-calculated${fieldErrors.floorNumber || floorAssignmentError ? ' designer-project-area-calculated-invalid' : ''}`}>
+              <span>Floor</span>
+              <strong>{assignedFloorNumber ? `Floor ${assignedFloorNumber}` : '-'}</strong>
+              {fieldErrors.floorNumber || floorAssignmentError ? <em>{fieldErrors.floorNumber ?? floorAssignmentError}</em> : null}
+            </div>
             <NumericAreaInput
               error={fieldErrors.width}
               inputMode="decimal"
-              label="Width (m)"
+              label={areaDraft.isSpecialLayout ? 'Width (m, optional)' : 'Width (m)'}
               value={areaDraft.width}
               onChange={(value) => updateNumericDraft('width', value)}
             />
             <NumericAreaInput
               error={fieldErrors.length}
               inputMode="decimal"
-              label="Length (m)"
+              label={areaDraft.isSpecialLayout ? 'Length (m, optional)' : 'Length (m)'}
               value={areaDraft.length}
               onChange={(value) => updateNumericDraft('length', value)}
             />
@@ -225,11 +239,21 @@ export function ProjectAreasTab({ project }: Readonly<ProjectAreasTabProps>) {
               value={areaDraft.height}
               onChange={(value) => updateNumericDraft('height', value)}
             />
-            <div className={`designer-project-area-calculated${areaLimitError ? ' designer-project-area-calculated-invalid' : ''}`}>
-              <span>Area m2</span>
-              <strong>{formatMetric(calculatedAreaSqm, 'm2')}</strong>
-              {areaLimitError ? <em>{areaLimitError}</em> : null}
-            </div>
+            {areaDraft.isSpecialLayout ? (
+              <NumericAreaInput
+                error={fieldErrors.areaSqm}
+                inputMode="decimal"
+                label="Area (m2, optional)"
+                value={areaDraft.areaSqm}
+                onChange={(value) => updateNumericDraft('areaSqm', value)}
+              />
+            ) : (
+              <div className={`designer-project-area-calculated${areaLimitError ? ' designer-project-area-calculated-invalid' : ''}`}>
+                <span>Area m2</span>
+                <strong>{formatMetric(calculatedAreaSqm, 'm2')}</strong>
+                {areaLimitError ? <em>{areaLimitError}</em> : null}
+              </div>
+            )}
             <label className="designer-project-area-note">
               <span>Description</span>
               <textarea value={areaDraft.description} onChange={(event) => updateDraft('description', event.target.value)} />
@@ -248,7 +272,7 @@ export function ProjectAreasTab({ project }: Readonly<ProjectAreasTabProps>) {
                   <IconX size={16} /> Cancel
                 </button>
               ) : null}
-              <button disabled={isSavingArea || !areaDraft.areaName.trim()} type="button" onClick={() => void saveArea()}>
+              <button disabled={isSavingArea || !areaDraft.areaName.trim() || assignedFloorNumber === null} type="button" onClick={() => void saveArea()}>
                 {isEditingArea ? <IconEdit size={16} /> : <IconPlus size={16} />}
                 {getSaveButtonLabel(isSavingArea, isEditingArea)}
               </button>
@@ -312,7 +336,7 @@ function ProjectAreaItem({ area, onUpdate }: Readonly<{ area: ProjectAreaDto; on
         <header>
           <div>
             <strong>{area.areaName}</strong>
-            <span>{typeof area.floorNumber === 'number' ? `Floor ${area.floorNumber}` : 'Floor area'}</span>
+            <span>{typeof area.floorNumber === 'number' ? `Floor ${area.floorNumber}` : 'Floor area'} - {area.isSpecialLayout ? 'Special layout' : 'Standard'}</span>
           </div>
           <small>{formatEnumLabel(area.status)}</small>
         </header>
@@ -350,6 +374,7 @@ function getAreaFieldErrors(
   areas: ProjectAreaDto[],
   editingAreaId: string | null,
   project: ProjectDto,
+  assignedFloorNumber: number | null,
 ): AreaFieldErrors {
   const fieldErrors: AreaFieldErrors = {};
 
@@ -357,50 +382,42 @@ function getAreaFieldErrors(
     fieldErrors.areaName = 'Area name is required.';
   }
 
-  const floorNumber = parseOptionalNumber(draft.floorNumber);
-  const maxFloors = project.numberOfFloors;
-  const existingFloors = new Set(
-    areas
-      .filter((area) => area.projectAreaId !== editingAreaId && typeof area.floorNumber === 'number')
-      .map((area) => area.floorNumber),
-  );
+  if (assignedFloorNumber === null) {
+    fieldErrors.floorNumber = getFloorAssignmentError(areas, editingAreaId, project) ?? 'No available floor for this project.';
+  }
 
-  if (floorNumber === null) {
-    fieldErrors.floorNumber = 'Floor is required.';
+  if (draft.isSpecialLayout) {
+    (['width', 'length', 'areaSqm'] as const).forEach((field) => {
+      const value = parseOptionalNumber(draft[field]);
+
+      if (value !== null) {
+        const result = validateOptionalPositiveNumber(value, NUMERIC_FIELD_LABELS[field]);
+        if (!result.ok) fieldErrors[field] = result.message;
+      }
+    });
   } else {
-    const floorResult = validateOptionalNonNegativeInteger(floorNumber, NUMERIC_FIELD_LABELS.floorNumber);
-    if (!floorResult.ok) {
-      fieldErrors.floorNumber = floorResult.message;
-    } else if (floorNumber < 1) {
-      fieldErrors.floorNumber = 'Floor must be at least 1.';
-    } else if (typeof maxFloors === 'number' && floorNumber > maxFloors) {
-      fieldErrors.floorNumber = `Floor cannot be greater than project floors (${maxFloors}).`;
-    } else if (existingFloors.has(floorNumber)) {
-      fieldErrors.floorNumber = `Floor ${floorNumber} already exists in this project.`;
+    (['width', 'length'] as const).forEach((field) => {
+      const result = validateOptionalPositiveNumber(parseOptionalNumber(draft[field]), NUMERIC_FIELD_LABELS[field]);
+      if (!result.ok) fieldErrors[field] = result.message;
+    });
+
+    if (parseOptionalNumber(draft.width) === null) {
+      fieldErrors.width = 'Width is required.';
     }
-  }
 
-  (['width', 'length'] as const).forEach((field) => {
-    const result = validateOptionalPositiveNumber(parseOptionalNumber(draft[field]), NUMERIC_FIELD_LABELS[field]);
-    if (!result.ok) fieldErrors[field] = result.message;
-  });
+    if (parseOptionalNumber(draft.length) === null) {
+      fieldErrors.length = 'Length is required.';
+    }
 
-  if (parseOptionalNumber(draft.width) === null) {
-    fieldErrors.width = 'Width is required.';
-  }
-
-  if (parseOptionalNumber(draft.length) === null) {
-    fieldErrors.length = 'Length is required.';
+    const areaLimitError = getAreaLimitError(draft, areas, editingAreaId, project);
+    if (areaLimitError) {
+      fieldErrors.width = areaLimitError;
+      fieldErrors.length = areaLimitError;
+    }
   }
 
   const height = validateOptionalPositiveNumber(parseOptionalNumber(draft.height), NUMERIC_FIELD_LABELS.height);
   if (!height.ok) fieldErrors.height = height.message;
-
-  const areaLimitError = getAreaLimitError(draft, areas, editingAreaId, project);
-  if (areaLimitError) {
-    fieldErrors.width = areaLimitError;
-    fieldErrors.length = areaLimitError;
-  }
 
   return fieldErrors;
 }
@@ -413,6 +430,10 @@ function getAreaLimitError(
 ) {
   const totalAreaSqm = project.totalAreaSqm;
   const draftAreaSqm = getDraftAreaSqm(draft);
+
+  if (draft.isSpecialLayout) {
+    return null;
+  }
 
   if (typeof totalAreaSqm !== 'number' || draftAreaSqm === null) {
     return null;
@@ -429,22 +450,72 @@ function isAreaLimitErrorMessage(message?: string) {
   return message?.startsWith('Calculated area cannot be greater') || false;
 }
 
+function getAssignedFloorNumber(
+  draft: AreaDraft,
+  areas: ProjectAreaDto[],
+  editingAreaId: string | null,
+  project: ProjectDto,
+) {
+  const currentFloor = parseOptionalNumber(draft.floorNumber);
+
+  if (editingAreaId && currentFloor !== null) {
+    return currentFloor;
+  }
+
+  return getNextAvailableFloorNumber(areas, editingAreaId, project);
+}
+
+function getNextAvailableFloorNumber(areas: ProjectAreaDto[], editingAreaId: string | null, project: ProjectDto) {
+  const usedFloors = new Set(
+    areas
+      .filter((area) => area.projectAreaId !== editingAreaId && area.areaType === 'FLOOR' && typeof area.floorNumber === 'number')
+      .map((area) => area.floorNumber as number),
+  );
+  const maxFloors = typeof project.numberOfFloors === 'number' && project.numberOfFloors > 0
+    ? project.numberOfFloors
+    : usedFloors.size + 1;
+
+  for (let floorNumber = 1; floorNumber <= maxFloors; floorNumber += 1) {
+    if (!usedFloors.has(floorNumber)) {
+      return floorNumber;
+    }
+  }
+
+  return null;
+}
+
+function getFloorAssignmentError(areas: ProjectAreaDto[], editingAreaId: string | null, project: ProjectDto) {
+  const maxFloors = project.numberOfFloors;
+
+  if (typeof maxFloors === 'number' && maxFloors > 0) {
+    const usedFloorCount = new Set(
+      areas
+        .filter((area) => area.projectAreaId !== editingAreaId && area.areaType === 'FLOOR' && typeof area.floorNumber === 'number')
+        .map((area) => area.floorNumber),
+    ).size;
+
+    if (usedFloorCount >= maxFloors) {
+      return `This project already has all ${maxFloors} floor(s) created.`;
+    }
+  }
+
+  return null;
+}
+
 function getAreaDraft(area: ProjectAreaDto): AreaDraft {
   return {
     areaName: area.areaName,
+    areaSqm: formatDraftNumber(area.areaSqm),
     currentCondition: area.currentCondition ?? '',
     description: area.description ?? '',
     floorNumber: formatDraftNumber(area.floorNumber),
     height: formatDraftNumber(area.height),
+    isSpecialLayout: area.isSpecialLayout,
     length: formatDraftNumber(area.length),
     requirementNote: area.requirementNote ?? '',
     status: LOCKED_AREA_STATUS,
     width: formatDraftNumber(area.width),
   };
-}
-
-function sanitizeIntegerInput(value: string) {
-  return value.replace(/\D/g, '');
 }
 
 function sanitizeDecimalInput(value: string) {

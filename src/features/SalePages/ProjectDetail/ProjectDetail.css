@@ -918,6 +918,102 @@
   padding-bottom: 8px;
 }
 
+.project-detail-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  background: rgba(24, 24, 27, 0.42);
+  padding: 24px;
+}
+
+.project-detail-phase-deadline-modal {
+  width: min(560px, 100%);
+  border: 1px solid #e4e4e7;
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 24px 70px rgba(24, 24, 27, 0.22);
+  padding: 22px;
+}
+
+.project-detail-phase-deadline-modal > header,
+.project-detail-phase-deadline-modal > footer {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.project-detail-phase-deadline-modal h3,
+.project-detail-phase-deadline-modal p {
+  margin: 0;
+}
+
+.project-detail-phase-deadline-modal header p {
+  margin-top: 6px;
+  color: #71717a;
+  font-size: 13px;
+}
+
+.project-detail-phase-deadline-modal header button {
+  border: 0;
+  background: transparent;
+  color: #71717a;
+  cursor: pointer;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.project-detail-phase-deadline-grid,
+.project-detail-phase-deadline-status {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  margin-top: 20px;
+}
+
+.project-detail-phase-deadline-grid label,
+.project-detail-phase-deadline-status div {
+  display: grid;
+  gap: 7px;
+}
+
+.project-detail-phase-deadline-grid span,
+.project-detail-phase-deadline-status span {
+  color: #71717a;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.project-detail-phase-deadline-grid input {
+  min-height: 42px;
+  border: 1px solid #d4d4d8;
+  border-radius: 8px;
+  padding: 0 12px;
+}
+
+.project-detail-phase-deadline-status {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.project-detail-phase-deadline-status div {
+  border: 1px solid #f4f4f5;
+  border-radius: 8px;
+  background: #fafafa;
+  padding: 12px;
+}
+
+.project-detail-phase-deadline-status strong {
+  color: #27272a;
+  font-size: 13px;
+}
+
+.project-detail-phase-deadline-modal footer {
+  align-items: center;
+  margin-top: 22px;
+}
+
 .project-detail-start-fee-card {
   display: grid;
   align-items: stretch;

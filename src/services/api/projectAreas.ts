@@ -40,6 +40,7 @@ export type ProjectAreaDto = {
   areaName: string;
   areaType: ProjectAreaType;
   floorNumber: number | null;
+  isSpecialLayout: boolean;
   description: string | null;
   areaSqm: number | null;
   width: number | null;
@@ -59,6 +60,7 @@ export type ProjectAreaWriteInput = {
   areaName: string;
   areaType: ProjectAreaType;
   floorNumber?: number | null;
+  isSpecialLayout?: boolean | null;
   description?: string | null;
   areaSqm?: number | null;
   width?: number | null;
@@ -86,6 +88,17 @@ type ServiceResult<T> = {
   errorCode?: string;
 };
 
+const PROJECT_AREA_ERROR_MESSAGES: Record<string, string> = {
+  DUPLICATE_FLOOR_NUMBER: 'This floor already exists in the project.',
+  INVALID_AREA_DIMENSION: 'Please check the area dimensions. Standard areas require positive width, length, height, and matching area.',
+  INVALID_FLOOR_NUMBER: 'Floor number is invalid for this project.',
+  INVALID_PARENT_AREA: 'The selected parent area is invalid for this area type.',
+  PROJECT_AREA_ALREADY_CANCELLED: 'This project area has already been cancelled.',
+  PROJECT_AREA_IN_USE_BY_PROPOSAL_ITEM: 'This area is already used by proposal items, so it cannot be cancelled.',
+  PROJECT_AREA_IN_USE_BY_SCENE: 'This area is already used by proposal scenes, so it cannot be cancelled.',
+  PROJECT_AREA_NOT_FOUND: 'Project area was not found.',
+};
+
 export function getProjectAreaServiceResultMessage(error: unknown) {
   const result = getProjectAreaServiceResultFromError(error);
 
@@ -95,6 +108,11 @@ export function getProjectAreaServiceResultMessage(error: unknown) {
 
   if (result.errors?.length) {
     return result.errors.join('\n');
+  }
+
+  const mappedMessage = PROJECT_AREA_ERROR_MESSAGES[result.errorCode ?? ''];
+  if (mappedMessage) {
+    return mappedMessage;
   }
 
   if (result.errorCode === 'PROJECT_AREA_IN_USE') {
@@ -152,6 +170,7 @@ function toProjectAreaPayload(input: ProjectAreaWriteInput) {
     areaName: input.areaName.trim(),
     areaType: input.areaType,
     floorNumber: input.floorNumber ?? null,
+    isSpecialLayout: input.isSpecialLayout ?? false,
     description: input.description?.trim() || null,
     areaSqm: input.areaSqm ?? null,
     width: input.width ?? null,

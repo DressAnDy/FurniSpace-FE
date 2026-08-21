@@ -12,7 +12,6 @@ import { formatDate, getProductionItemStatusLabel, getProductionRequestStatusLab
 import { getProductionServiceResultMessage } from '@/services/api/production';
 import {
   useCompleteProductionRequest,
-  useMarkProductionRequestFeasible,
   useProductionRequestDetail,
   useStartProductionRequest,
   useUpdateProductionItemStatus,
@@ -26,7 +25,6 @@ export function ProductionRequestDetail() {
   const [activeTab, setActiveTab] = useState<DetailTab>('Overview');
   const [message, setMessage] = useState<{ tone: 'error' | 'success'; text: string } | null>(null);
   const requestQuery = useProductionRequestDetail(productionRequestId);
-  const markFeasibleMutation = useMarkProductionRequestFeasible();
   const startMutation = useStartProductionRequest();
   const completeMutation = useCompleteProductionRequest();
   const itemStatusMutation = useUpdateProductionItemStatus();
@@ -50,16 +48,13 @@ export function ProductionRequestDetail() {
     );
   }
 
-  async function runRequestAction(action: 'feasible' | 'start' | 'complete') {
+  async function runRequestAction(action: 'start' | 'complete') {
     if (!request) return;
 
     setMessage(null);
 
     try {
-      if (action === 'feasible') {
-        await markFeasibleMutation.mutateAsync({ productionRequestId: request.productionRequestId, note: 'Materials are feasible.' });
-        setMessage({ tone: 'success', text: 'Production request marked feasible.' });
-      } else if (action === 'start') {
+      if (action === 'start') {
         await startMutation.mutateAsync({ productionRequestId: request.productionRequestId });
         setMessage({ tone: 'success', text: 'Production request started.' });
       } else {
@@ -149,12 +144,7 @@ export function ProductionRequestDetail() {
             <p>{request.orderCode} - {request.note ?? 'No request note provided.'}</p>
           </div>
           <div className="production-workspace-actions">
-            {request.status === 'PENDING_REVIEW' ? (
-              <button className="production-workspace-button" disabled={markFeasibleMutation.isPending} type="button" onClick={() => void runRequestAction('feasible')}>
-                Mark Feasible
-              </button>
-            ) : null}
-            {request.status === 'FEASIBLE' ? (
+            {request.status === 'PENDING' ? (
               <button className="production-workspace-button" disabled={startMutation.isPending} type="button" onClick={() => void runRequestAction('start')}>
                 Start
               </button>
