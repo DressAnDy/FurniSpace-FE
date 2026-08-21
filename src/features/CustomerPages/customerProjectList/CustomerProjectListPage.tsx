@@ -235,6 +235,7 @@ function ProjectCard({ onOpenChat, onPaymentCompleted, project }: ProjectCardPro
           onPaymentCompleted();
         }}
         onPaid={() => {
+          setStartFeePayment(null);
           void startFeePaymentsQuery.refetch();
           onPaymentCompleted();
         }}

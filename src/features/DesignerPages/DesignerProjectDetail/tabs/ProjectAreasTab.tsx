@@ -185,11 +185,13 @@ export function ProjectAreasTab({ project }: Readonly<ProjectAreasTabProps>) {
 
       <div className="designer-project-area-layout">
         <section className="designer-project-area-form-card">
+          {fieldErrors.floorNumber || floorAssignmentError ? (
+            <p className="designer-project-area-assignment-error">{fieldErrors.floorNumber ?? floorAssignmentError}</p>
+          ) : null}
           <div className="designer-project-area-heading">
             <IconRulerMeasure size={22} />
             <div>
               <h4>{isEditingArea ? 'Update Project Area' : 'Add Project Area'}</h4>
-              <p>{isEditingArea ? 'Update the selected area measurements and notes.' : 'Use this as the category/scope before creating proposal scenes.'}</p>
             </div>
           </div>
           <div className="designer-project-area-form">
@@ -213,11 +215,6 @@ export function ProjectAreasTab({ project }: Readonly<ProjectAreasTabProps>) {
                 <option value="special">Special layout</option>
               </select>
             </label>
-            <div className={`designer-project-area-calculated${fieldErrors.floorNumber || floorAssignmentError ? ' designer-project-area-calculated-invalid' : ''}`}>
-              <span>Floor</span>
-              <strong>{assignedFloorNumber ? `Floor ${assignedFloorNumber}` : '-'}</strong>
-              {fieldErrors.floorNumber || floorAssignmentError ? <em>{fieldErrors.floorNumber ?? floorAssignmentError}</em> : null}
-            </div>
             <NumericAreaInput
               error={fieldErrors.width}
               inputMode="decimal"

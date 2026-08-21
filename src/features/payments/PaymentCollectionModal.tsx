@@ -24,6 +24,7 @@ import {
 } from '@/services/queries';
 
 import './PaymentCollectionModal.css';
+import { rememberPayOsReturnLink } from './payOsReturnStore';
 
 type MessageTone = 'success' | 'error' | 'info';
 
@@ -123,8 +124,11 @@ export function PaymentCollectionModal({
     try {
       const result = await createPayOsLinkMutation.mutateAsync({
         paymentId,
-        returnUrl: window.location.href,
-        cancelUrl: window.location.href,
+      });
+      rememberPayOsReturnLink({
+        orderCode: result.orderCode,
+        paymentId: result.paymentId,
+        paymentCode: result.paymentCode,
       });
       setPayOsLink(result);
       setMessageTone('success');

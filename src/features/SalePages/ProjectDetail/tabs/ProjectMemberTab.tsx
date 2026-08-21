@@ -7,9 +7,7 @@ import { getProjectServiceResultMessage, type ProjectSpaceDataStatus } from '@/s
 import {
   useAssignDesignerToProject,
   useAvailableDesigners,
-  useProjectPhaseDeadlines,
   useProjectStartFeeStatus,
-  useUpdateProjectPhaseDeadlines,
 } from '@/services/queries';
 
 import type { ProjectDetailProject } from '../ProjectDetail';
@@ -21,7 +19,6 @@ type ProjectMemberTabProps = {
 
 export function ProjectMemberTab({ project, canManageAssignment = false }: ProjectMemberTabProps) {
   const [assignmentMessage, setAssignmentMessage] = useState('');
-  const [isDeadlineModalOpen, setIsDeadlineModalOpen] = useState(false);
   const [selectedDesignerId, setSelectedDesignerId] = useState(project.assignedDesignerId ?? '');
   const accountIds = [project.customerId, project.assignedSalesId, project.assignedDesignerId].filter((accountId): accountId is string => Boolean(accountId));
   const accountQueries = useQueries({
@@ -96,7 +93,6 @@ export function ProjectMemberTab({ project, canManageAssignment = false }: Proje
         note: 'Designer assigned from project members.',
       });
       setAssignmentMessage('Designer assigned successfully.');
-      setIsDeadlineModalOpen(true);
     } catch (error) {
       setAssignmentMessage(getProjectServiceResultMessage(error));
     }
@@ -194,154 +190,8 @@ export function ProjectMemberTab({ project, canManageAssignment = false }: Proje
           </div>
         </form>
       ) : null}
-      {isDeadlineModalOpen ? (
-        <PhaseDeadlineModal
-          projectId={project.projectId}
-          onClose={() => setIsDeadlineModalOpen(false)}
-          onSaved={() => {
-            setAssignmentMessage('Designer assigned and phase deadlines saved.');
-            setIsDeadlineModalOpen(false);
-          }}
-        />
-      ) : null}
     </section>
   );
-}
-
-function PhaseDeadlineModal({
-  onClose,
-  onSaved,
-  projectId,
-}: {
-  onClose: () => void;
-  onSaved: () => void;
-  projectId: string;
-}) {
-  const deadlinesQuery = useProjectPhaseDeadlines(projectId, { enabled: true });
-  const updateDeadlinesMutation = useUpdateProjectPhaseDeadlines();
-  const [proposalDueDate, setProposalDueDate] = useState('');
-  const [productionDueDate, setProductionDueDate] = useState('');
-  const [formMessage, setFormMessage] = useState('');
-  const targetCompletionDate = toDateInputValue(deadlinesQuery.data?.targetCompletionDate);
-
-  useEffect(() => {
-    const proposalDeadline = deadlinesQuery.data?.deadlines.find((deadline) => deadline.phase === 'PROPOSAL');
-    const productionDeadline = deadlinesQuery.data?.deadlines.find((deadline) => deadline.phase === 'PRODUCTION');
-
-    setProposalDueDate(toDateInputValue(proposalDeadline?.dueDate));
-    setProductionDueDate(toDateInputValue(productionDeadline?.dueDate));
-  }, [deadlinesQuery.data]);
-
-  async function saveDeadlines(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setFormMessage('');
-
-    if (proposalDueDate && productionDueDate && proposalDueDate > productionDueDate) {
-      setFormMessage('Proposal due date cannot be after production due date.');
-      return;
-    }
-
-    if (targetCompletionDate && proposalDueDate && proposalDueDate > targetCompletionDate) {
-      setFormMessage('Proposal due date cannot be after target completion date.');
-      return;
-    }
-
-    if (targetCompletionDate && productionDueDate && productionDueDate > targetCompletionDate) {
-      setFormMessage('Production due date cannot be after target completion date.');
-      return;
-    }
-
-    try {
-      await updateDeadlinesMutation.mutateAsync({
-        projectId,
-        productionDueDate: productionDueDate || null,
-        proposalDueDate: proposalDueDate || null,
-      });
-      onSaved();
-    } catch (error) {
-      setFormMessage(getProjectServiceResultMessage(error));
-    }
-  }
-
-  return (
-    <div className="project-detail-modal-backdrop" role="presentation">
-      <form className="project-detail-phase-deadline-modal" onSubmit={saveDeadlines}>
-        <header>
-          <div>
-            <h3>Plan Phase Deadlines</h3>
-            <p>Set proposal and production due dates after assigning the designer.</p>
-          </div>
-          <button aria-label="Close deadline planner" type="button" onClick={onClose}>x</button>
-        </header>
-
-        {deadlinesQuery.isLoading ? <p className="project-detail-muted">Loading current deadlines...</p> : null}
-        {deadlinesQuery.isError ? <p className="project-detail-form-message project-detail-form-message-error">{getProjectServiceResultMessage(deadlinesQuery.error)}</p> : null}
-
-        <div className="project-detail-phase-deadline-grid">
-          <label>
-            <span>Proposal due date</span>
-            <input
-              max={productionDueDate || targetCompletionDate || undefined}
-              type="date"
-              value={proposalDueDate}
-              onChange={(event) => {
-                setProposalDueDate(event.target.value);
-                setFormMessage('');
-              }}
-            />
-          </label>
-          <label>
-            <span>Production due date</span>
-            <input
-              max={targetCompletionDate || undefined}
-              min={proposalDueDate || undefined}
-              type="date"
-              value={productionDueDate}
-              onChange={(event) => {
-                setProductionDueDate(event.target.value);
-                setFormMessage('');
-              }}
-            />
-          </label>
-        </div>
-
-        <div className="project-detail-phase-deadline-status">
-          <DeadlineStatus label="Proposal" status={getDeadlineStatus(deadlinesQuery.data, 'PROPOSAL')} />
-          <DeadlineStatus label="Production" status={getDeadlineStatus(deadlinesQuery.data, 'PRODUCTION')} />
-          <DeadlineStatus label="Target" status={targetCompletionDate || '-'} />
-        </div>
-
-        {formMessage ? <p className="project-detail-form-message project-detail-form-message-error">{formMessage}</p> : null}
-
-        <footer>
-          <button className="project-detail-secondary-button" disabled={updateDeadlinesMutation.isPending} type="button" onClick={onClose}>
-            Skip
-          </button>
-          <button className="project-detail-primary-button" disabled={deadlinesQuery.isLoading || updateDeadlinesMutation.isPending} type="submit">
-            {updateDeadlinesMutation.isPending ? 'Saving...' : 'Save Deadlines'}
-          </button>
-        </footer>
-      </form>
-    </div>
-  );
-}
-
-function DeadlineStatus({ label, status }: { label: string; status: string }) {
-  return (
-    <div>
-      <span>{label}</span>
-      <strong>{status}</strong>
-    </div>
-  );
-}
-
-function getDeadlineStatus(
-  data: ReturnType<typeof useProjectPhaseDeadlines>['data'],
-  phase: 'PROPOSAL' | 'PRODUCTION',
-) {
-  const deadline = data?.deadlines.find((item) => item.phase === phase);
-
-  return deadline?.status ? formatEnumLabel(deadline.status) : '-';
 }
 
 type ProjectMemberCardProps = {
@@ -384,16 +234,4 @@ function ProjectMemberCard({ label, fallbackId, account, placeholder, avatarClas
 
 function getInitial(value: string) {
   return value.trim().charAt(0).toUpperCase() || '-';
-}
-
-function toDateInputValue(value?: string | null) {
-  return value?.slice(0, 10) ?? '';
-}
-
-function formatEnumLabel(value: string) {
-  return value
-    .toLowerCase()
-    .split('_')
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(' ');
 }
