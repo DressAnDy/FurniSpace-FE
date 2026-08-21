@@ -217,18 +217,6 @@
   }
 }
 
-.project-detail-status-message {
-  margin: 0;
-  color: #166534;
-  font-size: 12px;
-  line-height: 16px;
-  text-align: right;
-}
-
-.project-detail-status-message-error {
-  color: #991b1b;
-}
-
 .project-detail-status-banner {
   margin: -10px 0 18px;
   border: 1px solid #bbf7d0;

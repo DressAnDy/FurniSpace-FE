@@ -103,6 +103,7 @@
 .designer-project-area-calculated strong { color: #18181b; font-size: 13px; font-weight: 800; }
 .designer-project-area-calculated-invalid { border-color: #dc2626; background: #fff7f7; }
 .designer-project-area-calculated em { color: #b91c1c; font-size: 11px; font-style: normal; font-weight: 700; line-height: 1.35; }
+.designer-project-area-assignment-error { grid-column: 1 / -1; margin: 0; border: 1px solid rgba(220, 38, 38, 0.2); border-radius: 10px; background: #fff7f7; color: #b91c1c; font-size: 12px; font-weight: 700; line-height: 1.45; padding: 9px 10px; }
 .designer-project-area-note { grid-column: span 1; }
 .designer-project-area-form button { display: inline-flex; min-height: 38px; align-items: center; justify-content: center; gap: 7px; border: 0; border-radius: 10px; background: #9a713b; color: #ffffff; cursor: pointer; font: inherit; font-size: 13px; font-weight: 800; padding: 8px 12px; }
 .designer-project-area-form button:disabled { cursor: not-allowed; opacity: 0.55; }
