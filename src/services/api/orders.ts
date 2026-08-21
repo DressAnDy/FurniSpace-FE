@@ -39,6 +39,10 @@ export type ServiceResult<T> = {
   errorCode?: string;
 };
 
+const ORDER_ERROR_MESSAGES: Record<string, string> = {
+  PRODUCTION_NOT_COMPLETED: 'Production must be completed before delivery can continue.',
+};
+
 export type OrderStatus =
   | 'CREATED'
   | 'DEPOSIT_PENDING'
@@ -180,6 +184,10 @@ export function getOrderServiceResultMessage(error: unknown) {
 
   if (result.errors?.length) {
     return result.errors.join('\n');
+  }
+
+  if (result.errorCode && ORDER_ERROR_MESSAGES[result.errorCode]) {
+    return ORDER_ERROR_MESSAGES[result.errorCode];
   }
 
   return result.message || 'Request failed. Please try again.';

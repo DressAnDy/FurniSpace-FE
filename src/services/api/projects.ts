@@ -315,6 +315,35 @@ export type ProjectWorkflowDto = {
   stages: ProjectWorkflowStageDto[];
 };
 
+export type ProjectPhaseDeadlinePhase = 'PROPOSAL' | 'PRODUCTION';
+
+export type ProjectPhaseDeadlineStatus =
+  | 'PLANNED'
+  | 'ON_TRACK'
+  | 'OVERDUE'
+  | 'COMPLETED_ON_TIME'
+  | 'COMPLETED_LATE';
+
+export type ProjectPhaseDeadlineItemDto = {
+  phase: ProjectPhaseDeadlinePhase;
+  dueDate?: string | null;
+  completedAt?: string | null;
+  status: ProjectPhaseDeadlineStatus;
+  overdueDays?: number | null;
+};
+
+export type ProjectPhaseDeadlinesDto = {
+  projectId: string;
+  targetCompletionDate?: string | null;
+  deadlines: ProjectPhaseDeadlineItemDto[];
+};
+
+export type UpdateProjectPhaseDeadlinesInput = {
+  projectId: string;
+  proposalDueDate?: string | null;
+  productionDueDate?: string | null;
+};
+
 export function getProjectServiceResultMessage(error: unknown) {
   const result = getProjectServiceResultFromError(error);
 
@@ -441,6 +470,26 @@ export async function updateProjectStatus(input: UpdateProjectStatusInput) {
     status: input.status,
     note: input.note?.trim() || null,
   });
+
+  return response.data.data;
+}
+
+export async function getProjectPhaseDeadlines(projectId: string) {
+  const response = await projectApiClient.get<ServiceResult<ProjectPhaseDeadlinesDto>>(
+    `/projects/${projectId}/phase-deadlines`,
+  );
+
+  return response.data.data;
+}
+
+export async function updateProjectPhaseDeadlines(input: UpdateProjectPhaseDeadlinesInput) {
+  const response = await projectApiClient.put<ServiceResult<ProjectPhaseDeadlinesDto>>(
+    `/projects/${input.projectId}/phase-deadlines`,
+    {
+      proposalDueDate: input.proposalDueDate || null,
+      productionDueDate: input.productionDueDate || null,
+    },
+  );
 
   return response.data.data;
 }

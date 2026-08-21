@@ -13,7 +13,6 @@ import { formatDate, getProductionRequestStatusLabel, productionRequestAllowedAc
 import { getProductionServiceResultMessage } from '@/services/api/production';
 import {
   useCurrentUser,
-  useMarkProductionRequestFeasible,
   useProductionRequests,
   useStartProductionRequest,
 } from '@/services/queries';
@@ -34,15 +33,14 @@ const priorityRank: Record<Priority, number> = {
 
 const filters: Array<{ label: string; value: RequestFilter }> = [
   { label: 'All', value: 'ALL' },
-  { label: 'Pending Review', value: 'PENDING_REVIEW' },
-  { label: 'Feasible', value: 'FEASIBLE' },
+  { label: 'Pending', value: 'PENDING' },
   { label: 'In Production', value: 'IN_PRODUCTION' },
   { label: 'Completed', value: 'COMPLETED' },
   { label: 'Cancelled', value: 'CANCELLED' },
 ];
 
 export function ProductionRequests() {
-  const [statusFilter, setStatusFilter] = useState<RequestFilter>('PENDING_REVIEW');
+  const [statusFilter, setStatusFilter] = useState<RequestFilter>('PENDING');
   const [priorityFilter, setPriorityFilter] = useState('ALL');
   const [assignedToMe, setAssignedToMe] = useState(false);
   const [searchText, setSearchText] = useState('');
@@ -54,7 +52,6 @@ export function ProductionRequests() {
     priority: priorityFilter === 'ALL' ? null : (priorityFilter as Priority),
     status: statusFilter === 'ALL' ? null : statusFilter,
   });
-  const markFeasibleMutation = useMarkProductionRequestFeasible();
   const startMutation = useStartProductionRequest();
   const rawRequests = useMemo(() => requestsQuery.data?.items ?? [], [requestsQuery.data?.items]);
   const requests = useMemo(
@@ -100,12 +97,6 @@ export function ProductionRequests() {
     setMessage(null);
 
     try {
-      if (action === 'Mark Feasible') {
-        await markFeasibleMutation.mutateAsync({ productionRequestId, note: 'Production request reviewed as feasible.' });
-        setMessage({ tone: 'success', text: 'Production request marked feasible.' });
-        return;
-      }
-
       if (action === 'Start Production') {
         await startMutation.mutateAsync({ productionRequestId });
         setMessage({ tone: 'success', text: 'Production request started.' });
@@ -132,8 +123,7 @@ export function ProductionRequests() {
         ) : null}
 
         <section className="production-workspace-summary-grid">
-          <ProductionSummaryCard icon={IconClipboardList} label="Pending Review" value={rawRequests.filter((request) => request.status === 'PENDING_REVIEW').length} />
-          <ProductionSummaryCard icon={IconClockCog} label="Feasible" value={rawRequests.filter((request) => request.status === 'FEASIBLE').length} />
+          <ProductionSummaryCard icon={IconClipboardList} label="Pending" value={rawRequests.filter((request) => request.status === 'PENDING').length} />
           <ProductionSummaryCard icon={IconClockCog} label="In Production" value={rawRequests.filter((request) => request.status === 'IN_PRODUCTION').length} />
           <ProductionSummaryCard icon={IconCheck} label="Completed" value={rawRequests.filter((request) => request.status === 'COMPLETED').length} />
         </section>
@@ -227,7 +217,7 @@ export function ProductionRequests() {
                         {productionRequestAllowedActions[request.status].filter((action) => action !== 'Cancel').slice(0, 2).map((action) => (
                           <button
                             className="is-secondary"
-                            disabled={markFeasibleMutation.isPending || startMutation.isPending}
+                            disabled={startMutation.isPending}
                             key={action}
                             type="button"
                             onClick={() => void runQuickAction(action, request.productionRequestId)}

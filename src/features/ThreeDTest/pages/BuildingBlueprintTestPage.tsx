@@ -82,6 +82,7 @@ function createAreaTemplateKey(areas: BuildingProjectFloorAreaSource[]) {
     .map((area) => [
       area.projectAreaId,
       area.areaName,
+      area.isSpecialLayout ? 'special' : 'standard',
       area.width ?? '',
       area.length ?? '',
       area.height ?? '',
@@ -94,6 +95,7 @@ function toBuildingProjectFloorAreaSource(area: BuildingProjectFloorAreaSource):
     areaName: area.areaName,
     floorNumber: area.floorNumber ?? null,
     height: area.height ?? null,
+    isSpecialLayout: area.isSpecialLayout ?? false,
     length: area.length ?? null,
     projectAreaId: area.projectAreaId,
     width: area.width ?? null,
@@ -702,20 +704,20 @@ function updateLevelLayout(scene: BuildingTestScene, levelId: BuildingLevel['id'
 
   return updateLevel(scene, levelId, (level) => ({
     ...level,
-    depth: level.projectAreaId ? level.depth : roundMetric(size.depth),
+    depth: level.projectAreaId && !level.isSpecialLayout ? level.depth : roundMetric(size.depth),
     footprintOffset: {
       x: roundMetric(size.centerX - scene.building.position.x),
       z: roundMetric(size.centerZ - scene.building.position.z),
     },
-    layout: level.projectAreaId
+    layout: level.projectAreaId && !level.isSpecialLayout
       ? {
           ...layout,
           wallHeight: level.wallHeight,
           walls: layout.walls.map((wall) => ({ ...wall, height: level.wallHeight })),
         }
       : layout,
-    wallHeight: level.projectAreaId ? level.wallHeight : layout.wallHeight,
-    width: level.projectAreaId ? level.width : roundMetric(size.width),
+    wallHeight: level.projectAreaId && !level.isSpecialLayout ? level.wallHeight : layout.wallHeight,
+    width: level.projectAreaId && !level.isSpecialLayout ? level.width : roundMetric(size.width),
   }));
 }
 
@@ -850,8 +852,9 @@ function syncLinkedLevelDimensionsFromAreas(
       return level;
     }
 
-    const width = typeof area.width === 'number' ? Math.max(area.width, 4) : level.width;
-    const depth = typeof area.length === 'number' ? Math.max(area.length, 4) : level.depth;
+    const isSpecialLayout = area.isSpecialLayout === true;
+    const width = isSpecialLayout ? level.width : typeof area.width === 'number' ? Math.max(area.width, 4) : level.width;
+    const depth = isSpecialLayout ? level.depth : typeof area.length === 'number' ? Math.max(area.length, 4) : level.depth;
     const height = typeof area.height === 'number' ? Math.max(area.height, 2.4) : level.height;
     const wallHeight = typeof area.height === 'number' ? Math.max(area.height - 0.25, 1.8) : level.wallHeight;
     const layoutSize = level.layout ? getLayoutSize(level.layout) : null;
@@ -868,6 +871,7 @@ function syncLinkedLevelDimensionsFromAreas(
       ...level,
       depth,
       height,
+      isSpecialLayout,
       label: area.areaName || level.label,
       layout: resizedLayout
         ? {
@@ -900,6 +904,7 @@ function getLevelAreaInfo(
     areaName: area?.areaName ?? level.label,
     floorNumber: area?.floorNumber,
     height: area?.height ?? level.height,
+    isSpecialLayout: area?.isSpecialLayout === true,
     length: area?.length ?? level.depth,
     projectAreaId: level.projectAreaId ?? null,
     width: area?.width ?? level.width,
@@ -907,7 +912,7 @@ function getLevelAreaInfo(
 }
 
 function hasAreaDimensions(areaInfo: ReturnType<typeof getLevelAreaInfo>) {
-  return typeof areaInfo.width === 'number' || typeof areaInfo.length === 'number' || typeof areaInfo.height === 'number';
+  return !areaInfo.isSpecialLayout && (typeof areaInfo.width === 'number' || typeof areaInfo.length === 'number' || typeof areaInfo.height === 'number');
 }
 
 function NumberField({ label, max, min = 0, onChange, step = 0.1, value }: NumberFieldProps) {
@@ -1438,6 +1443,7 @@ export function BuildingBlueprintTestPage() {
                 const balcony = sceneData.surfaces.find((surface) => surface.id === `${level.id}-balcony`);
                 const areaInfo = getLevelAreaInfo(areaByProjectAreaId, level);
                 const isDimensionLocked = Boolean(level.projectAreaId) && hasAreaDimensions(areaInfo);
+                const layoutModeLabel = areaInfo.isSpecialLayout ? 'Special layout' : 'Standard';
                 const levelCenter = getLevelCenter(sceneData, level);
                 const stairOpening = level.floorOpenings?.[0] ?? null;
 
@@ -1445,7 +1451,7 @@ export function BuildingBlueprintTestPage() {
                   <div className="blueprint-floor-card" key={level.id}>
                     <div className="blueprint-floor-card-heading">
                       <strong>{level.label}</strong>
-                      <span>{level.projectAreaId ? 'Linked project area' : 'Manual floor'}</span>
+                      <span>{level.projectAreaId ? `Linked project area - ${layoutModeLabel}` : 'Manual floor'}</span>
                     </div>
                   {isDimensionLocked ? (
                     <>
@@ -1588,6 +1594,7 @@ export function BuildingBlueprintTestPage() {
                 <dl className="building-blueprint-toolbar-area-info">
                   <div><dt>Area</dt><dd>{activeAreaInfo.areaName}</dd></div>
                   <div><dt>Floor</dt><dd>{activeAreaInfo.floorNumber ?? activeLevelIndex + 1}</dd></div>
+                  <div><dt>Mode</dt><dd>{activeAreaInfo.isSpecialLayout ? 'Special' : 'Standard'}</dd></div>
                   <div><dt>Size</dt><dd>{formatOptionalMetric(activeAreaInfo.width, 'm')} x {formatOptionalMetric(activeAreaInfo.length, 'm')}</dd></div>
                   <div><dt>Height</dt><dd>{formatOptionalMetric(activeAreaInfo.height, 'm')}</dd></div>
                 </dl>

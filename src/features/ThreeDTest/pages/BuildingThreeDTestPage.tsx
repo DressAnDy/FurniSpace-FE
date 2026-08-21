@@ -322,6 +322,7 @@ function createAreaTemplateKey(areas: BuildingProjectFloorAreaSource[]) {
     .map((area) => [
       area.projectAreaId,
       area.areaName,
+      area.isSpecialLayout ? 'special' : 'standard',
       area.width ?? '',
       area.length ?? '',
       area.height ?? '',
@@ -334,6 +335,7 @@ function toBuildingProjectFloorAreaSource(area: BuildingProjectFloorAreaSource):
     areaName: area.areaName,
     floorNumber: area.floorNumber ?? null,
     height: area.height ?? null,
+    isSpecialLayout: area.isSpecialLayout ?? false,
     length: area.length ?? null,
     projectAreaId: area.projectAreaId,
     width: area.width ?? null,

@@ -266,15 +266,6 @@ export async function getProductionRequestById(productionRequestId: string) {
   return response.data.data;
 }
 
-export async function markProductionRequestFeasible(productionRequestId: string, note?: string | null) {
-  const response = await productionApiClient.patch<ServiceResult<ProductionRequestTransitionResultDto>>(
-    `/production-requests/${productionRequestId}/mark-feasible`,
-    { note: normalizeOptionalText(note) },
-  );
-
-  return response.data.data;
-}
-
 export async function startProductionRequest(productionRequestId: string) {
   const response = await productionApiClient.patch<ServiceResult<ProductionRequestTransitionResultDto>>(
     `/production-requests/${productionRequestId}/start`,

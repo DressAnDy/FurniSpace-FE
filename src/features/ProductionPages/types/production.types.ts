@@ -7,8 +7,7 @@ export type CustomizationStatus =
 export type MaterialAvailability = 'AVAILABLE' | 'UNAVAILABLE' | 'UNKNOWN';
 
 export type ProductionRequestStatus =
-  | 'PENDING_REVIEW'
-  | 'FEASIBLE'
+  | 'PENDING'
   | 'IN_PRODUCTION'
   | 'COMPLETED'
   | 'CANCELLED';

@@ -282,6 +282,7 @@ function QuotationDetail({
     },
     [quotation.items],
   );
+  const depositAmount = getQuotationDepositAmount(quotation);
 
   return (
     <section className="customer-quotations-card customer-quotations-detail">
@@ -314,7 +315,7 @@ function QuotationDetail({
         </div>
         <div>
           <span>Deposit</span>
-          <strong>{formatMoney(quotation.depositAmount)}</strong>
+          <strong>{formatMoney(depositAmount)}</strong>
         </div>
         <div>
           <span>Total</span>
@@ -463,6 +464,22 @@ function formatMoney(value?: number | null) {
   if (typeof value !== 'number') return '-';
 
   return `${new Intl.NumberFormat('vi-VN').format(value)} VND`;
+}
+
+function getQuotationDepositAmount(quotation: Pick<QuotationDto, 'depositAmount' | 'totalAmount'>) {
+  if (typeof quotation.depositAmount === 'number' && Number.isFinite(quotation.depositAmount) && quotation.depositAmount > 0) {
+    return quotation.depositAmount;
+  }
+
+  return calculateDefaultDepositAmount(quotation.totalAmount);
+}
+
+function calculateDefaultDepositAmount(totalAmount?: number | null) {
+  if (typeof totalAmount !== 'number' || !Number.isFinite(totalAmount) || totalAmount <= 0) {
+    return null;
+  }
+
+  return Math.ceil((totalAmount * 0.3) / 1000) * 1000;
 }
 
 function formatPercentRate(value?: number | null) {
