@@ -1,30 +1,27 @@
 import {
   IconCalendarCheck,
-  IconCalendarPlus,
   IconCircleCheck,
   IconPackage,
   IconRefresh,
   IconSearch,
   IconTruckDelivery,
 } from '@tabler/icons-react';
-import { type FormEvent, useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 
+import { groupDeliveryBatchItems, groupDeliveryTrackingItems } from '@/features/deliveryTracking/deliveryItemGrouping';
 import { SaleNavbar, SaleSidebar } from '@/features/SalePages/salecomponents';
-import { getOrderServiceResultMessage, type OrderItemDto } from '@/services/api/orders';
+import { getOrderServiceResultMessage, type DeliveryTrackingItemDto, type DeliveryTrackingTimelineItemDto } from '@/services/api/orders';
 import { getProjectScheduleServiceResultMessage, type ProjectScheduleDto } from '@/services/api/schedules';
 import {
-  useCreateProjectSchedule,
-  useCurrentUser,
+  useOrderDeliveryTracking,
   useOrderDetail,
   useProjectDetail,
   useProjectList,
   useProjectOrders,
   useProjectScheduleList,
-  useUpdateProjectSchedule,
 } from '@/services/queries';
 
 import './SaleTracking.css';
-import { getLocalDateTimeInputValue, getMinimumEndDateTimeInputValue, validateScheduleDateRange } from '@/shared/utils/dateValidation';
 
 const TRACKING_PROJECT_STATUSES = new Set([
   'READY_FOR_DELIVERY',
@@ -41,81 +38,44 @@ const STATUS_PRIORITY: Record<string, number> = {
 };
 
 export function SaleTracking() {
-  const [scheduleStartInput, setScheduleStartInput] = useState('');
-  const [scheduleEndInput, setScheduleEndInput] = useState('');
-  const [scheduleTitleInput, setScheduleTitleInput] = useState('');
-  const [scheduleLocationInput, setScheduleLocationInput] = useState('');
-  const [scheduleDescriptionInput, setScheduleDescriptionInput] = useState('');
-  const [editingScheduleId, setEditingScheduleId] = useState('');
   const [selectedProjectId, setSelectedProjectId] = useState('');
   const [selectedOrderId, setSelectedOrderId] = useState('');
-  const [projectSearch, setProjectSearch] = useState('');
-  const [message, setMessage] = useState<{ tone: 'error' | 'success'; text: string } | null>(null);
-  const [lastRefreshAt, setLastRefreshAt] = useState(() => new Date());
-  const [isManualRefreshing, setIsManualRefreshing] = useState(false);
-
-  const currentUserQuery = useCurrentUser();
-  const currentUser = currentUserQuery.data;
-  const projectsQuery = useProjectList(
-    { assignedSalesId: currentUser?.accountId, page: 1, limit: 50 },
-    { enabled: Boolean(currentUser?.accountId) },
-  );
-
-  const projects = useMemo(() => projectsQuery.data?.items ?? [], [projectsQuery.data?.items]);
+  const [search, setSearch] = useState('');
+  const projectsQuery = useProjectList({ page: 1, limit: 80 });
   const trackingProjects = useMemo(
     () =>
-      projects
+      (projectsQuery.data?.items ?? [])
         .filter((project) => TRACKING_PROJECT_STATUSES.has(project.status))
-        .sort((a, b) => (STATUS_PRIORITY[a.status] ?? 99) - (STATUS_PRIORITY[b.status] ?? 99)),
-    [projects],
+        .filter((project) => {
+          const keyword = search.trim().toLowerCase();
+          if (!keyword) return true;
+          return `${project.projectName} ${project.projectCode}`.toLowerCase().includes(keyword);
+        })
+        .sort((left, right) => (STATUS_PRIORITY[left.status] ?? 99) - (STATUS_PRIORITY[right.status] ?? 99)),
+    [projectsQuery.data?.items, search],
   );
-
-  const filteredProjects = useMemo(() => {
-    const query = projectSearch.trim().toLowerCase();
-    if (!query) return trackingProjects;
-    return trackingProjects.filter(
-      (project) =>
-        project.projectName.toLowerCase().includes(query) ||
-        project.projectCode.toLowerCase().includes(query),
-    );
-  }, [projectSearch, trackingProjects]);
-
-  const summary = useMemo(() => {
-    const ready = trackingProjects.filter((p) => p.status === 'READY_FOR_DELIVERY').length;
-    const delivering = trackingProjects.filter((p) => p.status === 'DELIVERING').length;
-    const done = trackingProjects.filter((p) => p.status === 'DELIVERED' || p.status === 'COMPLETED').length;
-    return { ready, delivering, done, total: trackingProjects.length };
-  }, [trackingProjects]);
-
-  const selectedProject = trackingProjects.find((project) => project.projectId === selectedProjectId) ?? null;
-  const projectDetailQuery = useProjectDetail(selectedProjectId || undefined);
+  const selectedProject = trackingProjects.find((project) => project.projectId === selectedProjectId) ?? trackingProjects[0] ?? null;
+  const projectDetailQuery = useProjectDetail(selectedProjectId);
   const projectDetail = projectDetailQuery.data ?? null;
   const ordersQuery = useProjectOrders(selectedProjectId, { enabled: Boolean(selectedProjectId) });
   const orders = useMemo(() => ordersQuery.data?.items ?? [], [ordersQuery.data?.items]);
-  const orderDetailQuery = useOrderDetail(selectedOrderId, { enabled: Boolean(selectedOrderId) });
-  const order = orderDetailQuery.data ?? null;
+  const selectedOrder = orders.find((order) => order.orderId === selectedOrderId) ?? orders[0] ?? null;
+  const orderDetailQuery = useOrderDetail(selectedOrder?.orderId, { enabled: Boolean(selectedOrder?.orderId) });
+  const deliveryTrackingQuery = useOrderDeliveryTracking(selectedOrder?.orderId, { enabled: Boolean(selectedOrder?.orderId) });
   const deliverySchedulesQuery = useProjectScheduleList(
     selectedProjectId
-      ? { limit: 20, page: 1, projectId: selectedProjectId, scheduleType: 'DELIVERY' }
+      ? {
+          limit: 20,
+          page: 1,
+          projectId: selectedProjectId,
+          scheduleType: 'DELIVERY',
+        }
       : undefined,
   );
-
-  const createScheduleMutation = useCreateProjectSchedule();
-  const updateScheduleMutation = useUpdateProjectSchedule();
+  const order = orderDetailQuery.data ?? null;
+  const tracking = deliveryTrackingQuery.data ?? null;
+  const groupedTrackingItems = useMemo(() => groupDeliveryTrackingItems(tracking?.items ?? []), [tracking?.items]);
   const deliverySchedules = deliverySchedulesQuery.data?.items ?? [];
-  const confirmedSchedule = deliverySchedules.find((s) => s.status === 'CONFIRMED') ?? null;
-  const activeDeliverySchedule = deliverySchedules.find((s) => s.status === 'PENDING_CONFIRMATION' || s.status === 'CONFIRMED') ?? null;
-  const targetCompletionDateTimeMax = projectDetail?.targetCompletionDate ? `${projectDetail.targetCompletionDate}T23:59` : undefined;
-  const itemProgress = useMemo(() => getItemDeliveryProgress(order?.items ?? []), [order?.items]);
-  const deliveryItemGroups = useMemo(() => groupDeliveryItems(order?.items ?? []), [order?.items]);
-
-  const isRefreshing =
-    isManualRefreshing ||
-    projectsQuery.isFetching ||
-    ordersQuery.isFetching ||
-    orderDetailQuery.isFetching ||
-    deliverySchedulesQuery.isFetching;
-  const refreshTime = new Intl.DateTimeFormat('en-US', { hour: '2-digit', minute: '2-digit' }).format(lastRefreshAt);
 
   useEffect(() => {
     if (!selectedProjectId && trackingProjects.length > 0) {
@@ -128,134 +88,22 @@ export function SaleTracking() {
       setSelectedOrderId(orders[0].orderId);
       return;
     }
+
     if (selectedOrderId && !orders.some((item) => item.orderId === selectedOrderId)) {
       setSelectedOrderId(orders[0]?.orderId ?? '');
     }
   }, [orders, selectedOrderId]);
 
-  useEffect(() => {
-    setEditingScheduleId('');
-    setScheduleTitleInput(selectedProject ? `${selectedProject.projectName} - delivery` : '');
-    setScheduleLocationInput(projectDetail?.projectAddress ?? '');
-    setScheduleDescriptionInput('');
-    setScheduleStartInput('');
-    setScheduleEndInput('');
-  }, [projectDetail?.projectAddress, selectedProject, selectedProjectId]);
-
-  async function handleRefresh() {
-    if (isManualRefreshing) return;
-
-    setMessage(null);
-    setIsManualRefreshing(true);
-    try {
-      await Promise.all([
-        projectsQuery.refetch(),
-        selectedProjectId ? ordersQuery.refetch() : Promise.resolve(),
-        selectedOrderId ? orderDetailQuery.refetch() : Promise.resolve(),
-        selectedProjectId ? deliverySchedulesQuery.refetch() : Promise.resolve(),
-      ]);
-      setLastRefreshAt(new Date());
-    } finally {
-      setIsManualRefreshing(false);
-    }
+  function refresh() {
+    void projectsQuery.refetch();
+    void projectDetailQuery.refetch();
+    void ordersQuery.refetch();
+    void orderDetailQuery.refetch();
+    void deliveryTrackingQuery.refetch();
+    void deliverySchedulesQuery.refetch();
   }
 
-  async function saveDeliverySchedule(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!selectedProject) {
-      setMessage({ tone: 'error', text: 'Select a delivery project before creating a schedule.' });
-      return;
-    }
-
-    const form = event.currentTarget;
-    const formData = new FormData(form);
-    const scheduledStart = String(formData.get('scheduledStart') ?? '').trim();
-    const scheduledEnd = String(formData.get('scheduledEnd') ?? '').trim();
-    const location = String(formData.get('location') ?? '').trim() || projectDetail?.projectAddress || null;
-    const title = String(formData.get('title') ?? '').trim() || `${selectedProject.projectName} - delivery`;
-    const description = String(formData.get('description') ?? '').trim() || null;
-
-    const dateRange = validateScheduleDateRange(scheduledStart, scheduledEnd);
-    if (!dateRange.ok) {
-      setMessage({ tone: 'error', text: dateRange.message });
-      return;
-    }
-    if (projectDetail?.targetCompletionDate && isScheduleAfterTarget(scheduledStart, scheduledEnd, projectDetail.targetCompletionDate)) {
-      setMessage({ tone: 'error', text: 'Delivery schedule cannot be after project target completion date.' });
-      return;
-    }
-    if (activeDeliverySchedule && !editingScheduleId) {
-      setMessage({ tone: 'error', text: 'This project already has an active delivery schedule.' });
-      return;
-    }
-
-    setMessage(null);
-    try {
-      if (editingScheduleId) {
-        await updateScheduleMutation.mutateAsync({
-          scheduleId: editingScheduleId,
-          title,
-          description,
-          scheduledStart: dateRange.startIso,
-          scheduledEnd: dateRange.endIso,
-          location,
-          customerNote: null,
-          internalNote: 'Rescheduled by Sales from delivery tracking.',
-        });
-        setMessage({ tone: 'success', text: 'Delivery schedule updated.' });
-      } else {
-        await createScheduleMutation.mutateAsync({
-          projectId: selectedProject.projectId,
-          scheduleType: 'DELIVERY',
-          title,
-          description,
-          scheduledStart: dateRange.startIso,
-          scheduledEnd: dateRange.endIso,
-          location,
-          customerNote: null,
-          internalNote: 'Created by Sales from delivery tracking.',
-        });
-        setMessage({ tone: 'success', text: 'Delivery schedule created and sent for customer confirmation.' });
-      }
-      form.reset();
-      setEditingScheduleId('');
-      setScheduleTitleInput(selectedProject ? `${selectedProject.projectName} - delivery` : '');
-      setScheduleLocationInput(projectDetail?.projectAddress ?? '');
-      setScheduleDescriptionInput('');
-      setScheduleStartInput('');
-      setScheduleEndInput('');
-      void deliverySchedulesQuery.refetch();
-    } catch (error) {
-      setMessage({ tone: 'error', text: getProjectScheduleServiceResultMessage(error) });
-    }
-  }
-
-  function fillDeliveryScheduleForm(schedule: ProjectScheduleDto) {
-    setEditingScheduleId(schedule.scheduleId);
-    setScheduleTitleInput(schedule.title ?? `${selectedProject?.projectName ?? 'Delivery'} - delivery`);
-    setScheduleStartInput(toDateTimeLocalInputValue(schedule.scheduledStart));
-    setScheduleEndInput(toDateTimeLocalInputValue(schedule.scheduledEnd));
-    setScheduleLocationInput(schedule.location ?? projectDetail?.projectAddress ?? '');
-    setScheduleDescriptionInput(schedule.description ?? '');
-    setMessage(null);
-  }
-
-  function resetDeliveryScheduleForm(projectName?: string, projectAddress?: string | null) {
-    setEditingScheduleId('');
-    setScheduleTitleInput(projectName ? `${projectName} - delivery` : '');
-    setScheduleLocationInput(projectAddress ?? '');
-    setScheduleDescriptionInput('');
-    setScheduleStartInput('');
-    setScheduleEndInput('');
-    setMessage(null);
-  }
-
-  const queryError =
-    (currentUserQuery.isError && 'Cannot load current sales account.') ||
-    (projectsQuery.isError && 'Cannot load assigned delivery projects.') ||
-    (ordersQuery.isError && getOrderServiceResultMessage(ordersQuery.error)) ||
-    (deliverySchedulesQuery.isError && getProjectScheduleServiceResultMessage(deliverySchedulesQuery.error)) ||
-    null;
+  const isRefreshing = projectsQuery.isFetching || ordersQuery.isFetching || deliveryTrackingQuery.isFetching || deliverySchedulesQuery.isFetching;
 
   return (
     <div className="sale-tracking-shell">
@@ -265,65 +113,48 @@ export function SaleTracking() {
         <main className="sale-tracking-main">
           <section className="sale-tracking-heading">
             <div>
-              <h2>Delivery Tracking</h2>
-              <p>Monitor delivery schedules, order progress, and item fulfillment for assigned projects.</p>
+              <h2>Delivery Coordination</h2>
+              <p>Sales now monitors delivery progress while Production owns delivery scheduling and batch execution.</p>
             </div>
-            <button
-              className="sale-tracking-refresh"
-              disabled={isRefreshing}
-              type="button"
-              onClick={() => void handleRefresh()}
-            >
-              <IconRefresh size={14} className={isRefreshing ? 'is-spinning' : undefined} />
-              {isRefreshing ? 'Refreshing...' : `Refresh · ${refreshTime}`}
+            <button className="sale-tracking-refresh" disabled={isRefreshing} type="button" onClick={refresh}>
+              <IconRefresh className={isRefreshing ? 'is-spinning' : undefined} size={16} />
+              Refresh
             </button>
           </section>
 
-          <section className="sale-tracking-summary" aria-label="Delivery summary">
-            <SummaryCard icon={IconTruckDelivery} label="In delivery" value={summary.delivering} tone="active" />
-            <SummaryCard icon={IconPackage} label="Ready to ship" value={summary.ready} tone="ready" />
-            <SummaryCard icon={IconCircleCheck} label="Delivered / done" value={summary.done} tone="done" />
-            <SummaryCard icon={IconCalendarCheck} label="Projects tracked" value={summary.total} tone="neutral" />
-          </section>
+          {projectsQuery.isError ? <p className="sale-tracking-message sale-tracking-message-error">Cannot load delivery projects.</p> : null}
+          {ordersQuery.isError ? <p className="sale-tracking-message sale-tracking-message-error">{getOrderServiceResultMessage(ordersQuery.error)}</p> : null}
+          {deliveryTrackingQuery.isError ? <p className="sale-tracking-message sale-tracking-message-error">{getOrderServiceResultMessage(deliveryTrackingQuery.error)}</p> : null}
+          {deliverySchedulesQuery.isError ? <p className="sale-tracking-message sale-tracking-message-error">{getProjectScheduleServiceResultMessage(deliverySchedulesQuery.error)}</p> : null}
 
-          {message ? <Alert tone={message.tone}>{message.text}</Alert> : null}
-          {queryError ? <Alert tone="error">{queryError}</Alert> : null}
+          <section className="sale-tracking-summary">
+            <SummaryCard icon={<IconTruckDelivery size={20} />} label="Delivery Projects" tone="active" value={trackingProjects.length} />
+            <SummaryCard icon={<IconPackage size={20} />} label="Remaining Qty" tone="ready" value={tracking?.summary.remainingQuantity ?? 0} />
+            <SummaryCard icon={<IconCalendarCheck size={20} />} label="Upcoming" tone="neutral" value={tracking?.summary.upcomingDeliveryCount ?? 0} />
+            <SummaryCard icon={<IconCircleCheck size={20} />} label="Completed Trips" tone="done" value={tracking?.summary.completedDeliveryCount ?? 0} />
+          </section>
 
           <section className="sale-tracking-layout">
             <aside className="sale-tracking-project-panel">
               <header>
                 <h3>Delivery Projects</h3>
-                <p>{trackingProjects.length} project(s) in delivery phase</p>
+                <p>Read-only list for Sales coordination.</p>
               </header>
-
               <label className="sale-tracking-search">
                 <IconSearch size={16} />
-                <input
-                  value={projectSearch}
-                  onChange={(event) => setProjectSearch(event.target.value)}
-                  placeholder="Search code or name..."
-                  type="search"
-                />
+                <input placeholder="Search project" value={search} onChange={(event) => setSearch(event.target.value)} />
               </label>
-
-              {projectsQuery.isLoading ? <p className="sale-tracking-muted">Loading projects...</p> : null}
-              {!projectsQuery.isLoading && filteredProjects.length === 0 ? (
-                <div className="sale-tracking-empty">
-                  <IconTruckDelivery size={28} stroke={1.5} />
-                  <p>{projectSearch ? 'No projects match your search.' : 'No project is ready for delivery tracking.'}</p>
-                </div>
-              ) : null}
-
               <div className="sale-tracking-project-list">
-                {filteredProjects.map((project) => (
+                {projectsQuery.isLoading ? <p className="sale-tracking-muted">Loading projects...</p> : null}
+                {!projectsQuery.isLoading && trackingProjects.length === 0 ? <p className="sale-tracking-muted">No delivery projects found.</p> : null}
+                {trackingProjects.map((project) => (
                   <button
+                    className={project.projectId === selectedProject?.projectId ? 'is-active' : undefined}
                     key={project.projectId}
-                    className={project.projectId === selectedProjectId ? 'is-active' : ''}
                     type="button"
                     onClick={() => {
                       setSelectedProjectId(project.projectId);
                       setSelectedOrderId('');
-                      setMessage(null);
                     }}
                   >
                     <div className="sale-tracking-project-top">
@@ -339,261 +170,89 @@ export function SaleTracking() {
             <section className="sale-tracking-workspace">
               {!selectedProject ? (
                 <div className="sale-tracking-empty sale-tracking-empty-workspace">
-                  <IconTruckDelivery size={36} stroke={1.5} />
-                  <h3>Select a delivery project</h3>
-                  <p>Choose a project from the left panel to review schedules and item progress.</p>
+                  <h3>No delivery project selected</h3>
+                  <p>Projects enter this workspace after production is ready for delivery.</p>
                 </div>
               ) : (
                 <>
-                  <section className="sale-tracking-card sale-tracking-overview-card">
+                  <article className="sale-tracking-card sale-tracking-overview-card">
                     <header>
                       <div>
-                        <h3>Delivery Overview</h3>
-                        <p>
-                          {selectedProject.projectCode} · {selectedProject.projectName}
-                        </p>
+                        <h3>{projectDetail?.projectName ?? selectedProject.projectName}</h3>
+                        <p>{selectedOrder?.orderCode ?? 'No order'} - Production-managed delivery</p>
                       </div>
-                      {order?.status ? <StatusBadge kind="order" value={order.status} /> : null}
+                      <StatusBadge kind="order" value={tracking?.orderStatus ?? order?.status ?? selectedProject.status} />
                     </header>
-
-                    <DeliverySteps
-                      hasConfirmedSchedule={Boolean(confirmedSchedule)}
-                      hasSchedule={deliverySchedules.length > 0}
-                      orderStatus={order?.status ?? null}
-                      projectStatus={selectedProject.status}
-                    />
-
-                    {orders.length > 1 ? (
-                      <div className="sale-tracking-order-tabs" role="tablist" aria-label="Project orders">
-                        {orders.map((item) => (
-                          <button
-                            key={item.orderId}
-                            className={item.orderId === selectedOrderId ? 'is-active' : ''}
-                            role="tab"
-                            type="button"
-                            aria-selected={item.orderId === selectedOrderId}
-                            onClick={() => setSelectedOrderId(item.orderId)}
-                          >
-                            {item.orderCode}
-                          </button>
-                        ))}
+                    <div className="sale-tracking-overview-grid">
+                      <Field label="Delivered" value={`${tracking?.summary.totalDeliveredQuantity ?? 0} / ${tracking?.summary.totalOrderedQuantity ?? 0}`} />
+                      <Field label="Remaining" value={String(tracking?.summary.remainingQuantity ?? 0)} />
+                      <Field label="Progress" value={`${tracking?.summary.deliveryProgressPercent ?? 0}%`} />
+                      <Field label="Next delivery" value={tracking?.summary.nextDeliveryAt ? formatDateTime(tracking.summary.nextDeliveryAt) : 'Not scheduled'} />
+                    </div>
+                    <div className="sale-tracking-progress-block">
+                      <div className="sale-tracking-progress-head">
+                        <span>Delivery progress</span>
+                        <strong>{tracking?.summary.deliveryProgressPercent ?? 0}%</strong>
                       </div>
-                    ) : null}
+                      <div className="sale-tracking-progress-track"><i style={{ width: `${tracking?.summary.deliveryProgressPercent ?? 0}%` }} /></div>
+                      <small>Sales cannot create or execute delivery schedules in the new flow.</small>
+                    </div>
+                  </article>
 
-                    {order ? (
-                      <>
-                        <div className="sale-tracking-overview-grid">
-                          <Field label="Order" value={order.orderCode} />
-                          <Field label="Project address" value={projectDetail?.projectAddress ?? '-'} />
-                          <Field
-                            label="Schedule confirmed"
-                            value={confirmedSchedule ? formatDateTime(confirmedSchedule.scheduledStart) : 'Not yet'}
-                          />
-                          <Field label="Remaining amount" value={formatMoney(order.remainingAmount)} />
-                        </div>
-
-                        <div className="sale-tracking-progress-block">
-                          <div className="sale-tracking-progress-head">
-                            <span>Item delivery progress</span>
-                            <strong>
-                              {itemProgress.delivered} / {itemProgress.total} item(s) · {itemProgress.percent}%
-                            </strong>
-                          </div>
-                          <div className="sale-tracking-progress-track">
-                            <i style={{ width: `${itemProgress.percent}%` }} />
-                          </div>
-                          <small>
-                            {order.customerConfirmedDeliveryAt ? `Customer confirmed ${formatDateTime(order.customerConfirmedDeliveryAt)}` : 'Customer confirms delivery once for the full order'}
-                          </small>
-                        </div>
-                      </>
-                    ) : (
-                      <p className="sale-tracking-muted">No order is available for this project.</p>
-                    )}
-
-                  </section>
-
-                  <section className="sale-tracking-grid">
-                    <form className="sale-tracking-card sale-tracking-form" onSubmit={saveDeliverySchedule}>
+                  <div className="sale-tracking-grid">
+                    <article className="sale-tracking-card">
                       <header>
-                        <div>
-                          <h3>{editingScheduleId ? 'Reschedule Delivery' : 'Create Delivery Schedule'}</h3>
-                          <p>{editingScheduleId ? 'Update the selected delivery schedule and send the new timing.' : 'Location defaults to project address. Customer confirms on their side.'}</p>
-                        </div>
-                      </header>
-                      <label>
-                        <span>Title</span>
-                        <input
-                          name="title"
-                          placeholder={selectedProject ? `${selectedProject.projectName} - delivery` : 'Delivery schedule'}
-                          value={scheduleTitleInput}
-                          onChange={(event) => setScheduleTitleInput(event.target.value)}
-                        />
-                      </label>
-                      <div className="sale-tracking-form-row">
-                        <label>
-                          <span>Start</span>
-                          <input
-                            max={targetCompletionDateTimeMax}
-                            min={getLocalDateTimeInputValue()}
-                            name="scheduledStart"
-                            required
-                            type="datetime-local"
-                            value={scheduleStartInput}
-                            onChange={(event) => {
-                              const nextStart = event.target.value;
-                              const minimumEnd = getMinimumEndDateTimeInputValue(nextStart);
-                              setScheduleStartInput(nextStart);
-                              setScheduleEndInput((current) => current && minimumEnd && current < minimumEnd ? '' : current);
-                            }}
-                          />
-                        </label>
-                        <label>
-                          <span>End</span>
-                          <input
-                            disabled={!scheduleStartInput}
-                            max={targetCompletionDateTimeMax}
-                            min={getMinimumEndDateTimeInputValue(scheduleStartInput)}
-                            name="scheduledEnd"
-                            type="datetime-local"
-                            value={scheduleEndInput}
-                            onChange={(event) => {
-                              const nextEnd = event.target.value;
-                              const minimumEnd = getMinimumEndDateTimeInputValue(scheduleStartInput);
-                              setScheduleEndInput(nextEnd && minimumEnd && nextEnd < minimumEnd ? '' : nextEnd);
-                            }}
-                          />
-                        </label>
-                      </div>
-                      <label>
-                        <span>Location</span>
-                        <input
-                          name="location"
-                          placeholder={projectDetailQuery.isLoading ? 'Loading address...' : 'Delivery address'}
-                          value={scheduleLocationInput}
-                          onChange={(event) => setScheduleLocationInput(event.target.value)}
-                        />
-                      </label>
-                      <label>
-                        <span>Description</span>
-                        <textarea
-                          name="description"
-                          placeholder="Notes for customer and internal team"
-                          rows={3}
-                          value={scheduleDescriptionInput}
-                          onChange={(event) => setScheduleDescriptionInput(event.target.value)}
-                        />
-                      </label>
-                      <div className="sale-tracking-form-actions">
-                      <button
-                        className="sale-tracking-primary-btn"
-                        disabled={createScheduleMutation.isPending || updateScheduleMutation.isPending || Boolean(activeDeliverySchedule && !editingScheduleId)}
-                        type="submit"
-                      >
-                        <IconCalendarPlus size={16} />
-                        {updateScheduleMutation.isPending
-                          ? 'Updating...'
-                          : createScheduleMutation.isPending
-                            ? 'Creating...'
-                            : editingScheduleId
-                              ? 'Update Schedule'
-                              : activeDeliverySchedule
-                                ? 'Active Schedule Exists'
-                                : 'Create Delivery Schedule'}
-                      </button>
-                      {editingScheduleId ? (
-                        <button className="sale-tracking-secondary-btn" type="button" onClick={() => resetDeliveryScheduleForm(selectedProject?.projectName, projectDetail?.projectAddress)}>
-                          Cancel
-                        </button>
-                      ) : null}
-                      </div>
-                    </form>
-
-                    <section className="sale-tracking-card">
-                      <header>
-                        <div>
-                          <h3>Delivery Schedules</h3>
-                          <p>{deliverySchedules.length} schedule(s) for this project</p>
-                        </div>
+                        <h3>Delivery Schedules</h3>
+                        <p>Created by Production, confirmed by Customer.</p>
                       </header>
                       <div className="sale-tracking-list">
                         {deliverySchedulesQuery.isLoading ? <p className="sale-tracking-muted">Loading schedules...</p> : null}
-                        {!deliverySchedulesQuery.isLoading && deliverySchedules.length === 0 ? (
-                          <p className="sale-tracking-muted">No delivery schedule yet. Create one to proceed.</p>
-                        ) : null}
-                        {deliverySchedules.map((schedule) => (
-                          <article key={schedule.scheduleId} className={schedule.status === 'CONFIRMED' ? 'is-confirmed' : ''}>
-                            <div className="sale-tracking-schedule-top">
-                              <strong>{schedule.title ?? formatEnumLabel(schedule.scheduleType)}</strong>
-                              <StatusBadge kind="schedule" value={schedule.status} />
-                            </div>
-                            <span>
-                              {formatDateTime(schedule.scheduledStart)}
-                              {schedule.scheduledEnd ? ` → ${formatDateTime(schedule.scheduledEnd)}` : ''}
-                            </span>
-                            <small>{schedule.location ?? 'No location specified'}</small>
-                            <button
-                              className="sale-tracking-reschedule-btn"
-                              type="button"
-                              onClick={() => fillDeliveryScheduleForm(schedule)}
-                            >
-                              Reschedule
-                            </button>
-                          </article>
-                        ))}
+                        {!deliverySchedulesQuery.isLoading && deliverySchedules.length === 0 ? <p className="sale-tracking-muted">No delivery schedule yet.</p> : null}
+                        {deliverySchedules.map((schedule) => <ScheduleCard key={schedule.scheduleId} schedule={schedule} />)}
                       </div>
-                    </section>
-                  </section>
+                    </article>
 
-                  <section className="sale-tracking-card">
-                    <header>
-                      <div>
-                        <h3>Delivery Items</h3>
-                        <p>Production updates quantities · Customer confirms receipt</p>
+                    <article className="sale-tracking-card">
+                      <header>
+                        <h3>Delivery Timeline</h3>
+                        <p>Completed batches and upcoming confirmed schedules.</p>
+                      </header>
+                      <div className="sale-tracking-list">
+                        {(tracking?.timeline ?? []).map((item, index) => (
+                          <TimelineCard item={item} key={`${item.projectScheduleId ?? 'schedule'}-${item.deliveryId ?? index}`} />
+                        ))}
+                        {!deliveryTrackingQuery.isLoading && (tracking?.timeline.length ?? 0) === 0 ? <p className="sale-tracking-muted">No timeline yet.</p> : null}
                       </div>
+                    </article>
+                  </div>
+
+                  <article className="sale-tracking-card">
+                    <header>
+                      <h3>Item Fulfillment</h3>
+                      <p>Quantities are aggregated from delivery batches.</p>
                     </header>
                     <div className="sale-tracking-table-wrap sale-tracking-items-wrap">
                       <table className="sale-tracking-items-table">
                         <thead>
                           <tr>
                             <th>Item</th>
-                            <th>Qty</th>
+                            <th>Ordered</th>
+                            <th>Delivered</th>
                             <th>Status</th>
-                            <th>Delivered At</th>
                           </tr>
                         </thead>
                         <tbody>
-                          {orderDetailQuery.isLoading ? (
-                            <tr>
-                              <td colSpan={4}>Loading order items...</td>
-                            </tr>
+                          {deliveryTrackingQuery.isLoading ? (
+                            <tr><td colSpan={4}>Loading items...</td></tr>
                           ) : null}
-                          {!orderDetailQuery.isLoading && !order ? (
-                            <tr>
-                              <td colSpan={4}>No order items to display.</td>
-                            </tr>
+                          {groupedTrackingItems.map((item) => <ItemRow item={item} key={item.orderItemIds.join('-')} />)}
+                          {!deliveryTrackingQuery.isLoading && groupedTrackingItems.length === 0 ? (
+                            <tr><td colSpan={4}>No delivery items are available.</td></tr>
                           ) : null}
-                          {deliveryItemGroups.map((group) => {
-                            const item = group;
-
-                            return (
-                              <tr key={group.key}>
-                                <td className="sale-tracking-item-name">
-                                  {group.name}
-                                  {group.items.length > 1 ? <small>{group.items.length} matching item(s)</small> : null}
-                                </td>
-                                <td>{group.quantity || '-'}</td>
-                                <td>
-                                  <StatusBadge kind="item" value={group.status} />
-                                </td>
-                                <td>{item.deliveredAt ? formatDateTime(item.deliveredAt) : '—'}</td>
-                              </tr>
-                            );
-                          })}
                         </tbody>
                       </table>
                     </div>
-                  </section>
+                  </article>
                 </>
               )}
             </section>
@@ -604,74 +263,16 @@ export function SaleTracking() {
   );
 }
 
-function SummaryCard({
-  icon: Icon,
-  label,
-  value,
-  tone,
-}: {
-  icon: typeof IconTruckDelivery;
-  label: string;
-  value: number;
-  tone: 'active' | 'ready' | 'done' | 'neutral';
-}) {
+function SummaryCard({ icon, label, tone, value }: { icon: ReactNode; label: string; tone: 'active' | 'done' | 'neutral' | 'ready'; value: number }) {
   return (
     <article className={`sale-tracking-summary-card sale-tracking-summary-${tone}`}>
-      <div className="sale-tracking-summary-icon">
-        <Icon size={20} stroke={1.8} />
-      </div>
+      <div className="sale-tracking-summary-icon">{icon}</div>
       <div>
         <span>{label}</span>
         <strong>{value}</strong>
       </div>
     </article>
   );
-}
-
-function DeliverySteps({
-  hasSchedule,
-  hasConfirmedSchedule,
-  orderStatus,
-  projectStatus,
-}: {
-  hasSchedule: boolean;
-  hasConfirmedSchedule: boolean;
-  orderStatus: string | null;
-  projectStatus: string;
-}) {
-  const steps = [
-    { label: 'Schedule created', done: hasSchedule },
-    { label: 'Customer confirmed', done: hasConfirmedSchedule },
-    {
-      label: 'Delivery started',
-      done: orderStatus === 'DELIVERING' || orderStatus === 'DELIVERED' || projectStatus === 'DELIVERING',
-    },
-    {
-      label: 'Items delivered',
-      done: orderStatus === 'DELIVERED' || projectStatus === 'DELIVERED' || projectStatus === 'COMPLETED',
-    },
-  ];
-
-  return (
-    <ol className="sale-tracking-steps">
-      {steps.map((step, index) => (
-        <li key={step.label} className={step.done ? 'is-done' : index === steps.findIndex((s) => !s.done) ? 'is-current' : ''}>
-          <i>{step.done ? '✓' : index + 1}</i>
-          <span>{step.label}</span>
-        </li>
-      ))}
-    </ol>
-  );
-}
-
-function StatusBadge({ kind, value }: { kind: 'project' | 'order' | 'schedule' | 'item'; value: string }) {
-  const normalized = value.toUpperCase();
-  const tone = getStatusTone(kind, normalized);
-  return <span className={`sale-tracking-badge sale-tracking-badge-${tone}`}>{formatEnumLabel(normalized)}</span>;
-}
-
-function Alert({ tone, children }: { tone: 'error' | 'success'; children: string }) {
-  return <section className={`sale-tracking-message sale-tracking-message-${tone}`}>{children}</section>;
 }
 
 function Field({ label, value }: { label: string; value: string }) {
@@ -683,83 +284,82 @@ function Field({ label, value }: { label: string; value: string }) {
   );
 }
 
-function getItemDeliveryProgress(items: OrderItemDto[]) {
-  const deliverableItems = items.filter((item) => (item.quantity ?? 0) > 0 && item.status !== 'CANCELLED' && item.status !== 'UNAVAILABLE');
-  const total = deliverableItems.length;
-  const delivered = deliverableItems.filter((item) => item.status === 'DELIVERED').length;
-  const percent = total > 0 ? Math.min(Math.round((delivered / total) * 100), 100) : 0;
-  return { total, delivered, percent };
+function ScheduleCard({ schedule }: { schedule: ProjectScheduleDto }) {
+  return (
+    <article className={schedule.status === 'CONFIRMED' ? 'is-confirmed' : undefined}>
+      <div className="sale-tracking-schedule-top">
+        <strong>{schedule.title ?? formatEnumLabel(schedule.scheduleType)}</strong>
+        <StatusBadge kind="schedule" value={schedule.status} />
+      </div>
+      <span>{formatDateTime(schedule.scheduledStart)}{schedule.scheduledEnd ? ` -> ${formatDateTime(schedule.scheduledEnd)}` : ''}</span>
+      <small>{schedule.completedAt ? `Completed ${formatDateTime(schedule.completedAt)}` : schedule.location ?? 'No location specified'}</small>
+    </article>
+  );
 }
 
-type DeliveryItemGroup = {
-  deliveredAt?: string | null;
-  items: OrderItemDto[];
-  key: string;
-  name: string;
-  quantity: number;
-  status: string;
-};
+function TimelineCard({ item }: { item: DeliveryTrackingTimelineItemDto }) {
+  const status = item.deliveryStatus ?? item.scheduleStatus ?? 'PENDING_CONFIRMATION';
 
-function groupDeliveryItems(items: OrderItemDto[]): DeliveryItemGroup[] {
-  const groupsByKey = new Map<string, DeliveryItemGroup>();
-
-  for (const item of items) {
-    const status = item.status ?? 'PENDING';
-    const key = [
-      item.productVersionId ?? item.productVersionCodeSnapshot ?? item.productVersionNameSnapshot ?? getOrderItemName(item),
-      getOrderItemName(item),
-      status,
-      item.deliveredAt ?? 'NOT_DELIVERED',
-    ].join('|');
-    const existingGroup = groupsByKey.get(key);
-
-    if (existingGroup) {
-      existingGroup.items.push(item);
-      existingGroup.quantity += item.quantity ?? 0;
-      continue;
-    }
-
-    groupsByKey.set(key, {
-      deliveredAt: item.deliveredAt,
-      items: [item],
-      key,
-      name: getOrderItemName(item),
-      quantity: item.quantity ?? 0,
-      status,
-    });
-  }
-
-  return Array.from(groupsByKey.values());
+  return (
+    <article className={status === 'COMPLETED' ? 'is-confirmed' : undefined}>
+      <div className="sale-tracking-schedule-top">
+        <strong>{item.scheduledStart ? formatDateTime(item.scheduledStart) : 'Delivery schedule'}</strong>
+        <StatusBadge kind="schedule" value={status} />
+      </div>
+      <span>{item.deliveryId ? `Batch ${item.deliveryId.slice(0, 8)}` : 'No batch yet'}</span>
+      <small>{item.cancelReason ? `Cancel reason: ${formatEnumLabel(item.cancelReason)}` : getTimelineItemsText(item)}</small>
+    </article>
+  );
 }
 
-function getStatusTone(kind: string, value: string) {
+function ItemRow({ item }: { item: DeliveryTrackingItemDto }) {
+  const status = item.status ?? (item.remainingQuantity > 0 ? 'PARTIALLY_DELIVERED' : 'READY');
+  const percent = item.orderedQuantity > 0 ? Math.round((item.deliveredQuantity / item.orderedQuantity) * 100) : 0;
+
+  return (
+    <tr>
+      <td className="sale-tracking-item-name">
+        {item.productName ?? '-'}
+        <small>{item.remainingQuantity} remaining</small>
+      </td>
+      <td>{item.orderedQuantity}</td>
+      <td>
+        <div className="sale-tracking-item-progress">
+          <div className="sale-tracking-progress-track sale-tracking-progress-track-sm"><i style={{ width: `${percent}%` }} /></div>
+          <span>{item.deliveredQuantity}</span>
+        </div>
+      </td>
+      <td><StatusBadge kind="item" value={status} /></td>
+    </tr>
+  );
+}
+
+function StatusBadge({ kind, value }: { kind: 'item' | 'order' | 'project' | 'schedule'; value: string }) {
+  return <span className={`sale-tracking-badge sale-tracking-badge-${getStatusTone(kind, value)}`}>{formatEnumLabel(value)}</span>;
+}
+
+function getStatusTone(kind: 'item' | 'order' | 'project' | 'schedule', value: string) {
   if (kind === 'schedule') {
     if (value === 'CONFIRMED') return 'success';
+    if (value === 'PENDING_CONFIRMATION') return 'warn';
+    if (value === 'COMPLETED') return 'success';
     if (value === 'CANCELLED') return 'muted';
-    return 'warn';
   }
-  if (kind === 'item') {
-    if (value === 'DELIVERED' || value === 'COMPLETED') return 'success';
-    if (value === 'CANCELLED' || value === 'UNAVAILABLE') return 'muted';
-    if (value === 'DELIVERING' || value === 'READY') return 'warn';
-    return 'neutral';
-  }
-  if (value === 'DELIVERING') return 'active';
+
+  if (value === 'DELIVERING' || value === 'PARTIALLY_DELIVERED') return 'active';
   if (value === 'READY_FOR_DELIVERY') return 'ready';
   if (value === 'DELIVERED' || value === 'COMPLETED') return 'success';
+  if (value === 'CANCELLED' || value === 'UNAVAILABLE') return 'muted';
+
   return 'neutral';
 }
 
-function getOrderItemName(item: Pick<OrderItemDto, 'itemName' | 'productNameSnapshot'>) {
-  return item.itemName ?? item.productNameSnapshot ?? '-';
-}
+function getTimelineItemsText(item: DeliveryTrackingTimelineItemDto) {
+  if (!item.items?.length) return 'Waiting for Production execution';
 
-function formatEnumLabel(value: string) {
-  return value
-    .toLowerCase()
-    .split('_')
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(' ');
+  return groupDeliveryBatchItems(item.items)
+    .map((batchItem) => `${batchItem.productName}: ${batchItem.quantity}`)
+    .join(', ');
 }
 
 function formatDateTime(value: string) {
@@ -772,27 +372,10 @@ function formatDateTime(value: string) {
   }).format(new Date(value));
 }
 
-function toDateTimeLocalInputValue(value?: string | null) {
-  if (!value) return '';
-
-  const parsedDate = new Date(value);
-
-  if (Number.isNaN(parsedDate.getTime())) {
-    return '';
-  }
-
-  const timezoneOffsetMs = parsedDate.getTimezoneOffset() * 60_000;
-
-  return new Date(parsedDate.getTime() - timezoneOffsetMs).toISOString().slice(0, 16);
-}
-
-function formatMoney(value?: number | null) {
-  if (typeof value !== 'number') return '-';
-  return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND', maximumFractionDigits: 0 }).format(value);
-}
-
-function isScheduleAfterTarget(startValue: string, endValue: string, targetCompletionDate: string) {
-  const maxDateTime = `${targetCompletionDate}T23:59`;
-
-  return startValue > maxDateTime || Boolean(endValue && endValue > maxDateTime);
+function formatEnumLabel(value: string) {
+  return value
+    .toLowerCase()
+    .split('_')
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
 }

@@ -48,6 +48,12 @@ export type BuildingProjectFloorAreaSource = {
   width?: number | null;
 };
 
+export type BuildingSurfaceAssetVisual = {
+  layoutAssetId: string;
+  previewUrl?: string | null;
+  textureUrl?: string | null;
+};
+
 export function createRectLevelLayout(
   idPrefix: string,
   width: number,
@@ -67,12 +73,12 @@ export function createRectLevelLayout(
 
   return {
     doors: [],
-    floorMaterialId: 'wood-floor',
+    floorMaterialId: '',
     openings: [],
     points,
     unit: 'm',
     wallHeight,
-    wallMaterialId: 'wall-base',
+    wallMaterialId: '',
     wallThickness: WALL_THICKNESS,
     walls: [
       { endPointId: points[1].id, height: wallHeight, id: `${idPrefix}-w1`, startPointId: points[0].id, thickness: WALL_THICKNESS, type: 'WALL' },
@@ -90,6 +96,67 @@ function material(scene: Scene, name: string, color: string, alpha = 1) {
   nextMaterial.specularColor = Color3.Black();
   nextMaterial.alpha = alpha;
   nextMaterial.backFaceCulling = false;
+  nextMaterial.metadata = { baseAlpha: alpha };
+
+  return nextMaterial;
+}
+
+function applyMaterialTexture(scene: Scene, targetMaterial: StandardMaterial, textureUrl: string | null | undefined) {
+  if (!textureUrl) {
+    return;
+  }
+
+  const texture = new Texture(
+    textureUrl,
+    scene,
+    false,
+    true,
+    Texture.TRILINEAR_SAMPLINGMODE,
+    undefined,
+    () => {
+      targetMaterial.diffuseTexture = null;
+    },
+  );
+  texture.uScale = 2;
+  texture.vScale = 2;
+  texture.wrapU = Texture.WRAP_ADDRESSMODE;
+  texture.wrapV = Texture.WRAP_ADDRESSMODE;
+  targetMaterial.diffuseColor = Color3.White();
+  targetMaterial.diffuseTexture = texture;
+}
+
+const layoutAssetSurfaceColors = [
+  '#d8c5a9',
+  '#c9b59a',
+  '#b7c6c8',
+  '#d2d8c7',
+  '#c7b9d8',
+  '#d8c8b7',
+  '#b9cbd8',
+  '#d8d1b7',
+];
+
+function getLayoutAssetSurfaceColor(layoutAssetId: string | undefined, fallbackColor: string) {
+  if (!layoutAssetId) {
+    return fallbackColor;
+  }
+
+  const hash = [...layoutAssetId].reduce((total, character) => total + character.charCodeAt(0), 0);
+
+  return layoutAssetSurfaceColors[hash % layoutAssetSurfaceColors.length] ?? fallbackColor;
+}
+
+function layoutAssetMaterial(
+  scene: Scene,
+  name: string,
+  layoutAssetId: string | undefined,
+  fallbackColor: string,
+  surfaceAssetsById: Map<string, BuildingSurfaceAssetVisual>,
+) {
+  const surfaceAsset = layoutAssetId ? surfaceAssetsById.get(layoutAssetId) : null;
+  const nextMaterial = material(scene, name, getLayoutAssetSurfaceColor(layoutAssetId, fallbackColor));
+
+  applyMaterialTexture(scene, nextMaterial, surfaceAsset?.textureUrl ?? surfaceAsset?.previewUrl);
 
   return nextMaterial;
 }
@@ -277,8 +344,10 @@ export function buildBuildingEnvironment(
   scene: Scene,
   sceneData: BuildingTestScene,
   activeLevel: BuildingLevelVisibility,
+  surfaceAssets: BuildingSurfaceAssetVisual[] = [],
 ) {
   clearBuildingEnvironment(scene);
+  const surfaceAssetsById = new Map(surfaceAssets.map((asset) => [asset.layoutAssetId, asset]));
 
   const siteMaterial = material(scene, 'building-test-site-material', '#d7dfd4');
   const yardMaterial = material(scene, 'building-test-yard-material', '#c5d5c4');
@@ -336,7 +405,6 @@ export function buildBuildingEnvironment(
   sortedLevels.forEach((level, levelIndex) => {
     const nextLevel = sortedLevels[levelIndex + 1] ?? null;
     const visible = activeLevel === 'all' || activeLevel === level.id;
-    const ghosted = activeLevel !== 'all' && activeLevel !== level.id;
     const y = level.elevation;
     const levelCenter = getLevelCenter(sceneData, level);
     const levelLayout = level.layout;
@@ -347,25 +415,42 @@ export function buildBuildingEnvironment(
     const facadeHeight = Math.max(facadeTopY - facadeBaseY, level.wallHeight);
     const slabBaseY = Math.max(level.elevation - SLAB_THICKNESS, SITE_CLEARANCE);
     const slabHeight = Math.max(level.elevation - slabBaseY, 0.04);
-    const slabBounds = {
-      maxX: levelCenter.x + Math.max(level.width - WALL_THICKNESS * 2.4, 0.5) / 2,
-      maxZ: levelCenter.z + Math.max(level.depth - WALL_THICKNESS * 2.4, 0.5) / 2,
-      minX: levelCenter.x - Math.max(level.width - WALL_THICKNESS * 2.4, 0.5) / 2,
-      minZ: levelCenter.z - Math.max(level.depth - WALL_THICKNESS * 2.4, 0.5) / 2,
-    };
+    const layoutBoundary = levelLayout ? getClosedRoomBoundary(levelLayout) : [];
+    const layoutBounds = layoutBoundary.length >= 3 ? getRoomBounds(layoutBoundary) : null;
+    const levelFloorMaterial = levelLayout
+      ? layoutAssetMaterial(scene, `building-test-${level.id}-floor-material`, levelLayout.floorMaterialId, '#d8c5a9', surfaceAssetsById)
+      : floorMaterial;
+    const levelWallMaterial = levelLayout
+      ? layoutAssetMaterial(scene, `building-test-${level.id}-wall-material`, levelLayout.wallMaterialId, '#f1eee7', surfaceAssetsById)
+      : wallMaterial;
+    const levelSlabMaterial = levelLayout?.floorMaterialId ? levelFloorMaterial : slabMaterial;
+    const slabBounds = layoutBounds
+      ? {
+          maxX: layoutBounds.maxX,
+          maxZ: layoutBounds.maxY,
+          minX: layoutBounds.minX,
+          minZ: layoutBounds.minY,
+        }
+      : {
+          maxX: levelCenter.x + Math.max(level.width - WALL_THICKNESS * 2.4, 0.5) / 2,
+          maxZ: levelCenter.z + Math.max(level.depth - WALL_THICKNESS * 2.4, 0.5) / 2,
+          minX: levelCenter.x - Math.max(level.width - WALL_THICKNESS * 2.4, 0.5) / 2,
+          minZ: levelCenter.z - Math.max(level.depth - WALL_THICKNESS * 2.4, 0.5) / 2,
+        };
     createRectangularPanelMeshes({
       bounds: slabBounds,
       holes: level.floorOpenings ?? [],
       levelId: level.id,
-      material: slabMaterial,
+      material: levelSlabMaterial,
       meshKind: 'slab',
+      polygon: layoutBoundary,
       scene,
       y: slabBaseY + slabHeight / 2,
       height: slabHeight,
     });
 
     if (levelLayout) {
-      createLevelLayoutMeshes(scene, level.id, y, facadeBaseY, facadeHeight, levelLayout, level.floorOpenings ?? [], floorMaterial, wallMaterial, glassMaterial, doorMaterial, windowFrameMaterial);
+      createLevelLayoutMeshes(scene, level.id, y, facadeBaseY, facadeHeight, levelLayout, level.floorOpenings ?? [], levelFloorMaterial, levelWallMaterial, glassMaterial, doorMaterial, windowFrameMaterial);
     } else {
       createLevelWalls(scene, levelCenter, level.id, y, facadeBaseY, level.width, level.depth, facadeHeight, wallMaterial, glassMaterial);
     }
@@ -376,8 +461,10 @@ export function buildBuildingEnvironment(
       .filter((mesh) => mesh.metadata?.source === 'building-test-environment' && mesh.metadata?.levelId === level.id)
       .forEach((mesh) => {
         mesh.isVisible = visible;
+        mesh.visibility = 1;
         if (mesh.material && 'alpha' in mesh.material) {
-          (mesh.material as StandardMaterial).alpha = ghosted ? 0.22 : 1;
+          const meshMaterial = mesh.material as StandardMaterial;
+          meshMaterial.alpha = typeof meshMaterial.metadata?.baseAlpha === 'number' ? meshMaterial.metadata.baseAlpha : 1;
         }
       });
   });
@@ -550,11 +637,13 @@ function createPanelCells(
   const holeBounds = holes
     .map((hole) => getHoleBounds(hole, bounds))
     .filter((hole) => hole.maxX - hole.minX > 0.05 && hole.maxZ - hole.minZ > 0.05);
-  const xs = [bounds.minX, bounds.maxX, ...holeBounds.flatMap((hole) => [hole.minX, hole.maxX])]
+  const polygonXs = polygon.map((point) => point.x);
+  const polygonZs = polygon.map((point) => point.y);
+  const xs = [bounds.minX, bounds.maxX, ...polygonXs, ...holeBounds.flatMap((hole) => [hole.minX, hole.maxX])]
     .filter((value) => Number.isFinite(value))
     .sort((left, right) => left - right)
     .filter((value, index, values) => index === 0 || Math.abs(value - values[index - 1]) > 0.001);
-  const zs = [bounds.minZ, bounds.maxZ, ...holeBounds.flatMap((hole) => [hole.minZ, hole.maxZ])]
+  const zs = [bounds.minZ, bounds.maxZ, ...polygonZs, ...holeBounds.flatMap((hole) => [hole.minZ, hole.maxZ])]
     .filter((value) => Number.isFinite(value))
     .sort((left, right) => left - right)
     .filter((value, index, values) => index === 0 || Math.abs(value - values[index - 1]) > 0.001);
@@ -610,7 +699,20 @@ function createRectangularPanelMeshes({
   scene: Scene;
   y: number;
 }) {
-  const cells = holes.length ? createPanelCells(bounds, holes, polygon) : [bounds];
+  if (!holes.length && polygon.length >= 3) {
+    createPolygonPanelMesh({
+      height,
+      levelId,
+      material: panelMaterial,
+      meshKind,
+      polygon,
+      scene,
+      y,
+    });
+    return;
+  }
+
+  const cells = holes.length || polygon.length >= 3 ? createPanelCells(bounds, holes, polygon) : [bounds];
 
   cells.forEach((cell, index) => {
     const width = cell.maxX - cell.minX;
@@ -640,6 +742,124 @@ function createRectangularPanelMeshes({
           source: 'building-test-environment',
         };
   });
+}
+
+function createPolygonPanelMesh({
+  height,
+  levelId,
+  material: panelMaterial,
+  meshKind,
+  polygon,
+  scene,
+  y,
+}: {
+  height?: number;
+  levelId: string;
+  material: StandardMaterial;
+  meshKind: 'floor' | 'slab';
+  polygon: Array<{ x: number; y: number }>;
+  scene: Scene;
+  y: number;
+}) {
+  if (polygon.length < 3) {
+    return;
+  }
+
+  const mesh = new Mesh(`building-test-${levelId}-${meshKind}-polygon`, scene);
+  const vertexData = new VertexData();
+  const indices = triangulateFloorBoundary(polygon);
+
+  if (meshKind === 'floor') {
+    const xs = polygon.map((point) => point.x);
+    const ys = polygon.map((point) => point.y);
+    const bounds = {
+      maxX: Math.max(...xs),
+      maxY: Math.max(...ys),
+      minX: Math.min(...xs),
+      minY: Math.min(...ys),
+    };
+    const width = Math.max(bounds.maxX - bounds.minX, 1);
+    const depth = Math.max(bounds.maxY - bounds.minY, 1);
+
+    vertexData.positions = polygon.flatMap((point) => [point.x, y, point.y]);
+    vertexData.indices = indices;
+    vertexData.normals = polygon.flatMap(() => [0, 1, 0]);
+    vertexData.uvs = polygon.flatMap((point) => [
+      (point.x - bounds.minX) / width,
+      (point.y - bounds.minY) / depth,
+    ]);
+  } else {
+    const slabHeight = height ?? 0.05;
+    const topY = y + slabHeight / 2;
+    const bottomY = y - slabHeight / 2;
+    const xs = polygon.map((point) => point.x);
+    const ys = polygon.map((point) => point.y);
+    const bounds = {
+      maxX: Math.max(...xs),
+      maxY: Math.max(...ys),
+      minX: Math.min(...xs),
+      minY: Math.min(...ys),
+    };
+    const width = Math.max(bounds.maxX - bounds.minX, 1);
+    const depth = Math.max(bounds.maxY - bounds.minY, 1);
+    const positions = [
+      ...polygon.flatMap((point) => [point.x, topY, point.y]),
+      ...polygon.flatMap((point) => [point.x, bottomY, point.y]),
+    ];
+    const bottomOffset = polygon.length;
+    const sideIndices = polygon.flatMap((_point, index) => {
+      const nextIndex = (index + 1) % polygon.length;
+
+      return [
+        index,
+        nextIndex,
+        bottomOffset + nextIndex,
+        index,
+        bottomOffset + nextIndex,
+        bottomOffset + index,
+      ];
+    });
+    const slabIndices = [
+      ...indices,
+      ...indices.slice().reverse().map((index) => bottomOffset + index),
+      ...sideIndices,
+    ];
+    const normals: number[] = [];
+
+    VertexData.ComputeNormals(positions, slabIndices, normals);
+    vertexData.positions = positions;
+    vertexData.indices = slabIndices;
+    vertexData.normals = normals;
+    vertexData.uvs = [
+      ...polygon.flatMap((point) => [
+        (point.x - bounds.minX) / width,
+        (point.y - bounds.minY) / depth,
+      ]),
+      ...polygon.flatMap((point) => [
+        (point.x - bounds.minX) / width,
+        (point.y - bounds.minY) / depth,
+      ]),
+    ];
+  }
+
+  vertexData.applyToMesh(mesh);
+  mesh.material = panelMaterial;
+  mesh.isPickable = meshKind === 'floor';
+  mesh.metadata = meshKind === 'floor'
+    ? {
+        elevation: y,
+        kind: 'placement-surface',
+        levelId,
+        source: 'building-test-environment',
+        surfaceId: `${levelId}-layout-floor`,
+        surfaceLabel: `${levelId} Layout Floor`,
+        surfaceType: 'FLOOR',
+      }
+    : {
+        kind: 'level-slab',
+        levelId,
+        source: 'building-test-environment',
+      };
 }
 
 function createLevelLayoutMeshes(
@@ -1104,6 +1324,11 @@ export function applyLevelVisibility(scene: Scene, activeLevel: BuildingLevelVis
     .filter((mesh) => mesh.metadata?.source === 'building-test-environment')
     .forEach((mesh) => {
       const levelId = mesh.metadata?.levelId as BuildingLevelVisibility | undefined;
+      mesh.visibility = 1;
+      if (mesh.material && 'alpha' in mesh.material) {
+        const meshMaterial = mesh.material as StandardMaterial;
+        meshMaterial.alpha = typeof meshMaterial.metadata?.baseAlpha === 'number' ? meshMaterial.metadata.baseAlpha : 1;
+      }
 
       if (!levelId || activeLevel === 'all') {
         mesh.isVisible = true;

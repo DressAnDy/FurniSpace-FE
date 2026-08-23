@@ -1,0 +1,114 @@
+.public-showcase-page {
+  min-height: 100vh;
+  background: #faf9f7;
+  color: #2d2d2d;
+  padding: 32px clamp(18px, 4vw, 56px);
+}
+
+.public-showcase-hero {
+  display: grid;
+  gap: 8px;
+  max-width: 840px;
+  margin-bottom: 28px;
+}
+
+.public-showcase-hero h1 {
+  margin: 0;
+  font-size: clamp(2rem, 5vw, 4rem);
+  letter-spacing: 0;
+  line-height: 1;
+}
+
+.public-showcase-hero p,
+.public-showcase-description,
+.public-showcase-state {
+  margin: 0;
+  color: #6b6b6b;
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+.public-showcase-state {
+  border: 1px solid rgba(139, 111, 71, 0.16);
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 14px;
+}
+
+.public-showcase-state.is-error {
+  background: rgba(220, 38, 38, 0.1);
+  color: #b91c1c;
+}
+
+.public-showcase-grid,
+.public-showcase-media-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.public-showcase-card,
+.public-showcase-media-grid figure {
+  overflow: hidden;
+  border: 1px solid rgba(139, 111, 71, 0.14);
+  border-radius: 8px;
+  background: #ffffff;
+  color: inherit;
+  text-decoration: none;
+}
+
+.public-showcase-card img,
+.public-showcase-card-empty,
+.public-showcase-media-grid img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  background: #ece7df;
+  object-fit: cover;
+}
+
+.public-showcase-card div {
+  padding: 16px;
+}
+
+.public-showcase-card h2 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.public-showcase-card p {
+  margin: 8px 0 0;
+  color: #6b6b6b;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.public-showcase-description {
+  max-width: 840px;
+  margin-bottom: 24px;
+}
+
+.public-showcase-media-grid figure {
+  margin: 0;
+}
+
+.public-showcase-media-grid figcaption {
+  color: #6b6b6b;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 12px;
+}
+
+@media (max-width: 960px) {
+  .public-showcase-grid,
+  .public-showcase-media-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .public-showcase-grid,
+  .public-showcase-media-grid {
+    grid-template-columns: 1fr;
+  }
+}

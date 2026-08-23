@@ -11,6 +11,7 @@ import {
   publishProposal,
   reopenProposalForEditing,
   requestProposalRevision,
+  resolveRoomPlannerSceneLayoutAssets,
   resolveRoomPlannerSceneProducts,
   saveRoomPlannerScene,
   selectFinalProposal,
@@ -24,6 +25,7 @@ import {
   type ProposalItemListParams,
   type ProposalSceneListParams,
   type RequestProposalRevisionInput,
+  type RoomPlannerResolvedLayoutAssetsData,
   type RoomPlannerResolvedProductsData,
   type SaveRoomPlannerSceneInput,
   type SyncProposalItemsFromSceneInput,
@@ -40,6 +42,8 @@ export const proposalQueryKeys = {
   roomPlanner: (sceneId: string) => ['proposal-scenes', sceneId, 'room-planner'] as const,
   roomPlannerResolvedProducts: (sceneId: string, productVersionIds: string[]) =>
     ['proposal-scenes', sceneId, 'room-planner', 'resolved-products', productVersionIds] as const,
+  roomPlannerResolvedLayoutAssets: (sceneId: string, layoutAssetIds: string[]) =>
+    ['proposal-scenes', sceneId, 'room-planner', 'resolved-layout-assets', layoutAssetIds] as const,
 };
 
 export function useCreateProposal() {
@@ -206,6 +210,22 @@ export function useRoomPlannerResolvedProducts(
       productVersionIds,
     }),
     enabled: Boolean(sceneId) && (options?.enabled ?? true),
+    staleTime: 5 * 60 * 1000,
+  });
+}
+
+export function useRoomPlannerResolvedLayoutAssets(
+  sceneId?: string,
+  layoutAssetIds: string[] = [],
+  options?: { enabled?: boolean },
+) {
+  return useQuery<RoomPlannerResolvedLayoutAssetsData>({
+    queryKey: proposalQueryKeys.roomPlannerResolvedLayoutAssets(sceneId ?? '', layoutAssetIds),
+    queryFn: () => resolveRoomPlannerSceneLayoutAssets({
+      sceneId: sceneId ?? '',
+      layoutAssetIds,
+    }),
+    enabled: Boolean(sceneId && layoutAssetIds.length > 0) && (options?.enabled ?? true),
     staleTime: 5 * 60 * 1000,
   });
 }

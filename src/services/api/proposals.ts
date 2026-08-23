@@ -1,6 +1,7 @@
 import axios, { AxiosError } from 'axios';
 
 import type { RoomPlannerScenePayload } from '@/features/ThreeD/types/roomPlannerScene.types';
+import type { LayoutAssetDto } from './layoutAssets';
 import type { CatalogFileDto } from './products';
 
 import { getStoredAccessToken } from './tokenStore';
@@ -266,6 +267,12 @@ export type RoomPlannerResolvedProductsData = {
   items: RoomPlannerResolvedProductDto[];
 };
 
+export type RoomPlannerResolvedLayoutAssetsData = {
+  sceneId: string;
+  projectId?: string | null;
+  items: LayoutAssetDto[];
+};
+
 export type ProposalItemDto = {
   proposalItemId: string;
   proposalId: string;
@@ -452,6 +459,17 @@ export async function resolveRoomPlannerSceneProducts(input: { sceneId: string; 
     `/proposal-scenes/${input.sceneId}/room-planner/resolve-products`,
     {
       productVersionIds: input.productVersionIds,
+    },
+  );
+
+  return response.data.data;
+}
+
+export async function resolveRoomPlannerSceneLayoutAssets(input: { layoutAssetIds: string[]; sceneId: string }) {
+  const response = await proposalApiClient.post<ServiceResult<RoomPlannerResolvedLayoutAssetsData>>(
+    `/proposal-scenes/${input.sceneId}/room-planner/resolve-layout-assets`,
+    {
+      layoutAssetIds: input.layoutAssetIds,
     },
   );
 

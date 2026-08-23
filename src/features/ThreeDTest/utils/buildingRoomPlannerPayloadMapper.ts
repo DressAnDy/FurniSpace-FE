@@ -32,6 +32,7 @@ type BlueprintFloorDocument = {
   doors: ReturnType<typeof mapOpeningToDocument>[];
   elevation?: number | null;
   floorHeight?: number | null;
+  floorStyle?: Record<string, unknown> | null;
   id: string;
   levelIndex?: number | null;
   name?: string | null;
@@ -68,11 +69,13 @@ type BuildingRoomPlannerPayload = Omit<RoomPlannerScenePayload, 'layout' | 'obje
     modelSnapshot?: Record<string, unknown> | null;
     name?: string | null;
     objectId: string;
-    objectType: 'FURNITURE';
+    layoutAssetId?: string | null;
+    layoutAssetType?: string | null;
+    objectType: 'FURNITURE' | 'LAYOUT_ASSET' | 'STRUCTURAL_ASSET' | 'DECORATIVE_ASSET';
     placement?: Record<string, unknown> | null;
     footprintSnapshot?: unknown | null;
     productModelId?: string | null;
-    productVersionId: string;
+    productVersionId?: string | null;
     proposalItemId?: string | null;
     transform: {
       position: Vector3State;
@@ -90,6 +93,20 @@ type HydrateBuildingPayload = Partial<BuildingRoomPlannerPayload> & {
 
 const LEVEL_STACK_VERTICAL_GAP = 0.14;
 const LEVEL_STACK_ELEVATION_EPSILON = 0.12;
+const legacySurfaceMaterialIds = new Set([
+  'garden-green',
+  'gray-tile',
+  'linen',
+  'mist-blue',
+  'oak-floor',
+  'soft-gray',
+  'stone-gray',
+  'wall-base',
+  'wallpaper',
+  'walnut-floor',
+  'warm-white',
+  'wood-floor',
+]);
 
 function getFloorId(level: BuildingLevel) {
   if (level.id.startsWith('floor-')) {
@@ -140,6 +157,12 @@ function getNumberValue(value: unknown, fallback: number) {
 
 function getStringValue(value: unknown) {
   return typeof value === 'string' && value.trim() ? value : '';
+}
+
+function getLayoutAssetIdValue(value: unknown) {
+  const id = getStringValue(value);
+
+  return id && !legacySurfaceMaterialIds.has(id) ? id : '';
 }
 
 function getPointById(points: RoomLayoutState['points'], pointId: string) {
@@ -240,6 +263,16 @@ function hydrateFloorLayout(
   const points = floor.points?.map((point) => ({ id: point.pointId, x: point.x, y: point.z })) ?? [];
   const wallHeight = floor.walls?.[0]?.height ?? metadataLayout?.wallHeight ?? fallbackLevel.wallHeight;
   const wallThickness = floor.walls?.[0]?.thickness ?? metadataLayout?.wallThickness ?? 0.16;
+  const floorStyle = floor.floorStyle as Record<string, unknown> | null | undefined;
+  const firstWallStyle = floor.walls?.[0]?.style as Record<string, unknown> | null | undefined;
+  const floorMaterialId =
+    getLayoutAssetIdValue(floorStyle?.layoutAssetId)
+    || getLayoutAssetIdValue(floorStyle?.materialId)
+    || getLayoutAssetIdValue(metadataLayout?.floorMaterialId);
+  const wallMaterialId =
+    getLayoutAssetIdValue(firstWallStyle?.layoutAssetId)
+    || getLayoutAssetIdValue(firstWallStyle?.materialId)
+    || getLayoutAssetIdValue(metadataLayout?.wallMaterialId);
   const floorWalls = floor.walls?.map((wall) => ({
     endPointId: wall.endPointId ?? wall.end?.pointId ?? '',
     height: wall.height ?? wallHeight,
@@ -253,7 +286,11 @@ function hydrateFloorLayout(
     const metadataHasDrawableBox = Boolean(metadataLayout?.points.length && metadataLayout.walls.length);
 
     if (metadataLayout && metadataHasDrawableBox) {
-      return metadataLayout;
+      return {
+        ...metadataLayout,
+        floorMaterialId: getLayoutAssetIdValue(metadataLayout.floorMaterialId),
+        wallMaterialId: getLayoutAssetIdValue(metadataLayout.wallMaterialId),
+      };
     }
 
     const defaultScene = createDefaultBuildingTestScene();
@@ -281,12 +318,12 @@ function hydrateFloorLayout(
       wallHeight,
     ) ?? {
       doors: [],
-      floorMaterialId: 'wood-floor',
+      floorMaterialId: '',
       openings: [],
       points,
       unit: 'm',
       wallHeight,
-      wallMaterialId: 'wall-base',
+      wallMaterialId: '',
       wallThickness,
       walls: floorWalls,
       windows: [],
@@ -296,13 +333,13 @@ function hydrateFloorLayout(
   return {
     doors: mergeOpeningsByType(floor.doors as Array<Record<string, unknown>>, floor.openings as Array<Record<string, unknown>>, 'DOOR')
       .map(hydrateDoorOpening),
-    floorMaterialId: metadataLayout?.floorMaterialId ?? 'wood-floor',
+    floorMaterialId,
     openings: mergeOpeningsByType(undefined, floor.openings as Array<Record<string, unknown>>, 'OPENING')
       .map(hydrateGenericOpening),
     points,
     unit: 'm',
     wallHeight,
-    wallMaterialId: metadataLayout?.wallMaterialId ?? 'wall-base',
+    wallMaterialId,
     wallThickness,
     walls: floorWalls,
     windows: mergeOpeningsByType(floor.windows as Array<Record<string, unknown>>, floor.openings as Array<Record<string, unknown>>, 'WINDOW')
@@ -327,9 +364,58 @@ function mapOpeningToDocument(opening: RoomOpeningItem) {
   };
 }
 
+function mapFloorOpeningToDocument(opening: NonNullable<BuildingLevel['floorOpenings']>[number]) {
+  return {
+    depth: opening.depth,
+    id: opening.id,
+    label: opening.label,
+    openingId: opening.id,
+    position: {
+      x: opening.position.x,
+      y: 0,
+      z: opening.position.z,
+    },
+    type: opening.type,
+    width: opening.width,
+  };
+}
+
+function hydrateFloorOpenings(
+  floor: BlueprintFloorDocument,
+  metadataFloorOpenings: BuildingLevel['floorOpenings'] | undefined,
+  fallbackFloorOpenings: BuildingLevel['floorOpenings'] | undefined,
+): BuildingLevel['floorOpenings'] {
+  const floorOpeningDocuments = [
+    ...(Array.isArray(floor.stairs) ? floor.stairs : []),
+    ...(Array.isArray(floor.slabs) ? floor.slabs.filter((slab) => slab.type === 'FLOOR_HOLE' || slab.type === 'STAIR') : []),
+  ];
+
+  if (!floorOpeningDocuments.length) {
+    return metadataFloorOpenings ?? fallbackFloorOpenings ?? [];
+  }
+
+  return floorOpeningDocuments.map((opening, index) => {
+    const position = opening.position as Record<string, unknown> | undefined;
+
+    return {
+      depth: getNumberValue(opening.depth, 1.2),
+      id: getStringValue(opening.openingId) || getStringValue(opening.id) || `floor-hole-${index + 1}`,
+      label: getStringValue(opening.label) || 'Floor hole',
+      position: {
+        x: getNumberValue(position?.x ?? opening.x, 0),
+        z: getNumberValue(position?.z ?? opening.z, 0),
+      },
+      type: 'STAIR',
+      width: getNumberValue(opening.width, 1.2),
+    };
+  });
+}
+
 function mapLevelToFloor(level: BuildingLevel, index: number): BlueprintFloorDocument {
   const layout = level.layout;
   const points = layout?.points ?? [];
+  const floorLayoutAssetId = getLayoutAssetIdValue(layout?.floorMaterialId);
+  const wallLayoutAssetId = getLayoutAssetIdValue(layout?.wallMaterialId);
 
   return {
     balconies: [],
@@ -347,7 +433,17 @@ function mapLevelToFloor(level: BuildingLevel, index: number): BlueprintFloorDoc
     rooms: [],
     slabThickness: 0.28,
     slabs: [],
-    stairs: [],
+    stairs: level.floorOpenings?.map(mapFloorOpeningToDocument) ?? [],
+    floorStyle: {
+      color: null,
+      layoutAssetId: floorLayoutAssetId || null,
+      materialCode: null,
+      materialId: floorLayoutAssetId || null,
+      textureFileId: null,
+      textureRotation: 0,
+      textureScale: 1,
+      textureUrlSnapshot: null,
+    },
     walls: layout?.walls.map((wall) => {
       const startPoint = getPointById(points, wall.startPointId);
       const endPoint = getPointById(points, wall.endPointId);
@@ -361,8 +457,9 @@ function mapLevelToFloor(level: BuildingLevel, index: number): BlueprintFloorDoc
         startPointId: wall.startPointId,
         style: {
           color: null,
+          layoutAssetId: wallLayoutAssetId || null,
           materialCode: null,
-          materialId: layout.wallMaterialId,
+          materialId: wallLayoutAssetId || null,
           textureFileId: null,
           textureRotation: 0,
           textureScale: 1,
@@ -401,6 +498,9 @@ function getObjectFloorId(product: PlacedBuildingProduct, sceneData: BuildingTes
 }
 
 function mapObjectToDocument(product: PlacedBuildingProduct, sceneData: BuildingTestScene): BuildingRoomPlannerPayload['objects'][number] {
+  const objectType = product.objectType ?? 'FURNITURE';
+  const isLayoutAsset = objectType === 'LAYOUT_ASSET' || objectType === 'STRUCTURAL_ASSET' || objectType === 'DECORATIVE_ASSET';
+
   return {
     dimensionsSnapshot: {
       depth: product.dimensionsSnapshot?.depth ?? product.depth ?? null,
@@ -411,10 +511,16 @@ function mapObjectToDocument(product: PlacedBuildingProduct, sceneData: Building
     floorId: getObjectFloorId(product, sceneData),
     locked: product.locked ?? false,
     materialOverrides: {},
-    modelSnapshot: null,
+    modelSnapshot: {
+      format: product.modelUrl.split('.').pop()?.toLowerCase() ?? null,
+      modelFileId: product.fileId ?? null,
+      modelUrlSnapshot: product.modelUrl,
+    },
     name: product.name,
     objectId: product.sceneObjectId,
-    objectType: 'FURNITURE',
+    layoutAssetId: isLayoutAsset ? product.layoutAssetId ?? product.id : null,
+    layoutAssetType: isLayoutAsset ? product.layoutAssetType ?? null : null,
+    objectType,
     placement: {
       heightOffset: product.heightOffset ?? product.position.y,
       mode: product.placementMode ?? 'FLOOR',
@@ -422,7 +528,7 @@ function mapObjectToDocument(product: PlacedBuildingProduct, sceneData: Building
       supportObjectId: product.supportObjectId ?? null,
     },
     footprintSnapshot: null,
-    productVersionId: product.productVersionId ?? product.id,
+    productVersionId: isLayoutAsset ? null : product.productVersionId ?? product.id,
     proposalItemId: product.proposalItemId ?? null,
     transform: {
       position: product.position,
@@ -446,7 +552,11 @@ export function createBuildingRoomPlannerPayload(input: {
     blueprintLayout: {
       floors,
       id: `blueprint-${input.sceneId}`,
-      metadata: {},
+      metadata: {
+        building: input.sceneData.building,
+        site: input.sceneData.site,
+        surfaces: input.sceneData.surfaces,
+      },
       name: 'Room Planner Blueprint',
       northDirection: 0,
       origin: { pointId: 'origin', x: 0, y: 0, z: 0 },
@@ -592,7 +702,7 @@ function hydrateSceneData(payload: HydrateBuildingPayload): BuildingTestScene | 
       ...fallbackLevel,
       depth: pointBounds ? Math.max(pointBounds.depth, 1) : metadataLevel?.depth ?? fallbackLevel.depth,
       elevation: floor.elevation ?? metadataLevel?.elevation ?? fallbackLevel.elevation,
-      floorOpenings: metadataLevel?.floorOpenings ?? fallbackLevel.floorOpenings ?? [],
+      floorOpenings: hydrateFloorOpenings(floor, metadataLevel?.floorOpenings, fallbackLevel.floorOpenings),
       footprintOffset: pointBounds
         ? {
             x: pointBounds.centerX - buildingPosition.x,
@@ -640,7 +750,7 @@ function hydrateSceneData(payload: HydrateBuildingPayload): BuildingTestScene | 
 
 function hydrateProducts(payload: HydrateBuildingPayload, scene: BuildingTestScene): PlacedBuildingProduct[] {
   return (payload.objects ?? [])
-    .filter((object) => object.objectType === 'FURNITURE' && object.productVersionId)
+    .filter((object) => object.productVersionId || object.layoutAssetId)
     .map((object) => {
       const position = object.transform?.position ?? { x: 0, y: 0, z: 0 };
       const floorId = object.floorId;
@@ -649,7 +759,9 @@ function hydrateProducts(payload: HydrateBuildingPayload, scene: BuildingTestSce
       return {
         dimensionsSnapshot: object.dimensionsSnapshot as PlacedBuildingProduct['dimensionsSnapshot'],
         heightOffset: Number(object.placement?.heightOffset ?? position.y),
-        id: object.productVersionId,
+        id: object.productVersionId ?? object.layoutAssetId ?? object.objectId,
+        layoutAssetId: object.layoutAssetId ?? undefined,
+        layoutAssetType: object.layoutAssetType ?? undefined,
         levelId,
         locked: object.locked,
         modelSnapshot: object.modelSnapshot as PlacedBuildingProduct['modelSnapshot'],
@@ -663,7 +775,8 @@ function hydrateProducts(payload: HydrateBuildingPayload, scene: BuildingTestSce
           snapToSurface: true,
         },
         position,
-        productVersionId: object.productVersionId,
+        objectType: object.objectType,
+        productVersionId: object.productVersionId ?? undefined,
         proposalItemId: object.proposalItemId ?? null,
         rotation: object.transform?.rotation ?? { x: 0, y: 0, z: 0 },
         scale: object.transform?.scale ?? { x: 1, y: 1, z: 1 },

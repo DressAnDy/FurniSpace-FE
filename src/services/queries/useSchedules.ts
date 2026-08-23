@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import {
   createProjectSchedule,
+  deleteProjectSchedule,
   getMyAssignedProjectSchedules,
   getProjectScheduleById,
   getProjectSchedules,
@@ -73,6 +74,19 @@ export function useUpdateProjectScheduleStatus() {
 
   return useMutation({
     mutationFn: (input: UpdateProjectScheduleStatusInput) => updateProjectScheduleStatus(input),
+    onSuccess: (data) => {
+      void queryClient.invalidateQueries({ queryKey: projectScheduleQueryKeys.all });
+      void queryClient.invalidateQueries({ queryKey: projectScheduleQueryKeys.detail(data.scheduleId) });
+      void queryClient.invalidateQueries({ queryKey: ['projects'] });
+    },
+  });
+}
+
+export function useDeleteProjectSchedule() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (scheduleId: string) => deleteProjectSchedule(scheduleId),
     onSuccess: (data) => {
       void queryClient.invalidateQueries({ queryKey: projectScheduleQueryKeys.all });
       void queryClient.invalidateQueries({ queryKey: projectScheduleQueryKeys.detail(data.scheduleId) });

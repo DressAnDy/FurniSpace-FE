@@ -800,6 +800,37 @@ export function moveWallAlongNormal(
   };
 }
 
+export function resizeWallLength(
+  layout: RoomLayoutState,
+  wallId: string,
+  length: number,
+) {
+  const wall = layout.walls.find((candidate) => candidate.id === wallId);
+
+  if (!wall) {
+    return layout;
+  }
+
+  const start = getPointById(layout.points, wall.startPointId);
+  const direction = getWallDirection(wall, layout.points);
+  const nextLength = Number(clamp(length, 0.2, 10000).toFixed(2));
+
+  const nextLayout = {
+    ...layout,
+    points: layout.points.map((point) =>
+      point.id === wall.endPointId
+        ? {
+            ...point,
+            x: Number((start.x + direction.x * nextLength).toFixed(2)),
+            y: Number((start.y + direction.y * nextLength).toFixed(2)),
+          }
+        : point,
+    ),
+  };
+
+  return normalizeDoorAndOpeningDimensions(nextLayout, new Set([wallId]));
+}
+
 export function updateWallDefaults(
   layout: RoomLayoutState,
   changes: Partial<Pick<RoomLayoutState, 'wallHeight' | 'wallThickness'>>,

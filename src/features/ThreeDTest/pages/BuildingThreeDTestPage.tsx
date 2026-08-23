@@ -7,8 +7,8 @@ import {
   IconCategory,
   IconChevronLeft,
   IconChevronRight,
+  IconCube,
   IconDeviceFloppy,
-  IconLock,
   IconPalette,
   IconRefresh,
   IconRulerMeasure,
@@ -43,6 +43,7 @@ import {
   type ProjectCatalogProductItemDto,
   type ProjectCatalogProductVersionDetailDto,
   type ProjectCatalogVersionSummaryDto,
+  type LayoutAssetDto,
 } from '@/services/api';
 import {
   getCustomizationRequestServiceResultMessage,
@@ -62,6 +63,7 @@ import {
   useProjectCatalogProducts,
   usePublishProposal,
   useProposalDetail,
+  useRoomPlannerLayoutAssets,
   useRoomPlannerScene,
   useSaveRoomPlannerScene,
   useSyncProposalItemsFromScene,
@@ -72,8 +74,8 @@ import './BuildingThreeDTestPage.css';
 const EMPTY_THUMBNAIL = '';
 const API_PRODUCT_DEFAULT_SCALE = 2.6;
 const DETAIL_BATCH_SIZE = 8;
-const MAX_PRODUCT_SCALE = 5;
-const MIN_PRODUCT_SCALE = 0.1;
+const MAX_PRODUCT_SCALE = 100;
+const MIN_PRODUCT_SCALE = 0.01;
 const ROOM_PLANNER_SAVE_STATUSES = ['DRAFT', 'REVISION_REQUESTED'] as const;
 type BuildingRoomPlannerRouteState = {
   areas?: BuildingProjectFloorAreaSource[];
@@ -85,39 +87,14 @@ type BuildingRoomPlannerRouteState = {
   transientPlacedProducts?: PlacedBuildingProduct[];
   transientSelectedProductId?: string | null;
 };
-type BuildingDesignPanel = 'products' | 'materials';
+type BuildingDesignPanel = 'products' | 'assets' | 'decorate';
 type BuildingProductFilterTab = 'catalog' | 'businessType';
 type BuildingProductSourceTab = 'catalog' | 'custom';
-type BuildingMaterialOption = {
-  fallbackColor: string;
-  id: string;
-  label: string;
-  textureUrl?: string;
-  type: 'floor' | 'wall' | 'wallpaper';
-};
 const placementModes: Array<{ label: string; value: ProductPlacementMode }> = [
   { label: 'Floor', value: 'FLOOR' },
   { label: 'On Object', value: 'ON_OBJECT' },
   { label: 'Wall Mounted', value: 'WALL_MOUNTED' },
   { label: 'Custom Height', value: 'CUSTOM_HEIGHT' },
-];
-
-const FLOOR_MATERIALS: BuildingMaterialOption[] = [
-  { fallbackColor: '#8B5A2B', id: 'wood-floor', label: 'Wood Floor', textureUrl: '/materials/flooring/woodfloor.jpg', type: 'floor' },
-  { fallbackColor: '#C8B79A', id: 'oak-floor', label: 'Natural Oak', textureUrl: '/materials/flooring/woodfloor.jpg', type: 'floor' },
-  { fallbackColor: '#6E4A32', id: 'walnut-floor', label: 'Walnut', textureUrl: '/materials/flooring/woodfloor.jpg', type: 'floor' },
-  { fallbackColor: '#A8ADA8', id: 'gray-tile', label: 'Soft Gray Tile', type: 'floor' },
-];
-
-const WALL_MATERIALS: BuildingMaterialOption[] = [
-  { fallbackColor: '#F3EFE7', id: 'wall-base', label: 'Gallery White Paint', textureUrl: '/materials/wall-paint/wallbase.jpg', type: 'wall' },
-  { fallbackColor: '#BFAE8A', id: 'wallpaper', label: 'Wallpaper', textureUrl: '/materials/wallpaper/wallpaper.jpg', type: 'wallpaper' },
-  { fallbackColor: '#EFE9DD', id: 'warm-white', label: 'Warm White', type: 'wall' },
-  { fallbackColor: '#B8B8B0', id: 'soft-gray', label: 'Soft Gray', type: 'wall' },
-  { fallbackColor: '#C8D6D4', id: 'mist-blue', label: 'Mist Blue', type: 'wall' },
-  { fallbackColor: '#596A5C', id: 'garden-green', label: 'Garden Green', type: 'wall' },
-  { fallbackColor: '#EEE2CF', id: 'linen', label: 'Linen', type: 'wall' },
-  { fallbackColor: '#8E8F88', id: 'stone-gray', label: 'Stone Gray', type: 'wall' },
 ];
 
 function getCatalogModelFile(files: CatalogFileDto[] | undefined) {
@@ -266,6 +243,50 @@ function mapProductToModels(product: ProductDetailDto | ProductListItemDto) {
     .filter((model): model is BuildingProductModel => Boolean(model));
 }
 
+function getLayoutAssetFileUrl(asset: LayoutAssetDto, fileType: 'MODEL_3D' | 'PREVIEW' | 'TEXTURE') {
+  const primaryFileUrl = fileType === 'MODEL_3D'
+    ? asset.primaryModel?.url
+    : fileType === 'TEXTURE'
+      ? asset.primaryTexture?.url
+      : asset.primaryPreview?.url ?? asset.previewUrl;
+  const file = asset.files?.find((item) => item.fileType === fileType && item.isPrimary)
+    ?? asset.files?.find((item) => item.fileType === fileType);
+
+  return primaryFileUrl ?? file?.fileUrl ?? file?.publicUrl ?? file?.url ?? null;
+}
+
+function mapLayoutAssetToModel(asset: LayoutAssetDto): BuildingProductModel | null {
+  const modelUrl = getLayoutAssetFileUrl(asset, 'MODEL_3D');
+
+  if (!modelUrl) {
+    return null;
+  }
+
+  const isDecorative = asset.layoutAssetType.startsWith('DECORATIVE') || asset.layoutAssetType === 'OTHER';
+
+  return {
+    categoryId: 'layout-assets',
+    categoryName: formatEnumLabel(asset.layoutAssetType),
+    fileId: asset.files?.find((file) => file.fileType === 'MODEL_3D')?.fileId,
+    id: `layout-asset-${asset.layoutAssetId}`,
+    layoutAssetId: asset.layoutAssetId,
+    layoutAssetType: asset.layoutAssetType,
+    modelUrl,
+    name: asset.name,
+    objectType: isDecorative ? 'DECORATIVE_ASSET' : 'STRUCTURAL_ASSET',
+    scale: { x: 1, y: 1, z: 1 },
+    thumbnailUrl: asset.previewUrl ?? getLayoutAssetFileUrl(asset, 'PREVIEW') ?? EMPTY_THUMBNAIL,
+  };
+}
+
+function formatEnumLabel(value: string) {
+  return value
+    .toLowerCase()
+    .split('_')
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
+}
+
 function matchesBusinessTypes(businessTypeIds: number[] | null | undefined, selectedBusinessTypeIds: number[]) {
   return selectedBusinessTypeIds.length === 0 || selectedBusinessTypeIds.some((businessTypeId) => businessTypeIds?.includes(businessTypeId));
 }
@@ -401,6 +422,7 @@ export function BuildingThreeDTestPage() {
     Boolean(currentProjectId),
   );
   const productListQuery = useProductList({ page: 1, limit: 48 }, !currentProjectId);
+  const layoutAssetsQuery = useRoomPlannerLayoutAssets({ page: 1, pageSize: 80 });
   const [detailLimit, setDetailLimit] = useState(DETAIL_BATCH_SIZE);
   const [search, setSearch] = useState('');
   const [productSourceTab, setProductSourceTab] = useState<BuildingProductSourceTab>('catalog');
@@ -454,14 +476,13 @@ export function BuildingThreeDTestPage() {
   const [designPanel, setDesignPanel] = useState<BuildingDesignPanel>('products');
   const [activeProductFilterTab, setActiveProductFilterTab] = useState<BuildingProductFilterTab>('catalog');
   const [isCatalogPanelCollapsed, setIsCatalogPanelCollapsed] = useState(false);
-  const [selectedFloorMaterialId, setSelectedFloorMaterialId] = useState('wood-floor');
-  const [selectedWallMaterialId, setSelectedWallMaterialId] = useState('wall-base');
   const [placedProducts, setPlacedProducts] = useState<PlacedBuildingProduct[]>(() => placedProductsDraft?.placedProducts ?? []);
   const [selectedProductId, setSelectedProductId] = useState<string | null>(() => placedProductsDraft?.selectedProductId ?? null);
   const [freeRotateProductId, setFreeRotateProductId] = useState<string | null>(null);
   const [showProductInfo, setShowProductInfo] = useState(false);
   const [message, setMessage] = useState('');
   const skipNextDraftPersistRef = useRef(false);
+  const appliedRemoteActiveLevelKeyRef = useRef<string | null>(null);
   const appliedRemoteProductsKeyRef = useRef<string | null>(null);
   const appliedRemoteSceneKeyRef = useRef<string | null>(null);
   const appliedAreaTemplateRef = useRef<string | null>(null);
@@ -534,15 +555,23 @@ export function BuildingThreeDTestPage() {
     [customizationRequestsQuery.data?.items],
   );
 
+  const layoutAssetModels = useMemo(
+    () =>
+      (layoutAssetsQuery.data?.items ?? [])
+        .map(mapLayoutAssetToModel)
+        .filter((model): model is BuildingProductModel => Boolean(model)),
+    [layoutAssetsQuery.data?.items],
+  );
+
   const availableModels = useMemo(() => {
     const models = new Map<string, BuildingProductModel>();
 
-    [...catalogModels, ...customModels].forEach((model) => {
+    [...catalogModels, ...customModels, ...layoutAssetModels].forEach((model) => {
       models.set(model.productVersionId ? `version-${model.productVersionId}` : model.id, model);
     });
 
     return [...models.values()];
-  }, [catalogModels, customModels]);
+  }, [catalogModels, customModels, layoutAssetModels]);
 
   const modelsById = useMemo(
     () => new Map(availableModels.map((model) => [model.id, model])),
@@ -551,6 +580,10 @@ export function BuildingThreeDTestPage() {
 
   const modelsByVersionId = useMemo(
     () => new Map(availableModels.flatMap((model) => model.productVersionId ? [[model.productVersionId, model] as const] : [])),
+    [availableModels],
+  );
+  const modelsByLayoutAssetId = useMemo(
+    () => new Map(availableModels.flatMap((model) => model.layoutAssetId ? [[model.layoutAssetId, model] as const] : [])),
     [availableModels],
   );
   const isCatalogLoading = currentProjectId
@@ -672,13 +705,14 @@ export function BuildingThreeDTestPage() {
 
     if (!shouldKeepPlacedProductsDraft(roomPlannerSceneQuery.data.lastSavedAt) && appliedRemoteProductsKeyRef.current !== remoteKey) {
       const hasUnresolvedCatalogModel = hydratedScene.placedProducts.some((product) =>
-        !product.modelUrl && !modelsByVersionId.has(product.productVersionId ?? product.id),
+        !product.modelUrl && !modelsByVersionId.has(product.productVersionId ?? product.id) && !modelsByLayoutAssetId.has(product.layoutAssetId ?? product.id),
       );
 
       if (!hasUnresolvedCatalogModel) {
         const resolvedProducts = hydratedScene.placedProducts
           .map((product) => {
-            const catalogModel = modelsByVersionId.get(product.productVersionId ?? product.id);
+            const catalogModel = modelsByVersionId.get(product.productVersionId ?? product.id)
+              ?? modelsByLayoutAssetId.get(product.layoutAssetId ?? product.id);
 
             if (!catalogModel && !product.modelUrl) {
               return null;
@@ -710,10 +744,21 @@ export function BuildingThreeDTestPage() {
       }
     }
 
-    if (hydratedScene.activeLevel && hydratedScene.activeLevel !== 'site' && sceneData.building.levels.some((level) => level.id === hydratedScene.activeLevel)) {
-      setActiveLevel(hydratedScene.activeLevel);
+    if (appliedRemoteActiveLevelKeyRef.current !== remoteKey) {
+      appliedRemoteActiveLevelKeyRef.current = remoteKey;
+
+      if (
+        hydratedScene.activeLevel
+        && hydratedScene.activeLevel !== 'site'
+        && (
+          hydratedScene.activeLevel === 'all'
+          || hydratedScene.sceneData.building.levels.some((level) => level.id === hydratedScene.activeLevel)
+        )
+      ) {
+        setActiveLevel(hydratedScene.activeLevel);
+      }
     }
-  }, [modelsByVersionId, roomPlannerSceneQuery.data, sceneData.building.levels, sceneId, setRemoteSceneData, shouldKeepSceneDraft, shouldKeepPlacedProductsDraft]);
+  }, [modelsByLayoutAssetId, modelsByVersionId, roomPlannerSceneQuery.data, sceneId, setRemoteSceneData, shouldKeepSceneDraft, shouldKeepPlacedProductsDraft]);
 
   useEffect(() => {
     if (!placedProductsDraft?.placedProducts.length) {
@@ -781,6 +826,28 @@ export function BuildingThreeDTestPage() {
         )
       : businessTypeFilteredModels;
   }, [catalogModels, customModels, productSourceTab, search, selectedBusinessTypeIds, selectedCategoryId]);
+
+  const floorLayoutAssets = useMemo(
+    () => (layoutAssetsQuery.data?.items ?? []).filter((asset) => asset.layoutAssetType === 'FLOOR_MATERIAL'),
+    [layoutAssetsQuery.data?.items],
+  );
+  const wallLayoutAssets = useMemo(
+    () => (layoutAssetsQuery.data?.items ?? []).filter((asset) => asset.layoutAssetType === 'WALL_MATERIAL'),
+    [layoutAssetsQuery.data?.items],
+  );
+  const surfaceAssetVisuals = useMemo(
+    () =>
+      [...floorLayoutAssets, ...wallLayoutAssets].map((asset) => ({
+        layoutAssetId: asset.layoutAssetId,
+        previewUrl: asset.previewUrl ?? getLayoutAssetFileUrl(asset, 'PREVIEW'),
+        textureUrl: getLayoutAssetFileUrl(asset, 'TEXTURE'),
+      })),
+    [floorLayoutAssets, wallLayoutAssets],
+  );
+  const decorativeAssetModels = useMemo(
+    () => layoutAssetModels.filter((model) => model.objectType === 'DECORATIVE_ASSET' || model.objectType === 'STRUCTURAL_ASSET'),
+    [layoutAssetModels],
+  );
 
   const categoryCards = useMemo(() => {
     const counts = new Map<string, number>();
@@ -1031,7 +1098,7 @@ export function BuildingThreeDTestPage() {
     }
 
     const currentScale = selectedProduct.scale ?? { x: 1, y: 1, z: 1 };
-    const nextValue = Number(Math.min(MAX_PRODUCT_SCALE, Math.max(MIN_PRODUCT_SCALE, value)).toFixed(2));
+    const nextValue = Number(Math.min(MAX_PRODUCT_SCALE, Math.max(MIN_PRODUCT_SCALE, value)).toFixed(3));
 
     updateSelectedProduct({
       scale: {
@@ -1085,6 +1152,58 @@ export function BuildingThreeDTestPage() {
     setPlacedProducts([]);
     setSelectedProductId(null);
     setMessage('Prototype scene reset.');
+  }
+
+  function applySurfaceAsset(asset: LayoutAssetDto, surface: 'floor' | 'wall') {
+    if (activeLevel === 'site') {
+      setMessage('Choose All or a floor before applying floor and wall assets.');
+      return;
+    }
+
+    setSceneData((currentScene) => {
+      const shouldUpdateLevel = (levelId: string) => activeLevel === 'all' || activeLevel === levelId;
+      const levels = currentScene.building.levels.map((level) => {
+        if (!level.layout || !shouldUpdateLevel(level.id)) {
+          return level;
+        }
+
+        return {
+          ...level,
+          layout: {
+            ...level.layout,
+            ...(surface === 'floor'
+              ? { floorMaterialId: asset.layoutAssetId }
+              : { wallMaterialId: asset.layoutAssetId }),
+          },
+        };
+      });
+
+      return {
+        ...currentScene,
+        building: {
+          ...currentScene.building,
+          levels,
+        },
+      };
+    });
+    setMessage(`${asset.name} applied to ${surface === 'floor' ? 'floor' : 'wall'} assets for ${activeLevel === 'all' ? 'all levels' : 'the selected level'}.`);
+  }
+
+  function isSurfaceAssetSelected(assetId: string, surface: 'floor' | 'wall') {
+    const levels = activeLevel === 'all'
+      ? sceneData.building.levels
+      : sceneData.building.levels.filter((level) => level.id === activeLevel);
+    const levelsWithLayout = levels.filter((level) => level.layout);
+
+    if (!levelsWithLayout.length) {
+      return false;
+    }
+
+    return levelsWithLayout.every((level) =>
+      surface === 'floor'
+        ? level.layout?.floorMaterialId === assetId
+        : level.layout?.wallMaterialId === assetId,
+    );
   }
 
   async function saveScene(options?: { silent?: boolean }) {
@@ -1362,14 +1481,11 @@ export function BuildingThreeDTestPage() {
               <button className={designPanel === 'products' ? 'is-active' : ''} type="button" onClick={() => setDesignPanel('products')}>
                 <IconCategory size={15} /> Products
               </button>
-              <button
-                aria-disabled="true"
-                className="is-locked"
-                disabled
-                title="Materials will be available when the API is ready."
-                type="button"
-              >
-                <IconPalette size={15} /> Materials <IconLock className="building-content-tab-lock" size={13} />
+              <button className={designPanel === 'assets' ? 'is-active' : ''} type="button" onClick={() => setDesignPanel('assets')}>
+                <IconPalette size={15} /> Assets
+              </button>
+              <button className={designPanel === 'decorate' ? 'is-active' : ''} type="button" onClick={() => setDesignPanel('decorate')}>
+                <IconCube size={15} /> Decorate
               </button>
             </div>
 
@@ -1481,44 +1597,90 @@ export function BuildingThreeDTestPage() {
             </section>
             )}
 
-            {designPanel === 'materials' && (
+            {designPanel === 'assets' && (
               <section className="building-test-panel building-design-panel">
               <div className="building-test-panel-heading">
-                <strong>Materials</strong>
-                <span>Floor / wall presets</span>
+                <strong>Assets</strong>
+                <span>Floor and wall layout assets</span>
               </div>
               <div className="building-material-grid">
                 <div className="building-material-group">
-                  <h3>Flooring</h3>
-                  {FLOOR_MATERIALS.map((material) => (
+                  <h3>Floor Assets</h3>
+                  {layoutAssetsQuery.isLoading ? <div className="building-test-status">Loading floor assets...</div> : null}
+                  {layoutAssetsQuery.isError ? <div className="building-test-status is-error">Cannot load floor assets.</div> : null}
+                  {!layoutAssetsQuery.isLoading && floorLayoutAssets.length === 0 ? (
+                    <div className="building-test-status">No floor assets from API. Add FLOOR_MATERIAL assets in Admin.</div>
+                  ) : null}
+                  {floorLayoutAssets.map((asset) => (
                     <button
-                      className={selectedFloorMaterialId === material.id ? 'building-material-option is-selected' : 'building-material-option'}
-                      key={material.id}
+                      className={isSurfaceAssetSelected(asset.layoutAssetId, 'floor') ? 'building-material-option is-selected' : 'building-material-option'}
+                      key={asset.layoutAssetId}
                       type="button"
-                      onClick={() => setSelectedFloorMaterialId(material.id)}
+                      onClick={() => applySurfaceAsset(asset, 'floor')}
                     >
-                      <span style={{ backgroundColor: material.fallbackColor }} />
-                      <strong>{material.label}</strong>
-                      {material.textureUrl ? <small>Texture asset</small> : <small>Color swatch</small>}
+                      <span style={{ backgroundImage: asset.previewUrl ? `url(${asset.previewUrl})` : undefined }} />
+                      <strong>{asset.name}</strong>
+                      <small>{formatEnumLabel(asset.layoutAssetType)}</small>
                     </button>
                   ))}
                 </div>
                 <div className="building-material-group">
-                  <h3>Wall Paint / Wallpaper</h3>
-                  {WALL_MATERIALS.map((material) => (
+                  <h3>Wall Assets</h3>
+                  {layoutAssetsQuery.isLoading ? <div className="building-test-status">Loading wall assets...</div> : null}
+                  {layoutAssetsQuery.isError ? <div className="building-test-status is-error">Cannot load wall assets.</div> : null}
+                  {!layoutAssetsQuery.isLoading && wallLayoutAssets.length === 0 ? (
+                    <div className="building-test-status">No wall assets from API. Add WALL_MATERIAL assets in Admin.</div>
+                  ) : null}
+                  {wallLayoutAssets.map((asset) => (
                     <button
-                      className={selectedWallMaterialId === material.id ? 'building-material-option is-selected' : 'building-material-option'}
-                      key={material.id}
+                      className={isSurfaceAssetSelected(asset.layoutAssetId, 'wall') ? 'building-material-option is-selected' : 'building-material-option'}
+                      key={asset.layoutAssetId}
                       type="button"
-                      onClick={() => setSelectedWallMaterialId(material.id)}
+                      onClick={() => applySurfaceAsset(asset, 'wall')}
                     >
-                      <span style={{ backgroundColor: material.fallbackColor }} />
-                      <strong>{material.label}</strong>
-                      {material.textureUrl ? <small>Texture asset</small> : <small>Color swatch</small>}
+                      <span style={{ backgroundImage: asset.previewUrl ? `url(${asset.previewUrl})` : undefined }} />
+                      <strong>{asset.name}</strong>
+                      <small>{formatEnumLabel(asset.layoutAssetType)}</small>
                     </button>
                   ))}
                 </div>
               </div>
+              </section>
+            )}
+
+            {designPanel === 'decorate' && (
+              <section className="building-test-panel building-design-panel">
+                <div className="building-test-panel-heading">
+                  <strong>Decorate</strong>
+                  <span>{decorativeAssetModels.length} layout asset model(s)</span>
+                </div>
+                {layoutAssetsQuery.isLoading ? <div className="building-test-status">Loading layout assets...</div> : null}
+                {layoutAssetsQuery.isError ? <div className="building-test-status is-error">Cannot load layout assets.</div> : null}
+                <div className="building-product-list">
+                  {decorativeAssetModels.map((model) => (
+                    <article
+                      className="building-product-card"
+                      draggable
+                      key={model.id}
+                      title={`Drag ${model.name} into the scene`}
+                      onDragStart={(event) => {
+                        event.dataTransfer.effectAllowed = 'copy';
+                        event.dataTransfer.setData(PRODUCT_DRAG_TYPE, model.id);
+                      }}
+                    >
+                      <div className="building-product-media">
+                        {model.thumbnailUrl ? <img alt="" src={model.thumbnailUrl} /> : <IconCube size={30} />}
+                      </div>
+                      <div className="building-product-info">
+                        <strong>{model.name}</strong>
+                        <span>{model.categoryName ?? 'Layout Asset'}</span>
+                      </div>
+                    </article>
+                  ))}
+                  {!layoutAssetsQuery.isLoading && decorativeAssetModels.length === 0 ? (
+                    <div className="building-test-status">No active decorative or structural assets with MODEL_3D files.</div>
+                  ) : null}
+                </div>
               </section>
             )}
           </div>
@@ -1538,6 +1700,7 @@ export function BuildingThreeDTestPage() {
             placedProducts={placedProducts}
             sceneData={sceneData}
             selectedProductId={selectedProductId}
+            surfaceAssets={surfaceAssetVisuals}
             onProductDrop={addProductToScene}
             onProductLoadError={(productId, errorMessage) => setMessage(`${productId}: ${errorMessage}`)}
             onProductMove={moveProduct}
@@ -1612,6 +1775,8 @@ export function BuildingThreeDTestPage() {
                     <button aria-label={`Decrease scale ${axis}`} type="button" onClick={() => stepSelectedProductScale(axis, -0.1)}>-</button>
                     <DecimalScaleInput
                       ariaLabel={`Scale ${axis}`}
+                      max={MAX_PRODUCT_SCALE}
+                      min={MIN_PRODUCT_SCALE}
                       value={selectedProductScale[axis]}
                       onChange={(value) => setSelectedProductScale(axis, value)}
                     />
@@ -1630,26 +1795,36 @@ export function BuildingThreeDTestPage() {
 }
 
 function formatScaleValue(value: number) {
-  return Number.isFinite(value) ? Number(value.toFixed(2)).toString() : '1';
+  return Number.isFinite(value) ? Number(value.toFixed(3)).toString() : '1';
 }
 
 function sanitizeDecimalScaleInput(value: string) {
   const normalized = value.replace(/,/g, '.').replace(/[^\d.]/g, '');
   const [integer = '', ...decimalParts] = normalized.split('.');
 
-  return decimalParts.length ? `${integer}.${decimalParts.join('')}` : integer;
+  const nextInteger = integer.replace(/^0+(?=\d)/, '');
+  const decimalValue = decimalParts.join('').slice(0, 3);
+
+  return decimalParts.length ? `${nextInteger}.${decimalValue}` : nextInteger;
 }
 
 function DecimalScaleInput({
   ariaLabel,
+  max,
+  min,
   onChange,
   value,
 }: Readonly<{
   ariaLabel: string;
+  max: number;
+  min: number;
   onChange: (value: number) => void;
   value: number;
 }>) {
   const [draftValue, setDraftValue] = useState(formatScaleValue(value));
+  const numericDraftValue = Number(draftValue);
+  const isDraftEmpty = !draftValue || draftValue === '.';
+  const isDraftOutOfRange = !isDraftEmpty && (!Number.isFinite(numericDraftValue) || numericDraftValue < min || numericDraftValue > max);
 
   useEffect(() => {
     setDraftValue(formatScaleValue(value));
@@ -1658,10 +1833,25 @@ function DecimalScaleInput({
   return (
     <input
       aria-label={ariaLabel}
+      aria-invalid={isDraftOutOfRange}
       inputMode="decimal"
+      max={max}
+      min={min}
+      pattern="[0-9]*[.]?[0-9]*"
+      title={`Enter a number from ${min} to ${max}`}
       type="text"
       value={draftValue}
-      onBlur={() => setDraftValue(formatScaleValue(value))}
+      onBlur={() => {
+        if (isDraftEmpty || !Number.isFinite(numericDraftValue)) {
+          setDraftValue(formatScaleValue(value));
+          return;
+        }
+
+        const nextValue = Math.min(max, Math.max(min, numericDraftValue));
+
+        onChange(nextValue);
+        setDraftValue(formatScaleValue(nextValue));
+      }}
       onChange={(event) => {
         const nextValue = sanitizeDecimalScaleInput(event.target.value);
 
@@ -1673,7 +1863,7 @@ function DecimalScaleInput({
 
         const numericValue = Number(nextValue);
 
-        if (Number.isFinite(numericValue)) {
+        if (Number.isFinite(numericValue) && numericValue >= min && numericValue <= max) {
           onChange(numericValue);
         }
       }}

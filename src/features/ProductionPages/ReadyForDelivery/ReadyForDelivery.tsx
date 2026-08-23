@@ -1,34 +1,66 @@
-import { useEffect, useMemo, useState } from 'react';
-import { IconClipboardCheck, IconNotes, IconPackage, IconTruckDelivery } from '@tabler/icons-react';
+import { useEffect, useMemo, useState, type FormEvent } from 'react';
+import { IconArrowLeft, IconCalendarPlus, IconClipboardCheck, IconNotes, IconPackage, IconTruckDelivery } from '@tabler/icons-react';
 
 import { ProductionLayout, ProductionStatusBadge, ProductionSummaryCard } from '@/features/ProductionPages/productioncomponents';
 import { formatDate } from '@/features/ProductionPages/utils';
-import { getOrderServiceResultMessage, type OrderItemDto } from '@/services/api/orders';
-import { getProjectScheduleServiceResultMessage } from '@/services/api/schedules';
 import {
-  useCompleteOrderDelivery,
+  getDeliveredQuantity,
+  getRemainingQuantity,
+  groupOrderItemsForDelivery,
+  splitDeliveryQuantityAcrossOrderItems,
+} from '@/features/deliveryTracking/deliveryItemGrouping';
+import { getOrderServiceResultMessage, type DeliveryBatchDto, type OrderItemDto } from '@/services/api/orders';
+import { getProjectScheduleServiceResultMessage, type ProjectScheduleDto } from '@/services/api/schedules';
+import {
+  useCompleteOrderDeliveryBatch,
+  useCreateOrderDeliveryBatch,
+  useCreateProjectSchedule,
+  useUpdateProjectSchedule,
+  useOrderDeliveries,
+  useOrderDeliveryTracking,
   useOrderDetail,
   useProductionRequests,
+  useProjectDetail,
   useProjectScheduleList,
-  useStartOrderDelivery,
 } from '@/services/queries';
+
+type BatchQuantityDraft = Record<string, string>;
+type ScheduleRescheduleDraft = {
+  customerNote: string;
+  end: string;
+  location: string;
+  start: string;
+};
 
 export function ReadyForDelivery() {
   const [selectedProductionRequestId, setSelectedProductionRequestId] = useState('');
+  const [selectedScheduleId, setSelectedScheduleId] = useState('');
+  const [batchNote, setBatchNote] = useState('');
+  const [quantityDraft, setQuantityDraft] = useState<BatchQuantityDraft>({});
   const [requestPage, setRequestPage] = useState(1);
+  const [scheduleStartInput, setScheduleStartInput] = useState(getNowDateTimeLocalInputValue());
+  const [scheduleEndInput, setScheduleEndInput] = useState('');
+  const [scheduleLocationInput, setScheduleLocationInput] = useState('');
+  const [hasEditedScheduleLocation, setHasEditedScheduleLocation] = useState(false);
+  const [reschedulingScheduleId, setReschedulingScheduleId] = useState('');
+  const [rescheduleDraft, setRescheduleDraft] = useState<ScheduleRescheduleDraft>({ customerNote: '', end: '', location: '', start: '' });
   const [message, setMessage] = useState<{ tone: 'error' | 'success'; text: string } | null>(null);
-  const [zeroCompletedDeliveryOrderIds, setZeroCompletedDeliveryOrderIds] = useState<Set<string>>(() => new Set());
+
   const readyRequestsQuery = useProductionRequests({ status: 'COMPLETED' });
   const readyRequests = useMemo(() => readyRequestsQuery.data?.items ?? [], [readyRequestsQuery.data?.items]);
+  const selectedRequest = readyRequests.find((request) => request.productionRequestId === selectedProductionRequestId) ?? null;
   const requestPageSize = 4;
   const requestPageCount = Math.max(Math.ceil(readyRequests.length / requestPageSize), 1);
   const pagedReadyRequests = useMemo(
     () => readyRequests.slice((requestPage - 1) * requestPageSize, requestPage * requestPageSize),
     [readyRequests, requestPage],
   );
-  const selectedRequest = readyRequests.find((request) => request.productionRequestId === selectedProductionRequestId) ?? readyRequests[0] ?? null;
+
   const orderDetailQuery = useOrderDetail(selectedRequest?.orderId, { enabled: Boolean(selectedRequest?.orderId) });
+  const projectDetailQuery = useProjectDetail(selectedRequest?.projectId);
   const order = orderDetailQuery.data ?? null;
+  const deliveryTrackingQuery = useOrderDeliveryTracking(order?.orderId, { enabled: Boolean(order?.orderId) });
+  const deliveriesQuery = useOrderDeliveries(order?.orderId, { enabled: Boolean(order?.orderId) });
   const deliverySchedulesQuery = useProjectScheduleList(
     selectedRequest
       ? {
@@ -39,60 +71,231 @@ export function ReadyForDelivery() {
         }
       : undefined,
   );
-  const startDeliveryMutation = useStartOrderDelivery();
-  const completeDeliveryMutation = useCompleteOrderDelivery();
+
+  const createScheduleMutation = useCreateProjectSchedule();
+  const updateScheduleMutation = useUpdateProjectSchedule();
+  const createBatchMutation = useCreateOrderDeliveryBatch();
+  const completeBatchMutation = useCompleteOrderDeliveryBatch();
+  const deliverySchedules = useMemo(() => deliverySchedulesQuery.data?.items ?? [], [deliverySchedulesQuery.data?.items]);
+  const deliveries = useMemo(() => deliveriesQuery.data?.items ?? [], [deliveriesQuery.data?.items]);
+  const usedScheduleIds = useMemo(() => new Set(deliveries.map((delivery) => delivery.projectScheduleId).filter(Boolean)), [deliveries]);
+  const selectedSchedule = deliverySchedules.find((schedule) => getScheduleKey(schedule) === selectedScheduleId) ?? null;
+  const selectedScheduleBatch = deliveries.find((delivery) => delivery.projectScheduleId === selectedScheduleId) ?? null;
   const deliverableItems = useMemo(
     () => (order?.items ?? []).filter((item) => (item.quantity ?? 0) > 0 && item.status !== 'UNAVAILABLE' && item.status !== 'CANCELLED'),
     [order?.items],
   );
-  const deliverableItemGroups = useMemo(() => groupOrderItemsByName(deliverableItems), [deliverableItems]);
-  const confirmedDeliverySchedule = deliverySchedulesQuery.data?.items.some((schedule) => schedule.status === 'CONFIRMED') ?? false;
-  const readyCount = readyRequests.length;
-  const deliveringCount = readyRequests.filter((request) => request.orderId === order?.orderId && order?.status === 'DELIVERING').length;
-  const hasPendingDeliveryItems = deliverableItems.some((item) => item.status !== 'DELIVERED');
-  const shouldShowCompleteDeliveryButton = Boolean(
-    order?.status === 'DELIVERING'
-      && order.orderId
-      && hasPendingDeliveryItems
-      && !zeroCompletedDeliveryOrderIds.has(order.orderId),
-  );
-
-  useEffect(() => {
-    if (!selectedProductionRequestId && readyRequests.length > 0) {
-      setSelectedProductionRequestId(readyRequests[0].productionRequestId);
-    }
-  }, [readyRequests, selectedProductionRequestId]);
+  const deliverableItemGroups = useMemo(() => groupOrderItemsForDelivery(deliverableItems).filter((group) => group.remainingQuantity > 0), [deliverableItems]);
+  const hasRemainingQuantity = deliverableItemGroups.some((group) => group.remainingQuantity > 0);
+  const trackingSummary = deliveryTrackingQuery.data?.summary;
 
   useEffect(() => {
     setRequestPage((currentPage) => Math.min(currentPage, requestPageCount));
   }, [requestPageCount]);
 
-  async function startDelivery() {
-    if (!order) return;
+  useEffect(() => {
+    setSelectedScheduleId('');
+    setBatchNote('');
+    setQuantityDraft({});
     setMessage(null);
+    setScheduleLocationInput('');
+    setHasEditedScheduleLocation(false);
+    setReschedulingScheduleId('');
+    setRescheduleDraft({ customerNote: '', end: '', location: '', start: '' });
+  }, [selectedRequest?.productionRequestId]);
+
+  useEffect(() => {
+    if (!selectedRequest || hasEditedScheduleLocation) {
+      return;
+    }
+
+    setScheduleLocationInput(projectDetailQuery.data?.projectAddress ?? '');
+  }, [hasEditedScheduleLocation, projectDetailQuery.data?.projectAddress, selectedRequest]);
+
+  useEffect(() => {
+    if (!selectedScheduleId) {
+      const executableSchedule = deliverySchedules.find((schedule) => canUseScheduleForBatch(schedule, usedScheduleIds));
+      setSelectedScheduleId(executableSchedule ? getScheduleKey(executableSchedule) : '');
+    }
+  }, [deliverySchedules, selectedScheduleId, usedScheduleIds]);
+
+  useEffect(() => {
+    setQuantityDraft((current) => {
+      const next: BatchQuantityDraft = {};
+
+      deliverableItemGroups.forEach((group) => {
+        const remaining = group.remainingQuantity;
+
+        if (remaining > 0) {
+          next[group.groupId] = current[group.groupId] ?? '';
+        }
+      });
+
+      return next;
+    });
+  }, [deliverableItemGroups]);
+
+  async function createDeliverySchedule(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (!selectedRequest || !order) {
+      setMessage({ tone: 'error', text: 'Select a completed production request before planning delivery.' });
+      return;
+    }
+
+    const scheduledStart = localDateTimeToIso(scheduleStartInput);
+    const scheduledEnd = scheduleEndInput ? localDateTimeToIso(scheduleEndInput) : null;
+
+    if (!scheduledStart) {
+      setMessage({ tone: 'error', text: 'Delivery start time is required.' });
+      return;
+    }
+
+    if (scheduledEnd && new Date(scheduledEnd).getTime() <= new Date(scheduledStart).getTime()) {
+      setMessage({ tone: 'error', text: 'Delivery end time must be after the start time.' });
+      return;
+    }
 
     try {
-      await startDeliveryMutation.mutateAsync(order.orderId);
-      setMessage({ tone: 'success', text: 'Delivery started. Complete delivery when the full order has arrived.' });
+      const schedule = await createScheduleMutation.mutateAsync({
+        assignedStaffId: selectedRequest.assignedTo ?? null,
+        customerNote: 'Please confirm this delivery schedule.',
+        description: `Delivery schedule for ${order.orderCode}.`,
+        internalNote: 'Created by Production after production request completion.',
+        location: scheduleLocationInput || null,
+        projectId: selectedRequest.projectId,
+        scheduleType: 'DELIVERY',
+        scheduledEnd,
+        scheduledStart,
+        title: `${selectedRequest.projectName} - delivery`,
+      });
+
+      setSelectedScheduleId(getScheduleKey(schedule));
+      setScheduleStartInput(getNowDateTimeLocalInputValue());
+      setScheduleEndInput('');
+      setScheduleLocationInput(projectDetailQuery.data?.projectAddress ?? '');
+      setHasEditedScheduleLocation(false);
+      setMessage({ tone: 'success', text: 'Delivery schedule created and sent for customer confirmation.' });
+    } catch (error) {
+      setMessage({ tone: 'error', text: getProjectScheduleServiceResultMessage(error) });
+    }
+  }
+
+  async function createDeliveryBatch() {
+    if (!order || !selectedSchedule) return;
+
+    const invalidGroup = deliverableItemGroups.find((group) => {
+      const quantity = Number(quantityDraft[group.groupId] ?? 0);
+      return Number.isFinite(quantity) && quantity > group.remainingQuantity;
+    });
+
+    if (invalidGroup) {
+      setMessage({ tone: 'error', text: 'Delivery quantity cannot exceed remaining quantity.' });
+      return;
+    }
+
+    const items = deliverableItemGroups.flatMap((group) => {
+      const quantity = Number(quantityDraft[group.groupId] ?? 0);
+
+      if (!Number.isFinite(quantity) || quantity <= 0) {
+        return [];
+      }
+
+      return splitDeliveryQuantityAcrossOrderItems(group, quantity);
+    });
+
+    if (items.length === 0) {
+      setMessage({ tone: 'error', text: 'Enter at least one delivery quantity.' });
+      return;
+    }
+
+    const invalidItem = items.find((item) => {
+      const source = deliverableItems.find((orderItem) => orderItem.orderItemId === item.orderItemId);
+      return !source || item.quantity > getRemainingQuantity(source);
+    });
+
+    if (invalidItem) {
+      setMessage({ tone: 'error', text: 'Delivery quantity cannot exceed remaining quantity.' });
+      return;
+    }
+
+    try {
+      await createBatchMutation.mutateAsync({
+        items,
+        note: batchNote,
+        orderId: order.orderId,
+        projectScheduleId: getScheduleKey(selectedSchedule),
+      });
+      setBatchNote('');
+      setQuantityDraft({});
+      setMessage({ tone: 'success', text: 'Delivery batch started for the selected schedule.' });
       void orderDetailQuery.refetch();
+      void deliveryTrackingQuery.refetch();
+      void deliveriesQuery.refetch();
     } catch (error) {
       setMessage({ tone: 'error', text: getOrderServiceResultMessage(error) });
     }
   }
 
-  async function completeDelivery() {
+  async function completeDeliveryBatch(delivery: DeliveryBatchDto) {
     if (!order) return;
-    setMessage(null);
 
     try {
-      const result = await completeDeliveryMutation.mutateAsync(order.orderId);
-      setMessage({ tone: 'success', text: `Delivery completed for ${result.deliveredItemCount} item(s). Waiting for customer confirmation.` });
-      if (result.deliveredItemCount === 0) {
-        setZeroCompletedDeliveryOrderIds((current) => new Set(current).add(order.orderId));
-      }
+      await completeBatchMutation.mutateAsync({ deliveryId: delivery.deliveryId, orderId: order.orderId });
+      setMessage({ tone: 'success', text: 'Delivery batch completed. Linked schedule will sync to completed.' });
       void orderDetailQuery.refetch();
+      void deliveryTrackingQuery.refetch();
+      void deliveriesQuery.refetch();
     } catch (error) {
       setMessage({ tone: 'error', text: getOrderServiceResultMessage(error) });
+    }
+  }
+
+  function openRescheduleEditor(schedule: ProjectScheduleDto) {
+    setReschedulingScheduleId(getScheduleKey(schedule));
+    setRescheduleDraft({
+      customerNote: schedule.customerNote ?? '',
+      end: schedule.scheduledEnd ? toDateTimeLocalInputValue(schedule.scheduledEnd) : '',
+      location: schedule.location ?? projectDetailQuery.data?.projectAddress ?? '',
+      start: toDateTimeLocalInputValue(schedule.scheduledStart),
+    });
+  }
+
+  async function rescheduleDeliverySchedule(event: FormEvent<HTMLFormElement>, schedule: ProjectScheduleDto) {
+    event.preventDefault();
+
+    const scheduledStart = localDateTimeToIso(rescheduleDraft.start);
+    const scheduledEnd = rescheduleDraft.end ? localDateTimeToIso(rescheduleDraft.end) : null;
+
+    if (!scheduledStart) {
+      setMessage({ tone: 'error', text: 'Delivery start time is required.' });
+      return;
+    }
+
+    if (scheduledEnd && new Date(scheduledEnd).getTime() <= new Date(scheduledStart).getTime()) {
+      setMessage({ tone: 'error', text: 'Delivery end time must be after the start time.' });
+      return;
+    }
+
+    try {
+      const updatedSchedule = await updateScheduleMutation.mutateAsync({
+        customerNote: rescheduleDraft.customerNote || 'Please confirm this updated delivery schedule.',
+        description: schedule.description,
+        internalNote: schedule.internalNote,
+        location: rescheduleDraft.location || null,
+        scheduleId: schedule.scheduleId,
+        scheduledEnd,
+        scheduledStart,
+        title: schedule.title,
+      });
+
+      setSelectedScheduleId(getScheduleKey(updatedSchedule));
+      setReschedulingScheduleId('');
+      setMessage({ tone: 'success', text: 'Delivery schedule updated. Customer may need to confirm the new time again.' });
+      void deliverySchedulesQuery.refetch();
+      void deliveryTrackingQuery.refetch();
+    } catch (error) {
+      setMessage({ tone: 'error', text: getProjectScheduleServiceResultMessage(error) });
     }
   }
 
@@ -103,34 +306,30 @@ export function ReadyForDelivery() {
           <div>
             <span>Production Workspace</span>
             <h2>Ready for Delivery</h2>
-            <p>Review completed production requests, start delivery when schedule is confirmed, and complete delivery for the full order.</p>
+            <p>Plan multiple delivery schedules, deliver partial quantities by batch, and let completed batches sync schedules automatically.</p>
           </div>
         </section>
 
         {message ? <section className={`production-workspace-message production-workspace-message-${message.tone}`}>{message.text}</section> : null}
-        {readyRequestsQuery.isError ? (
-          <section className="production-workspace-message production-workspace-message-error">Cannot load completed production requests.</section>
-        ) : null}
-        {orderDetailQuery.isError ? (
-          <section className="production-workspace-message production-workspace-message-error">{getOrderServiceResultMessage(orderDetailQuery.error)}</section>
-        ) : null}
-        {deliverySchedulesQuery.isError ? (
-          <section className="production-workspace-message production-workspace-message-error">{getProjectScheduleServiceResultMessage(deliverySchedulesQuery.error)}</section>
-        ) : null}
+        {readyRequestsQuery.isError ? <section className="production-workspace-message production-workspace-message-error">Cannot load completed production requests.</section> : null}
+        {orderDetailQuery.isError ? <section className="production-workspace-message production-workspace-message-error">{getOrderServiceResultMessage(orderDetailQuery.error)}</section> : null}
+        {deliverySchedulesQuery.isError ? <section className="production-workspace-message production-workspace-message-error">{getProjectScheduleServiceResultMessage(deliverySchedulesQuery.error)}</section> : null}
+        {deliveryTrackingQuery.isError ? <section className="production-workspace-message production-workspace-message-error">{getOrderServiceResultMessage(deliveryTrackingQuery.error)}</section> : null}
 
         <section className="production-workspace-summary-grid">
-          <ProductionSummaryCard icon={IconTruckDelivery} label="Ready Requests" value={readyCount} />
-          <ProductionSummaryCard icon={IconPackage} label="Deliverable Items" value={deliverableItems.length} />
-          <ProductionSummaryCard icon={IconNotes} label="Confirmed Schedules" value={deliverySchedulesQuery.data?.items.filter((schedule) => schedule.status === 'CONFIRMED').length ?? 0} />
-          <ProductionSummaryCard icon={IconClipboardCheck} label="Delivering Orders" value={deliveringCount} />
+          <ProductionSummaryCard icon={IconTruckDelivery} label="Ready Requests" value={readyRequests.length} />
+          <ProductionSummaryCard icon={IconPackage} label="Remaining Qty" value={trackingSummary?.remainingQuantity ?? sumRemainingQuantity(deliverableItems)} />
+          <ProductionSummaryCard icon={IconNotes} label="Upcoming Schedules" value={trackingSummary?.upcomingDeliveryCount ?? deliverySchedules.filter(isConfirmedDeliverySchedule).length} />
+          <ProductionSummaryCard icon={IconClipboardCheck} label="Completed Batches" value={trackingSummary?.completedDeliveryCount ?? deliveries.filter(isCompletedDeliveryBatch).length} />
         </section>
 
-        <section className="production-workspace-grid production-ready-layout">
+        <section className={`production-workspace-grid production-ready-layout ${selectedRequest ? 'production-ready-detail-layout' : 'production-ready-list-layout'}`}>
+          {!selectedRequest ? (
           <article className="production-workspace-card production-ready-request-card">
             <header>
               <div>
                 <h3>Completed Production Requests</h3>
-                <p>Select the completed production request tied to a delivery-ready order.</p>
+                <p>Select a completed request tied to a delivery-ready order.</p>
               </div>
             </header>
             <div className="production-workspace-list">
@@ -138,13 +337,10 @@ export function ReadyForDelivery() {
               {!readyRequestsQuery.isLoading && readyRequests.length === 0 ? <p className="production-workspace-muted">No completed production request is ready for delivery yet.</p> : null}
               {pagedReadyRequests.map((request) => (
                 <button
-                  className={`production-workspace-queue-card ${request.productionRequestId === selectedRequest?.productionRequestId ? 'is-active' : ''}`}
+                  className={`production-workspace-queue-card ${request.productionRequestId === selectedProductionRequestId ? 'is-active' : ''}`}
                   key={request.productionRequestId}
                   type="button"
-                  onClick={() => {
-                    setSelectedProductionRequestId(request.productionRequestId);
-                    setMessage(null);
-                  }}
+                  onClick={() => setSelectedProductionRequestId(request.productionRequestId)}
                 >
                   <strong>
                     {request.projectName}
@@ -157,111 +353,274 @@ export function ReadyForDelivery() {
             </div>
             {readyRequests.length > requestPageSize ? (
               <div className="production-ready-pagination">
-                <button disabled={requestPage === 1} type="button" onClick={() => setRequestPage((page) => Math.max(page - 1, 1))}>
-                  Previous
-                </button>
+                <button disabled={requestPage === 1} type="button" onClick={() => setRequestPage((page) => Math.max(page - 1, 1))}>Previous</button>
                 <span>{requestPage} / {requestPageCount}</span>
-                <button disabled={requestPage === requestPageCount} type="button" onClick={() => setRequestPage((page) => Math.min(page + 1, requestPageCount))}>
-                  Next
-                </button>
+                <button disabled={requestPage === requestPageCount} type="button" onClick={() => setRequestPage((page) => Math.min(page + 1, requestPageCount))}>Next</button>
               </div>
             ) : null}
           </article>
-
-          <article className="production-workspace-card">
-            <header>
-              <div>
-                <h3>Delivery Control</h3>
-                <p>Start delivery only after a confirmed delivery schedule exists.</p>
-              </div>
-              {order?.status ? <ProductionStatusBadge label={formatEnumLabel(order.status)} status={order.status} /> : null}
-            </header>
-            {selectedRequest && order ? (
-              <div className="production-workspace-detail-grid">
-                <Field label="Project" value={selectedRequest.projectName} />
-                <Field label="Order" value={order.orderCode} />
-                <Field label="Order status" value={formatEnumLabel(order.status ?? 'UNKNOWN')} />
-                <Field label="Confirmed delivery schedule" value={confirmedDeliverySchedule ? 'Yes' : 'No'} />
-              </div>
-            ) : (
-              <p className="production-workspace-muted">Select a completed request to control delivery.</p>
-            )}
-            <div className="production-workspace-row-actions">
-              {order?.status === 'READY_FOR_DELIVERY' ? (
-                <button
-                  disabled={!confirmedDeliverySchedule || startDeliveryMutation.isPending}
-                  type="button"
-                  onClick={() => void startDelivery()}
-                >
-                  Start Delivery
-                </button>
-              ) : null}
-              {shouldShowCompleteDeliveryButton ? (
-                <button
-                  disabled={completeDeliveryMutation.isPending}
-                  type="button"
-                  onClick={() => void completeDelivery()}
-                >
-                  {completeDeliveryMutation.isPending ? 'Completing...' : 'Complete Delivery'}
-                </button>
-              ) : null}
-            </div>
-
-            <div className="production-ready-deliverable-section">
+          ) : (
+          <>
+          <div className="production-workspace-page production-ready-plan-column">
+            <article className="production-workspace-card">
               <header>
                 <div>
-                  <h3>Deliverable Items</h3>
-                  <p>Delivery is completed once for the whole order. Item rows reflect backend delivery status.</p>
+                  <h3>Delivery Plan</h3>
+                  <p>Production creates delivery schedules. Customer confirmation is required before a batch can start.</p>
+                </div>
+                <div className="production-ready-plan-actions">
+                  <button
+                    className="production-workspace-button production-workspace-button-secondary"
+                    type="button"
+                    onClick={() => setSelectedProductionRequestId('')}
+                  >
+                    <IconArrowLeft size={16} />
+                    Back
+                  </button>
+                  {order?.status ? <ProductionStatusBadge label={formatEnumLabel(order.status)} status={order.status} /> : null}
                 </div>
               </header>
-              <div className="production-workspace-table-wrap production-ready-items-wrap">
-                <table className="production-workspace-table production-ready-items-table">
-                  <thead>
-                    <tr>
-                      <th>Item</th>
-                      <th>Ordered</th>
-                      <th>Status</th>
-                      <th>Delivered At</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {orderDetailQuery.isLoading ? (
-                      <tr>
-                        <td colSpan={4}>Loading order items...</td>
-                      </tr>
-                    ) : null}
-                    {!orderDetailQuery.isLoading && deliverableItemGroups.length === 0 ? (
-                      <tr>
-                        <td colSpan={4}>No deliverable product item is available.</td>
-                      </tr>
-                    ) : null}
-                    {deliverableItemGroups.map((group) => (
-                      <tr key={group.key}>
-                        <td>{group.name}</td>
-                        <td>{group.quantity}</td>
-                        <td>{group.statusSummary}</td>
-                        <td>{formatDate(group.deliveredAt)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+
+              {selectedRequest && order ? (
+                <div className="production-workspace-detail-grid">
+                  <Field label="Project" value={selectedRequest.projectName} />
+                  <Field label="Order" value={order.orderCode} />
+                  <Field label="Progress" value={`${trackingSummary?.deliveryProgressPercent ?? getFallbackProgress(deliverableItems)}%`} />
+                  <Field label="Next delivery" value={trackingSummary?.nextDeliveryAt ? formatDateTime(trackingSummary.nextDeliveryAt) : 'Not scheduled'} />
+                </div>
+              ) : (
+                <p className="production-workspace-muted">Select a completed request to control delivery.</p>
+              )}
+
+              <form className="production-workspace-form production-ready-deliverable-section" onSubmit={(event) => void createDeliverySchedule(event)}>
+                <header>
+                  <div>
+                    <h3><IconCalendarPlus size={18} /> Create Delivery Schedule</h3>
+                    <p>Delivery can start immediately or later. Multiple active schedules are allowed.</p>
+                  </div>
+                </header>
+                <div className="production-workspace-form-grid">
+                  <label>
+                    <span>Start</span>
+                    <input className="production-workspace-input" type="datetime-local" value={scheduleStartInput} onChange={(event) => setScheduleStartInput(event.target.value)} />
+                  </label>
+                  <label>
+                    <span>End</span>
+                    <input className="production-workspace-input" min={scheduleStartInput} type="datetime-local" value={scheduleEndInput} onChange={(event) => setScheduleEndInput(event.target.value)} />
+                  </label>
+                </div>
+                <label>
+                  <span>Location</span>
+                  <input
+                    className="production-workspace-input"
+                    placeholder={projectDetailQuery.isLoading ? 'Loading project address...' : 'Delivery location'}
+                    value={scheduleLocationInput}
+                    onChange={(event) => {
+                      setScheduleLocationInput(event.target.value);
+                      setHasEditedScheduleLocation(true);
+                    }}
+                  />
+                </label>
+                <div className="production-workspace-row-actions">
+                  <button disabled={!order || !hasRemainingQuantity || createScheduleMutation.isPending} type="submit">
+                    {createScheduleMutation.isPending ? 'Creating...' : 'Create Delivery Schedule'}
+                  </button>
+                </div>
+              </form>
+            </article>
+          </div>
+
+          <aside className="production-workspace-page production-ready-detail-aside">
+            <article className="production-workspace-card">
+              <header>
+                <div>
+                  <h3>Schedules & Batches</h3>
+                  <p>One confirmed schedule can start one delivery batch.</p>
+                </div>
+              </header>
+              <div className="production-workspace-list">
+                {deliverySchedulesQuery.isLoading ? <p className="production-workspace-muted">Loading delivery schedules...</p> : null}
+                {!deliverySchedulesQuery.isLoading && deliverySchedules.length === 0 ? <p className="production-workspace-muted">No delivery schedule yet.</p> : null}
+                {deliverySchedules.map((schedule) => {
+                  const scheduleKey = getScheduleKey(schedule);
+                  const linkedBatch = deliveries.find((delivery) => delivery.projectScheduleId === scheduleKey);
+                  const canSelect = canUseScheduleForBatch(schedule, usedScheduleIds);
+                  const isRescheduling = reschedulingScheduleId === scheduleKey;
+                  const canReschedule = !linkedBatch && !isCompletedSchedule(schedule) && !isCancelledSchedule(schedule);
+
+                  return (
+                    <article
+                      className={`production-workspace-queue-card ${scheduleKey === selectedScheduleId ? 'is-active' : ''}`}
+                      key={scheduleKey}
+                    >
+                      <button
+                        className="production-ready-schedule-select"
+                        disabled={!canSelect && scheduleKey !== selectedScheduleId}
+                        type="button"
+                        onClick={() => setSelectedScheduleId(scheduleKey)}
+                      >
+                        <strong>
+                          {schedule.title ?? 'Delivery schedule'}
+                          <span>{formatEnumLabel(schedule.status)}</span>
+                        </strong>
+                        <p>{formatDateTime(schedule.scheduledStart)}{schedule.scheduledEnd ? ` -> ${formatDateTime(schedule.scheduledEnd)}` : ''}</p>
+                        <small>{linkedBatch ? `Batch ${formatEnumLabel(linkedBatch.status)}` : canSelect ? 'Ready for batch' : 'Waiting for confirmation or already used'}</small>
+                      </button>
+                      <div className="production-ready-schedule-actions">
+                        {canReschedule ? (
+                          <button
+                            className="is-secondary"
+                            disabled={updateScheduleMutation.isPending}
+                            type="button"
+                            onClick={() => {
+                              if (isRescheduling) {
+                                setReschedulingScheduleId('');
+                              } else {
+                                openRescheduleEditor(schedule);
+                              }
+                            }}
+                          >
+                            {isRescheduling ? 'Close' : 'Reschedule'}
+                          </button>
+                        ) : null}
+                      </div>
+                      {isRescheduling ? (
+                        <form className="production-ready-reschedule-form" onSubmit={(event) => void rescheduleDeliverySchedule(event, schedule)}>
+                          <div className="production-workspace-form-grid">
+                            <label>
+                              <span>New start</span>
+                              <input
+                                className="production-workspace-input"
+                                type="datetime-local"
+                                value={rescheduleDraft.start}
+                                onChange={(event) => setRescheduleDraft((current) => ({ ...current, start: event.target.value }))}
+                              />
+                            </label>
+                            <label>
+                              <span>New end</span>
+                              <input
+                                className="production-workspace-input"
+                                min={rescheduleDraft.start}
+                                type="datetime-local"
+                                value={rescheduleDraft.end}
+                                onChange={(event) => setRescheduleDraft((current) => ({ ...current, end: event.target.value }))}
+                              />
+                            </label>
+                          </div>
+                          <label>
+                            <span>Location</span>
+                            <input
+                              className="production-workspace-input"
+                              value={rescheduleDraft.location}
+                              onChange={(event) => setRescheduleDraft((current) => ({ ...current, location: event.target.value }))}
+                            />
+                          </label>
+                          <label>
+                            <span>Customer note</span>
+                            <textarea
+                              className="production-workspace-textarea"
+                              value={rescheduleDraft.customerNote}
+                              onChange={(event) => setRescheduleDraft((current) => ({ ...current, customerNote: event.target.value }))}
+                            />
+                          </label>
+                          <div className="production-workspace-row-actions">
+                            <button disabled={updateScheduleMutation.isPending} type="submit">
+                              {updateScheduleMutation.isPending ? 'Saving...' : 'Save Reschedule'}
+                            </button>
+                            <button className="is-secondary" disabled={updateScheduleMutation.isPending} type="button" onClick={() => setReschedulingScheduleId('')}>
+                              Cancel
+                            </button>
+                          </div>
+                        </form>
+                      ) : null}
+                    </article>
+                  );
+                })}
               </div>
-            </div>
-          </article>
+            </article>
+
+            <article className="production-workspace-card">
+              <header>
+                <div>
+                  <h3>Execute Batch</h3>
+                  <p>Enter only the quantities delivered in this schedule.</p>
+                </div>
+                {selectedSchedule ? <ProductionStatusBadge label={formatEnumLabel(selectedSchedule.status)} status={selectedSchedule.status} /> : null}
+              </header>
+              {selectedScheduleBatch ? (
+                <div className="production-workspace-row-actions">
+                  <Field label="Linked batch" value={formatEnumLabel(selectedScheduleBatch.status)} />
+                  {isInProgressDeliveryBatch(selectedScheduleBatch) ? (
+                    <button disabled={completeBatchMutation.isPending} type="button" onClick={() => void completeDeliveryBatch(selectedScheduleBatch)}>
+                      {completeBatchMutation.isPending ? 'Completing...' : 'Complete Batch'}
+                    </button>
+                  ) : null}
+                </div>
+              ) : null}
+              {!selectedSchedule ? <p className="production-workspace-muted">Select a confirmed unused delivery schedule first.</p> : null}
+              {selectedSchedule && !canUseScheduleForBatch(selectedSchedule, usedScheduleIds) && !selectedScheduleBatch ? (
+                <p className="production-workspace-muted">This schedule cannot start a batch yet.</p>
+              ) : null}
+              {selectedSchedule && canUseScheduleForBatch(selectedSchedule, usedScheduleIds) ? (
+                <>
+                  <div className="production-workspace-table-wrap production-ready-deliverable-section">
+                    <table className="production-workspace-table production-ready-items-table">
+                      <thead>
+                        <tr>
+                          <th>Item</th>
+                          <th>Ordered</th>
+                          <th>Delivered</th>
+                          <th>This Batch</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {deliverableItemGroups.map((group) => {
+                          return (
+                            <tr key={group.groupId}>
+                              <td>
+                                <strong>{group.productName}</strong>
+                                <small>{group.sourceItems.length > 1 ? `${group.sourceItems.length} matching line(s) - ` : ''}{formatEnumLabel(group.status ?? 'PENDING')}</small>
+                              </td>
+                              <td>{group.orderedQuantity}</td>
+                              <td>{group.deliveredQuantity} / remaining {group.remainingQuantity}</td>
+                              <td>
+                                <input
+                                  className="production-workspace-quantity-input"
+                                  disabled={group.remainingQuantity <= 0 || createBatchMutation.isPending}
+                                  inputMode="numeric"
+                                  max={group.remainingQuantity}
+                                  min={0}
+                                  type="number"
+                                  value={quantityDraft[group.groupId] ?? ''}
+                                  onChange={(event) => setQuantityDraft((current) => ({ ...current, [group.groupId]: event.target.value }))}
+                                />
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                  <label className="production-workspace-form production-ready-deliverable-section">
+                    <span>Batch note</span>
+                    <textarea className="production-workspace-textarea" value={batchNote} onChange={(event) => setBatchNote(event.target.value)} />
+                  </label>
+                  <div className="production-workspace-row-actions">
+                    <button disabled={createBatchMutation.isPending || !hasRemainingQuantity} type="button" onClick={() => void createDeliveryBatch()}>
+                      {createBatchMutation.isPending ? 'Starting...' : 'Start Batch'}
+                    </button>
+                  </div>
+                </>
+              ) : null}
+            </article>
+          </aside>
+          </>
+          )}
         </section>
       </div>
     </ProductionLayout>
   );
 }
-
-type OrderItemGroup = {
-  deliveredAt?: string | null;
-  items: OrderItemDto[];
-  key: string;
-  name: string;
-  quantity: number;
-  statusSummary: string;
-};
 
 function Field({ label, value }: { label: string; value: string }) {
   return (
@@ -272,46 +631,95 @@ function Field({ label, value }: { label: string; value: string }) {
   );
 }
 
-function getOrderItemName(item: Pick<OrderItemDto, 'itemName' | 'productNameSnapshot'>) {
-  return item.itemName ?? item.productNameSnapshot ?? '-';
+function canUseScheduleForBatch(schedule: ProjectScheduleDto, usedScheduleIds: Set<string | null | undefined>) {
+  if (!isConfirmedDeliverySchedule(schedule)) return false;
+  if (usedScheduleIds.has(getScheduleKey(schedule))) return false;
+
+  return true;
 }
 
-function groupOrderItemsByName(items: OrderItemDto[]): OrderItemGroup[] {
-  const groupsByKey = new Map<string, OrderItemDto[]>();
+function isConfirmedDeliverySchedule(schedule: ProjectScheduleDto) {
+  const status = normalizeWorkflowStatus(schedule.status);
 
-  for (const item of items) {
-    const key = getOrderItemName(item);
-    const groupItems = groupsByKey.get(key);
-
-    if (groupItems) {
-      groupItems.push(item);
-    } else {
-      groupsByKey.set(key, [item]);
-    }
-  }
-
-  return Array.from(groupsByKey.entries()).map(([key, groupItems]) => {
-    const quantity = sumItemNumbers(groupItems, 'quantity');
-    const deliveredDates = groupItems
-      .map((item) => item.deliveredAt)
-      .filter((value): value is string => Boolean(value))
-      .sort();
-    const latestDeliveredAt = deliveredDates[deliveredDates.length - 1];
-    const statuses = Array.from(new Set(groupItems.map((item) => item.status ?? 'PENDING')));
-
-    return {
-      deliveredAt: latestDeliveredAt,
-      items: groupItems,
-      key,
-      name: getOrderItemName(groupItems[0] ?? {}),
-      quantity,
-      statusSummary: statuses.map(formatEnumLabel).join(', '),
-    };
-  });
+  return status === 'CONFIRMED' || status === 'DELIVERY_CONFIRMED' || status === 'CUSTOMER_CONFIRMED' || status === 'CONFIRMED_DELIVERY';
 }
 
-function sumItemNumbers(items: OrderItemDto[], field: 'quantity') {
-  return items.reduce((total, item) => total + (item[field] ?? 0), 0);
+function isInProgressDeliveryBatch(delivery: DeliveryBatchDto) {
+  const status = normalizeWorkflowStatus(delivery.status);
+
+  return status === 'IN_PROGRESS' || status === 'DELIVERY_IN_PROGRESS';
+}
+
+function isCompletedDeliveryBatch(delivery: DeliveryBatchDto) {
+  const status = normalizeWorkflowStatus(delivery.status);
+
+  return status === 'COMPLETED' || status === 'DELIVERY_COMPLETED';
+}
+
+function isCompletedSchedule(schedule: ProjectScheduleDto) {
+  return normalizeWorkflowStatus(schedule.status) === 'COMPLETED' || normalizeWorkflowStatus(schedule.status) === 'DELIVERY_COMPLETED';
+}
+
+function isCancelledSchedule(schedule: ProjectScheduleDto) {
+  return normalizeWorkflowStatus(schedule.status) === 'CANCELLED' || normalizeWorkflowStatus(schedule.status) === 'DELIVERY_CANCELLED';
+}
+
+function normalizeWorkflowStatus(value?: string | null) {
+  return (value ?? '')
+    .replace(/([a-z0-9])([A-Z])/g, '$1_$2')
+    .replace(/[\s-]+/g, '_')
+    .toUpperCase();
+}
+
+function getScheduleKey(schedule: ProjectScheduleDto) {
+  return schedule.projectScheduleId ?? schedule.scheduleId;
+}
+
+function sumRemainingQuantity(items: OrderItemDto[]) {
+  return items.reduce((total, item) => total + getRemainingQuantity(item), 0);
+}
+
+function getFallbackProgress(items: OrderItemDto[]) {
+  const total = items.reduce((sum, item) => sum + (item.quantity ?? 0), 0);
+  const delivered = items.reduce((sum, item) => sum + getDeliveredQuantity(item), 0);
+
+  if (total <= 0) return 0;
+
+  return Math.round((delivered / total) * 100);
+}
+
+function getNowDateTimeLocalInputValue() {
+  const now = new Date();
+  now.setSeconds(0, 0);
+
+  return toDateTimeLocalInputValue(now.toISOString());
+}
+
+function localDateTimeToIso(value: string) {
+  if (!value) return null;
+
+  const date = new Date(value);
+
+  return Number.isNaN(date.getTime()) ? null : date.toISOString();
+}
+
+function toDateTimeLocalInputValue(value: string) {
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) return '';
+
+  const offsetMs = date.getTimezoneOffset() * 60_000;
+  return new Date(date.getTime() - offsetMs).toISOString().slice(0, 16);
+}
+
+function formatDateTime(value: string) {
+  return new Intl.DateTimeFormat('vi-VN', {
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  }).format(new Date(value));
 }
 
 function formatEnumLabel(value: string) {

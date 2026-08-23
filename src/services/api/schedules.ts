@@ -36,7 +36,18 @@ export type ServiceResult<T> = {
   status: number;
   message?: string;
   data: T;
-  errors?: string[];
+  errors?: Array<string | { code?: string; message?: string; field?: string }>;
+  errorCode?: string;
+};
+
+const SCHEDULE_ERROR_MESSAGES: Record<string, string> = {
+  SCHEDULE_COMPLETE_BEFORE_START: 'This schedule cannot be completed before its start time.',
+  STAFF_SCHEDULE_OVERLAP: 'The assigned staff already has a schedule during this time.',
+  DELIVERY_SCHEDULE_NOT_ALLOWED_AFTER_COMPLETION: 'Delivery has already been fully confirmed for this order.',
+  PRODUCTION_NOT_COMPLETED_FOR_DELIVERY_SCHEDULE: 'Production must be completed before planning delivery.',
+  NO_REMAINING_DELIVERY_QUANTITY: 'There is no remaining quantity to deliver.',
+  DELIVERY_SCHEDULE_REQUIRES_COMPLETED_BATCH: 'Delivery schedules are completed automatically after their linked batch is completed.',
+  DELIVERY_IN_PROGRESS_BLOCKS_SCHEDULE_CANCEL: 'This delivery schedule cannot be cancelled while its batch is in progress.',
 };
 
 export type ProjectScheduleType = 'MEASUREMENT' | 'CONSULTATION' | 'DESIGN_REVIEW' | 'DELIVERY' | 'HANDOVER' | 'OTHER';
@@ -45,6 +56,7 @@ export type ProjectScheduleStatus = 'PENDING_CONFIRMATION' | 'CONFIRMED' | 'COMP
 
 export type ProjectScheduleDto = {
   scheduleId: string;
+  projectScheduleId?: string;
   projectId: string;
   projectAreaId: string | null;
   createdBy: string;
@@ -60,6 +72,8 @@ export type ProjectScheduleDto = {
   internalNote: string | null;
   createdAt: string;
   updatedAt: string | null;
+  completedAt?: string | null;
+  canMoveToProposalConsulting?: boolean | null;
   cancelledAt: string | null;
 };
 
@@ -113,6 +127,10 @@ export type UpdateProjectScheduleStatusInput = {
   note?: string | null;
 };
 
+export type DeleteProjectScheduleData = {
+  scheduleId: string;
+};
+
 export function getProjectScheduleServiceResultMessage(error: unknown) {
   const result = getProjectScheduleServiceResultFromError(error);
 
@@ -120,8 +138,20 @@ export function getProjectScheduleServiceResultMessage(error: unknown) {
     return 'Cannot connect to project schedule API. Please check backend and VITE_API_URL.';
   }
 
-  if (result.errors?.length) {
-    return result.errors.join('\n');
+  const errorCode = getFirstScheduleErrorCode(result);
+
+  if (errorCode && SCHEDULE_ERROR_MESSAGES[errorCode]) {
+    return SCHEDULE_ERROR_MESSAGES[errorCode];
+  }
+
+  const errorMessages = getScheduleErrorMessages(result);
+
+  if (errorMessages.length) {
+    return errorMessages.join('\n');
+  }
+
+  if (result.errorCode && SCHEDULE_ERROR_MESSAGES[result.errorCode]) {
+    return SCHEDULE_ERROR_MESSAGES[result.errorCode];
   }
 
   return result.message || 'Request failed. Please try again.';
@@ -145,11 +175,8 @@ export function getProjectScheduleServiceResultFromError(error: unknown) {
     return {
       status: error.response?.status ?? 500,
       message: fallback.message ?? fallback.detail ?? fallback.title,
-      errors: Array.isArray(fallback.errors)
-        ? fallback.errors
-        : fallback.errors
-          ? Object.values(fallback.errors).flat()
-          : undefined,
+      errorCode: (fallback as { errorCode?: string }).errorCode,
+      errors: normalizeScheduleErrors(fallback.errors),
       data: null as unknown,
     };
   }
@@ -159,6 +186,22 @@ export function getProjectScheduleServiceResultFromError(error: unknown) {
 
 export async function createProjectSchedule(input: CreateProjectScheduleInput) {
   const response = await scheduleApiClient.post<ServiceResult<ProjectScheduleDto>>(`/projects/${input.projectId}/schedules`, {
+    scheduleType: input.scheduleType ?? undefined,
+    title: normalizeScheduleOptionalText(input.title),
+    description: normalizeScheduleOptionalText(input.description),
+    assignedStaffId: normalizeScheduleOptionalText(input.assignedStaffId),
+    scheduledStart: input.scheduledStart,
+    scheduledEnd: input.scheduledEnd ?? null,
+    location: normalizeScheduleOptionalText(input.location),
+    customerNote: normalizeScheduleOptionalText(input.customerNote),
+    internalNote: normalizeScheduleOptionalText(input.internalNote),
+  });
+
+  return response.data.data;
+}
+
+export async function createProjectScheduleAlias(input: CreateProjectScheduleInput) {
+  const response = await scheduleApiClient.post<ServiceResult<ProjectScheduleDto>>(`/project-schedules/${input.projectId}`, {
     scheduleType: input.scheduleType ?? undefined,
     title: normalizeScheduleOptionalText(input.title),
     description: normalizeScheduleOptionalText(input.description),
@@ -219,6 +262,12 @@ export async function updateProjectScheduleStatus(input: UpdateProjectScheduleSt
   return response.data.data;
 }
 
+export async function deleteProjectSchedule(scheduleId: string) {
+  const response = await scheduleApiClient.delete<ServiceResult<DeleteProjectScheduleData>>(`/project-schedules/${scheduleId}`);
+
+  return response.data.data;
+}
+
 function getProjectScheduleListQueryParams(params: ProjectScheduleListParams) {
   return {
     projectId: params.projectId.trim(),
@@ -257,6 +306,34 @@ function normalizeScheduleOptionalText(value: string | null | undefined) {
   const trimmed = value.trim();
 
   return trimmed.length > 0 ? trimmed : null;
+}
+
+function normalizeScheduleErrors(errors: unknown) {
+  if (Array.isArray(errors)) {
+    return errors as ServiceResult<unknown>['errors'];
+  }
+
+  if (errors && typeof errors === 'object') {
+    return Object.values(errors as Record<string, string[]>).flat();
+  }
+
+  return undefined;
+}
+
+function getFirstScheduleErrorCode(result: ServiceResult<unknown>) {
+  const objectError = result.errors?.find((item): item is { code?: string } => typeof item === 'object' && item !== null && Boolean(item.code));
+
+  return objectError?.code ?? result.errorCode;
+}
+
+function getScheduleErrorMessages(result: ServiceResult<unknown>) {
+  return (result.errors ?? [])
+    .map((item) => {
+      if (typeof item === 'string') return item;
+      if (item.code && SCHEDULE_ERROR_MESSAGES[item.code]) return SCHEDULE_ERROR_MESSAGES[item.code];
+      return item.message ?? item.code ?? null;
+    })
+    .filter((message): message is string => Boolean(message));
 }
 
 function getScheduleApiBaseUrl() {

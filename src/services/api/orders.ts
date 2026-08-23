@@ -35,12 +35,24 @@ export type ServiceResult<T> = {
   status: number;
   message?: string;
   data: T;
-  errors?: string[];
+  errors?: Array<string | { code?: string; message?: string; field?: string }>;
   errorCode?: string;
 };
 
 const ORDER_ERROR_MESSAGES: Record<string, string> = {
   PRODUCTION_NOT_COMPLETED: 'Production must be completed before delivery can continue.',
+  PROJECT_SCHEDULE_ID_REQUIRED: 'Please select a confirmed delivery schedule before creating a delivery batch.',
+  DELIVERY_BATCH_EMPTY: 'Please select at least one product to deliver.',
+  DELIVERY_SCHEDULE_INVALID: 'This delivery schedule cannot be used for this order.',
+  DELIVERY_SCHEDULE_NOT_CONFIRMED: 'The customer must confirm this delivery schedule first.',
+  DELIVERY_SCHEDULE_NOT_STARTED: 'This delivery schedule has not reached its start time yet.',
+  DELIVERY_SCHEDULE_ALREADY_USED: 'This delivery schedule already has a delivery batch.',
+  DUPLICATE_ORDER_ITEM_IN_BATCH: 'Each product can only appear once in the same delivery batch.',
+  ORDER_ITEM_NOT_DELIVERABLE: 'One or more selected products cannot be delivered yet.',
+  DELIVERY_BATCH_IN_PROGRESS: 'A delivery batch is still in progress.',
+  UNRESOLVED_DELIVERY_SCHEDULE: 'There is still a confirmed delivery schedule that has not been delivered.',
+  INVALID_DELIVERY_QUANTITY: 'Delivery quantity cannot exceed the remaining quantity.',
+  DELIVERABLE_ITEMS_NOT_DELIVERED: 'All deliverable items must be delivered before final confirmation.',
 };
 
 export type OrderStatus =
@@ -63,10 +75,15 @@ export type OrderItemStatus =
   | 'IN_PRODUCTION'
   | 'READY'
   | 'COMPLETED'
+  | 'PARTIALLY_DELIVERED'
   | 'UNAVAILABLE'
   | 'DELIVERING'
   | 'DELIVERED'
   | 'CANCELLED';
+
+export type DeliveryStatus = 'IN_PROGRESS' | 'COMPLETED';
+export type DeliveryTrackingItemStatus = 'READY' | 'PENDING' | 'PARTIALLY_DELIVERED' | 'DELIVERED' | 'CANCELLED' | 'UNAVAILABLE';
+export type DeliveryScheduleStatus = 'PENDING_CONFIRMATION' | 'CONFIRMED' | 'COMPLETED' | 'CANCELLED';
 
 export type OrderListItemDto = {
   orderId: string;
@@ -100,6 +117,8 @@ export type OrderItemDto = {
   status?: OrderItemStatus | null;
   deliveredAt?: string | null;
   deliveredBy?: string | null;
+  deliveredQuantity?: number | null;
+  remainingDeliveryQuantity?: number | null;
 };
 
 export type OrderDetailDto = {
@@ -175,6 +194,96 @@ export type CompleteOrderResultDto = {
   completedAt?: string | null;
 };
 
+export type DeliveryBatchScheduleDto = {
+  projectScheduleId: string;
+  scheduledStart: string;
+  scheduledEnd?: string | null;
+  completedAt?: string | null;
+  status: DeliveryScheduleStatus;
+  assignedStaffId?: string | null;
+};
+
+export type DeliveryBatchItemDto = {
+  deliveryItemId?: string | null;
+  deliveryId?: string | null;
+  orderItemId: string;
+  productName?: string | null;
+  productNameSnapshot?: string | null;
+  itemName?: string | null;
+  deliveredQuantity?: number | null;
+  quantity?: number | null;
+  note?: string | null;
+};
+
+export type DeliveryBatchDto = {
+  deliveryId: string;
+  orderId: string;
+  projectScheduleId?: string | null;
+  schedule?: DeliveryBatchScheduleDto | null;
+  status: DeliveryStatus;
+  createdBy?: string | null;
+  completedBy?: string | null;
+  note?: string | null;
+  itemCount?: number | null;
+  items: DeliveryBatchItemDto[];
+  createdAt?: string | null;
+  completedAt?: string | null;
+};
+
+export type DeliveryBatchListData = {
+  items: DeliveryBatchDto[];
+};
+
+export type CreateDeliveryBatchInput = {
+  orderId: string;
+  projectScheduleId: string;
+  note?: string | null;
+  items: {
+    orderItemId: string;
+    quantity: number;
+    note?: string | null;
+  }[];
+};
+
+export type DeliveryTrackingSummaryDto = {
+  totalOrderedQuantity: number;
+  totalDeliveredQuantity: number;
+  remainingQuantity: number;
+  deliveryProgressPercent: number;
+  completedDeliveryCount: number;
+  upcomingDeliveryCount: number;
+  nextDeliveryAt?: string | null;
+};
+
+export type DeliveryTrackingItemDto = {
+  orderItemId: string;
+  productName?: string | null;
+  orderedQuantity: number;
+  deliveredQuantity: number;
+  remainingQuantity: number;
+  status?: DeliveryTrackingItemStatus | null;
+};
+
+export type DeliveryTrackingTimelineItemDto = {
+  projectScheduleId?: string | null;
+  deliveryId?: string | null;
+  scheduledStart?: string | null;
+  scheduledEnd?: string | null;
+  scheduleStatus?: DeliveryScheduleStatus | null;
+  deliveryStatus?: DeliveryStatus | null;
+  completedAt?: string | null;
+  cancelReason?: string | null;
+  items?: DeliveryBatchItemDto[];
+};
+
+export type DeliveryTrackingDto = {
+  orderId: string;
+  orderStatus?: OrderStatus | null;
+  summary: DeliveryTrackingSummaryDto;
+  items: DeliveryTrackingItemDto[];
+  timeline: DeliveryTrackingTimelineItemDto[];
+};
+
 export function getOrderServiceResultMessage(error: unknown) {
   const result = getOrderServiceResultFromError(error);
 
@@ -182,8 +291,16 @@ export function getOrderServiceResultMessage(error: unknown) {
     return 'Cannot connect to order API. Please check backend and VITE_API_URL.';
   }
 
-  if (result.errors?.length) {
-    return result.errors.join('\n');
+  const errorCode = getFirstServiceErrorCode(result);
+
+  if (errorCode && ORDER_ERROR_MESSAGES[errorCode]) {
+    return ORDER_ERROR_MESSAGES[errorCode];
+  }
+
+  const errorMessages = getServiceErrorMessages(result);
+
+  if (errorMessages.length) {
+    return errorMessages.join('\n');
   }
 
   if (result.errorCode && ORDER_ERROR_MESSAGES[result.errorCode]) {
@@ -201,7 +318,16 @@ export function getOrderServiceResultFromError(error: unknown) {
   const data = error.response?.data;
 
   if (data && typeof data === 'object' && 'status' in data) {
-    return data as ServiceResult<unknown>;
+    const result = data as ServiceResult<unknown> & {
+      detail?: string;
+      title?: string;
+    };
+
+    return {
+      ...result,
+      status: error.response?.status ?? result.status ?? 500,
+      message: result.message ?? result.detail ?? result.title,
+    };
   }
 
   return null;
@@ -249,8 +375,62 @@ export async function completeOrderDelivery(orderId: string) {
   return response.data.data;
 }
 
+function getFirstServiceErrorCode(result: ServiceResult<unknown>) {
+  const objectError = result.errors?.find((item): item is { code?: string } => typeof item === 'object' && item !== null && Boolean(item.code));
+
+  return objectError?.code ?? result.errorCode;
+}
+
+function getServiceErrorMessages(result: ServiceResult<unknown>) {
+  return (result.errors ?? [])
+    .map((item) => {
+      if (typeof item === 'string') return item;
+      if (item.code && ORDER_ERROR_MESSAGES[item.code]) return ORDER_ERROR_MESSAGES[item.code];
+      return item.message ?? item.code ?? null;
+    })
+    .filter((message): message is string => Boolean(message));
+}
+
 export async function confirmOrderDelivery(orderId: string) {
   const response = await orderApiClient.patch<ServiceResult<OrderDeliveryConfirmationDto>>(`/orders/${orderId}/confirm-delivery`);
+
+  return response.data.data;
+}
+
+export async function getOrderDeliveryTracking(orderId: string) {
+  const response = await orderApiClient.get<ServiceResult<DeliveryTrackingDto>>(`/orders/${orderId}/delivery-tracking`);
+
+  return response.data.data;
+}
+
+export async function getOrderDeliveries(orderId: string) {
+  const response = await orderApiClient.get<ServiceResult<DeliveryBatchListData>>(`/orders/${orderId}/deliveries`);
+
+  return response.data.data;
+}
+
+export async function getOrderDeliveryById(orderId: string, deliveryId: string) {
+  const response = await orderApiClient.get<ServiceResult<DeliveryBatchDto>>(`/orders/${orderId}/deliveries/${deliveryId}`);
+
+  return response.data.data;
+}
+
+export async function createOrderDeliveryBatch(input: CreateDeliveryBatchInput) {
+  const response = await orderApiClient.post<ServiceResult<DeliveryBatchDto>>(`/orders/${input.orderId}/deliveries`, {
+    projectScheduleId: input.projectScheduleId,
+    note: input.note?.trim() || null,
+    items: input.items.map((item) => ({
+      orderItemId: item.orderItemId,
+      quantity: item.quantity,
+      note: item.note?.trim() || null,
+    })),
+  });
+
+  return response.data.data;
+}
+
+export async function completeOrderDeliveryBatch(input: { deliveryId: string; orderId: string }) {
+  const response = await orderApiClient.patch<ServiceResult<DeliveryBatchDto>>(`/orders/${input.orderId}/deliveries/${input.deliveryId}/complete`);
 
   return response.data.data;
 }
