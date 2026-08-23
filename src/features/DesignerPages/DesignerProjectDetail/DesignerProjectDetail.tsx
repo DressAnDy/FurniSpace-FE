@@ -16,10 +16,10 @@ import { getAccountById } from '@/services/api';
 import { getProjectServiceResultMessage, type ProjectDto, type ProjectStatus } from '@/services/api/projects';
 import { useMarkSpaceVerified, useProjectDetail, useStartProposalConsulting } from '@/services/queries';
 
-import { ChatTab, CustomizationTab, OverviewTab, ProjectAreasTab, ProposalsTab, SchedulesTab, SpaceFilesTab } from './tabs';
+import { ChatTab, CustomizationTab, MeasurementImagesTab, OverviewTab, ProjectAreasTab, ProposalsTab, SchedulesTab, SpaceFilesTab } from './tabs';
 import './DesignerProjectDetail.css';
 
-type DesignerProjectDetailTab = 'overview' | 'space-files' | 'project-areas' | 'proposals' | 'customization' | 'schedules' | 'chat';
+type DesignerProjectDetailTab = 'overview' | 'space-files' | 'measurement-images' | 'project-areas' | 'proposals' | 'customization' | 'schedules' | 'chat';
 
 type DesignerProjectTabProps = {
   project: ProjectDto;
@@ -34,6 +34,7 @@ type DesignerProjectTabConfig = {
 const detailTabs: DesignerProjectTabConfig[] = [
   { id: 'overview', label: 'Overview', component: OverviewTab },
   { id: 'space-files', label: 'Space Files', component: SpaceFilesTab },
+  { id: 'measurement-images', label: 'Measurement Images', component: MeasurementImagesTab },
   { id: 'project-areas', label: 'Project Areas', component: ProjectAreasTab },
   { id: 'proposals', label: 'Proposals', component: ProposalsTab },
   { id: 'customization', label: 'Customization', component: CustomizationTab },
@@ -75,12 +76,14 @@ export function DesignerProjectDetail() {
   const activeTabConfig = useMemo(() => detailTabs.find((tab) => tab.id === activeTab) ?? detailTabs[0], [activeTab]);
   const requestedTab = new URLSearchParams(location.search).get('tab') as DesignerProjectDetailTab | null;
   const ActiveTab = activeTabConfig.component ?? OverviewTab;
+  const salesDeadline = project ? getSalesDeadline(project) : null;
   const projectFacts = project
     ? [
         { icon: IconBox, label: `${project.businessType}${project.totalAreaSqm ? ` - ${project.totalAreaSqm} sqm` : ''}` },
         { icon: IconClipboardList, label: customer?.fullName ?? 'Loading customer...' },
         { icon: IconCalendarEvent, label: project.targetCompletionDate ? formatDate(project.targetCompletionDate) : 'No target date' },
         { icon: IconMessage, label: `Sales: ${sales?.fullName ?? project.assignedSalesId ?? '-'}` },
+        ...(salesDeadline ? [{ icon: IconCalendarEvent, label: `Sale deadline: ${formatDate(salesDeadline.deadlineAt ?? salesDeadline.dueDate ?? '')}` }] : []),
       ]
     : [];
 
@@ -248,6 +251,15 @@ function getStatusTone(status: string) {
   if (status === 'PROPOSAL_CONSULTING') return 'design';
   if (status === 'PROPOSAL_SELECTED' || status === 'QUOTATION_SENT') return 'reviewed';
   return 'missing';
+}
+
+function getSalesDeadline(project: ProjectDto) {
+  const deadlines = (project.phaseDeadlines ?? []).filter((deadline) => deadline.deadlineAt || deadline.dueDate);
+
+  return deadlines.find((deadline) => deadline.phase === 'QUOTATION')
+    ?? deadlines.find((deadline) => deadline.phase === 'SALES' || deadline.phase === 'SALE')
+    ?? deadlines.find((deadline) => deadline.phase === 'REQUEST')
+    ?? null;
 }
 
 function formatEnumLabel(value: string) {

@@ -26,6 +26,7 @@ import {
   insertNodeOnWall,
   movePoint,
   moveWallAlongNormal,
+  resizeWallLength,
   updateOpeningItem,
   updateDoorSwingDirection,
   updateWindowSillHeight,
@@ -1077,6 +1078,40 @@ export function BlueprintCanvas({
           <div className="blueprint-opening-menu-header">
             <strong>Edit Wall</strong>
             <button aria-label="Close editor" type="button" onClick={() => setItemEditorMenu(null)}>x</button>
+          </div>
+          <div className="blueprint-opening-stepper">
+            <div>
+              <button
+                aria-label="Decrease wall length"
+                type="button"
+                onClick={() => onLayoutChange(resizeWallLength(
+                  layout,
+                  contextWall.id,
+                  Math.max(0.2, getWallLength(contextWall, layout.points) - 0.25),
+                ))}
+              >
+                &lsaquo;
+              </button>
+              <MetricStepperInput
+                ariaLabel="Wall length"
+                min={0.2}
+                step={0.05}
+                value={getWallLength(contextWall, layout.points)}
+                onChange={(value) => onLayoutChange(resizeWallLength(layout, contextWall.id, value))}
+              />
+              <button
+                aria-label="Increase wall length"
+                type="button"
+                onClick={() => onLayoutChange(resizeWallLength(
+                  layout,
+                  contextWall.id,
+                  getWallLength(contextWall, layout.points) + 0.25,
+                ))}
+              >
+                &rsaquo;
+              </button>
+            </div>
+            <label>Length</label>
           </div>
           <div className="blueprint-opening-stepper">
             <div>

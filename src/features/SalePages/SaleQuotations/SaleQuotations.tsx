@@ -136,6 +136,7 @@ export function SaleQuotations() {
     () => getSavedQuotationSnapshot(selectedQuotation, savedHeaderSnapshot),
     [savedHeaderSnapshot, selectedQuotation],
   );
+  const displayDepositAmount = selectedQuotationForActions ? getQuotationDepositAmount(selectedQuotationForActions) : null;
   const selectedProposalQuery = useProposalDetail(selectedQuotation?.proposalId, { enabled: Boolean(selectedQuotation?.proposalId) });
   const selectedProposalName = getProposalName(selectedQuotation?.proposalId, proposalNameById, selectedProposalQuery.data?.proposalName);
   const selectedQuotationItems = useMemo(
@@ -242,7 +243,7 @@ export function SaleQuotations() {
       const savedSalesNote = updatedQuotation.salesNote ?? salesNote;
 
       setSavedHeaderSnapshot({
-        quotationId: selectedQuotation.quotationId,
+        quotationId: updatedQuotation.quotationId,
         validUntil: updatedQuotation.validUntil ?? validUntilResult.value,
         depositAmount: savedDepositAmount,
         salesNote: savedSalesNote,
@@ -610,7 +611,7 @@ export function SaleQuotations() {
                 </div>
                 <div>
                   <span>Deposit</span>
-                  <strong>{formatMoney(selectedQuotationForActions?.depositAmount ?? getQuotationDepositAmount(selectedQuotation))}</strong>
+                  <strong>{formatMoney(displayDepositAmount)}</strong>
                 </div>
                 <div className="sale-quotations-total">
                   <span>Total Amount</span>
@@ -624,10 +625,10 @@ export function SaleQuotations() {
                     <span>Sales Note</span>
                     <input type="text" value={salesNote} onChange={(event) => setSalesNote(event.target.value)} placeholder="Note shown with the quotation" />
                   </label>
-                  <label>
-                    <span>Deposit Amount</span>
-                    <input inputMode="decimal" value={depositAmount} onChange={(event) => setDepositAmount(event.target.value)} placeholder="Auto 30% of total if unavailable" />
-                  </label>
+                    <label>
+                      <span>Deposit Amount</span>
+                    <input inputMode="decimal" value={depositAmount} onChange={(event) => setDepositAmount(event.target.value)} placeholder="Deposit amount from backend" />
+                    </label>
                   <button disabled={updateQuotationMutation.isPending} type="submit">
                     {updateQuotationMutation.isPending ? 'Saving...' : 'Save Quotation Details'}
                   </button>
@@ -813,19 +814,11 @@ function validateDepositAmount(value: string | number | null | undefined, totalA
 }
 
 function getQuotationDepositAmount(quotation: Pick<QuotationDto, 'depositAmount' | 'totalAmount'>) {
-  if (typeof quotation.depositAmount === 'number' && Number.isFinite(quotation.depositAmount) && quotation.depositAmount > 0) {
+  if (typeof quotation.depositAmount === 'number' && Number.isFinite(quotation.depositAmount)) {
     return quotation.depositAmount;
   }
 
-  return calculateDefaultDepositAmount(quotation.totalAmount);
-}
-
-function calculateDefaultDepositAmount(totalAmount?: number | null) {
-  if (typeof totalAmount !== 'number' || !Number.isFinite(totalAmount) || totalAmount <= 0) {
-    return null;
-  }
-
-  return Math.ceil((totalAmount * 0.3) / 1000) * 1000;
+  return null;
 }
 
 function getDefaultQuotationValidUntil() {

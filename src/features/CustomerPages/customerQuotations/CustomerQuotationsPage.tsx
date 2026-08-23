@@ -467,19 +467,11 @@ function formatMoney(value?: number | null) {
 }
 
 function getQuotationDepositAmount(quotation: Pick<QuotationDto, 'depositAmount' | 'totalAmount'>) {
-  if (typeof quotation.depositAmount === 'number' && Number.isFinite(quotation.depositAmount) && quotation.depositAmount > 0) {
+  if (typeof quotation.depositAmount === 'number' && Number.isFinite(quotation.depositAmount)) {
     return quotation.depositAmount;
   }
 
-  return calculateDefaultDepositAmount(quotation.totalAmount);
-}
-
-function calculateDefaultDepositAmount(totalAmount?: number | null) {
-  if (typeof totalAmount !== 'number' || !Number.isFinite(totalAmount) || totalAmount <= 0) {
-    return null;
-  }
-
-  return Math.ceil((totalAmount * 0.3) / 1000) * 1000;
+  return null;
 }
 
 function formatPercentRate(value?: number | null) {

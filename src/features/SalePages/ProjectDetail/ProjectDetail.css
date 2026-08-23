@@ -83,7 +83,8 @@
 }
 
 .project-detail-header-actions button,
-.project-detail-primary-button {
+.project-detail-primary-button,
+.project-detail-secondary-button {
   display: inline-flex;
   height: 36px;
   align-items: center;
@@ -93,6 +94,7 @@
   padding: 0 16px;
   font-size: 14px;
   font-weight: 500;
+  cursor: pointer;
 }
 
 .project-detail-header-actions button:first-child {
@@ -114,8 +116,15 @@
   color: #4f3f2d;
 }
 
+.project-detail-secondary-button {
+  border: 1px solid rgba(139, 111, 71, 0.22);
+  background: #ffffff;
+  color: #4f3f2d;
+}
+
 .project-detail-header-actions button:disabled,
-.project-detail-primary-button:disabled {
+.project-detail-primary-button:disabled,
+.project-detail-secondary-button:disabled {
   cursor: not-allowed;
   opacity: 0.58;
 }

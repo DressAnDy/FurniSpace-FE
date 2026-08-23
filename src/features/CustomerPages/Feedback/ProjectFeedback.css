@@ -61,3 +61,28 @@
   display: grid;
   gap: 14px;
 }
+
+.customer-feedback-consent {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid rgba(139, 111, 71, 0.16);
+  border-radius: 8px;
+  background: #faf9f7;
+  color: #2d2d2d;
+  font-size: 14px;
+  font-weight: 700;
+  padding: 12px;
+}
+
+.customer-feedback-consent input {
+  width: 18px;
+  height: 18px;
+}
+
+.customer-feedback-consent-message {
+  margin: 0;
+  color: #6b6b6b;
+  font-size: 13px;
+  font-weight: 700;
+}

@@ -361,12 +361,124 @@
   line-height: 20px;
 }
 
+.production-ready-schedule-select {
+  display: grid;
+  gap: 8px;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  padding: 0;
+  text-align: left;
+}
+
+.production-ready-schedule-select:disabled {
+  cursor: not-allowed;
+  opacity: 0.64;
+}
+
+.production-ready-schedule-select strong {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.production-ready-schedule-select strong span {
+  flex: 0 0 auto;
+  border-radius: 999px;
+  background: rgba(139, 111, 71, 0.12);
+  color: #6f5636;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1;
+  padding: 5px 8px;
+}
+
+.production-ready-schedule-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.production-ready-schedule-actions button {
+  min-height: 32px;
+  border: 1px solid rgba(139, 111, 71, 0.22);
+  border-radius: 8px;
+  background: #ffffff;
+  color: #6f5636;
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 800;
+  padding: 0 10px;
+}
+
+.production-ready-schedule-actions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
+}
+
+.production-ready-reschedule-form {
+  display: grid;
+  gap: 12px;
+  border-top: 1px solid rgba(139, 111, 71, 0.14);
+  margin-top: 2px;
+  padding-top: 12px;
+}
+
+.production-ready-reschedule-form label {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.production-ready-reschedule-form label > span {
+  color: #6b6b6b;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 16px;
+  text-transform: uppercase;
+}
+
 .production-ready-request-card {
   align-self: start;
 }
 
 .production-ready-layout {
   grid-template-columns: minmax(220px, 0.72fr) minmax(0, 1.28fr);
+}
+
+.production-ready-list-layout {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.production-ready-list-layout .production-ready-request-card {
+  width: 100%;
+}
+
+.production-ready-list-layout .production-ready-request-card .production-workspace-list {
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 10px;
+}
+
+.production-ready-detail-layout {
+  grid-template-columns: minmax(340px, 0.82fr) minmax(440px, 1.18fr);
+}
+
+.production-ready-plan-column,
+.production-ready-detail-aside {
+  min-width: 0;
+}
+
+.production-ready-plan-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
 }
 
 .production-ready-request-card header {

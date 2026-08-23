@@ -9,6 +9,7 @@ import {
 } from '@/features/ProductionPages/productioncomponents';
 import type { ProductionItem, ProductionItemStatus, ProductionRequestStatus } from '@/features/ProductionPages/types';
 import { formatDate, getProductionItemStatusLabel, getProductionRequestStatusLabel } from '@/features/ProductionPages/utils';
+import { ProjectPhaseTimelineCard } from '@/features/projectPhaseDeadlines/ProjectPhaseTimelineCard';
 import { getProductionServiceResultMessage } from '@/services/api/production';
 import {
   useCompleteProductionRequest,
@@ -176,6 +177,14 @@ export function ProductionRequestDetail() {
           </div>
         </section>
 
+        <ProjectPhaseTimelineCard
+          projectId={request.projectId}
+          phases={['PRODUCTION', 'DELIVERY']}
+          title="Production Timeline"
+          description="Production and delivery phase deadlines for this assigned project."
+          emptyText="No production deadline has been planned yet."
+        />
+
         <article className="production-workspace-card">
           <nav className="production-workspace-tabs">
             {tabs.map((tab) => (
@@ -208,7 +217,7 @@ export function ProductionRequestDetail() {
                     <th>Product Version</th>
                     <th>Quantity</th>
                     <th>Status</th>
-                    <th>Material Note</th>
+                    <th>Start At</th>
                     <th>Estimated Completion</th>
                     <th>Completed At</th>
                     <th>Action</th>
@@ -224,7 +233,7 @@ export function ProductionRequestDetail() {
                       <td>{group.productVersionName}</td>
                       <td>{group.totalQuantity}</td>
                       <td><ProductionStatusBadge label={getProductionItemStatusLabel(group.status)} status={group.status} /></td>
-                      <td>{group.materialNote}</td>
+                      <td>{formatDate(group.startAt)}</td>
                       <td>{formatDate(group.estimatedCompletionDate)}</td>
                       <td>{formatDate(group.completedAt)}</td>
                       <td>
@@ -273,9 +282,9 @@ type ProductionItemGroup = {
   estimatedCompletionDate?: string;
   items: ProductionItem[];
   key: string;
-  materialNote: string;
   productName: string;
   productVersionName: string;
+  startAt?: string;
   status: ProductionItemStatus;
   totalQuantity: number;
 };
@@ -294,6 +303,7 @@ function groupProductionItems(items: ProductionItem[]): ProductionItemGroup[] {
     if (existingGroup) {
       existingGroup.items.push(item);
       existingGroup.totalQuantity += item.quantity;
+      existingGroup.startAt = getEarliestDateValue(existingGroup.startAt, getProductionItemStartAt(item));
       continue;
     }
 
@@ -302,15 +312,32 @@ function groupProductionItems(items: ProductionItem[]): ProductionItemGroup[] {
       estimatedCompletionDate: item.estimatedCompletionDate,
       items: [item],
       key,
-      materialNote: item.materialNote ?? '-',
       productName: item.productNameSnapshot,
       productVersionName: item.productVersionNameSnapshot ?? '-',
+      startAt: getProductionItemStartAt(item),
       status: item.status,
       totalQuantity: item.quantity,
     });
   }
 
   return Array.from(groupsByKey.values());
+}
+
+function getProductionItemStartAt(item: ProductionItem) {
+  return item.startAt ?? item.startedAt;
+}
+
+function getEarliestDateValue(current?: string, next?: string) {
+  if (!current) return next;
+  if (!next) return current;
+
+  const currentTime = new Date(current).getTime();
+  const nextTime = new Date(next).getTime();
+
+  if (Number.isNaN(currentTime)) return current;
+  if (Number.isNaN(nextTime)) return current;
+
+  return nextTime < currentTime ? next : current;
 }
 
 function canUpdateProductionItemsForRequest(status?: ProductionRequestStatus | null) {

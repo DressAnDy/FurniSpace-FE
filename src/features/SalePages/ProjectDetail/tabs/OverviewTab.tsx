@@ -47,6 +47,52 @@ export function OverviewTab({ project }: OverviewTabProps) {
           </div>
         ))}
       </section>
+
+      {project.phaseDeadlines?.length ? (
+        <section className="project-detail-card project-detail-information-card">
+          <header>
+            <h3>Phase Timeline</h3>
+          </header>
+          <div className="project-detail-info-grid">
+            {project.phaseDeadlines.map((deadline) => (
+              <div className="project-detail-info-item" key={deadline.phase}>
+                <span>{formatEnumLabel(deadline.phase)}</span>
+                <strong>{formatEnumLabel(deadline.status)}</strong>
+                <small>
+                  Start {formatDateOnly(deadline.startedAt) ?? '-'} · Due {formatDateOnly(deadline.deadlineAt ?? deadline.dueDate) ?? '-'} · Done {formatDateOnly(deadline.completedAt) ?? '-'}
+                </small>
+                {deadline.overdueDays ? <small>{deadline.overdueDays} day(s) overdue</small> : null}
+              </div>
+            ))}
+          </div>
+        </section>
+      ) : null}
+
+      {project.deliverySummary ? (
+        <section className="project-detail-card project-detail-information-card">
+          <header>
+            <h3>Delivery Summary</h3>
+          </header>
+          <div className="project-detail-info-grid">
+            <div className="project-detail-info-item">
+              <span>Status</span>
+              <strong>{formatEnumLabel(project.deliverySummary.status ?? project.status)}</strong>
+            </div>
+            <div className="project-detail-info-item">
+              <span>Delivered</span>
+              <strong>{project.deliverySummary.deliveredQuantity} / {project.deliverySummary.totalQuantity}</strong>
+            </div>
+            <div className="project-detail-info-item">
+              <span>Remaining</span>
+              <strong>{project.deliverySummary.remainingQuantity}</strong>
+            </div>
+            <div className="project-detail-info-item">
+              <span>Next Delivery</span>
+              <strong>{formatDateOnly(project.deliverySummary.nextDeliveryAt) ?? '-'}</strong>
+            </div>
+          </div>
+        </section>
+      ) : null}
     </div>
   );
 }
@@ -59,7 +105,7 @@ function formatNumber(value: number | null) {
   return typeof value === 'number' ? String(value) : null;
 }
 
-function formatDateOnly(value: string | null) {
+function formatDateOnly(value?: string | null) {
   if (!value) return null;
 
   return new Intl.DateTimeFormat('en', {
@@ -80,4 +126,14 @@ function formatBudgetRange(min: number | null, max: number | null) {
 
   if (minText && maxText) return `${minText} - ${maxText}`;
   return minText ?? maxText;
+}
+
+function formatEnumLabel(value?: string | null) {
+  if (!value) return '-';
+
+  return value
+    .toLowerCase()
+    .split('_')
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
 }

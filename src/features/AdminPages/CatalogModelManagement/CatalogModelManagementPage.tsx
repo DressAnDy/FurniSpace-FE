@@ -1,15 +1,21 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type FormEvent } from 'react';
 import {
   IconAlertTriangle,
   IconBox,
   IconCheck,
   IconCube,
+  IconPlus,
   IconSearch,
   IconSettings,
 } from '@tabler/icons-react';
 import { useNavigate } from 'react-router-dom';
 
-import { useProductList } from '@/services/queries';
+import {
+  getLayoutAssetServiceResultMessage,
+  type LayoutAssetFileType,
+  type LayoutAssetType,
+} from '@/services/api/layoutAssets';
+import { useCreateLayoutAsset, useProductList, useUploadLayoutAssetFile } from '@/services/queries';
 import { AdminNavbar, AdminSidebar } from '@/features/AdminPages/admincomponents';
 
 import { getPlannerReadiness } from './catalogModel.utils';
@@ -18,13 +24,30 @@ import './CatalogModelManagement.css';
 type ReadinessFilter = 'ALL' | 'READY' | 'INCOMPLETE';
 const catalogSortOptions = ['NEWEST', 'NAME_ASC', 'NAME_DESC'] as const;
 type CatalogSortFilter = (typeof catalogSortOptions)[number];
+const layoutAssetTypes: LayoutAssetType[] = [
+  'WALL_MATERIAL',
+  'FLOOR_MATERIAL',
+  'STAIR',
+  'DOOR',
+  'WINDOW',
+  'COLUMN',
+  'BEAM',
+  'DECORATIVE_WALL',
+  'DECORATIVE_FLOOR',
+  'DECORATIVE_OBJECT',
+  'OTHER',
+];
 
 export function CatalogModelManagementPage() {
   const navigate = useNavigate();
   const [query, setQuery] = useState('');
   const [readinessFilter, setReadinessFilter] = useState<ReadinessFilter>('ALL');
   const [sortFilter, setSortFilter] = useState<CatalogSortFilter>('NEWEST');
+  const [isCreateAssetModalOpen, setIsCreateAssetModalOpen] = useState(false);
+  const [assetMessage, setAssetMessage] = useState<{ tone: 'error' | 'success'; text: string } | null>(null);
   const productsQuery = useProductList({ limit: 100, page: 1 });
+  const createLayoutAssetMutation = useCreateLayoutAsset();
+  const uploadLayoutAssetFileMutation = useUploadLayoutAssetFile();
   const products = useMemo(
     () => productsQuery.data?.items ?? [],
     [productsQuery.data?.items],
@@ -81,11 +104,28 @@ export function CatalogModelManagementPage() {
                 <h2>3D Models</h2>
                 <p>Review Product Version assets and prepare models for Room Planner.</p>
               </div>
-              <button className="admin-button admin-button-primary" type="button" onClick={() => navigate('/admin/products')}>
-                <IconBox size={16} />
-                Manage Products
-              </button>
+              <div className="catalog-model-heading-actions">
+                <button className="admin-button admin-button-secondary" type="button" onClick={() => setIsCreateAssetModalOpen(true)}>
+                  <IconPlus size={16} />
+                  New Layout Asset
+                </button>
+                <button className="admin-button admin-button-primary" type="button" onClick={() => navigate('/admin/products')}>
+                  <IconBox size={16} />
+                  Manage Products
+                </button>
+              </div>
             </header>
+
+            {assetMessage ? <p className={`catalog-model-message catalog-model-message-${assetMessage.tone}`}>{assetMessage.text}</p> : null}
+
+            <nav className="catalog-model-tabs" aria-label="Catalog model sections">
+              <button className="is-active" type="button">
+                Product Models
+              </button>
+              <button type="button" onClick={() => navigate('/admin/catalog/layout-assets')}>
+                Layout Assets
+              </button>
+            </nav>
 
             <section className="product-stat-grid" aria-label="3D catalog summary">
               {catalogStats.map(({ label, value, helper, icon: Icon, tone }) => (
@@ -188,8 +228,147 @@ export function CatalogModelManagementPage() {
           </div>
         </section>
       </div>
+
+      {isCreateAssetModalOpen ? (
+        <CreateLayoutAssetModal
+          isPending={createLayoutAssetMutation.isPending || uploadLayoutAssetFileMutation.isPending}
+          onClose={() => setIsCreateAssetModalOpen(false)}
+          onSubmit={async (event) => {
+            event.preventDefault();
+            const form = event.currentTarget;
+            const formData = new FormData(form);
+            const assetName = String(formData.get('assetName') ?? '').trim();
+            const assetType = String(formData.get('assetType') ?? 'DECORATIVE_OBJECT') as LayoutAssetType;
+
+            if (!assetName) {
+              setAssetMessage({ tone: 'error', text: 'Asset name is required.' });
+              return;
+            }
+
+            try {
+              const asset = await createLayoutAssetMutation.mutateAsync({
+                assetCode: String(formData.get('assetCode') ?? '').trim(),
+                assetName,
+                assetType,
+                description: String(formData.get('description') ?? '').trim(),
+                layoutAssetType: assetType,
+                name: assetName,
+                status: 'ACTIVE',
+              });
+              const uploadInputs = [
+                { file: getOptionalFile(formData, 'previewFile'), fileType: 'PREVIEW' },
+                { file: getOptionalFile(formData, 'modelFile'), fileType: 'MODEL_3D' },
+                { file: getOptionalFile(formData, 'textureFile'), fileType: 'TEXTURE' },
+              ].filter((input): input is { file: File; fileType: LayoutAssetFileType } => Boolean(input.file));
+
+              for (const input of uploadInputs) {
+                await uploadLayoutAssetFileMutation.mutateAsync({
+                  file: input.file,
+                  fileType: input.fileType,
+                  layoutAssetId: asset.layoutAssetId,
+                });
+              }
+
+              form.reset();
+              setIsCreateAssetModalOpen(false);
+              setAssetMessage({
+                tone: 'success',
+                text: uploadInputs.length
+                  ? 'Layout asset created and files uploaded.'
+                  : 'Layout asset created. You can upload model, preview, or texture files later in Layout Assets.',
+              });
+            } catch (error) {
+              setAssetMessage({ tone: 'error', text: getLayoutAssetServiceResultMessage(error) });
+            }
+          }}
+          onViewLibrary={() => navigate('/admin/catalog/layout-assets')}
+        />
+      ) : null}
     </main>
   );
+}
+
+function CreateLayoutAssetModal({
+  isPending,
+  onClose,
+  onSubmit,
+  onViewLibrary,
+}: {
+  isPending: boolean;
+  onClose: () => void;
+  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  onViewLibrary: () => void;
+}) {
+  return (
+    <div className="catalog-model-modal-backdrop" role="presentation">
+      <form className="catalog-model-create-modal" onSubmit={onSubmit}>
+        <header>
+          <div>
+            <h3>New Layout Asset</h3>
+            <p>Create materials and decorative assets for Designer Room Planner.</p>
+          </div>
+          <button aria-label="Close create layout asset modal" type="button" onClick={onClose}>x</button>
+        </header>
+
+        <div className="catalog-model-form">
+          <label>
+            <span>Asset Name</span>
+            <input name="assetName" placeholder="Decorative column, wood floor, wall panel..." />
+          </label>
+          <label>
+            <span>Asset Code</span>
+            <input name="assetCode" placeholder="Optional" />
+          </label>
+          <label>
+            <span>Type</span>
+            <select name="assetType" defaultValue="DECORATIVE_OBJECT">
+              {layoutAssetTypes.map((type) => (
+                <option key={type} value={type}>{formatEnumLabel(type)}</option>
+              ))}
+            </select>
+          </label>
+          <label>
+            <span>Description</span>
+            <textarea name="description" placeholder="Usage notes for Room Planner" />
+          </label>
+          <div className="catalog-model-file-fields">
+            <label>
+              <span>Preview Image</span>
+              <input accept="image/*" name="previewFile" type="file" />
+            </label>
+            <label>
+              <span>3D Model File</span>
+              <input accept=".glb,.gltf,.obj,.fbx,.usdz,model/*" name="modelFile" type="file" />
+            </label>
+            <label>
+              <span>Texture File</span>
+              <input accept="image/*" name="textureFile" type="file" />
+            </label>
+          </div>
+        </div>
+
+        <footer>
+          <button className="admin-button admin-button-secondary" type="button" onClick={onViewLibrary}>
+            Open Layout Assets
+          </button>
+          <div>
+            <button className="admin-button admin-button-secondary" disabled={isPending} type="button" onClick={onClose}>
+              Cancel
+            </button>
+            <button className="admin-button admin-button-primary" disabled={isPending} type="submit">
+              {isPending ? 'Creating...' : 'Create Asset'}
+            </button>
+          </div>
+        </footer>
+      </form>
+    </div>
+  );
+}
+
+function getOptionalFile(formData: FormData, name: string) {
+  const file = formData.get(name);
+
+  return file instanceof File && file.size > 0 ? file : null;
 }
 
 function formatReadinessLabel(value: ReadinessFilter) {
@@ -214,4 +393,12 @@ function formatCatalogSortLabel(value: CatalogSortFilter) {
   }
 
   return 'Newest';
+}
+
+function formatEnumLabel(value: string) {
+  return value
+    .toLowerCase()
+    .split('_')
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
 }

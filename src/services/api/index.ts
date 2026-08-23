@@ -6,6 +6,8 @@ export * from './businessTypes';
 export * from './categories';
 export * from './customizationRequests';
 export * from './dashboard';
+export * from './layoutAssets';
+export * from './measurementImages';
 export * from './production';
 export * from './products';
 export * from './projectAreas';
@@ -17,6 +19,7 @@ export * from './proposals';
 export * from './quotations';
 export * from './reports';
 export * from './schedules';
+export * from './showcases';
 export type {
   ApiResponse,
   Asset,

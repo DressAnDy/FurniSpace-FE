@@ -25,6 +25,7 @@ import type {
 import {
   applyLevelVisibility,
   buildBuildingEnvironment,
+  type BuildingSurfaceAssetVisual,
   createBuildingTestCamera,
   createBuildingTestLighting,
   getSurfaceFromPickedMesh,
@@ -48,6 +49,7 @@ export type BuildingSceneCanvasProps = {
   placedProducts: PlacedBuildingProduct[];
   sceneData: BuildingTestScene;
   selectedProductId: string | null;
+  surfaceAssets?: BuildingSurfaceAssetVisual[];
 };
 
 type DragState = {
@@ -356,6 +358,7 @@ export function BuildingSceneCanvas({
   placedProducts,
   sceneData,
   selectedProductId,
+  surfaceAssets = [],
 }: BuildingSceneCanvasProps) {
   const cameraRef = useRef<ArcRotateCamera | null>(null);
   const dragRef = useRef<DragState | null>(null);
@@ -403,9 +406,9 @@ export function BuildingSceneCanvas({
   }, [selectedProductId]);
 
   const rebuildEnvironment = useCallback((scene: Scene) => {
-    buildBuildingEnvironment(scene, sceneData, activeLevelRef.current);
+    buildBuildingEnvironment(scene, sceneData, activeLevelRef.current, surfaceAssets);
     applyProductVisibility(scene, activeLevelRef.current);
-  }, [sceneData]);
+  }, [sceneData, surfaceAssets]);
 
   useEffect(() => {
     const scene = sceneRef.current;

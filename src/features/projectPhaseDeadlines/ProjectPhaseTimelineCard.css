@@ -1,0 +1,107 @@
+.project-phase-timeline-card {
+  background: #ffffff;
+  border: 1px solid rgba(166, 124, 82, 0.18);
+  border-radius: 18px;
+  box-shadow: 0 18px 40px rgba(79, 55, 38, 0.08);
+  display: grid;
+  gap: 16px;
+  padding: 20px;
+}
+
+.project-phase-timeline-card header {
+  align-items: flex-start;
+  display: flex;
+  gap: 14px;
+  justify-content: space-between;
+}
+
+.project-phase-timeline-card h3,
+.project-phase-timeline-card p {
+  margin: 0;
+}
+
+.project-phase-timeline-card h3 {
+  color: #2f261f;
+  font-size: 18px;
+  font-weight: 900;
+}
+
+.project-phase-timeline-card header p,
+.project-phase-timeline-state,
+.project-phase-timeline-item p,
+.project-phase-timeline-item small {
+  color: #7a6d63;
+  font-size: 13px;
+}
+
+.project-phase-timeline-card header > span {
+  background: #f7efe4;
+  border: 1px solid rgba(166, 124, 82, 0.2);
+  border-radius: 999px;
+  color: #8a5b2f;
+  flex-shrink: 0;
+  font-size: 12px;
+  font-weight: 900;
+  padding: 7px 10px;
+}
+
+.project-phase-timeline-list {
+  display: grid;
+  gap: 10px;
+}
+
+.project-phase-timeline-item {
+  border: 1px solid rgba(166, 124, 82, 0.16);
+  border-radius: 12px;
+  display: grid;
+  gap: 8px;
+  padding: 14px;
+}
+
+.project-phase-timeline-item > div {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+}
+
+.project-phase-timeline-item strong {
+  color: #312721;
+  font-size: 14px;
+}
+
+.project-phase-timeline-status {
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 900;
+  padding: 5px 8px;
+}
+
+.project-phase-timeline-status-planned {
+  background: #f5efe8;
+  color: #826449;
+}
+
+.project-phase-timeline-status-active {
+  background: #e9f7ef;
+  color: #167142;
+}
+
+.project-phase-timeline-status-success {
+  background: #ecfdf3;
+  color: #15803d;
+}
+
+.project-phase-timeline-status-danger {
+  background: #fff1f2;
+  color: #be123c;
+}
+
+.project-phase-timeline-state {
+  margin: 0;
+}
+
+.project-phase-timeline-state.is-error {
+  color: #b42318;
+  font-weight: 800;
+}

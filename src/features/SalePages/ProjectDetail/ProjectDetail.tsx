@@ -459,11 +459,11 @@ function PhaseDeadlineModal({
   const targetCompletionDate = toDateInputValue(deadlinesQuery.data?.targetCompletionDate);
 
   useEffect(() => {
-    const proposalDeadline = deadlinesQuery.data?.deadlines.find((deadline) => deadline.phase === 'PROPOSAL');
+    const proposalDeadline = deadlinesQuery.data?.deadlines.find((deadline) => deadline.phase === 'DESIGN' || deadline.phase === 'PROPOSAL');
     const productionDeadline = deadlinesQuery.data?.deadlines.find((deadline) => deadline.phase === 'PRODUCTION');
 
-    setProposalDueDate(toDateInputValue(proposalDeadline?.dueDate));
-    setProductionDueDate(toDateInputValue(productionDeadline?.dueDate));
+    setProposalDueDate(toDateInputValue(proposalDeadline?.deadlineAt ?? proposalDeadline?.dueDate));
+    setProductionDueDate(toDateInputValue(productionDeadline?.deadlineAt ?? productionDeadline?.dueDate));
   }, [deadlinesQuery.data]);
 
   async function saveDeadlines(event: FormEvent<HTMLFormElement>) {
@@ -540,7 +540,7 @@ function PhaseDeadlineModal({
         </div>
 
         <div className="project-detail-phase-deadline-status">
-          <DeadlineStatus label="Proposal" status={getDeadlineStatus(deadlinesQuery.data, 'PROPOSAL')} />
+          <DeadlineStatus label="Design" status={getDeadlineStatus(deadlinesQuery.data, 'DESIGN')} />
           <DeadlineStatus label="Production" status={getDeadlineStatus(deadlinesQuery.data, 'PRODUCTION')} />
           <DeadlineStatus label="Target" status={targetCompletionDate || '-'} />
         </div>
@@ -571,9 +571,9 @@ function DeadlineStatus({ label, status }: { label: string; status: string }) {
 
 function getDeadlineStatus(
   data: ReturnType<typeof useProjectPhaseDeadlines>['data'],
-  phase: 'PROPOSAL' | 'PRODUCTION',
+  phase: 'DESIGN' | 'PRODUCTION',
 ) {
-  const deadline = data?.deadlines.find((item) => item.phase === phase);
+  const deadline = data?.deadlines.find((item) => item.phase === phase || (phase === 'DESIGN' && item.phase === 'PROPOSAL'));
 
   return deadline?.status ? formatStatusLabel(deadline.status) : '-';
 }

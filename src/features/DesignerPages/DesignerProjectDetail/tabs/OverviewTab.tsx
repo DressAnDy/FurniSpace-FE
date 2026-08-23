@@ -1,3 +1,4 @@
+import { ProjectPhaseTimelineCard } from '@/features/projectPhaseDeadlines/ProjectPhaseTimelineCard';
 import type { ProjectDto } from '@/services/api/projects';
 
 type OverviewTabProps = {
@@ -38,6 +39,14 @@ export function OverviewTab({ project }: OverviewTabProps) {
         </div>
       </section>
 
+      <ProjectPhaseTimelineCard
+        projectId={project.projectId}
+        phases={['DESIGN', 'PROPOSAL']}
+        title="Design Timeline"
+        description="Design phase deadlines and backend-calculated progress."
+        emptyText="No design deadline has been planned yet."
+      />
+
       <section className="designer-card designer-project-section-card">
         <header className="designer-project-section-header">
           <h3>Customer Requirements</h3>
@@ -67,7 +76,7 @@ function formatNumber(value: number | null) {
   return typeof value === 'number' ? String(value) : null;
 }
 
-function formatDateOnly(value: string | null) {
+function formatDateOnly(value?: string | null) {
   if (!value) return null;
 
   return new Intl.DateTimeFormat('en', {
@@ -90,7 +99,9 @@ function formatBudgetRange(min: number | null, max: number | null) {
   return minText ?? maxText;
 }
 
-function formatEnumLabel(value: string) {
+function formatEnumLabel(value?: string | null) {
+  if (!value) return '-';
+
   return value
     .toLowerCase()
     .split('_')
