@@ -29,6 +29,7 @@ import {
   createBuildingTestCamera,
   createBuildingTestLighting,
   getSurfaceFromPickedMesh,
+  patchBuildingSurfaceMaterials,
 } from '@/features/ThreeDTest/utils/buildingTestSceneFactory';
 import {
   getLastValidBuildingProductPosition,
@@ -46,6 +47,7 @@ export type BuildingSceneCanvasProps = {
   onProductLoadError?: (productId: string, message: string) => void;
   onProductMove: (sceneObjectId: string, position: Vector3State, surfaceId: string, levelId: BuildingLevelVisibility) => void;
   onProductSelect: (sceneObjectId: string | null) => void;
+  onProductsLoaded?: (result: { complete: boolean; loaded: number; total: number }) => void;
   placedProducts: PlacedBuildingProduct[];
   sceneData: BuildingTestScene;
   selectedProductId: string | null;
@@ -266,16 +268,30 @@ function syncProducts(
   scene: Scene,
   products: PlacedBuildingProduct[],
   onProductLoadError?: (productId: string, message: string) => void,
+  onProductsLoaded?: (result: { complete: boolean; loaded: number; total: number }) => void,
 ) {
   removeMissingProducts(scene, products);
+  const loadTasks: Array<Promise<void>> = [];
+  const notifyProductsLoaded = (complete: boolean) => {
+    if (scene.isDisposed) {
+      return;
+    }
+
+    onProductsLoaded?.({
+      complete,
+      loaded: products.filter((product) => Boolean(getProductRoot(scene, product.sceneObjectId))).length,
+      total: products.length,
+    });
+  };
 
   products.forEach((product) => {
     const existingRoot = removeDuplicateProductRoots(scene, product.sceneObjectId);
 
     if (existingRoot) {
-      void loadProduct(scene, product).catch((error) => {
+      const loadTask = loadProduct(scene, product).catch((error) => {
         onProductLoadError?.(product.sceneObjectId, getModelLoadErrorMessage(error, product.modelUrl));
       });
+      loadTasks.push(loadTask.finally(() => notifyProductsLoaded(false)));
       return;
     }
 
@@ -287,13 +303,16 @@ function syncProducts(
 
     loadLocks.add(product.sceneObjectId);
 
-    void loadProduct(scene, product).catch((error) => {
+    const loadTask = loadProduct(scene, product).catch((error) => {
       onProductLoadError?.(product.sceneObjectId, getModelLoadErrorMessage(error, product.modelUrl));
     }).finally(() => {
       loadLocks.delete(product.sceneObjectId);
       removeDuplicateProductRoots(scene, product.sceneObjectId);
     });
+    loadTasks.push(loadTask.finally(() => notifyProductsLoaded(false)));
   });
+
+  void Promise.allSettled(loadTasks).then(() => notifyProductsLoaded(true));
 }
 
 function setProductHighlight(scene: Scene, selectedProductId: string | null) {
@@ -355,6 +374,7 @@ export function BuildingSceneCanvas({
   onProductLoadError,
   onProductMove,
   onProductSelect,
+  onProductsLoaded,
   placedProducts,
   sceneData,
   selectedProductId,
@@ -365,7 +385,10 @@ export function BuildingSceneCanvas({
   const sceneRef = useRef<Scene | null>(null);
   const activeLevelRef = useRef(activeLevel);
   const modelsByIdRef = useRef(modelsById);
+  const onProductLoadErrorRef = useRef(onProductLoadError);
+  const onProductsLoadedRef = useRef(onProductsLoaded);
   const placedProductsRef = useRef(placedProducts);
+  const surfaceAssetsRef = useRef(surfaceAssets);
 
   useEffect(() => {
     activeLevelRef.current = activeLevel;
@@ -382,6 +405,11 @@ export function BuildingSceneCanvas({
   }, [modelsById]);
 
   useEffect(() => {
+    onProductLoadErrorRef.current = onProductLoadError;
+    onProductsLoadedRef.current = onProductsLoaded;
+  }, [onProductLoadError, onProductsLoaded]);
+
+  useEffect(() => {
     placedProductsRef.current = placedProducts;
     const scene = sceneRef.current;
 
@@ -389,13 +417,13 @@ export function BuildingSceneCanvas({
       return;
     }
 
-    syncProducts(scene, placedProducts, onProductLoadError);
+    syncProducts(scene, placedProducts, onProductLoadErrorRef.current, onProductsLoadedRef.current);
     scene.metadata = {
       ...(scene.metadata ?? {}),
       placedProducts,
     };
     applyProductVisibility(scene, activeLevelRef.current);
-  }, [onProductLoadError, placedProducts]);
+  }, [placedProducts]);
 
   useEffect(() => {
     const scene = sceneRef.current;
@@ -406,9 +434,9 @@ export function BuildingSceneCanvas({
   }, [selectedProductId]);
 
   const rebuildEnvironment = useCallback((scene: Scene) => {
-    buildBuildingEnvironment(scene, sceneData, activeLevelRef.current, surfaceAssets);
+    buildBuildingEnvironment(scene, sceneData, activeLevelRef.current, surfaceAssetsRef.current);
     applyProductVisibility(scene, activeLevelRef.current);
-  }, [sceneData, surfaceAssets]);
+  }, [sceneData]);
 
   useEffect(() => {
     const scene = sceneRef.current;
@@ -419,6 +447,15 @@ export function BuildingSceneCanvas({
 
     rebuildEnvironment(scene);
   }, [rebuildEnvironment]);
+
+  useEffect(() => {
+    surfaceAssetsRef.current = surfaceAssets;
+    const scene = sceneRef.current;
+
+    if (scene) {
+      patchBuildingSurfaceMaterials(scene, surfaceAssets);
+    }
+  }, [surfaceAssets]);
 
   return (
     <div className="building-test-canvas-shell">
@@ -434,7 +471,12 @@ export function BuildingSceneCanvas({
             ...(scene.metadata ?? {}),
             placedProducts: placedProductsRef.current,
           };
-          syncProducts(scene, placedProductsRef.current, onProductLoadError);
+          syncProducts(
+            scene,
+            placedProductsRef.current,
+            onProductLoadErrorRef.current,
+            onProductsLoadedRef.current,
+          );
 
           const handleDragOver = (event: DragEvent) => {
             if (!Array.from(event.dataTransfer?.types ?? []).includes(PRODUCT_DRAG_TYPE)) {

@@ -102,6 +102,19 @@ function material(scene: Scene, name: string, color: string, alpha = 1) {
 }
 
 function applyMaterialTexture(scene: Scene, targetMaterial: StandardMaterial, textureUrl: string | null | undefined) {
+  const normalizedTextureUrl = textureUrl ?? null;
+
+  if (targetMaterial.metadata?.textureUrl === normalizedTextureUrl) {
+    return;
+  }
+
+  targetMaterial.diffuseTexture?.dispose();
+  targetMaterial.diffuseTexture = null;
+  targetMaterial.metadata = {
+    ...(targetMaterial.metadata ?? {}),
+    textureUrl: normalizedTextureUrl,
+  };
+
   if (!textureUrl) {
     return;
   }
@@ -115,6 +128,10 @@ function applyMaterialTexture(scene: Scene, targetMaterial: StandardMaterial, te
     undefined,
     () => {
       targetMaterial.diffuseTexture = null;
+      targetMaterial.metadata = {
+        ...(targetMaterial.metadata ?? {}),
+        textureUrl: null,
+      };
     },
   );
   texture.uScale = 2;
@@ -155,10 +172,39 @@ function layoutAssetMaterial(
 ) {
   const surfaceAsset = layoutAssetId ? surfaceAssetsById.get(layoutAssetId) : null;
   const nextMaterial = material(scene, name, getLayoutAssetSurfaceColor(layoutAssetId, fallbackColor));
+  nextMaterial.metadata = {
+    ...(nextMaterial.metadata ?? {}),
+    fallbackColor,
+    layoutAssetId: layoutAssetId ?? null,
+    surfaceMaterial: true,
+  };
 
   applyMaterialTexture(scene, nextMaterial, surfaceAsset?.textureUrl ?? surfaceAsset?.previewUrl);
 
   return nextMaterial;
+}
+
+export function patchBuildingSurfaceMaterials(
+  scene: Scene,
+  surfaceAssets: BuildingSurfaceAssetVisual[] = [],
+) {
+  const surfaceAssetsById = new Map(surfaceAssets.map((asset) => [asset.layoutAssetId, asset]));
+
+  scene.materials
+    .filter((candidate): candidate is StandardMaterial =>
+      candidate instanceof StandardMaterial && candidate.metadata?.surfaceMaterial === true,
+    )
+    .forEach((surfaceMaterial) => {
+      const layoutAssetId = surfaceMaterial.metadata?.layoutAssetId as string | null | undefined;
+      const fallbackColor = String(surfaceMaterial.metadata?.fallbackColor ?? '#f1eee7');
+      const surfaceAsset = layoutAssetId ? surfaceAssetsById.get(layoutAssetId) : null;
+      const textureUrl = surfaceAsset?.textureUrl ?? surfaceAsset?.previewUrl;
+
+      surfaceMaterial.diffuseColor = textureUrl
+        ? Color3.White()
+        : Color3.FromHexString(getLayoutAssetSurfaceColor(layoutAssetId ?? undefined, fallbackColor));
+      applyMaterialTexture(scene, surfaceMaterial, textureUrl);
+    });
 }
 
 export function createDefaultBuildingTestScene(): BuildingTestScene {

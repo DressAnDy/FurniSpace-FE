@@ -195,6 +195,7 @@ export function useRoomPlannerScene(sceneId?: string, options?: { enabled?: bool
     queryFn: () => getRoomPlannerScene(sceneId ?? ''),
     enabled: Boolean(sceneId) && (options?.enabled ?? true),
     retry: options?.retry,
+    staleTime: 5 * 60 * 1000,
   });
 }
 
