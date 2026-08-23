@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 
 import { getProjectAreaServiceResultMessage, type ProjectAreaDto, type ProjectAreaStatus, type ProjectAreaWriteInput } from '@/services/api/projectAreas';
 import type { ProjectDto } from '@/services/api/projects';
-import { useCreateProjectArea, useProjectAreas, useUpdateProjectArea } from '@/services/queries';
+import { useCreateProjectArea, useProjectAreaMeasurementImages, useProjectAreas, useUpdateProjectArea } from '@/services/queries';
 import { validateOptionalPositiveNumber } from '@/shared/utils/projectRequestValidation';
 
 type ProjectAreasTabProps = {
@@ -326,6 +326,8 @@ function NumericAreaInput({
 
 function ProjectAreaItem({ area, onUpdate }: Readonly<{ area: ProjectAreaDto; onUpdate: (area: ProjectAreaDto) => void }>) {
   const areaSqm = getProjectAreaSqm(area);
+  const measurementImagesQuery = useProjectAreaMeasurementImages(area.projectAreaId);
+  const measurementImages = measurementImagesQuery.data?.items ?? [];
 
   return (
     <article className="designer-project-area-item">
@@ -346,6 +348,19 @@ function ProjectAreaItem({ area, onUpdate }: Readonly<{ area: ProjectAreaDto; on
           <p><span>Current Condition</span>{area.currentCondition || '-'}</p>
           <p><span>Requirement Note</span>{area.requirementNote || '-'}</p>
         </details>
+        {measurementImages.length > 0 ? (
+          <div className="designer-project-area-measurements">
+            {measurementImages.slice(0, 4).map((image) => {
+              const imageUrl = image.url ?? image.publicUrl;
+
+              return imageUrl ? (
+                <a href={imageUrl} key={image.fileId} rel="noreferrer" target="_blank">
+                  <img alt={image.originalFileName ?? area.areaName} src={imageUrl} />
+                </a>
+              ) : null;
+            })}
+          </div>
+        ) : null}
       </div>
       <button className="designer-project-area-update-button" type="button" onClick={() => onUpdate(area)}>
         <IconEdit size={15} /> Update

@@ -85,9 +85,12 @@ export type BuildingProductModel = {
   fileId?: string;
   height?: number | null;
   id: string;
+  layoutAssetId?: string;
+  layoutAssetType?: string;
   material?: string | null;
   modelUrl: string;
   name: string;
+  objectType?: 'FURNITURE' | 'LAYOUT_ASSET' | 'STRUCTURAL_ASSET' | 'DECORATIVE_ASSET';
   productId?: string;
   productVersionId?: string;
   scale?: Vector3State;

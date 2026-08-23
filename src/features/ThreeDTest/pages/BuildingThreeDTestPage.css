@@ -196,8 +196,8 @@
 
 .building-content-tabs {
   display: grid;
-  gap: 6px;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .building-content-tabs button {
@@ -208,10 +208,13 @@
   cursor: pointer;
   display: flex;
   font: inherit;
-  font-size: 13px;
-  gap: 6px;
+  font-size: 12px;
+  gap: 4px;
   justify-content: center;
   min-height: 36px;
+  min-width: 0;
+  padding: 0 6px;
+  white-space: nowrap;
 }
 
 .building-content-tabs button.is-active {
@@ -699,6 +702,11 @@
   padding: 0 6px;
 }
 
+.building-scale-controls input[aria-invalid="true"] {
+  border-color: #c2410c;
+  box-shadow: 0 0 0 2px rgba(194, 65, 12, 0.14);
+}
+
 .building-scale-controls button {
   background: var(--building-surface);
   color: var(--building-accent-strong);
@@ -1160,6 +1168,7 @@
   align-self: start;
   background: #ebe4dc;
   border-radius: 12px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 4px;
   height: 48px;
   padding: 4px;
@@ -1170,9 +1179,10 @@
   border: 0;
   border-radius: 9px;
   color: #71665c;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
   min-height: 38px;
+  padding: 0 5px;
   transition: background 150ms ease, box-shadow 150ms ease, color 150ms ease;
 }
 

@@ -11,7 +11,7 @@ import { AdminDashbroad } from '@/features/AdminPages/AdminDashbroad';
 import { AdminProjects } from '@/features/AdminPages/AdminProjects';
 import { AdminReports } from '@/features/AdminPages/AdminReports';
 import { AdminThreeDLabPage } from '@/features/AdminPages/AdminThreeDLab';
-import { CatalogModelManagementPage, ProductModelWorkspacePage } from '@/features/AdminPages/CatalogModelManagement';
+import { CatalogModelManagementPage, LayoutAssetManagementPage, ProductModelWorkspacePage } from '@/features/AdminPages/CatalogModelManagement';
 import { Categorymanagement } from '@/features/AdminPages/Categorymanagement';
 import { CreateProductPage, CreateProductVersionPage, Productmanagement, ProductVersionManagement } from '@/features/AdminPages/Productmanagement';
 import { UserManagement } from '@/features/AdminPages/UserManagement';
@@ -40,6 +40,7 @@ import { ProductDetailPage } from '@/features/MainPages/productDetail';
 import { ProductListPreviewPage } from '@/features/MainPages/productListPreview';
 import { ProjectDetailPage } from '@/features/MainPages/projectDetail';
 import { ProjectListReviewPage } from '@/features/MainPages/projectListReview';
+import { PublicShowcaseDetailPage, PublicShowcasesPage } from '@/features/MainPages/showcases';
 import { UserProfilePage } from '@/features/MainPages/userProfile';
 import { PaymentCancelPage, PaymentResultPage } from '@/features/payments';
 import { BlockedIssues } from '@/features/ProductionPages/BlockedIssues';
@@ -81,6 +82,8 @@ export default function App() {
                 <Route path="/products/detail" element={<ProductDetailPage />} />
                 <Route path="/projects" element={<ProjectListReviewPage />} />
                 <Route path="/projects/detail" element={<ProjectDetailPage />} />
+                <Route path="/showcases" element={<PublicShowcasesPage />} />
+                <Route path="/showcases/:slug" element={<PublicShowcaseDetailPage />} />
                 <Route path="/user-profile" element={<UserProfilePage />} />
                 <Route path="/viewer3d" element={<ViewerDemoPage />} />
                 <Route path="/payments/result" element={<PaymentResultPage />} />
@@ -114,6 +117,7 @@ export default function App() {
                   <Route path="/admin/products/:productId/versions/:productVersionId/edit" element={<CreateProductVersionPage />} />
                   <Route path="/admin/projects" element={<AdminProjects />} />
                   <Route path="/admin/catalog/models" element={<CatalogModelManagementPage />} />
+                  <Route path="/admin/catalog/layout-assets" element={<LayoutAssetManagementPage />} />
                   <Route path="/admin/catalog/models/workspace/:productId/:productVersionId" element={<ProductModelWorkspacePage />} />
                   <Route path="/admin/3d-lab" element={<AdminThreeDLabPage />} />
                   <Route path="/admin/reports" element={<AdminReports />} />

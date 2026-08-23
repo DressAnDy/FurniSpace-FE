@@ -5,6 +5,8 @@ import { Link, useParams } from 'react-router-dom';
 import { mockCustomerProjectReviews, mockCustomerTrackingProjects } from '@/features/CustomerPages/mock';
 import { CustomerEmptyState, CustomerNavbar, CustomerStatusBadge } from '@/features/CustomerPages/customercomponents';
 import { formatCustomerDate, getProjectStatusLabel } from '@/features/CustomerPages/utils';
+import { useUpdateProjectReviewPublicConsent } from '@/services/queries';
+import { getShowcaseServiceResultMessage } from '@/services/api/showcases';
 
 import './ProjectFeedback.css';
 
@@ -129,6 +131,23 @@ export function ProjectFeedback() {
 }
 
 function ExistingReviewCard({ review }: { review: NonNullable<typeof mockCustomerProjectReviews[number]> }) {
+  const [allowPublicDisplay, setAllowPublicDisplay] = useState(Boolean((review as { allowPublicDisplay?: boolean }).allowPublicDisplay));
+  const [message, setMessage] = useState('');
+  const consentMutation = useUpdateProjectReviewPublicConsent();
+
+  async function updateConsent(nextValue: boolean) {
+    setAllowPublicDisplay(nextValue);
+    setMessage('');
+
+    try {
+      await consentMutation.mutateAsync({ allowPublicDisplay: nextValue, reviewId: review.reviewId });
+      setMessage('Public display consent updated.');
+    } catch (error) {
+      setAllowPublicDisplay(!nextValue);
+      setMessage(getShowcaseServiceResultMessage(error));
+    }
+  }
+
   return (
     <section className="customer-feedback-existing">
       <header>
@@ -144,6 +163,16 @@ function ExistingReviewCard({ review }: { review: NonNullable<typeof mockCustome
         <Field label="Delivery" value={`${review.deliveryRating} / 5`} />
         <Field label="Comment" value={review.comment ?? '-'} />
       </div>
+      <label className="customer-feedback-consent">
+        <input
+          checked={allowPublicDisplay}
+          disabled={consentMutation.isPending}
+          type="checkbox"
+          onChange={(event) => void updateConsent(event.target.checked)}
+        />
+        <span>Allow FurniSpace to display this review in public showcases.</span>
+      </label>
+      {message ? <p className="customer-feedback-consent-message">{message}</p> : null}
     </section>
   );
 }

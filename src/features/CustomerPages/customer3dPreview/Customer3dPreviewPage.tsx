@@ -25,6 +25,9 @@ import { hydrateBuildingRoomPlannerPayload } from '@/features/ThreeDTest/utils/b
 import '@/features/ThreeD/pages/ThreeDTestPage.css';
 import './Customer3dPreviewPage.css';
 import {
+  type LayoutAssetDto,
+} from '@/services/api';
+import {
   getProposalServiceResultMessage,
   type ProposalDto,
   type ProposalItemDto,
@@ -38,6 +41,7 @@ import {
   useProposalItems,
   useProposalScenes,
   useRequestProposalRevision,
+  useRoomPlannerResolvedLayoutAssets,
   useRoomPlannerResolvedProducts,
   useRoomPlannerScene,
   useSelectFinalProposal,
@@ -124,6 +128,10 @@ export function Customer3dPreviewPage() {
     enabled: isSelectedSceneReady,
     retry: 1,
   });
+  const sceneLayoutAssetIds = useMemo(
+    () => collectSceneLayoutAssetIds(roomPlannerSceneQuery.data),
+    [roomPlannerSceneQuery.data],
+  );
   const sceneProductVersionIds = useMemo(
     () => collectSceneProductVersionIds(roomPlannerSceneQuery.data),
     [roomPlannerSceneQuery.data],
@@ -132,6 +140,11 @@ export function Customer3dPreviewPage() {
     selectedScene?.sceneId,
     sceneProductVersionIds,
     { enabled: Boolean(selectedScene?.sceneId && roomPlannerSceneQuery.data) },
+  );
+  const resolvedLayoutAssetsQuery = useRoomPlannerResolvedLayoutAssets(
+    selectedScene?.sceneId,
+    sceneLayoutAssetIds,
+    { enabled: Boolean(selectedScene?.sceneId && roomPlannerSceneQuery.data && sceneLayoutAssetIds.length > 0) },
   );
   const resolvedProductsByVersionId = useMemo(
     () => new Map((resolvedProductsQuery.data?.items ?? []).map((item) => [item.productVersionId, item])),
@@ -161,6 +174,17 @@ export function Customer3dPreviewPage() {
   const hydratedBuildingScene = useMemo(
     () => hydrateBuildingRoomPlannerPayload(roomPlannerSceneQuery.data),
     [roomPlannerSceneQuery.data],
+  );
+  const surfaceAssetVisuals = useMemo(
+    () =>
+      (resolvedLayoutAssetsQuery.data?.items ?? [])
+        .filter((asset) => asset.layoutAssetType === 'FLOOR_MATERIAL' || asset.layoutAssetType === 'WALL_MATERIAL')
+        .map((asset) => ({
+          layoutAssetId: asset.layoutAssetId,
+          previewUrl: getLayoutAssetFileUrl(asset, 'PREVIEW'),
+          textureUrl: getLayoutAssetFileUrl(asset, 'TEXTURE'),
+        })),
+    [resolvedLayoutAssetsQuery.data?.items],
   );
   const buildingModelsByVersionId = useMemo(
     () => createResolvedRoomPlannerBuildingModelVersionMap(resolvedProductsQuery.data?.items ?? []),
@@ -603,6 +627,7 @@ export function Customer3dPreviewPage() {
                   placedProducts={resolvedBuildingProducts}
                   sceneData={hydratedBuildingScene.sceneData}
                   selectedProductId={selectedObjectId}
+                  surfaceAssets={surfaceAssetVisuals}
                   onProductDrop={() => undefined}
                   onProductLoadError={() => undefined}
                   onProductMove={() => undefined}
@@ -891,6 +916,77 @@ function PanelHeader({ title }: { title: string }) {
 
 function isRoomPlannerPreviewScene(scene: { sceneType?: string | null }) {
   return scene.sceneType === 'ROOM_PLANNER' || scene.sceneType === 'THREE_D';
+}
+
+function getLayoutAssetFileUrl(asset: LayoutAssetDto, fileType: 'PREVIEW' | 'TEXTURE') {
+  const primaryFileUrl = fileType === 'TEXTURE'
+    ? asset.primaryTexture?.url
+    : asset.primaryPreview?.url ?? asset.previewUrl;
+  const file = asset.files?.find((item) => item.fileType === fileType && item.isPrimary)
+    ?? asset.files?.find((item) => item.fileType === fileType);
+
+  return primaryFileUrl ?? file?.fileUrl ?? file?.publicUrl ?? file?.url ?? null;
+}
+
+function addLayoutAssetId(ids: Set<string>, value: unknown) {
+  if (typeof value === 'string' && value && value !== EMPTY_GUID) {
+    ids.add(value);
+  }
+}
+
+function collectLayoutAssetIdsDeep(value: unknown, ids: Set<string>, depth = 0) {
+  if (!value || depth > 6) {
+    return;
+  }
+
+  if (Array.isArray(value)) {
+    value.forEach((item) => collectLayoutAssetIdsDeep(item, ids, depth + 1));
+    return;
+  }
+
+  if (typeof value !== 'object') {
+    return;
+  }
+
+  const record = value as Record<string, unknown>;
+  addLayoutAssetId(ids, record.layoutAssetId);
+  addLayoutAssetId(ids, record.layoutAssetID);
+  addLayoutAssetId(ids, record.layout_asset_id);
+
+  Object.entries(record)
+    .filter(([key]) => key !== 'objects')
+    .forEach(([, nestedValue]) => collectLayoutAssetIdsDeep(nestedValue, ids, depth + 1));
+}
+
+function collectSceneLayoutAssetIds(scene: RoomPlannerSceneData | null | undefined) {
+  const ids = new Set<string>();
+  const sceneRecord = scene as Record<string, unknown> | null | undefined;
+  const blueprintLayout = sceneRecord?.blueprintLayout as Record<string, unknown> | null | undefined;
+  const floors = Array.isArray(blueprintLayout?.floors) ? blueprintLayout.floors : [];
+
+  (scene?.objects ?? []).forEach((object) => {
+    addLayoutAssetId(ids, (object as Record<string, unknown>).layoutAssetId);
+  });
+
+  floors.forEach((floor) => {
+    const floorRecord = floor as Record<string, unknown>;
+    const floorStyle = floorRecord.floorStyle as Record<string, unknown> | undefined;
+    addLayoutAssetId(ids, floorStyle?.layoutAssetId);
+
+    const walls = Array.isArray(floorRecord.walls) ? floorRecord.walls : [];
+    walls.forEach((wall) => {
+      const wallStyle = (wall as Record<string, unknown>).style as Record<string, unknown> | undefined;
+      addLayoutAssetId(ids, wallStyle?.layoutAssetId);
+    });
+
+    collectLayoutAssetIdsDeep(floorRecord.stairs, ids);
+    collectLayoutAssetIdsDeep(floorRecord.slabs, ids);
+    collectLayoutAssetIdsDeep(floorRecord.openings, ids);
+  });
+
+  collectLayoutAssetIdsDeep(blueprintLayout?.metadata, ids);
+
+  return Array.from(ids).sort();
 }
 
 function collectSceneProductVersionIds(scene: RoomPlannerSceneData | null | undefined) {

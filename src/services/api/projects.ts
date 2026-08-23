@@ -37,7 +37,7 @@ export type ServiceResult<T> = {
   status: number;
   message?: string;
   data: T;
-  errors?: string[];
+  errors?: Array<string | { code?: string; message?: string; field?: string }>;
   errorCode?: string;
 };
 
@@ -82,6 +82,17 @@ export type ProjectDto = ProjectListItemDto & {
   budgetMin: number | null;
   budgetMax: number | null;
   targetCompletionDate: string | null;
+  deliverySummary?: ProjectDeliverySummaryDto | null;
+  phaseDeadlines?: ProjectPhaseDeadlineItemDto[];
+};
+
+export type ProjectDeliverySummaryDto = {
+  status?: string | null;
+  deliveredQuantity: number;
+  totalQuantity: number;
+  remainingQuantity: number;
+  deliveryProgressPercent: number;
+  nextDeliveryAt?: string | null;
 };
 
 export type ProjectListData = {
@@ -134,6 +145,8 @@ export type FileType =
   | 'LIDAR_SCAN'
   | 'MODEL_3D'
   | 'TEXTURE'
+  | 'PREVIEW'
+  | 'LAYOUT_ASSET'
   | 'PRODUCT_PREVIEW'
   | 'PROPOSAL_PREVIEW'
   | 'PROPOSAL_FILE'
@@ -315,7 +328,7 @@ export type ProjectWorkflowDto = {
   stages: ProjectWorkflowStageDto[];
 };
 
-export type ProjectPhaseDeadlinePhase = 'PROPOSAL' | 'PRODUCTION';
+export type ProjectPhaseDeadlinePhase = 'REQUEST' | 'DESIGN' | 'QUOTATION' | 'PRODUCTION' | 'DELIVERY' | 'PROPOSAL' | string;
 
 export type ProjectPhaseDeadlineStatus =
   | 'PLANNED'
@@ -326,9 +339,11 @@ export type ProjectPhaseDeadlineStatus =
 
 export type ProjectPhaseDeadlineItemDto = {
   phase: ProjectPhaseDeadlinePhase;
+  startedAt?: string | null;
+  deadlineAt?: string | null;
   dueDate?: string | null;
   completedAt?: string | null;
-  status: ProjectPhaseDeadlineStatus;
+  status?: ProjectPhaseDeadlineStatus | null;
   overdueDays?: number | null;
 };
 
@@ -351,8 +366,16 @@ export function getProjectServiceResultMessage(error: unknown) {
     return 'Cannot connect to project API. Please check backend and VITE_API_URL.';
   }
 
-  if (result.errors?.length) {
-    return result.errors.join('\n');
+  const errorCode = getFirstProjectErrorCode(result);
+
+  if (errorCode) {
+    return getProjectErrorCodeMessage(errorCode);
+  }
+
+  const errorMessages = getProjectErrorMessages(result);
+
+  if (errorMessages.length) {
+    return errorMessages.join('\n');
   }
 
   if (result.errorCode) {
@@ -370,7 +393,16 @@ export function getProjectServiceResultFromError(error: unknown) {
   const data = error.response?.data;
 
   if (data && typeof data === 'object' && 'status' in data) {
-    return data as ServiceResult<unknown>;
+    const result = data as ServiceResult<unknown> & {
+      detail?: string;
+      title?: string;
+    };
+
+    return {
+      ...result,
+      status: error.response?.status ?? result.status ?? 500,
+      message: result.message ?? result.detail ?? result.title,
+    };
   }
 
   return null;
@@ -479,7 +511,7 @@ export async function getProjectPhaseDeadlines(projectId: string) {
     `/projects/${projectId}/phase-deadlines`,
   );
 
-  return response.data.data;
+  return normalizeProjectPhaseDeadlines(response.data.data);
 }
 
 export async function updateProjectPhaseDeadlines(input: UpdateProjectPhaseDeadlinesInput) {
@@ -491,7 +523,7 @@ export async function updateProjectPhaseDeadlines(input: UpdateProjectPhaseDeadl
     },
   );
 
-  return response.data.data;
+  return normalizeProjectPhaseDeadlines(response.data.data);
 }
 
 export async function completeProject(projectId: string) {
@@ -611,6 +643,33 @@ function clearMultipartContentType(headers: unknown) {
 
   delete headerBag['Content-Type'];
   delete headerBag['content-type'];
+}
+
+function normalizeProjectPhaseDeadlines(data: ProjectPhaseDeadlinesDto): ProjectPhaseDeadlinesDto {
+  return {
+    ...data,
+    deadlines: data.deadlines.map((deadline) => ({
+      ...deadline,
+      deadlineAt: deadline.deadlineAt ?? deadline.dueDate ?? null,
+      dueDate: deadline.dueDate ?? deadline.deadlineAt ?? null,
+    })),
+  };
+}
+
+function getFirstProjectErrorCode(result: ServiceResult<unknown>) {
+  const objectError = result.errors?.find((item): item is { code?: string } => typeof item === 'object' && item !== null && Boolean(item.code));
+
+  return objectError?.code ?? result.errorCode;
+}
+
+function getProjectErrorMessages(result: ServiceResult<unknown>) {
+  return (result.errors ?? [])
+    .map((item) => {
+      if (typeof item === 'string') return item;
+      if (item.code) return getProjectErrorCodeMessage(item.code);
+      return item.message ?? null;
+    })
+    .filter((message): message is string => Boolean(message));
 }
 
 function getProjectErrorCodeMessage(errorCode: string) {

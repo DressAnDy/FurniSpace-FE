@@ -10,6 +10,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 
 import { CustomerNavbar } from '@/features/CustomerPages/customercomponents';
+import { ProjectPhaseTimelineCard } from '@/features/projectPhaseDeadlines/ProjectPhaseTimelineCard';
 import { getProjectServiceResultMessage, type ProjectStatus } from '@/services/api/projects';
 import { getProposalServiceResultMessage, type ProposalDto } from '@/services/api/proposals';
 import { useProjectDetail, useProjectProposals, useReopenProjectProposal } from '@/services/queries';
@@ -137,6 +138,12 @@ export function CustomerProjectDetailPage() {
                 <p>{project.furnitureRequirement}</p>
                 {project.description ? <p>{project.description}</p> : null}
               </section>
+
+              <ProjectPhaseTimelineCard
+                projectId={project.projectId}
+                title="Project Timeline"
+                description="All planned project phase deadlines and progress."
+              />
 
               <section className="customer-project-detail-links">
                 <Link to="/customer/orders">Orders</Link>

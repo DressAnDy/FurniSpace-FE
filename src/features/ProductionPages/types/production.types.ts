@@ -93,6 +93,7 @@ export interface ProductionItem {
   productNameSnapshot: string;
   productVersionNameSnapshot?: string;
   quantity: number;
+  startAt?: string;
   startedAt?: string;
   status: ProductionItemStatus;
   materialNote?: string;
