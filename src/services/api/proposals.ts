@@ -1,7 +1,7 @@
 import axios, { AxiosError } from 'axios';
 
 import type { RoomPlannerScenePayload } from '@/features/ThreeD/types/roomPlannerScene.types';
-import type { LayoutAssetDto } from './layoutAssets';
+import { normalizeLayoutAsset, type LayoutAssetDto } from './layoutAssets';
 import type { CatalogFileDto } from './products';
 
 import { getStoredAccessToken } from './tokenStore';
@@ -473,7 +473,10 @@ export async function resolveRoomPlannerSceneLayoutAssets(input: { layoutAssetId
     },
   );
 
-  return response.data.data;
+  return {
+    ...response.data.data,
+    items: (response.data.data.items ?? []).map(normalizeLayoutAsset),
+  };
 }
 
 export async function getProposalItems(params: ProposalItemListParams) {
