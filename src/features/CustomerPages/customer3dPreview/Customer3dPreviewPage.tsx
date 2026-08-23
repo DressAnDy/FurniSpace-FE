@@ -178,7 +178,10 @@ export function Customer3dPreviewPage() {
   const surfaceAssetVisuals = useMemo(
     () =>
       (resolvedLayoutAssetsQuery.data?.items ?? [])
-        .filter((asset) => asset.layoutAssetType === 'FLOOR_MATERIAL' || asset.layoutAssetType === 'WALL_MATERIAL')
+        .filter((asset) => {
+          const assetType = asset.assetType ?? asset.layoutAssetType;
+          return assetType === 'FLOOR_MATERIAL' || assetType === 'WALL_MATERIAL';
+        })
         .map((asset) => ({
           layoutAssetId: asset.layoutAssetId,
           previewUrl: getLayoutAssetFileUrl(asset, 'PREVIEW'),
@@ -971,12 +974,12 @@ function collectSceneLayoutAssetIds(scene: RoomPlannerSceneData | null | undefin
   floors.forEach((floor) => {
     const floorRecord = floor as Record<string, unknown>;
     const floorStyle = floorRecord.floorStyle as Record<string, unknown> | undefined;
-    addLayoutAssetId(ids, floorStyle?.layoutAssetId);
+    addLayoutAssetId(ids, floorStyle?.layoutAssetId ?? floorStyle?.materialId);
 
     const walls = Array.isArray(floorRecord.walls) ? floorRecord.walls : [];
     walls.forEach((wall) => {
       const wallStyle = (wall as Record<string, unknown>).style as Record<string, unknown> | undefined;
-      addLayoutAssetId(ids, wallStyle?.layoutAssetId);
+      addLayoutAssetId(ids, wallStyle?.layoutAssetId ?? wallStyle?.materialId);
     });
 
     collectLayoutAssetIdsDeep(floorRecord.stairs, ids);
@@ -1040,7 +1043,7 @@ function getSceneFloorMaterial(scene: RoomPlannerSceneData | null | undefined): 
     fallbackColor: layout?.floor?.color ?? '#8B5A2B',
     id: layout?.floor?.materialId ?? layout?.floorMaterialId ?? 'scene-floor',
     label: layout?.floor?.materialId ?? layout?.floorMaterialId ?? 'Scene Floor',
-    textureUrl: undefined,
+    textureUrl: layout?.floor?.textureUrlSnapshot ?? undefined,
     type: 'floor',
   };
 }
@@ -1062,7 +1065,7 @@ function getSceneWallMaterial(scene: RoomPlannerSceneData | null | undefined): R
     fallbackColor: wallStyle?.color ?? '#D8D2C5',
     id: wallStyle?.materialId ?? layout?.wallMaterialId ?? 'scene-wall',
     label: wallStyle?.materialId ?? layout?.wallMaterialId ?? 'Scene Wall',
-    textureUrl: undefined,
+    textureUrl: wallStyle?.textureUrlSnapshot ?? undefined,
     type: 'wall',
   };
 }
