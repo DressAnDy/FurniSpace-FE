@@ -299,7 +299,7 @@ function getSearchParams(params: Record<string, unknown>) {
   );
 }
 
-function normalizeLayoutAsset(asset: LayoutAssetDto): LayoutAssetDto {
+export function normalizeLayoutAsset(asset: LayoutAssetDto): LayoutAssetDto {
   const assetName = asset.assetName ?? asset.name;
   const assetType = asset.assetType ?? asset.layoutAssetType;
   const primaryPreviewFile = asset.files?.find((file) => file.fileType === 'PREVIEW' && file.isPrimary)
