@@ -115,6 +115,13 @@ type DragFloorOpeningState = {
   viewOffset: ViewOffset;
 };
 
+type DragLayoutState = {
+  originalPoints: BlueprintPoint[];
+  start: Pick<BlueprintPoint, 'x' | 'y'>;
+  transform: CanvasTransform;
+  viewOffset: ViewOffset;
+};
+
 type ItemEditorMenuState = {
   itemId: string;
   itemType: 'wall' | 'door' | 'window' | 'opening' | 'floor-hole';
@@ -268,6 +275,7 @@ export function BlueprintCanvas({
   const [dragWall, setDragWall] = useState<DragWallState | null>(null);
   const [dragOpening, setDragOpening] = useState<DragOpeningState | null>(null);
   const [dragFloorOpening, setDragFloorOpening] = useState<DragFloorOpeningState | null>(null);
+  const [dragLayout, setDragLayout] = useState<DragLayoutState | null>(null);
   const [itemEditorMenu, setItemEditorMenu] = useState<ItemEditorMenuState | null>(null);
   const [isPanning, setIsPanning] = useState(false);
   const [pendingWallStart, setPendingWallStart] = useState<Pick<BlueprintPoint, 'x' | 'y'> | null>(null);
@@ -301,8 +309,8 @@ export function BlueprintCanvas({
     };
   }, [layout, zoom]);
 
-  const activeTransform = dragPoint?.transform ?? dragWall?.transform ?? dragOpening?.transform ?? dragFloorOpening?.transform ?? autoTransform;
-  const activeViewOffset = dragPoint?.viewOffset ?? dragWall?.viewOffset ?? dragOpening?.viewOffset ?? dragFloorOpening?.viewOffset ?? viewOffset;
+  const activeTransform = dragPoint?.transform ?? dragWall?.transform ?? dragOpening?.transform ?? dragFloorOpening?.transform ?? dragLayout?.transform ?? autoTransform;
+  const activeViewOffset = dragPoint?.viewOffset ?? dragWall?.viewOffset ?? dragOpening?.viewOffset ?? dragFloorOpening?.viewOffset ?? dragLayout?.viewOffset ?? viewOffset;
 
   function toSvgPoint(point: Pick<BlueprintPoint, 'x' | 'y'>) {
     return {
@@ -362,7 +370,7 @@ export function BlueprintCanvas({
   }
 
   function handlePointerMove(event: PointerEvent<SVGSVGElement>) {
-    if (isPanning && panStart && !dragPoint && !dragWall && !dragOpening && !dragFloorOpening) {
+    if (isPanning && panStart && !dragPoint && !dragWall && !dragOpening && !dragFloorOpening && !dragLayout) {
       setViewOffset({
         x: panStart.x + event.clientX - panStart.pointerX,
         y: panStart.y + event.clientY - panStart.pointerY,
@@ -374,7 +382,7 @@ export function BlueprintCanvas({
       return;
     }
 
-    const activeDrag = dragPoint ?? dragWall ?? dragOpening ?? dragFloorOpening;
+    const activeDrag = dragPoint ?? dragWall ?? dragOpening ?? dragFloorOpening ?? dragLayout;
     const nextPoint = activeDrag
       ? fromPointer(event, activeDrag.transform, activeDrag.viewOffset)
       : fromPointer(event);
@@ -411,6 +419,21 @@ export function BlueprintCanvas({
           x: Number(clamp(nextPoint.x, MIN_LAYOUT_COORDINATE, MAX_LAYOUT_COORDINATE).toFixed(2)),
           z: Number(clamp(nextPoint.y, MIN_LAYOUT_COORDINATE, MAX_LAYOUT_COORDINATE).toFixed(2)),
         },
+      });
+      return;
+    }
+
+    if (dragLayout) {
+      const deltaX = nextPoint.x - dragLayout.start.x;
+      const deltaY = nextPoint.y - dragLayout.start.y;
+
+      onLayoutChange({
+        ...layout,
+        points: dragLayout.originalPoints.map((point) => ({
+          ...point,
+          x: Number(clamp(point.x + deltaX, MIN_LAYOUT_COORDINATE, MAX_LAYOUT_COORDINATE).toFixed(2)),
+          y: Number(clamp(point.y + deltaY, MIN_LAYOUT_COORDINATE, MAX_LAYOUT_COORDINATE).toFixed(2)),
+        })),
       });
       return;
     }
@@ -680,6 +703,7 @@ export function BlueprintCanvas({
     setDragWall(null);
     setDragOpening(null);
     setDragFloorOpening(null);
+    setDragLayout(null);
     setIsPanning(false);
     setPanStart(null);
   }
@@ -694,6 +718,16 @@ export function BlueprintCanvas({
         })
         .join(' ')
     : '';
+  const layoutMoveHandlePoint = closedBoundary.length >= 3
+    ? (() => {
+        const bounds = getRoomBounds(closedBoundary);
+
+        return toSvgPoint({
+          x: (bounds.minX + bounds.maxX) / 2,
+          y: (bounds.minY + bounds.maxY) / 2,
+        });
+      })()
+    : null;
   const underlayPolygonPoints = underlayBoundary.length
     ? underlayBoundary
         .map((point) => {
@@ -705,7 +739,7 @@ export function BlueprintCanvas({
   const canvasClassName = [
     'blueprint-canvas',
     `is-tool-${activeTool}`,
-    dragWall || dragOpening || dragFloorOpening ? 'is-moving-item' : '',
+    dragWall || dragOpening || dragFloorOpening || dragLayout ? 'is-moving-item' : '',
     pendingWallStart ? 'is-drawing-wall' : '',
   ].filter(Boolean).join(' ');
   const contextOpening = itemEditorMenu && itemEditorMenu.itemType !== 'wall' && itemEditorMenu.itemType !== 'floor-hole' && layout
@@ -832,6 +866,31 @@ export function BlueprintCanvas({
             )}
             {closedBoundary.length >= 3 && (
               <polygon className="blueprint-room-fill blueprint-click-surface" fill={floorFillColor} points={polygonPoints} />
+            )}
+            {layoutMoveHandlePoint && activeTool === 'select' && !readOnly && (
+              <g
+                className="blueprint-layout-move-handle"
+                transform={`translate(${layoutMoveHandlePoint.x} ${layoutMoveHandlePoint.y})`}
+                onPointerDown={(event) => {
+                  const snapshot = getDragSnapshot();
+
+                  event.stopPropagation();
+                  event.currentTarget.setPointerCapture(event.pointerId);
+                  onSelectItem(null);
+                  setItemEditorMenu(null);
+                  setDragLayout({
+                    originalPoints: layout.points.map((point) => ({ ...point })),
+                    start: fromPointer(event, snapshot.transform, snapshot.viewOffset),
+                    transform: snapshot.transform,
+                    viewOffset: snapshot.viewOffset,
+                  });
+                }}
+              >
+                <title>Move floor layout</title>
+                <circle r="13" />
+                <line x1="-6" x2="6" y1="0" y2="0" />
+                <line x1="0" x2="0" y1="-6" y2="6" />
+              </g>
             )}
             {floorOpenings.map((opening) => {
               const center = toSvgPoint({ x: opening.position.x, y: opening.position.z });

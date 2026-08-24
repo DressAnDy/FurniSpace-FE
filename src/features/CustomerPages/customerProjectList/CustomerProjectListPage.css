@@ -854,6 +854,65 @@
   color: #8b6f47;
 }
 
+.customer-project-measurement-section {
+  display: grid;
+  gap: 12px;
+}
+
+.customer-project-measurement-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+}
+
+.customer-project-measurement-card {
+  display: grid;
+  gap: 10px;
+  border: 1px solid rgba(139, 111, 71, 0.14);
+  border-radius: 12px;
+  background: #faf9f7;
+  padding: 10px;
+}
+
+.customer-project-measurement-card button,
+.customer-project-measurement-card > span {
+  display: grid;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  place-items: center;
+  overflow: hidden;
+  border: 0;
+  border-radius: 10px;
+  background: #ffffff;
+  color: #8b6f47;
+  cursor: pointer;
+  padding: 0;
+}
+
+.customer-project-measurement-card img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.customer-project-measurement-card strong,
+.customer-project-measurement-card small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.customer-project-measurement-card strong {
+  color: #2d2d2d;
+  font-size: 13px;
+}
+
+.customer-project-measurement-card small {
+  color: #6b6b6b;
+  font-size: 12px;
+}
+
 .customer-project-detail-proposals {
   display: grid;
   gap: 14px;

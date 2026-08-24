@@ -1,0 +1,336 @@
+.project-showcase-manager {
+  display: grid;
+  gap: 16px;
+}
+
+.project-showcase-manager-header,
+.project-showcase-card,
+.project-showcase-media-grid article {
+  border: 1px solid rgba(139, 111, 71, 0.14);
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.project-showcase-manager-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px;
+}
+
+.project-showcase-manager-header span,
+.project-showcase-section-title p,
+.project-showcase-status-stack span,
+.project-showcase-state {
+  color: #6b6b6b;
+  font-size: 13px;
+  line-height: 20px;
+}
+
+.project-showcase-manager-header > div > span {
+  color: #8b6f47;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.project-showcase-manager h3,
+.project-showcase-manager h4,
+.project-showcase-manager p {
+  margin: 0;
+}
+
+.project-showcase-manager h3 {
+  color: #2d2d2d;
+  font-size: 24px;
+  line-height: 32px;
+}
+
+.project-showcase-status-stack {
+  display: grid;
+  justify-items: end;
+  gap: 4px;
+  text-align: right;
+}
+
+.project-showcase-status-stack strong {
+  border-radius: 999px;
+  background: #f5f1ec;
+  color: #6f5636;
+  font-size: 12px;
+  font-weight: 800;
+  padding: 7px 10px;
+}
+
+.project-showcase-message,
+.project-showcase-state {
+  border-radius: 8px;
+  padding: 12px 14px;
+}
+
+.project-showcase-state {
+  background: #faf9f7;
+}
+
+.project-showcase-message-success {
+  background: rgba(22, 163, 74, 0.1);
+  color: #15803d;
+}
+
+.project-showcase-message-error {
+  background: rgba(220, 38, 38, 0.1);
+  color: #b91c1c;
+}
+
+.project-showcase-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(280px, 0.75fr);
+  gap: 16px;
+}
+
+.project-showcase-card {
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+}
+
+.project-showcase-section-title {
+  display: grid;
+  gap: 4px;
+}
+
+.project-showcase-section-title h4 {
+  color: #2d2d2d;
+  font-size: 18px;
+  line-height: 24px;
+}
+
+.project-showcase-form label,
+.project-showcase-media-form label {
+  display: grid;
+  gap: 6px;
+}
+
+.project-showcase-form label > span,
+.project-showcase-media-form label > span {
+  color: #6b6b6b;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 16px;
+  text-transform: uppercase;
+}
+
+.project-showcase-form input,
+.project-showcase-form textarea,
+.project-showcase-media-form input,
+.project-showcase-media-form select {
+  width: 100%;
+  min-height: 40px;
+  border: 1px solid rgba(139, 111, 71, 0.18);
+  border-radius: 8px;
+  background: #ffffff;
+  color: #2d2d2d;
+  font: inherit;
+  padding: 10px 12px;
+}
+
+.project-showcase-form textarea {
+  min-height: 96px;
+  resize: vertical;
+}
+
+.project-showcase-actions,
+.project-showcase-media-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.project-showcase-actions button,
+.project-showcase-actions a,
+.project-showcase-media-form button,
+.project-showcase-media-actions button {
+  display: inline-flex;
+  min-height: 36px;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  border: 1px solid #8b6f47;
+  border-radius: 8px;
+  background: #8b6f47;
+  color: #ffffff;
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 800;
+  padding: 0 12px;
+  text-decoration: none;
+}
+
+.project-showcase-actions .is-secondary,
+.project-showcase-media-actions button {
+  background: #ffffff;
+  color: #6f5636;
+}
+
+.project-showcase-actions button:disabled,
+.project-showcase-media-form button:disabled,
+.project-showcase-media-actions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
+}
+
+.project-showcase-readiness ul {
+  display: grid;
+  gap: 8px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.project-showcase-readiness li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #6b6b6b;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.project-showcase-readiness li span {
+  border-radius: 999px;
+  background: rgba(176, 123, 55, 0.12);
+  color: #8b5f28;
+  font-size: 11px;
+  line-height: 1;
+  padding: 6px 8px;
+}
+
+.project-showcase-readiness li.is-ready span {
+  background: rgba(22, 163, 74, 0.12);
+  color: #15803d;
+}
+
+.project-showcase-cover-preview {
+  position: relative;
+  overflow: hidden;
+  border-radius: 8px;
+  background: #f5f1ec;
+}
+
+.project-showcase-cover-preview img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+}
+
+.project-showcase-cover-preview span {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.92);
+  color: #6f5636;
+  font-size: 11px;
+  font-weight: 800;
+  padding: 6px 9px;
+}
+
+.project-showcase-media-form {
+  display: grid;
+  grid-template-columns: minmax(180px, 1.3fr) minmax(120px, 0.7fr) repeat(2, minmax(160px, 1fr)) auto auto;
+  gap: 10px;
+  align-items: end;
+}
+
+.project-showcase-checkbox {
+  display: flex !important;
+  min-height: 40px;
+  align-items: center;
+  gap: 8px !important;
+}
+
+.project-showcase-checkbox input {
+  width: auto;
+  min-height: 0;
+}
+
+.project-showcase-empty-media {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #6b6b6b;
+  font-size: 13px;
+}
+
+.project-showcase-media-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 12px;
+}
+
+.project-showcase-media-grid article {
+  overflow: hidden;
+}
+
+.project-showcase-media-grid img,
+.project-showcase-media-placeholder {
+  display: block;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  background: #ece7df;
+  object-fit: cover;
+}
+
+.project-showcase-media-grid article > div {
+  display: grid;
+  gap: 3px;
+  padding: 12px;
+}
+
+.project-showcase-media-grid strong {
+  color: #2d2d2d;
+  font-size: 14px;
+}
+
+.project-showcase-media-grid span {
+  color: #6b6b6b;
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.project-showcase-media-actions {
+  border-top: 1px solid rgba(139, 111, 71, 0.12);
+  padding: 10px 12px 12px;
+}
+
+.project-showcase-media-actions button {
+  min-height: 32px;
+  font-size: 12px;
+  padding: 0 9px;
+}
+
+.project-showcase-media-actions button.is-active {
+  background: #f5f1ec;
+}
+
+@media (max-width: 1080px) {
+  .project-showcase-grid,
+  .project-showcase-media-form {
+    grid-template-columns: 1fr;
+  }
+
+  .project-showcase-status-stack {
+    justify-items: start;
+    text-align: left;
+  }
+}
+
+@media (max-width: 720px) {
+  .project-showcase-manager-header {
+    flex-direction: column;
+  }
+}

@@ -531,23 +531,6 @@ function createLevelFloorOpeningMeshes(
         source: 'building-test-environment',
       };
     });
-
-    const outline = MeshBuilder.CreateBox(
-      `building-test-${level.id}-${opening.id}-outline`,
-      { depth: opening.depth, height: 0.018, width: opening.width },
-      scene,
-    );
-
-    outline.position = new Vector3(opening.position.x, level.elevation + FLOOR_SURFACE_OFFSET + 0.018, opening.position.z);
-    outline.material = floorOpeningMaterial;
-    outline.isPickable = false;
-    outline.visibility = 0.18;
-    outline.metadata = {
-      kind: 'floor-opening-outline',
-      levelId: level.id,
-      openingId: opening.id,
-      source: 'building-test-environment',
-    };
   });
 }
 

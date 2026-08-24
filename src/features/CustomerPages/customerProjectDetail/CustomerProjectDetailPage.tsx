@@ -4,6 +4,7 @@ import {
   IconHome,
   IconMapPin,
   IconPalette,
+  IconPhoto,
   IconRefresh,
 } from '@tabler/icons-react';
 import { useEffect, useMemo, useState } from 'react';
@@ -11,9 +12,10 @@ import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 
 import { CustomerNavbar } from '@/features/CustomerPages/customercomponents';
 import { ProjectPhaseTimelineCard } from '@/features/projectPhaseDeadlines/ProjectPhaseTimelineCard';
+import { getMeasurementImageServiceResultMessage } from '@/services/api/measurementImages';
 import { getProjectServiceResultMessage, type ProjectStatus } from '@/services/api/projects';
 import { getProposalServiceResultMessage, type ProposalDto } from '@/services/api/proposals';
-import { useProjectDetail, useProjectProposals, useReopenProjectProposal } from '@/services/queries';
+import { useProjectDetail, useProjectMeasurementImages, useProjectProposals, useReopenProjectProposal } from '@/services/queries';
 
 import { CustomerProjectProposalAccordionItem } from './CustomerProjectProposalAccordion';
 import '../customerProjectList/CustomerProjectListPage.css';
@@ -38,6 +40,8 @@ export function CustomerProjectDetailPage() {
     () => (proposalsQuery.data?.items ?? []).filter((proposal) => isCustomerVisibleProposal(proposal.status)),
     [proposalsQuery.data?.items],
   );
+  const measurementImagesQuery = useProjectMeasurementImages(project?.projectId, { page: 1, limit: 50 });
+  const measurementImages = measurementImagesQuery.data?.items ?? [];
   const [expandedProposalId, setExpandedProposalId] = useState<string | null>(proposalIdFromUrl);
   const [message, setMessage] = useState<{ tone: 'error' | 'success'; text: string } | null>(null);
 
@@ -144,6 +148,43 @@ export function CustomerProjectDetailPage() {
                 title="Project Timeline"
                 description="All planned project phase deadlines and progress."
               />
+
+              <section className="customer-project-detail-section customer-project-measurement-section">
+                <h2>Measurement Images</h2>
+                <p>Photos captured during measurement sessions and linked to project areas.</p>
+                {measurementImagesQuery.isLoading ? <p className="customer-project-detail-proposals-state">Loading measurement images...</p> : null}
+                {measurementImagesQuery.isError ? (
+                  <p className="customer-project-detail-proposals-state is-error">
+                    {getMeasurementImageServiceResultMessage(measurementImagesQuery.error)}
+                  </p>
+                ) : null}
+                {!measurementImagesQuery.isLoading && !measurementImagesQuery.isError && measurementImages.length === 0 ? (
+                  <p className="customer-project-detail-proposals-state">No measurement images have been uploaded yet.</p>
+                ) : null}
+                {measurementImages.length > 0 ? (
+                  <div className="customer-project-measurement-grid">
+                    {measurementImages.map((image) => {
+                      const imageUrl = image.url ?? image.publicUrl;
+
+                      return (
+                        <article className="customer-project-measurement-card" key={image.fileId}>
+                          {imageUrl ? (
+                            <button type="button" onClick={() => window.open(imageUrl, '_blank', 'noopener,noreferrer')}>
+                              <img alt={image.originalFileName ?? 'Measurement'} src={imageUrl} />
+                            </button>
+                          ) : (
+                            <span><IconPhoto size={24} /></span>
+                          )}
+                          <div>
+                            <strong>{image.originalFileName ?? image.fileId}</strong>
+                            <small>{image.areas?.length ? image.areas.map((area) => area.areaName ?? area.projectAreaId).join(', ') : 'Unassigned'}</small>
+                          </div>
+                        </article>
+                      );
+                    })}
+                  </div>
+                ) : null}
+              </section>
 
               <section className="customer-project-detail-links">
                 <Link to="/customer/orders">Orders</Link>

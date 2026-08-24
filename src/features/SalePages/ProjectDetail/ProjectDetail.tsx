@@ -3,6 +3,7 @@ import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 
 import { ProjectStatusBadge, ProjectTimeline, SaleNavbar, SaleSidebar } from '@/features/SalePages/salecomponents';
+import { ProjectShowcaseManager } from '@/features/showcases/ProjectShowcaseManager';
 import type { OrderListItemDto } from '@/services/api/orders';
 import type { ProjectDto, ProjectStatus } from '@/services/api/projects';
 import { getProjectServiceResultMessage } from '@/services/api/projects';
@@ -22,7 +23,7 @@ import { ChatTab, FilesAttachmentsTab, OverviewTab, ProjectMemberTab, SchedulesT
 import { ProjectStartFeePanel } from './components/ProjectStartFeePanel';
 import './ProjectDetail.css';
 
-type ProjectDetailTab = 'overview' | 'customer' | 'files' | 'chat' | 'schedules';
+type ProjectDetailTab = 'overview' | 'customer' | 'files' | 'chat' | 'schedules' | 'showcase';
 
 export type ProjectDetailProject = ProjectDto;
 
@@ -41,6 +42,7 @@ const baseTabs: Array<{ id: ProjectDetailTab; label: string }> = [
 const assignedProjectTabs: Array<{ id: ProjectDetailTab; label: string }> = [
   ...baseTabs,
   { id: 'schedules', label: 'Schedules' },
+  { id: 'showcase', label: 'Showcase' },
 ];
 
 const timelineSteps = [
@@ -229,6 +231,9 @@ export function ProjectDetail() {
     if (activeTab === 'customer') return <ProjectMemberTab project={project} canManageAssignment={isAssignedProjectRoute} />;
     if (activeTab === 'files') return <FilesAttachmentsTab projectId={project.projectId} />;
     if (activeTab === 'schedules' && isAssignedProjectRoute) return <SchedulesTab project={project} />;
+    if (activeTab === 'showcase' && isAssignedProjectRoute) {
+      return <ProjectShowcaseManager projectId={project.projectId} projectName={project.projectName} projectStatus={project.status} role="sales" />;
+    }
     return <ChatTab project={project} />;
   };
 

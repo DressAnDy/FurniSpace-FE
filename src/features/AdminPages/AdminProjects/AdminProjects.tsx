@@ -37,6 +37,7 @@ import {
   useProjectFiles,
   useProjectList,
 } from '@/services/queries';
+import { ProjectShowcaseManager } from '@/features/showcases/ProjectShowcaseManager';
 
 import { AdminNavbar, AdminSidebar } from '../admincomponents';
 import './AdminProjects.css';
@@ -489,6 +490,10 @@ function ProjectDetailDrawer({
                 ) : null}
               </div>
               {actionMessage ? <div className="admin-projects-action-message">{actionMessage}</div> : null}
+            </section>
+
+            <section className="admin-projects-detail-section">
+              <ProjectShowcaseManager projectId={project.projectId} projectName={project.projectName} projectStatus={project.status} role="admin" />
             </section>
 
             <section className="admin-projects-detail-section">

@@ -82,7 +82,9 @@ export default function App() {
                 <Route path="/products/detail" element={<ProductDetailPage />} />
                 <Route path="/projects" element={<ProjectListReviewPage />} />
                 <Route path="/projects/detail" element={<ProjectDetailPage />} />
-                <Route path="/showcases" element={<PublicShowcasesPage />} />
+                <Route path="/public/showcases" element={<PublicShowcasesPage />} />
+                <Route path="/public/showcases/:slug" element={<PublicShowcaseDetailPage />} />
+                <Route path="/showcases" element={<Navigate to="/public/showcases" replace />} />
                 <Route path="/showcases/:slug" element={<PublicShowcaseDetailPage />} />
                 <Route path="/user-profile" element={<UserProfilePage />} />
                 <Route path="/viewer3d" element={<ViewerDemoPage />} />
