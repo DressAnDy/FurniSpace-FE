@@ -65,12 +65,17 @@ export function SaleTracking() {
   const deliverySchedulesQuery = useProjectScheduleList(
     selectedProjectId
       ? {
-          limit: 20,
+          limit: 100,
           page: 1,
           projectId: selectedProjectId,
           scheduleType: 'DELIVERY',
         }
       : undefined,
+    {
+      enabled: Boolean(selectedProjectId),
+      fetchAll: true,
+      staleTime: 60_000,
+    },
   );
   const order = orderDetailQuery.data ?? null;
   const tracking = deliveryTrackingQuery.data ?? null;

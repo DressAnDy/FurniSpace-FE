@@ -11,11 +11,14 @@ type SchedulesTabProps = {
 
 export function SchedulesTab({ project }: Readonly<SchedulesTabProps>) {
   const [statusMessage, setStatusMessage] = useState('');
-  const schedulesQuery = useProjectScheduleList({
-    projectId: project.projectId,
-    page: 1,
-    limit: 50,
-  });
+  const schedulesQuery = useProjectScheduleList(
+    {
+      projectId: project.projectId,
+      page: 1,
+      limit: 100,
+    },
+    { fetchAll: true, staleTime: 60_000 },
+  );
   const schedules = schedulesQuery.data?.items ?? [];
   const updateScheduleStatusMutation = useUpdateProjectScheduleStatus();
 

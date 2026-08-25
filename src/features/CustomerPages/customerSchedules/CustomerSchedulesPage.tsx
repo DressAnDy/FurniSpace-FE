@@ -8,21 +8,18 @@ import {
   IconMapPin,
   IconSearch,
 } from '@tabler/icons-react';
-import { useQueries } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 
 import { CustomerNavbar } from '@/features/CustomerPages/customercomponents';
 import {
-  getProjectSchedules,
   getProjectScheduleServiceResultMessage,
   type ProjectScheduleDto,
   type ProjectScheduleStatus,
   type ProjectScheduleType,
 } from '@/services/api/schedules';
 import type { ProjectListItemDto } from '@/services/api/projects';
-import { useProjectList } from '@/services/queries/useProjects';
-import { projectScheduleQueryKeys, useUpdateProjectScheduleStatus } from '@/services/queries/useSchedules';
+import { useMultiProjectSchedules, useProjectList, useUpdateProjectScheduleStatus } from '@/services/queries';
 
 import './CustomerSchedulesPage.css';
 
@@ -51,44 +48,47 @@ export function CustomerSchedulesPage() {
   const [activeActionId, setActiveActionId] = useState<string | null>(null);
   const projectsQuery = useProjectList({ page: 1, limit: 100 });
   const projects = useMemo(() => (projectsQuery.data?.items ?? []).filter((project) => Boolean(project.projectId)), [projectsQuery.data?.items]);
-  const scheduleQueries = useQueries({
-    queries: projects.map((project) => {
-      const params = {
-        projectId: project.projectId,
-        scheduleType: scheduleType || null,
-        status: status || null,
-        page: 1,
-        limit: 100,
-      };
-
-      return {
-        queryKey: projectScheduleQueryKeys.list(params),
-        queryFn: () => getProjectSchedules(params),
-      };
-    }),
+  const projectById = useMemo(
+    () => Object.fromEntries(projects.map((project) => [project.projectId, project])),
+    [projects],
+  );
+  const projectIds = useMemo(() => projects.map((project) => project.projectId), [projects]);
+  const schedulesQuery = useMultiProjectSchedules(projectIds, {
+    enabled: projectsQuery.isSuccess && projectIds.length > 0,
   });
   const updateStatusMutation = useUpdateProjectScheduleStatus();
   const schedules = useMemo<CustomerScheduleItem[]>(
     () =>
-      scheduleQueries
-        .flatMap((query, index) =>
-          (query.data?.items ?? []).map((schedule) => ({
-            project: projects[index],
-            schedule,
-          })),
-        )
-        .filter((item): item is CustomerScheduleItem => Boolean(item.project))
+      (schedulesQuery.data ?? [])
+        .map((schedule) => {
+          const project = projectById[schedule.projectId];
+
+          if (!project) {
+            return null;
+          }
+
+          return { project, schedule };
+        })
+        .filter((item): item is CustomerScheduleItem => item !== null)
         .sort((left, right) => new Date(left.schedule.scheduledStart).getTime() - new Date(right.schedule.scheduledStart).getTime()),
-    [projects, scheduleQueries],
+    [projectById, schedulesQuery.data],
   );
   const visibleSchedules = useMemo(() => {
     const normalizedKeyword = keyword.trim().toLowerCase();
 
-    if (!normalizedKeyword) {
-      return schedules;
-    }
-
     return schedules.filter(({ project, schedule }) => {
+      if (scheduleType && schedule.scheduleType !== scheduleType) {
+        return false;
+      }
+
+      if (status && schedule.status !== status) {
+        return false;
+      }
+
+      if (!normalizedKeyword) {
+        return true;
+      }
+
       const searchableFields = [
         project.projectCode,
         project.projectName,
@@ -102,7 +102,7 @@ export function CustomerSchedulesPage() {
 
       return searchableFields.some((value) => value.toLowerCase().includes(normalizedKeyword));
     });
-  }, [keyword, schedules]);
+  }, [keyword, scheduleType, schedules, status]);
   const schedulesByDate = useMemo(() => {
     const groups = new Map<string, CustomerScheduleItem[]>();
 
@@ -121,8 +121,8 @@ export function CustomerSchedulesPage() {
       ?? null,
     [schedulesByDate, selectedDateKey, selectedScheduleId, visibleSchedules],
   );
-  const isLoading = projectsQuery.isLoading || scheduleQueries.some((query) => query.isLoading);
-  const scheduleError = scheduleQueries.find((query) => query.isError)?.error;
+  const isLoading = projectsQuery.isLoading || schedulesQuery.isLoading;
+  const scheduleError = schedulesQuery.error;
 
   useEffect(() => {
     const scheduleId = searchParams.get('scheduleId') ?? '';

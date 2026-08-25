@@ -22,14 +22,25 @@ export function SchedulesTab({ project }: SchedulesTabProps) {
   const [scheduleStartInput, setScheduleStartInput] = useState('');
   const [scheduleEndInput, setScheduleEndInput] = useState('');
   const [statusFilter, setStatusFilter] = useState<ProjectScheduleStatus | ''>('');
-  const schedulesQuery = useProjectScheduleList({
-    projectId: project.projectId,
-    status: statusFilter || null,
-    page: 1,
-    limit: 20,
-  });
+  const schedulesQuery = useProjectScheduleList(
+    {
+      projectId: project.projectId,
+      page: 1,
+      limit: 100,
+    },
+    { fetchAll: true, staleTime: 60_000 },
+  );
   const createScheduleMutation = useCreateProjectSchedule();
   const defaultTitle = useMemo(() => getDefaultScheduleTitle(project), [project]);
+  const schedules = useMemo(() => {
+    const items = schedulesQuery.data?.items ?? [];
+
+    if (!statusFilter) {
+      return items;
+    }
+
+    return items.filter((schedule) => schedule.status === statusFilter);
+  }, [schedulesQuery.data?.items, statusFilter]);
 
   function handleCreateSchedule(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -199,18 +210,18 @@ export function SchedulesTab({ project }: SchedulesTabProps) {
         <div className="project-detail-schedule-list-panel">
           <div className="project-detail-schedule-list-header">
             <h4>Current Schedules</h4>
-            <span>{schedulesQuery.data?.total ?? 0} total</span>
+            <span>{schedules.length} total</span>
           </div>
 
           {schedulesQuery.isLoading ? <p className="project-detail-muted">Loading project schedules...</p> : null}
           {schedulesQuery.isError ? <p className="project-detail-api-note">{getProjectScheduleServiceResultMessage(schedulesQuery.error)}</p> : null}
 
-          {schedulesQuery.data?.items.length === 0 ? (
+          {!schedulesQuery.isLoading && schedules.length === 0 ? (
             <p className="project-detail-muted">No schedules have been created for this project yet.</p>
           ) : null}
 
           <div className="project-detail-schedule-list">
-            {schedulesQuery.data?.items.map((schedule) => (
+            {schedules.map((schedule) => (
               <article className="project-detail-schedule-card" key={schedule.scheduleId}>
                 <div>
                   <div className="project-detail-schedule-title">

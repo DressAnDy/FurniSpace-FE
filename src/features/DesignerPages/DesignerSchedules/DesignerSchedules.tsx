@@ -1,13 +1,11 @@
 import { IconCalendar, IconCheck, IconChevronLeft, IconChevronRight, IconClock, IconMapPin, IconUsers } from '@tabler/icons-react';
-import { useQueries } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 
 import { DesignerLayout } from '@/features/DesignerPages/designercomponents';
-import { getProjectById, type ProjectDto } from '@/services/api/projects';
 import { getProjectScheduleServiceResultMessage } from '@/services/api/schedules';
 import type { ProjectScheduleDto, ProjectScheduleStatus } from '@/services/api/schedules';
-import { useMyAssignedProjectSchedules, useUpdateProjectScheduleStatus } from '@/services/queries';
+import { useMyAssignedProjectSchedules, useProjectDetail, useUpdateProjectScheduleStatus } from '@/services/queries';
 
 import './DesignerSchedules.css';
 
@@ -24,34 +22,15 @@ export function DesignerSchedules() {
   const [selectedDateKey, setSelectedDateKey] = useState(() => getDateKey(new Date()));
   const [selectedScheduleId, setSelectedScheduleId] = useState<string | null>(null);
   const [expandedDateKey, setExpandedDateKey] = useState<string | null>(null);
-  const schedulesQuery = useMyAssignedProjectSchedules({
-    scheduleType: null,
-    status: null,
-    page: 1,
-    limit: 50,
-  });
+  const schedulesQuery = useMyAssignedProjectSchedules(
+    {
+      page: 1,
+      limit: 100,
+    },
+    { fetchAll: true, staleTime: 60_000 },
+  );
   const schedules = useMemo(() => schedulesQuery.data?.items ?? [], [schedulesQuery.data?.items]);
   const updateScheduleStatusMutation = useUpdateProjectScheduleStatus();
-  const projectIds = useMemo(() => Array.from(new Set(schedules.map((schedule) => schedule.projectId))), [schedules]);
-  const projectQueries = useQueries({
-    queries: projectIds.map((projectId) => ({
-      queryKey: ['projects', 'detail', projectId],
-      queryFn: () => getProjectById(projectId),
-      enabled: Boolean(projectId),
-      staleTime: 5 * 60 * 1000,
-    })),
-  });
-  const projectById = useMemo(() => {
-    return projectQueries.reduce<Record<string, ProjectDto>>((lookup, query, index) => {
-      const project = query.data;
-
-      if (project) {
-        lookup[projectIds[index]] = project;
-      }
-
-      return lookup;
-    }, {});
-  }, [projectIds, projectQueries]);
   const schedulesByDate = useMemo(() => {
     const groups = new Map<string, ProjectScheduleDto[]>();
 
@@ -70,6 +49,7 @@ export function DesignerSchedules() {
       ?? null,
     [schedules, schedulesByDate, selectedDateKey, selectedScheduleId],
   );
+  const selectedProjectQuery = useProjectDetail(selectedSchedule?.projectId);
 
   async function handleCompleteSchedule(scheduleId: string) {
     setStatusMessage('');
@@ -211,7 +191,7 @@ export function DesignerSchedules() {
           {selectedSchedule ? (
             <ScheduleDetail
               isUpdating={updateScheduleStatusMutation.isPending}
-              project={projectById[selectedSchedule.projectId]}
+              project={selectedProjectQuery.data}
               schedule={selectedSchedule}
               onComplete={() => void handleCompleteSchedule(selectedSchedule.scheduleId)}
             />
@@ -230,7 +210,7 @@ export function DesignerSchedules() {
 
 type ScheduleDetailProps = {
   isUpdating: boolean;
-  project: ProjectDto | undefined;
+  project: { projectCode: string; projectName: string } | undefined;
   schedule: ProjectScheduleDto;
   onComplete: () => void;
 };

@@ -7,21 +7,23 @@ import {
   IconPlus,
   IconUser,
 } from '@tabler/icons-react';
-import { useQueries } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 
 import { SaleNavbar, SaleSidebar } from '@/features/SalePages/salecomponents';
 import {
-  getProjectSchedules,
   getProjectScheduleServiceResultMessage,
   type ProjectScheduleDto,
   type ProjectScheduleStatus,
   type ProjectScheduleType,
 } from '@/services/api';
 import type { ProjectListItemDto } from '@/services/api/projects';
-import { useCurrentUser, useProjectList, useUpdateProjectScheduleStatus } from '@/services/queries';
-import { projectScheduleQueryKeys } from '@/services/queries/useSchedules';
+import {
+  useCurrentUser,
+  useMultiProjectSchedules,
+  useProjectList,
+  useUpdateProjectScheduleStatus,
+} from '@/services/queries';
 
 import { CreateScheduleModal } from './components';
 import './SaleSchedules.css';
@@ -77,42 +79,45 @@ export function SaleSchedules() {
     { enabled: Boolean(currentUser?.accountId) },
   );
   const projects = useMemo(() => (projectsQuery.data?.items ?? []).filter((project) => Boolean(project.projectId)), [projectsQuery.data?.items]);
-  const scheduleQueries = useQueries({
-    queries: projects.map((project) => {
-      const params = {
-        projectId: project.projectId,
-        scheduleType: scheduleType || null,
-        status: status || null,
-        page: 1,
-        limit: 100,
-      };
-
-      return {
-        queryKey: projectScheduleQueryKeys.list(params),
-        queryFn: () => getProjectSchedules(params),
-      };
-    }),
+  const projectById = useMemo(
+    () => Object.fromEntries(projects.map((project) => [project.projectId, project])),
+    [projects],
+  );
+  const projectIds = useMemo(() => projects.map((project) => project.projectId), [projects]);
+  const schedulesQuery = useMultiProjectSchedules(projectIds, {
+    enabled: projectsQuery.isSuccess && projectIds.length > 0,
   });
   const updateStatusMutation = useUpdateProjectScheduleStatus();
   const managedSchedules = useMemo<ManagedSchedule[]>(
     () =>
-      scheduleQueries
-        .flatMap((query, index) =>
-          (query.data?.items ?? []).map((schedule) => ({
-            project: projects[index],
-            schedule,
-          })),
-        )
-        .filter((item): item is ManagedSchedule => Boolean(item.project))
+      (schedulesQuery.data ?? [])
+        .map((schedule) => {
+          const project = projectById[schedule.projectId];
+
+          if (!project) {
+            return null;
+          }
+
+          if (scheduleType && schedule.scheduleType !== scheduleType) {
+            return null;
+          }
+
+          if (status && schedule.status !== status) {
+            return null;
+          }
+
+          return { project, schedule };
+        })
+        .filter((item): item is ManagedSchedule => item !== null)
         .sort(
           (left, right) =>
             new Date(left.schedule.scheduledStart).getTime() -
             new Date(right.schedule.scheduledStart).getTime(),
         ),
-    [projects, scheduleQueries],
+    [projectById, scheduleType, schedulesQuery.data, status],
   );
-  const isLoading = currentUserQuery.isLoading || projectsQuery.isLoading || scheduleQueries.some((query) => query.isLoading);
-  const scheduleError = scheduleQueries.find((query) => query.isError)?.error;
+  const isLoading = currentUserQuery.isLoading || projectsQuery.isLoading || schedulesQuery.isLoading;
+  const scheduleError = schedulesQuery.error;
   const schedulesByDate = useMemo(() => {
     const groups = new Map<string, ManagedSchedule[]>();
 

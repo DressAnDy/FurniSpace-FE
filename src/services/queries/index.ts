@@ -131,6 +131,7 @@ export {
   projectScheduleQueryKeys,
   useCreateProjectSchedule,
   useDeleteProjectSchedule,
+  useMultiProjectSchedules,
   useMyAssignedProjectSchedules,
   useProjectScheduleDetail,
   useProjectScheduleList,

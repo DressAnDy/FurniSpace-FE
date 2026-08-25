@@ -64,12 +64,17 @@ export function ReadyForDelivery() {
   const deliverySchedulesQuery = useProjectScheduleList(
     selectedRequest
       ? {
-          limit: 20,
+          limit: 100,
           page: 1,
           projectId: selectedRequest.projectId,
           scheduleType: 'DELIVERY',
         }
       : undefined,
+    {
+      enabled: Boolean(selectedRequest?.projectId),
+      fetchAll: true,
+      staleTime: 60_000,
+    },
   );
 
   const createScheduleMutation = useCreateProjectSchedule();
