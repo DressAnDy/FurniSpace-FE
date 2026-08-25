@@ -449,7 +449,7 @@ function DeliveryDetailsPanel({
 
   useEffect(() => {
     setDraft(getOrderDeliveryDetailsDraft(order));
-  }, [order.orderId, order.deliveryAddress, order.receiverName, order.receiverPhone, order.deliveryNote]);
+  }, [order, order.orderId, order.deliveryAddress, order.receiverName, order.receiverPhone, order.deliveryNote]);
 
   return (
     <section className="customer-orders-delivery-details">

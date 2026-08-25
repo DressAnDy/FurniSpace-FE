@@ -4,7 +4,6 @@ import { IconArrowLeft, IconCalendarPlus, IconClipboardCheck, IconNotes, IconPac
 import { ProductionLayout, ProductionStatusBadge, ProductionSummaryCard } from '@/features/ProductionPages/productioncomponents';
 import { formatDate } from '@/features/ProductionPages/utils';
 import {
-  getDeliveredQuantity,
   getRemainingQuantity,
   groupOrderItemsForDelivery,
   splitDeliveryQuantityAcrossOrderItems,
@@ -805,15 +804,6 @@ function getScheduleKey(schedule: ProjectScheduleDto) {
 
 function sumRemainingQuantity(items: OrderItemDto[]) {
   return items.reduce((total, item) => total + getRemainingQuantity(item), 0);
-}
-
-function getFallbackProgress(items: OrderItemDto[]) {
-  const total = items.reduce((sum, item) => sum + (item.quantity ?? 0), 0);
-  const delivered = items.reduce((sum, item) => sum + getDeliveredQuantity(item), 0);
-
-  if (total <= 0) return 0;
-
-  return Math.round((delivered / total) * 100);
 }
 
 function getNowDateTimeLocalInputValue() {

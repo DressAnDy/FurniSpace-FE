@@ -51,7 +51,7 @@ export function LayoutAssetManagementPage() {
   const createAssetMutation = useCreateLayoutAsset();
   const updateStatusMutation = useUpdateLayoutAssetStatus();
   const uploadFileMutation = useUploadLayoutAssetFile();
-  const assets = assetsQuery.data?.items ?? [];
+  const assets = useMemo(() => assetsQuery.data?.items ?? [], [assetsQuery.data?.items]);
   const selectedAsset = assets.find((asset) => asset.layoutAssetId === selectedAssetId) ?? assets[0] ?? null;
   const selectedAssetFilesQuery = useLayoutAssetFiles(selectedAsset?.layoutAssetId);
   const setPrimaryFileMutation = useSetLayoutAssetPrimaryFile();
