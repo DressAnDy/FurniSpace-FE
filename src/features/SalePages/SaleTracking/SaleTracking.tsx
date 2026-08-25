@@ -26,15 +26,17 @@ import './SaleTracking.css';
 const TRACKING_PROJECT_STATUSES = new Set([
   'READY_FOR_DELIVERY',
   'DELIVERING',
+  'AWAITING_CUSTOMER_CONFIRMATION',
   'DELIVERED',
   'COMPLETED',
 ]);
 
 const STATUS_PRIORITY: Record<string, number> = {
   DELIVERING: 0,
-  READY_FOR_DELIVERY: 1,
-  DELIVERED: 2,
-  COMPLETED: 3,
+  AWAITING_CUSTOMER_CONFIRMATION: 1,
+  READY_FOR_DELIVERY: 2,
+  DELIVERED: 3,
+  COMPLETED: 4,
 };
 
 export function SaleTracking() {
@@ -347,6 +349,7 @@ function getStatusTone(kind: 'item' | 'order' | 'project' | 'schedule', value: s
   }
 
   if (value === 'DELIVERING' || value === 'PARTIALLY_DELIVERED') return 'active';
+  if (value === 'AWAITING_CUSTOMER_CONFIRMATION' || value === 'PHYSICALLY_DELIVERED') return 'ready';
   if (value === 'READY_FOR_DELIVERY') return 'ready';
   if (value === 'DELIVERED' || value === 'COMPLETED') return 'success';
   if (value === 'CANCELLED' || value === 'UNAVAILABLE') return 'muted';

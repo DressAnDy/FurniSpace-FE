@@ -1,18 +1,21 @@
-import { FormEvent, useMemo, useState } from 'react';
+import { IconChevronLeft, IconChevronRight } from '@tabler/icons-react';
+import { FormEvent, useEffect, useMemo, useState } from 'react';
 
 import {
   useCreateProjectSchedule,
   useProjectScheduleList,
 } from '@/services/queries';
 import { getProjectScheduleServiceResultMessage } from '@/services/api/schedules';
-import type { ProjectScheduleStatus, ProjectScheduleType } from '@/services/api/schedules';
-import { getLocalDateTimeInputValue, getMinimumEndDateTimeInputValue, validateScheduleDateRange } from '@/shared/utils/dateValidation';
+import type { ProjectScheduleDto, ProjectScheduleStatus, ProjectScheduleType } from '@/services/api/schedules';
+import { getScheduleDateRangePayload } from '@/shared/utils/dateValidation';
 
 import type { ProjectDetailProject } from '../ProjectDetail';
 
 type SchedulesTabProps = {
   project: ProjectDetailProject;
 };
+
+type ProjectScheduleActor = 'customer' | 'designer';
 
 const scheduleTypeOptions: ProjectScheduleType[] = ['MEASUREMENT', 'CONSULTATION'];
 const scheduleStatusOptions: ProjectScheduleStatus[] = ['PENDING_CONFIRMATION', 'CONFIRMED', 'COMPLETED', 'CANCELLED'];
@@ -22,14 +25,53 @@ export function SchedulesTab({ project }: SchedulesTabProps) {
   const [scheduleStartInput, setScheduleStartInput] = useState('');
   const [scheduleEndInput, setScheduleEndInput] = useState('');
   const [statusFilter, setStatusFilter] = useState<ProjectScheduleStatus | ''>('');
+  const [calendarActor, setCalendarActor] = useState<ProjectScheduleActor>('customer');
+  const [calendarMonth, setCalendarMonth] = useState(() => {
+    const now = new Date();
+
+    return new Date(now.getFullYear(), now.getMonth(), 1);
+  });
+  const [calendarListDateKey, setCalendarListDateKey] = useState<string | null>(null);
   const schedulesQuery = useProjectScheduleList({
     projectId: project.projectId,
     status: statusFilter || null,
     page: 1,
-    limit: 20,
+    limit: 100,
   });
   const createScheduleMutation = useCreateProjectSchedule();
   const defaultTitle = useMemo(() => getDefaultScheduleTitle(project), [project]);
+  const schedules = useMemo(
+    () => [...(schedulesQuery.data?.items ?? [])].sort((left, right) => new Date(left.scheduledStart).getTime() - new Date(right.scheduledStart).getTime()),
+    [schedulesQuery.data?.items],
+  );
+  const visibleCalendarSchedules = useMemo(
+    () => schedules.filter((schedule) => calendarActor === 'customer' || schedule.assignedStaffId === project.assignedDesignerId),
+    [calendarActor, project.assignedDesignerId, schedules],
+  );
+
+  useEffect(() => {
+    setCalendarListDateKey(null);
+  }, [calendarActor, project.projectId, statusFilter]);
+
+  useEffect(() => {
+    if (visibleCalendarSchedules.length === 0) {
+      return;
+    }
+
+    const currentMonthHasSchedules = visibleCalendarSchedules.some((schedule) => {
+      const scheduledDate = new Date(schedule.scheduledStart);
+
+      return scheduledDate.getFullYear() === calendarMonth.getFullYear()
+        && scheduledDate.getMonth() === calendarMonth.getMonth();
+    });
+
+    if (currentMonthHasSchedules) {
+      return;
+    }
+
+    const firstScheduleDate = new Date(visibleCalendarSchedules[0].scheduledStart);
+    setCalendarMonth(new Date(firstScheduleDate.getFullYear(), firstScheduleDate.getMonth(), 1));
+  }, [calendarActor, calendarMonth, visibleCalendarSchedules]);
 
   function handleCreateSchedule(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -40,19 +82,15 @@ export function SchedulesTab({ project }: SchedulesTabProps) {
     const assignedStaffId = project.assignedDesignerId;
     const scheduledStart = String(formData.get('scheduledStart') ?? '').trim();
     const scheduledEnd = String(formData.get('scheduledEnd') ?? '').trim();
+    const scheduleType = String(formData.get('scheduleType') ?? 'MEASUREMENT') as ProjectScheduleType;
 
     if (!assignedStaffId) {
       setMessage('Please assign a designer to this project before creating a schedule.');
       return;
     }
 
-    const dateRange = validateScheduleDateRange(scheduledStart, scheduledEnd);
-    if (!dateRange.ok) {
-      setMessage(dateRange.message);
-      return;
-    }
+    const dateRange = getScheduleDateRangePayload(scheduledStart, scheduledEnd);
 
-    const scheduleType = String(formData.get('scheduleType') ?? 'MEASUREMENT') as ProjectScheduleType;
     void createSchedule({
       form,
       assignedStaffId,
@@ -149,32 +187,20 @@ export function SchedulesTab({ project }: SchedulesTabProps) {
               <span>Start</span>
               <input
                 disabled={createScheduleMutation.isPending}
-                min={getLocalDateTimeInputValue()}
                 name="scheduledStart"
-                required
                 type="datetime-local"
                 value={scheduleStartInput}
-                onChange={(event) => {
-                  const nextStart = event.target.value;
-                  const minimumEnd = getMinimumEndDateTimeInputValue(nextStart);
-                  setScheduleStartInput(nextStart);
-                  setScheduleEndInput((current) => current && minimumEnd && current < minimumEnd ? '' : current);
-                }}
+                onChange={(event) => setScheduleStartInput(event.target.value)}
               />
             </label>
             <label>
               <span>End</span>
               <input
-                disabled={createScheduleMutation.isPending || !scheduleStartInput}
-                min={getMinimumEndDateTimeInputValue(scheduleStartInput)}
+                disabled={createScheduleMutation.isPending}
                 name="scheduledEnd"
                 type="datetime-local"
                 value={scheduleEndInput}
-                onChange={(event) => {
-                  const nextEnd = event.target.value;
-                  const minimumEnd = getMinimumEndDateTimeInputValue(scheduleStartInput);
-                  setScheduleEndInput(nextEnd && minimumEnd && nextEnd < minimumEnd ? '' : nextEnd);
-                }}
+                onChange={(event) => setScheduleEndInput(event.target.value)}
               />
             </label>
           </div>
@@ -198,19 +224,35 @@ export function SchedulesTab({ project }: SchedulesTabProps) {
 
         <div className="project-detail-schedule-list-panel">
           <div className="project-detail-schedule-list-header">
-            <h4>Current Schedules</h4>
+            <div>
+              <h4>Current Schedules</h4>
+              <p>GET /project-schedules?projectId={project.projectId}</p>
+            </div>
             <span>{schedulesQuery.data?.total ?? 0} total</span>
           </div>
 
           {schedulesQuery.isLoading ? <p className="project-detail-muted">Loading project schedules...</p> : null}
           {schedulesQuery.isError ? <p className="project-detail-api-note">{getProjectScheduleServiceResultMessage(schedulesQuery.error)}</p> : null}
 
-          {schedulesQuery.data?.items.length === 0 ? (
+          <ProjectParticipantCalendar
+            actor={calendarActor}
+            listDateKey={calendarListDateKey}
+            month={calendarMonth}
+            project={project}
+            schedules={visibleCalendarSchedules}
+            totalProjectScheduleCount={schedules.length}
+            onActorChange={setCalendarActor}
+            onBackToCalendar={() => setCalendarListDateKey(null)}
+            onMonthChange={setCalendarMonth}
+            onOpenDateList={setCalendarListDateKey}
+          />
+
+          {schedules.length === 0 ? (
             <p className="project-detail-muted">No schedules have been created for this project yet.</p>
           ) : null}
 
           <div className="project-detail-schedule-list">
-            {schedulesQuery.data?.items.map((schedule) => (
+            {schedules.map((schedule) => (
               <article className="project-detail-schedule-card" key={schedule.scheduleId}>
                 <div>
                   <div className="project-detail-schedule-title">
@@ -239,6 +281,149 @@ export function SchedulesTab({ project }: SchedulesTabProps) {
   );
 }
 
+function ProjectParticipantCalendar({
+  actor,
+  listDateKey,
+  month,
+  onActorChange,
+  onBackToCalendar,
+  onMonthChange,
+  onOpenDateList,
+  project,
+  schedules,
+  totalProjectScheduleCount,
+}: {
+  actor: ProjectScheduleActor;
+  listDateKey: string | null;
+  month: Date;
+  onActorChange: (actor: ProjectScheduleActor) => void;
+  onBackToCalendar: () => void;
+  onMonthChange: (month: Date) => void;
+  onOpenDateList: (dateKey: string) => void;
+  project: ProjectDetailProject;
+  schedules: ProjectScheduleDto[];
+  totalProjectScheduleCount: number;
+}) {
+  const schedulesByDate = useMemo(() => {
+    const groups = new Map<string, ProjectScheduleDto[]>();
+
+    schedules.forEach((schedule) => {
+      const dateKey = getDateKey(new Date(schedule.scheduledStart));
+      const dateSchedules = groups.get(dateKey) ?? [];
+
+      groups.set(dateKey, [...dateSchedules, schedule]);
+    });
+
+    return groups;
+  }, [schedules]);
+  const listSchedules = listDateKey ? schedulesByDate.get(listDateKey) ?? [] : [];
+  const currentMonthScheduleCount = useMemo(
+    () => schedules.filter((schedule) => {
+      const scheduledDate = new Date(schedule.scheduledStart);
+
+      return scheduledDate.getFullYear() === month.getFullYear()
+        && scheduledDate.getMonth() === month.getMonth();
+    }).length,
+    [month, schedules],
+  );
+
+  return (
+    <section className="project-detail-schedule-calendar-card" aria-label="Project participant calendar">
+      <header>
+        <div>
+          <span>Project Calendar</span>
+          <h4>{actor === 'customer' ? 'Customer schedules' : 'Designer schedules'}</h4>
+          <p>
+            {schedules.length} visible / {totalProjectScheduleCount} project schedule(s).
+            {actor === 'designer' && !project.assignedDesignerId ? ' No designer is assigned yet.' : ''}
+          </p>
+        </div>
+        <div className="project-detail-schedule-calendar-tabs" role="tablist" aria-label="Participant schedules">
+          <button className={actor === 'customer' ? 'is-active' : ''} type="button" role="tab" aria-selected={actor === 'customer'} onClick={() => onActorChange('customer')}>
+            Customer
+          </button>
+          <button className={actor === 'designer' ? 'is-active' : ''} type="button" role="tab" aria-selected={actor === 'designer'} onClick={() => onActorChange('designer')}>
+            Designer
+          </button>
+        </div>
+      </header>
+
+      {listDateKey ? (
+        <div className="project-detail-schedule-calendar-list-view">
+          <button className="project-detail-schedule-calendar-back" type="button" onClick={onBackToCalendar}>
+            <IconChevronLeft size={16} />
+            Back to calendar
+          </button>
+          <h5>{formatDateOnly(listDateKey)}</h5>
+          {listSchedules.length === 0 ? <p className="project-detail-muted">No schedules on this date.</p> : null}
+          <div className="project-detail-schedule-calendar-list">
+            {listSchedules.map((schedule) => (
+              <article key={schedule.scheduleId}>
+                <strong>{formatTime(schedule.scheduledStart)} - {schedule.title ?? formatEnumLabel(schedule.scheduleType)}</strong>
+                <span>{formatEnumLabel(schedule.status)} · {schedule.location ?? 'No location'}</span>
+              </article>
+            ))}
+          </div>
+        </div>
+      ) : (
+        <>
+          <div className="project-detail-schedule-calendar-month-head">
+            <button type="button" aria-label="Previous month" onClick={() => onMonthChange(moveMonth(month, -1))}>
+              <IconChevronLeft size={16} />
+            </button>
+            <strong>{formatMonthYear(month)}</strong>
+            <button type="button" aria-label="Next month" onClick={() => onMonthChange(moveMonth(month, 1))}>
+              <IconChevronRight size={16} />
+            </button>
+          </div>
+          {schedules.length > 0 && currentMonthScheduleCount === 0 ? (
+            <p className="project-detail-schedule-calendar-empty-month">
+              No {actor} schedules in {formatMonthYear(month)}. Use the month arrows or clear filters to inspect other dates.
+            </p>
+          ) : null}
+          {schedules.length === 0 ? (
+            <p className="project-detail-schedule-calendar-empty-month">
+              {actor === 'designer'
+                ? 'No schedules are assigned to the project designer under the current filters.'
+                : 'No schedules are available for this project under the current filters.'}
+            </p>
+          ) : null}
+          <div className="project-detail-schedule-calendar-weekdays" aria-hidden="true">
+            {weekDays.map((day) => <span key={day}>{day}</span>)}
+          </div>
+          <div className="project-detail-schedule-calendar-grid">
+            {getMonthDays(month).map(({ date, day, gridColumnStart }) => {
+              const dateKey = getDateKey(date);
+              const count = schedulesByDate.get(dateKey)?.length ?? 0;
+              const isToday = dateKey === getDateKey(new Date());
+
+              return (
+                <button
+                  className={[
+                    'project-detail-schedule-calendar-day',
+                    count > 0 ? 'has-schedules' : '',
+                    isToday ? 'is-today' : '',
+                  ].filter(Boolean).join(' ')}
+                  disabled={count === 0}
+                  key={dateKey}
+                  style={gridColumnStart ? { gridColumnStart } : undefined}
+                  type="button"
+                  onClick={() => onOpenDateList(dateKey)}
+                >
+                  <span>{day}</span>
+                  {count > 0 ? <strong>{count}</strong> : null}
+                </button>
+              );
+            })}
+          </div>
+        </>
+      )}
+    </section>
+  );
+}
+
+const weekDays = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
+
 function getDefaultScheduleTitle(project: ProjectDetailProject) {
   return `${project.projectName} - designer schedule`;
 }
@@ -259,4 +444,55 @@ function formatDateTime(value: string) {
     hour: '2-digit',
     minute: '2-digit',
   }).format(new Date(value));
+}
+
+function formatTime(value: string) {
+  return new Intl.DateTimeFormat('en', {
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(new Date(value));
+}
+
+function formatDateOnly(value: string) {
+  return new Intl.DateTimeFormat('en', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  }).format(new Date(`${value}T00:00:00`));
+}
+
+function formatMonthYear(value: Date) {
+  return new Intl.DateTimeFormat('en', {
+    month: 'long',
+    year: 'numeric',
+  }).format(value);
+}
+
+function getDateKey(value: Date) {
+  const year = value.getFullYear();
+  const month = String(value.getMonth() + 1).padStart(2, '0');
+  const day = String(value.getDate()).padStart(2, '0');
+
+  return `${year}-${month}-${day}`;
+}
+
+function moveMonth(value: Date, offset: number) {
+  return new Date(value.getFullYear(), value.getMonth() + offset, 1);
+}
+
+function getMonthDays(month: Date) {
+  const year = month.getFullYear();
+  const monthIndex = month.getMonth();
+  const daysInMonth = new Date(year, monthIndex + 1, 0).getDate();
+  const firstWeekday = new Date(year, monthIndex, 1).getDay();
+
+  return Array.from({ length: daysInMonth }, (_, index) => {
+    const day = index + 1;
+
+    return {
+      date: new Date(year, monthIndex, day),
+      day,
+      gridColumnStart: day === 1 ? firstWeekday + 1 : undefined,
+    };
+  });
 }

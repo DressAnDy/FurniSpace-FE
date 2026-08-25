@@ -15,6 +15,7 @@ export const projectStatusStepMap: Record<ProjectStatus, string> = {
   IN_PRODUCTION: 'Production',
   READY_FOR_DELIVERY: 'Delivery',
   DELIVERING: 'Delivery',
+  AWAITING_CUSTOMER_CONFIRMATION: 'Delivery',
   DELIVERED: 'Delivery',
   COMPLETED: 'Completed',
   REJECTED: 'Rejected',
@@ -50,6 +51,7 @@ export const paymentStatusLabels: Record<PaymentStatus, string> = {
 
 export function getCustomerStatusTone(status: string) {
   if (['PAID', 'SUCCESS', 'COMPLETED', 'DELIVERED', 'READY_FOR_DELIVERY'].includes(status)) return 'success';
+  if (['AWAITING_CUSTOMER_CONFIRMATION', 'PHYSICALLY_DELIVERED'].includes(status)) return 'warning';
   if (['PENDING', 'PROCESSING', 'QUOTATION_SENT', 'PROPOSAL_CONSULTING'].includes(status)) return 'warning';
   if (['FAILED', 'CANCELLED', 'EXPIRED', 'REJECTED'].includes(status)) return 'danger';
 

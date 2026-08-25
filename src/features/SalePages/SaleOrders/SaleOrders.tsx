@@ -28,6 +28,7 @@ const orderProjectStatuses = new Set([
   'IN_PRODUCTION',
   'READY_FOR_DELIVERY',
   'DELIVERING',
+  'AWAITING_CUSTOMER_CONFIRMATION',
   'DELIVERED',
   'COMPLETED',
 ]);
@@ -265,7 +266,7 @@ function OrderDetailPanel({
     && Boolean(order.customerConfirmedDeliveryAt);
   const isOrderCompleted = order.status === 'COMPLETED';
   const completeOrderBlocker = getCompleteOrderBlocker(order);
-  const showFinalPaymentPanel = order.status === 'DELIVERED' || order.status === 'FINAL_PAYMENT_PENDING' || order.status === 'COMPLETED';
+  const showFinalPaymentPanel = order.status === 'AWAITING_CUSTOMER_CONFIRMATION' || order.status === 'DELIVERED' || order.status === 'FINAL_PAYMENT_PENDING' || order.status === 'COMPLETED';
 
   useEffect(() => {
     setAssignedTo((current) => current || productionStaff.find((staff) => staff.isAvailable)?.accountId || productionStaff[0]?.accountId || '');
@@ -495,8 +496,9 @@ function formatMoney(value?: number | null) {
 
 function getCompleteOrderBlocker(order: OrderDetailDto) {
   if (order.status === 'COMPLETED') return 'This order has already been completed.';
-  if (order.status !== 'DELIVERED' && order.status !== 'FINAL_PAYMENT_PENDING') return null;
-  if (order.status === 'DELIVERED') return 'Waiting for customer delivery confirmation. Remaining payment is created by backend after confirmation.';
+  if (order.status !== 'AWAITING_CUSTOMER_CONFIRMATION' && order.status !== 'DELIVERED' && order.status !== 'FINAL_PAYMENT_PENDING') return null;
+  if (order.status === 'AWAITING_CUSTOMER_CONFIRMATION') return 'Waiting for customer final delivery confirmation. Remaining payment is created by backend after confirmation.';
+  if (order.status === 'DELIVERED') return 'Delivery has been confirmed. Waiting for final payment state to settle if needed.';
   if ((order.remainingAmount ?? 0) > 0) return 'Waiting for customer final payment. The backend will complete this order automatically after payment is confirmed.';
   if (!order.customerConfirmedDeliveryAt) return 'Order is waiting for customer delivery confirmation.';
 
@@ -505,7 +507,8 @@ function getCompleteOrderBlocker(order: OrderDetailDto) {
 
 function getFinalPaymentFlowMessage(order: OrderDetailDto) {
   if (order.status === 'COMPLETED') return 'This order is completed.';
-  if (order.status === 'DELIVERED') return 'Customer confirmation will trigger remaining payment creation when needed.';
+  if (order.status === 'AWAITING_CUSTOMER_CONFIRMATION') return 'Waiting for customer final delivery confirmation. Sales cannot confirm delivery for the customer.';
+  if (order.status === 'DELIVERED') return 'Customer delivery confirmation has been recorded. Remaining payment is handled by backend when needed.';
   if ((order.remainingAmount ?? 0) > 0) return 'Remaining payment is pending. Customer can pay it from their order screen.';
   if (order.status === 'FINAL_PAYMENT_PENDING') return 'No remaining amount is due. Complete the order if customer delivery was confirmed.';
 

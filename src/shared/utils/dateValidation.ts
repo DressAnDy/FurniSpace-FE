@@ -1,15 +1,10 @@
 const DATE_ONLY_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/;
 const LOCAL_DATE_TIME_PATTERN = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?$/;
 
-export type ScheduleDateValidationOptions = {
-  allowPastStart?: boolean;
-  now?: Date;
-  requireEnd?: boolean;
+export type ScheduleDateRangePayload = {
+  startIso: string;
+  endIso: string | null;
 };
-
-export type ScheduleDateValidationResult =
-  | { ok: true; startIso: string; endIso: string | null }
-  | { ok: false; message: string };
 
 export type FutureDateRangeValidationResult =
   | { ok: true; start: string | null; end: string | null }
@@ -111,27 +106,16 @@ export function validateOptionalFutureDateRange(
   return { ok: true, start: start.value, end: end.value };
 }
 
-export function validateScheduleDateRange(
-  startValue: string,
-  endValue: string,
-  options: ScheduleDateValidationOptions = {},
-): ScheduleDateValidationResult {
-  const start = parseLocalDateTime(startValue);
-  const end = endValue.trim() ? parseLocalDateTime(endValue) : null;
-  const now = options.now ?? new Date();
+export function getScheduleDateRangePayload(startValue: string, endValue: string): ScheduleDateRangePayload {
+  const normalizedStart = startValue.trim();
+  const normalizedEnd = endValue.trim();
+  const start = parseLocalDateTime(normalizedStart);
+  const end = normalizedEnd ? parseLocalDateTime(normalizedEnd) : null;
 
-  if (!startValue.trim()) return { ok: false, message: 'Please choose a schedule start time.' };
-  if (!start) return { ok: false, message: 'Schedule start time is invalid.' };
-  if (options.requireEnd && !endValue.trim()) return { ok: false, message: 'Please choose a schedule end time.' };
-  if (endValue.trim() && !end) return { ok: false, message: 'Schedule end time is invalid.' };
-  if (!options.allowPastStart && start.getTime() <= now.getTime()) {
-    return { ok: false, message: 'Schedule start time must be in the future.' };
-  }
-  if (end && end.getTime() <= start.getTime()) {
-    return { ok: false, message: 'Schedule end time must be after the start time.' };
-  }
-
-  return { ok: true, startIso: start.toISOString(), endIso: end?.toISOString() ?? null };
+  return {
+    startIso: start ? start.toISOString() : normalizedStart,
+    endIso: normalizedEnd ? end?.toISOString() ?? normalizedEnd : null,
+  };
 }
 
 function parseLocalDateTime(value: string) {

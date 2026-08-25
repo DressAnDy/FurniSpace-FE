@@ -53,7 +53,7 @@ export function ProjectShowcaseManager({ projectId, projectName, projectStatus, 
   const showcase = showcaseQuery.data ?? null;
   const [draft, setDraft] = useState<ShowcaseDraft>(() => createEmptyDraft(projectName));
   const [message, setMessage] = useState<{ tone: 'error' | 'success'; text: string } | null>(null);
-  const [mediaFile, setMediaFile] = useState<File | null>(null);
+  const [mediaFiles, setMediaFiles] = useState<File[]>([]);
   const [mediaType, setMediaType] = useState<ProjectShowcaseMediaType>('FINAL');
   const [mediaTitle, setMediaTitle] = useState('');
   const [mediaCaption, setMediaCaption] = useState('');
@@ -108,12 +108,23 @@ export function ProjectShowcaseManager({ projectId, projectName, projectStatus, 
 
     try {
       if (!showcase) {
-        await createMutation.mutateAsync({
+        const createdShowcase = await createMutation.mutateAsync({
           description: draft.description,
           projectId,
           summary: draft.summary,
           title: draft.title,
         });
+
+        if (draft.slug.trim()) {
+          await updateMutation.mutateAsync({
+            description: draft.description,
+            showcaseId: createdShowcase.showcaseId,
+            slug: draft.slug,
+            summary: draft.summary,
+            title: draft.title,
+          });
+        }
+
         setMessage({ tone: 'success', text: 'Showcase draft created.' });
       } else {
         await updateMutation.mutateAsync({
@@ -134,32 +145,34 @@ export function ProjectShowcaseManager({ projectId, projectName, projectStatus, 
 
   async function uploadMedia(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!showcase || !mediaFile) return;
+    if (!showcase || mediaFiles.length === 0) return;
     setMessage(null);
 
     try {
-      const uploadedFile = await uploadProjectFileMutation.mutateAsync({
-        file: mediaFile,
-        fileType: 'REVIEW_IMAGE',
-        note: 'Project showcase media',
-        projectId,
-        visibility: 'CUSTOMER_VISIBLE',
-      });
+      for (const [index, file] of mediaFiles.entries()) {
+        const uploadedFile = await uploadProjectFileMutation.mutateAsync({
+          file,
+          fileType: 'REVIEW_IMAGE',
+          note: 'Project showcase media',
+          projectId,
+          visibility: 'CUSTOMER_VISIBLE',
+        });
 
-      await createMediaMutation.mutateAsync({
-        caption: mediaCaption,
-        fileId: uploadedFile.fileId,
-        mediaType,
-        setAsCover: mediaCover,
-        showcaseId: showcase.showcaseId,
-        title: mediaTitle,
-      });
+        await createMediaMutation.mutateAsync({
+          caption: mediaCaption,
+          fileId: uploadedFile.fileId,
+          mediaType,
+          setAsCover: mediaCover && index === 0,
+          showcaseId: showcase.showcaseId,
+          title: mediaTitle || stripFileExtension(file.name),
+        });
+      }
 
-      setMediaFile(null);
+      setMediaFiles([]);
       setMediaTitle('');
       setMediaCaption('');
       setMediaCover(false);
-      setMessage({ tone: 'success', text: 'Showcase media added.' });
+      setMessage({ tone: 'success', text: `${mediaFiles.length} showcase media file(s) added.` });
       void showcaseQuery.refetch();
     } catch (error) {
       setMessage({ tone: 'error', text: getShowcaseServiceResultMessage(error) });
@@ -244,7 +257,7 @@ export function ProjectShowcaseManager({ projectId, projectName, projectStatus, 
           </label>
           <label>
             <span>Slug</span>
-            <input placeholder="bee-chang-hiang-office" value={draft.slug} disabled={!showcase || !canEditDraft || isMutating} onChange={(event) => setDraft((current) => ({ ...current, slug: event.target.value }))} />
+            <input placeholder="bee-chang-hiang-office" value={draft.slug} disabled={!canEditDraft || isMutating} onChange={(event) => setDraft((current) => ({ ...current, slug: event.target.value }))} />
           </label>
           <label>
             <span>Summary</span>
@@ -317,8 +330,16 @@ export function ProjectShowcaseManager({ projectId, projectName, projectStatus, 
           {canEditDraft ? (
             <form className="project-showcase-media-form" onSubmit={(event) => void uploadMedia(event)}>
               <label>
-                <span>Image file</span>
-                <input accept="image/*" type="file" onChange={(event) => setMediaFile(event.target.files?.[0] ?? null)} />
+                <span>Image files</span>
+                <input
+                  accept="image/*"
+                  multiple
+                  type="file"
+                  onChange={(event) => {
+                    setMediaFiles((current) => mergeSelectedFiles(current, event.target.files));
+                    event.target.value = '';
+                  }}
+                />
               </label>
               <label>
                 <span>Type</span>
@@ -338,11 +359,24 @@ export function ProjectShowcaseManager({ projectId, projectName, projectStatus, 
                 <input checked={mediaCover} type="checkbox" onChange={(event) => setMediaCover(event.target.checked)} />
                 <span>Set as cover</span>
               </label>
-              <button disabled={!mediaFile || isMutating} type="submit">
+              <button disabled={mediaFiles.length === 0 || isMutating} type="submit">
                 <IconUpload size={16} />
-                Upload Media
+                Upload {mediaFiles.length > 0 ? `${mediaFiles.length} File(s)` : 'Media'}
               </button>
             </form>
+          ) : null}
+
+          {mediaFiles.length > 0 ? (
+            <div className="project-showcase-selected-files">
+              {mediaFiles.map((file) => (
+                <div key={`${file.name}-${file.size}-${file.lastModified}`}>
+                  <span>{file.name}</span>
+                  <button type="button" onClick={() => setMediaFiles((current) => current.filter((item) => getFileKey(item) !== getFileKey(file)))}>
+                    Remove
+                  </button>
+                </div>
+              ))}
+            </div>
           ) : null}
 
           {(showcase.media?.length ?? 0) === 0 ? (
@@ -390,6 +424,30 @@ function createEmptyDraft(projectName?: string | null): ShowcaseDraft {
     summary: '',
     title: projectName ?? '',
   };
+}
+
+function mergeSelectedFiles(currentFiles: File[], fileList: FileList | null | undefined) {
+  const nextFiles = [...currentFiles];
+  const existingKeys = new Set(currentFiles.map(getFileKey));
+
+  Array.from(fileList ?? []).forEach((file) => {
+    const key = getFileKey(file);
+
+    if (!existingKeys.has(key)) {
+      nextFiles.push(file);
+      existingKeys.add(key);
+    }
+  });
+
+  return nextFiles;
+}
+
+function getFileKey(file: File) {
+  return `${file.name}-${file.size}-${file.lastModified}`;
+}
+
+function stripFileExtension(fileName: string) {
+  return fileName.replace(/\.[^.]+$/, '');
 }
 
 function getPublishReadiness(showcase: ProjectShowcaseDto | null, projectStatus?: string | null) {

@@ -35,6 +35,15 @@ import {
 
 export type BlueprintCanvasProps = {
   activeTool: BlueprintTool;
+  boundaryGuide?: {
+    center: {
+      x: number;
+      y: number;
+    };
+    depth: number;
+    label?: string;
+    width: number;
+  } | null;
   floorFillColor: string;
   floorOpenings?: Array<{
     depth: number;
@@ -256,6 +265,7 @@ function getDistanceToSegment(
 
 export function BlueprintCanvas({
   activeTool,
+  boundaryGuide,
   floorFillColor,
   floorOpenings = [],
   hideLabels,
@@ -294,7 +304,15 @@ export function BlueprintCanvas({
       };
     }
 
-    const bounds = getRoomBounds(layout.points);
+    const layoutBounds = getRoomBounds(layout.points);
+    const bounds = boundaryGuide
+      ? {
+          maxX: Math.max(layoutBounds.maxX, boundaryGuide.center.x + boundaryGuide.width / 2),
+          maxY: Math.max(layoutBounds.maxY, boundaryGuide.center.y + boundaryGuide.depth / 2),
+          minX: Math.min(layoutBounds.minX, boundaryGuide.center.x - boundaryGuide.width / 2),
+          minY: Math.min(layoutBounds.minY, boundaryGuide.center.y - boundaryGuide.depth / 2),
+        }
+      : layoutBounds;
     const width = Math.max(bounds.maxX - bounds.minX, 1);
     const height = Math.max(bounds.maxY - bounds.minY, 1);
     const scale = Math.min(
@@ -307,7 +325,7 @@ export function BlueprintCanvas({
       ...bounds,
       scale: scale * zoom,
     };
-  }, [layout, zoom]);
+  }, [boundaryGuide, layout, zoom]);
 
   const activeTransform = dragPoint?.transform ?? dragWall?.transform ?? dragOpening?.transform ?? dragFloorOpening?.transform ?? dragLayout?.transform ?? autoTransform;
   const activeViewOffset = dragPoint?.viewOffset ?? dragWall?.viewOffset ?? dragOpening?.viewOffset ?? dragFloorOpening?.viewOffset ?? dragLayout?.viewOffset ?? viewOffset;
@@ -736,6 +754,21 @@ export function BlueprintCanvas({
         })
         .join(' ')
     : '';
+  const boundaryGuideRect = boundaryGuide
+    ? (() => {
+        const topLeft = toSvgPoint({
+          x: boundaryGuide.center.x - boundaryGuide.width / 2,
+          y: boundaryGuide.center.y - boundaryGuide.depth / 2,
+        });
+
+        return {
+          height: boundaryGuide.depth * activeTransform.scale,
+          width: boundaryGuide.width * activeTransform.scale,
+          x: topLeft.x,
+          y: topLeft.y,
+        };
+      })()
+    : null;
   const canvasClassName = [
     'blueprint-canvas',
     `is-tool-${activeTool}`,
@@ -862,6 +895,21 @@ export function BlueprintCanvas({
                 <text className="blueprint-underlay-layer-label" x={VIEWBOX_WIDTH - 150} y="42">
                   {underlay.label}
                 </text>
+              </g>
+            )}
+            {boundaryGuideRect && (
+              <g className="blueprint-special-boundary-guide">
+                <rect
+                  height={boundaryGuideRect.height}
+                  width={boundaryGuideRect.width}
+                  x={boundaryGuideRect.x}
+                  y={boundaryGuideRect.y}
+                />
+                {boundaryGuide?.label ? (
+                  <text x={boundaryGuideRect.x + boundaryGuideRect.width / 2} y={boundaryGuideRect.y - 8}>
+                    {boundaryGuide.label}
+                  </text>
+                ) : null}
               </g>
             )}
             {closedBoundary.length >= 3 && (

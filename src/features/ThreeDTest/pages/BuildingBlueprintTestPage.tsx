@@ -1111,6 +1111,16 @@ export function BuildingBlueprintTestPage() {
     ? sceneData.building.levels.find((level) => level.id === currentLevelId)?.layout ?? null
     : null;
   const underlayLayout = underlayLevel?.layout ?? null;
+  const activeSpecialBoundaryGuide = activeLevel?.isSpecialLayout
+    ? {
+        center: {
+          x: activeLevelCenter.x,
+          y: activeLevelCenter.z,
+        },
+        depth: activeLevel.depth,
+        width: activeLevel.width,
+      }
+    : null;
   const activeLayerLabel = levelTabs.find((tab) => tab.value === activeLayer)?.label ?? 'Layer';
   const activeToolLabel = blueprintTools.find((tool) => tool.value === activeTool)?.label ?? 'Tool';
   const activeAreaInfo = activeLevel ? getLevelAreaInfo(areaByProjectAreaId, activeLevel) : null;
@@ -1605,6 +1615,7 @@ export function BuildingBlueprintTestPage() {
           {currentLevelId ? (
             <BlueprintCanvas
               activeTool={activeTool}
+              boundaryGuide={activeSpecialBoundaryGuide}
               floorFillColor="#d8c5a9"
               floorOpenings={activeLevel?.floorOpenings ?? []}
               hideLabels={false}

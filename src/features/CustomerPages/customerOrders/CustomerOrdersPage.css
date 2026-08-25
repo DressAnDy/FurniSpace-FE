@@ -306,6 +306,82 @@
   color: #6f5634;
 }
 
+.customer-orders-delivery-details {
+  display: grid;
+  gap: 14px;
+  border: 1px solid rgba(139, 111, 71, 0.16);
+  border-radius: 14px;
+  background: #fbfaf7;
+  padding: 16px;
+}
+
+.customer-orders-delivery-details header {
+  margin-bottom: 0;
+}
+
+.customer-orders-delivery-details header span {
+  display: inline-flex;
+  min-height: 26px;
+  align-items: center;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 900;
+  padding: 0 10px;
+  text-transform: uppercase;
+}
+
+.customer-orders-delivery-details header span.is-complete {
+  background: rgba(22, 163, 74, 0.12);
+  color: #15803d;
+}
+
+.customer-orders-delivery-details header span.is-missing {
+  background: rgba(245, 158, 11, 0.15);
+  color: #b45309;
+}
+
+.customer-orders-delivery-details-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.customer-orders-delivery-details-grid label {
+  display: grid;
+  gap: 7px;
+}
+
+.customer-orders-delivery-details-grid label > span {
+  color: #8d8174;
+  font-size: 11px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.customer-orders-delivery-details-grid input,
+.customer-orders-delivery-details-grid textarea {
+  width: 100%;
+  border: 1px solid rgba(139, 111, 71, 0.18);
+  border-radius: 10px;
+  background: #ffffff;
+  color: #2f2a24;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  outline: 0;
+  padding: 10px 12px;
+}
+
+.customer-orders-delivery-details-grid input:disabled,
+.customer-orders-delivery-details-grid textarea:disabled {
+  background: #f3f0eb;
+  color: #7f7368;
+}
+
+.customer-orders-delivery-details-note {
+  grid-column: 1 / -1;
+}
+
 .customer-orders-table-wrap {
   overflow-x: auto;
 }
@@ -386,5 +462,6 @@
   .customer-orders-card header { flex-direction: column; }
   .customer-orders-metrics,
   .customer-orders-money-grid,
+  .customer-orders-delivery-details-grid,
   .customer-orders-order-list { grid-template-columns: 1fr; }
 }

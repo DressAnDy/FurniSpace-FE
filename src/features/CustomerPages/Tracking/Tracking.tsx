@@ -37,6 +37,7 @@ const trackableProjectStatuses = new Set<ProjectStatus>([
   'IN_PRODUCTION',
   'READY_FOR_DELIVERY',
   'DELIVERING',
+  'AWAITING_CUSTOMER_CONFIRMATION',
   'DELIVERED',
   'COMPLETED',
 ]);
@@ -44,6 +45,7 @@ const trackableProjectStatuses = new Set<ProjectStatus>([
 const itemStatusLabels: Record<string, string> = {
   PENDING: 'Waiting',
   PARTIALLY_DELIVERED: 'Partial',
+  PHYSICALLY_DELIVERED: 'Delivered',
   DELIVERED: 'Delivered',
   UNAVAILABLE: 'Unavailable',
   CANCELLED: 'Cancelled',
@@ -68,7 +70,7 @@ export function Tracking() {
   const tracking = deliveryTrackingQuery.data ?? null;
   const groupedTrackingItems = useMemo(() => groupDeliveryTrackingItems(tracking?.items ?? []), [tracking?.items]);
   const confirmDeliveryMutation = useConfirmOrderDelivery();
-  const canFinalConfirm = canConfirmFinalDelivery(tracking?.orderStatus ?? order?.status, tracking?.summary.remainingQuantity ?? null, tracking?.timeline ?? [], order?.customerConfirmedDeliveryAt);
+  const canFinalConfirm = canConfirmFinalDelivery(tracking?.orderStatus ?? order?.status, tracking?.customerConfirmedDeliveryAt ?? order?.customerConfirmedDeliveryAt);
 
   useEffect(() => {
     if (!selectedProjectId && projects.length > 0) {
@@ -126,7 +128,7 @@ export function Tracking() {
               <p>{selectedProject?.projectName ?? 'No project selected'}</p>
             </div>
             <div className="customer-tracking-controls">
-              <CustomerStatusBadge label={getProjectStatusLabel(tracking?.orderStatus ?? order?.status ?? selectedProject?.status ?? 'ORDER_CONFIRMED')} status={tracking?.orderStatus ?? order?.status ?? selectedProject?.status ?? 'ORDER_CONFIRMED'} />
+              <CustomerStatusBadge label={getCustomerTrackingStatusLabel(tracking?.orderStatus ?? order?.status ?? selectedProject?.status ?? 'ORDER_CONFIRMED')} status={tracking?.orderStatus ?? order?.status ?? selectedProject?.status ?? 'ORDER_CONFIRMED'} />
               <select
                 className="customer-tracking-selector"
                 value={selectedProjectId}
@@ -252,16 +254,9 @@ function Field({ label, value }: { label: string; value: string }) {
 
 function canConfirmFinalDelivery(
   orderStatus: OrderStatus | null | undefined,
-  remainingQuantity: number | null,
-  timeline: DeliveryTrackingTimelineItemDto[],
   customerConfirmedDeliveryAt?: string | null,
 ) {
-  if (!orderStatus || customerConfirmedDeliveryAt || remainingQuantity !== 0) return false;
-
-  const hasInProgressBatch = timeline.some((item) => item.deliveryStatus === 'IN_PROGRESS');
-  const hasUnresolvedConfirmedSchedule = timeline.some((item) => item.scheduleStatus === 'CONFIRMED' && !item.deliveryId);
-
-  return orderStatus === 'DELIVERING' && !hasInProgressBatch && !hasUnresolvedConfirmedSchedule;
+  return orderStatus === 'AWAITING_CUSTOMER_CONFIRMATION' && !customerConfirmedDeliveryAt;
 }
 
 function getTimelineSummary(item: DeliveryTrackingTimelineItemDto) {
@@ -277,10 +272,19 @@ function getTrackingMessage(status?: string | null) {
   if (status === 'IN_PRODUCTION') return 'Your order is currently in production. Delivery schedules appear after production is completed.';
   if (status === 'READY_FOR_DELIVERY') return 'Production is complete. The team is planning one or more delivery schedules.';
   if (status === 'DELIVERING') return 'Delivery is in progress across one or more confirmed schedules.';
-  if (status === 'DELIVERED') return 'Delivery has been completed and final payment or completion may be pending.';
+  if (status === 'AWAITING_CUSTOMER_CONFIRMATION') return 'Every item has been physically delivered. Please confirm final receipt.';
+  if (status === 'DELIVERED') return 'Delivery has been confirmed and final payment or completion may be pending.';
   if (status === 'COMPLETED') return 'This project has been completed.';
 
   return 'Production tracking will appear after your order enters the production flow.';
+}
+
+function getCustomerTrackingStatusLabel(status: string) {
+  if (status === 'AWAITING_CUSTOMER_CONFIRMATION' || status === 'PHYSICALLY_DELIVERED') {
+    return 'Delivered';
+  }
+
+  return getProjectStatusLabel(status);
 }
 
 function formatDateTime(value: string) {

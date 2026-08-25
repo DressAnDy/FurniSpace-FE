@@ -32,6 +32,7 @@ const statusOptions: Array<{ label: string; value: QuotationStatus | null }> = [
 
 const pendingQuotationProjectStatuses = new Set<ProjectStatus>(['PROPOSAL_SELECTED']);
 const QUOTATION_VALID_UNTIL_DAYS = 3;
+const QUOTATION_PROJECT_PAGE_SIZE = 5;
 
 const finalizedQuotationProjectStatuses = new Set<ProjectStatus>([
   'QUOTATION_SENT',
@@ -40,6 +41,7 @@ const finalizedQuotationProjectStatuses = new Set<ProjectStatus>([
   'IN_PRODUCTION',
   'READY_FOR_DELIVERY',
   'DELIVERING',
+  'AWAITING_CUSTOMER_CONFIRMATION',
   'DELIVERED',
   'COMPLETED',
 ]);
@@ -81,6 +83,7 @@ export function SaleQuotations() {
   const [financialDrafts, setFinancialDrafts] = useState<Record<string, FinancialDraft>>({});
   const [message, setMessage] = useState<{ tone: 'error' | 'success'; text: string } | null>(null);
   const [projectView, setProjectView] = useState<QuotationProjectView>('pending');
+  const [projectPage, setProjectPage] = useState(1);
   const currentUserQuery = useCurrentUser();
   const currentUser = currentUserQuery.data;
   const projectsQuery = useProjectList(
@@ -122,6 +125,12 @@ export function SaleQuotations() {
     [finalizedQuotationProjects, pendingQuotationProjects],
   );
   const visibleProjectGroup = projectView === 'pending' ? pendingQuotationProjects : finalizedQuotationProjects;
+  const visibleProjectPageCount = Math.max(1, Math.ceil(visibleProjectGroup.length / QUOTATION_PROJECT_PAGE_SIZE));
+  const pagedVisibleProjectGroup = useMemo(() => {
+    const start = (projectPage - 1) * QUOTATION_PROJECT_PAGE_SIZE;
+
+    return visibleProjectGroup.slice(start, start + QUOTATION_PROJECT_PAGE_SIZE);
+  }, [projectPage, visibleProjectGroup]);
   const visibleProjectGroupTitle = projectView === 'pending' ? 'Waiting for quotation' : 'Quotation finalized';
   const visibleProjectGroupEmptyText =
     projectView === 'pending' ? 'No project is waiting for quotation.' : 'No project has a finalized quotation yet.';
@@ -169,6 +178,7 @@ export function SaleQuotations() {
   useEffect(() => {
     if (projectView === 'pending' && pendingQuotationProjects.length === 0 && finalizedQuotationProjects.length > 0) {
       setProjectView('finalized');
+      setProjectPage(1);
       setSelectedProjectId(finalizedQuotationProjects[0].projectId);
       setSelectedQuotationId('');
       return;
@@ -176,10 +186,15 @@ export function SaleQuotations() {
 
     if (projectView === 'finalized' && finalizedQuotationProjects.length === 0 && pendingQuotationProjects.length > 0) {
       setProjectView('pending');
+      setProjectPage(1);
       setSelectedProjectId(pendingQuotationProjects[0].projectId);
       setSelectedQuotationId('');
     }
   }, [finalizedQuotationProjects, pendingQuotationProjects, projectView]);
+
+  useEffect(() => {
+    setProjectPage((currentPage) => Math.min(currentPage, visibleProjectPageCount));
+  }, [visibleProjectPageCount]);
 
   useEffect(() => {
     if (!selectedQuotationId && quotations.length > 0) {
@@ -391,6 +406,7 @@ export function SaleQuotations() {
                   aria-selected={projectView === 'pending'}
                   onClick={() => {
                     setProjectView('pending');
+                    setProjectPage(1);
                     setSelectedProjectId(pendingQuotationProjects[0]?.projectId ?? '');
                     setSelectedQuotationId('');
                     setMessage(null);
@@ -406,6 +422,7 @@ export function SaleQuotations() {
                   aria-selected={projectView === 'finalized'}
                   onClick={() => {
                     setProjectView('finalized');
+                    setProjectPage(1);
                     setSelectedProjectId(finalizedQuotationProjects[0]?.projectId ?? '');
                     setSelectedQuotationId('');
                     setMessage(null);
@@ -417,9 +434,14 @@ export function SaleQuotations() {
               </div>
               <ProjectGroup
                 emptyText={visibleProjectGroupEmptyText}
-                projects={visibleProjectGroup}
+                page={projectPage}
+                pageCount={visibleProjectPageCount}
+                pageSize={QUOTATION_PROJECT_PAGE_SIZE}
+                projects={pagedVisibleProjectGroup}
                 selectedProjectId={selectedProjectId}
                 title={visibleProjectGroupTitle}
+                total={visibleProjectGroup.length}
+                onPageChange={setProjectPage}
                 onSelect={(projectId) => {
                   setSelectedProjectId(projectId);
                   setSelectedQuotationId('');
@@ -667,23 +689,33 @@ export function SaleQuotations() {
 function ProjectGroup({
   emptyText,
   onSelect,
+  onPageChange,
+  page,
+  pageCount,
+  pageSize,
   projects,
   selectedProjectId,
   title,
+  total,
 }: {
   emptyText: string;
+  onPageChange: Dispatch<SetStateAction<number>>;
   onSelect: (projectId: string) => void;
+  page: number;
+  pageCount: number;
+  pageSize: number;
   projects: ProjectListItemDto[];
   selectedProjectId: string;
   title: string;
+  total: number;
 }) {
   return (
     <section className="sale-quotations-project-group">
       <div>
         <strong>{title}</strong>
-        <span>{projects.length}</span>
+        <span>{total}</span>
       </div>
-      {projects.length === 0 ? <p>{emptyText}</p> : null}
+      {total === 0 ? <p>{emptyText}</p> : null}
       {projects.map((project) => (
         <button
           className={project.projectId === selectedProjectId ? 'is-active' : ''}
@@ -696,6 +728,17 @@ function ProjectGroup({
           <em>{formatEnumLabel(project.status)}</em>
         </button>
       ))}
+      {total > pageSize ? (
+        <footer className="sale-quotations-project-pagination">
+          <button disabled={page === 1} type="button" onClick={() => onPageChange((currentPage) => Math.max(currentPage - 1, 1))}>
+            Previous
+          </button>
+          <span>{page} / {pageCount}</span>
+          <button disabled={page === pageCount} type="button" onClick={() => onPageChange((currentPage) => Math.min(currentPage + 1, pageCount))}>
+            Next
+          </button>
+        </footer>
+      ) : null}
     </section>
   );
 }

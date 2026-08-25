@@ -266,6 +266,43 @@
   font-size: 13px;
 }
 
+.project-showcase-selected-files {
+  display: grid;
+  gap: 8px;
+}
+
+.project-showcase-selected-files div {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  border: 1px solid rgba(139, 111, 71, 0.12);
+  border-radius: 8px;
+  background: #faf9f7;
+  padding: 9px 10px;
+}
+
+.project-showcase-selected-files span {
+  overflow: hidden;
+  color: #2d2d2d;
+  font-size: 13px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.project-showcase-selected-files button {
+  flex: 0 0 auto;
+  border: 0;
+  background: transparent;
+  color: #8b5f28;
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 800;
+}
+
 .project-showcase-media-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));

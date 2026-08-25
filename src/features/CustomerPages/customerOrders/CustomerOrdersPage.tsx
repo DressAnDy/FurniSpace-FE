@@ -16,6 +16,7 @@ import {
   usePayments,
   useProjectList,
   useProjectOrders,
+  useUpdateOrderDeliveryDetails,
 } from '@/services/queries';
 import { aggregateDuplicateItems, getItemAggregateKey } from '@/shared/utils/itemAggregation';
 import { PaymentCollectionModal } from '@/features/payments/PaymentCollectionModal';
@@ -33,6 +34,7 @@ const orderProjectStatuses = new Set([
   'IN_PRODUCTION',
   'READY_FOR_DELIVERY',
   'DELIVERING',
+  'AWAITING_CUSTOMER_CONFIRMATION',
   'DELIVERED',
   'COMPLETED',
 ]);
@@ -61,6 +63,7 @@ export function CustomerOrdersPage() {
     { enabled: Boolean(selectedOrderId) },
   );
   const confirmDeliveryMutation = useConfirmOrderDelivery();
+  const updateDeliveryDetailsMutation = useUpdateOrderDeliveryDetails();
 
   useEffect(() => {
     if (!selectedProjectId && orderProjects.length > 0) {
@@ -169,6 +172,7 @@ export function CustomerOrdersPage() {
             {order ? (
               <OrderDetailCard
                 confirmDeliveryPending={confirmDeliveryMutation.isPending}
+                deliveryDetailsPending={updateDeliveryDetailsMutation.isPending}
                 order={order}
                 remainingPayment={remainingPaymentsQuery.data?.items?.[0] ?? null}
                 onConfirmDelivery={async () => {
@@ -181,6 +185,21 @@ export function CustomerOrdersPage() {
                     void ordersQuery.refetch();
                     void projectsQuery.refetch();
                     void remainingPaymentsQuery.refetch();
+                  } catch (error) {
+                    setMessage({ tone: 'error', text: getOrderServiceResultMessage(error) });
+                  }
+                }}
+                onSaveDeliveryDetails={async (details) => {
+                  setMessage(null);
+
+                  try {
+                    await updateDeliveryDetailsMutation.mutateAsync({
+                      ...details,
+                      orderId: order.orderId,
+                    });
+                    setMessage({ tone: 'success', text: 'Delivery details saved.' });
+                    void orderDetailQuery.refetch();
+                    void ordersQuery.refetch();
                   } catch (error) {
                     setMessage({ tone: 'error', text: getOrderServiceResultMessage(error) });
                   }
@@ -212,14 +231,18 @@ export function CustomerOrdersPage() {
 
 function OrderDetailCard({
   confirmDeliveryPending,
+  deliveryDetailsPending,
   onConfirmDelivery,
   onOpenRemainingPayment,
+  onSaveDeliveryDetails,
   order,
   remainingPayment,
 }: {
   confirmDeliveryPending: boolean;
+  deliveryDetailsPending: boolean;
   onConfirmDelivery: () => Promise<void>;
   onOpenRemainingPayment: (payment: PaymentDetailDto) => void;
+  onSaveDeliveryDetails: (details: OrderDeliveryDetailsDraft) => Promise<void>;
   order: OrderDetailDto;
   remainingPayment: PaymentDetailDto | null;
 }) {
@@ -239,6 +262,14 @@ function OrderDetailCard({
         <MoneyValue label="Paid" value={formatMoney(order.paidAmount)} />
         <MoneyValue label="Remaining" value={formatMoney(order.remainingAmount)} />
       </div>
+
+      {!areDeliveryDetailsLocked(order.status) ? (
+        <DeliveryDetailsPanel
+          isPending={deliveryDetailsPending}
+          order={order}
+          onSave={onSaveDeliveryDetails}
+        />
+      ) : null}
 
       <div className="customer-orders-actions">
         {order.status === 'FINAL_PAYMENT_PENDING' && remainingPayment ? (
@@ -325,6 +356,36 @@ function getOrderProjects(projects: ProjectListItemDto[]) {
   return projects.filter((project) => orderProjectStatuses.has(project.status));
 }
 
+function getOrderDeliveryDetailsDraft(order: OrderDetailDto): OrderDeliveryDetailsDraft {
+  return {
+    deliveryAddress: order.deliveryAddress ?? '',
+    deliveryNote: order.deliveryNote ?? '',
+    receiverName: order.receiverName ?? '',
+    receiverPhone: order.receiverPhone ?? '',
+  };
+}
+
+function normalizeDeliveryDetailsDraft(details: OrderDeliveryDetailsDraft): OrderDeliveryDetailsDraft {
+  return {
+    deliveryAddress: details.deliveryAddress.trim(),
+    deliveryNote: details.deliveryNote?.trim() || null,
+    receiverName: details.receiverName.trim(),
+    receiverPhone: details.receiverPhone.trim(),
+  };
+}
+
+function hasCompleteDeliveryDetails(details: OrderDeliveryDetailsDraft | OrderDetailDto) {
+  return Boolean(
+    details.deliveryAddress?.trim()
+    && details.receiverName?.trim()
+    && details.receiverPhone?.trim(),
+  );
+}
+
+function areDeliveryDetailsLocked(status?: OrderStatus | null) {
+  return Boolean(status && status !== 'CREATED' && status !== 'DEPOSIT_PENDING');
+}
+
 function statusClass(value?: OrderStatus | null) {
   return (value ?? 'UNKNOWN').toLowerCase().replace(/_/g, '-');
 }
@@ -364,16 +425,89 @@ function formatGroupedDeliveryState(item: GroupedOrderItem) {
 }
 
 function canConfirmOrderDelivery(order: OrderDetailDto) {
-  if (order.status !== 'DELIVERING' || order.customerConfirmedDeliveryAt) return false;
+  return order.status === 'AWAITING_CUSTOMER_CONFIRMATION' && !order.customerConfirmedDeliveryAt;
+}
 
-  return order.items
-    .filter((item) => (item.quantity ?? 0) > 0 && item.status !== 'CANCELLED' && item.status !== 'UNAVAILABLE')
-    .every((item) => item.status === 'DELIVERED');
+type OrderDeliveryDetailsDraft = {
+  deliveryAddress: string;
+  receiverName: string;
+  receiverPhone: string;
+  deliveryNote?: string | null;
+};
+
+function DeliveryDetailsPanel({
+  isPending,
+  onSave,
+  order,
+}: {
+  isPending: boolean;
+  onSave: (details: OrderDeliveryDetailsDraft) => Promise<void>;
+  order: OrderDetailDto;
+}) {
+  const [draft, setDraft] = useState<OrderDeliveryDetailsDraft>(() => getOrderDeliveryDetailsDraft(order));
+  const isComplete = hasCompleteDeliveryDetails(draft);
+
+  useEffect(() => {
+    setDraft(getOrderDeliveryDetailsDraft(order));
+  }, [order.orderId, order.deliveryAddress, order.receiverName, order.receiverPhone, order.deliveryNote]);
+
+  return (
+    <section className="customer-orders-delivery-details">
+      <header>
+        <div>
+          <h2>Delivery Details</h2>
+          <p>Complete these details before creating or paying the deposit.</p>
+        </div>
+        <span className={isComplete ? 'is-complete' : 'is-missing'}>{isComplete ? 'Complete' : 'Required'}</span>
+      </header>
+      <div className="customer-orders-delivery-details-grid">
+        <label>
+          <span>Delivery address</span>
+          <input
+            disabled={isPending}
+            value={draft.deliveryAddress}
+            onChange={(event) => setDraft((current) => ({ ...current, deliveryAddress: event.target.value }))}
+          />
+        </label>
+        <label>
+          <span>Receiver name</span>
+          <input
+            disabled={isPending}
+            value={draft.receiverName}
+            onChange={(event) => setDraft((current) => ({ ...current, receiverName: event.target.value }))}
+          />
+        </label>
+        <label>
+          <span>Receiver phone</span>
+          <input
+            disabled={isPending}
+            value={draft.receiverPhone}
+            onChange={(event) => setDraft((current) => ({ ...current, receiverPhone: event.target.value }))}
+          />
+        </label>
+        <label className="customer-orders-delivery-details-note">
+          <span>Delivery note</span>
+          <textarea
+            disabled={isPending}
+            rows={3}
+            value={draft.deliveryNote ?? ''}
+            onChange={(event) => setDraft((current) => ({ ...current, deliveryNote: event.target.value }))}
+          />
+        </label>
+      </div>
+      <div className="customer-orders-actions">
+        <button disabled={isPending || !isComplete} type="button" onClick={() => void onSave(normalizeDeliveryDetailsDraft(draft))}>
+          {isPending ? 'Saving...' : 'Save Delivery Details'}
+        </button>
+      </div>
+    </section>
+  );
 }
 
 function getOrderDeliveryConfirmationLabel(order: OrderDetailDto) {
   if (order.customerConfirmedDeliveryAt) return `Confirmed ${formatDateTime(order.customerConfirmedDeliveryAt)}`;
-  if (order.status === 'DELIVERING') return 'Waiting for full-order confirmation';
+  if (order.status === 'AWAITING_CUSTOMER_CONFIRMATION') return 'Waiting for your final confirmation';
+  if (order.status === 'DELIVERING') return 'Physical delivery in progress';
   if (order.status === 'DELIVERED' || order.status === 'FINAL_PAYMENT_PENDING' || order.status === 'COMPLETED') return 'Confirmed';
 
   return 'Pending delivery';

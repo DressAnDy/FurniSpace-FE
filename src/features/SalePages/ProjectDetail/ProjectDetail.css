@@ -2078,6 +2078,14 @@
   margin-bottom: 16px;
 }
 
+.project-detail-schedule-list-header p {
+  margin: 5px 0 0;
+  color: #6b6b6b;
+  font-size: 11px;
+  line-height: 16px;
+  overflow-wrap: anywhere;
+}
+
 .project-detail-schedule-list-header span {
   border-radius: 999px;
   background: #f5f1ec;
@@ -2085,6 +2093,229 @@
   font-size: 12px;
   font-weight: 600;
   padding: 6px 10px;
+}
+
+.project-detail-schedule-calendar-card {
+  display: grid;
+  gap: 14px;
+  border: 1px solid rgba(139, 111, 71, 0.14);
+  border-radius: 12px;
+  background: #faf9f7;
+  margin-bottom: 16px;
+  padding: 14px;
+}
+
+.project-detail-schedule-calendar-card > header {
+  display: grid;
+  gap: 12px;
+}
+
+.project-detail-schedule-calendar-card > header span {
+  color: #8b6f47;
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.project-detail-schedule-calendar-card h4 {
+  margin: 5px 0 0;
+  color: #2d2d2d;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.project-detail-schedule-calendar-card p {
+  margin: 4px 0 0;
+  color: #6b6b6b;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.project-detail-schedule-calendar-tabs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 4px;
+}
+
+.project-detail-schedule-calendar-tabs button {
+  min-height: 32px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #6b6b6b;
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.project-detail-schedule-calendar-tabs button.is-active {
+  background: #f5f1ec;
+  color: #6d502f;
+  box-shadow: 0 1px 4px rgba(45, 45, 45, 0.08);
+}
+
+.project-detail-schedule-calendar-month-head {
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr) 32px;
+  align-items: center;
+  gap: 8px;
+}
+
+.project-detail-schedule-calendar-month-head strong {
+  color: #2d2d2d;
+  font-size: 14px;
+  text-align: center;
+}
+
+.project-detail-schedule-calendar-month-head button,
+.project-detail-schedule-calendar-back {
+  display: inline-flex;
+  min-height: 32px;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 1px solid rgba(139, 111, 71, 0.18);
+  border-radius: 8px;
+  background: #ffffff;
+  color: #6d502f;
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.project-detail-schedule-calendar-weekdays,
+.project-detail-schedule-calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+}
+
+.project-detail-schedule-calendar-weekdays {
+  overflow: hidden;
+  border: 1px solid rgba(139, 111, 71, 0.1);
+  border-bottom: 0;
+  border-radius: 8px 8px 0 0;
+  background: #ffffff;
+}
+
+.project-detail-schedule-calendar-weekdays span {
+  color: #6b6b6b;
+  font-size: 10px;
+  font-weight: 800;
+  padding: 8px 2px;
+  text-align: center;
+}
+
+.project-detail-schedule-calendar-grid {
+  overflow: hidden;
+  border: 1px solid rgba(139, 111, 71, 0.1);
+  border-radius: 0 0 8px 8px;
+}
+
+.project-detail-schedule-calendar-day {
+  display: grid;
+  min-height: 46px;
+  align-content: center;
+  justify-items: center;
+  gap: 4px;
+  border: 0;
+  border-right: 1px solid rgba(139, 111, 71, 0.08);
+  border-bottom: 1px solid rgba(139, 111, 71, 0.08);
+  background: #ffffff;
+  color: #6b6b6b;
+  cursor: pointer;
+  font: inherit;
+  padding: 5px;
+}
+
+.project-detail-schedule-calendar-day:disabled {
+  cursor: default;
+  opacity: 0.58;
+}
+
+.project-detail-schedule-calendar-empty-month {
+  border: 1px solid rgba(139, 111, 71, 0.14);
+  border-radius: 8px;
+  background: #ffffff;
+  color: #6b6b6b;
+  font-size: 12px;
+  line-height: 18px;
+  margin: 0;
+  padding: 10px 12px;
+}
+
+.project-detail-schedule-calendar-day.has-schedules {
+  background: #fffdf9;
+  color: #2d2d2d;
+}
+
+.project-detail-schedule-calendar-day.is-today span {
+  display: grid;
+  width: 22px;
+  height: 22px;
+  place-items: center;
+  border-radius: 999px;
+  background: #8b6f47;
+  color: #ffffff;
+}
+
+.project-detail-schedule-calendar-day strong {
+  display: grid;
+  min-width: 22px;
+  height: 22px;
+  place-items: center;
+  border-radius: 999px;
+  background: #2d2d2d;
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.project-detail-schedule-calendar-list-view {
+  display: grid;
+  gap: 12px;
+}
+
+.project-detail-schedule-calendar-back {
+  justify-self: start;
+  padding: 0 10px;
+}
+
+.project-detail-schedule-calendar-list-view h5 {
+  margin: 0;
+  color: #2d2d2d;
+  font-size: 16px;
+}
+
+.project-detail-schedule-calendar-list {
+  display: grid;
+  gap: 8px;
+}
+
+.project-detail-schedule-calendar-list article {
+  display: grid;
+  gap: 5px;
+  border: 1px solid rgba(139, 111, 71, 0.14);
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 10px;
+}
+
+.project-detail-schedule-calendar-list strong {
+  color: #2d2d2d;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.project-detail-schedule-calendar-list span {
+  color: #6b6b6b;
+  font-size: 12px;
+  line-height: 1.35;
 }
 
 .project-detail-schedule-card {

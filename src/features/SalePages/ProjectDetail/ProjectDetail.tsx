@@ -60,6 +60,7 @@ const timelineSteps = [
   'In Production',
   'Ready For Delivery',
   'Delivering',
+  'Awaiting Customer Confirmation',
   'Delivered',
   'Completed',
 ];
@@ -81,6 +82,7 @@ const statusStepMap: Record<string, string> = {
   IN_PRODUCTION: 'In Production',
   READY_FOR_DELIVERY: 'Ready For Delivery',
   DELIVERING: 'Delivering',
+  AWAITING_CUSTOMER_CONFIRMATION: 'Awaiting Customer Confirmation',
   DELIVERED: 'Delivered',
   REJECTED: 'Rejected',
   COMPLETED: 'Completed',
@@ -642,7 +644,7 @@ function getPrimaryRelatedOrder(orders: OrderListItemDto[]) {
 }
 
 function isPostDeliveryProject(status: ProjectStatus) {
-  return status === 'DELIVERED' || status === 'COMPLETED';
+  return status === 'AWAITING_CUSTOMER_CONFIRMATION' || status === 'DELIVERED' || status === 'COMPLETED';
 }
 
 function ProjectCompletionPanel({

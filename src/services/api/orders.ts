@@ -40,19 +40,30 @@ export type ServiceResult<T> = {
 };
 
 const ORDER_ERROR_MESSAGES: Record<string, string> = {
+  ORDER_DELIVERY_DETAILS_REQUIRED: 'Please complete delivery address and receiver information before creating the deposit payment.',
+  ORDER_DELIVERY_DETAILS_INVALID: 'Please complete delivery address, receiver name, and receiver phone before continuing.',
+  ORDER_DELIVERY_DETAILS_LOCKED: 'Delivery details are locked after deposit payment is confirmed.',
+  DELIVERY_DETAILS_REQUIRED: 'Please complete delivery address and receiver information before creating the deposit payment.',
+  DELIVERY_DETAILS_INCOMPLETE: 'Please complete delivery address, receiver name, and receiver phone before continuing.',
+  DELIVERY_DETAILS_LOCKED: 'Delivery details are locked after deposit payment is confirmed.',
   PRODUCTION_NOT_COMPLETED: 'Production must be completed before delivery can continue.',
   PROJECT_SCHEDULE_ID_REQUIRED: 'Please select a confirmed delivery schedule before creating a delivery batch.',
   DELIVERY_BATCH_EMPTY: 'Please select at least one product to deliver.',
   DELIVERY_SCHEDULE_INVALID: 'This delivery schedule cannot be used for this order.',
   DELIVERY_SCHEDULE_NOT_CONFIRMED: 'The customer must confirm this delivery schedule first.',
-  DELIVERY_SCHEDULE_NOT_STARTED: 'This delivery schedule has not reached its start time yet.',
   DELIVERY_SCHEDULE_ALREADY_USED: 'This delivery schedule already has a delivery batch.',
   DUPLICATE_ORDER_ITEM_IN_BATCH: 'Each product can only appear once in the same delivery batch.',
   ORDER_ITEM_NOT_DELIVERABLE: 'One or more selected products cannot be delivered yet.',
+  ORDER_NOT_DELIVERING: 'This order is not currently delivering.',
+  DELIVERY_NOT_FOUND: 'Delivery batch was not found.',
+  DELIVERY_NOT_IN_PROGRESS: 'This delivery batch is no longer in progress.',
   DELIVERY_BATCH_IN_PROGRESS: 'A delivery batch is still in progress.',
   UNRESOLVED_DELIVERY_SCHEDULE: 'There is still a confirmed delivery schedule that has not been delivered.',
   INVALID_DELIVERY_QUANTITY: 'Delivery quantity cannot exceed the remaining quantity.',
-  DELIVERABLE_ITEMS_NOT_DELIVERED: 'All deliverable items must be delivered before final confirmation.',
+  ORDER_NOT_AWAITING_CUSTOMER_CONFIRMATION: 'This order is not ready for final customer delivery confirmation yet.',
+  DELIVERABLE_ITEMS_NOT_PHYSICALLY_DELIVERED: 'All deliverable items must be physically delivered before final confirmation.',
+  DELIVERABLE_ITEMS_NOT_DELIVERED: 'All deliverable items must be physically delivered before final confirmation.',
+  REMAINING_PAYMENT_NOT_PAID: 'Remaining payment must be paid before the order can be completed.',
 };
 
 export type OrderStatus =
@@ -65,6 +76,7 @@ export type OrderStatus =
   | 'READY_FOR_DELIVERY'
   | 'DELIVERY_SCHEDULED'
   | 'DELIVERING'
+  | 'AWAITING_CUSTOMER_CONFIRMATION'
   | 'DELIVERED'
   | 'FINAL_PAYMENT_PENDING'
   | 'COMPLETED'
@@ -76,13 +88,14 @@ export type OrderItemStatus =
   | 'READY'
   | 'COMPLETED'
   | 'PARTIALLY_DELIVERED'
+  | 'PHYSICALLY_DELIVERED'
   | 'UNAVAILABLE'
   | 'DELIVERING'
   | 'DELIVERED'
   | 'CANCELLED';
 
 export type DeliveryStatus = 'IN_PROGRESS' | 'COMPLETED';
-export type DeliveryTrackingItemStatus = 'READY' | 'PENDING' | 'PARTIALLY_DELIVERED' | 'DELIVERED' | 'CANCELLED' | 'UNAVAILABLE';
+export type DeliveryTrackingItemStatus = 'READY' | 'PENDING' | 'PARTIALLY_DELIVERED' | 'PHYSICALLY_DELIVERED' | 'DELIVERED' | 'CANCELLED' | 'UNAVAILABLE';
 export type DeliveryScheduleStatus = 'PENDING_CONFIRMATION' | 'CONFIRMED' | 'COMPLETED' | 'CANCELLED';
 
 export type OrderListItemDto = {
@@ -140,6 +153,10 @@ export type OrderDetailDto = {
   remainingAmount?: number | null;
   status?: OrderStatus | null;
   customerConfirmedDeliveryAt?: string | null;
+  deliveryAddress?: string | null;
+  receiverName?: string | null;
+  receiverPhone?: string | null;
+  deliveryNote?: string | null;
   items: OrderItemDto[];
 };
 
@@ -151,6 +168,14 @@ export type CreateOrderPaymentInput = {
   orderId: string;
   expiredAt?: string | null;
   note?: string | null;
+};
+
+export type UpdateOrderDeliveryDetailsInput = {
+  orderId: string;
+  deliveryAddress: string;
+  receiverName: string;
+  receiverPhone: string;
+  deliveryNote?: string | null;
 };
 
 export type PrepareFinalPaymentResultDto = {
@@ -273,12 +298,23 @@ export type DeliveryTrackingTimelineItemDto = {
   deliveryStatus?: DeliveryStatus | null;
   completedAt?: string | null;
   cancelReason?: string | null;
+  location?: string | null;
+  assignedStaffId?: string | null;
+  customerNote?: string | null;
   items?: DeliveryBatchItemDto[];
 };
 
 export type DeliveryTrackingDto = {
   orderId: string;
   orderStatus?: OrderStatus | null;
+  projectStatus?: string | null;
+  customerConfirmedDeliveryAt?: string | null;
+  deliveryDetails?: {
+    deliveryAddress?: string | null;
+    receiverName?: string | null;
+    receiverPhone?: string | null;
+    deliveryNote?: string | null;
+  } | null;
   summary: DeliveryTrackingSummaryDto;
   items: DeliveryTrackingItemDto[];
   timeline: DeliveryTrackingTimelineItemDto[];
@@ -363,12 +399,14 @@ export async function createOrderRemainingPayment(input: CreateOrderPaymentInput
   return response.data.data;
 }
 
+/** @deprecated Legacy admin recovery endpoint. Normal FE delivery flow must use schedule-based delivery batches. */
 export async function startOrderDelivery(orderId: string) {
   const response = await orderApiClient.patch<ServiceResult<OrderDeliveryTransitionResultDto>>(`/orders/${orderId}/start-delivery`);
 
   return response.data.data;
 }
 
+/** @deprecated Legacy admin recovery endpoint. Normal FE delivery flow must complete individual delivery batches. */
 export async function completeOrderDelivery(orderId: string) {
   const response = await orderApiClient.patch<ServiceResult<OrderDeliveryCompletionDto>>(`/orders/${orderId}/complete-delivery`);
 
@@ -399,6 +437,17 @@ export async function confirmOrderDelivery(orderId: string) {
 
 export async function getOrderDeliveryTracking(orderId: string) {
   const response = await orderApiClient.get<ServiceResult<DeliveryTrackingDto>>(`/orders/${orderId}/delivery-tracking`);
+
+  return response.data.data;
+}
+
+export async function updateOrderDeliveryDetails(input: UpdateOrderDeliveryDetailsInput) {
+  const response = await orderApiClient.patch<ServiceResult<OrderDetailDto>>(`/orders/${input.orderId}/delivery-details`, {
+    deliveryAddress: input.deliveryAddress.trim(),
+    receiverName: input.receiverName.trim(),
+    receiverPhone: input.receiverPhone.trim(),
+    deliveryNote: input.deliveryNote?.trim() || null,
+  });
 
   return response.data.data;
 }
@@ -435,6 +484,7 @@ export async function completeOrderDeliveryBatch(input: { deliveryId: string; or
   return response.data.data;
 }
 
+/** @deprecated Legacy admin recovery endpoint. Customer final delivery confirmation now prepares remaining payment when needed. */
 export async function prepareOrderFinalPayment(orderId: string) {
   const response = await orderApiClient.patch<ServiceResult<PrepareFinalPaymentResultDto>>(`/orders/${orderId}/prepare-final-payment`);
 

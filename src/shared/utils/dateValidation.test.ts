@@ -3,11 +3,11 @@ import { describe, expect, it } from 'vitest';
 import {
   getLocalDateInputValue,
   getLocalDateTimeInputValue,
+  getScheduleDateRangePayload,
   isValidDateOnly,
   validateOptionalFutureDate,
   validateOptionalFutureDateRange,
   validateRequiredFutureDate,
-  validateScheduleDateRange,
 } from './dateValidation';
 
 const now = new Date(2026, 7, 12, 10, 0, 0);
@@ -44,20 +44,11 @@ describe('dateValidation', () => {
     expect(validateRequiredFutureDate('', 'Payment due date', now).ok).toBe(false);
   });
 
-  it('validates and converts a future schedule range', () => {
-    const result = validateScheduleDateRange('2026-08-12T11:00', '2026-08-12T12:00', { now });
-    expect(result.ok).toBe(true);
-    if (result.ok) expect(new Date(result.startIso).getTime()).toBe(new Date(2026, 7, 12, 11, 0).getTime());
-  });
+  it('converts schedule datetime-local values without enforcing schedule business rules', () => {
+    const result = getScheduleDateRangePayload('2026-08-12T11:00', '2026-08-12T12:00');
 
-  it('rejects invalid, past, and reversed schedule ranges', () => {
-    expect(validateScheduleDateRange('2026-02-29T11:00', '', { now }).ok).toBe(false);
-    expect(validateScheduleDateRange('2026-08-12T09:00', '', { now }).ok).toBe(false);
-    expect(validateScheduleDateRange('2026-08-12T12:00', '2026-08-12T11:00', { now }).ok).toBe(false);
-  });
-
-  it('allows an existing past start while still enforcing the end ordering', () => {
-    expect(validateScheduleDateRange('2026-08-11T09:00', '2026-08-11T10:00', { allowPastStart: true, now }).ok).toBe(true);
-    expect(validateScheduleDateRange('2026-08-11T09:00', '2026-08-11T08:00', { allowPastStart: true, now }).ok).toBe(false);
+    expect(new Date(result.startIso).getTime()).toBe(new Date(2026, 7, 12, 11, 0).getTime());
+    expect(new Date(result.endIso ?? '').getTime()).toBe(new Date(2026, 7, 12, 12, 0).getTime());
+    expect(getScheduleDateRangePayload('', 'bad-end')).toEqual({ startIso: '', endIso: 'bad-end' });
   });
 });
