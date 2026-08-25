@@ -13,7 +13,7 @@ export function PublicShowcasesPage() {
   const [category, setCategory] = useState('ALL');
   const [sortMode, setSortMode] = useState<SortMode>('newest');
   const showcasesQuery = usePublicShowcases({ page: 1, pageSize: 24 });
-  const showcases = showcasesQuery.data?.items ?? [];
+  const showcases = useMemo(() => showcasesQuery.data?.items ?? [], [showcasesQuery.data?.items]);
   const categories = useMemo(() => getCategories(showcases), [showcases]);
   const visibleShowcases = useMemo(() => {
     const query = search.trim().toLowerCase();
