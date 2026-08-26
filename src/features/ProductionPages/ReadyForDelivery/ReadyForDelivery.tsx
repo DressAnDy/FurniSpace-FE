@@ -21,7 +21,7 @@ import {
   useProductionRequests,
   useProjectScheduleList,
 } from '@/services/queries';
-import { getScheduleDateRangePayload } from '@/shared/utils/dateValidation';
+import { validateScheduleDateTimeRange } from '@/shared/utils/dateValidation';
 
 type BatchQuantityDraft = Record<string, string>;
 type ScheduleRescheduleDraft = {
@@ -182,12 +182,23 @@ export function ReadyForDelivery() {
       return;
     }
 
-    const dateRange = getScheduleDateRangePayload(scheduleStartInput, scheduleEndInput);
+    const assignedStaffId = selectedRequest.assignedTo;
+    const dateRange = validateScheduleDateTimeRange(scheduleStartInput, scheduleEndInput, { requireEnd: true });
     const scheduleLocation = scheduleLocationInput.trim();
+
+    if (!assignedStaffId) {
+      setMessage({ tone: 'error', text: 'Production staff is required for delivery scheduling.' });
+      return;
+    }
+
+    if (!dateRange.ok) {
+      setMessage({ tone: 'error', text: dateRange.message });
+      return;
+    }
 
     try {
       const schedule = await createScheduleMutation.mutateAsync({
-        assignedStaffId: selectedRequest.assignedTo ?? null,
+        assignedStaffId,
         customerNote: 'Please confirm this delivery schedule.',
         description: `Delivery schedule for ${order.orderCode}.`,
         internalNote: 'Created by Production after production request completion.',
@@ -293,11 +304,23 @@ export function ReadyForDelivery() {
   async function rescheduleDeliverySchedule(event: FormEvent<HTMLFormElement>, schedule: ProjectScheduleDto) {
     event.preventDefault();
 
-    const dateRange = getScheduleDateRangePayload(rescheduleDraft.start, rescheduleDraft.end);
+    const assignedStaffId = schedule.assignedStaffId ?? selectedRequest?.assignedTo ?? null;
+    const dateRange = validateScheduleDateTimeRange(rescheduleDraft.start, rescheduleDraft.end, { requireEnd: true });
     const location = rescheduleDraft.location.trim();
+
+    if (!assignedStaffId) {
+      setMessage({ tone: 'error', text: 'Production staff is required for delivery scheduling.' });
+      return;
+    }
+
+    if (!dateRange.ok) {
+      setMessage({ tone: 'error', text: dateRange.message });
+      return;
+    }
 
     try {
       const updatedSchedule = await updateScheduleMutation.mutateAsync({
+        assignedStaffId,
         customerNote: rescheduleDraft.customerNote || 'Please confirm this updated delivery schedule.',
         description: schedule.description,
         internalNote: schedule.internalNote,
@@ -644,7 +667,7 @@ export function ReadyForDelivery() {
               ) : null}
               {selectedSchedule && canUseScheduleForBatch(selectedSchedule, usedScheduleIds) ? (
                 <>
-                  <div className="production-workspace-table-wrap production-ready-deliverable-section">
+                  <div className="production-workspace-table-wrap production-ready-items-wrap production-ready-deliverable-section">
                     <table className="production-workspace-table production-ready-items-table">
                       <thead>
                         <tr>
@@ -663,12 +686,12 @@ export function ReadyForDelivery() {
                                 <small>{group.sourceItems.length > 1 ? `${group.sourceItems.length} matching line(s) - ` : ''}{formatEnumLabel(group.status ?? 'PENDING')}</small>
                               </td>
                               <td>{group.orderedQuantity}</td>
-                              <td>{group.deliveredQuantity} / remaining {group.remainingQuantity}</td>
+                              <td>{group.deliveredQuantity} / {group.orderedQuantity}</td>
                               <td>
                                 <input
                                   className="production-workspace-quantity-input"
                                   disabled={group.remainingQuantity <= 0 || createBatchMutation.isPending}
-                                  inputMode="numeric"
+                                  inputMode="decimal"
                                   max={group.remainingQuantity}
                                   min={0}
                                   type="number"

@@ -292,17 +292,18 @@
 .building-blueprint-toolbar > div {
   background: rgba(255, 255, 255, 0.94);
   border: 1px solid var(--blueprint-border);
-  display: inline-block;
+  display: flex;
+  gap: 18px;
+  max-width: calc(100vw - 620px);
+  min-width: min(720px, calc(100vw - 620px));
   padding: 10px 12px;
 }
 
-.building-blueprint-toolbar strong,
-.building-blueprint-toolbar span {
-  display: block;
-}
-
 .building-blueprint-toolbar strong {
+  flex: 0 0 auto;
   font-size: 14px;
+  line-height: 1.15;
+  white-space: nowrap;
 }
 
 .building-blueprint-toolbar span {
@@ -312,16 +313,20 @@
 }
 
 .building-blueprint-toolbar-area-info {
-  display: grid;
-  gap: 7px 14px;
-  grid-template-columns: repeat(4, max-content);
-  margin: 10px 0 0;
+  display: flex;
+  flex: 1 1 auto;
+  gap: 16px;
+  margin: 0;
+  min-width: 0;
   padding: 0;
+  white-space: nowrap;
 }
 
 .building-blueprint-toolbar-area-info div {
-  display: grid;
-  gap: 2px;
+  display: flex;
+  flex: 0 0 auto;
+  gap: 6px;
+  min-width: 0;
 }
 
 .building-blueprint-toolbar-area-info dt {
@@ -337,7 +342,7 @@
   font-size: 12px;
   font-weight: 800;
   margin: 0;
-  max-width: 160px;
+  max-width: 180px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

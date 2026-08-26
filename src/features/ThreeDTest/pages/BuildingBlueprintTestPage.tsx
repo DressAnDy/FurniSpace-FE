@@ -704,11 +704,13 @@ function updateLevelLayout(scene: BuildingTestScene, levelId: BuildingLevel['id'
 
   return updateLevel(scene, levelId, (level) => ({
     ...level,
-    depth: level.projectAreaId && !level.isSpecialLayout ? level.depth : roundMetric(size.depth),
-    footprintOffset: {
-      x: roundMetric(size.centerX - scene.building.position.x),
-      z: roundMetric(size.centerZ - scene.building.position.z),
-    },
+    depth: level.projectAreaId ? level.depth : roundMetric(size.depth),
+    footprintOffset: level.projectAreaId
+      ? level.footprintOffset
+      : {
+          x: roundMetric(size.centerX - scene.building.position.x),
+          z: roundMetric(size.centerZ - scene.building.position.z),
+        },
     layout: level.projectAreaId && !level.isSpecialLayout
       ? {
           ...layout,
@@ -717,7 +719,38 @@ function updateLevelLayout(scene: BuildingTestScene, levelId: BuildingLevel['id'
         }
       : layout,
     wallHeight: level.projectAreaId && !level.isSpecialLayout ? level.wallHeight : layout.wallHeight,
-    width: level.projectAreaId && !level.isSpecialLayout ? level.width : roundMetric(size.width),
+    width: level.projectAreaId ? level.width : roundMetric(size.width),
+  }));
+}
+
+function moveLevelLayout(scene: BuildingTestScene, levelId: BuildingLevel['id'], delta: { x: number; y: number }) {
+  if (Math.abs(delta.x) < 0.001 && Math.abs(delta.y) < 0.001) {
+    return scene;
+  }
+
+  return updateLevel(scene, levelId, (level) => ({
+    ...level,
+    floorOpenings: (level.floorOpenings ?? []).map((opening) => ({
+      ...opening,
+      position: {
+        x: roundMetric(opening.position.x + delta.x),
+        z: roundMetric(opening.position.z + delta.y),
+      },
+    })),
+    footprintOffset: {
+      x: roundMetric(level.footprintOffset.x + delta.x),
+      z: roundMetric(level.footprintOffset.z + delta.y),
+    },
+    layout: level.layout
+      ? {
+          ...level.layout,
+          points: level.layout.points.map((point) => ({
+            ...point,
+            x: roundMetric(point.x + delta.x),
+            y: roundMetric(point.y + delta.y),
+          })),
+        }
+      : level.layout,
   }));
 }
 
@@ -969,7 +1002,7 @@ export function BuildingBlueprintTestPage() {
   const location = useLocation();
   const navigate = useNavigate();
   const routeState = location.state as BuildingBlueprintRouteState | null;
-  const { resetSceneData, sceneData, setRemoteSceneData, setSceneData, shouldKeepSceneDraft } = useBuildingTestSceneState(sceneId);
+  const { sceneData, setRemoteSceneData, setSceneData, shouldKeepSceneDraft } = useBuildingTestSceneState(sceneId);
   const hasLocalSceneEditsRef = useRef(false);
   const appliedAreaTemplateRef = useRef<string | null>(null);
   const roomPlannerSceneQuery = useRoomPlannerScene(sceneId, { enabled: Boolean(sceneId) });
@@ -1138,6 +1171,14 @@ export function BuildingBlueprintTestPage() {
     updateSceneDraft((scene) => updateLevelLayout(scene, currentLevelId as BuildingLevel['id'], layout));
   }
 
+  function handleBlueprintLayoutMove(delta: { x: number; y: number }) {
+    if (!currentLevelId) {
+      return;
+    }
+
+    updateSceneDraft((scene) => moveLevelLayout(scene, currentLevelId as BuildingLevel['id'], delta));
+  }
+
   function handleFloorOpeningAdd(position: { x: number; z: number }) {
     if (!currentLevelId) {
       return;
@@ -1189,6 +1230,14 @@ export function BuildingBlueprintTestPage() {
     navigate(sceneId ? `/proposal-scenes/${sceneId}/room-planner` : '/3d-building-test', {
       state: routeState ?? undefined,
     });
+  }
+
+  function resetBlueprintToProjectAreas() {
+    hasLocalSceneEditsRef.current = true;
+    appliedAreaTemplateRef.current = createAreaTemplateKey(templateAreas);
+    setSceneData(centerAndFitFloorStackOnSite(createBuildingTestSceneFromProjectFloorAreas(templateAreas)));
+    setSelectedItem(null);
+    setBlueprintMessage('Blueprint reset to the linked project area dimensions.');
   }
 
   useEffect(() => {
@@ -1247,7 +1296,7 @@ export function BuildingBlueprintTestPage() {
           <button type="button" onClick={openThreeDPlanner}>
             Open 3D
           </button>
-          <button type="button" onClick={resetSceneData}>
+          <button type="button" onClick={resetBlueprintToProjectAreas}>
             <IconRotateClockwise size={15} />
             Reset Blueprint
           </button>
@@ -1599,7 +1648,6 @@ export function BuildingBlueprintTestPage() {
           <div className="building-blueprint-toolbar">
             <div>
               <strong>{levelTabs.find((tab) => tab.value === activeLayer)?.label ?? activeLayer} Plan</strong>
-              <span>Parametric test blueprint shared with the 3D prototype.</span>
               {activeAreaInfo ? (
                 <dl className="building-blueprint-toolbar-area-info">
                   <div><dt>Area</dt><dd>{activeAreaInfo.areaName}</dd></div>
@@ -1624,6 +1672,7 @@ export function BuildingBlueprintTestPage() {
               underlay={underlayLayout ? { label: `${underlayLevel?.label ?? 'Lower floor'} underlay`, layout: underlayLayout } : null}
               wallFillColor="#f1eee7"
               onLayoutChange={handleBlueprintLayoutChange}
+              onLayoutMove={handleBlueprintLayoutMove}
               onFloorOpeningAdd={handleFloorOpeningAdd}
               onFloorOpeningDelete={handleFloorOpeningDelete}
               onFloorOpeningUpdate={handleFloorOpeningUpdate}
