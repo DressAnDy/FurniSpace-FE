@@ -18,6 +18,7 @@ export * from './payments';
 export * from './proposals';
 export * from './quotations';
 export * from './reports';
+export * from './projectReports';
 export * from './schedules';
 export * from './showcases';
 export type {

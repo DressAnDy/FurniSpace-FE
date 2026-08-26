@@ -12,6 +12,7 @@ import {
 } from '@tabler/icons-react';
 import { Link } from 'react-router-dom';
 
+import { useLang, type Lang } from '@/app/providers/useLang';
 import { getAdminFinancialServiceResultMessage } from '@/services/api/adminFinancial';
 import {
   useAdminFinancialCollectionTrend,
@@ -22,6 +23,17 @@ import {
   useAdminFinancialReceivables,
   useAdminFinancialSummary,
 } from '@/services/queries';
+
+import {
+  financialCopy,
+  formatDateTime,
+  formatEnumLabel,
+  formatKpiMoney,
+  formatMoney,
+  formatSeverityLabel,
+  formatTrendPeriod,
+  getMoneyParts,
+} from './adminReportsI18n';
 
 type DateParams = { from: string; to: string };
 
@@ -34,6 +46,8 @@ type FinancialPanelProps = {
 type KpiTone = 'green' | 'amber' | 'blue' | 'red' | 'neutral';
 
 export function FinancialPanel({ dateParams, fromDate, toDate }: FinancialPanelProps) {
+  const { lang } = useLang();
+  const t = financialCopy[lang];
   const [receivablesPage, setReceivablesPage] = useState(1);
   const [projectsPage, setProjectsPage] = useState(1);
   const [paymentsPage, setPaymentsPage] = useState(1);
@@ -65,20 +79,20 @@ export function FinancialPanel({ dateParams, fromDate, toDate }: FinancialPanelP
   });
   const receivablesQuery = useAdminFinancialReceivables({
     page: receivablesPage,
-    pageSize: 10,
+    pageSize: 4,
     sortBy: 'confirmedAt',
     sortDirection: 'desc',
   });
   const projectsQuery = useAdminFinancialProjects({
     keyword: projectKeyword.trim() || undefined,
     page: projectsPage,
-    pageSize: 10,
+    pageSize: 4,
     sortBy: 'createdAt',
     sortDirection: 'desc',
   });
   const paymentsQuery = useAdminFinancialPayments({
     page: paymentsPage,
-    pageSize: 10,
+    pageSize: 4,
     currency: 'VND',
     hasFailedAttempt: paymentFailedOnly ? true : undefined,
     sortBy: 'createdAt',
@@ -86,21 +100,18 @@ export function FinancialPanel({ dateParams, fromDate, toDate }: FinancialPanelP
   });
   const exceptionsQuery = useAdminFinancialExceptions({
     page: exceptionsPage,
-    pageSize: 10,
+    pageSize: 4,
   });
 
   const summary = summaryQuery.data;
 
   return (
     <div className="admin-financial-panel">
-      <section className="admin-financial-hero" aria-label="Financial report context">
+      <section className="admin-financial-hero" aria-label={t.heroAria}>
         <div>
-          <span className="admin-financial-hero-eyebrow">Cash & receivables</span>
-          <h3>Financial command view</h3>
-          <p>
-            Canonical collected cash only (start fee, deposit, remaining). Outstanding payments and contracted
-            receivable stay separate — do not sum them.
-          </p>
+          <span className="admin-financial-hero-eyebrow">{t.eyebrow}</span>
+          <h3>{t.heroTitle}</h3>
+          <p>{t.heroBody}</p>
         </div>
         <ul className="admin-financial-chips">
           <li>
@@ -115,56 +126,56 @@ export function FinancialPanel({ dateParams, fromDate, toDate }: FinancialPanelP
         </ul>
       </section>
 
-      {summaryQuery.isLoading ? <StateBlock>Loading financial summary...</StateBlock> : null}
+      {summaryQuery.isLoading ? <StateBlock>{t.loadingSummary}</StateBlock> : null}
       {summaryQuery.isError ? <ErrorBlock error={summaryQuery.error} /> : null}
 
       {summary ? (
-        <section className="admin-financial-kpi-grid" aria-label="Financial KPIs">
+        <section className="admin-financial-kpi-grid" aria-label={t.kpiAria}>
           <KpiCard
             tone="green"
             icon={<IconCreditCard size={18} />}
-            label="Collected"
-            value={formatKpiMoney(summary.collectedAmount)}
-            title={formatMoney(summary.collectedAmount)}
-            note={`${summary.failedTransactionCount} failed attempts in range`}
+            label={t.collected}
+            value={<VndText lang={lang} value={summary.collectedAmount} compact />}
+            title={formatMoney(lang, summary.collectedAmount)}
+            note={t.failedInRange(summary.failedTransactionCount)}
           />
           <KpiCard
             tone="amber"
             icon={<IconClock size={18} />}
-            label="Outstanding payments"
-            value={formatKpiMoney(summary.outstandingPaymentAmount)}
-            title={formatMoney(summary.outstandingPaymentAmount)}
-            note={`${summary.activePaymentCount} active obligations`}
+            label={t.outstanding}
+            value={<VndText lang={lang} value={summary.outstandingPaymentAmount} compact />}
+            title={formatMoney(lang, summary.outstandingPaymentAmount)}
+            note={t.openItems(summary.activePaymentCount)}
           />
           <KpiCard
             tone="amber"
             icon={<IconReceipt size={18} />}
-            label="Contracted receivable"
-            value={formatKpiMoney(summary.contractedReceivableAmount)}
-            title={formatMoney(summary.contractedReceivableAmount)}
-            note="Active orders with remaining amount"
+            label={t.contracted}
+            value={<VndText lang={lang} value={summary.contractedReceivableAmount} compact />}
+            title={formatMoney(lang, summary.contractedReceivableAmount)}
+            note={t.activeOrdersRemaining}
           />
           <KpiCard
             tone="blue"
             icon={<IconCash size={18} />}
-            label="Order commercial value"
-            value={formatKpiMoney(summary.orderCommercialValue)}
-            title={formatMoney(summary.orderCommercialValue)}
-            note="Confirmed in selected range"
+            label={t.orderValue}
+            value={<VndText lang={lang} value={summary.orderCommercialValue} compact />}
+            title={formatMoney(lang, summary.orderCommercialValue)}
+            note={t.inSelectedRange}
           />
           <KpiCard
             tone="red"
             icon={<IconAlertTriangle size={18} />}
-            label="Failed transactions"
+            label={t.failedTx}
             value={summary.failedTransactionCount}
-            note="Payment attempts"
+            note={t.failedAttempts}
           />
           <KpiCard
             tone="neutral"
             icon={<IconCreditCard size={18} />}
-            label="Active payments"
+            label={t.activePayments}
             value={summary.activePaymentCount}
-            note="Current collectible"
+            note={t.waitingCustomer}
           />
         </section>
       ) : null}
@@ -173,13 +184,14 @@ export function FinancialPanel({ dateParams, fromDate, toDate }: FinancialPanelP
         <article className="admin-card admin-financial-section-card admin-financial-section-wide">
           <SectionHeader
             icon={<IconChartBar size={18} />}
-            title="Collection trend"
-            subtitle="Monthly stacked cash by canonical payment type."
+            title={t.trendTitle}
+            subtitle={t.trendSubtitle}
           />
-          {trendQuery.isLoading ? <StateBlock>Loading collection trend...</StateBlock> : null}
+          {trendQuery.isLoading ? <StateBlock>{t.loadingTrend}</StateBlock> : null}
           {trendQuery.isError ? <ErrorBlock error={trendQuery.error} /> : null}
           {trendQuery.data ? (
             <CollectionBars
+              lang={lang}
               series={trendQuery.data.series.map((bucket) => ({
                 label: bucket.period,
                 projectStartFee: bucket.projectStartFee,
@@ -194,30 +206,30 @@ export function FinancialPanel({ dateParams, fromDate, toDate }: FinancialPanelP
         <article className="admin-card admin-financial-section-card">
           <SectionHeader
             icon={<IconReceipt size={18} />}
-            title="Type breakdown"
-            subtitle="Collected vs outstanding by payment type."
+            title={t.typeTitle}
+            subtitle={t.typeSubtitle}
           />
-          {breakdownQuery.isLoading ? <StateBlock>Loading breakdown...</StateBlock> : null}
+          {breakdownQuery.isLoading ? <StateBlock>{t.loadingBreakdown}</StateBlock> : null}
           {breakdownQuery.isError ? <ErrorBlock error={breakdownQuery.error} /> : null}
           {breakdownQuery.data ? (
             <div className="admin-financial-breakdown-cards">
               {breakdownQuery.data.items.map((item) => (
                 <article className="admin-financial-breakdown-card" key={item.paymentType}>
                   <header>
-                    <strong>{formatLabel(item.paymentType)}</strong>
-                    <span className="admin-financial-pill">{item.paidCount} paid</span>
+                    <strong>{formatEnumLabel(lang, item.paymentType)}</strong>
+                    <span className="admin-financial-pill">{t.paidCount(item.paidCount)}</span>
                   </header>
                   <div className="admin-financial-breakdown-metrics">
                     <div>
-                      <small>Collected</small>
-                      <em title={formatMoney(item.collectedAmount)}>{formatKpiMoney(item.collectedAmount)}</em>
+                      <small>{t.collected}</small>
+                      <em title={formatMoney(lang, item.collectedAmount)}>{formatKpiMoney(lang, item.collectedAmount)}</em>
                     </div>
                     <div>
-                      <small>Outstanding</small>
-                      <em title={formatMoney(item.outstandingAmount)}>{formatKpiMoney(item.outstandingAmount)}</em>
+                      <small>{t.waiting}</small>
+                      <em title={formatMoney(lang, item.outstandingAmount)}>{formatKpiMoney(lang, item.outstandingAmount)}</em>
                     </div>
                     <div>
-                      <small>Open / Expired</small>
+                      <small>{t.openExpired}</small>
                       <em>
                         {item.outstandingCount} / {item.expiredCount}
                       </em>
@@ -233,18 +245,18 @@ export function FinancialPanel({ dateParams, fromDate, toDate }: FinancialPanelP
       <section className="admin-card admin-financial-section-card">
         <SectionHeader
           icon={<IconReceipt size={18} />}
-          title="Receivables"
-          subtitle="Current outstanding obligations and contracted order receivables."
+          title={t.receivablesTitle}
+          subtitle={t.receivablesSubtitle}
           aside={
             receivablesQuery.data ? (
               <div className="admin-financial-stat-pills">
-                <span>Outstanding {formatKpiMoney(receivablesQuery.data.outstandingPaymentAmount)}</span>
-                <span>Contracted {formatKpiMoney(receivablesQuery.data.contractedReceivableAmount)}</span>
+                <span>{t.waitingAmount(formatKpiMoney(lang, receivablesQuery.data.outstandingPaymentAmount))}</span>
+                <span>{t.byOrderAmount(formatKpiMoney(lang, receivablesQuery.data.contractedReceivableAmount))}</span>
               </div>
             ) : null
           }
         />
-        {receivablesQuery.isLoading ? <StateBlock>Loading receivables...</StateBlock> : null}
+        {receivablesQuery.isLoading ? <StateBlock>{t.loadingReceivables}</StateBlock> : null}
         {receivablesQuery.isError ? <ErrorBlock error={receivablesQuery.error} /> : null}
         {receivablesQuery.data ? (
           <>
@@ -252,20 +264,20 @@ export function FinancialPanel({ dateParams, fromDate, toDate }: FinancialPanelP
               <table className="admin-report-table admin-financial-table admin-financial-table-receivables">
                 <thead>
                   <tr>
-                    <th>Project</th>
-                    <th>Order</th>
-                    <th>Final total</th>
-                    <th>Paid</th>
-                    <th>Remaining</th>
-                    <th>Active payment</th>
-                    <th>Created?</th>
+                    <th>{t.project}</th>
+                    <th>{t.order}</th>
+                    <th>{t.finalTotal}</th>
+                    <th>{t.paid}</th>
+                    <th>{t.remaining}</th>
+                    <th>{t.activePayment}</th>
+                    <th>{t.paymentCreated}</th>
                   </tr>
                 </thead>
                 <tbody>
                   {receivablesQuery.data.items.length === 0 ? (
                     <tr>
                       <td colSpan={7}>
-                        <EmptyRow text="No receivable rows." />
+                        <EmptyRow text={t.emptyReceivables} />
                       </td>
                     </tr>
                   ) : (
@@ -281,23 +293,23 @@ export function FinancialPanel({ dateParams, fromDate, toDate }: FinancialPanelP
                           <span className="admin-financial-mono" title={item.orderCode}>
                             {shortenCode(item.orderCode)}
                           </span>
-                          <div className="admin-report-cell-sub">{formatLabel(item.orderStatus || '')}</div>
+                          <div className="admin-report-cell-sub">{formatEnumLabel(lang, item.orderStatus || '')}</div>
                         </td>
-                        <td className="admin-financial-money">{formatKpiMoney(item.finalTotalAmount)}</td>
-                        <td className="admin-financial-money">{formatKpiMoney(item.paidAmount)}</td>
-                        <td className="admin-financial-money is-warn">{formatKpiMoney(item.remainingAmount)}</td>
+                        <td className="admin-financial-money">{formatKpiMoney(lang, item.finalTotalAmount)}</td>
+                        <td className="admin-financial-money">{formatKpiMoney(lang, item.paidAmount)}</td>
+                        <td className="admin-financial-money is-warn">{formatKpiMoney(lang, item.remainingAmount)}</td>
                         <td>
-                          {item.activePaymentType ? formatLabel(item.activePaymentType) : '—'}
+                          {item.activePaymentType ? formatEnumLabel(lang, item.activePaymentType) : '—'}
                           <div className="admin-report-cell-sub">
                             {item.activePaymentStatus ? (
-                              <StatusPill status={item.activePaymentStatus} />
+                              <StatusPill lang={lang} status={item.activePaymentStatus} />
                             ) : null}{' '}
-                            {item.activePaymentAmount != null ? formatKpiMoney(item.activePaymentAmount) : ''}
+                            {item.activePaymentAmount != null ? formatKpiMoney(lang, item.activePaymentAmount) : ''}
                           </div>
                         </td>
                         <td>
                           <span className={`admin-financial-flag ${item.isPaymentCreated ? 'is-yes' : 'is-no'}`}>
-                            {item.isPaymentCreated ? 'Yes' : 'No'}
+                            {item.isPaymentCreated ? t.yes : t.no}
                           </span>
                         </td>
                       </tr>
@@ -307,6 +319,7 @@ export function FinancialPanel({ dateParams, fromDate, toDate }: FinancialPanelP
               </table>
             </div>
             <Pager
+              lang={lang}
               page={receivablesQuery.data.page}
               totalPages={receivablesQuery.data.totalPages}
               totalItems={receivablesQuery.data.totalItems}
@@ -319,14 +332,14 @@ export function FinancialPanel({ dateParams, fromDate, toDate }: FinancialPanelP
       <section className="admin-card admin-financial-section-card">
         <SectionHeader
           icon={<IconFolder size={18} />}
-          title="Projects financial overview"
-          subtitle="Use totalProjectCashCollected — not start fee + order paid."
+          title={t.projectsTitle}
+          subtitle={t.projectsSubtitle}
           aside={
             <label className="admin-financial-search">
               <IconSearch size={15} />
               <input
-                aria-label="Search projects"
-                placeholder="Code, name, customer"
+                aria-label={t.searchProjects}
+                placeholder={t.searchPlaceholder}
                 value={projectKeyword}
                 onChange={(event) => {
                   setProjectKeyword(event.target.value);
@@ -336,7 +349,7 @@ export function FinancialPanel({ dateParams, fromDate, toDate }: FinancialPanelP
             </label>
           }
         />
-        {projectsQuery.isLoading ? <StateBlock>Loading projects...</StateBlock> : null}
+        {projectsQuery.isLoading ? <StateBlock>{t.loadingProjects}</StateBlock> : null}
         {projectsQuery.isError ? <ErrorBlock error={projectsQuery.error} /> : null}
         {projectsQuery.data ? (
           <>
@@ -344,20 +357,20 @@ export function FinancialPanel({ dateParams, fromDate, toDate }: FinancialPanelP
               <table className="admin-report-table admin-financial-table">
                 <thead>
                   <tr>
-                    <th>Project</th>
-                    <th>Customer</th>
-                    <th>Order</th>
-                    <th>Collected</th>
-                    <th>Remaining</th>
-                    <th>Active payment</th>
-                    <th>Last paid</th>
+                    <th>{t.project}</th>
+                    <th>{t.customer}</th>
+                    <th>{t.order}</th>
+                    <th>{t.collected}</th>
+                    <th>{t.remaining}</th>
+                    <th>{t.activePayment}</th>
+                    <th>{t.lastPaid}</th>
                   </tr>
                 </thead>
                 <tbody>
                   {projectsQuery.data.items.length === 0 ? (
                     <tr>
                       <td colSpan={7}>
-                        <EmptyRow text="No projects found." />
+                        <EmptyRow text={t.emptyProjects} />
                       </td>
                     </tr>
                   ) : (
@@ -366,25 +379,25 @@ export function FinancialPanel({ dateParams, fromDate, toDate }: FinancialPanelP
                         <td>
                           <strong className="admin-financial-code">{item.projectCode || item.projectName}</strong>
                           <div className="admin-report-cell-sub">
-                            {item.projectName} · {formatLabel(item.projectStatus || '')}
+                            {item.projectName} · {formatEnumLabel(lang, item.projectStatus || '')}
                           </div>
                         </td>
                         <td>{item.customerName || '—'}</td>
                         <td>
                           {item.orderCode || '—'}
-                          <div className="admin-report-cell-sub">{formatLabel(item.orderStatus || '')}</div>
+                          <div className="admin-report-cell-sub">{formatEnumLabel(lang, item.orderStatus || '')}</div>
                         </td>
-                        <td className="admin-financial-money is-good" title={formatMoney(item.totalProjectCashCollected)}>
-                          {formatKpiMoney(item.totalProjectCashCollected)}
+                        <td className="admin-financial-money is-good" title={formatMoney(lang, item.totalProjectCashCollected)}>
+                          {formatKpiMoney(lang, item.totalProjectCashCollected)}
                         </td>
-                        <td className="admin-financial-money is-warn">{formatKpiMoney(item.orderRemainingAmount)}</td>
+                        <td className="admin-financial-money is-warn">{formatKpiMoney(lang, item.orderRemainingAmount)}</td>
                         <td>
-                          {item.activePaymentType ? formatLabel(item.activePaymentType) : '—'}
+                          {item.activePaymentType ? formatEnumLabel(lang, item.activePaymentType) : '—'}
                           <div className="admin-report-cell-sub">
-                            {item.activePaymentStatus ? <StatusPill status={item.activePaymentStatus} /> : null}
+                            {item.activePaymentStatus ? <StatusPill lang={lang} status={item.activePaymentStatus} /> : null}
                           </div>
                         </td>
-                        <td>{formatDateTime(item.lastPaidAt)}</td>
+                        <td>{formatDateTime(lang, item.lastPaidAt)}</td>
                       </tr>
                     ))
                   )}
@@ -392,6 +405,7 @@ export function FinancialPanel({ dateParams, fromDate, toDate }: FinancialPanelP
               </table>
             </div>
             <Pager
+              lang={lang}
               page={projectsQuery.data.page}
               totalPages={projectsQuery.data.totalPages}
               totalItems={projectsQuery.data.totalItems}
@@ -404,8 +418,8 @@ export function FinancialPanel({ dateParams, fromDate, toDate }: FinancialPanelP
       <section className="admin-card admin-financial-section-card">
         <SectionHeader
           icon={<IconCreditCard size={18} />}
-          title="Payments operations"
-          subtitle="Provider attempts and failure diagnostics (no webhook secrets)."
+          title={t.paymentsTitle}
+          subtitle={t.paymentsSubtitle}
           aside={
             <label className="admin-financial-toggle">
               <input
@@ -416,11 +430,11 @@ export function FinancialPanel({ dateParams, fromDate, toDate }: FinancialPanelP
                   setPaymentsPage(1);
                 }}
               />
-              Failed attempts only
+              {t.failedOnly}
             </label>
           }
         />
-        {paymentsQuery.isLoading ? <StateBlock>Loading payments...</StateBlock> : null}
+        {paymentsQuery.isLoading ? <StateBlock>{t.loadingPayments}</StateBlock> : null}
         {paymentsQuery.isError ? <ErrorBlock error={paymentsQuery.error} /> : null}
         {paymentsQuery.data ? (
           <>
@@ -428,21 +442,21 @@ export function FinancialPanel({ dateParams, fromDate, toDate }: FinancialPanelP
               <table className="admin-report-table admin-financial-table">
                 <thead>
                   <tr>
-                    <th>Payment</th>
-                    <th>Project / Order</th>
-                    <th>Type</th>
-                    <th>Amount</th>
-                    <th>Status</th>
-                    <th>Provider</th>
-                    <th>Attempts</th>
-                    <th>Last failure</th>
+                    <th>{t.payment}</th>
+                    <th>{t.projectOrder}</th>
+                    <th>{t.type}</th>
+                    <th>{t.amount}</th>
+                    <th>{t.status}</th>
+                    <th>{t.provider}</th>
+                    <th>{t.attempts}</th>
+                    <th>{t.lastFailure}</th>
                   </tr>
                 </thead>
                 <tbody>
                   {paymentsQuery.data.items.length === 0 ? (
                     <tr>
                       <td colSpan={8}>
-                        <EmptyRow text="No payments found." />
+                        <EmptyRow text={t.emptyPayments} />
                       </td>
                     </tr>
                   ) : (
@@ -456,23 +470,23 @@ export function FinancialPanel({ dateParams, fromDate, toDate }: FinancialPanelP
                           {item.projectCode || '—'}
                           <div className="admin-report-cell-sub">{item.orderCode || '—'}</div>
                         </td>
-                        <td>{item.paymentType ? formatLabel(item.paymentType) : '—'}</td>
-                        <td className="admin-financial-money">{formatKpiMoney(item.amount)}</td>
-                        <td>{item.status ? <StatusPill status={item.status} /> : '—'}</td>
+                        <td>{item.paymentType ? formatEnumLabel(lang, item.paymentType) : '—'}</td>
+                        <td className="admin-financial-money">{formatKpiMoney(lang, item.amount)}</td>
+                        <td>{item.status ? <StatusPill lang={lang} status={item.status} /> : '—'}</td>
                         <td>
                           <span className="admin-financial-pill">{item.lastProvider || '—'}</span>
                         </td>
                         <td>
                           {item.attemptCount}
                           {item.failedAttemptCount > 0 ? (
-                            <div className="admin-report-cell-sub is-bad">{item.failedAttemptCount} failed</div>
+                            <div className="admin-report-cell-sub is-bad">{t.failedTimes(item.failedAttemptCount)}</div>
                           ) : (
-                            <div className="admin-report-cell-sub">0 failed</div>
+                            <div className="admin-report-cell-sub">{t.zeroFailed}</div>
                           )}
                         </td>
                         <td>
                           {item.lastFailureReason || '—'}
-                          <div className="admin-report-cell-sub">{formatDateTime(item.lastAttemptAt)}</div>
+                          <div className="admin-report-cell-sub">{formatDateTime(lang, item.lastAttemptAt)}</div>
                         </td>
                       </tr>
                     ))
@@ -481,6 +495,7 @@ export function FinancialPanel({ dateParams, fromDate, toDate }: FinancialPanelP
               </table>
             </div>
             <Pager
+              lang={lang}
               page={paymentsQuery.data.page}
               totalPages={paymentsQuery.data.totalPages}
               totalItems={paymentsQuery.data.totalItems}
@@ -493,10 +508,10 @@ export function FinancialPanel({ dateParams, fromDate, toDate }: FinancialPanelP
       <section className="admin-card admin-financial-section-card">
         <SectionHeader
           icon={<IconAlertTriangle size={18} />}
-          title="Exceptions inbox"
-          subtitle="Operational issues needing admin attention."
+          title={t.exceptionsTitle}
+          subtitle={t.exceptionsSubtitle}
         />
-        {exceptionsQuery.isLoading ? <StateBlock>Loading exceptions...</StateBlock> : null}
+        {exceptionsQuery.isLoading ? <StateBlock>{t.loadingExceptions}</StateBlock> : null}
         {exceptionsQuery.isError ? <ErrorBlock error={exceptionsQuery.error} /> : null}
         {exceptionsQuery.data ? (
           <>
@@ -504,19 +519,19 @@ export function FinancialPanel({ dateParams, fromDate, toDate }: FinancialPanelP
               <table className="admin-report-table admin-financial-table">
                 <thead>
                   <tr>
-                    <th>Severity</th>
-                    <th>Type</th>
-                    <th>Title</th>
-                    <th>Amount</th>
-                    <th>Age</th>
-                    <th>Action</th>
+                    <th>{t.severity}</th>
+                    <th>{t.type}</th>
+                    <th>{t.content}</th>
+                    <th>{t.amount}</th>
+                    <th>{t.age}</th>
+                    <th>{t.action}</th>
                   </tr>
                 </thead>
                 <tbody>
                   {exceptionsQuery.data.items.length === 0 ? (
                     <tr>
                       <td colSpan={6}>
-                        <EmptyRow text="No exceptions." />
+                        <EmptyRow text={t.emptyExceptions} />
                       </td>
                     </tr>
                   ) : (
@@ -526,16 +541,16 @@ export function FinancialPanel({ dateParams, fromDate, toDate }: FinancialPanelP
                           <span
                             className={`admin-financial-severity admin-financial-severity-${(item.severity || 'medium').toLowerCase()}`}
                           >
-                            {item.severity || '—'}
+                            {formatSeverityLabel(lang, item.severity)}
                           </span>
                         </td>
-                        <td>{formatLabel(item.exceptionType)}</td>
+                        <td>{formatEnumLabel(lang, item.exceptionType)}</td>
                         <td>
                           <strong>{item.title}</strong>
                           <div className="admin-report-cell-sub">{item.reason}</div>
                         </td>
-                        <td className="admin-financial-money">{formatKpiMoney(item.amount)}</td>
-                        <td>{item.age != null ? `${item.age}d` : '—'}</td>
+                        <td className="admin-financial-money">{formatKpiMoney(lang, item.amount)}</td>
+                        <td>{item.age != null ? t.days(item.age) : '—'}</td>
                         <td className="admin-financial-action">{item.recommendedAction || '—'}</td>
                       </tr>
                     ))
@@ -544,6 +559,7 @@ export function FinancialPanel({ dateParams, fromDate, toDate }: FinancialPanelP
               </table>
             </div>
             <Pager
+              lang={lang}
               page={exceptionsQuery.data.page}
               totalPages={exceptionsQuery.data.totalPages}
               totalItems={exceptionsQuery.data.totalItems}
@@ -594,23 +610,47 @@ function KpiCard({
   note?: string;
   title?: string;
   tone: KpiTone;
-  value: string | number;
+  value: ReactNode;
 }) {
   return (
     <article className={`admin-financial-kpi admin-financial-kpi-${tone}`} title={title}>
       <span className="admin-financial-kpi-icon">{icon}</span>
       <div>
         <small>{label}</small>
-        <strong>{value}</strong>
+        <strong className="admin-financial-kpi-value">{value}</strong>
         {note ? <p>{note}</p> : null}
       </div>
     </article>
   );
 }
 
+function VndText({
+  lang,
+  value,
+  compact = false,
+}: {
+  lang: Lang;
+  value: number | null | undefined;
+  compact?: boolean;
+}) {
+  const parts = getMoneyParts(lang, value, compact);
+  if (!parts) return '—';
+
+  return (
+    <span className="admin-vnd">
+      <span className="admin-vnd-amount">{parts.amount}</span>
+      <span className="admin-vnd-symbol" aria-hidden="true">
+        ₫
+      </span>
+    </span>
+  );
+}
+
 function CollectionBars({
+  lang,
   series,
 }: {
+  lang: Lang;
   series: Array<{
     label: string;
     projectStartFee: number;
@@ -619,45 +659,83 @@ function CollectionBars({
     total: number;
   }>;
 }) {
+  const t = financialCopy[lang];
   const max = Math.max(1, ...series.map((item) => item.total));
 
   if (series.length === 0) {
-    return <EmptyRow text="No collection buckets in range." />;
+    return <EmptyRow text={t.emptyTrend} />;
   }
 
   return (
-    <div className="admin-financial-bars">
-      <div className="admin-financial-bars-plot">
-        {series.map((item) => (
-          <div className="admin-financial-bar-col" key={item.label} title={`${item.label}: ${formatMoney(item.total)}`}>
-            <div className="admin-financial-bar-stack" style={{ height: `${Math.max((item.total / max) * 100, 4)}%` }}>
-              <span style={{ flexGrow: item.remainingPayment || 0.0001, background: '#b45309' }} />
-              <span style={{ flexGrow: item.deposit || 0.0001, background: '#c4a574' }} />
-              <span style={{ flexGrow: item.projectStartFee || 0.0001, background: '#5c4030' }} />
-            </div>
-            <em>{item.label}</em>
-            <small>{formatKpiMoney(item.total)}</small>
-          </div>
-        ))}
-      </div>
+    <div className="admin-financial-trend">
+      <ul className="admin-financial-trend-list">
+        {series.map((item) => {
+          const widthPct = Math.max((item.total / max) * 100, item.total > 0 ? 8 : 0);
+          const parts = [
+            { key: 'start', label: t.startFee, amount: item.projectStartFee, color: '#5c4030' },
+            { key: 'deposit', label: t.deposit, amount: item.deposit, color: '#c4a574' },
+            { key: 'remaining', label: t.remainingPayment, amount: item.remainingPayment, color: '#b45309' },
+          ].filter((part) => part.amount > 0);
+
+          return (
+            <li className="admin-financial-trend-row" key={item.label}>
+              <div className="admin-financial-trend-row-head">
+                <strong>{formatTrendPeriod(lang, item.label)}</strong>
+                <span title={formatMoney(lang, item.total)}>{formatKpiMoney(lang, item.total)}</span>
+              </div>
+
+              <div className="admin-financial-trend-track" aria-hidden={item.total <= 0}>
+                <div className="admin-financial-trend-fill" style={{ width: `${widthPct}%` }}>
+                  {parts.length > 0
+                    ? parts.map((part) => (
+                        <span
+                          key={part.key}
+                          style={{
+                            flexGrow: part.amount,
+                            background: part.color,
+                          }}
+                          title={`${part.label}: ${formatMoney(lang, part.amount)}`}
+                        />
+                      ))
+                    : null}
+                </div>
+              </div>
+
+              <div className="admin-financial-trend-parts">
+                {parts.length === 0 ? (
+                  <em>{t.noCollectionMonth}</em>
+                ) : (
+                  parts.map((part) => (
+                    <span key={part.key}>
+                      <i style={{ background: part.color }} />
+                      {part.label}: <b title={formatMoney(lang, part.amount)}>{formatKpiMoney(lang, part.amount)}</b>
+                    </span>
+                  ))
+                )}
+              </div>
+            </li>
+          );
+        })}
+      </ul>
+
       <ul className="admin-financial-bar-legend">
         <li>
-          <i style={{ background: '#5c4030' }} /> Start fee
+          <i style={{ background: '#5c4030' }} /> {t.startFee}
         </li>
         <li>
-          <i style={{ background: '#c4a574' }} /> Deposit
+          <i style={{ background: '#c4a574' }} /> {t.deposit}
         </li>
         <li>
-          <i style={{ background: '#b45309' }} /> Remaining
+          <i style={{ background: '#b45309' }} /> {t.remainingPayment}
         </li>
       </ul>
     </div>
   );
 }
 
-function StatusPill({ status }: { status: string }) {
+function StatusPill({ lang, status }: { lang: Lang; status: string }) {
   const tone = statusTone(status);
-  return <span className={`admin-financial-status admin-financial-status-${tone}`}>{formatLabel(status)}</span>;
+  return <span className={`admin-financial-status admin-financial-status-${tone}`}>{formatEnumLabel(lang, status)}</span>;
 }
 
 function statusTone(status: string) {
@@ -669,27 +747,28 @@ function statusTone(status: string) {
 }
 
 function Pager({
+  lang,
   page,
   totalPages,
   totalItems,
   onChange,
 }: {
+  lang: Lang;
   page: number;
   totalPages: number;
   totalItems: number;
   onChange: (page: number) => void;
 }) {
+  const t = financialCopy[lang];
   return (
     <div className="admin-financial-pager">
-      <span>
-        Page {page} / {Math.max(totalPages, 1)} · {totalItems} items
-      </span>
+      <span>{t.pageItems(page, totalPages, totalItems)}</span>
       <div>
         <button disabled={page <= 1} type="button" onClick={() => onChange(page - 1)}>
-          Previous
+          {t.prev}
         </button>
         <button disabled={page >= totalPages} type="button" onClick={() => onChange(page + 1)}>
-          Next
+          {t.next}
         </button>
       </div>
     </div>
@@ -712,40 +791,7 @@ function ErrorBlock({ error }: { error: unknown }) {
   );
 }
 
-function formatLabel(value: string) {
-  if (!value) return '—';
-  return value
-    .toLowerCase()
-    .split('_')
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(' ');
-}
-
-function formatMoney(value: number | null | undefined) {
-  if (typeof value !== 'number' || Number.isNaN(value)) return '—';
-  return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND', maximumFractionDigits: 0 }).format(value);
-}
-
-function formatKpiMoney(value: number | null | undefined) {
-  if (typeof value !== 'number' || Number.isNaN(value)) return '—';
-  const abs = Math.abs(value);
-  if (abs >= 1_000_000_000) {
-    return `${(value / 1_000_000_000).toLocaleString('vi-VN', { maximumFractionDigits: 2 })} tỷ ₫`;
-  }
-  if (abs >= 1_000_000) {
-    return `${(value / 1_000_000).toLocaleString('vi-VN', { maximumFractionDigits: 1 })} triệu ₫`;
-  }
-  return formatMoney(value);
-}
-
-function formatDateTime(value: string | null | undefined) {
-  if (!value) return '—';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' });
-}
-
-function shortenCode(value: string | null | undefined, keep = 9) {
+function shortenCode(value: string | null | undefined, keep = 6) {
   if (!value) return '—';
   if (value.length <= keep * 2 + 1) return value;
   return `${value.slice(0, keep)}…${value.slice(-keep)}`;
