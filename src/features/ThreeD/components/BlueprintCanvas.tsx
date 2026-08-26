@@ -58,6 +58,7 @@ export type BlueprintCanvasProps = {
   hideLabels: boolean;
   layout: RoomLayoutState | null;
   onLayoutChange: (layout: RoomLayoutState) => void;
+  onLayoutMove?: (delta: { x: number; y: number }) => void;
   onFloorOpeningAdd?: (position: { x: number; z: number }) => void;
   onFloorOpeningDelete?: (openingId: string) => void;
   onFloorOpeningUpdate?: (
@@ -125,6 +126,10 @@ type DragFloorOpeningState = {
 };
 
 type DragLayoutState = {
+  appliedDelta: {
+    x: number;
+    y: number;
+  };
   originalPoints: BlueprintPoint[];
   start: Pick<BlueprintPoint, 'x' | 'y'>;
   transform: CanvasTransform;
@@ -263,6 +268,10 @@ function getDistanceToSegment(
   return Math.hypot(point.x - projection.x, point.y - projection.y);
 }
 
+function roundCoordinate(value: number) {
+  return Number(clamp(value, MIN_LAYOUT_COORDINATE, MAX_LAYOUT_COORDINATE).toFixed(2));
+}
+
 export function BlueprintCanvas({
   activeTool,
   boundaryGuide,
@@ -271,6 +280,7 @@ export function BlueprintCanvas({
   hideLabels,
   layout,
   onLayoutChange,
+  onLayoutMove,
   onFloorOpeningAdd,
   onFloorOpeningDelete,
   onFloorOpeningUpdate,
@@ -304,15 +314,23 @@ export function BlueprintCanvas({
       };
     }
 
-    const layoutBounds = getRoomBounds(layout.points);
-    const bounds = boundaryGuide
-      ? {
-          maxX: Math.max(layoutBounds.maxX, boundaryGuide.center.x + boundaryGuide.width / 2),
-          maxY: Math.max(layoutBounds.maxY, boundaryGuide.center.y + boundaryGuide.depth / 2),
-          minX: Math.min(layoutBounds.minX, boundaryGuide.center.x - boundaryGuide.width / 2),
-          minY: Math.min(layoutBounds.minY, boundaryGuide.center.y - boundaryGuide.depth / 2),
-        }
-      : layoutBounds;
+    const bounds = getRoomBounds(layout.points);
+
+    if (boundaryGuide) {
+      bounds.maxX = Math.max(bounds.maxX, boundaryGuide.center.x + boundaryGuide.width / 2);
+      bounds.maxY = Math.max(bounds.maxY, boundaryGuide.center.y + boundaryGuide.depth / 2);
+      bounds.minX = Math.min(bounds.minX, boundaryGuide.center.x - boundaryGuide.width / 2);
+      bounds.minY = Math.min(bounds.minY, boundaryGuide.center.y - boundaryGuide.depth / 2);
+    }
+
+    if (underlay?.layout?.points.length) {
+      const underlayBounds = getRoomBounds(underlay.layout.points);
+
+      bounds.maxX = Math.max(bounds.maxX, underlayBounds.maxX);
+      bounds.maxY = Math.max(bounds.maxY, underlayBounds.maxY);
+      bounds.minX = Math.min(bounds.minX, underlayBounds.minX);
+      bounds.minY = Math.min(bounds.minY, underlayBounds.minY);
+    }
     const width = Math.max(bounds.maxX - bounds.minX, 1);
     const height = Math.max(bounds.maxY - bounds.minY, 1);
     const scale = Math.min(
@@ -325,7 +343,7 @@ export function BlueprintCanvas({
       ...bounds,
       scale: scale * zoom,
     };
-  }, [boundaryGuide, layout, zoom]);
+  }, [boundaryGuide, layout, underlay?.layout, zoom]);
 
   const activeTransform = dragPoint?.transform ?? dragWall?.transform ?? dragOpening?.transform ?? dragFloorOpening?.transform ?? dragLayout?.transform ?? autoTransform;
   const activeViewOffset = dragPoint?.viewOffset ?? dragWall?.viewOffset ?? dragOpening?.viewOffset ?? dragFloorOpening?.viewOffset ?? dragLayout?.viewOffset ?? viewOffset;
@@ -387,6 +405,82 @@ export function BlueprintCanvas({
     };
   }
 
+  function getBoundaryGuideBounds() {
+    if (!boundaryGuide) {
+      return null;
+    }
+
+    return {
+      maxX: boundaryGuide.center.x + boundaryGuide.width / 2,
+      maxY: boundaryGuide.center.y + boundaryGuide.depth / 2,
+      minX: boundaryGuide.center.x - boundaryGuide.width / 2,
+      minY: boundaryGuide.center.y - boundaryGuide.depth / 2,
+    };
+  }
+
+  function clampPointToBoundary(point: Pick<BlueprintPoint, 'x' | 'y'>) {
+    const guideBounds = getBoundaryGuideBounds();
+
+    return {
+      x: roundCoordinate(guideBounds ? clamp(point.x, guideBounds.minX, guideBounds.maxX) : point.x),
+      y: roundCoordinate(guideBounds ? clamp(point.y, guideBounds.minY, guideBounds.maxY) : point.y),
+    };
+  }
+
+  function clampDeltaToBoundary(points: BlueprintPoint[], deltaX: number, deltaY: number) {
+    const guideBounds = getBoundaryGuideBounds();
+
+    if (!guideBounds || !points.length) {
+      return {
+        x: deltaX,
+        y: deltaY,
+      };
+    }
+
+    const pointBounds = getRoomBounds(points);
+
+    return {
+      x: clamp(deltaX, guideBounds.minX - pointBounds.minX, guideBounds.maxX - pointBounds.maxX),
+      y: clamp(deltaY, guideBounds.minY - pointBounds.minY, guideBounds.maxY - pointBounds.maxY),
+    };
+  }
+
+  function keepLayoutWithinBoundary(nextLayout: RoomLayoutState) {
+    const guideBounds = getBoundaryGuideBounds();
+
+    if (!guideBounds) {
+      return nextLayout;
+    }
+
+    const nextBounds = getRoomBounds(nextLayout.points);
+    const overflowDelta = clampDeltaToBoundary(
+      nextLayout.points,
+      nextBounds.minX < guideBounds.minX
+        ? guideBounds.minX - nextBounds.minX
+        : nextBounds.maxX > guideBounds.maxX
+          ? guideBounds.maxX - nextBounds.maxX
+          : 0,
+      nextBounds.minY < guideBounds.minY
+        ? guideBounds.minY - nextBounds.minY
+        : nextBounds.maxY > guideBounds.maxY
+          ? guideBounds.maxY - nextBounds.maxY
+          : 0,
+    );
+
+    if (Math.abs(overflowDelta.x) < 0.001 && Math.abs(overflowDelta.y) < 0.001) {
+      return nextLayout;
+    }
+
+    return {
+      ...nextLayout,
+      points: nextLayout.points.map((point) => ({
+        ...point,
+        x: roundCoordinate(point.x + overflowDelta.x),
+        y: roundCoordinate(point.y + overflowDelta.y),
+      })),
+    };
+  }
+
   function handlePointerMove(event: PointerEvent<SVGSVGElement>) {
     if (isPanning && panStart && !dragPoint && !dragWall && !dragOpening && !dragFloorOpening && !dragLayout) {
       setViewOffset({
@@ -407,10 +501,7 @@ export function BlueprintCanvas({
 
     if (dragPoint) {
       onLayoutChange(
-        movePoint(layout, dragPoint.pointId, {
-          x: Number(clamp(nextPoint.x, MIN_LAYOUT_COORDINATE, MAX_LAYOUT_COORDINATE).toFixed(2)),
-          y: Number(clamp(nextPoint.y, MIN_LAYOUT_COORDINATE, MAX_LAYOUT_COORDINATE).toFixed(2)),
-        }),
+        movePoint(layout, dragPoint.pointId, clampPointToBoundary(nextPoint)),
       );
       return;
     }
@@ -432,25 +523,43 @@ export function BlueprintCanvas({
     }
 
     if (dragFloorOpening) {
+      const clampedPoint = clampPointToBoundary(nextPoint);
+
       onFloorOpeningUpdate?.(dragFloorOpening.openingId, {
         position: {
-          x: Number(clamp(nextPoint.x, MIN_LAYOUT_COORDINATE, MAX_LAYOUT_COORDINATE).toFixed(2)),
-          z: Number(clamp(nextPoint.y, MIN_LAYOUT_COORDINATE, MAX_LAYOUT_COORDINATE).toFixed(2)),
+          x: clampedPoint.x,
+          z: clampedPoint.y,
         },
       });
       return;
     }
 
     if (dragLayout) {
-      const deltaX = nextPoint.x - dragLayout.start.x;
-      const deltaY = nextPoint.y - dragLayout.start.y;
+      const totalDelta = {
+        x: Number((nextPoint.x - dragLayout.start.x).toFixed(2)),
+        y: Number((nextPoint.y - dragLayout.start.y).toFixed(2)),
+      };
+
+      if (onLayoutMove) {
+        const incrementalDelta = {
+          x: Number((totalDelta.x - dragLayout.appliedDelta.x).toFixed(2)),
+          y: Number((totalDelta.y - dragLayout.appliedDelta.y).toFixed(2)),
+        };
+
+        onLayoutMove(incrementalDelta);
+        setDragLayout({
+          ...dragLayout,
+          appliedDelta: totalDelta,
+        });
+        return;
+      }
 
       onLayoutChange({
         ...layout,
         points: dragLayout.originalPoints.map((point) => ({
           ...point,
-          x: Number(clamp(point.x + deltaX, MIN_LAYOUT_COORDINATE, MAX_LAYOUT_COORDINATE).toFixed(2)),
-          y: Number(clamp(point.y + deltaY, MIN_LAYOUT_COORDINATE, MAX_LAYOUT_COORDINATE).toFixed(2)),
+          x: roundCoordinate(point.x + totalDelta.x),
+          y: roundCoordinate(point.y + totalDelta.y),
         })),
       });
       return;
@@ -458,16 +567,13 @@ export function BlueprintCanvas({
 
     if (dragWall) {
       onLayoutChange(
-        moveWallAlongNormal(
-          layout,
-          dragWall.wallId,
-          dragWall.start,
-          {
-            x: Number(clamp(nextPoint.x, MIN_LAYOUT_COORDINATE, MAX_LAYOUT_COORDINATE).toFixed(2)),
-            y: Number(clamp(nextPoint.y, MIN_LAYOUT_COORDINATE, MAX_LAYOUT_COORDINATE).toFixed(2)),
-          },
-          dragWall.originalPoints,
-        ),
+        keepLayoutWithinBoundary(moveWallAlongNormal(
+            layout,
+            dragWall.wallId,
+            dragWall.start,
+            clampPointToBoundary(nextPoint),
+            dragWall.originalPoints,
+          )),
       );
     }
   }
@@ -927,6 +1033,7 @@ export function BlueprintCanvas({
                   onSelectItem(null);
                   setItemEditorMenu(null);
                   setDragLayout({
+                    appliedDelta: { x: 0, y: 0 },
                     originalPoints: layout.points.map((point) => ({ ...point })),
                     start: fromPointer(event, snapshot.transform, snapshot.viewOffset),
                     transform: snapshot.transform,
