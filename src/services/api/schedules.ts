@@ -404,7 +404,7 @@ async function mapWithConcurrency<T, R>(
   await Promise.all(Array.from({ length: workerCount }, () => worker()));
 
   return results;
-}
+  }
 
 function normalizeScheduleOptionalText(value: string | null | undefined) {
   if (typeof value !== 'string') {
