@@ -1,4 +1,5 @@
 import { IconChevronDown } from '@tabler/icons-react';
+import { useQueryClient } from '@tanstack/react-query';
 import { FormEvent, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
@@ -8,7 +9,14 @@ import {
   type CustomizationRequestDto,
   type CustomizationRequestVersionDto,
 } from '@/services/api/customizationRequests';
-import { getProposalServiceResultMessage, type ProposalDto, type ProposalItemDto, type ProposalSceneDto } from '@/services/api/proposals';
+import {
+  getProposalServiceResultMessage,
+  getRoomPlannerScene,
+  type ProposalDto,
+  type ProposalItemDto,
+  type ProposalSceneDto,
+} from '@/services/api/proposals';
+import { proposalQueryKeys } from '@/services/queries/useProposals';
 import {
   useAcceptCustomizationRequestVersion,
   useProjectCustomizationRequests,
@@ -93,6 +101,7 @@ function CustomerProjectProposalPanel({
   const [customizationDepth, setCustomizationDepth] = useState('');
   const [modelPreviewVersion, setModelPreviewVersion] = useState<CustomizationRequestVersionDto | null>(null);
   const [revisionNote, setRevisionNote] = useState('');
+  const queryClient = useQueryClient();
   const submitCustomizationMutation = useSubmitCustomizationRequest();
   const acceptCustomizationMutation = useAcceptCustomizationRequestVersion();
   const requestRevisionMutation = useRequestProposalRevision();
@@ -179,6 +188,7 @@ function CustomerProjectProposalPanel({
     : null;
 
   function openScene(scene: ProposalSceneDto) {
+    prefetchScene(scene);
     const params = new URLSearchParams({
       projectId,
       proposalId: scene.proposalId,
@@ -186,6 +196,14 @@ function CustomerProjectProposalPanel({
     });
 
     navigate(`/customer/3d-preview?${params.toString()}`);
+  }
+
+  function prefetchScene(scene: ProposalSceneDto) {
+    void queryClient.prefetchQuery({
+      queryKey: proposalQueryKeys.roomPlanner(scene.sceneId),
+      queryFn: () => getRoomPlannerScene(scene.sceneId),
+      staleTime: 5 * 60 * 1000,
+    });
   }
 
   function resetCustomizationForm() {
@@ -304,7 +322,14 @@ function CustomerProjectProposalPanel({
               <div>
                 <strong>{scene.sceneName}</strong>
                 <span>{scene.sceneType} - v{scene.versionNo}</span>
-                <button type="button" onClick={() => openScene(scene)}>Open Scene</button>
+                <button
+                  type="button"
+                  onFocus={() => prefetchScene(scene)}
+                  onPointerEnter={() => prefetchScene(scene)}
+                  onClick={() => openScene(scene)}
+                >
+                  Open Scene
+                </button>
               </div>
             </article>
           ))}

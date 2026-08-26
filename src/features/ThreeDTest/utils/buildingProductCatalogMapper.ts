@@ -203,7 +203,7 @@ export function resolvePlacedBuildingProducts(
               modelUrlSnapshot: catalogModel.modelUrl,
             }
           : undefined),
-        modelUrl: product.modelUrl || catalogModel?.modelUrl || '',
+        modelUrl: catalogModel?.modelUrl || product.modelUrl || '',
         name: product.name ?? catalogModel?.name ?? 'Furniture',
         productId: product.productId ?? catalogModel?.productId,
         thumbnailUrl: product.thumbnailUrl ?? catalogModel?.thumbnailUrl,

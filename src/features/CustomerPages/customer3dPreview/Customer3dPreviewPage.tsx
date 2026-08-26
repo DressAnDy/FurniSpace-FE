@@ -1,4 +1,4 @@
-import { type FormEvent, useEffect, useMemo, useRef, useState } from 'react';
+import { type FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   IconChevronDown,
   IconChevronLeft,
@@ -16,7 +16,7 @@ import { RoomPreview3D, type PlacedProduct3D } from '@/features/ThreeD/component
 import type { RoomMaterialSelection } from '@/features/ThreeD/types/roomLayout.types';
 import { hydrateRoomPlannerScenePayload } from '@/features/ThreeD/utils/roomPlannerSceneMapper';
 import { BuildingSceneCanvas } from '@/features/ThreeDTest/components/BuildingSceneCanvas';
-import type { BuildingLevelVisibility } from '@/features/ThreeDTest/schemas/buildingScene.types';
+import type { BuildingLevelVisibility, BuildingProductModel } from '@/features/ThreeDTest/schemas/buildingScene.types';
 import {
   createResolvedRoomPlannerBuildingModelVersionMap,
   resolvePlacedBuildingProducts,
@@ -37,7 +37,6 @@ import {
   useProjectCustomizationRequests,
   useProjectList,
   useProjectProposals,
-  useProposalDetail,
   useProposalItems,
   useProposalScenes,
   useRequestProposalRevision,
@@ -50,6 +49,38 @@ import { aggregateDuplicateItems } from '@/shared/utils/itemAggregation';
 
 type SidePanelMode = 'items' | null;
 const EMPTY_GUID = '00000000-0000-0000-0000-000000000000';
+const EMPTY_BUILDING_MODELS = new Map<string, BuildingProductModel>();
+const ignoreBuildingInteraction = () => undefined;
+const PREVIEW_PERFORMANCE_PREFIX = 'customer-3d-preview';
+
+function reportBuildingLoadError(productId: string, message: string) {
+  console.error(`[Customer3D] Cannot load ${productId}: ${message}`);
+}
+
+function markPreviewPerformance(name: string) {
+  if (typeof performance !== 'undefined') {
+    performance.mark(`${PREVIEW_PERFORMANCE_PREFIX}:${name}`);
+  }
+}
+
+function measurePreviewPerformance(name: string, startMark: string, endMark: string) {
+  if (typeof performance === 'undefined') {
+    return;
+  }
+
+  const measureName = `${PREVIEW_PERFORMANCE_PREFIX}:${name}`;
+
+  try {
+    performance.clearMeasures(measureName);
+    performance.measure(
+      measureName,
+      `${PREVIEW_PERFORMANCE_PREFIX}:${startMark}`,
+      `${PREVIEW_PERFORMANCE_PREFIX}:${endMark}`,
+    );
+  } catch {
+    // Cached queries can finish before a fresh start mark is registered.
+  }
+}
 
 export function Customer3dPreviewPage() {
   const navigate = useNavigate();
@@ -87,8 +118,13 @@ export function Customer3dPreviewPage() {
     () => (proposalsQuery.data?.items ?? []).filter((proposal) => isCustomerVisibleProposal(proposal.status)),
     [proposalsQuery.data?.items],
   );
+  const requestedProposalId = selectedProposalId || proposalIdFromUrl;
   const selectedProject = projects.find((project) => project.projectId === selectedProjectId) ?? null;
-  const selectedProposal = proposals.find((proposal) => proposal.proposalId === selectedProposalId) ?? proposals[0] ?? null;
+  const selectedProposal =
+    proposals.find((proposal) => proposal.proposalId === requestedProposalId)
+    ?? proposals[0]
+    ?? null;
+  const proposalIdForQueries = requestedProposalId || selectedProposal?.proposalId || '';
   const customizationRequestsQuery = useProjectCustomizationRequests(
     selectedProposal
       ? {
@@ -96,36 +132,37 @@ export function Customer3dPreviewPage() {
           proposalId: selectedProposal.proposalId,
         }
       : undefined,
-    { enabled: Boolean(selectedProposal?.projectId && selectedProposal?.proposalId) },
+    {
+      enabled: Boolean(
+        selectedProposal?.projectId
+        && selectedProposal?.proposalId
+        && selectedProposal.status === 'PUBLISHED',
+      ),
+    },
   );
   const customizationBlocker = getProposalSelectionCustomizationBlocker(customizationRequestsQuery.data?.items ?? []);
   const canRequestRevision = selectedProposal?.status === 'PUBLISHED';
   const canSelectProposal = selectedProposal?.status === 'PUBLISHED' && !customizationBlocker;
   const scenesQuery = useProposalScenes(
-    selectedProposal
+    proposalIdForQueries
       ? {
-          proposalId: selectedProposal.proposalId,
+          proposalId: proposalIdForQueries,
           isActive: true,
           page: 1,
           limit: 50,
         }
       : undefined,
-    { enabled: Boolean(selectedProposal) },
+    { enabled: Boolean(proposalIdForQueries) },
   );
   const scenes = useMemo(
     () => (scenesQuery.data?.items ?? []).filter(isRoomPlannerPreviewScene),
     [scenesQuery.data?.items],
   );
-  const selectedScene = scenes.find((scene) => scene.sceneId === selectedSceneId) ?? scenes[0] ?? null;
-  const isSelectedSceneReady = Boolean(
-    selectedScene?.sceneId && scenes.some((scene) => scene.sceneId === selectedScene.sceneId),
-  );
-  const proposalDetailQuery = useProposalDetail(selectedProposal?.proposalId, {
-    enabled: Boolean(selectedProposal?.proposalId),
-    retry: 1,
-  });
-  const roomPlannerSceneQuery = useRoomPlannerScene(selectedScene?.sceneId, {
-    enabled: isSelectedSceneReady,
+  const requestedSceneId = selectedSceneId || sceneIdFromUrl;
+  const selectedScene = scenes.find((scene) => scene.sceneId === requestedSceneId) ?? scenes[0] ?? null;
+  const activeSceneId = requestedSceneId || selectedScene?.sceneId || '';
+  const roomPlannerSceneQuery = useRoomPlannerScene(activeSceneId, {
+    enabled: Boolean(activeSceneId),
     retry: 1,
   });
   const sceneLayoutAssetIds = useMemo(
@@ -137,28 +174,28 @@ export function Customer3dPreviewPage() {
     [roomPlannerSceneQuery.data],
   );
   const resolvedProductsQuery = useRoomPlannerResolvedProducts(
-    selectedScene?.sceneId,
+    activeSceneId,
     sceneProductVersionIds,
-    { enabled: Boolean(selectedScene?.sceneId && roomPlannerSceneQuery.data) },
+    { enabled: Boolean(activeSceneId && roomPlannerSceneQuery.data && sceneProductVersionIds.length > 0) },
   );
   const resolvedLayoutAssetsQuery = useRoomPlannerResolvedLayoutAssets(
-    selectedScene?.sceneId,
+    activeSceneId,
     sceneLayoutAssetIds,
-    { enabled: Boolean(selectedScene?.sceneId && roomPlannerSceneQuery.data && sceneLayoutAssetIds.length > 0) },
+    { enabled: Boolean(activeSceneId && roomPlannerSceneQuery.data && sceneLayoutAssetIds.length > 0) },
   );
   const resolvedProductsByVersionId = useMemo(
     () => new Map((resolvedProductsQuery.data?.items ?? []).map((item) => [item.productVersionId, item])),
     [resolvedProductsQuery.data?.items],
   );
   const proposalItemsQuery = useProposalItems(
-    selectedProposal
+    proposalIdForQueries
       ? {
-          proposalId: selectedProposal.proposalId,
+          proposalId: proposalIdForQueries,
           page: 1,
           limit: 100,
         }
       : undefined,
-    { enabled: Boolean(selectedProposal?.proposalId), retry: 1 },
+    { enabled: Boolean(proposalIdForQueries && sidePanelMode === 'items'), retry: 1 },
   );
   const hydratedScene = useMemo(
     () => hydrateRoomPlannerScenePayload(roomPlannerSceneQuery.data, {
@@ -189,14 +226,36 @@ export function Customer3dPreviewPage() {
         })),
     [resolvedLayoutAssetsQuery.data?.items],
   );
-  const buildingModelsByVersionId = useMemo(
-    () => createResolvedRoomPlannerBuildingModelVersionMap(resolvedProductsQuery.data?.items ?? []),
-    [resolvedProductsQuery.data?.items],
-  );
+  const buildingModelsByVersionId = useMemo(() => {
+    const models = createResolvedRoomPlannerBuildingModelVersionMap(resolvedProductsQuery.data?.items ?? []);
+
+    (resolvedLayoutAssetsQuery.data?.items ?? []).forEach((asset) => {
+      const modelUrl = getLayoutAssetFileUrl(asset, 'MODEL_3D');
+
+      if (!modelUrl) {
+        return;
+      }
+
+      models.set(asset.layoutAssetId, {
+        id: `resolved-layout-asset-${asset.layoutAssetId}`,
+        layoutAssetId: asset.layoutAssetId,
+        layoutAssetType: asset.layoutAssetType,
+        modelUrl,
+        name: asset.name,
+        scale: { x: 1, y: 1, z: 1 },
+      });
+    });
+
+    return models;
+  }, [resolvedLayoutAssetsQuery.data?.items, resolvedProductsQuery.data?.items]);
   const resolvedBuildingProducts = useMemo(
     () => resolvePlacedBuildingProducts(hydratedBuildingScene.placedProducts, buildingModelsByVersionId),
     [buildingModelsByVersionId, hydratedBuildingScene.placedProducts],
   );
+  const areBuildingModelsReady =
+    (sceneProductVersionIds.length === 0 || resolvedProductsQuery.isSuccess || resolvedProductsQuery.isError)
+    && (sceneLayoutAssetIds.length === 0 || resolvedLayoutAssetsQuery.isSuccess || resolvedLayoutAssetsQuery.isError);
+  const renderableBuildingProducts = areBuildingModelsReady ? resolvedBuildingProducts : [];
   const floorMaterial = useMemo(
     () => getSceneFloorMaterial(roomPlannerSceneQuery.data),
     [roomPlannerSceneQuery.data],
@@ -206,16 +265,16 @@ export function Customer3dPreviewPage() {
     [roomPlannerSceneQuery.data],
   );
   const proposalItems = useMemo(() => {
-    const allItems = proposalItemsQuery.data?.items ?? proposalDetailQuery.data?.items ?? [];
+    const allItems = proposalItemsQuery.data?.items ?? [];
 
-    if (!selectedScene?.sceneId) {
+    if (!activeSceneId) {
       return allItems;
     }
 
-    const sceneItems = allItems.filter((item) => item.sceneId === selectedScene.sceneId);
+    const sceneItems = allItems.filter((item) => item.sceneId === activeSceneId);
 
     return sceneItems.length > 0 ? sceneItems : allItems;
-  }, [proposalDetailQuery.data?.items, proposalItemsQuery.data?.items, selectedScene?.sceneId]);
+  }, [activeSceneId, proposalItemsQuery.data?.items]);
   const sceneProducts = hydratedScene.placedProducts;
   const displayProposalItems = useMemo(() => aggregateDuplicateItems(proposalItems), [proposalItems]);
   const displaySceneProducts = useMemo(() => aggregateSceneProducts(sceneProducts), [sceneProducts]);
@@ -236,9 +295,62 @@ export function Customer3dPreviewPage() {
     ];
   }, [hydratedBuildingScene.sceneData?.building.levels]);
   const sceneObjectCount = hydratedBuildingScene.sceneData
-    ? resolvedBuildingProducts.length
+    ? renderableBuildingProducts.length
     : sceneProducts.length;
   const activeLevelLabel = levelOptions.find((level) => level.value === activeLevel)?.label ?? 'All';
+  const handleProductsLoaded = useCallback((result: { complete: boolean; loaded: number; total: number }) => {
+    const firstModelMark = `${PREVIEW_PERFORMANCE_PREFIX}:first-model-ready`;
+
+    if (result.loaded > 0 && performance.getEntriesByName(firstModelMark, 'mark').length === 0) {
+      markPreviewPerformance('first-model-ready');
+      measurePreviewPerformance('time-to-first-model', 'start', 'first-model-ready');
+    }
+
+    if (!result.complete) {
+      return;
+    }
+
+    markPreviewPerformance('full-scene-ready');
+    measurePreviewPerformance('time-to-full-scene', 'start', 'full-scene-ready');
+  }, []);
+
+  useEffect(() => {
+    if (!activeSceneId) {
+      return;
+    }
+
+    performance.clearMarks(`${PREVIEW_PERFORMANCE_PREFIX}:start`);
+    performance.clearMarks(`${PREVIEW_PERFORMANCE_PREFIX}:first-model-ready`);
+    performance.clearMarks(`${PREVIEW_PERFORMANCE_PREFIX}:full-scene-ready`);
+    markPreviewPerformance('start');
+  }, [activeSceneId]);
+
+  useEffect(() => {
+    if (!roomPlannerSceneQuery.isSuccess) {
+      return;
+    }
+
+    markPreviewPerformance('room-planner-ready');
+    measurePreviewPerformance('time-to-room-planner', 'start', 'room-planner-ready');
+  }, [roomPlannerSceneQuery.isSuccess]);
+
+  useEffect(() => {
+    const productsReady = sceneProductVersionIds.length === 0 || resolvedProductsQuery.isSuccess;
+    const surfacesReady = sceneLayoutAssetIds.length === 0 || resolvedLayoutAssetsQuery.isSuccess;
+
+    if (!roomPlannerSceneQuery.isSuccess || !productsReady || !surfacesReady) {
+      return;
+    }
+
+    markPreviewPerformance('scene-data-ready');
+    measurePreviewPerformance('time-to-scene-data', 'start', 'scene-data-ready');
+  }, [
+    resolvedLayoutAssetsQuery.isSuccess,
+    resolvedProductsQuery.isSuccess,
+    roomPlannerSceneQuery.isSuccess,
+    sceneLayoutAssetIds.length,
+    sceneProductVersionIds.length,
+  ]);
 
   useEffect(() => {
     if (activeLevel === 'all') return;
@@ -431,7 +543,6 @@ export function Customer3dPreviewPage() {
       setIsRevisionModalOpen(false);
       setDecisionMessage('Revision request sent to the designer.');
       void proposalsQuery.refetch();
-      void proposalDetailQuery.refetch();
     } catch (error) {
       setDecisionMessage(getProposalServiceResultMessage(error));
     }
@@ -619,22 +730,23 @@ export function Customer3dPreviewPage() {
                 <SceneState message={getProposalServiceResultMessage(resolvedProductsQuery.error)} />
               ) : roomPlannerSceneQuery.isError ? (
                 <SceneState message={`Unable to load this scene. ${getProposalServiceResultMessage(roomPlannerSceneQuery.error)}`} />
-              ) : !selectedScene ? (
+              ) : !activeSceneId ? (
                 <SceneState message="Select a proposal with a saved 3D scene." />
               ) : !hydratedScene.layout && !hydratedBuildingScene.sceneData ? (
                 <SceneState message="This scene has no saved room layout in MongoDB yet." />
               ) : hydratedBuildingScene.sceneData ? (
                 <BuildingSceneCanvas
                   activeLevel={activeLevel}
-                  modelsById={new Map()}
-                  placedProducts={resolvedBuildingProducts}
+                  modelsById={EMPTY_BUILDING_MODELS}
+                  placedProducts={renderableBuildingProducts}
                   sceneData={hydratedBuildingScene.sceneData}
                   selectedProductId={selectedObjectId}
                   surfaceAssets={surfaceAssetVisuals}
-                  onProductDrop={() => undefined}
-                  onProductLoadError={() => undefined}
-                  onProductMove={() => undefined}
-                  onProductSelect={(productId) => setSelectedObjectId(productId)}
+                  onProductDrop={ignoreBuildingInteraction}
+                  onProductLoadError={reportBuildingLoadError}
+                  onProductMove={ignoreBuildingInteraction}
+                  onProductSelect={setSelectedObjectId}
+                  onProductsLoaded={handleProductsLoaded}
                 />
               ) : hydratedScene.layout ? (
                 <RoomPreview3D
@@ -644,7 +756,7 @@ export function Customer3dPreviewPage() {
                   readOnly
                   selectedProductId={selectedObjectId}
                   wallMaterial={wallMaterial}
-                  onProductSelect={(productId) => setSelectedObjectId(productId)}
+                  onProductSelect={setSelectedObjectId}
                 />
               ) : (
                 <SceneState message="This scene has no saved room layout in MongoDB yet." />
@@ -666,7 +778,7 @@ export function Customer3dPreviewPage() {
                   </div>
                 )}
                 <div className="customer-3d-preview-item-list">
-                  {(proposalItemsQuery.isLoading || proposalDetailQuery.isLoading) && proposalItems.length === 0 ? (
+                  {proposalItemsQuery.isLoading && proposalItems.length === 0 ? (
                     <p className="customer-scene-state">Loading proposal items...</p>
                   ) : null}
                   {proposalItemsQuery.isError && proposalItems.length === 0 ? (
@@ -675,7 +787,7 @@ export function Customer3dPreviewPage() {
                   {displayProposalItems.length > 0
                     ? displayProposalItems.map((item) => <ProposalItemCard item={item} key={item.proposalItemId} />)
                     : displaySceneProducts.map((product) => <SceneProductCard product={product} key={product.id} />)}
-                  {!proposalItemsQuery.isLoading && !proposalDetailQuery.isLoading && displayProposalItems.length === 0 && displaySceneProducts.length === 0 && (
+                  {!proposalItemsQuery.isLoading && displayProposalItems.length === 0 && displaySceneProducts.length === 0 && (
                     <p className="customer-scene-state">No furniture objects are saved in this scene yet.</p>
                   )}
                 </div>
@@ -921,10 +1033,12 @@ function isRoomPlannerPreviewScene(scene: { sceneType?: string | null }) {
   return scene.sceneType === 'ROOM_PLANNER' || scene.sceneType === 'THREE_D';
 }
 
-function getLayoutAssetFileUrl(asset: LayoutAssetDto, fileType: 'PREVIEW' | 'TEXTURE') {
-  const primaryFileUrl = fileType === 'TEXTURE'
-    ? asset.primaryTexture?.url
-    : asset.primaryPreview?.url ?? asset.previewUrl;
+function getLayoutAssetFileUrl(asset: LayoutAssetDto, fileType: 'MODEL_3D' | 'PREVIEW' | 'TEXTURE') {
+  const primaryFileUrl = fileType === 'MODEL_3D'
+    ? asset.primaryModel?.url
+    : fileType === 'TEXTURE'
+      ? asset.primaryTexture?.url
+      : asset.primaryPreview?.url ?? asset.previewUrl;
   const file = asset.files?.find((item) => item.fileType === fileType && item.isPrimary)
     ?? asset.files?.find((item) => item.fileType === fileType);
 
