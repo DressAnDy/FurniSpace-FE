@@ -17,6 +17,7 @@ export function useProjectReportList(params?: ProjectReportListParams, options?:
     queryKey: projectReportQueryKeys.list(params),
     queryFn: () => getProjectReports(params),
     enabled: options?.enabled ?? true,
+    staleTime: 30_000,
   });
 }
 
@@ -25,5 +26,6 @@ export function useProjectReportDetail(projectId: string | null, options?: { ena
     queryKey: projectReportQueryKeys.detail(projectId ?? ''),
     queryFn: () => getProjectReportDetail(projectId!),
     enabled: (options?.enabled ?? true) && Boolean(projectId),
+    staleTime: 30_000,
   });
 }

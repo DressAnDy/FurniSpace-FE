@@ -477,16 +477,24 @@ export function FinancialPanel({ dateParams, fromDate, toDate }: FinancialPanelP
                           <span className="admin-financial-pill">{item.lastProvider || '—'}</span>
                         </td>
                         <td>
-                          {item.attemptCount}
-                          {item.failedAttemptCount > 0 ? (
-                            <div className="admin-report-cell-sub is-bad">{t.failedTimes(item.failedAttemptCount)}</div>
-                          ) : (
-                            <div className="admin-report-cell-sub">{t.zeroFailed}</div>
-                          )}
+                          <div className="admin-financial-attempt-cell">
+                            <strong>{t.attemptTried(item.attemptCount)}</strong>
+                            <span className={item.failedAttemptCount > 0 ? 'is-bad' : 'is-ok'}>
+                              {item.failedAttemptCount > 0 ? t.attemptFailed(item.failedAttemptCount) : t.attemptOk}
+                            </span>
+                          </div>
                         </td>
                         <td>
-                          {item.lastFailureReason || '—'}
-                          <div className="admin-report-cell-sub">{formatDateTime(lang, item.lastAttemptAt)}</div>
+                          <div className="admin-financial-attempt-cell">
+                            <strong className={item.lastFailureReason ? 'is-bad' : undefined}>
+                              {item.lastFailureReason || t.noFailureReason}
+                            </strong>
+                            <span>
+                              {item.lastAttemptAt
+                                ? `${t.lastTriedAt}: ${formatDateTime(lang, item.lastAttemptAt)}`
+                                : t.neverTried}
+                            </span>
+                          </div>
                         </td>
                       </tr>
                     ))

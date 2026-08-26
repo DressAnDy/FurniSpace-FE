@@ -19,9 +19,13 @@ import {
   type ProjectScheduleType,
 } from '@/services/api/schedules';
 import type { ProjectListItemDto } from '@/services/api/projects';
-import { useMultiProjectSchedules, useProjectList, useUpdateProjectScheduleStatus } from '@/services/queries';
-import { useProjectList } from '@/services/queries/useProjects';
-import { projectScheduleQueryKeys, useRequestProjectScheduleChange, useUpdateProjectScheduleStatus } from '@/services/queries/useSchedules';
+import {
+  projectScheduleQueryKeys,
+  useMultiProjectSchedules,
+  useProjectList,
+  useRequestProjectScheduleChange,
+  useUpdateProjectScheduleStatus,
+} from '@/services/queries';
 
 import './CustomerSchedulesPage.css';
 

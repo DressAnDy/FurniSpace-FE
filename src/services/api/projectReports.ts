@@ -80,44 +80,44 @@ export type ProjectReportLinkType =
 
 export type ProjectReportListItemDto = {
   projectId: string;
-  projectCode: string;
+  projectCode: string | null;
   projectName: string;
-  projectStatus: string;
-  stage: ProjectReportStageKey | null;
+  projectStatus: string | null;
+  stage: ProjectReportStageKey | string | null;
   customerId: string;
-  customerName: string;
+  customerName: string | null;
   assignedSalesId: string | null;
   assignedSalesName: string | null;
   assignedDesignerId: string | null;
   assignedDesignerName: string | null;
   ageDays: number;
   ageInStatusDays: number;
-  attentionReason: ProjectReportAttentionReason | null;
+  attentionReason: ProjectReportAttentionReason | string | null;
   suggestedAction: string | null;
-  ownerRole: ProjectReportOwnerRole | null;
-  severity: ProjectReportSeverity | null;
-  submittedAt: string;
+  ownerRole: ProjectReportOwnerRole | string | null;
+  severity: ProjectReportSeverity | string | null;
+  submittedAt: string | null;
 };
 
 export type ProjectReportAttentionDto = {
-  reason: ProjectReportAttentionReason;
-  severity: ProjectReportSeverity;
-  ownerRole: ProjectReportOwnerRole;
+  reason: ProjectReportAttentionReason | string;
+  severity: ProjectReportSeverity | string;
+  ownerRole: ProjectReportOwnerRole | string;
   suggestedAction: string;
 };
 
 export type ProjectReportHeaderDto = {
   projectId: string;
-  projectCode: string;
+  projectCode: string | null;
   projectName: string;
-  projectStatus: string;
-  stage: ProjectReportStageKey | null;
+  projectStatus: string | null;
+  stage: ProjectReportStageKey | string | null;
   isRejected: boolean;
   rejectionReason: string | null;
   businessType: string | null;
   projectAddress: string | null;
   customerId: string;
-  customerName: string;
+  customerName: string | null;
   assignedSalesId: string | null;
   assignedSalesName: string | null;
   assignedDesignerId: string | null;
@@ -130,7 +130,7 @@ export type ProjectReportHeaderDto = {
   ageDays: number;
   ageInStatusDays: number;
   primaryAttention: ProjectReportAttentionDto | null;
-  allAttentionReasons: ProjectReportAttentionReason[];
+  allAttentionReasons: Array<ProjectReportAttentionReason | string>;
 };
 
 export type ProjectReportBlockerDto = {
@@ -145,24 +145,24 @@ export type ProjectReportLinkDto = {
 };
 
 export type ProjectReportStageHealthDto = {
-  stage: ProjectReportStageKey;
-  state: 'ACTIVE' | 'BLOCKED';
-  statusInStage: string;
+  stage: ProjectReportStageKey | string;
+  state: 'ACTIVE' | 'BLOCKED' | string;
+  statusInStage: string | null;
   title: string;
   summary: string;
   ageInStageDays: number;
   blockers: ProjectReportBlockerDto[];
   nextAction: {
-    ownerRole: ProjectReportOwnerRole;
+    ownerRole: ProjectReportOwnerRole | string;
     suggestedAction: string;
   };
   links: ProjectReportLinkDto[];
 };
 
 export type ProjectReportFlowStageDto = {
-  key: ProjectReportStageKey;
+  key: ProjectReportStageKey | string;
   label: string;
-  state: ProjectReportStageState;
+  state: ProjectReportStageState | string;
   completedAt: string | null;
 };
 
@@ -184,13 +184,14 @@ export type ProjectReportCommercialSnapshotDto = {
   activePaymentType: string | null;
   activePaymentAmount: number | null;
   activePaymentStatus: string | null;
-  totalProjectCashCollected: number | null;
+  totalProjectCashCollected: number;
   lastPaidAt: string | null;
 };
 
 export type ProjectReportTerminalSummaryDto = {
-  outcome: 'COMPLETED' | 'REJECTED';
+  outcome: 'COMPLETED' | 'REJECTED' | string;
   completedAt: string | null;
+  rejectedAt?: string | null;
   durationDays: number | null;
   note: string | null;
   rejectionReason?: string | null;
@@ -200,7 +201,7 @@ export type ProjectReportDetailDto = {
   header: ProjectReportHeaderDto;
   currentStageHealth: ProjectReportStageHealthDto | null;
   flowProgress: ProjectReportFlowProgressDto;
-  commercialSnapshot: ProjectReportCommercialSnapshotDto | null;
+  commercialSnapshot: ProjectReportCommercialSnapshotDto;
   terminalSummary: ProjectReportTerminalSummaryDto | null;
 };
 
@@ -228,14 +229,63 @@ export async function getProjectReports(params?: ProjectReportListParams) {
     '/admin/project-reports',
     { params: cleanListParams(params) },
   );
-  return response.data.data;
+  const payload = response.data?.data;
+  return {
+    items: payload?.items ?? [],
+    page: payload?.page ?? params?.page ?? 1,
+    pageSize: payload?.pageSize ?? params?.pageSize ?? 20,
+    totalItems: payload?.totalItems ?? 0,
+    totalPages: Math.max(payload?.totalPages ?? 1, 1),
+  } satisfies PagedResult<ProjectReportListItemDto>;
 }
 
 export async function getProjectReportDetail(projectId: string) {
   const response = await projectReportApiClient.get<ServiceResult<ProjectReportDetailDto>>(
     `/admin/project-reports/${projectId}`,
   );
-  return response.data.data;
+  const data = response.data?.data;
+  if (!data?.header) {
+    throw new Error('Admin project report payload is incomplete.');
+  }
+
+  return {
+    header: {
+      ...data.header,
+      allAttentionReasons: data.header.allAttentionReasons ?? [],
+    },
+    currentStageHealth: data.currentStageHealth
+      ? {
+          ...data.currentStageHealth,
+          blockers: data.currentStageHealth.blockers ?? [],
+          links: data.currentStageHealth.links ?? [],
+          nextAction: data.currentStageHealth.nextAction ?? {
+            ownerRole: 'ADMIN',
+            suggestedAction: '',
+          },
+        }
+      : null,
+    flowProgress: {
+      stages: data.flowProgress?.stages ?? [],
+    },
+    commercialSnapshot: data.commercialSnapshot ?? {
+      projectStartFeeAmount: null,
+      projectStartFeeStatus: null,
+      projectStartFeePaidAt: null,
+      orderId: null,
+      orderCode: null,
+      orderStatus: null,
+      orderFinalTotal: null,
+      orderPaidAmount: null,
+      orderRemainingAmount: null,
+      activePaymentId: null,
+      activePaymentType: null,
+      activePaymentAmount: null,
+      activePaymentStatus: null,
+      totalProjectCashCollected: 0,
+      lastPaidAt: null,
+    },
+    terminalSummary: data.terminalSummary ?? null,
+  } satisfies ProjectReportDetailDto;
 }
 
 export function getProjectReportServiceResultMessage(error: unknown) {

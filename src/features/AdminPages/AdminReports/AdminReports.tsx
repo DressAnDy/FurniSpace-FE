@@ -1,4 +1,4 @@
-import { useMemo, useState, type FormEvent, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import {
   IconAlertTriangle,
@@ -29,6 +29,7 @@ import {
   formatDate,
   formatDateTime,
   formatDays,
+  formatEnumLabel,
   formatMoney,
   labelOwner,
   labelReason,
@@ -83,6 +84,18 @@ export function AdminReports() {
   const [page, setPage] = useState(1);
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(projectFromUrl);
 
+  useEffect(() => {
+    setSelectedProjectId(projectFromUrl);
+  }, [projectFromUrl]);
+
+  useEffect(() => {
+    if (isReportTabId(tabFromUrl)) {
+      setActiveTab(tabFromUrl);
+    } else if (!tabFromUrl) {
+      setActiveTab('attention');
+    }
+  }, [tabFromUrl]);
+
   const dateParams = useMemo(
     () => ({
       from: toFinancialApiDateTime(fromDate),
@@ -102,8 +115,9 @@ export function AdminReports() {
       from: fromDate ? `${fromDate}T00:00:00` : null,
       to: toDate ? `${toDate}T23:59:59` : null,
       page,
-      pageSize: 20,
+      pageSize: 10,
       sortBy: 'severityDesc' as const,
+      sortDirection: 'desc' as const,
     }),
     [attentionOnly, attentionReason, fromDate, keyword, ownerRole, page, severity, stage, toDate],
   );
@@ -477,7 +491,7 @@ function AttentionReportPanel(props: AttentionReportPanelProps) {
                   >
                     <div className="admin-pr-row-top">
                       <span className={`admin-pr-badge tone-${tone}`}>{labelSeverity(lang, item.severity)}</span>
-                      <span className="admin-pr-code">{item.projectCode}</span>
+                      <span className="admin-pr-code">{item.projectCode || item.projectId.slice(0, 8)}</span>
                       <span className="admin-pr-age">
                         {formatDays(lang, item.ageInStatusDays)} {t.inThisStatus}
                       </span>
@@ -486,7 +500,7 @@ function AttentionReportPanel(props: AttentionReportPanelProps) {
                     <p className="admin-pr-reason">{labelReason(lang, item.attentionReason)}</p>
                     <p className="admin-pr-action">{item.suggestedAction || t.noImmediateAction}</p>
                     <div className="admin-pr-row-meta">
-                      <span>{item.customerName}</span>
+                      <span>{item.customerName || '—'}</span>
                       <span>{labelStage(lang, item.stage)}</span>
                       <span>
                         {t.ownedBy}: {labelOwner(lang, item.ownerRole)}
@@ -580,10 +594,10 @@ function ProjectReportDetailView({ lang, detail }: { lang: Lang; detail: Project
       <section className="admin-pr-section">
         <h4>{t.shortInfo}</h4>
         <dl className="admin-pr-facts">
-          <Fact label={t.code} value={header.projectCode} />
-          <Fact label={t.status} value={header.projectStatus} />
+          <Fact label={t.code} value={header.projectCode || '—'} />
+          <Fact label={t.status} value={header.projectStatus ? formatEnumLabel(lang, header.projectStatus) : '—'} />
           <Fact label={t.stage} value={labelStage(lang, header.stage)} />
-          <Fact label={t.customer} value={header.customerName} />
+          <Fact label={t.customer} value={header.customerName || '—'} />
           <Fact label="Sales" value={header.assignedSalesName ?? t.unassigned} />
           <Fact label="Designer" value={header.assignedDesignerName ?? t.unassigned} />
           <Fact label={t.projectAge} value={formatDays(lang, header.ageDays)} />
@@ -667,13 +681,19 @@ function ProjectReportDetailView({ lang, detail }: { lang: Lang; detail: Project
           <dl className="admin-pr-facts admin-pr-money">
             <Fact
               label={t.startFee}
-              value={`${formatMoney(lang, commercialSnapshot.projectStartFeeAmount)} · ${commercialSnapshot.projectStartFeeStatus ?? t.noneYet}`}
+              value={`${formatMoney(lang, commercialSnapshot.projectStartFeeAmount)} · ${
+                commercialSnapshot.projectStartFeeStatus
+                  ? formatEnumLabel(lang, commercialSnapshot.projectStartFeeStatus)
+                  : t.noneYet
+              }`}
             />
             <Fact
               label={t.order}
               value={
                 commercialSnapshot.orderCode
-                  ? `${commercialSnapshot.orderCode} · ${commercialSnapshot.orderStatus ?? '—'}`
+                  ? `${commercialSnapshot.orderCode} · ${
+                      commercialSnapshot.orderStatus ? formatEnumLabel(lang, commercialSnapshot.orderStatus) : '—'
+                    }`
                   : t.noOrder
               }
             />
@@ -684,7 +704,11 @@ function ProjectReportDetailView({ lang, detail }: { lang: Lang; detail: Project
               label={t.collecting}
               value={
                 commercialSnapshot.activePaymentId
-                  ? `${formatMoney(lang, commercialSnapshot.activePaymentAmount)} · ${commercialSnapshot.activePaymentStatus ?? '—'}`
+                  ? `${formatMoney(lang, commercialSnapshot.activePaymentAmount)} · ${
+                      commercialSnapshot.activePaymentStatus
+                        ? formatEnumLabel(lang, commercialSnapshot.activePaymentStatus)
+                        : '—'
+                    }`
                   : t.none
               }
             />
