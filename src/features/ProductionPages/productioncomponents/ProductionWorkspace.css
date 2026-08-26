@@ -448,7 +448,8 @@
 }
 
 .production-ready-layout {
-  grid-template-columns: minmax(220px, 0.72fr) minmax(0, 1.28fr);
+  align-items: start;
+  grid-template-columns: minmax(320px, 0.74fr) minmax(520px, 1.26fr);
 }
 
 .production-ready-list-layout {
@@ -457,11 +458,12 @@
 
 .production-ready-list-layout .production-ready-request-card {
   width: 100%;
+  padding: 24px 28px;
 }
 
 .production-ready-list-layout .production-ready-request-card .production-workspace-list {
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 10px;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: 14px;
 }
 
 .production-ready-detail-layout {
@@ -469,8 +471,14 @@
 }
 
 .production-ready-plan-column,
-.production-ready-detail-aside {
+.production-ready-detail-aside,
+.production-ready-control-column {
   min-width: 0;
+}
+
+.production-ready-control-column {
+  display: grid;
+  gap: 16px;
 }
 
 .production-ready-plan-actions {
@@ -482,7 +490,70 @@
 }
 
 .production-ready-request-card header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
   margin-bottom: 12px;
+}
+
+.production-ready-layout .production-ready-request-card {
+  padding: 18px;
+}
+
+.production-ready-layout .production-ready-request-card .production-workspace-list {
+  max-height: 640px;
+  overflow-y: auto;
+  padding-right: 2px;
+}
+
+.production-ready-request-tabs {
+  display: inline-flex;
+  flex: 0 0 auto;
+  gap: 4px;
+  border: 1px solid rgba(139, 111, 71, 0.14);
+  border-radius: 999px;
+  background: #f7f3ee;
+  padding: 4px;
+}
+
+.production-ready-request-tabs button {
+  display: inline-flex;
+  min-height: 34px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: #6b6258;
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 800;
+  padding: 0 13px;
+  white-space: nowrap;
+}
+
+.production-ready-request-tabs button.is-active {
+  background: #ffffff;
+  box-shadow: 0 6px 16px rgba(45, 45, 45, 0.08);
+  color: #8b5f28;
+}
+
+.production-ready-request-tabs span {
+  display: inline-flex;
+  min-width: 22px;
+  height: 22px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: rgba(139, 111, 71, 0.12);
+  color: #6f5636;
+  font-size: 11px;
+  line-height: 1;
+  padding: 0 7px;
 }
 
 .production-ready-request-card .production-workspace-list {
@@ -490,8 +561,86 @@
 }
 
 .production-ready-request-card .production-workspace-queue-card {
+  position: relative;
   gap: 4px;
+  overflow: hidden;
   padding: 9px 11px;
+}
+
+.production-ready-request-select {
+  display: grid;
+  gap: 4px;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  padding: 0;
+  text-align: left;
+}
+
+.production-ready-request-footer {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.production-ready-request-detail-button {
+  display: inline-flex;
+  width: fit-content;
+  min-height: 30px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(139, 111, 71, 0.22);
+  border-radius: 8px;
+  background: #ffffff;
+  color: #6f5636;
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 800;
+  padding: 0 10px;
+}
+
+.production-ready-request-detail-button:hover {
+  border-color: #8b6f47;
+  background: #f5f1ec;
+}
+
+.production-ready-request-card .production-workspace-queue-card::before {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 4px;
+  height: 100%;
+  background: transparent;
+  content: "";
+}
+
+.production-ready-request-card .production-workspace-queue-card.is-active::before {
+  background: #b07b37;
+}
+
+.production-ready-list-layout .production-ready-request-card .production-workspace-queue-card {
+  position: relative;
+  min-height: 116px;
+  align-content: start;
+  gap: 7px;
+  overflow: hidden;
+  padding: 16px 18px;
+}
+
+.production-ready-list-layout .production-ready-request-card .production-workspace-queue-card::before {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 4px;
+  height: 100%;
+  background: #b07b37;
+  content: "";
 }
 
 .production-ready-request-card .production-workspace-queue-card strong {
@@ -523,6 +672,54 @@
   line-height: 17px;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.production-ready-empty-state {
+  min-height: 180px;
+}
+
+.production-ready-schedule-panel header h3,
+.production-ready-plan-card header h3 {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.production-ready-compact-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.production-ready-delivery-details {
+  display: grid;
+  gap: 12px;
+  border: 1px solid rgba(139, 111, 71, 0.14);
+  border-radius: 12px;
+  background: #fbfaf7;
+  padding: 14px;
+}
+
+.production-ready-delivery-details header {
+  display: grid;
+  gap: 4px;
+}
+
+.production-ready-delivery-details h4 {
+  margin: 0;
+  color: #2f2a24;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.production-ready-delivery-details p {
+  margin: 0;
+  color: #756b61;
+  font-size: 13px;
+  line-height: 20px;
+}
+
+.production-ready-schedule-list {
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 12px;
 }
 
 .production-ready-pagination {
@@ -570,6 +767,14 @@
 
 .production-ready-deliverable-section header {
   margin-bottom: 12px;
+}
+
+.production-ready-batch-note {
+  margin-bottom: 0;
+}
+
+.production-ready-batch-actions {
+  margin-top: 16px;
 }
 
 .production-ready-items-table {

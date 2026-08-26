@@ -45,12 +45,13 @@ export function LayoutAssetManagementPage() {
   const [typeFilter, setTypeFilter] = useState<LayoutAssetType | ''>('');
   const [selectedAssetId, setSelectedAssetId] = useState('');
   const [isCreateAssetModalOpen, setIsCreateAssetModalOpen] = useState(false);
+  const [createAssetType, setCreateAssetType] = useState<LayoutAssetType>('DECORATIVE_OBJECT');
   const [message, setMessage] = useState<{ tone: 'error' | 'success'; text: string } | null>(null);
   const assetsQuery = useLayoutAssets({ keyword: query, layoutAssetType: typeFilter || null, page: 1, pageSize: 100 });
   const createAssetMutation = useCreateLayoutAsset();
   const updateStatusMutation = useUpdateLayoutAssetStatus();
   const uploadFileMutation = useUploadLayoutAssetFile();
-  const assets = assetsQuery.data?.items ?? [];
+  const assets = useMemo(() => assetsQuery.data?.items ?? [], [assetsQuery.data?.items]);
   const selectedAsset = assets.find((asset) => asset.layoutAssetId === selectedAssetId) ?? assets[0] ?? null;
   const selectedAssetFilesQuery = useLayoutAssetFiles(selectedAsset?.layoutAssetId);
   const setPrimaryFileMutation = useSetLayoutAssetPrimaryFile();
@@ -67,11 +68,13 @@ export function LayoutAssetManagementPage() {
   }, [assets]);
   const groupedAssets = useMemo(() => groupAssetsByType(assets), [assets]);
   const selectedAssetFiles = selectedAssetFilesQuery.data?.items ?? [];
+  const createAssetFileFields = useMemo(() => getCreateAssetFileFields(createAssetType), [createAssetType]);
 
   async function createAsset(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const formData = new FormData(event.currentTarget);
     const name = String(formData.get('name') ?? '').trim();
+    const layoutAssetType = String(formData.get('layoutAssetType') ?? createAssetType) as LayoutAssetType;
 
     if (!name) {
       setMessage({ tone: 'error', text: 'Asset name is required.' });
@@ -82,19 +85,49 @@ export function LayoutAssetManagementPage() {
       const asset = await createAssetMutation.mutateAsync({
         assetCode: String(formData.get('code') ?? ''),
         assetName: name,
-        assetType: String(formData.get('layoutAssetType') ?? 'OTHER') as LayoutAssetType,
+        assetType: layoutAssetType,
         description: String(formData.get('description') ?? ''),
-        layoutAssetType: String(formData.get('layoutAssetType') ?? 'OTHER') as LayoutAssetType,
+        layoutAssetType,
         name,
         status: String(formData.get('status') ?? 'ACTIVE') as LayoutAssetStatus,
       });
+      const uploadErrors: string[] = [];
+      let uploadedCount = 0;
+
+      for (const field of getCreateAssetFileFields(layoutAssetType)) {
+        const file = formData.get(field.inputName);
+
+        if (!(file instanceof File) || file.size === 0) {
+          continue;
+        }
+
+        try {
+          await uploadFileMutation.mutateAsync({
+            file,
+            fileType: field.fileType,
+            layoutAssetId: asset.layoutAssetId,
+          });
+          uploadedCount += 1;
+        } catch (uploadError) {
+          uploadErrors.push(`${field.label}: ${getLayoutAssetServiceResultMessage(uploadError)}`);
+        }
+      }
+
       event.currentTarget.reset();
       setSelectedAssetId(asset.layoutAssetId);
       setIsCreateAssetModalOpen(false);
-      setMessage({ tone: 'success', text: 'Layout asset created.' });
+      setCreateAssetType('DECORATIVE_OBJECT');
+      setMessage(uploadErrors.length > 0
+        ? { tone: 'error', text: `Layout asset created, but file upload failed: ${uploadErrors.join(' ')}` }
+        : { tone: 'success', text: uploadedCount > 0 ? `Layout asset created with ${uploadedCount} file(s).` : 'Layout asset created.' });
     } catch (error) {
       setMessage({ tone: 'error', text: getLayoutAssetServiceResultMessage(error) });
     }
+  }
+
+  function closeCreateAssetModal() {
+    setIsCreateAssetModalOpen(false);
+    setCreateAssetType('DECORATIVE_OBJECT');
   }
 
   async function updateStatus(asset: LayoutAssetDto, status: LayoutAssetStatus) {
@@ -344,42 +377,59 @@ export function LayoutAssetManagementPage() {
                 <h3>New Layout Asset</h3>
                 <p>Create a material, structural object, or decorative model for Room Planner.</p>
               </div>
-              <button aria-label="Close create layout asset modal" type="button" onClick={() => setIsCreateAssetModalOpen(false)}>x</button>
+              <button aria-label="Close create layout asset modal" type="button" onClick={closeCreateAssetModal}>x</button>
             </header>
 
             <div className="catalog-model-form">
-              <label>
-                <span>Name</span>
-                <input name="name" placeholder="Decorative column, wall panel, wood floor..." />
-              </label>
-              <label>
-                <span>Code</span>
-                <input name="code" placeholder="Optional" />
-              </label>
-              <label>
-                <span>Type</span>
-                <select name="layoutAssetType" defaultValue="DECORATIVE_OBJECT">
-                  {layoutAssetTypes.map((type) => <option key={type} value={type}>{formatEnumLabel(type)}</option>)}
-                </select>
-              </label>
-              <label>
-                <span>Status</span>
-                <select name="status" defaultValue="ACTIVE">
-                  {(['ACTIVE', 'INACTIVE', 'ARCHIVED'] as const).map((status) => <option key={status} value={status}>{formatEnumLabel(status)}</option>)}
-                </select>
-              </label>
+              <div className="catalog-layout-create-grid">
+                <label>
+                  <span>Name</span>
+                  <input name="name" placeholder="Decorative column, wall panel, wood floor..." />
+                </label>
+                <label>
+                  <span>Code</span>
+                  <input name="code" placeholder="Optional" />
+                </label>
+                <label>
+                  <span>Type</span>
+                  <select name="layoutAssetType" value={createAssetType} onChange={(event) => setCreateAssetType(event.target.value as LayoutAssetType)}>
+                    {layoutAssetTypes.map((type) => <option key={type} value={type}>{formatEnumLabel(type)}</option>)}
+                  </select>
+                </label>
+                <label>
+                  <span>Status</span>
+                  <select name="status" defaultValue="ACTIVE">
+                    {(['ACTIVE', 'INACTIVE', 'ARCHIVED'] as const).map((status) => <option key={status} value={status}>{formatEnumLabel(status)}</option>)}
+                  </select>
+                </label>
+              </div>
               <label>
                 <span>Description</span>
                 <textarea name="description" placeholder="Usage note for designer" />
               </label>
+              <section className="catalog-layout-create-files">
+                <div>
+                  <h4>Reference files</h4>
+                  <p>{isMaterialAssetType(createAssetType) ? 'Floor and wall materials use preview image plus texture.' : 'Decorative and structural assets use preview image plus 3D model.'}</p>
+                </div>
+                <div className="catalog-layout-create-file-grid">
+                  {createAssetFileFields.map((field) => (
+                    <label className="catalog-layout-create-file-card" key={field.fileType}>
+                      <span>{field.label}</span>
+                      <input accept={field.accept} name={field.inputName} type="file" />
+                      <small>{field.helpText}</small>
+                    </label>
+                  ))}
+                </div>
+              </section>
             </div>
 
             <footer>
-              <button className="admin-button admin-button-secondary" disabled={createAssetMutation.isPending} type="button" onClick={() => setIsCreateAssetModalOpen(false)}>
+              <button className="admin-button admin-button-secondary" disabled={createAssetMutation.isPending || uploadFileMutation.isPending} type="button" onClick={closeCreateAssetModal}>
                 Cancel
               </button>
-              <button className="admin-button admin-button-primary" disabled={createAssetMutation.isPending} type="submit">
-                {createAssetMutation.isPending ? 'Creating...' : 'Create Asset'}
+              <button className="admin-button admin-button-primary" disabled={createAssetMutation.isPending || uploadFileMutation.isPending} type="submit">
+                {createAssetMutation.isPending || uploadFileMutation.isPending ? 'Saving...' : 'Create Asset'}
               </button>
             </footer>
           </form>
@@ -387,6 +437,54 @@ export function LayoutAssetManagementPage() {
       ) : null}
     </main>
   );
+}
+
+function isMaterialAssetType(type: LayoutAssetType) {
+  return type === 'FLOOR_MATERIAL' || type === 'WALL_MATERIAL';
+}
+
+function getCreateAssetFileFields(type: LayoutAssetType): Array<{
+  accept: string;
+  fileType: LayoutAssetFileType;
+  helpText: string;
+  inputName: string;
+  label: string;
+}> {
+  if (isMaterialAssetType(type)) {
+    return [
+      {
+        accept: 'image/*',
+        fileType: 'PREVIEW',
+        helpText: 'Thumbnail shown in admin and Room Planner asset picker.',
+        inputName: 'previewFile',
+        label: 'Preview',
+      },
+      {
+        accept: 'image/*',
+        fileType: 'TEXTURE',
+        helpText: 'Texture applied to floor or wall surfaces in 3D.',
+        inputName: 'textureFile',
+        label: 'Texture',
+      },
+    ];
+  }
+
+  return [
+    {
+      accept: 'image/*',
+      fileType: 'PREVIEW',
+      helpText: 'Thumbnail shown in the decorate or asset picker.',
+      inputName: 'previewFile',
+      label: 'Preview',
+    },
+    {
+      accept: '.glb,.gltf,.obj,.fbx,.usdz,model/*,application/octet-stream',
+      fileType: 'MODEL_3D',
+      helpText: '3D model used by Room Planner placement.',
+      inputName: 'modelFile',
+      label: 'Model 3D',
+    },
+  ];
 }
 
 function getAssetType(asset: LayoutAssetDto) {

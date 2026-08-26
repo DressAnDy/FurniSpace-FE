@@ -22,7 +22,7 @@ import {
 } from '@/services/api/schedules';
 import type { ProjectListItemDto } from '@/services/api/projects';
 import { useProjectList } from '@/services/queries/useProjects';
-import { projectScheduleQueryKeys, useUpdateProjectScheduleStatus } from '@/services/queries/useSchedules';
+import { projectScheduleQueryKeys, useRequestProjectScheduleChange, useUpdateProjectScheduleStatus } from '@/services/queries/useSchedules';
 
 import './CustomerSchedulesPage.css';
 
@@ -49,6 +49,7 @@ export function CustomerSchedulesPage() {
   });
   const [message, setMessage] = useState('');
   const [activeActionId, setActiveActionId] = useState<string | null>(null);
+  const [requestChangeNotes, setRequestChangeNotes] = useState<Record<string, string>>({});
   const projectsQuery = useProjectList({ page: 1, limit: 100 });
   const projects = useMemo(() => (projectsQuery.data?.items ?? []).filter((project) => Boolean(project.projectId)), [projectsQuery.data?.items]);
   const scheduleQueries = useQueries({
@@ -68,6 +69,7 @@ export function CustomerSchedulesPage() {
     }),
   });
   const updateStatusMutation = useUpdateProjectScheduleStatus();
+  const requestChangeMutation = useRequestProjectScheduleChange();
   const schedules = useMemo<CustomerScheduleItem[]>(
     () =>
       scheduleQueries
@@ -173,6 +175,31 @@ export function CustomerSchedulesPage() {
     }
   }
 
+  async function handleRequestScheduleChange(schedule: ProjectScheduleDto) {
+    const note = requestChangeNotes[schedule.scheduleId]?.trim();
+
+    if (!note) {
+      setMessage('Please add a note for the delivery schedule change request.');
+      return;
+    }
+
+    setMessage('');
+    setActiveActionId(schedule.scheduleId);
+
+    try {
+      await requestChangeMutation.mutateAsync({
+        scheduleId: schedule.scheduleId,
+        note,
+      });
+      setRequestChangeNotes((current) => ({ ...current, [schedule.scheduleId]: '' }));
+      setMessage('Schedule change request sent successfully.');
+    } catch (error) {
+      setMessage(getProjectScheduleServiceResultMessage(error));
+    } finally {
+      setActiveActionId(null);
+    }
+  }
+
   return (
     <main className="customer-schedules-page">
       <CustomerNavbar activeLabel="Schedules" classPrefix="customer-schedules" />
@@ -232,9 +259,12 @@ export function CustomerSchedulesPage() {
             {selectedItem ? (
               <ScheduleDetail
                 activeActionId={activeActionId}
-                isUpdating={updateStatusMutation.isPending}
+                isUpdating={updateStatusMutation.isPending || requestChangeMutation.isPending}
                 item={selectedItem}
+                requestChangeNote={requestChangeNotes[selectedItem.schedule.scheduleId] ?? ''}
                 onConfirm={() => void handleConfirmSchedule(selectedItem.schedule)}
+                onRequestChange={() => void handleRequestScheduleChange(selectedItem.schedule)}
+                onRequestChangeNoteChange={(value) => setRequestChangeNotes((current) => ({ ...current, [selectedItem.schedule.scheduleId]: value }))}
               />
             ) : (
               <div className="customer-schedules-empty-detail">
@@ -398,12 +428,25 @@ type ScheduleDetailProps = {
   activeActionId: string | null;
   isUpdating: boolean;
   item: CustomerScheduleItem;
+  requestChangeNote: string;
   onConfirm: () => void;
+  onRequestChange: () => void;
+  onRequestChangeNoteChange: (value: string) => void;
 };
 
-function ScheduleDetail({ activeActionId, isUpdating, item, onConfirm }: ScheduleDetailProps) {
+function ScheduleDetail({
+  activeActionId,
+  isUpdating,
+  item,
+  onConfirm,
+  onRequestChange,
+  onRequestChangeNoteChange,
+  requestChangeNote,
+}: ScheduleDetailProps) {
   const { project, schedule } = item;
   const canConfirm = schedule.status === 'PENDING_CONFIRMATION';
+  const canRequestDeliveryChange = schedule.scheduleType === 'DELIVERY'
+    && schedule.status === 'PENDING_CONFIRMATION';
 
   return (
     <>
@@ -444,12 +487,32 @@ function ScheduleDetail({ activeActionId, isUpdating, item, onConfirm }: Schedul
         <p>{schedule.customerNote || schedule.description || 'No additional schedule details were provided.'}</p>
       </div>
 
-      {canConfirm ? (
+      {canRequestDeliveryChange ? (
+        <label className="customer-schedules-change-note">
+          <span>Delivery change request</span>
+          <textarea
+            disabled={isUpdating}
+            placeholder="Describe the preferred delivery time or location change"
+            rows={3}
+            value={requestChangeNote}
+            onChange={(event) => onRequestChangeNoteChange(event.target.value)}
+          />
+        </label>
+      ) : null}
+
+      {canConfirm || canRequestDeliveryChange ? (
         <div className="customer-schedules-actions">
-          <button disabled={isUpdating} type="button" onClick={onConfirm}>
-            <IconCheck size={16} stroke={2} />
-            {activeActionId === schedule.scheduleId && isUpdating ? 'Confirming...' : 'Confirm'}
-          </button>
+          {canConfirm ? (
+            <button disabled={isUpdating} type="button" onClick={onConfirm}>
+              <IconCheck size={16} stroke={2} />
+              {activeActionId === schedule.scheduleId && isUpdating ? 'Confirming...' : 'Confirm'}
+            </button>
+          ) : null}
+          {canRequestDeliveryChange ? (
+            <button className="is-secondary" disabled={isUpdating} type="button" onClick={onRequestChange}>
+              {activeActionId === schedule.scheduleId && isUpdating ? 'Sending...' : 'Request Change'}
+            </button>
+          ) : null}
         </div>
       ) : null}
     </>

@@ -84,6 +84,7 @@ const activeStatuses: ProjectStatus[] = [
   'IN_PRODUCTION',
   'READY_FOR_DELIVERY',
   'DELIVERING',
+  'AWAITING_CUSTOMER_CONFIRMATION',
 ];
 
 const overviewPhases: Array<{ color: string; label: string; statuses: ProjectStatus[] }> = [
@@ -102,7 +103,7 @@ const overviewPhases: Array<{ color: string; label: string; statuses: ProjectSta
   },
   { color: '#a67c52', label: 'Quotation', statuses: ['QUOTATION_SENT', 'QUOTATION_REVISION_REQUESTED', 'ORDER_CONFIRMED'] },
   { color: '#e8d5b7', label: 'Production', statuses: ['IN_PRODUCTION'] },
-  { color: '#1f1a17', label: 'Delivery', statuses: ['READY_FOR_DELIVERY', 'DELIVERING', 'DELIVERED'] },
+  { color: '#1f1a17', label: 'Delivery', statuses: ['READY_FOR_DELIVERY', 'DELIVERING', 'AWAITING_CUSTOMER_CONFIRMATION', 'DELIVERED'] },
   { color: '#b8956c', label: 'Complete', statuses: ['COMPLETED'] },
 ];
 

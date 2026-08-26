@@ -8,7 +8,7 @@ import {
 } from '@/services/api';
 import type { ProjectListItemDto } from '@/services/api/projects';
 import { useCreateProjectSchedule, useProjectDetail, useUpdateProjectSchedule } from '@/services/queries';
-import { getLocalDateTimeInputValue, getMinimumEndDateTimeInputValue, validateScheduleDateRange } from '@/shared/utils/dateValidation';
+import { getScheduleDateRangePayload } from '@/shared/utils/dateValidation';
 
 type CreateScheduleModalProps = {
   editingSchedule: ProjectScheduleDto | null;
@@ -21,7 +21,6 @@ const scheduleTypes: ProjectScheduleType[] = [
   'MEASUREMENT',
   'CONSULTATION',
   'DESIGN_REVIEW',
-  'DELIVERY',
   'HANDOVER',
   'OTHER',
 ];
@@ -42,9 +41,6 @@ export function CreateScheduleModal({ editingSchedule, isOpen, projects, onClose
     ? projects.find((project) => project.projectId === editingSchedule.projectId)
     : projects.find((project) => project.projectId === selectedProjectId);
   const selectedProjectDetailQuery = useProjectDetail(selectedProjectId || undefined);
-  const targetCompletionDateTimeMax = selectedProjectDetailQuery.data?.targetCompletionDate
-    ? `${selectedProjectDetailQuery.data.targetCompletionDate}T23:59`
-    : undefined;
 
   useEffect(() => {
     setMessage('');
@@ -107,17 +103,7 @@ export function CreateScheduleModal({ editingSchedule, isOpen, projects, onClose
       return;
     }
 
-    const dateRange = validateScheduleDateRange(scheduledStart, scheduledEnd, {
-      allowPastStart: Boolean(editingSchedule),
-    });
-    if (!dateRange.ok) {
-      setMessage(dateRange.message);
-      return;
-    }
-    if (selectedProjectDetailQuery.data?.targetCompletionDate && isScheduleAfterTarget(scheduledStart, scheduledEnd, selectedProjectDetailQuery.data.targetCompletionDate)) {
-      setMessage('Schedule date cannot be after project target completion date.');
-      return;
-    }
+    const dateRange = getScheduleDateRangePayload(scheduledStart, scheduledEnd);
 
     try {
       if (editingSchedule) {
@@ -221,34 +207,19 @@ export function CreateScheduleModal({ editingSchedule, isOpen, projects, onClose
             <label>
               <span>Start Date & Time</span>
               <input
-                min={editingSchedule ? undefined : getLocalDateTimeInputValue()}
-                max={targetCompletionDateTimeMax}
                 name="scheduledStart"
-                required
                 type="datetime-local"
                 value={scheduledStart}
-                onChange={(event) => {
-                  const nextStart = event.target.value;
-                  const minimumEnd = getMinimumEndDateTimeInputValue(nextStart);
-                  setScheduledStart(nextStart);
-                  setScheduledEnd((current) => current && minimumEnd && current < minimumEnd ? '' : current);
-                }}
+                onChange={(event) => setScheduledStart(event.target.value)}
               />
             </label>
             <label>
               <span>End Date & Time</span>
               <input
-                disabled={!scheduledStart}
-                min={getMinimumEndDateTimeInputValue(scheduledStart)}
-                max={targetCompletionDateTimeMax}
                 name="scheduledEnd"
                 type="datetime-local"
                 value={scheduledEnd}
-                onChange={(event) => {
-                  const nextEnd = event.target.value;
-                  const minimumEnd = getMinimumEndDateTimeInputValue(scheduledStart);
-                  setScheduledEnd(nextEnd && minimumEnd && nextEnd < minimumEnd ? '' : nextEnd);
-                }}
+                onChange={(event) => setScheduledEnd(event.target.value)}
               />
             </label>
           </div>
@@ -309,8 +280,3 @@ function formatEnumLabel(value: string) {
     .join(' ');
 }
 
-function isScheduleAfterTarget(startValue: string, endValue: string, targetCompletionDate: string) {
-  const maxDateTime = `${targetCompletionDate}T23:59`;
-
-  return startValue > maxDateTime || Boolean(endValue && endValue > maxDateTime);
-}

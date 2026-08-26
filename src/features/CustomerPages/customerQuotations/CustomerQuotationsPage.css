@@ -181,6 +181,38 @@
   font-weight: 700;
 }
 
+.customer-quotations-project-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.customer-quotations-project-pagination button {
+  min-height: 34px;
+  border: 1px solid rgba(139, 111, 71, 0.22);
+  border-radius: 8px;
+  background: #ffffff;
+  color: #8b6f47;
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 800;
+  padding: 0 10px;
+}
+
+.customer-quotations-project-pagination button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.customer-quotations-project-pagination span {
+  color: #756b61;
+  font-size: 12px;
+  font-weight: 800;
+}
+
 .customer-quotations-metrics {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -349,6 +381,101 @@
 }
 
 .customer-quotations-payment-panel button:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
+}
+
+.customer-quotations-delivery-details {
+  display: grid;
+  gap: 14px;
+  border: 1px solid rgba(139, 111, 71, 0.16);
+  border-radius: 12px;
+  background: #fbfaf7;
+  padding: 14px;
+}
+
+.customer-quotations-delivery-details header {
+  margin-bottom: 0;
+}
+
+.customer-quotations-delivery-details header span {
+  display: inline-flex;
+  min-height: 26px;
+  align-items: center;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 900;
+  padding: 0 10px;
+  text-transform: uppercase;
+}
+
+.customer-quotations-delivery-details header span.is-complete {
+  background: rgba(22, 163, 74, 0.12);
+  color: #15803d;
+}
+
+.customer-quotations-delivery-details header span.is-missing {
+  background: rgba(245, 158, 11, 0.15);
+  color: #b45309;
+}
+
+.customer-quotations-delivery-details-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.customer-quotations-delivery-details-grid label {
+  display: grid;
+  gap: 7px;
+}
+
+.customer-quotations-delivery-details-grid label > span {
+  color: #8d8174;
+  font-size: 11px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.customer-quotations-delivery-details-grid input,
+.customer-quotations-delivery-details-grid textarea {
+  width: 100%;
+  border: 1px solid rgba(139, 111, 71, 0.18);
+  border-radius: 10px;
+  background: #ffffff;
+  color: #2f2a24;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  outline: 0;
+  padding: 10px 12px;
+}
+
+.customer-quotations-delivery-details-grid input:disabled,
+.customer-quotations-delivery-details-grid textarea:disabled {
+  background: #f3f0eb;
+  color: #7f7368;
+}
+
+.customer-quotations-delivery-details-note {
+  grid-column: 1 / -1;
+}
+
+.customer-quotations-delivery-details > button {
+  justify-self: start;
+  min-height: 42px;
+  border: 1px solid #8b6f47;
+  border-radius: 10px;
+  background: #8b6f47;
+  color: #ffffff;
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 900;
+  padding: 0 16px;
+}
+
+.customer-quotations-delivery-details > button:disabled {
   cursor: not-allowed;
   opacity: 0.58;
 }
@@ -522,6 +649,7 @@
   .customer-quotations-metrics,
   .customer-quotations-version-list,
   .customer-quotations-total-strip,
+  .customer-quotations-delivery-details-grid,
   .customer-quotations-note-grid {
     grid-template-columns: 1fr;
   }
