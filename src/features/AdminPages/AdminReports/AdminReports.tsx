@@ -5,7 +5,10 @@ import {
   IconArrowRight,
   IconCash,
   IconClipboardList,
+  IconCreditCard,
   IconExternalLink,
+  IconFolder,
+  IconReceipt,
   IconRefresh,
   IconSearch,
   IconX,
@@ -24,8 +27,9 @@ import type {
 import { useProjectReportDetail, useProjectReportList } from '@/services/queries';
 
 import { AdminNavbar, AdminSidebar } from '../admincomponents';
-import { FinancialPanel } from './AdminFinancialPanel';
+import { FinancialPanel, type FinancialListView } from './AdminFinancialPanel';
 import {
+  financialCopy,
   formatDate,
   formatDateTime,
   formatDays,
@@ -48,6 +52,15 @@ import './AdminReports.css';
 type ReportTabId = 'attention' | 'financial';
 
 const EMPTY_ITEMS: ProjectReportListItemDto[] = [];
+
+const FINANCIAL_LIST_OPTIONS: FinancialListView[] = ['receivables', 'projects', 'payments', 'exceptions'];
+
+const FINANCIAL_LIST_ICONS = {
+  receivables: IconReceipt,
+  projects: IconFolder,
+  payments: IconCreditCard,
+  exceptions: IconAlertTriangle,
+} as const;
 
 function defaultDateRange() {
   const to = new Date();
@@ -76,6 +89,7 @@ export function AdminReports() {
   const [financialToDate, setFinancialToDate] = useState(initialRange.to);
   const [attentionFromDate, setAttentionFromDate] = useState('');
   const [attentionToDate, setAttentionToDate] = useState('');
+  const [financialListView, setFinancialListView] = useState<FinancialListView>('receivables');
   const [keyword, setKeyword] = useState('');
   const [draftKeyword, setDraftKeyword] = useState('');
   const [severity, setSeverity] = useState<ProjectReportSeverity | ''>('');
@@ -234,8 +248,38 @@ export function AdminReports() {
                       onChange={(event) => setFinancialToDate(event.target.value)}
                     />
                   </label>
+                  <div className="admin-pr-financial-list-switch" role="tablist" aria-label={financialCopy[lang].listSwitcherAria}>
+                    {FINANCIAL_LIST_OPTIONS.map((id) => {
+                      const Icon = FINANCIAL_LIST_ICONS[id];
+                      const labels = {
+                        receivables: financialCopy[lang].listBtnReceivables,
+                        projects: financialCopy[lang].listBtnProjects,
+                        payments: financialCopy[lang].listBtnPayments,
+                        exceptions: financialCopy[lang].listBtnExceptions,
+                      };
+                      const selected = financialListView === id;
+                      return (
+                        <button
+                          key={id}
+                          type="button"
+                          role="tab"
+                          aria-selected={selected}
+                          className={`admin-pr-financial-list-btn${selected ? ' is-active' : ''}`}
+                          onClick={() => setFinancialListView(id)}
+                        >
+                          <Icon size={15} />
+                          {labels[id]}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </section>
-                <FinancialPanel dateParams={dateParams} fromDate={financialFromDate} toDate={financialToDate} />
+                <FinancialPanel
+                  dateParams={dateParams}
+                  fromDate={financialFromDate}
+                  toDate={financialToDate}
+                  activeList={financialListView}
+                />
               </>
             ) : (
               <AttentionReportPanel

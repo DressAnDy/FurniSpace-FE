@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import {
   IconAlertTriangle,
   IconCash,
@@ -37,23 +37,39 @@ import {
 
 type DateParams = { from: string; to: string };
 
+export type FinancialListView = 'receivables' | 'projects' | 'payments' | 'exceptions';
+
 type FinancialPanelProps = {
   dateParams: DateParams;
   fromDate: string;
   toDate: string;
+  activeList: FinancialListView;
 };
 
 type KpiTone = 'green' | 'amber' | 'blue' | 'red' | 'neutral';
 
-export function FinancialPanel({ dateParams, fromDate, toDate }: FinancialPanelProps) {
+const DEFAULT_LIST_PAGE_SIZE = 10;
+const MIN_PAGE_SIZE = 1;
+const MAX_PAGE_SIZE = 100;
+
+export function FinancialPanel({ dateParams, fromDate, toDate, activeList }: FinancialPanelProps) {
   const { lang } = useLang();
   const t = financialCopy[lang];
+  const [listPageSize, setListPageSize] = useState(DEFAULT_LIST_PAGE_SIZE);
   const [receivablesPage, setReceivablesPage] = useState(1);
   const [projectsPage, setProjectsPage] = useState(1);
   const [paymentsPage, setPaymentsPage] = useState(1);
   const [exceptionsPage, setExceptionsPage] = useState(1);
   const [projectKeyword, setProjectKeyword] = useState('');
   const [paymentFailedOnly, setPaymentFailedOnly] = useState(false);
+
+  const handlePageSizeChange = (nextSize: number) => {
+    setListPageSize(nextSize);
+    setReceivablesPage(1);
+    setProjectsPage(1);
+    setPaymentsPage(1);
+    setExceptionsPage(1);
+  };
 
   const summaryParams = useMemo(
     () => ({
@@ -77,31 +93,43 @@ export function FinancialPanel({ dateParams, fromDate, toDate }: FinancialPanelP
     to: dateParams.to,
     currency: 'VND',
   });
-  const receivablesQuery = useAdminFinancialReceivables({
-    page: receivablesPage,
-    pageSize: 4,
-    sortBy: 'confirmedAt',
-    sortDirection: 'desc',
-  });
-  const projectsQuery = useAdminFinancialProjects({
-    keyword: projectKeyword.trim() || undefined,
-    page: projectsPage,
-    pageSize: 4,
-    sortBy: 'createdAt',
-    sortDirection: 'desc',
-  });
-  const paymentsQuery = useAdminFinancialPayments({
-    page: paymentsPage,
-    pageSize: 4,
-    currency: 'VND',
-    hasFailedAttempt: paymentFailedOnly ? true : undefined,
-    sortBy: 'createdAt',
-    sortDirection: 'desc',
-  });
-  const exceptionsQuery = useAdminFinancialExceptions({
-    page: exceptionsPage,
-    pageSize: 4,
-  });
+  const receivablesQuery = useAdminFinancialReceivables(
+    {
+      page: receivablesPage,
+      pageSize: listPageSize,
+      sortBy: 'confirmedAt',
+      sortDirection: 'desc',
+    },
+    { enabled: activeList === 'receivables' },
+  );
+  const projectsQuery = useAdminFinancialProjects(
+    {
+      keyword: projectKeyword.trim() || undefined,
+      page: projectsPage,
+      pageSize: listPageSize,
+      sortBy: 'createdAt',
+      sortDirection: 'desc',
+    },
+    { enabled: activeList === 'projects' },
+  );
+  const paymentsQuery = useAdminFinancialPayments(
+    {
+      page: paymentsPage,
+      pageSize: listPageSize,
+      currency: 'VND',
+      hasFailedAttempt: paymentFailedOnly ? true : undefined,
+      sortBy: 'createdAt',
+      sortDirection: 'desc',
+    },
+    { enabled: activeList === 'payments' },
+  );
+  const exceptionsQuery = useAdminFinancialExceptions(
+    {
+      page: exceptionsPage,
+      pageSize: listPageSize,
+    },
+    { enabled: activeList === 'exceptions' },
+  );
 
   const summary = summaryQuery.data;
 
@@ -190,7 +218,7 @@ export function FinancialPanel({ dateParams, fromDate, toDate }: FinancialPanelP
           {trendQuery.isLoading ? <StateBlock>{t.loadingTrend}</StateBlock> : null}
           {trendQuery.isError ? <ErrorBlock error={trendQuery.error} /> : null}
           {trendQuery.data ? (
-            <CollectionBars
+            <CollectionTrendChart
               lang={lang}
               series={trendQuery.data.series.map((bucket) => ({
                 label: bucket.period,
@@ -242,337 +270,355 @@ export function FinancialPanel({ dateParams, fromDate, toDate }: FinancialPanelP
         </article>
       </section>
 
-      <section className="admin-card admin-financial-section-card">
-        <SectionHeader
-          icon={<IconReceipt size={18} />}
-          title={t.receivablesTitle}
-          subtitle={t.receivablesSubtitle}
-          aside={
-            receivablesQuery.data ? (
-              <div className="admin-financial-stat-pills">
-                <span>{t.waitingAmount(formatKpiMoney(lang, receivablesQuery.data.outstandingPaymentAmount))}</span>
-                <span>{t.byOrderAmount(formatKpiMoney(lang, receivablesQuery.data.contractedReceivableAmount))}</span>
-              </div>
-            ) : null
-          }
-        />
-        {receivablesQuery.isLoading ? <StateBlock>{t.loadingReceivables}</StateBlock> : null}
-        {receivablesQuery.isError ? <ErrorBlock error={receivablesQuery.error} /> : null}
-        {receivablesQuery.data ? (
+      <section className="admin-card admin-financial-section-card admin-financial-active-list" aria-live="polite">
+        {activeList === 'receivables' ? (
           <>
-            <div className="admin-report-table-wrap admin-financial-table-wrap">
-              <table className="admin-report-table admin-financial-table admin-financial-table-receivables">
-                <thead>
-                  <tr>
-                    <th>{t.project}</th>
-                    <th>{t.order}</th>
-                    <th>{t.finalTotal}</th>
-                    <th>{t.paid}</th>
-                    <th>{t.remaining}</th>
-                    <th>{t.activePayment}</th>
-                    <th>{t.paymentCreated}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {receivablesQuery.data.items.length === 0 ? (
-                    <tr>
-                      <td colSpan={7}>
-                        <EmptyRow text={t.emptyReceivables} />
-                      </td>
-                    </tr>
-                  ) : (
-                    receivablesQuery.data.items.map((item) => (
-                      <tr key={item.orderId}>
-                        <td>
-                          <Link className="admin-financial-code-link" to="/admin/projects">
-                            {item.projectCode || item.projectName}
-                          </Link>
-                          <div className="admin-report-cell-sub">{item.projectName}</div>
-                        </td>
-                        <td>
-                          <span className="admin-financial-mono" title={item.orderCode}>
-                            {shortenCode(item.orderCode)}
-                          </span>
-                          <div className="admin-report-cell-sub">{formatEnumLabel(lang, item.orderStatus || '')}</div>
-                        </td>
-                        <td className="admin-financial-money">{formatKpiMoney(lang, item.finalTotalAmount)}</td>
-                        <td className="admin-financial-money">{formatKpiMoney(lang, item.paidAmount)}</td>
-                        <td className="admin-financial-money is-warn">{formatKpiMoney(lang, item.remainingAmount)}</td>
-                        <td>
-                          {item.activePaymentType ? formatEnumLabel(lang, item.activePaymentType) : '—'}
-                          <div className="admin-report-cell-sub">
-                            {item.activePaymentStatus ? (
-                              <StatusPill lang={lang} status={item.activePaymentStatus} />
-                            ) : null}{' '}
-                            {item.activePaymentAmount != null ? formatKpiMoney(lang, item.activePaymentAmount) : ''}
-                          </div>
-                        </td>
-                        <td>
-                          <span className={`admin-financial-flag ${item.isPaymentCreated ? 'is-yes' : 'is-no'}`}>
-                            {item.isPaymentCreated ? t.yes : t.no}
-                          </span>
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-            <Pager
-              lang={lang}
-              page={receivablesQuery.data.page}
-              totalPages={receivablesQuery.data.totalPages}
-              totalItems={receivablesQuery.data.totalItems}
-              onChange={setReceivablesPage}
+            <SectionHeader
+              icon={<IconReceipt size={18} />}
+              title={t.receivablesTitle}
+              subtitle={t.receivablesSubtitle}
+              aside={
+                receivablesQuery.data ? (
+                  <div className="admin-financial-stat-pills">
+                    <span>{t.waitingAmount(formatKpiMoney(lang, receivablesQuery.data.outstandingPaymentAmount))}</span>
+                    <span>{t.byOrderAmount(formatKpiMoney(lang, receivablesQuery.data.contractedReceivableAmount))}</span>
+                  </div>
+                ) : null
+              }
             />
+            {receivablesQuery.isLoading ? <StateBlock>{t.loadingReceivables}</StateBlock> : null}
+            {receivablesQuery.isError ? <ErrorBlock error={receivablesQuery.error} /> : null}
+            {receivablesQuery.data ? (
+              <>
+                <div className="admin-report-table-wrap admin-financial-table-wrap">
+                  <table className="admin-report-table admin-financial-table admin-financial-table-receivables">
+                    <thead>
+                      <tr>
+                        <th>{t.project}</th>
+                        <th>{t.order}</th>
+                        <th>{t.finalTotal}</th>
+                        <th>{t.paid}</th>
+                        <th>{t.remaining}</th>
+                        <th>{t.activePayment}</th>
+                        <th>{t.paymentCreated}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {receivablesQuery.data.items.length === 0 ? (
+                        <tr>
+                          <td colSpan={7}>
+                            <EmptyRow text={t.emptyReceivables} />
+                          </td>
+                        </tr>
+                      ) : (
+                        receivablesQuery.data.items.map((item) => (
+                          <tr key={item.orderId}>
+                            <td>
+                              <Link className="admin-financial-code-link" to="/admin/projects">
+                                {item.projectCode || item.projectName}
+                              </Link>
+                              <div className="admin-report-cell-sub">{item.projectName}</div>
+                            </td>
+                            <td>
+                              <span className="admin-financial-mono" title={item.orderCode}>
+                                {shortenCode(item.orderCode)}
+                              </span>
+                              <div className="admin-report-cell-sub">{formatEnumLabel(lang, item.orderStatus || '')}</div>
+                            </td>
+                            <td className="admin-financial-money">{formatKpiMoney(lang, item.finalTotalAmount)}</td>
+                            <td className="admin-financial-money">{formatKpiMoney(lang, item.paidAmount)}</td>
+                            <td className="admin-financial-money is-warn">{formatKpiMoney(lang, item.remainingAmount)}</td>
+                            <td>
+                              {item.activePaymentType ? formatEnumLabel(lang, item.activePaymentType) : '—'}
+                              <div className="admin-report-cell-sub">
+                                {item.activePaymentStatus ? (
+                                  <StatusPill lang={lang} status={item.activePaymentStatus} />
+                                ) : null}{' '}
+                                {item.activePaymentAmount != null ? formatKpiMoney(lang, item.activePaymentAmount) : ''}
+                              </div>
+                            </td>
+                            <td>
+                              <span className={`admin-financial-flag ${item.isPaymentCreated ? 'is-yes' : 'is-no'}`}>
+                                {item.isPaymentCreated ? t.yes : t.no}
+                              </span>
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+                <Pager
+                  lang={lang}
+                  page={receivablesQuery.data.page}
+                  pageSize={listPageSize}
+                  totalPages={receivablesQuery.data.totalPages}
+                  totalItems={receivablesQuery.data.totalItems}
+                  onChange={setReceivablesPage}
+                  onPageSizeChange={handlePageSizeChange}
+                />
+              </>
+            ) : null}
           </>
         ) : null}
-      </section>
 
-      <section className="admin-card admin-financial-section-card">
-        <SectionHeader
-          icon={<IconFolder size={18} />}
-          title={t.projectsTitle}
-          subtitle={t.projectsSubtitle}
-          aside={
-            <label className="admin-financial-search">
-              <IconSearch size={15} />
-              <input
-                aria-label={t.searchProjects}
-                placeholder={t.searchPlaceholder}
-                value={projectKeyword}
-                onChange={(event) => {
-                  setProjectKeyword(event.target.value);
-                  setProjectsPage(1);
-                }}
-              />
-            </label>
-          }
-        />
-        {projectsQuery.isLoading ? <StateBlock>{t.loadingProjects}</StateBlock> : null}
-        {projectsQuery.isError ? <ErrorBlock error={projectsQuery.error} /> : null}
-        {projectsQuery.data ? (
+        {activeList === 'projects' ? (
           <>
-            <div className="admin-report-table-wrap admin-financial-table-wrap">
-              <table className="admin-report-table admin-financial-table">
-                <thead>
-                  <tr>
-                    <th>{t.project}</th>
-                    <th>{t.customer}</th>
-                    <th>{t.order}</th>
-                    <th>{t.collected}</th>
-                    <th>{t.remaining}</th>
-                    <th>{t.activePayment}</th>
-                    <th>{t.lastPaid}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {projectsQuery.data.items.length === 0 ? (
-                    <tr>
-                      <td colSpan={7}>
-                        <EmptyRow text={t.emptyProjects} />
-                      </td>
-                    </tr>
-                  ) : (
-                    projectsQuery.data.items.map((item) => (
-                      <tr key={item.projectId}>
-                        <td>
-                          <strong className="admin-financial-code">{item.projectCode || item.projectName}</strong>
-                          <div className="admin-report-cell-sub">
-                            {item.projectName} · {formatEnumLabel(lang, item.projectStatus || '')}
-                          </div>
-                        </td>
-                        <td>{item.customerName || '—'}</td>
-                        <td>
-                          {item.orderCode || '—'}
-                          <div className="admin-report-cell-sub">{formatEnumLabel(lang, item.orderStatus || '')}</div>
-                        </td>
-                        <td className="admin-financial-money is-good" title={formatMoney(lang, item.totalProjectCashCollected)}>
-                          {formatKpiMoney(lang, item.totalProjectCashCollected)}
-                        </td>
-                        <td className="admin-financial-money is-warn">{formatKpiMoney(lang, item.orderRemainingAmount)}</td>
-                        <td>
-                          {item.activePaymentType ? formatEnumLabel(lang, item.activePaymentType) : '—'}
-                          <div className="admin-report-cell-sub">
-                            {item.activePaymentStatus ? <StatusPill lang={lang} status={item.activePaymentStatus} /> : null}
-                          </div>
-                        </td>
-                        <td>{formatDateTime(lang, item.lastPaidAt)}</td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-            <Pager
-              lang={lang}
-              page={projectsQuery.data.page}
-              totalPages={projectsQuery.data.totalPages}
-              totalItems={projectsQuery.data.totalItems}
-              onChange={setProjectsPage}
+            <SectionHeader
+              icon={<IconFolder size={18} />}
+              title={t.projectsTitle}
+              subtitle={t.projectsSubtitle}
+              aside={
+                <label className="admin-financial-search">
+                  <IconSearch size={15} />
+                  <input
+                    aria-label={t.searchProjects}
+                    placeholder={t.searchPlaceholder}
+                    value={projectKeyword}
+                    onChange={(event) => {
+                      setProjectKeyword(event.target.value);
+                      setProjectsPage(1);
+                    }}
+                  />
+                </label>
+              }
             />
+            {projectsQuery.isLoading ? <StateBlock>{t.loadingProjects}</StateBlock> : null}
+            {projectsQuery.isError ? <ErrorBlock error={projectsQuery.error} /> : null}
+            {projectsQuery.data ? (
+              <>
+                <div className="admin-report-table-wrap admin-financial-table-wrap">
+                  <table className="admin-report-table admin-financial-table">
+                    <thead>
+                      <tr>
+                        <th>{t.project}</th>
+                        <th>{t.customer}</th>
+                        <th>{t.order}</th>
+                        <th>{t.collected}</th>
+                        <th>{t.remaining}</th>
+                        <th>{t.activePayment}</th>
+                        <th>{t.lastPaid}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {projectsQuery.data.items.length === 0 ? (
+                        <tr>
+                          <td colSpan={7}>
+                            <EmptyRow text={t.emptyProjects} />
+                          </td>
+                        </tr>
+                      ) : (
+                        projectsQuery.data.items.map((item) => (
+                          <tr key={item.projectId}>
+                            <td>
+                              <strong className="admin-financial-code">{item.projectCode || item.projectName}</strong>
+                              <div className="admin-report-cell-sub">
+                                {item.projectName} · {formatEnumLabel(lang, item.projectStatus || '')}
+                              </div>
+                            </td>
+                            <td>{item.customerName || '—'}</td>
+                            <td>
+                              {item.orderCode || '—'}
+                              <div className="admin-report-cell-sub">{formatEnumLabel(lang, item.orderStatus || '')}</div>
+                            </td>
+                            <td className="admin-financial-money is-good" title={formatMoney(lang, item.totalProjectCashCollected)}>
+                              {formatKpiMoney(lang, item.totalProjectCashCollected)}
+                            </td>
+                            <td className="admin-financial-money is-warn">{formatKpiMoney(lang, item.orderRemainingAmount)}</td>
+                            <td>
+                              {item.activePaymentType ? formatEnumLabel(lang, item.activePaymentType) : '—'}
+                              <div className="admin-report-cell-sub">
+                                {item.activePaymentStatus ? <StatusPill lang={lang} status={item.activePaymentStatus} /> : null}
+                              </div>
+                            </td>
+                            <td>{formatDateTime(lang, item.lastPaidAt)}</td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+                <Pager
+                  lang={lang}
+                  page={projectsQuery.data.page}
+                  pageSize={listPageSize}
+                  totalPages={projectsQuery.data.totalPages}
+                  totalItems={projectsQuery.data.totalItems}
+                  onChange={setProjectsPage}
+                  onPageSizeChange={handlePageSizeChange}
+                />
+              </>
+            ) : null}
           </>
         ) : null}
-      </section>
 
-      <section className="admin-card admin-financial-section-card">
-        <SectionHeader
-          icon={<IconCreditCard size={18} />}
-          title={t.paymentsTitle}
-          subtitle={t.paymentsSubtitle}
-          aside={
-            <label className="admin-financial-toggle">
-              <input
-                checked={paymentFailedOnly}
-                type="checkbox"
-                onChange={(event) => {
-                  setPaymentFailedOnly(event.target.checked);
-                  setPaymentsPage(1);
-                }}
-              />
-              {t.failedOnly}
-            </label>
-          }
-        />
-        {paymentsQuery.isLoading ? <StateBlock>{t.loadingPayments}</StateBlock> : null}
-        {paymentsQuery.isError ? <ErrorBlock error={paymentsQuery.error} /> : null}
-        {paymentsQuery.data ? (
+        {activeList === 'payments' ? (
           <>
-            <div className="admin-report-table-wrap admin-financial-table-wrap">
-              <table className="admin-report-table admin-financial-table">
-                <thead>
-                  <tr>
-                    <th>{t.payment}</th>
-                    <th>{t.projectOrder}</th>
-                    <th>{t.type}</th>
-                    <th>{t.amount}</th>
-                    <th>{t.status}</th>
-                    <th>{t.provider}</th>
-                    <th>{t.attempts}</th>
-                    <th>{t.lastFailure}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {paymentsQuery.data.items.length === 0 ? (
-                    <tr>
-                      <td colSpan={8}>
-                        <EmptyRow text={t.emptyPayments} />
-                      </td>
-                    </tr>
-                  ) : (
-                    paymentsQuery.data.items.map((item) => (
-                      <tr key={item.paymentId}>
-                        <td>
-                          <strong className="admin-financial-code">{item.paymentCode}</strong>
-                          <div className="admin-report-cell-sub">{item.customerName || '—'}</div>
-                        </td>
-                        <td>
-                          {item.projectCode || '—'}
-                          <div className="admin-report-cell-sub">{item.orderCode || '—'}</div>
-                        </td>
-                        <td>{item.paymentType ? formatEnumLabel(lang, item.paymentType) : '—'}</td>
-                        <td className="admin-financial-money">{formatKpiMoney(lang, item.amount)}</td>
-                        <td>{item.status ? <StatusPill lang={lang} status={item.status} /> : '—'}</td>
-                        <td>
-                          <span className="admin-financial-pill">{item.lastProvider || '—'}</span>
-                        </td>
-                        <td>
-                          <div className="admin-financial-attempt-cell">
-                            <strong>{t.attemptTried(item.attemptCount)}</strong>
-                            <span className={item.failedAttemptCount > 0 ? 'is-bad' : 'is-ok'}>
-                              {item.failedAttemptCount > 0 ? t.attemptFailed(item.failedAttemptCount) : t.attemptOk}
-                            </span>
-                          </div>
-                        </td>
-                        <td>
-                          <div className="admin-financial-attempt-cell">
-                            <strong className={item.lastFailureReason ? 'is-bad' : undefined}>
-                              {item.lastFailureReason || t.noFailureReason}
-                            </strong>
-                            <span>
-                              {item.lastAttemptAt
-                                ? `${t.lastTriedAt}: ${formatDateTime(lang, item.lastAttemptAt)}`
-                                : t.neverTried}
-                            </span>
-                          </div>
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-            <Pager
-              lang={lang}
-              page={paymentsQuery.data.page}
-              totalPages={paymentsQuery.data.totalPages}
-              totalItems={paymentsQuery.data.totalItems}
-              onChange={setPaymentsPage}
+            <SectionHeader
+              icon={<IconCreditCard size={18} />}
+              title={t.paymentsTitle}
+              subtitle={t.paymentsSubtitle}
+              aside={
+                <label className="admin-financial-toggle">
+                  <input
+                    checked={paymentFailedOnly}
+                    type="checkbox"
+                    onChange={(event) => {
+                      setPaymentFailedOnly(event.target.checked);
+                      setPaymentsPage(1);
+                    }}
+                  />
+                  {t.failedOnly}
+                </label>
+              }
             />
+            {paymentsQuery.isLoading ? <StateBlock>{t.loadingPayments}</StateBlock> : null}
+            {paymentsQuery.isError ? <ErrorBlock error={paymentsQuery.error} /> : null}
+            {paymentsQuery.data ? (
+              <>
+                <div className="admin-report-table-wrap admin-financial-table-wrap">
+                  <table className="admin-report-table admin-financial-table">
+                    <thead>
+                      <tr>
+                        <th>{t.payment}</th>
+                        <th>{t.projectOrder}</th>
+                        <th>{t.type}</th>
+                        <th>{t.amount}</th>
+                        <th>{t.status}</th>
+                        <th>{t.provider}</th>
+                        <th>{t.attempts}</th>
+                        <th>{t.lastFailure}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {paymentsQuery.data.items.length === 0 ? (
+                        <tr>
+                          <td colSpan={8}>
+                            <EmptyRow text={t.emptyPayments} />
+                          </td>
+                        </tr>
+                      ) : (
+                        paymentsQuery.data.items.map((item) => (
+                          <tr key={item.paymentId}>
+                            <td>
+                              <strong className="admin-financial-code">{item.paymentCode}</strong>
+                              <div className="admin-report-cell-sub">{item.customerName || '—'}</div>
+                            </td>
+                            <td>
+                              {item.projectCode || '—'}
+                              <div className="admin-report-cell-sub">{item.orderCode || '—'}</div>
+                            </td>
+                            <td>{item.paymentType ? formatEnumLabel(lang, item.paymentType) : '—'}</td>
+                            <td className="admin-financial-money">{formatKpiMoney(lang, item.amount)}</td>
+                            <td>{item.status ? <StatusPill lang={lang} status={item.status} /> : '—'}</td>
+                            <td>
+                              <span className="admin-financial-pill">{item.lastProvider || '—'}</span>
+                            </td>
+                            <td>
+                              <div className="admin-financial-attempt-cell">
+                                <strong>{t.attemptTried(item.attemptCount)}</strong>
+                                <span className={item.failedAttemptCount > 0 ? 'is-bad' : 'is-ok'}>
+                                  {item.failedAttemptCount > 0 ? t.attemptFailed(item.failedAttemptCount) : t.attemptOk}
+                                </span>
+                              </div>
+                            </td>
+                            <td>
+                              <div className="admin-financial-attempt-cell">
+                                <strong className={item.lastFailureReason ? 'is-bad' : undefined}>
+                                  {item.lastFailureReason || t.noFailureReason}
+                                </strong>
+                                <span>
+                                  {item.lastAttemptAt
+                                    ? `${t.lastTriedAt}: ${formatDateTime(lang, item.lastAttemptAt)}`
+                                    : t.neverTried}
+                                </span>
+                              </div>
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+                <Pager
+                  lang={lang}
+                  page={paymentsQuery.data.page}
+                  pageSize={listPageSize}
+                  totalPages={paymentsQuery.data.totalPages}
+                  totalItems={paymentsQuery.data.totalItems}
+                  onChange={setPaymentsPage}
+                  onPageSizeChange={handlePageSizeChange}
+                />
+              </>
+            ) : null}
           </>
         ) : null}
-      </section>
 
-      <section className="admin-card admin-financial-section-card">
-        <SectionHeader
-          icon={<IconAlertTriangle size={18} />}
-          title={t.exceptionsTitle}
-          subtitle={t.exceptionsSubtitle}
-        />
-        {exceptionsQuery.isLoading ? <StateBlock>{t.loadingExceptions}</StateBlock> : null}
-        {exceptionsQuery.isError ? <ErrorBlock error={exceptionsQuery.error} /> : null}
-        {exceptionsQuery.data ? (
+        {activeList === 'exceptions' ? (
           <>
-            <div className="admin-report-table-wrap admin-financial-table-wrap">
-              <table className="admin-report-table admin-financial-table">
-                <thead>
-                  <tr>
-                    <th>{t.severity}</th>
-                    <th>{t.type}</th>
-                    <th>{t.content}</th>
-                    <th>{t.amount}</th>
-                    <th>{t.age}</th>
-                    <th>{t.action}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {exceptionsQuery.data.items.length === 0 ? (
-                    <tr>
-                      <td colSpan={6}>
-                        <EmptyRow text={t.emptyExceptions} />
-                      </td>
-                    </tr>
-                  ) : (
-                    exceptionsQuery.data.items.map((item, index) => (
-                      <tr key={`${item.exceptionType}-${item.targetResourceId ?? index}`}>
-                        <td>
-                          <span
-                            className={`admin-financial-severity admin-financial-severity-${(item.severity || 'medium').toLowerCase()}`}
-                          >
-                            {formatSeverityLabel(lang, item.severity)}
-                          </span>
-                        </td>
-                        <td>{formatEnumLabel(lang, item.exceptionType)}</td>
-                        <td>
-                          <strong>{item.title}</strong>
-                          <div className="admin-report-cell-sub">{item.reason}</div>
-                        </td>
-                        <td className="admin-financial-money">{formatKpiMoney(lang, item.amount)}</td>
-                        <td>{item.age != null ? t.days(item.age) : '—'}</td>
-                        <td className="admin-financial-action">{item.recommendedAction || '—'}</td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-            <Pager
-              lang={lang}
-              page={exceptionsQuery.data.page}
-              totalPages={exceptionsQuery.data.totalPages}
-              totalItems={exceptionsQuery.data.totalItems}
-              onChange={setExceptionsPage}
+            <SectionHeader
+              icon={<IconAlertTriangle size={18} />}
+              title={t.exceptionsTitle}
+              subtitle={t.exceptionsSubtitle}
             />
+            {exceptionsQuery.isLoading ? <StateBlock>{t.loadingExceptions}</StateBlock> : null}
+            {exceptionsQuery.isError ? <ErrorBlock error={exceptionsQuery.error} /> : null}
+            {exceptionsQuery.data ? (
+              <>
+                <div className="admin-report-table-wrap admin-financial-table-wrap">
+                  <table className="admin-report-table admin-financial-table">
+                    <thead>
+                      <tr>
+                        <th>{t.severity}</th>
+                        <th>{t.type}</th>
+                        <th>{t.content}</th>
+                        <th>{t.amount}</th>
+                        <th>{t.age}</th>
+                        <th>{t.action}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {exceptionsQuery.data.items.length === 0 ? (
+                        <tr>
+                          <td colSpan={6}>
+                            <EmptyRow text={t.emptyExceptions} />
+                          </td>
+                        </tr>
+                      ) : (
+                        exceptionsQuery.data.items.map((item, index) => (
+                          <tr key={`${item.exceptionType}-${item.targetResourceId ?? index}`}>
+                            <td>
+                              <span
+                                className={`admin-financial-severity admin-financial-severity-${(item.severity || 'medium').toLowerCase()}`}
+                              >
+                                {formatSeverityLabel(lang, item.severity)}
+                              </span>
+                            </td>
+                            <td>{formatEnumLabel(lang, item.exceptionType)}</td>
+                            <td>
+                              <strong>{item.title}</strong>
+                              <div className="admin-report-cell-sub">{item.reason}</div>
+                            </td>
+                            <td className="admin-financial-money">{formatKpiMoney(lang, item.amount)}</td>
+                            <td>{item.age != null ? t.days(item.age) : '—'}</td>
+                            <td className="admin-financial-action">{item.recommendedAction || '—'}</td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+                <Pager
+                  lang={lang}
+                  page={exceptionsQuery.data.page}
+                  pageSize={listPageSize}
+                  totalPages={exceptionsQuery.data.totalPages}
+                  totalItems={exceptionsQuery.data.totalItems}
+                  onChange={setExceptionsPage}
+                  onPageSizeChange={handlePageSizeChange}
+                />
+              </>
+            ) : null}
           </>
         ) : null}
       </section>
@@ -654,7 +700,13 @@ function VndText({
   );
 }
 
-function CollectionBars({
+const BAR_SERIES = [
+  { key: 'startFee', color: '#5c4030' },
+  { key: 'deposit', color: '#c4a574' },
+  { key: 'remaining', color: '#b45309' },
+] as const;
+
+function CollectionTrendChart({
   lang,
   series,
 }: {
@@ -668,77 +720,114 @@ function CollectionBars({
   }>;
 }) {
   const t = financialCopy[lang];
-  const max = Math.max(1, ...series.map((item) => item.total));
+  const barValues = series.flatMap((item) => [item.projectStartFee, item.deposit, item.remainingPayment]);
+  const yMax = niceAxisMax(Math.max(0, ...barValues));
+  const ticks = [0, yMax * 0.25, yMax * 0.5, yMax * 0.75, yMax];
 
   if (series.length === 0) {
     return <EmptyRow text={t.emptyTrend} />;
   }
 
+  const labels = {
+    startFee: t.startFee,
+    deposit: t.deposit,
+    remaining: t.remainingPayment,
+  };
+
   return (
-    <div className="admin-financial-trend">
-      <ul className="admin-financial-trend-list">
-        {series.map((item) => {
-          const widthPct = Math.max((item.total / max) * 100, item.total > 0 ? 8 : 0);
-          const parts = [
-            { key: 'start', label: t.startFee, amount: item.projectStartFee, color: '#5c4030' },
-            { key: 'deposit', label: t.deposit, amount: item.deposit, color: '#c4a574' },
-            { key: 'remaining', label: t.remainingPayment, amount: item.remainingPayment, color: '#b45309' },
-          ].filter((part) => part.amount > 0);
+    <div className="admin-financial-trend-chart">
+      <div className="admin-financial-trend-plot">
+        <div className="admin-financial-trend-yaxis" aria-hidden="true">
+          {[...ticks].reverse().map((tick) => (
+            <span key={tick} title={formatMoney(lang, tick)}>
+              {formatAxisMoney(lang, tick)}
+            </span>
+          ))}
+        </div>
 
-          return (
-            <li className="admin-financial-trend-row" key={item.label}>
-              <div className="admin-financial-trend-row-head">
-                <strong>{formatTrendPeriod(lang, item.label)}</strong>
-                <span title={formatMoney(lang, item.total)}>{formatKpiMoney(lang, item.total)}</span>
-              </div>
+        <div className="admin-financial-trend-canvas admin-financial-trend-canvas-bars">
+          <div className="admin-financial-trend-grid" aria-hidden="true">
+            {ticks.map((tick) => (
+              <span key={tick} />
+            ))}
+          </div>
 
-              <div className="admin-financial-trend-track" aria-hidden={item.total <= 0}>
-                <div className="admin-financial-trend-fill" style={{ width: `${widthPct}%` }}>
-                  {parts.length > 0
-                    ? parts.map((part) => (
-                        <span
-                          key={part.key}
-                          style={{
-                            flexGrow: part.amount,
-                            background: part.color,
-                          }}
-                          title={`${part.label}: ${formatMoney(lang, part.amount)}`}
-                        />
-                      ))
-                    : null}
+          <div className="admin-financial-trend-groups" role="list">
+            {series.map((item) => {
+              const periodLabel = formatTrendPeriod(lang, item.label);
+              const values = {
+                startFee: item.projectStartFee,
+                deposit: item.deposit,
+                remaining: item.remainingPayment,
+              } as const;
+
+              return (
+                <div className="admin-financial-trend-group" key={item.label} role="listitem">
+                  <div className="admin-financial-trend-group-total" title={formatMoney(lang, item.total)}>
+                    {item.total > 0 ? formatKpiMoney(lang, item.total) : '—'}
+                  </div>
+                  <div className="admin-financial-trend-group-bars">
+                    {BAR_SERIES.map((bar) => {
+                      const value = values[bar.key];
+                      const heightPct = yMax > 0 ? Math.min((value / yMax) * 100, 100) : 0;
+                      return (
+                        <div
+                          key={bar.key}
+                          className="admin-financial-trend-bar-wrap"
+                          title={`${periodLabel} · ${labels[bar.key]}: ${formatMoney(lang, value)}`}
+                        >
+                          <div
+                            className={`admin-financial-trend-bar${value <= 0 ? ' is-empty' : ''}`}
+                            style={{
+                              height: `${Math.max(heightPct, value > 0 ? 3 : 0)}%`,
+                              background: bar.color,
+                            }}
+                          />
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <em>{periodLabel}</em>
                 </div>
-              </div>
-
-              <div className="admin-financial-trend-parts">
-                {parts.length === 0 ? (
-                  <em>{t.noCollectionMonth}</em>
-                ) : (
-                  parts.map((part) => (
-                    <span key={part.key}>
-                      <i style={{ background: part.color }} />
-                      {part.label}: <b title={formatMoney(lang, part.amount)}>{formatKpiMoney(lang, part.amount)}</b>
-                    </span>
-                  ))
-                )}
-              </div>
-            </li>
-          );
-        })}
-      </ul>
+              );
+            })}
+          </div>
+        </div>
+      </div>
 
       <ul className="admin-financial-bar-legend">
-        <li>
-          <i style={{ background: '#5c4030' }} /> {t.startFee}
-        </li>
-        <li>
-          <i style={{ background: '#c4a574' }} /> {t.deposit}
-        </li>
-        <li>
-          <i style={{ background: '#b45309' }} /> {t.remainingPayment}
-        </li>
+        {BAR_SERIES.map((bar) => (
+          <li key={bar.key}>
+            <i style={{ background: bar.color }} /> {labels[bar.key]}
+          </li>
+        ))}
       </ul>
     </div>
   );
+}
+
+function niceAxisMax(value: number) {
+  if (value <= 0) return 1;
+  const magnitude = 10 ** Math.floor(Math.log10(value));
+  const normalized = value / magnitude;
+  const nice =
+    normalized <= 1 ? 1 : normalized <= 2 ? 2 : normalized <= 5 ? 5 : 10;
+  return nice * magnitude;
+}
+
+function formatAxisMoney(lang: Lang, value: number) {
+  if (value <= 0) return '0';
+  if (value >= 1_000_000) {
+    const millions = value / 1_000_000;
+    if (lang === 'vi') {
+      return millions >= 10 ? `${Math.round(millions)}tr` : `${millions.toFixed(1).replace(/\.0$/, '')}tr`;
+    }
+    return millions >= 10 ? `${Math.round(millions)}M` : `${millions.toFixed(1)}M`;
+  }
+  if (value >= 1_000) {
+    return `${Math.round(value / 1_000)}k`;
+  }
+  return formatKpiMoney(lang, value);
 }
 
 function StatusPill({ lang, status }: { lang: Lang; status: string }) {
@@ -757,25 +846,102 @@ function statusTone(status: string) {
 function Pager({
   lang,
   page,
+  pageSize,
   totalPages,
   totalItems,
   onChange,
+  onPageSizeChange,
 }: {
   lang: Lang;
   page: number;
+  pageSize: number;
   totalPages: number;
   totalItems: number;
   onChange: (page: number) => void;
+  onPageSizeChange: (pageSize: number) => void;
 }) {
   const t = financialCopy[lang];
+  const safeTotalPages = Math.max(totalPages, 1);
+  const [pageDraft, setPageDraft] = useState(String(page));
+  const [sizeDraft, setSizeDraft] = useState(String(pageSize));
+
+  useEffect(() => {
+    setPageDraft(String(page));
+  }, [page]);
+
+  useEffect(() => {
+    setSizeDraft(String(pageSize));
+  }, [pageSize]);
+
+  const commitPage = () => {
+    const parsed = Number.parseInt(pageDraft, 10);
+    if (!Number.isFinite(parsed)) {
+      setPageDraft(String(page));
+      return;
+    }
+    const next = Math.min(Math.max(parsed, 1), safeTotalPages);
+    setPageDraft(String(next));
+    if (next !== page) onChange(next);
+  };
+
+  const commitPageSize = () => {
+    const parsed = Number.parseInt(sizeDraft, 10);
+    if (!Number.isFinite(parsed)) {
+      setSizeDraft(String(pageSize));
+      return;
+    }
+    const next = Math.min(Math.max(parsed, MIN_PAGE_SIZE), MAX_PAGE_SIZE);
+    setSizeDraft(String(next));
+    if (next !== pageSize) onPageSizeChange(next);
+  };
+
   return (
     <div className="admin-financial-pager">
-      <span>{t.pageItems(page, totalPages, totalItems)}</span>
-      <div>
+      <div className="admin-financial-pager-meta">
+        <label className="admin-financial-pager-field">
+          <span>{t.rowsPerPage}</span>
+          <input
+            aria-label={t.rowsPerPage}
+            inputMode="numeric"
+            min={MIN_PAGE_SIZE}
+            max={MAX_PAGE_SIZE}
+            type="number"
+            value={sizeDraft}
+            onBlur={commitPageSize}
+            onChange={(event) => setSizeDraft(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') {
+                event.currentTarget.blur();
+              }
+            }}
+          />
+        </label>
+        <label className="admin-financial-pager-field">
+          <span>{t.pageLabel}</span>
+          <input
+            aria-label={t.pageLabel}
+            inputMode="numeric"
+            min={1}
+            max={safeTotalPages}
+            type="number"
+            value={pageDraft}
+            onBlur={commitPage}
+            onChange={(event) => setPageDraft(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') {
+                event.currentTarget.blur();
+              }
+            }}
+          />
+          <span className="admin-financial-pager-of">/ {safeTotalPages}</span>
+        </label>
+        <span className="admin-financial-pager-total">{t.totalRows(totalItems)}</span>
+      </div>
+      <div className="admin-financial-pager-nav">
         <button disabled={page <= 1} type="button" onClick={() => onChange(page - 1)}>
           {t.prev}
         </button>
-        <button disabled={page >= totalPages} type="button" onClick={() => onChange(page + 1)}>
+        <button disabled={page >= safeTotalPages} type="button" onClick={() => onChange(page + 1)}>
           {t.next}
         </button>
       </div>

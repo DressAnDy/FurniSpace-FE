@@ -234,10 +234,12 @@ export function severityTone(severity: ProjectReportSeverity | string | null | u
 }
 
 export function formatTrendPeriod(lang: Lang, value: string) {
-  const match = /^(\d{4})-(\d{2})$/.exec(value);
-  if (!match) return value;
-  const month = Number(match[2]);
-  return lang === 'vi' ? `Tháng ${month}/${match[1]}` : `${month}/${match[1]}`;
+  const monthMatch = /^(\d{4})-(\d{2})(?:$|T|-)/.exec(value);
+  if (monthMatch) {
+    const month = Number(monthMatch[2]);
+    return lang === 'vi' ? `Thg ${month}/${monthMatch[1]}` : `${month}/${monthMatch[1]}`;
+  }
+  return value;
 }
 
 export const reportsCopy = {
@@ -248,7 +250,6 @@ export const reportsCopy = {
     attentionTab: 'Cần xử lý',
     attentionDesc: 'Danh sách dự án đang tắc hoặc cần theo dõi — mở từng dòng để xem nên làm gì tiếp.',
     financialTab: 'Tài chính',
-    financialDesc: 'Tiền thu, công nợ và thanh toán bất thường trên toàn hệ thống.',
     fromDate: 'Từ ngày',
     toDate: 'Đến ngày',
     submittedFromDate: 'Gửi từ ngày',
@@ -336,7 +337,6 @@ export const reportsCopy = {
     attentionTab: 'Needs attention',
     attentionDesc: 'Projects that are blocked or need follow-up — open a row to see the next action.',
     financialTab: 'Financial',
-    financialDesc: 'Cash collected, receivables, and payment exceptions across the system.',
     fromDate: 'From',
     toDate: 'To',
     submittedFromDate: 'Submitted from',
@@ -441,7 +441,7 @@ export const financialCopy = {
     activePayments: 'Khoản đang thu',
     waitingCustomer: 'Đang chờ khách thanh toán',
     trendTitle: 'Xu hướng thu tiền',
-    trendSubtitle: 'Tiền thu theo tháng, tách theo loại thanh toán.',
+    trendSubtitle: 'So sánh tiền thu từng tháng theo loại thanh toán.',
     loadingTrend: 'Đang tải xu hướng thu tiền...',
     typeTitle: 'Theo loại thanh toán',
     typeSubtitle: 'Đã thu và đang chờ thu của từng loại.',
@@ -502,6 +502,11 @@ export const financialCopy = {
     action: 'Việc nên làm',
     days: (count: number) => `${count} ngày`,
     emptyExceptions: 'Không có việc cần xử lý.',
+    listSwitcherAria: 'Chọn danh sách tài chính',
+    listBtnReceivables: 'Công nợ',
+    listBtnProjects: 'Theo dự án',
+    listBtnPayments: 'Thanh toán',
+    listBtnExceptions: 'Cần xử lý',
     emptyTrend: 'Không có dữ liệu thu tiền trong khoảng này.',
     startFee: 'Phí khởi tạo',
     deposit: 'Đặt cọc',
@@ -509,6 +514,9 @@ export const financialCopy = {
     noCollectionMonth: 'Chưa thu trong tháng này',
     pageItems: (page: number, totalPages: number, totalItems: number) =>
       `Trang ${page} / ${Math.max(totalPages, 1)} · ${totalItems} dòng`,
+    rowsPerPage: 'Số dòng',
+    pageLabel: 'Trang',
+    totalRows: (totalItems: number) => `${totalItems} dòng`,
     prev: 'Trước',
     next: 'Sau',
     escalate: 'Cần can thiệp',
@@ -536,7 +544,7 @@ export const financialCopy = {
     activePayments: 'Active payments',
     waitingCustomer: 'Waiting for customer payment',
     trendTitle: 'Collection trend',
-    trendSubtitle: 'Monthly cash collected, split by payment type.',
+    trendSubtitle: 'Compare monthly cash by payment type side by side.',
     loadingTrend: 'Loading collection trend...',
     typeTitle: 'By payment type',
     typeSubtitle: 'Collected vs outstanding for each type.',
@@ -597,6 +605,11 @@ export const financialCopy = {
     action: 'Suggested action',
     days: (count: number) => `${count} day${count === 1 ? '' : 's'}`,
     emptyExceptions: 'Nothing needs action.',
+    listSwitcherAria: 'Choose financial list',
+    listBtnReceivables: 'Receivables',
+    listBtnProjects: 'By project',
+    listBtnPayments: 'Payments',
+    listBtnExceptions: 'Needs action',
     emptyTrend: 'No collection data in this range.',
     startFee: 'Start fee',
     deposit: 'Deposit',
@@ -604,6 +617,9 @@ export const financialCopy = {
     noCollectionMonth: 'No collection this month',
     pageItems: (page: number, totalPages: number, totalItems: number) =>
       `Page ${page} / ${Math.max(totalPages, 1)} · ${totalItems} rows`,
+    rowsPerPage: 'Rows',
+    pageLabel: 'Page',
+    totalRows: (totalItems: number) => `${totalItems} rows`,
     prev: 'Prev',
     next: 'Next',
     escalate: 'Escalate',
