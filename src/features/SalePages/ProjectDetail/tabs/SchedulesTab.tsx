@@ -7,7 +7,7 @@ import {
 } from '@/services/queries';
 import { getProjectScheduleServiceResultMessage } from '@/services/api/schedules';
 import type { ProjectScheduleDto, ProjectScheduleStatus, ProjectScheduleType } from '@/services/api/schedules';
-import { getScheduleDateRangePayload } from '@/shared/utils/dateValidation';
+import { validateScheduleDateTimeRange } from '@/shared/utils/dateValidation';
 
 import type { ProjectDetailProject } from '../ProjectDetail';
 
@@ -22,6 +22,7 @@ const scheduleStatusOptions: ProjectScheduleStatus[] = ['PENDING_CONFIRMATION', 
 
 export function SchedulesTab({ project }: SchedulesTabProps) {
   const [message, setMessage] = useState('');
+  const [scheduleTypeInput, setScheduleTypeInput] = useState<ProjectScheduleType>('MEASUREMENT');
   const [scheduleStartInput, setScheduleStartInput] = useState('');
   const [scheduleEndInput, setScheduleEndInput] = useState('');
   const [statusFilter, setStatusFilter] = useState<ProjectScheduleStatus | ''>('');
@@ -82,14 +83,19 @@ export function SchedulesTab({ project }: SchedulesTabProps) {
     const assignedStaffId = project.assignedDesignerId;
     const scheduledStart = String(formData.get('scheduledStart') ?? '').trim();
     const scheduledEnd = String(formData.get('scheduledEnd') ?? '').trim();
-    const scheduleType = String(formData.get('scheduleType') ?? 'MEASUREMENT') as ProjectScheduleType;
+    const scheduleType = scheduleTypeInput;
 
     if (!assignedStaffId) {
       setMessage('Please assign a designer to this project before creating a schedule.');
       return;
     }
 
-    const dateRange = getScheduleDateRangePayload(scheduledStart, scheduledEnd);
+    const dateRange = validateScheduleDateTimeRange(scheduledStart, scheduledEnd, { requireEnd: requiresCompleteScheduleWindow(scheduleType) });
+
+    if (!dateRange.ok) {
+      setMessage(dateRange.message);
+      return;
+    }
 
     void createSchedule({
       form,
@@ -134,6 +140,7 @@ export function SchedulesTab({ project }: SchedulesTabProps) {
 
       setMessage('Schedule created successfully.');
       input.form.reset();
+      setScheduleTypeInput('MEASUREMENT');
       setScheduleStartInput('');
       setScheduleEndInput('');
       void schedulesQuery.refetch();
@@ -170,7 +177,12 @@ export function SchedulesTab({ project }: SchedulesTabProps) {
           <div className="project-detail-schedule-form-grid">
             <label>
               <span>Schedule Type</span>
-              <select name="scheduleType" defaultValue="MEASUREMENT" disabled={createScheduleMutation.isPending}>
+              <select
+                name="scheduleType"
+                value={scheduleTypeInput}
+                disabled={createScheduleMutation.isPending}
+                onChange={(event) => setScheduleTypeInput(event.target.value as ProjectScheduleType)}
+              >
                 {scheduleTypeOptions.map((type) => (
                   <option key={type} value={type}>{formatEnumLabel(type)}</option>
                 ))}
@@ -188,6 +200,7 @@ export function SchedulesTab({ project }: SchedulesTabProps) {
               <input
                 disabled={createScheduleMutation.isPending}
                 name="scheduledStart"
+                required
                 type="datetime-local"
                 value={scheduleStartInput}
                 onChange={(event) => setScheduleStartInput(event.target.value)}
@@ -198,6 +211,7 @@ export function SchedulesTab({ project }: SchedulesTabProps) {
               <input
                 disabled={createScheduleMutation.isPending}
                 name="scheduledEnd"
+                required={requiresCompleteScheduleWindow(scheduleTypeInput)}
                 type="datetime-local"
                 value={scheduleEndInput}
                 onChange={(event) => setScheduleEndInput(event.target.value)}
@@ -426,6 +440,10 @@ const weekDays = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
 
 function getDefaultScheduleTitle(project: ProjectDetailProject) {
   return `${project.projectName} - designer schedule`;
+}
+
+function requiresCompleteScheduleWindow(scheduleType: ProjectScheduleType) {
+  return scheduleType === 'MEASUREMENT' || scheduleType === 'DELIVERY';
 }
 
 function formatEnumLabel(value: string) {
