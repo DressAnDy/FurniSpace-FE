@@ -1,7 +1,8 @@
 import { type ReactNode, useState } from 'react';
-import { IconChevronDown, IconLogout } from '@tabler/icons-react';
+import { IconChevronDown, IconGlobe, IconLogout } from '@tabler/icons-react';
 import { useNavigate } from 'react-router-dom';
 
+import { useLang } from '@/app/providers/useLang';
 import { ActorCommandSearch } from '@/shared/components/ActorCommandSearch';
 import { NotificationBell } from '@/shared/components/NotificationBell';
 import { useCurrentUser, useLogout } from '@/services/queries';
@@ -10,14 +11,34 @@ type AdminNavbarProps = {
   activeLabel: ReactNode;
 };
 
+const navbarText = {
+  vi: {
+    searchPlaceholder: 'Tìm tính năng admin, ví dụ: tạo sản phẩm',
+    openUserMenu: 'Mở menu tài khoản',
+    logout: 'Đăng xuất',
+    loggingOut: 'Đang đăng xuất...',
+    switchLang: 'Switch to English',
+  },
+  en: {
+    searchPlaceholder: 'Search admin features, e.g. create product',
+    openUserMenu: 'Open user menu',
+    logout: 'Logout',
+    loggingOut: 'Logging out...',
+    switchLang: 'Chuyển sang Tiếng Việt',
+  },
+};
+
 export function AdminNavbar({ activeLabel }: AdminNavbarProps) {
   const navigate = useNavigate();
+  const { lang, setLang } = useLang();
+  const t = navbarText[lang];
   const { data: user } = useCurrentUser();
   const logoutMutation = useLogout();
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const displayName = user?.fullName?.trim() || user?.email || 'Admin';
   const roleLabel = formatRole(user?.role ?? 'ADMIN');
   const initials = getInitials(displayName);
+  const nextLang = lang === 'vi' ? 'en' : 'vi';
 
   function handleLogout() {
     logoutMutation.mutate(undefined, {
@@ -35,15 +56,25 @@ export function AdminNavbar({ activeLabel }: AdminNavbarProps) {
       <ActorCommandSearch
         actor="admin"
         className="admin-search admin-topbar-command-search"
-        placeholder="Search admin features, e.g. create product"
+        placeholder={t.searchPlaceholder}
       />
       <div className="admin-topbar-actions">
+        <button
+          aria-label={t.switchLang}
+          className="admin-language"
+          title={t.switchLang}
+          type="button"
+          onClick={() => setLang(nextLang)}
+        >
+          <IconGlobe size={16} />
+          <span>{lang.toUpperCase()}</span>
+        </button>
         <NotificationBell buttonClassName="admin-notification" />
         <div className="admin-user-menu-wrap">
           <button
             aria-expanded={isUserMenuOpen}
             aria-haspopup="menu"
-            aria-label="Open user menu"
+            aria-label={t.openUserMenu}
             className="admin-user-trigger"
             type="button"
             onClick={() => setIsUserMenuOpen((isOpen) => !isOpen)}
@@ -62,7 +93,7 @@ export function AdminNavbar({ activeLabel }: AdminNavbarProps) {
               </div>
               <button disabled={logoutMutation.isPending} role="menuitem" type="button" onClick={handleLogout}>
                 <IconLogout size={16} />
-                <span>{logoutMutation.isPending ? 'Logging out...' : 'Logout'}</span>
+                <span>{logoutMutation.isPending ? t.loggingOut : t.logout}</span>
               </button>
             </div>
           )}

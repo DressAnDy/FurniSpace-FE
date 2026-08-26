@@ -2,7 +2,7 @@
   background: #faf9f7;
   color: #2d2d2d;
   display: flex;
-  font-family: Inter, "DM Sans", Arial, sans-serif;
+  font-family: var(--fs-ui-font, "Be Vietnam Pro", "DM Sans", system-ui, -apple-system, "Segoe UI", sans-serif);
   min-height: 100vh;
 }
 

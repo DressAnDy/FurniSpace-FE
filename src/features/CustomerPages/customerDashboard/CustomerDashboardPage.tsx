@@ -94,6 +94,10 @@ export function CustomerDashboardPage() {
           limit: 5,
         }
       : undefined,
+    {
+      enabled: Boolean(activeProject?.projectId),
+      staleTime: 60_000,
+    },
   );
   const updateScheduleStatusMutation = useUpdateProjectScheduleStatus();
   const journeySteps = getJourneySteps(project?.status);
