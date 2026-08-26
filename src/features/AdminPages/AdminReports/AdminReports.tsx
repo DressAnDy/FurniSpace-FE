@@ -12,7 +12,7 @@ import {
 } from '@tabler/icons-react';
 
 import { useLang, type Lang } from '@/app/providers/useLang';
-import { getProjectReportServiceResultMessage } from '@/services/api/projectReports';
+import { getProjectReportServiceResultMessage, toProjectReportDateTime } from '@/services/api/projectReports';
 import type {
   ProjectReportAttentionReason,
   ProjectReportDetailDto,
@@ -72,8 +72,10 @@ export function AdminReports() {
   const projectFromUrl = searchParams.get('projectId');
 
   const [activeTab, setActiveTab] = useState<ReportTabId>(isReportTabId(tabFromUrl) ? tabFromUrl : 'attention');
-  const [fromDate, setFromDate] = useState(initialRange.from);
-  const [toDate, setToDate] = useState(initialRange.to);
+  const [financialFromDate, setFinancialFromDate] = useState(initialRange.from);
+  const [financialToDate, setFinancialToDate] = useState(initialRange.to);
+  const [attentionFromDate, setAttentionFromDate] = useState('');
+  const [attentionToDate, setAttentionToDate] = useState('');
   const [keyword, setKeyword] = useState('');
   const [draftKeyword, setDraftKeyword] = useState('');
   const [severity, setSeverity] = useState<ProjectReportSeverity | ''>('');
@@ -98,10 +100,10 @@ export function AdminReports() {
 
   const dateParams = useMemo(
     () => ({
-      from: toFinancialApiDateTime(fromDate),
-      to: toFinancialApiDateTime(toDate),
+      from: toFinancialApiDateTime(financialFromDate),
+      to: toFinancialApiDateTime(financialToDate),
     }),
-    [fromDate, toDate],
+    [financialFromDate, financialToDate],
   );
 
   const listParams = useMemo(
@@ -112,14 +114,14 @@ export function AdminReports() {
       attentionReason: attentionReason || null,
       ownerRole: ownerRole || null,
       attentionOnly,
-      from: fromDate ? `${fromDate}T00:00:00` : null,
-      to: toDate ? `${toDate}T23:59:59` : null,
+      from:
+        attentionFromDate && attentionToDate ? toProjectReportDateTime(attentionFromDate) : null,
+      to: attentionFromDate && attentionToDate ? toProjectReportDateTime(attentionToDate) : null,
       page,
       pageSize: 10,
       sortBy: 'severityDesc' as const,
-      sortDirection: 'desc' as const,
     }),
-    [attentionOnly, attentionReason, fromDate, keyword, ownerRole, page, severity, stage, toDate],
+    [attentionFromDate, attentionOnly, attentionReason, attentionToDate, keyword, ownerRole, page, severity, stage],
   );
 
   const listQuery = useProjectReportList(listParams, { enabled: activeTab === 'attention' });
@@ -130,6 +132,8 @@ export function AdminReports() {
   const items = listQuery.data?.items ?? EMPTY_ITEMS;
   const totalPages = Math.max(listQuery.data?.totalPages ?? 1, 1);
   const totalItems = listQuery.data?.totalItems ?? 0;
+  const hasPreviousPage = listQuery.data?.hasPreviousPage ?? page > 1;
+  const hasNextPage = listQuery.data?.hasNextPage ?? page < totalPages;
   const activeTabDesc = activeTab === 'attention' ? t.attentionDesc : t.financialDesc;
 
   const handleTabChange = (tab: ReportTabId) => {
@@ -173,8 +177,8 @@ export function AdminReports() {
     setOwnerRole('');
     setAttentionOnly(true);
     setPage(1);
-    setFromDate(initialRange.from);
-    setToDate(initialRange.to);
+    setAttentionFromDate('');
+    setAttentionToDate('');
   };
 
   return (
@@ -216,14 +220,22 @@ export function AdminReports() {
                 <section className="admin-card admin-report-filters admin-pr-financial-filters" aria-label={t.dateRangeAria}>
                   <label className="admin-report-filter">
                     <span>{t.fromDate}</span>
-                    <input type="date" value={fromDate} onChange={(event) => setFromDate(event.target.value)} />
+                    <input
+                      type="date"
+                      value={financialFromDate}
+                      onChange={(event) => setFinancialFromDate(event.target.value)}
+                    />
                   </label>
                   <label className="admin-report-filter">
                     <span>{t.toDate}</span>
-                    <input type="date" value={toDate} onChange={(event) => setToDate(event.target.value)} />
+                    <input
+                      type="date"
+                      value={financialToDate}
+                      onChange={(event) => setFinancialToDate(event.target.value)}
+                    />
                   </label>
                 </section>
-                <FinancialPanel dateParams={dateParams} fromDate={fromDate} toDate={toDate} />
+                <FinancialPanel dateParams={dateParams} fromDate={financialFromDate} toDate={financialToDate} />
               </>
             ) : (
               <AttentionReportPanel
@@ -256,14 +268,14 @@ export function AdminReports() {
                   setAttentionOnly(value);
                   setPage(1);
                 }}
-                fromDate={fromDate}
+                fromDate={attentionFromDate}
                 setFromDate={(value) => {
-                  setFromDate(value);
+                  setAttentionFromDate(value);
                   setPage(1);
                 }}
-                toDate={toDate}
+                toDate={attentionToDate}
                 setToDate={(value) => {
-                  setToDate(value);
+                  setAttentionToDate(value);
                   setPage(1);
                 }}
                 onResetFilters={handleResetFilters}
@@ -274,6 +286,8 @@ export function AdminReports() {
                 totalItems={totalItems}
                 page={page}
                 totalPages={totalPages}
+                hasPreviousPage={hasPreviousPage}
+                hasNextPage={hasNextPage}
                 onPageChange={setPage}
                 selectedProjectId={selectedProjectId}
                 onSelectProject={handleSelectProject}
@@ -318,6 +332,8 @@ type AttentionReportPanelProps = {
   totalItems: number;
   page: number;
   totalPages: number;
+  hasPreviousPage: boolean;
+  hasNextPage: boolean;
   onPageChange: (page: number) => void;
   selectedProjectId: string | null;
   onSelectProject: (projectId: string) => void;
@@ -356,6 +372,8 @@ function AttentionReportPanel(props: AttentionReportPanelProps) {
     totalItems,
     page,
     totalPages,
+    hasPreviousPage,
+    hasNextPage,
     onPageChange,
     selectedProjectId,
     onSelectProject,
@@ -436,12 +454,12 @@ function AttentionReportPanel(props: AttentionReportPanelProps) {
           </label>
 
           <label className="admin-report-filter">
-            <span>{t.fromDate}</span>
+            <span>{t.submittedFromDate}</span>
             <input type="date" value={fromDate} onChange={(event) => setFromDate(event.target.value)} />
           </label>
 
           <label className="admin-report-filter">
-            <span>{t.toDate}</span>
+            <span>{t.submittedToDate}</span>
             <input type="date" value={toDate} onChange={(event) => setToDate(event.target.value)} />
           </label>
 
@@ -513,13 +531,13 @@ function AttentionReportPanel(props: AttentionReportPanelProps) {
           </ul>
         )}
 
-        {totalPages > 1 ? (
+        {totalPages > 1 || hasPreviousPage || hasNextPage ? (
           <div className="admin-pr-pagination">
-            <button type="button" disabled={page <= 1} onClick={() => onPageChange(page - 1)}>
+            <button type="button" disabled={!hasPreviousPage} onClick={() => onPageChange(page - 1)}>
               {t.prev}
             </button>
             <span>{t.pageOf(page, totalPages)}</span>
-            <button type="button" disabled={page >= totalPages} onClick={() => onPageChange(page + 1)}>
+            <button type="button" disabled={!hasNextPage} onClick={() => onPageChange(page + 1)}>
               {t.next}
             </button>
           </div>
@@ -720,7 +738,7 @@ function ProjectReportDetailView({ lang, detail }: { lang: Lang; detail: Project
               <IconExternalLink size={14} />
               {t.openProject}
             </Link>
-            <Link className="admin-pr-link" to="/admin/reports?tab=financial">
+            <Link className="admin-pr-link" to={`/admin/reports?tab=financial&projectId=${header.projectId}`}>
               <IconExternalLink size={14} />
               {t.openFinancial}
             </Link>
@@ -764,14 +782,8 @@ function resolveDetailLink(type: string, id: string, projectId: string) {
     case 'WORKFLOW':
       return `/admin/projects?projectId=${projectId}`;
     case 'ORDER':
-      return `/admin/projects?projectId=${projectId}`;
     case 'QUOTATION':
-      return `/admin/projects?projectId=${projectId}`;
-    case 'PAYMENT':
-      return `/admin/reports?tab=financial`;
     case 'PRODUCTION_REQUEST':
-      return `/admin/projects?projectId=${projectId}`;
-    case 'SCHEDULE':
       return `/admin/projects?projectId=${projectId}`;
     default:
       return id ? `/admin/projects?projectId=${projectId}` : null;

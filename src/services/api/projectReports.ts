@@ -40,6 +40,8 @@ export type PagedResult<T> = {
   pageSize: number;
   totalItems: number;
   totalPages: number;
+  hasPreviousPage: boolean;
+  hasNextPage: boolean;
 };
 
 export type ProjectReportStageKey =
@@ -70,13 +72,7 @@ export type ProjectReportAttentionReason =
   | 'FINAL_PAYMENT_PENDING'
   | 'READY_TO_COMPLETE';
 
-export type ProjectReportLinkType =
-  | 'QUOTATION'
-  | 'ORDER'
-  | 'PAYMENT'
-  | 'PRODUCTION_REQUEST'
-  | 'SCHEDULE'
-  | 'WORKFLOW';
+export type ProjectReportLinkType = 'WORKFLOW' | 'QUOTATION' | 'ORDER' | 'PRODUCTION_REQUEST';
 
 export type ProjectReportListItemDto = {
   projectId: string;
@@ -146,7 +142,7 @@ export type ProjectReportLinkDto = {
 
 export type ProjectReportStageHealthDto = {
   stage: ProjectReportStageKey | string;
-  state: 'ACTIVE' | 'BLOCKED' | string;
+  state: ProjectReportStageState | string;
   statusInStage: string | null;
   title: string;
   summary: string;
@@ -230,12 +226,17 @@ export async function getProjectReports(params?: ProjectReportListParams) {
     { params: cleanListParams(params) },
   );
   const payload = response.data?.data;
+  const page = payload?.page ?? params?.page ?? 1;
+  const totalPages = Math.max(payload?.totalPages ?? 1, 1);
+
   return {
     items: payload?.items ?? [],
-    page: payload?.page ?? params?.page ?? 1,
+    page,
     pageSize: payload?.pageSize ?? params?.pageSize ?? 20,
     totalItems: payload?.totalItems ?? 0,
-    totalPages: Math.max(payload?.totalPages ?? 1, 1),
+    totalPages,
+    hasPreviousPage: payload?.hasPreviousPage ?? page > 1,
+    hasNextPage: payload?.hasNextPage ?? page < totalPages,
   } satisfies PagedResult<ProjectReportListItemDto>;
 }
 
@@ -288,20 +289,44 @@ export async function getProjectReportDetail(projectId: string) {
   } satisfies ProjectReportDetailDto;
 }
 
+const PROJECT_REPORT_ERROR_MESSAGES: Record<string, string> = {
+  PROJECT_REPORT_FILTER_INVALID: 'Bộ lọc hoặc khoảng ngày không hợp lệ. Kiểm tra lại từ ngày / đến ngày.',
+  PROJECT_NOT_FOUND: 'Không tìm thấy báo cáo dự án này.',
+};
+
 export function getProjectReportServiceResultMessage(error: unknown) {
   if (axios.isAxiosError(error)) {
     const payload = error.response?.data as ServiceResult<unknown> | undefined;
+    const errorCode = payload?.errorCode;
+    if (errorCode && PROJECT_REPORT_ERROR_MESSAGES[errorCode]) {
+      return PROJECT_REPORT_ERROR_MESSAGES[errorCode];
+    }
     if (payload?.message) return payload.message;
     if (payload?.errors?.length) return payload.errors.join(', ');
-    if (error.response?.status === 404) return 'Không tìm thấy báo cáo dự án này.';
+    if (error.response?.status === 404) return PROJECT_REPORT_ERROR_MESSAGES.PROJECT_NOT_FOUND;
+    if (error.response?.status === 400) {
+      return PROJECT_REPORT_ERROR_MESSAGES.PROJECT_REPORT_FILTER_INVALID;
+    }
+    if (error.response?.status === 500) {
+      return 'Máy chủ gặp lỗi khi tải báo cáo. Thử bỏ bộ lọc ngày hoặc liên hệ BE nếu lỗi vẫn còn.';
+    }
     if (error.message) return error.message;
   }
   if (error instanceof Error && error.message) return error.message;
   return 'Không tải được báo cáo dự án.';
 }
 
+/** Asia/Ho_Chi_Minh boundary for submittedAt filters on attention list. */
+export function toProjectReportDateTime(dateInput: string) {
+  if (!dateInput) return '';
+  return `${dateInput}T00:00:00+07:00`;
+}
+
 function cleanListParams(params?: ProjectReportListParams) {
   if (!params) return undefined;
+
+  const sortBy = params.sortBy ?? 'severityDesc';
+  const sortHasDirection = /(?:Asc|Desc)$/.test(sortBy);
 
   return {
     keyword: params.keyword?.trim() || undefined,
@@ -318,8 +343,8 @@ function cleanListParams(params?: ProjectReportListParams) {
     to: params.to?.trim() || undefined,
     page: params.page ?? 1,
     pageSize: params.pageSize ?? 20,
-    sortBy: params.sortBy ?? 'severityDesc',
-    sortDirection: params.sortDirection ?? 'desc',
+    sortBy,
+    ...(sortHasDirection ? {} : { sortDirection: params.sortDirection ?? 'desc' }),
   };
 }
 
