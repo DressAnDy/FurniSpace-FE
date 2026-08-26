@@ -20,7 +20,6 @@ import {
 } from '@/services/api/schedules';
 import type { ProjectListItemDto } from '@/services/api/projects';
 import {
-  projectScheduleQueryKeys,
   useMultiProjectSchedules,
   useProjectList,
   useRequestProjectScheduleChange,
