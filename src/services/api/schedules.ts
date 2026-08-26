@@ -404,7 +404,6 @@ async function mapWithConcurrency<T, R>(
   await Promise.all(Array.from({ length: workerCount }, () => worker()));
 
   return results;
-  return Math.min(Math.max(Math.trunc(limit as number), 1), 100);
 }
 
 function normalizeScheduleOptionalText(value: string | null | undefined) {
