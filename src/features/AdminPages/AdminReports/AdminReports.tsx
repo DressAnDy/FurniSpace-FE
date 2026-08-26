@@ -115,8 +115,8 @@ export function AdminReports() {
       ownerRole: ownerRole || null,
       attentionOnly,
       from:
-        attentionFromDate && attentionToDate ? toProjectReportDateTime(attentionFromDate, 'start') : null,
-      to: attentionFromDate && attentionToDate ? toProjectReportDateTime(attentionToDate, 'end') : null,
+        attentionFromDate && attentionToDate ? toProjectReportDateTime(attentionFromDate) : null,
+      to: attentionFromDate && attentionToDate ? toProjectReportDateTime(attentionToDate) : null,
       page,
       pageSize: 10,
       sortBy: 'severityDesc' as const,

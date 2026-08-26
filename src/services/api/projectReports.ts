@@ -317,7 +317,7 @@ export function getProjectReportServiceResultMessage(error: unknown) {
 }
 
 /** Asia/Ho_Chi_Minh boundary for submittedAt filters on attention list. */
-export function toProjectReportDateTime(dateInput: string, _edge: 'start' | 'end' = 'start') {
+export function toProjectReportDateTime(dateInput: string) {
   if (!dateInput) return '';
   return `${dateInput}T00:00:00+07:00`;
 }
