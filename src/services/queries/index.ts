@@ -135,6 +135,7 @@ export {
   useMyAssignedProjectSchedules,
   useProjectScheduleDetail,
   useProjectScheduleList,
+  useRequestProjectScheduleChange,
   useUpdateProjectSchedule,
   useUpdateProjectScheduleStatus,
 } from './useSchedules';
@@ -171,6 +172,7 @@ export {
   usePrepareOrderFinalPayment,
   useProjectOrders,
   useStartOrderDelivery,
+  useUpdateOrderDeliveryDetails,
 } from './useOrders';
 export {
   paymentQueryKeys,

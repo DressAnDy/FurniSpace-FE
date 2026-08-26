@@ -268,6 +268,38 @@
   font-style: normal;
 }
 
+.sale-quotations-project-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.sale-quotations-project-pagination button {
+  min-height: 34px;
+  border: 1px solid rgba(139, 111, 71, 0.22);
+  border-radius: 8px;
+  background: #ffffff;
+  color: #8b6f47;
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 800;
+  padding: 0 10px;
+}
+
+.sale-quotations-project-pagination button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.sale-quotations-project-pagination span {
+  color: #6b6b6b;
+  font-size: 12px;
+  font-weight: 800;
+}
+
 .sale-quotations-workspace {
   min-width: 0;
 }

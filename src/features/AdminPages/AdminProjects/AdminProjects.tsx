@@ -37,6 +37,7 @@ import {
   useProjectFiles,
   useProjectList,
 } from '@/services/queries';
+import { ProjectShowcaseManager } from '@/features/showcases/ProjectShowcaseManager';
 
 import { AdminNavbar, AdminSidebar } from '../admincomponents';
 import './AdminProjects.css';
@@ -56,6 +57,7 @@ const PROJECT_STATUSES: ProjectStatus[] = [
   'IN_PRODUCTION',
   'READY_FOR_DELIVERY',
   'DELIVERING',
+  'AWAITING_CUSTOMER_CONFIRMATION',
   'DELIVERED',
   'COMPLETED',
   'REJECTED',
@@ -492,6 +494,10 @@ function ProjectDetailDrawer({
             </section>
 
             <section className="admin-projects-detail-section">
+              <ProjectShowcaseManager projectId={project.projectId} projectName={project.projectName} projectStatus={project.status} role="admin" />
+            </section>
+
+            <section className="admin-projects-detail-section">
               <h3>Project Files</h3>
               {filesQuery.isLoading ? <p>Loading files...</p> : null}
               {filesQuery.isError ? <p>{getProjectServiceResultMessage(filesQuery.error)}</p> : null}
@@ -724,6 +730,8 @@ function getNextFocus(project: ProjectListItemDto | ProjectDto) {
   if (project.status === 'SPACE_VERIFIED') return 'Start proposal consulting';
   if (project.status === 'PROPOSAL_CONSULTING') return 'Create, publish, and compare proposals';
   if (project.status === 'READY_FOR_DELIVERY') return 'Prepare delivery';
+  if (project.status === 'DELIVERING') return 'Monitor delivery batches';
+  if (project.status === 'AWAITING_CUSTOMER_CONFIRMATION') return 'Waiting for customer delivery confirmation';
   if (project.status === 'REJECTED') return 'Closed as rejected';
   if (project.status === 'COMPLETED') return 'Completed';
   return 'Track downstream workflow';
@@ -743,7 +751,7 @@ function getProjectStageDescription(status: ProjectStatus) {
 function getStatusTone(status: ProjectStatus) {
   if (status === 'COMPLETED' || status === 'DELIVERED') return 'success';
   if (status === 'REJECTED') return 'danger';
-  if (status === 'NEED_BASIC_INFORMATION' || status === 'MEASUREMENT_REQUIRED') return 'warning';
+  if (status === 'NEED_BASIC_INFORMATION' || status === 'MEASUREMENT_REQUIRED' || status === 'AWAITING_CUSTOMER_CONFIRMATION') return 'warning';
   if (status === 'SUBMITTED' || status === 'WAITING_FOR_DESIGNER_ASSIGNMENT' || status === 'PROPOSAL_CONSULTING') return 'info';
   return 'neutral';
 }

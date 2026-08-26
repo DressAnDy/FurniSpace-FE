@@ -9,12 +9,14 @@ import {
   getProjectScheduleById,
   getProjectSchedules,
   getSchedulesForProjects,
+  requestProjectScheduleChange,
   updateProjectSchedule,
   updateProjectScheduleStatus,
   type CreateProjectScheduleInput,
   type MyAssignedScheduleListParams,
   type ProjectScheduleDto,
   type ProjectScheduleListParams,
+  type RequestProjectScheduleChangeInput,
   type UpdateProjectScheduleInput,
   type UpdateProjectScheduleStatusInput,
 } from '@/services/api/schedules';
@@ -136,6 +138,19 @@ export function useUpdateProjectScheduleStatus() {
     mutationFn: (input: UpdateProjectScheduleStatusInput) => updateProjectScheduleStatus(input),
     onSuccess: (data) => {
       invalidateProjectScheduleCaches(queryClient, data);
+      void queryClient.invalidateQueries({ queryKey: ['projects'] });
+    },
+  });
+}
+
+export function useRequestProjectScheduleChange() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (input: RequestProjectScheduleChangeInput) => requestProjectScheduleChange(input),
+    onSuccess: (data) => {
+      void queryClient.invalidateQueries({ queryKey: projectScheduleQueryKeys.all });
+      void queryClient.invalidateQueries({ queryKey: projectScheduleQueryKeys.detail(data.scheduleId) });
       void queryClient.invalidateQueries({ queryKey: ['projects'] });
     },
   });

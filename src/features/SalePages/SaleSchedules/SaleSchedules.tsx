@@ -33,6 +33,8 @@ type ManagedSchedule = {
   schedule: ProjectScheduleDto;
 };
 
+type ParticipantCalendarActor = 'customer' | 'designer';
+
 const weekDays = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
 
 const scheduleTypeOptions: Array<ProjectScheduleType | ''> = [
@@ -68,6 +70,13 @@ export function SaleSchedules() {
   const [selectedDateKey, setSelectedDateKey] = useState(() => getDateKey(new Date()));
   const [selectedScheduleId, setSelectedScheduleId] = useState<string | null>(searchParams.get('scheduleId'));
   const [expandedDateKey, setExpandedDateKey] = useState<string | null>(null);
+  const [participantCalendarActor, setParticipantCalendarActor] = useState<ParticipantCalendarActor>('customer');
+  const [participantCalendarMonth, setParticipantCalendarMonth] = useState(() => {
+    const now = new Date();
+
+    return new Date(now.getFullYear(), now.getMonth(), 1);
+  });
+  const [participantListDateKey, setParticipantListDateKey] = useState<string | null>(null);
   const currentUserQuery = useCurrentUser();
   const currentUser = currentUserQuery.data;
   const projectsQuery = useProjectList(
@@ -136,6 +145,12 @@ export function SaleSchedules() {
       ?? null,
     [managedSchedules, schedulesByDate, selectedDateKey, selectedScheduleId],
   );
+  const selectedProjectSchedules = useMemo(
+    () => selectedItem
+      ? managedSchedules.filter((item) => item.project.projectId === selectedItem.project.projectId)
+      : [],
+    [managedSchedules, selectedItem],
+  );
 
   useEffect(() => {
     const scheduleId = searchParams.get('scheduleId');
@@ -165,6 +180,10 @@ export function SaleSchedules() {
   useEffect(() => {
     setExpandedDateKey(null);
   }, [calendarMonth]);
+
+  useEffect(() => {
+    setParticipantListDateKey(null);
+  }, [participantCalendarActor, selectedItem?.project.projectId]);
 
   function selectSchedule(scheduleId: string, dateKey: string) {
     setSelectedDateKey(dateKey);
@@ -344,13 +363,28 @@ export function SaleSchedules() {
 
               <section className="sale-schedules-calendar-detail" aria-label="Schedule detail">
                 {selectedItem ? (
-                  <ScheduleDetail
-                    item={selectedItem}
-                    isUpdating={updateStatusMutation.isPending}
-                    onCancel={() => void updateScheduleStatus(selectedItem.schedule, 'CANCELLED')}
-                    onComplete={() => void updateScheduleStatus(selectedItem.schedule, 'COMPLETED')}
-                    onReschedule={() => setEditingSchedule(selectedItem.schedule)}
-                  />
+                  <>
+                    <ScheduleDetail
+                      item={selectedItem}
+                      isUpdating={updateStatusMutation.isPending}
+                      onCancel={() => void updateScheduleStatus(selectedItem.schedule, 'CANCELLED')}
+                      onComplete={() => void updateScheduleStatus(selectedItem.schedule, 'COMPLETED')}
+                      onReschedule={() => setEditingSchedule(selectedItem.schedule)}
+                    />
+                    <ParticipantScheduleCalendar
+                      actor={participantCalendarActor}
+                      listDateKey={participantListDateKey}
+                      month={participantCalendarMonth}
+                      project={selectedItem.project}
+                      schedules={selectedProjectSchedules}
+                      selectedScheduleId={selectedItem.schedule.scheduleId}
+                      onActorChange={setParticipantCalendarActor}
+                      onBackToCalendar={() => setParticipantListDateKey(null)}
+                      onMonthChange={setParticipantCalendarMonth}
+                      onOpenDateList={setParticipantListDateKey}
+                      onSelectSchedule={(schedule, dateKey) => selectSchedule(schedule.scheduleId, dateKey)}
+                    />
+                  </>
                 ) : (
                   <div className="sale-schedules-empty-detail">
                     <IconCalendarEvent size={32} />
@@ -439,6 +473,150 @@ function ScheduleDetail({ item, isUpdating, onCancel, onComplete, onReschedule }
   );
 }
 
+type ParticipantScheduleCalendarProps = Readonly<{
+  actor: ParticipantCalendarActor;
+  listDateKey: string | null;
+  month: Date;
+  project: ProjectListItemDto;
+  schedules: ManagedSchedule[];
+  selectedScheduleId?: string | null;
+  onActorChange: (actor: ParticipantCalendarActor) => void;
+  onBackToCalendar: () => void;
+  onMonthChange: (month: Date) => void;
+  onOpenDateList: (dateKey: string) => void;
+  onSelectSchedule: (schedule: ProjectScheduleDto, dateKey: string) => void;
+}>;
+
+function ParticipantScheduleCalendar({
+  actor,
+  listDateKey,
+  month,
+  onActorChange,
+  onBackToCalendar,
+  onMonthChange,
+  onOpenDateList,
+  onSelectSchedule,
+  project,
+  schedules,
+  selectedScheduleId,
+}: ParticipantScheduleCalendarProps) {
+  const visibleSchedules = useMemo(
+    () => schedules
+      .filter(({ schedule }) => actor === 'customer' || schedule.assignedStaffId === project.assignedDesignerId)
+      .sort((left, right) => new Date(left.schedule.scheduledStart).getTime() - new Date(right.schedule.scheduledStart).getTime()),
+    [actor, project.assignedDesignerId, schedules],
+  );
+  const schedulesByParticipantDate = useMemo(() => {
+    const groups = new Map<string, ManagedSchedule[]>();
+
+    visibleSchedules.forEach((item) => {
+      const dateKey = getDateKey(new Date(item.schedule.scheduledStart));
+      const daySchedules = groups.get(dateKey) ?? [];
+
+      groups.set(dateKey, [...daySchedules, item]);
+    });
+
+    return groups;
+  }, [visibleSchedules]);
+  const listItems = listDateKey ? schedulesByParticipantDate.get(listDateKey) ?? [] : [];
+
+  return (
+    <section className="sale-schedules-participant-calendar" aria-label="Project participant schedules">
+      <header>
+        <div>
+          <span>Project Calendar</span>
+          <h4>{actor === 'customer' ? 'Customer schedules' : 'Designer schedules'}</h4>
+          <p>{project.projectCode} - {project.projectName}</p>
+        </div>
+        <div className="sale-schedules-participant-tabs" role="tablist" aria-label="Participant calendar">
+          <button
+            className={actor === 'customer' ? 'is-active' : ''}
+            type="button"
+            role="tab"
+            aria-selected={actor === 'customer'}
+            onClick={() => onActorChange('customer')}
+          >
+            Customer
+          </button>
+          <button
+            className={actor === 'designer' ? 'is-active' : ''}
+            type="button"
+            role="tab"
+            aria-selected={actor === 'designer'}
+            onClick={() => onActorChange('designer')}
+          >
+            Designer
+          </button>
+        </div>
+      </header>
+
+      {listDateKey ? (
+        <div className="sale-schedules-participant-list-view">
+          <button className="sale-schedules-participant-back" type="button" onClick={onBackToCalendar}>
+            <IconChevronLeft size={16} />
+            Back to calendar
+          </button>
+          <h5>{formatDateOnly(listDateKey)}</h5>
+          {listItems.length === 0 ? <p>No schedule on this date.</p> : null}
+          <div className="sale-schedules-participant-list">
+            {listItems.map(({ schedule }) => (
+              <button
+                className={schedule.scheduleId === selectedScheduleId ? 'is-active' : ''}
+                key={schedule.scheduleId}
+                type="button"
+                onClick={() => onSelectSchedule(schedule, listDateKey)}
+              >
+                <strong>{formatTime(schedule.scheduledStart)} - {schedule.title ?? formatEnumLabel(schedule.scheduleType)}</strong>
+                <span>{formatEnumLabel(schedule.status)} · {schedule.location ?? 'No location'}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : (
+        <>
+          <div className="sale-schedules-participant-calendar-head">
+            <button type="button" aria-label="Previous participant month" onClick={() => onMonthChange(moveMonth(month, -1))}>
+              <IconChevronLeft size={16} />
+            </button>
+            <strong>{formatMonthYear(month)}</strong>
+            <button type="button" aria-label="Next participant month" onClick={() => onMonthChange(moveMonth(month, 1))}>
+              <IconChevronRight size={16} />
+            </button>
+          </div>
+          <div className="sale-schedules-participant-weekdays" aria-hidden="true">
+            {weekDays.map((day) => <span key={day}>{day}</span>)}
+          </div>
+          <div className="sale-schedules-participant-grid">
+            {getMonthDays(month).map(({ date, day, gridColumnStart }) => {
+              const dateKey = getDateKey(date);
+              const count = schedulesByParticipantDate.get(dateKey)?.length ?? 0;
+              const isToday = dateKey === getDateKey(new Date());
+
+              return (
+                <button
+                  className={[
+                    'sale-schedules-participant-day',
+                    count > 0 ? 'has-schedules' : '',
+                    isToday ? 'is-today' : '',
+                  ].filter(Boolean).join(' ')}
+                  disabled={count === 0}
+                  key={dateKey}
+                  style={gridColumnStart ? { gridColumnStart } : undefined}
+                  type="button"
+                  onClick={() => onOpenDateList(dateKey)}
+                >
+                  <span>{day}</span>
+                  {count > 0 ? <strong>{count}</strong> : null}
+                </button>
+              );
+            })}
+          </div>
+        </>
+      )}
+    </section>
+  );
+}
+
 function formatEnumLabel(value: string) {
   return value
     .toLowerCase()
@@ -462,6 +640,14 @@ function formatTime(value: string) {
     hour: '2-digit',
     minute: '2-digit',
   }).format(new Date(value));
+}
+
+function formatDateOnly(value: string) {
+  return new Intl.DateTimeFormat('en', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  }).format(new Date(`${value}T00:00:00`));
 }
 
 function formatScheduleCount(count: number) {

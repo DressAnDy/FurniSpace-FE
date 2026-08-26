@@ -41,13 +41,25 @@ export type ServiceResult<T> = {
 };
 
 const SCHEDULE_ERROR_MESSAGES: Record<string, string> = {
+  SCHEDULE_TIME_INVALID: 'Schedule start and end time are invalid.',
+  SCHEDULE_OUTSIDE_BUSINESS_HOURS: 'Schedule time must be between 06:00 and 22:00 Vietnam time.',
+  SCHEDULE_OVERLAP: 'The assigned staff already has a schedule during this time.',
+  SCHEDULE_MINIMUM_GAP_NOT_MET: 'The assigned staff must have at least 2 hours between measurement or delivery schedules.',
   SCHEDULE_COMPLETE_BEFORE_START: 'This schedule cannot be completed before its start time.',
+  SALES_CANNOT_CREATE_DELIVERY_SCHEDULE: 'Sales cannot create delivery schedules in the current delivery workflow.',
+  ORDER_NOT_READY_FOR_DELIVERY: 'This order is not ready for delivery scheduling yet.',
   STAFF_SCHEDULE_OVERLAP: 'The assigned staff already has a schedule during this time.',
+  SCHEDULE_DATE_EXCEEDS_TARGET: 'Schedule date cannot be after the project target completion date.',
+  SCHEDULE_CHANGE_NOTE_REQUIRED: 'Please add a note for the schedule change request.',
+  INVALID_SCHEDULE_TYPE: 'This action is not available for this schedule type.',
+  INVALID_SCHEDULE_STATUS_TRANSITION: 'This schedule cannot move to the requested status.',
+  INVALID_DELIVERY_SCHEDULE: 'Delivery schedules require start time, end time, assigned staff, and location.',
   DELIVERY_SCHEDULE_NOT_ALLOWED_AFTER_COMPLETION: 'Delivery has already been fully confirmed for this order.',
   PRODUCTION_NOT_COMPLETED_FOR_DELIVERY_SCHEDULE: 'Production must be completed before planning delivery.',
   NO_REMAINING_DELIVERY_QUANTITY: 'There is no remaining quantity to deliver.',
   DELIVERY_SCHEDULE_REQUIRES_COMPLETED_BATCH: 'Delivery schedules are completed automatically after their linked batch is completed.',
   DELIVERY_IN_PROGRESS_BLOCKS_SCHEDULE_CANCEL: 'This delivery schedule cannot be cancelled while its batch is in progress.',
+  DELIVERY_SCHEDULE_LOCATION_FROZEN: 'Delivery location cannot be changed after a batch has been created for this schedule.',
 };
 
 export type ProjectScheduleType = 'MEASUREMENT' | 'CONSULTATION' | 'DESIGN_REVIEW' | 'DELIVERY' | 'HANDOVER' | 'OTHER';
@@ -125,6 +137,11 @@ export type UpdateProjectScheduleStatusInput = {
   scheduleId: string;
   status: Extract<ProjectScheduleStatus, 'CONFIRMED' | 'COMPLETED' | 'CANCELLED'>;
   note?: string | null;
+};
+
+export type RequestProjectScheduleChangeInput = {
+  scheduleId: string;
+  note: string;
 };
 
 export type DeleteProjectScheduleData = {
@@ -315,6 +332,14 @@ export async function updateProjectScheduleStatus(input: UpdateProjectScheduleSt
   return response.data.data;
 }
 
+export async function requestProjectScheduleChange(input: RequestProjectScheduleChangeInput) {
+  const response = await scheduleApiClient.post<ServiceResult<ProjectScheduleDto>>(`/project-schedules/${input.scheduleId}/request-change`, {
+    note: input.note.trim(),
+  });
+
+  return response.data.data;
+}
+
 export async function deleteProjectSchedule(scheduleId: string) {
   const response = await scheduleApiClient.delete<ServiceResult<DeleteProjectScheduleData>>(`/project-schedules/${scheduleId}`);
 
@@ -378,6 +403,7 @@ async function mapWithConcurrency<T, R>(
   await Promise.all(Array.from({ length: workerCount }, () => worker()));
 
   return results;
+  return Math.min(Math.max(Math.trunc(limit as number), 1), 100);
 }
 
 function normalizeScheduleOptionalText(value: string | null | undefined) {

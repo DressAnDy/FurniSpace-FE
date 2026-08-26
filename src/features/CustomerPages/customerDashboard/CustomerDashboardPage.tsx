@@ -59,6 +59,7 @@ const activeProjectStatuses: ProjectStatus[] = [
   'IN_PRODUCTION',
   'READY_FOR_DELIVERY',
   'DELIVERING',
+  'AWAITING_CUSTOMER_CONFIRMATION',
   'DELIVERED',
 ];
 
@@ -360,7 +361,7 @@ function getJourneyIndex(status: ProjectStatus) {
     return 5;
   }
 
-  if (['IN_PRODUCTION', 'READY_FOR_DELIVERY', 'DELIVERING', 'DELIVERED'].includes(status)) {
+  if (['IN_PRODUCTION', 'READY_FOR_DELIVERY', 'DELIVERING', 'AWAITING_CUSTOMER_CONFIRMATION', 'DELIVERED'].includes(status)) {
     return 6;
   }
 
@@ -394,6 +395,15 @@ function getActionConfig(status: ProjectStatus, projectId?: string) {
       description: 'A quotation is ready for review before the next project stage.',
       label: 'View Quotation',
       path: '/customer/quotations',
+    };
+  }
+
+  if (status === 'AWAITING_CUSTOMER_CONFIRMATION') {
+    return {
+      title: 'Action Required: Confirm Delivery',
+      description: 'Every item has been physically delivered. Please confirm final receipt so payment or completion can continue.',
+      label: 'Confirm Delivery',
+      path: '/customer/tracking',
     };
   }
 

@@ -596,6 +596,33 @@
   text-anchor: middle;
 }
 
+.blueprint-layout-move-handle {
+  cursor: move;
+}
+
+.blueprint-layout-move-handle circle {
+  fill: rgba(255, 255, 255, 0.92);
+  filter: drop-shadow(0 2px 5px rgba(7, 39, 64, 0.36));
+  stroke: #2e7c82;
+  stroke-width: 2.5px;
+}
+
+.blueprint-layout-move-handle line {
+  pointer-events: none;
+  stroke: #2e7c82;
+  stroke-linecap: round;
+  stroke-width: 3px;
+}
+
+.blueprint-layout-move-handle:hover circle {
+  fill: #f8fafc;
+  stroke: #c59c76;
+}
+
+.blueprint-layout-move-handle:hover line {
+  stroke: #c59c76;
+}
+
 .blueprint-underlay-layer {
   pointer-events: none;
 }
@@ -619,6 +646,29 @@
   font-weight: 800;
   paint-order: stroke;
   stroke: rgba(7, 39, 64, 0.7);
+  stroke-width: 3px;
+  text-anchor: middle;
+}
+
+.blueprint-special-boundary-guide {
+  pointer-events: none;
+}
+
+.blueprint-special-boundary-guide rect {
+  fill: none;
+  opacity: 0.82;
+  stroke: rgba(250, 204, 21, 0.86);
+  stroke-dasharray: 10 9;
+  stroke-linecap: square;
+  stroke-width: 1.4px;
+}
+
+.blueprint-special-boundary-guide text {
+  fill: rgba(254, 240, 138, 0.92);
+  font-size: 11px;
+  font-weight: 800;
+  paint-order: stroke;
+  stroke: rgba(7, 39, 64, 0.74);
   stroke-width: 3px;
   text-anchor: middle;
 }
