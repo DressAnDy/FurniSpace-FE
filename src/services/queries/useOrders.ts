@@ -15,10 +15,12 @@ import {
   getProjectOrders,
   prepareOrderFinalPayment,
   startOrderDelivery,
+  updateOrderDeliveryDetails,
   type CreateDeliveryBatchInput,
   type CreateOrderPaymentInput,
   type OrderDetailDto,
   type OrderListItemDto,
+  type UpdateOrderDeliveryDetailsInput,
 } from '@/services/api/orders';
 import { paymentQueryKeys } from './usePayments';
 
@@ -95,6 +97,18 @@ export function useCreateOrderRemainingPayment() {
   });
 }
 
+export function useUpdateOrderDeliveryDetails() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (input: UpdateOrderDeliveryDetailsInput) => updateOrderDeliveryDetails(input),
+    onSuccess: (order, input) => {
+      invalidateOrderPaymentCaches(queryClient, input.orderId, order.projectId);
+    },
+  });
+}
+
+/** @deprecated Legacy admin recovery hook. Normal FE delivery flow must use useCreateOrderDeliveryBatch. */
 export function useStartOrderDelivery() {
   const queryClient = useQueryClient();
 
@@ -106,6 +120,7 @@ export function useStartOrderDelivery() {
   });
 }
 
+/** @deprecated Legacy admin recovery hook. Normal FE delivery flow must use useCompleteOrderDeliveryBatch. */
 export function useCompleteOrderDelivery() {
   const queryClient = useQueryClient();
 
@@ -149,6 +164,7 @@ export function useCompleteOrderDeliveryBatch() {
   });
 }
 
+/** @deprecated Legacy admin recovery hook. Remaining payment is prepared by customer final delivery confirmation. */
 export function usePrepareOrderFinalPayment() {
   const queryClient = useQueryClient();
 

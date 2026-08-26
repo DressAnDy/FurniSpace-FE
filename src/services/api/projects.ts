@@ -56,6 +56,7 @@ export type ProjectStatus =
   | 'IN_PRODUCTION'
   | 'READY_FOR_DELIVERY'
   | 'DELIVERING'
+  | 'AWAITING_CUSTOMER_CONFIRMATION'
   | 'DELIVERED'
   | 'COMPLETED'
   | 'REJECTED';

@@ -86,6 +86,33 @@
 .designer-project-file-name p { margin: 4px 0 0; color: #9a713b; font-size: 12px; font-weight: 500; }
 .designer-project-file-meta { margin: 16px 0 0; color: #71717a; font-size: 12px; line-height: 20px; }
 .designer-project-file-actions { display: flex; gap: 8px; margin-top: 16px; }
+.designer-project-file-success { border-color: #bbf7d0; background: #f0fdf4; color: #166534; }
+.designer-project-measurement-section { display: grid; gap: 18px; }
+.designer-project-measurement-upload { display: grid; gap: 14px; border: 1px solid rgba(154, 113, 59, 0.16); border-radius: 14px; background: #faf9f7; padding: 16px; }
+.designer-project-measurement-upload header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.designer-project-measurement-upload h4 { display: flex; align-items: center; gap: 8px; margin: 0; color: #18181b; font-size: 15px; font-weight: 700; }
+.designer-project-measurement-upload h4 svg { color: #9a713b; }
+.designer-project-measurement-upload header p { margin: 4px 0 0; color: #71717a; font-size: 13px; line-height: 1.45; }
+.designer-project-measurement-form-grid,.designer-project-measurement-filters { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.designer-project-measurement-form-grid label,.designer-project-measurement-filters label { display: grid; min-width: 0; gap: 6px; }
+.designer-project-measurement-form-grid label span,.designer-project-measurement-filters label span { color: #71717a; font-size: 11px; font-weight: 800; text-transform: uppercase; }
+.designer-project-measurement-form-grid input,.designer-project-measurement-form-grid select,.designer-project-measurement-filters select { width: 100%; min-height: 38px; border: 1px solid #e4e4e7; border-radius: 10px; background: #ffffff; color: #18181b; font: inherit; font-size: 13px; padding: 8px 10px; }
+.designer-project-measurement-file-picker { display: grid; gap: 8px; border: 1px dashed rgba(154, 113, 59, 0.35); border-radius: 12px; background: #ffffff; padding: 14px; }
+.designer-project-measurement-file-picker > span { color: #71717a; font-size: 11px; font-weight: 800; text-transform: uppercase; }
+.designer-project-measurement-file-picker input { display: none; }
+.designer-project-measurement-file-picker button { display: inline-flex; width: fit-content; min-height: 36px; align-items: center; justify-content: center; gap: 8px; border: 1px solid rgba(154, 113, 59, 0.28); border-radius: 10px; background: #faf9f7; color: #18181b; cursor: pointer; font: inherit; font-size: 13px; font-weight: 800; padding: 8px 12px; }
+.designer-project-measurement-file-picker button svg { color: #9a713b; }
+.designer-project-measurement-file-picker button:disabled { cursor: not-allowed; opacity: 0.55; }
+.designer-project-measurement-file-picker small { color: #71717a; font-size: 12px; line-height: 18px; }
+.designer-project-measurement-preview-grid { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); }
+.designer-project-measurement-preview-grid article { display: grid; gap: 7px; min-width: 0; border: 1px solid rgba(24, 24, 27, 0.08); border-radius: 10px; background: #ffffff; padding: 8px; }
+.designer-project-measurement-preview-grid img { width: 100%; aspect-ratio: 4 / 3; border-radius: 8px; background: #f7f7f5; object-fit: cover; }
+.designer-project-measurement-preview-grid span { overflow: hidden; color: #52525b; font-size: 11px; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
+.designer-project-measurement-preview-grid button { min-height: 28px; border: 1px solid #e4e4e7; border-radius: 8px; background: #ffffff; color: #71717a; cursor: pointer; font: inherit; font-size: 11px; font-weight: 800; }
+.designer-project-measurement-preview-grid button:disabled { cursor: not-allowed; opacity: 0.55; }
+.designer-project-measurement-actions { display: flex; justify-content: flex-end; }
+.designer-project-primary-button { display: inline-flex; min-height: 38px; align-items: center; justify-content: center; gap: 7px; border: 0; border-radius: 10px; background: #9a713b; color: #ffffff; cursor: pointer; font: inherit; font-size: 13px; font-weight: 800; padding: 8px 14px; }
+.designer-project-primary-button:disabled { cursor: not-allowed; opacity: 0.55; }
 .designer-project-measurement-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
 .designer-project-measurement-image,.designer-project-measurement-placeholder { width: 100%; aspect-ratio: 4 / 3; border-radius: 10px; background: #f7f7f5; object-fit: cover; }
 .designer-project-measurement-placeholder { display: grid; place-items: center; color: #9a713b; }

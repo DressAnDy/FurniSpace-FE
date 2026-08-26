@@ -780,6 +780,33 @@
   padding: 0 16px;
 }
 
+.customer-project-detail-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  border-bottom: 1px solid rgba(139, 111, 71, 0.12);
+  padding-bottom: 12px;
+}
+
+.customer-project-detail-tabs button {
+  min-height: 38px;
+  border: 1px solid rgba(139, 111, 71, 0.16);
+  border-radius: 999px;
+  background: #fff;
+  color: #6b5a44;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 0 16px;
+}
+
+.customer-project-detail-tabs button:hover,
+.customer-project-detail-tabs button.is-active {
+  border-color: rgba(139, 111, 71, 0.34);
+  background: #f5f1ec;
+  color: #4f3f2d;
+}
+
 .customer-project-detail-grid {
   display: grid;
   gap: 12px;
@@ -852,6 +879,65 @@
 .customer-project-detail-links a:hover {
   border-color: rgba(139, 111, 71, 0.34);
   color: #8b6f47;
+}
+
+.customer-project-measurement-section {
+  display: grid;
+  gap: 12px;
+}
+
+.customer-project-measurement-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+}
+
+.customer-project-measurement-card {
+  display: grid;
+  gap: 10px;
+  border: 1px solid rgba(139, 111, 71, 0.14);
+  border-radius: 12px;
+  background: #faf9f7;
+  padding: 10px;
+}
+
+.customer-project-measurement-card button,
+.customer-project-measurement-card > span {
+  display: grid;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  place-items: center;
+  overflow: hidden;
+  border: 0;
+  border-radius: 10px;
+  background: #ffffff;
+  color: #8b6f47;
+  cursor: pointer;
+  padding: 0;
+}
+
+.customer-project-measurement-card img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.customer-project-measurement-card strong,
+.customer-project-measurement-card small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.customer-project-measurement-card strong {
+  color: #2d2d2d;
+  font-size: 13px;
+}
+
+.customer-project-measurement-card small {
+  color: #6b6b6b;
+  font-size: 12px;
 }
 
 .customer-project-detail-proposals {
@@ -1071,6 +1157,248 @@
   color: #6b7280;
 }
 
+.customer-project-detail-schedules {
+  display: grid;
+  gap: 14px;
+}
+
+.customer-project-detail-schedule-summary {
+  display: inline-flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.customer-project-detail-schedule-summary span {
+  border-radius: 999px;
+  background: #f5f1ec;
+  color: #8b6f47;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 7px 10px;
+}
+
+.customer-project-detail-schedule-list {
+  display: grid;
+  gap: 12px;
+}
+
+.customer-project-detail-schedule-card {
+  display: grid;
+  grid-template-columns: minmax(190px, 0.7fr) minmax(0, 1.4fr);
+  gap: 14px;
+  border: 1px solid rgba(139, 111, 71, 0.14);
+  border-radius: 12px;
+  background: #fff;
+  padding: 14px;
+}
+
+.customer-project-detail-schedule-date {
+  display: grid;
+  align-content: start;
+  gap: 6px;
+  border-radius: 10px;
+  background: #faf9f7;
+  color: #6b5a44;
+  padding: 12px;
+}
+
+.customer-project-detail-schedule-date svg {
+  color: #8b6f47;
+}
+
+.customer-project-detail-schedule-date strong {
+  color: #2d2d2d;
+  font-size: 14px;
+}
+
+.customer-project-detail-schedule-date span,
+.customer-project-detail-schedule-main p,
+.customer-project-detail-schedule-footer span {
+  color: #6b6b6b;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.customer-project-detail-schedule-main {
+  display: grid;
+  gap: 12px;
+}
+
+.customer-project-detail-schedule-main h3 {
+  margin: 0;
+  color: #2d2d2d;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.customer-project-detail-schedule-main p {
+  margin: 6px 0 0;
+}
+
+.customer-project-detail-schedule-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.customer-project-detail-schedule-meta span,
+.customer-project-detail-schedule-status {
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  padding: 6px 9px;
+  text-transform: uppercase;
+}
+
+.customer-project-detail-schedule-meta span {
+  background: #f3f4f6;
+  color: #6b7280;
+}
+
+.customer-project-detail-schedule-status-pending-confirmation {
+  background: #fff7d6;
+  color: #a16207;
+}
+
+.customer-project-detail-schedule-status-confirmed {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.customer-project-detail-schedule-status-completed {
+  background: #ccfbf1;
+  color: #047857;
+}
+
+.customer-project-detail-schedule-status-cancelled {
+  background: #fee2e2;
+  color: #b42318;
+}
+
+.customer-project-detail-schedule-footer {
+  display: flex;
+  flex-wrap: wrap;
+  grid-column: 1 / -1;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  border-top: 1px solid rgba(139, 111, 71, 0.1);
+  padding-top: 12px;
+}
+
+.customer-project-detail-schedule-footer span,
+.customer-project-detail-schedule-footer a,
+.customer-project-detail-schedule-footer button {
+  display: inline-flex;
+  min-height: 34px;
+  align-items: center;
+  gap: 7px;
+}
+
+.customer-project-detail-schedule-footer a,
+.customer-project-detail-schedule-footer button {
+  border: 1px solid rgba(139, 111, 71, 0.18);
+  border-radius: 999px;
+  background: #fff;
+  color: #6b5a44;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 0 13px;
+  text-decoration: none;
+}
+
+.customer-project-detail-schedule-footer button {
+  background: #8b6f47;
+  color: #fff;
+}
+
+.customer-project-detail-schedule-footer button:disabled {
+  cursor: not-allowed;
+  opacity: 0.62;
+}
+
+.customer-project-detail-schedule-actions {
+  display: grid;
+  grid-column: 1 / -1;
+  gap: 10px;
+  border-top: 1px solid rgba(139, 111, 71, 0.1);
+  padding-top: 12px;
+}
+
+.customer-project-detail-schedule-actions label {
+  display: grid;
+  gap: 7px;
+}
+
+.customer-project-detail-schedule-actions label > span {
+  color: #8d8174;
+  font-size: 11px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.customer-project-detail-schedule-actions textarea {
+  width: 100%;
+  resize: vertical;
+  border: 1px solid rgba(139, 111, 71, 0.18);
+  border-radius: 10px;
+  background: #fbfaf7;
+  color: #2f2a24;
+  font: inherit;
+  font-size: 13px;
+  line-height: 20px;
+  outline: 0;
+  padding: 10px 12px;
+}
+
+.customer-project-detail-schedule-actions div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.customer-project-detail-schedule-actions button {
+  display: inline-flex;
+  min-height: 34px;
+  align-items: center;
+  gap: 7px;
+  border: 1px solid #8b6f47;
+  border-radius: 999px;
+  background: #8b6f47;
+  color: #fff;
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 0 13px;
+}
+
+.customer-project-detail-schedule-actions button.is-secondary {
+  border-color: rgba(139, 111, 71, 0.24);
+  background: #fff;
+  color: #6b5a44;
+}
+
+.customer-project-detail-schedule-actions button.is-danger {
+  border-color: rgba(185, 28, 28, 0.24);
+  background: #fff;
+  color: #b91c1c;
+}
+
+.customer-project-detail-schedule-actions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.62;
+}
+
 .customer-project-list-state.is-error {
   color: #b42318;
+}
+
+@media (max-width: 760px) {
+  .customer-project-detail-schedule-card {
+    grid-template-columns: 1fr;
+  }
 }

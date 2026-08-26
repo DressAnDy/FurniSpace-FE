@@ -694,6 +694,30 @@
   line-height: 1.55;
 }
 
+.customer-schedules-change-note {
+  display: grid;
+  gap: 8px;
+  margin-top: 20px;
+}
+
+.customer-schedules-change-note span {
+  color: #2d2d2d;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.customer-schedules-change-note textarea {
+  width: 100%;
+  min-height: 88px;
+  border: 1px solid #ddd7cf;
+  border-radius: 8px;
+  color: #2d2d2d;
+  font: inherit;
+  font-size: 14px;
+  padding: 10px 12px;
+  resize: vertical;
+}
+
 .customer-schedules-actions {
   display: flex;
   flex-wrap: wrap;
@@ -720,6 +744,11 @@
 .customer-schedules-actions button:disabled {
   cursor: not-allowed;
   opacity: 0.6;
+}
+
+.customer-schedules-actions button.is-secondary {
+  background: #ffffff;
+  color: #8b6f47;
 }
 
 .customer-schedules-empty-detail {

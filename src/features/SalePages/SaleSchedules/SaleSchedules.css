@@ -630,6 +630,223 @@
   opacity: 0.6;
 }
 
+.sale-schedules-participant-calendar {
+  display: grid;
+  gap: 14px;
+  margin-top: 24px;
+  border-top: 1px solid rgba(139, 111, 71, 0.12);
+  padding-top: 20px;
+}
+
+.sale-schedules-participant-calendar > header {
+  display: grid;
+  gap: 12px;
+}
+
+.sale-schedules-participant-calendar > header span {
+  color: #8b6f47;
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.sale-schedules-participant-calendar h4 {
+  margin: 5px 0 0;
+  color: #2d2d2d;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.sale-schedules-participant-calendar p {
+  margin: 4px 0 0;
+  color: #6b6b6b;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.sale-schedules-participant-tabs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  border-radius: 8px;
+  background: #faf9f7;
+  padding: 4px;
+}
+
+.sale-schedules-participant-tabs button {
+  min-height: 32px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #6b6b6b;
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.sale-schedules-participant-tabs button.is-active {
+  background: #ffffff;
+  color: #6d502f;
+  box-shadow: 0 1px 4px rgba(45, 45, 45, 0.08);
+}
+
+.sale-schedules-participant-calendar-head {
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr) 32px;
+  align-items: center;
+  gap: 8px;
+}
+
+.sale-schedules-participant-calendar-head strong {
+  color: #2d2d2d;
+  font-size: 14px;
+  text-align: center;
+}
+
+.sale-schedules-participant-calendar-head button,
+.sale-schedules-participant-back {
+  display: inline-flex;
+  min-height: 32px;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 1px solid rgba(139, 111, 71, 0.18);
+  border-radius: 8px;
+  background: #faf9f7;
+  color: #6d502f;
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.sale-schedules-participant-weekdays,
+.sale-schedules-participant-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+}
+
+.sale-schedules-participant-weekdays {
+  border: 1px solid rgba(139, 111, 71, 0.1);
+  border-bottom: 0;
+  border-radius: 8px 8px 0 0;
+  background: #faf9f7;
+}
+
+.sale-schedules-participant-weekdays span {
+  color: #6b6b6b;
+  font-size: 10px;
+  font-weight: 800;
+  padding: 8px 2px;
+  text-align: center;
+}
+
+.sale-schedules-participant-grid {
+  overflow: hidden;
+  border: 1px solid rgba(139, 111, 71, 0.1);
+  border-radius: 0 0 8px 8px;
+}
+
+.sale-schedules-participant-day {
+  display: grid;
+  min-height: 46px;
+  align-content: center;
+  justify-items: center;
+  gap: 4px;
+  border: 0;
+  border-right: 1px solid rgba(139, 111, 71, 0.08);
+  border-bottom: 1px solid rgba(139, 111, 71, 0.08);
+  background: #ffffff;
+  color: #6b6b6b;
+  cursor: pointer;
+  font: inherit;
+  padding: 5px;
+}
+
+.sale-schedules-participant-day:disabled {
+  cursor: default;
+  opacity: 0.58;
+}
+
+.sale-schedules-participant-day.has-schedules {
+  background: #fffdf9;
+  color: #2d2d2d;
+}
+
+.sale-schedules-participant-day.is-today span {
+  display: grid;
+  width: 22px;
+  height: 22px;
+  place-items: center;
+  border-radius: 999px;
+  background: #8b6f47;
+  color: #fff;
+}
+
+.sale-schedules-participant-day strong {
+  display: grid;
+  min-width: 22px;
+  height: 22px;
+  place-items: center;
+  border-radius: 999px;
+  background: #2d2d2d;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.sale-schedules-participant-list-view {
+  display: grid;
+  gap: 12px;
+}
+
+.sale-schedules-participant-back {
+  justify-self: start;
+  padding: 0 10px;
+}
+
+.sale-schedules-participant-list-view h5 {
+  margin: 0;
+  color: #2d2d2d;
+  font-size: 16px;
+}
+
+.sale-schedules-participant-list {
+  display: grid;
+  gap: 8px;
+}
+
+.sale-schedules-participant-list button {
+  display: grid;
+  gap: 5px;
+  border: 1px solid rgba(139, 111, 71, 0.14);
+  border-radius: 8px;
+  background: #faf9f7;
+  color: #2d2d2d;
+  cursor: pointer;
+  font: inherit;
+  padding: 10px;
+  text-align: left;
+}
+
+.sale-schedules-participant-list button.is-active {
+  border-color: #8b6f47;
+  background: #f5f1ec;
+}
+
+.sale-schedules-participant-list strong {
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.sale-schedules-participant-list span {
+  color: #6b6b6b;
+  font-size: 12px;
+  line-height: 1.35;
+}
+
 .sale-schedules-modal-overlay {
   position: fixed;
   z-index: 50;

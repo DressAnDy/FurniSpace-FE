@@ -126,7 +126,7 @@ export function getOrderItemName(item: Pick<OrderItemDto, 'itemName' | 'productN
 
 export function getDeliveredQuantity(item: OrderItemDto) {
   if (typeof item.deliveredQuantity === 'number') return item.deliveredQuantity;
-  return item.status === 'DELIVERED' ? item.quantity ?? 0 : 0;
+  return item.status === 'DELIVERED' || item.status === 'PHYSICALLY_DELIVERED' ? item.quantity ?? 0 : 0;
 }
 
 export function getRemainingQuantity(item: OrderItemDto) {
@@ -161,10 +161,13 @@ function mergeOrderItemStatus(
   deliveredQuantity: number,
   remainingQuantity: number,
 ) {
-  if (remainingQuantity <= 0) return 'DELIVERED';
-  if (deliveredQuantity > 0) return 'PARTIALLY_DELIVERED';
   if (currentStatus === 'UNAVAILABLE' || nextStatus === 'UNAVAILABLE') return 'UNAVAILABLE';
   if (currentStatus === 'CANCELLED' || nextStatus === 'CANCELLED') return 'CANCELLED';
+  if (remainingQuantity <= 0) {
+    if (currentStatus === 'DELIVERED' && nextStatus === 'DELIVERED') return 'DELIVERED';
+    return 'PHYSICALLY_DELIVERED';
+  }
+  if (deliveredQuantity > 0) return 'PARTIALLY_DELIVERED';
   return currentStatus ?? nextStatus ?? 'READY';
 }
 
@@ -174,9 +177,12 @@ function mergeDeliveryTrackingStatus(
   deliveredQuantity: number,
   remainingQuantity: number,
 ) {
-  if (remainingQuantity <= 0) return 'DELIVERED';
-  if (deliveredQuantity > 0) return 'PARTIALLY_DELIVERED';
   if (currentStatus === 'UNAVAILABLE' || nextStatus === 'UNAVAILABLE') return 'UNAVAILABLE';
   if (currentStatus === 'CANCELLED' || nextStatus === 'CANCELLED') return 'CANCELLED';
+  if (remainingQuantity <= 0) {
+    if (currentStatus === 'DELIVERED' && nextStatus === 'DELIVERED') return 'DELIVERED';
+    return 'PHYSICALLY_DELIVERED';
+  }
+  if (deliveredQuantity > 0) return 'PARTIALLY_DELIVERED';
   return currentStatus ?? nextStatus ?? 'READY';
 }
