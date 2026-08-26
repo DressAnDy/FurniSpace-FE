@@ -251,8 +251,8 @@ export function createBuildingTestSceneFromProjectFloorAreas(
 
   const levels = floorAreas.map((area, index) => {
     const isSpecialLayout = area.isSpecialLayout === true;
-    const width = Math.max(isSpecialLayout ? baseScene.building.width : area.width ?? baseScene.building.width, 4);
-    const depth = Math.max(isSpecialLayout ? baseScene.building.depth : area.length ?? baseScene.building.depth, 4);
+    const width = Math.max(area.width ?? baseScene.building.width, 4);
+    const depth = Math.max(area.length ?? baseScene.building.depth, 4);
     const levelId = `floor-area-${area.projectAreaId}`;
     const wallHeight = Math.max((area.height ?? 3) - 0.25, 1.8);
     const level = createBuildingLevel(

@@ -1,6 +1,7 @@
 import axios, { AxiosError } from 'axios';
 
 import { shouldRedirectUnauthorized } from '@/shared/config/authPreview';
+import { SCHEDULE_OUTSIDE_BUSINESS_HOURS_MESSAGE, SCHEDULE_TIME_INVALID_MESSAGE } from '@/shared/utils/dateValidation';
 import { getStoredAccessToken } from './tokenStore';
 
 const scheduleApiClient = axios.create({
@@ -41,10 +42,10 @@ export type ServiceResult<T> = {
 };
 
 const SCHEDULE_ERROR_MESSAGES: Record<string, string> = {
-  SCHEDULE_TIME_INVALID: 'Schedule start and end time are invalid.',
-  SCHEDULE_OUTSIDE_BUSINESS_HOURS: 'Schedule time must be between 06:00 and 22:00 Vietnam time.',
-  SCHEDULE_OVERLAP: 'The assigned staff already has a schedule during this time.',
-  SCHEDULE_MINIMUM_GAP_NOT_MET: 'The assigned staff must have at least 2 hours between measurement or delivery schedules.',
+  SCHEDULE_TIME_INVALID: SCHEDULE_TIME_INVALID_MESSAGE,
+  SCHEDULE_OUTSIDE_BUSINESS_HOURS: SCHEDULE_OUTSIDE_BUSINESS_HOURS_MESSAGE,
+  SCHEDULE_OVERLAP: 'Trùng lịch với appointment khác',
+  SCHEDULE_MINIMUM_GAP_NOT_MET: 'Nhân viên phải cách lịch trước ít nhất 2 giờ',
   SCHEDULE_COMPLETE_BEFORE_START: 'This schedule cannot be completed before its start time.',
   SALES_CANNOT_CREATE_DELIVERY_SCHEDULE: 'Sales cannot create delivery schedules in the current delivery workflow.',
   ORDER_NOT_READY_FOR_DELIVERY: 'This order is not ready for delivery scheduling yet.',
