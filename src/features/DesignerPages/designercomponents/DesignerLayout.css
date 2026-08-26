@@ -4,7 +4,7 @@
   min-height: 100vh;
   background: var(--fs-bg);
   color: var(--fs-ink);
-  font-family: Inter, "DM Sans", Arial, sans-serif;
+  font-family: var(--fs-ui-font, "Be Vietnam Pro", "DM Sans", system-ui, -apple-system, "Segoe UI", sans-serif);
   overflow: hidden;
 }
 

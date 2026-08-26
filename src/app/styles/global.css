@@ -19,12 +19,13 @@
   --fs-sidebar: #17110a;
   --fs-sidebar-soft: #2a241f;
   --fs-danger: #991b1b;
-  --fs-customer-font: "Be Vietnam Pro", "DM Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
-  font-family: "Be Vietnam Pro", "DM Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --fs-ui-font: "Be Vietnam Pro", "DM Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --fs-customer-font: var(--fs-ui-font);
+  font-family: var(--fs-ui-font);
   color: var(--fs-ink);
   background: var(--fs-bg);
   font-synthesis: none;
-  text-rendering: optimizeSpeed;
+  text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }

@@ -13,6 +13,7 @@ import {
   IconX,
   type Icon,
 } from '@tabler/icons-react';
+import { useSearchParams } from 'react-router-dom';
 
 import { getAccountRoleName, type AccountDto } from '@/services/api';
 import {
@@ -74,12 +75,20 @@ const MONEY_FORMATTER = new Intl.NumberFormat('vi-VN', {
 });
 
 export function AdminProjects() {
+  const [searchParams] = useSearchParams();
+  const projectFromUrl = searchParams.get('projectId');
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState<ProjectStatus | ''>('');
   const [salesId, setSalesId] = useState('');
   const [designerId, setDesignerId] = useState('');
   const [page, setPage] = useState(1);
-  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(projectFromUrl);
+
+  useEffect(() => {
+    if (projectFromUrl) {
+      setSelectedProjectId(projectFromUrl);
+    }
+  }, [projectFromUrl]);
 
   const projectsQuery = useProjectList({
     search,

@@ -26,6 +26,27 @@ export function SchedulesTab({ project }: SchedulesTabProps) {
   const [scheduleStartInput, setScheduleStartInput] = useState('');
   const [scheduleEndInput, setScheduleEndInput] = useState('');
   const [statusFilter, setStatusFilter] = useState<ProjectScheduleStatus | ''>('');
+  const schedulesQuery = useProjectScheduleList(
+    {
+      projectId: project.projectId,
+      page: 1,
+      limit: 100,
+    },
+    { fetchAll: true, staleTime: 60_000 },
+  );
+  const createScheduleMutation = useCreateProjectSchedule();
+  const defaultTitle = useMemo(() => getDefaultScheduleTitle(project), [project]);
+  const schedules = useMemo(() => {
+    const items = [...(schedulesQuery.data?.items ?? [])].sort(
+      (left, right) => new Date(left.scheduledStart).getTime() - new Date(right.scheduledStart).getTime(),
+    );
+
+    if (!statusFilter) {
+      return items;
+    }
+
+    return items.filter((schedule) => schedule.status === statusFilter);
+  }, [schedulesQuery.data?.items, statusFilter]);
   const [calendarActor, setCalendarActor] = useState<ProjectScheduleActor>('customer');
   const [calendarMonth, setCalendarMonth] = useState(() => {
     const now = new Date();
@@ -33,18 +54,6 @@ export function SchedulesTab({ project }: SchedulesTabProps) {
     return new Date(now.getFullYear(), now.getMonth(), 1);
   });
   const [calendarListDateKey, setCalendarListDateKey] = useState<string | null>(null);
-  const schedulesQuery = useProjectScheduleList({
-    projectId: project.projectId,
-    status: statusFilter || null,
-    page: 1,
-    limit: 100,
-  });
-  const createScheduleMutation = useCreateProjectSchedule();
-  const defaultTitle = useMemo(() => getDefaultScheduleTitle(project), [project]);
-  const schedules = useMemo(
-    () => [...(schedulesQuery.data?.items ?? [])].sort((left, right) => new Date(left.scheduledStart).getTime() - new Date(right.scheduledStart).getTime()),
-    [schedulesQuery.data?.items],
-  );
   const visibleCalendarSchedules = useMemo(
     () => schedules.filter((schedule) => calendarActor === 'customer' || schedule.assignedStaffId === project.assignedDesignerId),
     [calendarActor, project.assignedDesignerId, schedules],
@@ -242,7 +251,7 @@ export function SchedulesTab({ project }: SchedulesTabProps) {
               <h4>Current Schedules</h4>
               <p>GET /project-schedules?projectId={project.projectId}</p>
             </div>
-            <span>{schedulesQuery.data?.total ?? 0} total</span>
+            <span>{schedules.length} total</span>
           </div>
 
           {schedulesQuery.isLoading ? <p className="project-detail-muted">Loading project schedules...</p> : null}
@@ -261,7 +270,7 @@ export function SchedulesTab({ project }: SchedulesTabProps) {
             onOpenDateList={setCalendarListDateKey}
           />
 
-          {schedules.length === 0 ? (
+          {!schedulesQuery.isLoading && schedules.length === 0 ? (
             <p className="project-detail-muted">No schedules have been created for this project yet.</p>
           ) : null}
 

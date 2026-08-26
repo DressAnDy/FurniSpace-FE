@@ -242,12 +242,65 @@ export async function getProjectSchedules(params: ProjectScheduleListParams) {
   return response.data.data;
 }
 
+/** Fetches every page for one project so calendar views are not truncated by the list limit. */
+export async function getAllProjectSchedules(params: ProjectScheduleListParams) {
+  const limit = normalizeScheduleListLimit(params.limit);
+  const firstPage = await getProjectSchedules({ ...params, page: 1, limit });
+  const items = [...firstPage.items];
+  const totalPages = Math.max(1, Math.ceil((firstPage.total || 0) / limit));
+
+  for (let page = 2; page <= totalPages; page += 1) {
+    const nextPage = await getProjectSchedules({ ...params, page, limit });
+    items.push(...nextPage.items);
+  }
+
+  return {
+    items,
+    total: firstPage.total,
+    page: 1,
+    limit,
+  } satisfies ProjectScheduleListData;
+}
+
 export async function getMyAssignedProjectSchedules(params: MyAssignedScheduleListParams = {}) {
   const response = await scheduleApiClient.get<ServiceResult<ProjectScheduleListData>>('/project-schedules/my-assigned', {
     params: getAssignedScheduleListQueryParams(params),
   });
 
   return response.data.data;
+}
+
+/** Fetches every page of schedules assigned to the current user. */
+export async function getAllMyAssignedProjectSchedules(params: MyAssignedScheduleListParams = {}) {
+  const limit = normalizeScheduleListLimit(params.limit);
+  const firstPage = await getMyAssignedProjectSchedules({ ...params, page: 1, limit });
+  const items = [...firstPage.items];
+  const totalPages = Math.max(1, Math.ceil((firstPage.total || 0) / limit));
+
+  for (let page = 2; page <= totalPages; page += 1) {
+    const nextPage = await getMyAssignedProjectSchedules({ ...params, page, limit });
+    items.push(...nextPage.items);
+  }
+
+  return {
+    items,
+    total: firstPage.total,
+    page: 1,
+    limit,
+  } satisfies ProjectScheduleListData;
+}
+
+/** Aggregates schedules across many projects in bounded concurrency (avoids N separate React Query entries). */
+export async function getSchedulesForProjects(
+  projectIds: string[],
+  params: Omit<ProjectScheduleListParams, 'projectId'> = {},
+) {
+  const uniqueProjectIds = Array.from(new Set(projectIds.map((id) => id.trim()).filter(Boolean)));
+  const results = await mapWithConcurrency(uniqueProjectIds, SCHEDULE_PROJECT_FETCH_CONCURRENCY, (projectId) =>
+    getAllProjectSchedules({ ...params, projectId }),
+  );
+
+  return results.flatMap((result) => result.items);
 }
 
 export async function getProjectScheduleById(scheduleId: string) {
@@ -316,12 +369,41 @@ function getScheduleFilterQueryParams(params: MyAssignedScheduleListParams) {
   };
 }
 
+const SCHEDULE_LIST_MAX_LIMIT = 100;
+const SCHEDULE_PROJECT_FETCH_CONCURRENCY = 5;
+
 function normalizeScheduleListLimit(limit: number | null | undefined) {
   if (!Number.isFinite(limit ?? NaN)) {
     return 20;
   }
 
-  return Math.min(Math.max(Math.trunc(limit as number), 1), 100);
+  return Math.min(Math.max(Math.trunc(limit as number), 1), SCHEDULE_LIST_MAX_LIMIT);
+}
+
+async function mapWithConcurrency<T, R>(
+  items: T[],
+  concurrency: number,
+  mapper: (item: T, index: number) => Promise<R>,
+) {
+  if (items.length === 0) {
+    return [] as R[];
+  }
+
+  const results = new Array<R>(items.length);
+  let nextIndex = 0;
+
+  async function worker() {
+    while (nextIndex < items.length) {
+      const currentIndex = nextIndex;
+      nextIndex += 1;
+      results[currentIndex] = await mapper(items[currentIndex], currentIndex);
+    }
+  }
+
+  const workerCount = Math.min(Math.max(concurrency, 1), items.length);
+  await Promise.all(Array.from({ length: workerCount }, () => worker()));
+
+  return results;
 }
 
 function normalizeScheduleOptionalText(value: string | null | undefined) {
