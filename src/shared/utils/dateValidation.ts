@@ -13,10 +13,6 @@ export type FutureDateRangeValidationResult =
   | { ok: true; start: string | null; end: string | null }
   | { ok: false; message: string };
 
-export type ScheduleDateTimeRangeValidationResult =
-  | { ok: true; startIso: string; endIso: string | null }
-  | { ok: false; message: string };
-
 export function getLocalDateInputValue(value = new Date()) {
   return formatLocalDateParts(value.getFullYear(), value.getMonth() + 1, value.getDate());
 }
@@ -125,39 +121,6 @@ export function getScheduleDateRangePayload(startValue: string, endValue: string
   };
 }
 
-export function validateScheduleDateTimeRange(
-  startValue: string,
-  endValue: string,
-  options: { requireEnd?: boolean } = {},
-): ScheduleDateTimeRangeValidationResult {
-  const normalizedStart = startValue.trim();
-  const normalizedEnd = endValue.trim();
-  const start = parseLocalDateTime(normalizedStart);
-  const end = normalizedEnd ? parseLocalDateTime(normalizedEnd) : null;
-
-  if (!normalizedStart || !start || (normalizedEnd && !end)) {
-    return { ok: false, message: SCHEDULE_TIME_INVALID_MESSAGE };
-  }
-
-  if (options.requireEnd && !end) {
-    return { ok: false, message: SCHEDULE_TIME_INVALID_MESSAGE };
-  }
-
-  if (end && end.getTime() <= start.getTime()) {
-    return { ok: false, message: SCHEDULE_TIME_INVALID_MESSAGE };
-  }
-
-  if (!isWithinVietnamScheduleHours(start) || (end && !isWithinVietnamScheduleHours(end))) {
-    return { ok: false, message: SCHEDULE_OUTSIDE_BUSINESS_HOURS_MESSAGE };
-  }
-
-  return {
-    ok: true,
-    startIso: start.toISOString(),
-    endIso: end ? end.toISOString() : null,
-  };
-}
-
 function parseLocalDateTime(value: string) {
   const match = LOCAL_DATE_TIME_PATTERN.exec(value.trim());
   if (!match) return null;
@@ -173,12 +136,6 @@ function parseLocalDateTime(value: string) {
     || date.getSeconds() !== Number(second)) return null;
 
   return date;
-}
-
-function isWithinVietnamScheduleHours(value: Date) {
-  const minutes = value.getHours() * 60 + value.getMinutes();
-
-  return minutes >= 6 * 60 && minutes <= 22 * 60;
 }
 
 function formatLocalDateParts(year: number, month: number, day: number) {

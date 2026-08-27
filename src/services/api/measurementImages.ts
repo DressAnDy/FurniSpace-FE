@@ -2,6 +2,7 @@ import axios, { AxiosError } from 'axios';
 
 import { shouldRedirectUnauthorized } from '@/shared/config/authPreview';
 import { getStoredAccessToken } from './tokenStore';
+import type { FileVisibility } from './projects';
 
 const measurementImageApiClient = axios.create({
   baseURL: getApiBaseUrl(),
@@ -77,7 +78,7 @@ export type RegisterMeasurementImageInput = {
   originalFileName: string;
   mimeType?: string | null;
   fileSize?: number | null;
-  visibility?: 'PRIVATE' | 'PROJECT' | 'PUBLIC' | string | null;
+  visibility?: FileVisibility | null;
   note?: string | null;
 };
 
@@ -155,19 +156,20 @@ export function getMeasurementImageServiceResultFromError(error: unknown) {
 }
 
 export async function registerMeasurementImage(input: RegisterMeasurementImageInput) {
+  const request = {
+    storagePath: input.storagePath,
+    publicUrl: input.publicUrl,
+    originalFileName: input.originalFileName,
+    contentType: input.contentType ?? input.mimeType ?? null,
+    fileSizeBytes: input.fileSizeBytes ?? input.fileSize ?? null,
+    mimeType: input.mimeType ?? null,
+    fileSize: input.fileSize ?? null,
+    note: input.note?.trim() || null,
+    ...(input.visibility ? { visibility: input.visibility } : {}),
+  };
   const response = await measurementImageApiClient.post<ServiceResult<MeasurementImageDto>>(
     `/project-schedules/${input.scheduleId}/measurement-images`,
-    {
-      storagePath: input.storagePath,
-      publicUrl: input.publicUrl,
-      originalFileName: input.originalFileName,
-      contentType: input.contentType ?? input.mimeType ?? null,
-      fileSizeBytes: input.fileSizeBytes ?? input.fileSize ?? null,
-      mimeType: input.mimeType ?? null,
-      fileSize: input.fileSize ?? null,
-      visibility: input.visibility ?? null,
-      note: input.note?.trim() || null,
-    },
+    { request },
   );
 
   return response.data.data;

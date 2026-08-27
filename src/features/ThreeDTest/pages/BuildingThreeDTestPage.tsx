@@ -28,6 +28,7 @@ import {
 import type {
   BuildingLevelVisibility,
   BuildingProductModel,
+  BuildingTestScene,
   PlacedBuildingProduct,
   Vector3State,
 } from '@/features/ThreeDTest/schemas/buildingScene.types';
@@ -85,6 +86,7 @@ type BuildingRoomPlannerRouteState = {
   proposalId?: string;
   returnTo?: string;
   transientPlacedProducts?: PlacedBuildingProduct[];
+  transientSceneData?: BuildingTestScene;
   transientSelectedProductId?: string | null;
 };
 type BuildingDesignPanel = 'products' | 'assets' | 'decorate';
@@ -331,11 +333,46 @@ function applyProposalItemIds(products: PlacedBuildingProduct[], items: Proposal
       .filter((item) => item.sceneObjectId)
       .map((item) => [item.sceneObjectId as string, item.proposalItemId]),
   );
+  const proposalItemIdsByProductVersionId = new Map(
+    items.map((item) => [item.productVersionId, item.proposalItemId]),
+  );
 
   return products.map((product) => ({
     ...product,
-    proposalItemId: proposalItemIdsByObjectId.get(product.sceneObjectId) ?? product.proposalItemId ?? null,
+    proposalItemId: proposalItemIdsByObjectId.get(product.sceneObjectId)
+      ?? proposalItemIdsByProductVersionId.get(product.productVersionId ?? '')
+      ?? product.proposalItemId
+      ?? null,
   }));
+}
+
+function buildProposalItemSyncItems(products: PlacedBuildingProduct[]) {
+  const itemsByProductVersionId = new Map<string, {
+    productVersionId: string;
+    quantity: number;
+    sceneObjectId: string;
+  }>();
+
+  products.forEach((product) => {
+    if (!product.productVersionId) {
+      return;
+    }
+
+    const existingItem = itemsByProductVersionId.get(product.productVersionId);
+
+    if (existingItem) {
+      existingItem.quantity += 1;
+      return;
+    }
+
+    itemsByProductVersionId.set(product.productVersionId, {
+      productVersionId: product.productVersionId,
+      quantity: 1,
+      sceneObjectId: product.sceneObjectId,
+    });
+  });
+
+  return Array.from(itemsByProductVersionId.values());
 }
 
 function createAreaTemplateKey(areas: BuildingProjectFloorAreaSource[]) {
@@ -674,6 +711,15 @@ export function BuildingThreeDTestPage() {
     shouldKeepSceneDraft,
     templateAreas,
   ]);
+
+  useEffect(() => {
+    if (!routeState?.transientSceneData) {
+      return;
+    }
+
+    appliedRemoteSceneKeyRef.current = `transient:${Date.now()}`;
+    setSceneData(routeState.transientSceneData);
+  }, [routeState?.transientSceneData, setSceneData]);
 
   useEffect(() => {
     if (!routeState?.transientPlacedProducts) {
@@ -1236,7 +1282,9 @@ export function BuildingThreeDTestPage() {
       });
 
       if (currentProposalId) {
+        const proposalItemSyncItems = buildProposalItemSyncItems(placedProducts);
         const syncResult = await syncProposalItemsMutation.mutateAsync({
+          items: proposalItemSyncItems.length ? proposalItemSyncItems : undefined,
           proposalId: currentProposalId,
           sceneId,
         });
@@ -1317,6 +1365,7 @@ export function BuildingThreeDTestPage() {
             state={{
               ...routeState,
               transientPlacedProducts: placedProducts,
+              transientSceneData: sceneData,
               transientSelectedProductId: selectedProductId,
             }}
             to={proposalReturnPath}
@@ -1334,6 +1383,7 @@ export function BuildingThreeDTestPage() {
             state={{
               ...routeState,
               transientPlacedProducts: placedProducts,
+              transientSceneData: sceneData,
               transientSelectedProductId: selectedProductId,
             }}
             to={sceneId ? `${roomPlannerBasePath}/blueprint` : '/3d-building-test/blueprint'}

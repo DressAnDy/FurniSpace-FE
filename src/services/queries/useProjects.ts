@@ -15,6 +15,7 @@ import {
   updateProjectStatus,
   updateProjectBasicInformation,
   updateProjectPhaseDeadlines,
+  updateProductionDeadline,
   uploadProjectFile,
   type CreateProjectInput,
   type AssignDesignerInput,
@@ -26,6 +27,7 @@ import {
   type FileVisibility,
   type UpdateProjectBasicInformationInput,
   type UpdateProjectPhaseDeadlinesInput,
+  type UpdateProductionDeadlineInput,
   type UpdateProjectStatusInput,
 } from '@/services/api/projects';
 import { projectChatQueryKeys } from './useProjectChats';
@@ -147,6 +149,20 @@ export function useUpdateProjectPhaseDeadlines() {
       void queryClient.invalidateQueries({ queryKey: projectQueryKeys.phaseDeadlines(data.projectId) });
       void queryClient.invalidateQueries({ queryKey: projectQueryKeys.detail(data.projectId) });
       void queryClient.invalidateQueries({ queryKey: projectQueryKeys.workflow(data.projectId) });
+      void queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+    },
+  });
+}
+
+export function useUpdateProductionDeadline() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (input: UpdateProductionDeadlineInput) => updateProductionDeadline(input),
+    onSuccess: (_data, input) => {
+      void queryClient.invalidateQueries({ queryKey: projectQueryKeys.phaseDeadlines(input.projectId) });
+      void queryClient.invalidateQueries({ queryKey: projectQueryKeys.detail(input.projectId) });
+      void queryClient.invalidateQueries({ queryKey: projectQueryKeys.workflow(input.projectId) });
       void queryClient.invalidateQueries({ queryKey: ['dashboard'] });
     },
   });
