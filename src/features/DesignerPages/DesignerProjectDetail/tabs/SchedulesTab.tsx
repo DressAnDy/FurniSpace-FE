@@ -89,7 +89,7 @@ export function SchedulesTab({ project }: Readonly<SchedulesTabProps>) {
               <button
                 className="designer-project-detail-button designer-project-detail-button-primary designer-project-schedule-complete-button"
                 type="button"
-                disabled={updateScheduleStatusMutation.isPending || !canCompleteSchedule(schedule)}
+                disabled={updateScheduleStatusMutation.isPending}
                 onClick={() => void handleCompleteSchedule(schedule.scheduleId)}
               >
                 {updateScheduleStatusMutation.isPending ? 'Completing...' : 'Complete Schedule'}
@@ -100,10 +100,6 @@ export function SchedulesTab({ project }: Readonly<SchedulesTabProps>) {
       </div>
     </section>
   );
-}
-
-function canCompleteSchedule(schedule: { scheduleType: string; scheduledStart: string; status: string }) {
-  return schedule.status === 'CONFIRMED' && schedule.scheduleType !== 'DELIVERY' && Date.now() >= new Date(schedule.scheduledStart).getTime();
 }
 
 type ScheduleMetaProps = {

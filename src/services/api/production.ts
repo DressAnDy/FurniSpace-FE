@@ -35,7 +35,7 @@ export type ServiceResult<T> = {
   status: number;
   message?: string;
   data: T;
-  errors?: string[] | Record<string, string[]>;
+  errors?: Array<string | { code?: string; message?: string; field?: string }> | Record<string, string[]>;
   errorCode?: string;
 };
 
@@ -163,14 +163,26 @@ export function getProductionServiceResultMessage(error: unknown) {
   }
 
   if (Array.isArray(result.errors) && result.errors.length) {
-    return result.errors.join('\n');
+    return result.errors
+      .map((item) => {
+        if (typeof item === 'string') return getProductionErrorCodeMessage(item);
+        if (item && typeof item === 'object' && 'code' in item && typeof item.code === 'string') {
+          return getProductionErrorCodeMessage(item.code);
+        }
+        if (item && typeof item === 'object' && 'message' in item && typeof item.message === 'string') {
+          return item.message;
+        }
+
+        return String(item);
+      })
+      .join('\n');
   }
 
   if (result.errors && typeof result.errors === 'object') {
     return Object.values(result.errors).flat().join('\n');
   }
 
-  return result.message || result.errorCode || 'Request failed. Please try again.';
+  return result.message || (result.errorCode ? getProductionErrorCodeMessage(result.errorCode) : null) || 'Request failed. Please try again.';
 }
 
 export function getProductionServiceResultFromError(error: unknown) {
@@ -185,6 +197,14 @@ export function getProductionServiceResultFromError(error: unknown) {
   }
 
   return null;
+}
+
+function getProductionErrorCodeMessage(errorCode: string) {
+  const messages: Record<string, string> = {
+    PRODUCTION_DEADLINE_REQUIRED: 'Vui lòng set Production Deadline trước khi tạo yêu cầu sản xuất.',
+  };
+
+  return messages[errorCode] ?? errorCode;
 }
 
 export async function createProductionRequest(input: CreateProductionRequestInput) {

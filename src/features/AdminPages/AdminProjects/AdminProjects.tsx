@@ -38,6 +38,7 @@ import {
   useProjectFiles,
   useProjectList,
 } from '@/services/queries';
+import { getLocalDateInputValue } from '@/shared/utils/dateValidation';
 import { ProjectShowcaseManager } from '@/features/showcases/ProjectShowcaseManager';
 
 import { AdminNavbar, AdminSidebar } from '../admincomponents';
@@ -284,6 +285,7 @@ function ProjectDetailDrawer({
   onClose: () => void;
 }) {
   const [designerId, setDesignerId] = useState('');
+  const [proposalDeadline, setProposalDeadline] = useState('');
   const [spaceDataStatus, setSpaceDataStatus] = useState<ProjectSpaceDataStatus>('SUFFICIENT');
   const [actionMessage, setActionMessage] = useState('');
   const [selectedStageKey, setSelectedStageKey] = useState<ProjectWorkflowStageKey | null>(null);
@@ -296,11 +298,14 @@ function ProjectDetailDrawer({
   const project = projectQuery.data;
   const workflow = workflowQuery.data;
   const stages = workflow?.stages ?? EMPTY_STAGES;
+  const proposalDeadlineMin = getLocalDateInputValue();
+  const proposalDeadlineMax = project?.targetCompletionDate?.slice(0, 10) || undefined;
 
   useEffect(() => {
     setSelectedStageKey(null);
     setActionMessage('');
     setDesignerId('');
+    setProposalDeadline('');
     setSpaceDataStatus('SUFFICIENT');
   }, [projectId]);
 
@@ -356,11 +361,27 @@ function ProjectDetailDrawer({
 
     if (!project || !designerId) return;
 
+    if (!proposalDeadline) {
+      setActionMessage('Please select a proposal deadline before assigning the designer.');
+      return;
+    }
+
+    if (proposalDeadline < proposalDeadlineMin) {
+      setActionMessage('Proposal deadline cannot be before today.');
+      return;
+    }
+
+    if (proposalDeadlineMax && proposalDeadline > proposalDeadlineMax) {
+      setActionMessage('Proposal deadline cannot be after the project target date.');
+      return;
+    }
+
     try {
       setActionMessage('');
       await assignDesignerMutation.mutateAsync({
         projectId: project.projectId,
         designerId,
+        proposalDeadline,
         spaceDataStatus,
         note: 'Designer assigned by admin from project management.',
       });
@@ -502,7 +523,16 @@ function ProjectDetailDrawer({
                       <option value="SUFFICIENT">Space verified</option>
                       <option value="INSUFFICIENT">Measurement required</option>
                     </select>
-                    <button className="admin-button admin-button-primary" type="submit" disabled={isMutating || !designerId}>Assign Designer</button>
+                    <input
+                      aria-label="Proposal deadline"
+                      max={proposalDeadlineMax}
+                      min={proposalDeadlineMin}
+                      required
+                      type="date"
+                      value={proposalDeadline}
+                      onChange={(event) => setProposalDeadline(event.target.value)}
+                    />
+                    <button className="admin-button admin-button-primary" type="submit" disabled={isMutating || !designerId || !proposalDeadline}>Assign Designer</button>
                   </form>
                 ) : null}
                 {project.status !== 'SUBMITTED' && project.status !== 'NEED_BASIC_INFORMATION' && project.status !== 'IN_CONSULTATION' && project.status !== 'WAITING_FOR_DESIGNER_ASSIGNMENT' ? (

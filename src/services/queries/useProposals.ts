@@ -248,6 +248,7 @@ export function useSyncProposalItemsFromScene() {
   return useMutation({
     mutationFn: (input: SyncProposalItemsFromSceneInput) => syncProposalItemsFromScene(input),
     onSuccess: (result) => {
+      void queryClient.invalidateQueries({ queryKey: proposalQueryKeys.detail(result.proposalId) });
       void queryClient.invalidateQueries({ queryKey: ['proposals', result.proposalId, 'items'] });
       void queryClient.invalidateQueries({ queryKey: ['proposals', result.proposalId, 'scenes'] });
       void queryClient.invalidateQueries({ queryKey: proposalQueryKeys.roomPlanner(result.sceneId) });

@@ -183,11 +183,6 @@ export function CustomerSchedulesPage() {
   async function handleRequestScheduleChange(schedule: ProjectScheduleDto) {
     const note = requestChangeNotes[schedule.scheduleId]?.trim();
 
-    if (!note) {
-      setMessage('Please add a note for the delivery schedule change request.');
-      return;
-    }
-
     setMessage('');
     setActiveActionId(schedule.scheduleId);
 

@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
-import { IconLink, IconPhoto, IconRulerMeasure, IconUpload } from '@tabler/icons-react';
+import { useEffect, useMemo, useState, type FormEvent } from 'react';
+import { IconLink, IconPhoto, IconRulerMeasure, IconUpload, IconX } from '@tabler/icons-react';
 
 import { getMeasurementImageServiceResultMessage, type MeasurementImageDto } from '@/services/api/measurementImages';
 import type { ProjectDto } from '@/services/api/projects';
@@ -16,11 +16,19 @@ type MeasurementImagesTabProps = {
   project: ProjectDto;
 };
 
+type MeasurementUploadStatus = 'pending' | 'uploading' | 'uploaded' | 'failed';
+
+type MeasurementUploadItem = {
+  errorMessage?: string;
+  file: File;
+  id: string;
+  status: MeasurementUploadStatus;
+};
+
 export function MeasurementImagesTab({ project }: Readonly<MeasurementImagesTabProps>) {
-  const measurementFileInputRef = useRef<HTMLInputElement | null>(null);
   const [areaFilter, setAreaFilter] = useState('');
   const [assignmentFilter, setAssignmentFilter] = useState<'all' | 'assigned' | 'unassigned'>('all');
-  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [uploadItems, setUploadItems] = useState<MeasurementUploadItem[]>([]);
   const [uploadMessage, setUploadMessage] = useState<{ tone: 'error' | 'success'; text: string } | null>(null);
   const imagesQuery = useProjectMeasurementImages(project.projectId, {
     assigned: assignmentFilter === 'all' ? null : assignmentFilter === 'assigned',
@@ -33,8 +41,8 @@ export function MeasurementImagesTab({ project }: Readonly<MeasurementImagesTabP
     projectId: project.projectId,
     scheduleType: 'MEASUREMENT',
     page: 1,
-    limit: 20,
-  });
+    limit: 100,
+  }, { fetchAll: true, staleTime: 60_000 });
   const uploadProjectFileMutation = useUploadProjectFile();
   const registerImageMutation = useRegisterMeasurementImage();
   const linkImageMutation = useLinkMeasurementImageToArea();
@@ -43,19 +51,77 @@ export function MeasurementImagesTab({ project }: Readonly<MeasurementImagesTabP
   const measurementSchedules = schedulesQuery.data?.items ?? [];
   const eligibleSchedules = measurementSchedules.filter(isEligibleMeasurementSchedule);
   const isUploading = uploadProjectFileMutation.isPending || registerImageMutation.isPending || linkImageMutation.isPending;
-  const selectedFilePreviews = useMemo(
-    () => selectedFiles.map((file) => ({
-      key: getFileSelectionKey(file),
-      name: file.name,
-      previewUrl: URL.createObjectURL(file),
-      size: file.size,
-    })),
-    [selectedFiles],
-  );
 
-  useEffect(() => () => {
-    selectedFilePreviews.forEach((file) => URL.revokeObjectURL(file.previewUrl));
-  }, [selectedFilePreviews]);
+  function addMeasurementFiles(fileList: FileList | null) {
+    const nextFiles = Array.from(fileList ?? []).filter((file) => file.type.startsWith('image/'));
+
+    if (nextFiles.length === 0) {
+      return;
+    }
+
+    setUploadItems((currentItems) => [
+      ...currentItems,
+      ...nextFiles.map((file) => ({
+        file,
+        id: createUploadItemId(file),
+        status: 'pending' as const,
+      })),
+    ]);
+    setUploadMessage(null);
+  }
+
+  function removeUploadItem(itemId: string) {
+    setUploadItems((currentItems) => currentItems.filter((item) => item.id !== itemId));
+    setUploadMessage(null);
+  }
+
+  async function uploadSingleMeasurementImage(item: MeasurementUploadItem, scheduleId: string, projectAreaId: string, note: string) {
+    setUploadItems((currentItems) => currentItems.map((currentItem) => (
+      currentItem.id === item.id
+        ? { ...currentItem, status: 'uploading', errorMessage: undefined }
+        : currentItem
+    )));
+
+    try {
+      const uploadedFile = await uploadProjectFileMutation.mutateAsync({
+        file: item.file,
+        fileType: 'MEASUREMENT_REPORT',
+        note,
+        projectId: project.projectId,
+        visibility: 'STAFF_ONLY',
+      });
+      const registeredImage = await registerImageMutation.mutateAsync({
+        contentType: uploadedFile.mimeType,
+        fileSizeBytes: uploadedFile.fileSize,
+        originalFileName: uploadedFile.originalFileName,
+        publicUrl: uploadedFile.publicUrl,
+        scheduleId,
+        storagePath: uploadedFile.storagePath,
+        note,
+      });
+
+      await linkImageMutation.mutateAsync({
+        fileId: registeredImage.fileId,
+        projectAreaId,
+      });
+
+      setUploadItems((currentItems) => currentItems.map((currentItem) => (
+        currentItem.id === item.id
+          ? { ...currentItem, status: 'uploaded', errorMessage: undefined }
+          : currentItem
+      )));
+
+      return true;
+    } catch (error) {
+      setUploadItems((currentItems) => currentItems.map((currentItem) => (
+        currentItem.id === item.id
+          ? { ...currentItem, status: 'failed', errorMessage: getMeasurementImageServiceResultMessage(error) }
+          : currentItem
+      )));
+
+      return false;
+    }
+  }
 
   async function uploadMeasurementImage(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -65,7 +131,7 @@ export function MeasurementImagesTab({ project }: Readonly<MeasurementImagesTabP
     const scheduleId = String(formData.get('scheduleId') ?? '');
     const projectAreaId = String(formData.get('projectAreaId') ?? '');
     const note = String(formData.get('note') ?? '').trim();
-    const files = selectedFiles;
+    const uploadQueue = uploadItems.filter((item) => item.status !== 'uploaded');
 
     if (!scheduleId) {
       setUploadMessage({ tone: 'error', text: 'Select a confirmed measurement schedule first.' });
@@ -77,56 +143,34 @@ export function MeasurementImagesTab({ project }: Readonly<MeasurementImagesTabP
       return;
     }
 
-    if (files.length === 0) {
+    if (uploadQueue.length === 0) {
       setUploadMessage({ tone: 'error', text: 'Select at least one measurement image.' });
       return;
     }
 
     try {
-      const uploadResults = await Promise.allSettled(
-        files.map(async (measurementFile) => {
-          const uploadedFile = await uploadProjectFileMutation.mutateAsync({
-            file: measurementFile,
-            fileType: 'MEASUREMENT_REPORT',
-            note,
-            projectId: project.projectId,
-            visibility: 'CUSTOMER_VISIBLE',
-          });
-          const registeredImage = await registerImageMutation.mutateAsync({
-            contentType: uploadedFile.mimeType,
-            fileSizeBytes: uploadedFile.fileSize,
-            originalFileName: uploadedFile.originalFileName,
-            publicUrl: uploadedFile.publicUrl,
-            scheduleId,
-            storagePath: uploadedFile.storagePath,
-            visibility: 'PROJECT',
-            note,
-          });
+      let uploadedCount = 0;
+      let failedCount = 0;
 
-          await linkImageMutation.mutateAsync({
-            fileId: registeredImage.fileId,
-            projectAreaId,
-          });
+      for (const item of uploadQueue) {
+        const uploaded = await uploadSingleMeasurementImage(item, scheduleId, projectAreaId, note);
 
-          return measurementFile.name;
-        }),
-      );
-      const uploadedCount = uploadResults.filter((result) => result.status === 'fulfilled').length;
-      const uploadErrors = uploadResults
-        .map((result, index) => (
-          result.status === 'rejected'
-            ? `${files[index].name}: ${getMeasurementImageServiceResultMessage(result.reason)}`
-            : null
-        ))
-        .filter((message): message is string => Boolean(message));
-
-      if (uploadedCount > 0) {
-        event.currentTarget.reset();
-        setSelectedFiles([]);
+        if (uploaded) {
+          uploadedCount += 1;
+        } else {
+          failedCount += 1;
+        }
       }
 
-      setUploadMessage(uploadErrors.length > 0
-        ? { tone: uploadedCount > 0 ? 'success' : 'error', text: `${uploadedCount}/${files.length} image(s) uploaded. ${uploadErrors.join(' ')}` }
+      if (uploadedCount > 0 && failedCount === 0) {
+        event.currentTarget.reset();
+        setUploadItems([]);
+      } else {
+        setUploadItems((currentItems) => currentItems.filter((item) => item.status === 'failed'));
+      }
+
+      setUploadMessage(failedCount > 0
+        ? { tone: uploadedCount > 0 ? 'success' : 'error', text: `${uploadedCount}/${uploadQueue.length} image(s) uploaded, ${failedCount} failed. Please retry failed images.` }
         : { tone: 'success', text: `${uploadedCount} measurement image(s) uploaded and linked to area.` });
       void imagesQuery.refetch();
     } catch (error) {
@@ -179,38 +223,33 @@ export function MeasurementImagesTab({ project }: Readonly<MeasurementImagesTabP
           </label>
         </div>
         <div className="designer-project-measurement-file-picker">
-          <span>Image files</span>
-          <input
-            ref={measurementFileInputRef}
-            accept="image/*"
-            multiple
-            name="files"
-            type="file"
-            disabled={isUploading}
-            onChange={(event) => {
-              setSelectedFiles((currentFiles) => mergeSelectedFiles(currentFiles, Array.from(event.target.files ?? [])));
-              event.target.value = '';
-            }}
-          />
-          <button type="button" disabled={isUploading} onClick={() => measurementFileInputRef.current?.click()}>
-            <IconPhoto size={18} /> Choose measurement images
-          </button>
-          <small>{selectedFiles.length > 0 ? `${selectedFiles.length} image(s) selected. Choose more files to add to this list.` : 'You can select multiple images at once, or add more after each selection.'}</small>
+          <label className={isUploading ? 'designer-project-measurement-dropzone is-disabled' : 'designer-project-measurement-dropzone'}>
+            <input
+              accept="image/*"
+              multiple
+              name="files"
+              type="file"
+              disabled={isUploading}
+              onClick={(event) => {
+                event.currentTarget.value = '';
+              }}
+              onChange={(event) => addMeasurementFiles(event.target.files)}
+            />
+            <span className="designer-project-measurement-dropzone-body">
+              <IconUpload size={28} />
+              <strong>{uploadItems.length > 0 ? `${uploadItems.length} image(s) ready` : 'Choose measurement images'}</strong>
+              <small>You can choose multiple images at once, or add more before uploading.</small>
+            </span>
+          </label>
         </div>
-        {selectedFilePreviews.length > 0 ? (
+        {uploadItems.length > 0 ? (
           <div className="designer-project-measurement-preview-grid">
-            {selectedFilePreviews.map((file) => (
-              <article key={`${file.name}-${file.size}`}>
-                <img alt={file.name} src={file.previewUrl} />
-                <span>{file.name}</span>
-                <button
-                  type="button"
-                  disabled={isUploading}
-                  onClick={() => setSelectedFiles((currentFiles) => currentFiles.filter((selectedFile) => getFileSelectionKey(selectedFile) !== file.key))}
-                >
-                  Remove
-                </button>
-              </article>
+            {uploadItems.map((item) => (
+              <MeasurementUploadTile
+                item={item}
+                key={item.id}
+                onRemove={() => removeUploadItem(item.id)}
+              />
             ))}
           </div>
         ) : null}
@@ -218,12 +257,12 @@ export function MeasurementImagesTab({ project }: Readonly<MeasurementImagesTabP
           <p className="designer-project-file-message designer-project-file-error">Create at least one project area before linking measurement images.</p>
         ) : null}
         {eligibleSchedules.length === 0 && !schedulesQuery.isLoading ? (
-          <p className="designer-project-file-message designer-project-file-error">No confirmed measurement schedule has reached its start time yet.</p>
+          <p className="designer-project-file-message designer-project-file-error">No confirmed or completed measurement schedule is available for this project.</p>
         ) : null}
         {uploadMessage ? <p className={`designer-project-file-message designer-project-file-${uploadMessage.tone}`}>{uploadMessage.text}</p> : null}
         <div className="designer-project-measurement-actions">
           <button className="designer-project-primary-button" disabled={isUploading || areas.length === 0 || eligibleSchedules.length === 0} type="submit">
-            {isUploading ? 'Uploading...' : 'Upload & Link'}
+            {isUploading ? 'Uploading...' : 'Upload Images & Link'}
           </button>
         </div>
       </form>
@@ -271,6 +310,33 @@ export function MeasurementImagesTab({ project }: Readonly<MeasurementImagesTabP
   );
 }
 
+function MeasurementUploadTile({ item, onRemove }: { item: MeasurementUploadItem; onRemove: () => void }) {
+  const [previewUrl, setPreviewUrl] = useState('');
+
+  useEffect(() => {
+    const objectUrl = URL.createObjectURL(item.file);
+    setPreviewUrl(objectUrl);
+
+    return () => URL.revokeObjectURL(objectUrl);
+  }, [item.file]);
+
+  return (
+    <article className={`designer-project-measurement-pending-item is-${item.status}`}>
+      {previewUrl ? <img alt={item.file.name} src={previewUrl} /> : <IconPhoto size={28} />}
+      <div>
+        <span title={item.file.name}>{item.file.name}</span>
+        <small>{formatUploadStatus(item.status)}</small>
+        {item.errorMessage ? <em>{item.errorMessage}</em> : null}
+      </div>
+      <div className="designer-project-measurement-pending-actions">
+        <button aria-label={`Remove ${item.file.name}`} disabled={item.status === 'uploading'} type="button" onClick={onRemove}>
+          <IconX size={14} />
+        </button>
+      </div>
+    </article>
+  );
+}
+
 function MeasurementImageCard({ image }: { image: MeasurementImageDto }) {
   const imageUrl = image.url ?? image.publicUrl;
 
@@ -298,11 +364,10 @@ function MeasurementImageCard({ image }: { image: MeasurementImageDto }) {
   );
 }
 
-function isEligibleMeasurementSchedule(schedule: { scheduledStart: string; status?: string | null }) {
+function isEligibleMeasurementSchedule(schedule: { status?: string | null }) {
   const status = normalizeStatus(schedule.status);
-  const startTime = new Date(schedule.scheduledStart).getTime();
 
-  return (status === 'CONFIRMED' || status === 'MEASUREMENT_CONFIRMED') && Number.isFinite(startTime) && Date.now() >= startTime;
+  return status === 'CONFIRMED' || status === 'MEASUREMENT_CONFIRMED' || status === 'COMPLETED';
 }
 
 function normalizeStatus(value?: string | null) {
@@ -312,18 +377,16 @@ function normalizeStatus(value?: string | null) {
     .toUpperCase();
 }
 
-function mergeSelectedFiles(currentFiles: File[], nextFiles: File[]) {
-  const filesByKey = new Map(currentFiles.map((file) => [getFileSelectionKey(file), file]));
-
-  nextFiles.forEach((file) => {
-    filesByKey.set(getFileSelectionKey(file), file);
-  });
-
-  return Array.from(filesByKey.values());
+function createUploadItemId(file: Pick<File, 'lastModified' | 'name' | 'size'>) {
+  return `${file.name}-${file.size}-${file.lastModified}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
-function getFileSelectionKey(file: Pick<File, 'lastModified' | 'name' | 'size'>) {
-  return `${file.name}-${file.size}-${file.lastModified}`;
+function formatUploadStatus(status: MeasurementUploadStatus) {
+  if (status === 'uploading') return 'Uploading';
+  if (status === 'uploaded') return 'Uploaded';
+  if (status === 'failed') return 'Failed';
+
+  return 'Pending';
 }
 
 function formatDateTime(value: string) {

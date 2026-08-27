@@ -1,9 +1,22 @@
-import { IconEdit, IconPlus, IconRulerMeasure, IconX } from '@tabler/icons-react';
+import { IconEdit, IconPhoto, IconPlus, IconRulerMeasure, IconUpload, IconX } from '@tabler/icons-react';
 import { useEffect, useMemo, useState } from 'react';
 
-import { getProjectAreaServiceResultMessage, type ProjectAreaDto, type ProjectAreaStatus, type ProjectAreaWriteInput } from '@/services/api/projectAreas';
+import {
+  getProjectAreaServiceResultMessage,
+  type ProjectAreaDto,
+  type ProjectAreaFileDto,
+  type ProjectAreaStatus,
+  type ProjectAreaWriteInput,
+} from '@/services/api/projectAreas';
 import type { ProjectDto } from '@/services/api/projects';
-import { useCreateProjectArea, useProjectAreaMeasurementImages, useProjectAreas, useUpdateProjectArea } from '@/services/queries';
+import {
+  useCreateProjectArea,
+  useProjectAreaFiles,
+  useProjectAreaMeasurementImages,
+  useProjectAreas,
+  useUpdateProjectArea,
+  useUploadProjectAreaFile,
+} from '@/services/queries';
 import { validateOptionalPositiveNumber } from '@/shared/utils/projectRequestValidation';
 
 type ProjectAreasTabProps = {
@@ -27,6 +40,15 @@ type AreaDraft = {
 type NumericAreaField = 'areaSqm' | 'width' | 'length' | 'height';
 
 type AreaFieldErrors = Partial<Record<'areaName' | 'floorNumber' | NumericAreaField, string>>;
+
+type SpecialAreaUploadStatus = 'pending' | 'uploading' | 'uploaded' | 'failed';
+
+type SpecialAreaUploadItem = {
+  id: string;
+  file: File;
+  status: SpecialAreaUploadStatus;
+  errorMessage?: string;
+};
 
 const LOCKED_AREA_STATUS: ProjectAreaStatus = 'VERIFIED';
 
@@ -263,6 +285,7 @@ export function ProjectAreasTab({ project }: Readonly<ProjectAreasTabProps>) {
               <span>Requirement Note</span>
               <textarea value={areaDraft.requirementNote} onChange={(event) => updateDraft('requirementNote', event.target.value)} />
             </label>
+            {areaDraft.isSpecialLayout ? <SpecialAreaBlueprintUpload projectAreaId={editingAreaId} /> : null}
             <div className="designer-project-area-form-actions">
               {isEditingArea ? (
                 <button className="designer-project-area-cancel-button" disabled={isSavingArea} type="button" onClick={resetAreaForm}>
@@ -286,6 +309,246 @@ export function ProjectAreasTab({ project }: Readonly<ProjectAreasTabProps>) {
         </section>
       </div>
     </section>
+  );
+}
+
+function SpecialAreaBlueprintUpload({ projectAreaId }: Readonly<{ projectAreaId: string | null }>) {
+  const [uploadItems, setUploadItems] = useState<SpecialAreaUploadItem[]>([]);
+  const [message, setMessage] = useState('');
+  const [messageTone, setMessageTone] = useState<'error' | 'success'>('success');
+  const filesQuery = useProjectAreaFiles(
+    projectAreaId ? { projectAreaId, fileType: 'REFERENCE_IMAGE', page: 1, limit: 20 } : undefined,
+    { enabled: Boolean(projectAreaId) },
+  );
+  const uploadFileMutation = useUploadProjectAreaFile();
+  const files = getSortedAreaFiles(filesQuery.data?.items ?? []);
+  const isUploading = uploadFileMutation.isPending;
+
+  function addUploadFiles(fileList: FileList | null) {
+    const nextFiles = Array.from(fileList ?? []).filter((file) => file.type.startsWith('image/'));
+
+    if (nextFiles.length === 0) {
+      return;
+    }
+
+    setUploadItems((currentItems) => [
+      ...currentItems,
+      ...nextFiles.map((file) => ({
+        file,
+        id: createUploadItemId(file),
+        status: 'pending' as const,
+      })),
+    ]);
+    setMessage('');
+  }
+
+  function removeUploadItem(itemId: string) {
+    setUploadItems((currentItems) => currentItems.filter((item) => item.id !== itemId));
+    setMessage('');
+  }
+
+  async function uploadSingleImage(item: SpecialAreaUploadItem, displayOrder: number) {
+    if (!projectAreaId) {
+      return null;
+    }
+
+    setUploadItems((currentItems) => currentItems.map((currentItem) => (
+      currentItem.id === item.id
+        ? { ...currentItem, status: 'uploading', errorMessage: undefined }
+        : currentItem
+    )));
+
+    try {
+      const uploadedFile = await uploadFileMutation.mutateAsync({
+        projectAreaId,
+        file: item.file,
+        fileType: 'REFERENCE_IMAGE',
+        visibility: 'STAFF_ONLY',
+        displayOrder,
+      });
+
+      setUploadItems((currentItems) => currentItems.map((currentItem) => (
+        currentItem.id === item.id
+          ? { ...currentItem, status: 'uploaded', errorMessage: undefined }
+          : currentItem
+      )));
+
+      return uploadedFile.fileId;
+    } catch (error) {
+      setUploadItems((currentItems) => currentItems.map((currentItem) => (
+        currentItem.id === item.id
+          ? { ...currentItem, status: 'failed', errorMessage: getProjectAreaServiceResultMessage(error) }
+          : currentItem
+      )));
+
+      return null;
+    }
+  }
+
+  async function uploadSelectedFiles() {
+    const uploadQueue = uploadItems.filter((item) => item.status !== 'uploaded');
+
+    if (!projectAreaId || uploadQueue.length === 0) {
+      return;
+    }
+
+    setMessage('');
+    setMessageTone('error');
+
+    let failedUploads = 0;
+    let uploadedCount = 0;
+
+    for (const item of uploadQueue) {
+      const itemIndex = uploadItems.findIndex((candidate) => candidate.id === item.id);
+      const uploadedFileId = await uploadSingleImage(item, files.length + itemIndex + 1);
+
+      if (uploadedFileId) {
+        uploadedCount += 1;
+      } else {
+        failedUploads += 1;
+      }
+    }
+
+    await filesQuery.refetch();
+    setUploadItems((currentItems) => currentItems.filter((item) => item.status === 'failed'));
+
+    if (failedUploads > 0) {
+      setMessageTone('error');
+      setMessage(`${uploadedCount} image(s) uploaded, ${failedUploads} failed. Please retry failed images.`);
+      return;
+    }
+
+    setMessageTone('success');
+    setMessage(`${uploadedCount} image(s) uploaded.`);
+  }
+
+  async function retryUpload(itemId: string) {
+    const item = uploadItems.find((candidate) => candidate.id === itemId);
+
+    if (!item) {
+      return;
+    }
+
+    setMessage('');
+    const uploadedFileId = await uploadSingleImage(item, files.length + 1);
+    await filesQuery.refetch();
+
+    if (uploadedFileId) {
+      setUploadItems((currentItems) => currentItems.filter((currentItem) => currentItem.id !== itemId));
+      setMessageTone('success');
+      setMessage('Image uploaded.');
+    }
+  }
+
+  return (
+    <section className="designer-project-area-blueprint-upload">
+      <div className="designer-project-area-blueprint-upload-header">
+        <IconPhoto size={18} />
+        <div>
+          <strong>Special Area Images</strong>
+          <span>Upload reference images for blueprint review.</span>
+        </div>
+      </div>
+
+      {!projectAreaId ? (
+        <p className="designer-project-area-blueprint-hint">Create this special area first, then update it to upload images.</p>
+      ) : (
+        <>
+          <label className="designer-project-area-blueprint-dropzone">
+            <input
+              accept="image/*"
+              multiple
+              type="file"
+              onClick={(event) => {
+                event.currentTarget.value = '';
+              }}
+              onChange={(event) => addUploadFiles(event.target.files)}
+            />
+            <span className="designer-project-area-blueprint-dropzone-body">
+              <IconUpload size={24} />
+              <strong>{uploadItems.length > 0 ? `${uploadItems.length} image(s) ready` : 'Choose special area images'}</strong>
+              <small>You can choose multiple images at once.</small>
+            </span>
+          </label>
+          {uploadItems.length > 0 ? (
+            <div className="designer-project-area-blueprint-pending-grid">
+              {uploadItems.map((item) => (
+                <SpecialAreaUploadTile
+                  item={item}
+                  key={item.id}
+                  onRemove={() => removeUploadItem(item.id)}
+                  onRetry={() => void retryUpload(item.id)}
+                />
+              ))}
+            </div>
+          ) : null}
+          <button disabled={isUploading || uploadItems.length === 0} type="button" onClick={() => void uploadSelectedFiles()}>
+            <IconUpload size={16} /> {isUploading ? 'Uploading...' : 'Upload Images'}
+          </button>
+          {message ? (
+            <p className={`designer-project-area-blueprint-message ${messageTone === 'success' ? 'is-success' : 'is-error'}`}>{message}</p>
+          ) : null}
+          {files.length > 0 ? (
+            <div className="designer-project-area-blueprint-grid">
+              {files.map((file) => {
+                const imageUrl = getAreaFileUrl(file);
+
+                return imageUrl ? (
+                  <figure key={file.fileId}>
+                    <a href={imageUrl} rel="noreferrer" target="_blank">
+                      <img alt={file.originalFileName ?? 'Special area reference'} src={imageUrl} />
+                    </a>
+                    <figcaption>
+                      <span>{file.originalFileName ?? 'Reference image'}</span>
+                    </figcaption>
+                  </figure>
+                ) : null;
+              })}
+            </div>
+          ) : null}
+        </>
+      )}
+    </section>
+  );
+}
+
+function SpecialAreaUploadTile({
+  item,
+  onRemove,
+  onRetry,
+}: Readonly<{
+  item: SpecialAreaUploadItem;
+  onRemove: () => void;
+  onRetry: () => void;
+}>) {
+  const [previewUrl, setPreviewUrl] = useState('');
+
+  useEffect(() => {
+    const objectUrl = URL.createObjectURL(item.file);
+    setPreviewUrl(objectUrl);
+
+    return () => URL.revokeObjectURL(objectUrl);
+  }, [item.file]);
+
+  return (
+    <article className={`designer-project-area-blueprint-pending-item is-${item.status}`}>
+      {previewUrl ? <img alt={item.file.name} src={previewUrl} /> : null}
+      <div>
+        <span>{item.file.name}</span>
+        <small>{formatUploadStatus(item.status)}</small>
+        {item.errorMessage ? <em>{item.errorMessage}</em> : null}
+      </div>
+      <div className="designer-project-area-blueprint-pending-actions">
+        {item.status === 'failed' ? (
+          <button aria-label={`Retry ${item.file.name}`} type="button" onClick={onRetry}>
+            Retry
+          </button>
+        ) : null}
+        <button aria-label={`Remove ${item.file.name}`} disabled={item.status === 'uploading'} type="button" onClick={onRemove}>
+          <IconX size={14} />
+        </button>
+      </div>
+    </article>
   );
 }
 
@@ -328,6 +591,11 @@ function ProjectAreaItem({ area, onUpdate }: Readonly<{ area: ProjectAreaDto; on
   const areaSqm = getProjectAreaSqm(area);
   const measurementImagesQuery = useProjectAreaMeasurementImages(area.projectAreaId);
   const measurementImages = measurementImagesQuery.data?.items ?? [];
+  const areaFilesQuery = useProjectAreaFiles(
+    area.isSpecialLayout ? { projectAreaId: area.projectAreaId, fileType: 'REFERENCE_IMAGE', page: 1, limit: 4 } : undefined,
+    { enabled: area.isSpecialLayout },
+  );
+  const areaFiles = getSortedAreaFiles(areaFilesQuery.data?.items ?? []);
 
   return (
     <article className="designer-project-area-item">
@@ -348,6 +616,19 @@ function ProjectAreaItem({ area, onUpdate }: Readonly<{ area: ProjectAreaDto; on
           <p><span>Current Condition</span>{area.currentCondition || '-'}</p>
           <p><span>Requirement Note</span>{area.requirementNote || '-'}</p>
         </details>
+        {areaFiles.length > 0 ? (
+          <div className="designer-project-area-blueprints">
+            {areaFiles.slice(0, 4).map((file) => {
+              const imageUrl = getAreaFileUrl(file);
+
+              return imageUrl ? (
+                <a href={imageUrl} key={file.fileId} rel="noreferrer" target="_blank" title={file.originalFileName ?? 'Special area reference'}>
+                  <img alt={file.originalFileName ?? area.areaName} src={imageUrl} />
+                </a>
+              ) : null;
+            })}
+          </div>
+        ) : null}
         {measurementImages.length > 0 ? (
           <div className="designer-project-area-measurements">
             {measurementImages.slice(0, 4).map((image) => {
@@ -367,6 +648,31 @@ function ProjectAreaItem({ area, onUpdate }: Readonly<{ area: ProjectAreaDto; on
       </button>
     </article>
   );
+}
+
+function getSortedAreaFiles(files: ProjectAreaFileDto[]) {
+  return [...files].sort((first, second) => {
+    return (first.displayOrder ?? 0) - (second.displayOrder ?? 0);
+  });
+}
+
+function getAreaFileUrl(file: ProjectAreaFileDto) {
+  return file.publicUrl ?? file.url ?? null;
+}
+
+function createUploadItemId(file: File) {
+  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
+    return crypto.randomUUID();
+  }
+
+  return `${file.name}-${file.size}-${file.lastModified}-${Math.random().toString(36).slice(2)}`;
+}
+
+function formatUploadStatus(status: SpecialAreaUploadStatus) {
+  if (status === 'uploading') return 'Uploading';
+  if (status === 'uploaded') return 'Uploaded';
+  if (status === 'failed') return 'Failed';
+  return 'Ready';
 }
 
 function getAreasOldestFirst(areas: ProjectAreaDto[]) {

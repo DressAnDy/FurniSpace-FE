@@ -25,7 +25,8 @@ import {
   getLevelCenter,
   type BuildingProjectFloorAreaSource,
 } from '@/features/ThreeDTest/utils/buildingTestSceneFactory';
-import { useProjectAreas, useProposalDetail, useRoomPlannerScene } from '@/services/queries';
+import type { RoomPlannerAreaBlueprintDto } from '@/services/api/proposals';
+import { useProjectAreaFiles, useProjectAreas, useProposalDetail, useRoomPlannerScene } from '@/services/queries';
 
 import '@/features/ThreeD/pages/ThreeDTestPage.css';
 import './BuildingBlueprintTestPage.css';
@@ -53,6 +54,7 @@ type BuildingBlueprintRouteState = {
   proposalId?: string;
   returnTo?: string;
   transientPlacedProducts?: PlacedBuildingProduct[];
+  transientSceneData?: BuildingTestScene;
   transientSelectedProductId?: string | null;
 };
 
@@ -63,6 +65,18 @@ type NumberFieldProps = {
   onChange: (value: number) => void;
   step?: number;
   value: number;
+};
+
+type BlueprintReferenceImage = {
+  displayOrder?: number | null;
+  fileId: string;
+  originalFileName?: string | null;
+  publicUrl?: string | null;
+};
+
+type BlueprintPreviewImage = {
+  name: string;
+  url: string;
 };
 
 function clamp(value: number, min: number, max = Number.POSITIVE_INFINITY) {
@@ -886,8 +900,8 @@ function syncLinkedLevelDimensionsFromAreas(
     }
 
     const isSpecialLayout = area.isSpecialLayout === true;
-    const width = isSpecialLayout ? level.width : typeof area.width === 'number' ? Math.max(area.width, 4) : level.width;
-    const depth = isSpecialLayout ? level.depth : typeof area.length === 'number' ? Math.max(area.length, 4) : level.depth;
+    const width = typeof area.width === 'number' ? Math.max(area.width, 4) : level.width;
+    const depth = typeof area.length === 'number' ? Math.max(area.length, 4) : level.depth;
     const height = typeof area.height === 'number' ? Math.max(area.height, 2.4) : level.height;
     const wallHeight = typeof area.height === 'number' ? Math.max(area.height - 0.25, 1.8) : level.wallHeight;
     const layoutSize = level.layout ? getLayoutSize(level.layout) : null;
@@ -945,7 +959,95 @@ function getLevelAreaInfo(
 }
 
 function hasAreaDimensions(areaInfo: ReturnType<typeof getLevelAreaInfo>) {
-  return !areaInfo.isSpecialLayout && (typeof areaInfo.width === 'number' || typeof areaInfo.length === 'number' || typeof areaInfo.height === 'number');
+  return typeof areaInfo.width === 'number' || typeof areaInfo.length === 'number' || typeof areaInfo.height === 'number';
+}
+
+function getSortedAreaBlueprints(files: RoomPlannerAreaBlueprintDto[], projectAreaId: string | null | undefined) {
+  if (!projectAreaId) {
+    return [];
+  }
+
+  return mergeBlueprintReferenceImages(files
+    .filter((file) => file.projectAreaId === projectAreaId)
+    .sort(compareAreaBlueprints));
+}
+
+function compareAreaBlueprints(first: RoomPlannerAreaBlueprintDto, second: RoomPlannerAreaBlueprintDto) {
+  return (first.displayOrder ?? 0) - (second.displayOrder ?? 0);
+}
+
+function mergeBlueprintReferenceImages(...groups: BlueprintReferenceImage[][]) {
+  const imageById = new Map<string, BlueprintReferenceImage>();
+
+  groups.flat().forEach((file) => {
+    if (!file.fileId) {
+      return;
+    }
+
+    const currentFile = imageById.get(file.fileId);
+    imageById.set(file.fileId, {
+      ...currentFile,
+      ...file,
+      publicUrl: file.publicUrl ?? currentFile?.publicUrl ?? null,
+      originalFileName: file.originalFileName ?? currentFile?.originalFileName ?? null,
+    });
+  });
+
+  return [...imageById.values()].sort((first, second) => (first.displayOrder ?? 0) - (second.displayOrder ?? 0));
+}
+
+function BlueprintFloorImagesDrop({
+  fallbackFiles,
+  onOpenImage,
+}: Readonly<{
+  fallbackFiles: BlueprintReferenceImage[];
+  onOpenImage: (image: BlueprintPreviewImage) => void;
+}>) {
+  const files = mergeBlueprintReferenceImages(fallbackFiles);
+
+  return (
+    <details className="blueprint-floor-images-drop">
+      <summary>Special area images ({files.length})</summary>
+      {files.length > 0 ? (
+        <div className="blueprint-floor-images-grid">
+          {files.map((file) => (
+            <BlueprintImageThumb file={file} key={file.fileId} onOpenImage={onOpenImage} />
+          ))}
+        </div>
+      ) : (
+        <p>No special area images yet.</p>
+      )}
+    </details>
+  );
+}
+
+function BlueprintImageThumb({
+  file,
+  onOpenImage,
+}: Readonly<{
+  file: BlueprintReferenceImage;
+  onOpenImage: (image: BlueprintPreviewImage) => void;
+}>) {
+  if (!file.publicUrl) {
+    return null;
+  }
+
+  const imageName = file.originalFileName ?? 'Special area image';
+
+  return (
+    <span className="blueprint-reference-image-thumb">
+      <a href={file.publicUrl} rel="noreferrer" target="_blank" title={imageName}>
+        <img alt={imageName} src={file.publicUrl} />
+      </a>
+      <button
+        aria-label={`Preview ${imageName}`}
+        type="button"
+        onClick={() => onOpenImage({ name: imageName, url: file.publicUrl as string })}
+      >
+        +
+      </button>
+    </span>
+  );
 }
 
 function NumberField({ label, max, min = 0, onChange, step = 0.1, value }: NumberFieldProps) {
@@ -1005,6 +1107,7 @@ export function BuildingBlueprintTestPage() {
   const { sceneData, setRemoteSceneData, setSceneData, shouldKeepSceneDraft } = useBuildingTestSceneState(sceneId);
   const hasLocalSceneEditsRef = useRef(false);
   const appliedAreaTemplateRef = useRef<string | null>(null);
+  const appliedTransientSceneRef = useRef<BuildingTestScene | null>(null);
   const roomPlannerSceneQuery = useRoomPlannerScene(sceneId, { enabled: Boolean(sceneId) });
   const currentProposalId = routeState?.proposalId ?? roomPlannerSceneQuery.data?.proposalId ?? null;
   const proposalDetailQuery = useProposalDetail(currentProposalId ?? undefined, {
@@ -1019,6 +1122,8 @@ export function BuildingBlueprintTestPage() {
   const [activeTool, setActiveTool] = useState<BlueprintTool>('select');
   const [selectedItem, setSelectedItem] = useState<SelectedRoomItem | null>(null);
   const [blueprintMessage, setBlueprintMessage] = useState('');
+  const [showSpecialAreaImages, setShowSpecialAreaImages] = useState(false);
+  const [previewImage, setPreviewImage] = useState<BlueprintPreviewImage | null>(null);
   const bounds = useMemo(() => {
     const padding = 28;
     const scale = Math.min(760 / sceneData.site.width, 560 / sceneData.site.depth);
@@ -1115,6 +1220,16 @@ export function BuildingBlueprintTestPage() {
   ]);
 
   useEffect(() => {
+    if (!routeState?.transientSceneData || appliedTransientSceneRef.current === routeState.transientSceneData) {
+      return;
+    }
+
+    appliedTransientSceneRef.current = routeState.transientSceneData;
+    hasLocalSceneEditsRef.current = true;
+    setSceneData(routeState.transientSceneData);
+  }, [routeState?.transientSceneData, setSceneData]);
+
+  useEffect(() => {
     setSelectedItem(null);
   }, [activeLayer]);
 
@@ -1157,6 +1272,26 @@ export function BuildingBlueprintTestPage() {
   const activeLayerLabel = levelTabs.find((tab) => tab.value === activeLayer)?.label ?? 'Layer';
   const activeToolLabel = blueprintTools.find((tool) => tool.value === activeTool)?.label ?? 'Tool';
   const activeAreaInfo = activeLevel ? getLevelAreaInfo(areaByProjectAreaId, activeLevel) : null;
+  const activeAreaFilesQuery = useProjectAreaFiles(
+    activeAreaInfo?.isSpecialLayout && activeAreaInfo.projectAreaId
+      ? { projectAreaId: activeAreaInfo.projectAreaId, fileType: 'REFERENCE_IMAGE', page: 1, limit: 50 }
+      : undefined,
+    { enabled: Boolean(activeAreaInfo?.isSpecialLayout && activeAreaInfo.projectAreaId) },
+  );
+  const activeAreaBlueprints = useMemo(() => {
+    if (!activeAreaInfo?.isSpecialLayout || !activeAreaInfo.projectAreaId) {
+      return [];
+    }
+
+    return mergeBlueprintReferenceImages(
+      roomPlannerSceneQuery.data?.areaBlueprints?.filter((file) => file.projectAreaId === activeAreaInfo.projectAreaId) ?? [],
+      activeAreaFilesQuery.data?.items ?? [],
+    );
+  }, [activeAreaFilesQuery.data?.items, activeAreaInfo, roomPlannerSceneQuery.data?.areaBlueprints]);
+
+  useEffect(() => {
+    setShowSpecialAreaImages(false);
+  }, [activeAreaInfo?.projectAreaId]);
 
   function updateSceneDraft(update: Parameters<typeof setSceneData>[0]) {
     hasLocalSceneEditsRef.current = true;
@@ -1228,7 +1363,10 @@ export function BuildingBlueprintTestPage() {
     hasLocalSceneEditsRef.current = true;
     setSceneData(nextScene);
     navigate(sceneId ? `/proposal-scenes/${sceneId}/room-planner` : '/3d-building-test', {
-      state: routeState ?? undefined,
+      state: {
+        ...(routeState ?? {}),
+        transientSceneData: nextScene,
+      },
     });
   }
 
@@ -1293,6 +1431,11 @@ export function BuildingBlueprintTestPage() {
           <h1>Layered campus layout</h1>
         </div>
         <nav>
+          {activeAreaInfo?.isSpecialLayout ? (
+            <button type="button" onClick={() => setShowSpecialAreaImages((current) => !current)}>
+              {showSpecialAreaImages ? 'Hide Images' : 'Show Images'} ({activeAreaBlueprints.length})
+            </button>
+          ) : null}
           <button type="button" onClick={openThreeDPlanner}>
             Open 3D
           </button>
@@ -1505,6 +1648,9 @@ export function BuildingBlueprintTestPage() {
                 const layoutModeLabel = areaInfo.isSpecialLayout ? 'Special layout' : 'Standard';
                 const levelCenter = getLevelCenter(sceneData, level);
                 const stairOpening = level.floorOpenings?.[0] ?? null;
+                const sceneLevelBlueprints = getSortedAreaBlueprints(roomPlannerSceneQuery.data?.areaBlueprints ?? [], level.projectAreaId);
+                const activeLevelFileBlueprints = activeAreaInfo?.projectAreaId === level.projectAreaId ? activeAreaFilesQuery.data?.items ?? [] : [];
+                const levelBlueprints = mergeBlueprintReferenceImages(sceneLevelBlueprints, activeLevelFileBlueprints);
 
                 return (
                   <div className="blueprint-floor-card" key={level.id}>
@@ -1512,6 +1658,9 @@ export function BuildingBlueprintTestPage() {
                       <strong>{level.label}</strong>
                       <span>{level.projectAreaId ? `Linked project area - ${layoutModeLabel}` : 'Manual floor'}</span>
                     </div>
+                    {areaInfo.isSpecialLayout ? (
+                      <BlueprintFloorImagesDrop fallbackFiles={levelBlueprints} onOpenImage={setPreviewImage} />
+                    ) : null}
                   {isDimensionLocked ? (
                     <>
                       <ReadonlyMetricField label="Width" value={formatOptionalMetric(areaInfo.width, 'm')} />
@@ -1660,6 +1809,18 @@ export function BuildingBlueprintTestPage() {
             </div>
           </div>
 
+          {activeAreaInfo?.isSpecialLayout && showSpecialAreaImages ? (
+            <aside className="building-blueprint-special-images-panel">
+              <div className="building-blueprint-special-images-grid">
+                {activeAreaBlueprints.length > 0 ? activeAreaBlueprints.map((file) => (
+                  <BlueprintImageThumb file={file} key={file.fileId} onOpenImage={setPreviewImage} />
+                )) : (
+                  <p>No special area images yet.</p>
+                )}
+              </div>
+            </aside>
+          ) : null}
+
           {currentLevelId ? (
             <BlueprintCanvas
               activeTool={activeTool}
@@ -1739,6 +1900,17 @@ export function BuildingBlueprintTestPage() {
           )}
         </section>
       </section>
+      {previewImage ? (
+        <div className="building-blueprint-image-modal" role="dialog" aria-modal="true" aria-label={previewImage.name}>
+          <button className="building-blueprint-image-modal-backdrop" type="button" aria-label="Close image preview" onClick={() => setPreviewImage(null)} />
+          <section className="building-blueprint-image-modal-dialog">
+            <button className="building-blueprint-image-modal-close" type="button" aria-label="Close image preview" onClick={() => setPreviewImage(null)}>
+              X
+            </button>
+            <img alt={previewImage.name} src={previewImage.url} />
+          </section>
+        </div>
+      ) : null}
     </main>
   );
 }
