@@ -84,28 +84,137 @@ export type AdminFinancialSummaryParams = {
   currency?: string | null;
 };
 
+export type AdminFinancialDrilldownMetric =
+  | 'COLLECTED'
+  | 'OUTSTANDING'
+  | 'CONTRACTED_RECEIVABLE'
+  | 'ORDER_VALUE'
+  | 'FAILED_TRANSACTIONS'
+  | 'ACTIVE_PAYMENTS';
+
+export type AdminFinancialDrilldownBreakdownItemDto = {
+  key: string;
+  label: string;
+  amount: number | null;
+  count: number;
+  percentage: number;
+};
+
+export type AdminFinancialDrilldownBreakdownDto = {
+  dimension: string;
+  items: AdminFinancialDrilldownBreakdownItemDto[];
+};
+
+export type AdminFinancialDrilldownItemDto = {
+  resourceType: 'PAYMENT' | 'ORDER' | 'TRANSACTION' | string;
+  projectId: string | null;
+  projectCode: string | null;
+  projectName: string | null;
+  orderId: string | null;
+  orderCode: string | null;
+  orderStatus: string | null;
+  paymentId: string | null;
+  paymentCode: string | null;
+  transactionId: string | null;
+  paymentType: FinancialPaymentType | null;
+  status: string | null;
+  provider: FinancialPaymentProvider | string | null;
+  amount: number | null;
+  paidAmount: number | null;
+  remainingAmount: number | null;
+  occurredAt: string | null;
+  expiredAt: string | null;
+  failureReason: string | null;
+  ageDays: number | null;
+  projectStartFeeAmount?: number | null;
+  depositAmount?: number | null;
+  remainingPaymentAmount?: number | null;
+  fullPaymentAmount?: number | null;
+  totalCollectedAmount?: number | null;
+  paymentCount?: number | null;
+  lastPaidAt?: string | null;
+  customerName?: string | null;
+  orderFinalTotal?: number | null;
+  orderPaidAmount?: number | null;
+  orderRemainingAmount?: number | null;
+};
+
+export type AdminFinancialSummaryDrilldownDto = {
+  metric: AdminFinancialDrilldownMetric;
+  totalAmount: number | null;
+  totalCount: number;
+  currency: string;
+  period: AdminFinancialPeriodDto;
+  breakdowns: AdminFinancialDrilldownBreakdownDto[];
+  items: AdminFinancialDrilldownItemDto[];
+  page: number;
+  pageSize: number;
+  totalItems: number;
+  totalPages: number;
+};
+
+export type AdminFinancialSummaryDrilldownParams = {
+  from: string;
+  to: string;
+  currency?: string | null;
+  groupBy?: 'PROJECT' | null;
+  projectId?: string | null;
+  paymentType?: FinancialPaymentType | null;
+  status?: string | null;
+  provider?: FinancialPaymentProvider | null;
+  page?: number;
+  pageSize?: number;
+  sortBy?:
+    | 'amount'
+    | 'ageDays'
+    | 'projectCode'
+    | 'paymentCode'
+    | 'orderCode'
+    | 'occurredAt'
+    | 'totalCollectedAmount'
+    | 'lastPaidAt'
+    | 'paymentCount'
+    | null;
+  sortDirection?: 'asc' | 'desc' | null;
+};
+
 export type AdminFinancialReceivableItemDto = {
   projectId: string;
   projectCode: string | null;
   projectName: string;
+  customerId?: string | null;
+  customerName?: string | null;
   orderId: string;
   orderCode: string;
   orderStatus: string | null;
+  confirmedAt?: string | null;
   finalTotalAmount: number;
   paidAmount: number | null;
   remainingAmount: number | null;
+  paymentProgressPercentage?: number | null;
+  collectionState?: AdminFinancialCollectionState | null;
+  receivableAgeDays?: number | null;
+  lastPaidAt?: string | null;
   activePaymentId: string | null;
   activePaymentType: FinancialPaymentType | null;
   activePaymentAmount: number | null;
   activePaymentStatus: FinancialPaymentStatus | null;
+  activePaymentExpiredAt?: string | null;
+  lastPaymentFailureReason?: string | null;
   isPaymentCreated: boolean;
 };
+
+export type AdminFinancialCollectionState = 'NOT_CREATED' | 'PENDING' | 'PROCESSING' | 'EXPIRED' | 'FAILED';
 
 export type AdminFinancialReceivablesDto = {
   outstandingPaymentAmount: number;
   outstandingPaymentCount: number;
   contractedReceivableAmount: number;
   ordersWithReceivableCount: number;
+  withoutPaymentCount?: number;
+  activeCollectionCount?: number;
+  expiredPaymentCount?: number;
+  failedPaymentCount?: number;
   items: AdminFinancialReceivableItemDto[];
   page: number;
   pageSize: number;
@@ -114,18 +223,70 @@ export type AdminFinancialReceivablesDto = {
 };
 
 export type AdminFinancialReceivablesParams = {
+  keyword?: string | null;
   projectId?: string | null;
   customerId?: string | null;
   salesId?: string | null;
   paymentType?: FinancialPaymentType | null;
   paymentStatus?: FinancialPaymentStatus | null;
   orderStatus?: string | null;
+  collectionState?: AdminFinancialCollectionState | null;
+  minAgeDays?: number | null;
+  maxAgeDays?: number | null;
+  confirmedFrom?: string | null;
+  confirmedTo?: string | null;
   from?: string | null;
   to?: string | null;
   page?: number;
   pageSize?: number;
   sortBy?: string | null;
   sortDirection?: 'asc' | 'desc' | null;
+};
+
+export type AdminFinancialReceivablePaymentRoundDto = {
+  paymentId: string | null;
+  paymentCode?: string | null;
+  paymentType: 'DEPOSIT' | 'REMAINING_PAYMENT';
+  amount: number;
+  status: FinancialPaymentStatus | 'NOT_CREATED' | string;
+  provider?: FinancialPaymentProvider | string | null;
+  createdAt?: string | null;
+  paidAt?: string | null;
+  expiredAt?: string | null;
+  attemptCount?: number;
+  failedAttemptCount?: number;
+  lastFailureReason?: string | null;
+};
+
+export type AdminFinancialReceivableOrderDetailDto = {
+  order: {
+    orderId: string;
+    orderCode: string;
+    orderStatus: string | null;
+    confirmedAt: string | null;
+    finalTotalAmount: number;
+  };
+  project: {
+    projectId: string;
+    projectCode: string | null;
+    projectName: string;
+  };
+  customer: {
+    customerId: string | null;
+    customerName: string | null;
+  };
+  summary: {
+    paidAmount: number;
+    remainingAmount: number;
+    paymentProgressPercentage: number;
+    receivableAgeDays: number;
+    collectionState: AdminFinancialCollectionState;
+    lastPaidAt: string | null;
+    finalTotalAmount?: number;
+  };
+  paymentRounds: AdminFinancialReceivablePaymentRoundDto[];
+  activePayment: AdminFinancialReceivablePaymentRoundDto | null;
+  suggestedAction: string | null;
 };
 
 export type AdminFinancialPaymentBreakdownItemDto = {
@@ -194,6 +355,59 @@ export type AdminFinancialProjectRowDto = {
   activePaymentStatus: FinancialPaymentStatus | null;
   totalProjectCashCollected: number;
   lastPaidAt: string | null;
+};
+
+export type AdminFinancialStatementEntryType = 'COLLECTION' | 'REFUND' | 'ADJUSTMENT';
+export type AdminFinancialStatementDirection = 'CREDIT' | 'DEBIT';
+
+export type AdminFinancialProjectStatementItemDto = {
+  entryId: string;
+  occurredAt: string;
+  direction: AdminFinancialStatementDirection;
+  entryType: AdminFinancialStatementEntryType;
+  paymentType: FinancialPaymentType | null;
+  description: string;
+  referenceCode: string | null;
+  orderId: string | null;
+  orderCode: string | null;
+  paymentId: string | null;
+  provider: FinancialPaymentProvider | string | null;
+  status: string | null;
+  amount: number;
+  runningBalance: number;
+};
+
+export type AdminFinancialProjectStatementDto = {
+  project: {
+    projectId: string;
+    projectCode: string | null;
+    projectName: string;
+    customerName: string | null;
+  };
+  summary: {
+    openingBalance: number;
+    totalCollected: number;
+    totalRefunded: number;
+    netCollected: number;
+    closingBalance: number;
+  };
+  items: AdminFinancialProjectStatementItemDto[];
+  page: number;
+  pageSize: number;
+  totalItems: number;
+  totalPages: number;
+};
+
+export type AdminFinancialProjectStatementParams = {
+  from?: string | null;
+  to?: string | null;
+  entryType?: AdminFinancialStatementEntryType | null;
+  paymentType?: FinancialPaymentType | null;
+  status?: string | null;
+  provider?: FinancialPaymentProvider | null;
+  page?: number;
+  pageSize?: number;
+  sortDirection?: 'asc' | 'desc' | null;
 };
 
 export type AdminFinancialProjectsDto = {
@@ -352,6 +566,27 @@ export async function getAdminFinancialSummary(params: AdminFinancialSummaryPara
   return response.data.data;
 }
 
+export async function getAdminFinancialSummaryDrilldown(
+  metric: AdminFinancialDrilldownMetric,
+  params: AdminFinancialSummaryDrilldownParams,
+) {
+  const response = await financialApiClient.get<ServiceResult<AdminFinancialSummaryDrilldownDto>>(
+    `${FINANCIAL_BASE}/summary/${metric}/drilldown`,
+    {
+      params: cleanParams({
+        ...params,
+        currency: params.currency ?? 'VND',
+        page: params.page ?? 1,
+        pageSize: params.pageSize ?? 10,
+        sortBy: params.sortBy ?? 'occurredAt',
+        sortDirection: params.sortDirection ?? 'desc',
+      }),
+    },
+  );
+
+  return response.data.data;
+}
+
 export async function getAdminFinancialReceivables(params: AdminFinancialReceivablesParams = {}) {
   const response = await financialApiClient.get<ServiceResult<AdminFinancialReceivablesDto>>(`${FINANCIAL_BASE}/receivables`, {
     params: cleanParams(params),
@@ -364,6 +599,14 @@ export async function getAdminFinancialReceivableItems(params: AdminFinancialRec
   const response = await financialApiClient.get<ServiceResult<AdminFinancialReceivablesDto>>(
     `${FINANCIAL_BASE}/receivables/items`,
     { params: cleanParams(params) },
+  );
+
+  return response.data.data;
+}
+
+export async function getAdminFinancialReceivableOrderDetail(orderId: string) {
+  const response = await financialApiClient.get<ServiceResult<AdminFinancialReceivableOrderDetailDto>>(
+    `${FINANCIAL_BASE}/receivables/orders/${orderId}`,
   );
 
   return response.data.data;
@@ -411,6 +654,18 @@ export async function getAdminFinancialProjects(params: AdminFinancialProjectsPa
 export async function getAdminFinancialProject(projectId: string) {
   const response = await financialApiClient.get<ServiceResult<AdminFinancialProjectRowDto>>(
     `${FINANCIAL_BASE}/projects/${projectId}`,
+  );
+
+  return response.data.data;
+}
+
+export async function getAdminFinancialProjectStatement(
+  projectId: string,
+  params: AdminFinancialProjectStatementParams = {},
+) {
+  const response = await financialApiClient.get<ServiceResult<AdminFinancialProjectStatementDto>>(
+    `${FINANCIAL_BASE}/projects/${projectId}/statement`,
+    { params: cleanParams(params) },
   );
 
   return response.data.data;
