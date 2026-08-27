@@ -169,6 +169,7 @@ export function ProductionRequestDetail() {
             <Meta label="Status" value={<ProductionStatusBadge label={getProductionRequestStatusLabel(request.status)} status={request.status} />} />
             <Meta label="Priority" value={request.priority} />
             <Meta label="Assigned Staff" value={request.assignedToName ?? '-'} />
+            <Meta label="Production Deadline" value={formatDate(request.productionDeadline)} />
             <Meta label="Estimated Start Date" value={formatDate(request.estimatedStartDate)} />
             <Meta label="Estimated Completion Date" value={formatDate(request.estimatedCompletionDate)} />
             <Meta label="Actual Start Date" value={formatDate(request.actualStartDate)} />
@@ -199,7 +200,8 @@ export function ProductionRequestDetail() {
               <Field label="Order Summary" value={`${request.orderCode}, ${request.items.length} production item(s)`} />
               <Field label="Assigned Production Staff" value={request.assignedToName ?? '-'} />
               <Field label="Request Note" value={request.note ?? '-'} />
-              <Field label="Important Deadlines" value={`Start ${formatDate(request.estimatedStartDate)} / Complete ${formatDate(request.estimatedCompletionDate)}`} />
+              <Field label="Production Deadline" value={formatDate(request.productionDeadline)} />
+              <Field label="Internal Estimate" value={`Start ${formatDate(request.estimatedStartDate)} / Complete ${formatDate(request.estimatedCompletionDate)}`} />
               <Field label="Created" value={formatDate(request.createdAt)} />
               <Field label="Actual Timeline" value={`Start ${formatDate(request.actualStartDate)} / Complete ${formatDate(request.actualCompletionDate)}`} />
               <Field label="Cancellation Reason" value={request.cancellationReason ?? '-'} />

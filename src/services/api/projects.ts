@@ -219,6 +219,7 @@ export type ProjectSpaceDataStatus = 'SUFFICIENT' | 'INSUFFICIENT';
 export type AssignDesignerInput = {
   projectId: string;
   designerId: string;
+  proposalDeadline: string;
   spaceDataStatus: ProjectSpaceDataStatus;
   note?: string | null;
 };
@@ -231,6 +232,7 @@ export type AssignDesignerData = {
   };
   status: ProjectStatus;
   designerAssignedAt: string;
+  proposalDeadline?: string | null;
 };
 
 export type UpdateProjectStatusInput = {
@@ -332,6 +334,7 @@ export type ProjectWorkflowDto = {
 export type ProjectPhaseDeadlinePhase = 'REQUEST' | 'DESIGN' | 'QUOTATION' | 'PRODUCTION' | 'DELIVERY' | 'PROPOSAL' | string;
 
 export type ProjectPhaseDeadlineStatus =
+  | 'NOT_STARTED'
   | 'PLANNED'
   | 'ON_TRACK'
   | 'OVERDUE'
@@ -358,6 +361,11 @@ export type UpdateProjectPhaseDeadlinesInput = {
   projectId: string;
   proposalDueDate?: string | null;
   productionDueDate?: string | null;
+};
+
+export type UpdateProductionDeadlineInput = {
+  projectId: string;
+  productionDeadline: string;
 };
 
 export function getProjectServiceResultMessage(error: unknown) {
@@ -491,6 +499,7 @@ export async function requestProjectInformation(input: ProjectInformationRequest
 export async function assignDesignerToProject(input: AssignDesignerInput) {
   const response = await projectApiClient.patch<ServiceResult<AssignDesignerData>>(`/projects/${input.projectId}/designer-assignment`, {
     designerId: input.designerId,
+    proposalDeadline: input.proposalDeadline,
     spaceDataStatus: input.spaceDataStatus,
     note: input.note?.trim() || null,
   });
@@ -525,6 +534,17 @@ export async function updateProjectPhaseDeadlines(input: UpdateProjectPhaseDeadl
   );
 
   return normalizeProjectPhaseDeadlines(response.data.data);
+}
+
+export async function updateProductionDeadline(input: UpdateProductionDeadlineInput) {
+  const response = await projectApiClient.put<ServiceResult<ProjectPhaseDeadlineItemDto>>(
+    `/projects/${input.projectId}/phase-deadlines/production`,
+    {
+      productionDeadline: input.productionDeadline,
+    },
+  );
+
+  return normalizeProjectPhaseDeadline(response.data.data);
 }
 
 export async function completeProject(projectId: string) {
@@ -649,11 +669,15 @@ function clearMultipartContentType(headers: unknown) {
 function normalizeProjectPhaseDeadlines(data: ProjectPhaseDeadlinesDto): ProjectPhaseDeadlinesDto {
   return {
     ...data,
-    deadlines: data.deadlines.map((deadline) => ({
-      ...deadline,
-      deadlineAt: deadline.deadlineAt ?? deadline.dueDate ?? null,
-      dueDate: deadline.dueDate ?? deadline.deadlineAt ?? null,
-    })),
+    deadlines: data.deadlines.map(normalizeProjectPhaseDeadline),
+  };
+}
+
+function normalizeProjectPhaseDeadline(deadline: ProjectPhaseDeadlineItemDto): ProjectPhaseDeadlineItemDto {
+  return {
+    ...deadline,
+    deadlineAt: deadline.deadlineAt ?? deadline.dueDate ?? null,
+    dueDate: deadline.dueDate ?? deadline.deadlineAt ?? null,
   };
 }
 
@@ -675,6 +699,13 @@ function getProjectErrorMessages(result: ServiceResult<unknown>) {
 
 function getProjectErrorCodeMessage(errorCode: string) {
   const messages: Record<string, string> = {
+    PROPOSAL_DEADLINE_REQUIRED: 'Please select a proposal deadline before assigning the designer.',
+    PROPOSAL_DEADLINE_INVALID: 'Proposal deadline is invalid. Please choose another date.',
+    PRODUCTION_DEADLINE_REQUIRED: 'Please set the production deadline before creating a production request.',
+    PRODUCTION_DEADLINE_INVALID: 'Production deadline is invalid. Please choose another date.',
+    INVALID_PROJECT_STATUS: 'This project status cannot update the requested deadline yet.',
+    ORDER_REQUIRED: 'An order is required before setting the production deadline.',
+    PHASE_DEADLINE_UPSERT_DEPRECATED: 'This deadline endpoint is deprecated. Please use the current deadline flow.',
     PROJECT_NOT_DELIVERED: 'Dự án chưa ở trạng thái đã giao hàng.',
     RELATED_ORDER_NOT_COMPLETED: 'Đơn hàng liên quan chưa hoàn tất. Vui lòng chờ thanh toán cuối được xác nhận hoặc hoàn tất đơn hàng zero-remaining.',
     RELATED_ORDER_NOT_FOUND: 'Không tìm thấy đơn hàng liên quan đến dự án.',

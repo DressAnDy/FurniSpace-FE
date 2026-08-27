@@ -97,19 +97,31 @@
 .designer-project-measurement-form-grid label,.designer-project-measurement-filters label { display: grid; min-width: 0; gap: 6px; }
 .designer-project-measurement-form-grid label span,.designer-project-measurement-filters label span { color: #71717a; font-size: 11px; font-weight: 800; text-transform: uppercase; }
 .designer-project-measurement-form-grid input,.designer-project-measurement-form-grid select,.designer-project-measurement-filters select { width: 100%; min-height: 38px; border: 1px solid #e4e4e7; border-radius: 10px; background: #ffffff; color: #18181b; font: inherit; font-size: 13px; padding: 8px 10px; }
-.designer-project-measurement-file-picker { display: grid; gap: 8px; border: 1px dashed rgba(154, 113, 59, 0.35); border-radius: 12px; background: #ffffff; padding: 14px; }
-.designer-project-measurement-file-picker > span { color: #71717a; font-size: 11px; font-weight: 800; text-transform: uppercase; }
-.designer-project-measurement-file-picker input { display: none; }
-.designer-project-measurement-file-picker button { display: inline-flex; width: fit-content; min-height: 36px; align-items: center; justify-content: center; gap: 8px; border: 1px solid rgba(154, 113, 59, 0.28); border-radius: 10px; background: #faf9f7; color: #18181b; cursor: pointer; font: inherit; font-size: 13px; font-weight: 800; padding: 8px 12px; }
-.designer-project-measurement-file-picker button svg { color: #9a713b; }
-.designer-project-measurement-file-picker button:disabled { cursor: not-allowed; opacity: 0.55; }
-.designer-project-measurement-file-picker small { color: #71717a; font-size: 12px; line-height: 18px; }
-.designer-project-measurement-preview-grid { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); }
-.designer-project-measurement-preview-grid article { display: grid; gap: 7px; min-width: 0; border: 1px solid rgba(24, 24, 27, 0.08); border-radius: 10px; background: #ffffff; padding: 8px; }
-.designer-project-measurement-preview-grid img { width: 100%; aspect-ratio: 4 / 3; border-radius: 8px; background: #f7f7f5; object-fit: cover; }
-.designer-project-measurement-preview-grid span { overflow: hidden; color: #52525b; font-size: 11px; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
-.designer-project-measurement-preview-grid button { min-height: 28px; border: 1px solid #e4e4e7; border-radius: 8px; background: #ffffff; color: #71717a; cursor: pointer; font: inherit; font-size: 11px; font-weight: 800; }
-.designer-project-measurement-preview-grid button:disabled { cursor: not-allowed; opacity: 0.55; }
+.designer-project-measurement-file-picker { display: grid; gap: 8px; }
+.designer-project-measurement-dropzone { display: block; position: relative; width: 100%; cursor: pointer; }
+.designer-project-measurement-dropzone input { position: absolute; inset: 0; width: 100%; height: 100%; cursor: pointer; opacity: 0; z-index: 1; }
+.designer-project-measurement-dropzone-body { display: grid; min-height: 112px; place-items: center; gap: 6px; border: 1px dashed rgba(154, 113, 59, 0.52); border-radius: 12px; background: #ffffff; color: #9a713b; padding: 16px; text-align: center; transition: border-color 0.16s ease, box-shadow 0.16s ease, transform 0.16s ease; }
+.designer-project-measurement-dropzone:hover .designer-project-measurement-dropzone-body { border-color: #9a713b; box-shadow: 0 10px 24px rgba(24, 24, 27, 0.08); transform: translateY(-1px); }
+.designer-project-measurement-dropzone.is-disabled { cursor: not-allowed; opacity: 0.55; }
+.designer-project-measurement-dropzone.is-disabled input { cursor: not-allowed; }
+.designer-project-measurement-dropzone.is-disabled .designer-project-measurement-dropzone-body { transform: none; }
+.designer-project-measurement-dropzone-body svg { color: #9a713b; }
+.designer-project-measurement-dropzone-body strong { color: #18181b; font-size: 14px; font-weight: 800; line-height: 1.25; }
+.designer-project-measurement-dropzone-body small { color: #71717a; font-size: 12px; font-weight: 700; line-height: 1.4; }
+.designer-project-measurement-preview-grid { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); }
+.designer-project-measurement-pending-item { display: grid; min-width: 0; gap: 8px; position: relative; border: 1px solid #e4e4e7; border-radius: 10px; background: #ffffff; padding: 8px; }
+.designer-project-measurement-pending-item img { display: block; width: 100%; aspect-ratio: 4 / 3; border-radius: 8px; background: #f7f7f5; object-fit: cover; }
+.designer-project-measurement-pending-item > svg { align-self: center; justify-self: center; min-height: 88px; color: #9a713b; }
+.designer-project-measurement-pending-item div:not(.designer-project-measurement-pending-actions) { display: grid; gap: 3px; min-width: 0; }
+.designer-project-measurement-pending-item span { overflow: hidden; color: #52525b; font-size: 11px; font-weight: 800; text-overflow: ellipsis; white-space: nowrap; }
+.designer-project-measurement-pending-item small { color: #71717a; font-size: 10px; font-weight: 800; text-transform: uppercase; }
+.designer-project-measurement-pending-item.is-uploaded small { color: #15803d; }
+.designer-project-measurement-pending-item.is-uploading small { color: #9a713b; }
+.designer-project-measurement-pending-item.is-failed small,.designer-project-measurement-pending-item em { color: #b91c1c; }
+.designer-project-measurement-pending-item em { font-size: 10px; font-style: normal; font-weight: 700; line-height: 1.25; }
+.designer-project-measurement-pending-actions { display: flex; gap: 5px; position: absolute; right: 6px; top: 6px; }
+.designer-project-measurement-pending-actions button { display: inline-flex; min-height: 24px; align-items: center; justify-content: center; border: 1px solid rgba(24, 24, 27, 0.12); border-radius: 999px; background: rgba(255, 255, 255, 0.92); color: #52525b; cursor: pointer; font-size: 10px; font-weight: 800; padding: 0 7px; }
+.designer-project-measurement-pending-actions button:disabled { cursor: not-allowed; opacity: 0.55; }
 .designer-project-measurement-actions { display: flex; justify-content: flex-end; }
 .designer-project-primary-button { display: inline-flex; min-height: 38px; align-items: center; justify-content: center; gap: 7px; border: 0; border-radius: 10px; background: #9a713b; color: #ffffff; cursor: pointer; font: inherit; font-size: 13px; font-weight: 800; padding: 8px 14px; }
 .designer-project-primary-button:disabled { cursor: not-allowed; opacity: 0.55; }
@@ -154,6 +166,39 @@
 .designer-project-area-notes summary + p { margin-top: 8px; }
 .designer-project-area-measurements { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
 .designer-project-area-measurements img { display: block; width: 100%; aspect-ratio: 1; border-radius: 8px; object-fit: cover; }
+.designer-project-area-blueprint-upload { display: grid; grid-column: 1 / -1; gap: 10px; border: 1px solid rgba(154, 113, 59, 0.18); border-radius: 12px; background: #faf9f7; padding: 12px; }
+.designer-project-area-blueprint-upload-header { display: flex; align-items: flex-start; gap: 10px; }
+.designer-project-area-blueprint-upload-header svg { flex: 0 0 auto; color: #9a713b; }
+.designer-project-area-blueprint-upload-header div { display: grid; gap: 2px; min-width: 0; }
+.designer-project-area-blueprint-upload-header strong { color: #18181b; font-size: 13px; font-weight: 800; }
+.designer-project-area-blueprint-upload-header span,.designer-project-area-blueprint-hint { color: #71717a; font-size: 12px; line-height: 1.45; margin: 0; }
+.designer-project-area-blueprint-dropzone { display: block; position: relative; width: min(100%, 360px); cursor: pointer; }
+.designer-project-area-blueprint-dropzone input { position: absolute; inset: 0; width: 100%; height: 100%; cursor: pointer; opacity: 0; }
+.designer-project-area-blueprint-dropzone-body { display: grid; min-height: 92px; place-items: center; gap: 5px; border: 1px dashed rgba(154, 113, 59, 0.5); border-radius: 12px; background: #ffffff; color: #9a713b; padding: 14px; text-align: center; transition: border-color 0.16s ease, box-shadow 0.16s ease, transform 0.16s ease; }
+.designer-project-area-blueprint-dropzone:hover .designer-project-area-blueprint-dropzone-body { border-color: #9a713b; box-shadow: 0 8px 22px rgba(24, 24, 27, 0.08); transform: translateY(-1px); }
+.designer-project-area-blueprint-dropzone-body strong { color: #18181b; font-size: 13px; font-weight: 800; line-height: 1.25; }
+.designer-project-area-blueprint-dropzone-body small { color: #71717a; font-size: 11px; font-weight: 700; line-height: 1.35; }
+.designer-project-area-blueprint-message { margin: 0; border-radius: 10px; font-size: 12px; font-weight: 700; line-height: 1.45; padding: 8px 10px; }
+.designer-project-area-blueprint-message.is-success { background: #f0fdf4; color: #166534; }
+.designer-project-area-blueprint-message.is-error { background: #fff7f7; color: #b91c1c; }
+.designer-project-area-blueprint-pending-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 8px; }
+.designer-project-area-blueprint-pending-item { display: grid; min-width: 0; gap: 7px; position: relative; border: 1px solid #e4e4e7; border-radius: 10px; background: #ffffff; padding: 8px; }
+.designer-project-area-blueprint-pending-item img { display: block; width: 100%; aspect-ratio: 4 / 3; border-radius: 8px; object-fit: cover; }
+.designer-project-area-blueprint-pending-item div:not(.designer-project-area-blueprint-pending-actions) { display: grid; gap: 3px; min-width: 0; }
+.designer-project-area-blueprint-pending-item span { overflow: hidden; color: #52525b; font-size: 11px; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; text-transform: none; }
+.designer-project-area-blueprint-pending-item small { color: #71717a; font-size: 10px; font-weight: 800; text-transform: uppercase; }
+.designer-project-area-blueprint-pending-item.is-uploaded small { color: #15803d; }
+.designer-project-area-blueprint-pending-item.is-uploading small { color: #9a713b; }
+.designer-project-area-blueprint-pending-item.is-failed small,.designer-project-area-blueprint-pending-item em { color: #b91c1c; }
+.designer-project-area-blueprint-pending-item em { font-size: 10px; font-style: normal; font-weight: 700; line-height: 1.25; }
+.designer-project-area-blueprint-pending-actions { display: flex; gap: 5px; position: absolute; right: 6px; top: 6px; }
+.designer-project-area-blueprint-pending-actions button { display: inline-flex; min-height: 24px; align-items: center; justify-content: center; border: 1px solid rgba(24, 24, 27, 0.12); border-radius: 999px; background: rgba(255, 255, 255, 0.92); color: #52525b; cursor: pointer; font-size: 10px; font-weight: 800; padding: 0 8px; }
+.designer-project-area-blueprint-pending-actions button:disabled { cursor: not-allowed; opacity: 0.55; }
+.designer-project-area-blueprint-grid,.designer-project-area-blueprints { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.designer-project-area-blueprint-grid figure { display: grid; gap: 6px; margin: 0; min-width: 0; }
+.designer-project-area-blueprint-grid img,.designer-project-area-blueprints img { display: block; width: 100%; aspect-ratio: 1; border-radius: 8px; object-fit: cover; }
+.designer-project-area-blueprint-grid figcaption { display: grid; gap: 5px; min-width: 0; }
+.designer-project-area-blueprint-grid figcaption span { overflow: hidden; color: #52525b; font-size: 11px; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; text-transform: none; }
 .designer-project-area-form-actions { display: flex; flex-wrap: wrap; gap: 8px; grid-column: 1 / -1; justify-content: flex-end; }
 .designer-project-area-form-actions button { flex: 1 1 130px; }
 .designer-project-area-form .designer-project-area-cancel-button,.designer-project-area-update-button { background: #ffffff; border: 1px solid #e4e4e7; color: #52525b; }

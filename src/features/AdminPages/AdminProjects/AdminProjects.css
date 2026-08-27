@@ -135,6 +135,7 @@
 }
 
 .admin-projects-filter select,
+.admin-projects-designer-form input,
 .admin-projects-designer-form select {
   width: 100%;
   height: 42px;

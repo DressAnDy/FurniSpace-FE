@@ -465,6 +465,69 @@
   letter-spacing: -0.01em;
 }
 
+.sale-orders-deadline-strip {
+  align-items: center;
+  border: 1px solid rgba(139, 111, 71, 0.16);
+  border-radius: 8px;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  padding: 12px;
+}
+
+.sale-orders-deadline-strip.is-ready {
+  background: rgba(22, 163, 74, 0.08);
+  border-color: rgba(22, 163, 74, 0.2);
+}
+
+.sale-orders-deadline-strip.is-missing {
+  background: rgba(245, 158, 11, 0.1);
+  border-color: rgba(245, 158, 11, 0.24);
+}
+
+.sale-orders-deadline-strip div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.sale-orders-deadline-strip span {
+  color: #6b6b6b;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 16px;
+  text-transform: uppercase;
+}
+
+.sale-orders-deadline-strip strong {
+  color: #2d2d2d;
+  font-size: 14px;
+  font-weight: 800;
+  line-height: 20px;
+}
+
+.sale-orders-deadline-strip button {
+  align-items: center;
+  background: #ffffff;
+  border: 1px solid rgba(139, 111, 71, 0.25);
+  border-radius: 8px;
+  color: #6f5636;
+  cursor: pointer;
+  display: inline-flex;
+  flex: 0 0 auto;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 800;
+  gap: 8px;
+  min-height: 38px;
+  padding: 0 12px;
+}
+
+.sale-orders-deadline-strip button:hover {
+  border-color: #8b6f47;
+  color: #4f3e29;
+}
+
 .sale-orders-form-grid-production {
   align-items: start;
   gap: 12px;
@@ -566,6 +629,120 @@
 
 .sale-orders-table-scroll {
   overflow-x: auto;
+}
+
+.sale-orders-modal-backdrop {
+  background: rgba(26, 29, 41, 0.46);
+  display: grid;
+  inset: 0;
+  padding: 24px;
+  place-items: center;
+  position: fixed;
+  z-index: 80;
+}
+
+.sale-orders-deadline-modal {
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 24px 70px rgba(26, 29, 41, 0.22);
+  display: grid;
+  gap: 16px;
+  max-width: 440px;
+  padding: 20px;
+  width: min(100%, 440px);
+}
+
+.sale-orders-deadline-modal header,
+.sale-orders-deadline-modal footer {
+  align-items: flex-start;
+  display: flex;
+  gap: 14px;
+  justify-content: space-between;
+  margin: 0;
+}
+
+.sale-orders-deadline-modal h3,
+.sale-orders-deadline-modal p {
+  margin: 0;
+}
+
+.sale-orders-deadline-modal header p,
+.sale-orders-modal-note {
+  color: #6b6b6b;
+  font-size: 12px;
+  line-height: 18px;
+  margin-top: 4px;
+}
+
+.sale-orders-deadline-modal header button {
+  align-items: center;
+  background: #f8f7f5;
+  border: 1px solid rgba(139, 111, 71, 0.18);
+  border-radius: 8px;
+  color: #4f3e29;
+  cursor: pointer;
+  display: inline-flex;
+  height: 34px;
+  justify-content: center;
+  width: 34px;
+}
+
+.sale-orders-deadline-modal label {
+  display: grid;
+  gap: 7px;
+}
+
+.sale-orders-deadline-modal label span {
+  color: #6b6b6b;
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.sale-orders-deadline-modal input {
+  border: 1px solid rgba(139, 111, 71, 0.22);
+  border-radius: 8px;
+  color: #2d2d2d;
+  font: inherit;
+  min-height: 40px;
+  padding: 8px 10px;
+}
+
+.sale-orders-modal-message {
+  background: rgba(220, 38, 38, 0.08);
+  border-radius: 8px;
+  color: #b91c1c;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 18px;
+  padding: 10px 12px;
+}
+
+.sale-orders-deadline-modal footer {
+  justify-content: flex-end;
+}
+
+.sale-orders-deadline-modal footer button {
+  border: 1px solid #8b6f47;
+  border-radius: 8px;
+  background: #8b6f47;
+  color: #ffffff;
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 800;
+  min-height: 38px;
+  padding: 0 14px;
+}
+
+.sale-orders-deadline-modal footer button.is-secondary {
+  background: #ffffff;
+  color: #6f5636;
+}
+
+.sale-orders-deadline-modal button:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
 }
 
 .sale-orders-table-scroll table {

@@ -216,7 +216,7 @@ type ScheduleDetailProps = {
 };
 
 function ScheduleDetail({ isUpdating, project, schedule, onComplete }: ScheduleDetailProps) {
-  const canComplete = schedule.status === 'CONFIRMED' && schedule.scheduleType !== 'DELIVERY' && Date.now() >= new Date(schedule.scheduledStart).getTime();
+  const canComplete = schedule.status === 'CONFIRMED';
 
   return (
     <>

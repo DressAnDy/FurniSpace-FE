@@ -1,5 +1,6 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { useQueries } from '@tanstack/react-query';
+import { IconCalendarEvent } from '@tabler/icons-react';
 
 import { getAccountById, getAccountRoleName, type AccountDto } from '@/services/api';
 import { getAccountServiceResultMessage } from '@/services/api/accounts';
@@ -9,6 +10,7 @@ import {
   useAvailableDesigners,
   useProjectStartFeeStatus,
 } from '@/services/queries';
+import { getLocalDateInputValue } from '@/shared/utils/dateValidation';
 
 import type { ProjectDetailProject } from '../ProjectDetail';
 
@@ -20,6 +22,7 @@ type ProjectMemberTabProps = {
 export function ProjectMemberTab({ project, canManageAssignment = false }: ProjectMemberTabProps) {
   const [assignmentMessage, setAssignmentMessage] = useState('');
   const [selectedDesignerId, setSelectedDesignerId] = useState(project.assignedDesignerId ?? '');
+  const [proposalDeadline, setProposalDeadline] = useState('');
   const accountIds = [project.customerId, project.assignedSalesId, project.assignedDesignerId].filter((accountId): accountId is string => Boolean(accountId));
   const accountQueries = useQueries({
     queries: accountIds.map((accountId) => ({
@@ -58,6 +61,8 @@ export function ProjectMemberTab({ project, canManageAssignment = false }: Proje
     () => availableDesignersQuery.data?.items ?? [],
     [availableDesignersQuery.data?.items],
   );
+  const proposalDeadlineMin = getLocalDateInputValue();
+  const proposalDeadlineMax = project.targetCompletionDate?.slice(0, 10) || undefined;
   const selectedDesigner = useMemo(
     () => availableDesigners.find((designer) => designer.accountId === selectedDesignerId) ?? null,
     [availableDesigners, selectedDesignerId],
@@ -65,6 +70,7 @@ export function ProjectMemberTab({ project, canManageAssignment = false }: Proje
 
   useEffect(() => {
     setSelectedDesignerId(project.assignedDesignerId ?? '');
+    setProposalDeadline('');
   }, [project.assignedDesignerId]);
 
   async function handleAssignDesigner(event: FormEvent<HTMLFormElement>) {
@@ -73,6 +79,7 @@ export function ProjectMemberTab({ project, canManageAssignment = false }: Proje
 
     const formData = new FormData(event.currentTarget);
     const designerId = String(formData.get('designerId') ?? selectedDesignerId).trim();
+    const nextProposalDeadline = String(formData.get('proposalDeadline') ?? proposalDeadline).trim();
     const spaceDataStatus = String(formData.get('spaceDataStatus') ?? 'INSUFFICIENT') as ProjectSpaceDataStatus;
 
     if (!designerId) {
@@ -85,10 +92,26 @@ export function ProjectMemberTab({ project, canManageAssignment = false }: Proje
       return;
     }
 
+    if (!nextProposalDeadline) {
+      setAssignmentMessage('Please select a proposal deadline before assigning the designer.');
+      return;
+    }
+
+    if (nextProposalDeadline < proposalDeadlineMin) {
+      setAssignmentMessage('Proposal deadline cannot be before today.');
+      return;
+    }
+
+    if (proposalDeadlineMax && nextProposalDeadline > proposalDeadlineMax) {
+      setAssignmentMessage('Proposal deadline cannot be after the project target date.');
+      return;
+    }
+
     try {
       await assignDesignerMutation.mutateAsync({
         projectId: project.projectId,
         designerId,
+        proposalDeadline: nextProposalDeadline,
         spaceDataStatus,
         note: 'Designer assigned from project members.',
       });
@@ -131,6 +154,26 @@ export function ProjectMemberTab({ project, canManageAssignment = false }: Proje
               Selected: {selectedDesigner?.fullName ?? 'Choose a designer from the list'}
             </p>
 
+            <label className="project-detail-designer-deadline-field">
+              <span>Proposal Deadline *</span>
+              <div className="project-detail-designer-date-input">
+                <IconCalendarEvent size={17} stroke={2} />
+                <input
+                  name="proposalDeadline"
+                  max={proposalDeadlineMax}
+                  min={proposalDeadlineMin}
+                  required
+                  type="date"
+                  value={proposalDeadline}
+                  disabled={assignDesignerMutation.isPending}
+                  onChange={(event) => {
+                    setProposalDeadline(event.target.value);
+                    setAssignmentMessage('');
+                  }}
+                />
+              </div>
+            </label>
+
             <label>
               <span>Space Data Status</span>
               <select name="spaceDataStatus" defaultValue="INSUFFICIENT" disabled={assignDesignerMutation.isPending}>
@@ -145,7 +188,7 @@ export function ProjectMemberTab({ project, canManageAssignment = false }: Proje
               </p>
             ) : null}
 
-            <button className="project-detail-primary-button" type="submit" disabled={availableDesignersQuery.isLoading || assignDesignerMutation.isPending}>
+            <button className="project-detail-primary-button" type="submit" disabled={availableDesignersQuery.isLoading || assignDesignerMutation.isPending || !proposalDeadline}>
               {assignDesignerMutation.isPending ? 'Assigning designer...' : 'Assign Designer'}
             </button>
           </div>
