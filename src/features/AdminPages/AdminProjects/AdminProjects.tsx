@@ -78,6 +78,7 @@ const MONEY_FORMATTER = new Intl.NumberFormat('vi-VN', {
 export function AdminProjects() {
   const [searchParams] = useSearchParams();
   const projectFromUrl = searchParams.get('projectId');
+  const stageFromUrl = searchParams.get('stage');
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState<ProjectStatus | ''>('');
   const [salesId, setSalesId] = useState('');
@@ -263,6 +264,7 @@ export function AdminProjects() {
         accountById={accountById}
         designerAccounts={designerAccounts}
         projectId={selectedProjectId}
+        initialStageKey={stageFromUrl}
         onClose={() => setSelectedProjectId(null)}
       />
     </main>
@@ -273,11 +275,13 @@ function ProjectDetailDrawer({
   accountById,
   designerAccounts,
   projectId,
+  initialStageKey,
   onClose,
 }: {
   accountById: Record<string, AccountDto>;
   designerAccounts: AccountDto[];
   projectId: string | null;
+  initialStageKey: string | null;
   onClose: () => void;
 }) {
   const [designerId, setDesignerId] = useState('');
@@ -309,8 +313,14 @@ function ProjectDetailDrawer({
     if (!workflow) return;
     if (selectedStageKey && workflow.stages.some((stage) => stage.key === selectedStageKey)) return;
 
+    const requestedStage = workflow.stages.find((stage) => stage.key === initialStageKey);
+    if (requestedStage) {
+      setSelectedStageKey(requestedStage.key);
+      return;
+    }
+
     setSelectedStageKey(resolveDefaultStageKey(workflow));
-  }, [workflow, selectedStageKey]);
+  }, [initialStageKey, workflow, selectedStageKey]);
 
   if (!projectId) {
     return null;

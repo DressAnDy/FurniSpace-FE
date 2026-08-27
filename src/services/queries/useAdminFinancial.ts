@@ -6,22 +6,30 @@ import {
   getAdminFinancialPaymentBreakdown,
   getAdminFinancialPayments,
   getAdminFinancialProject,
+  getAdminFinancialProjectStatement,
   getAdminFinancialProjects,
+  getAdminFinancialReceivableOrderDetail,
   getAdminFinancialReceivableItems,
   getAdminFinancialReceivables,
   getAdminFinancialSummary,
+  getAdminFinancialSummaryDrilldown,
   type AdminFinancialCollectionTrendParams,
   type AdminFinancialDateRangeParams,
   type AdminFinancialExceptionsParams,
   type AdminFinancialPaymentsParams,
   type AdminFinancialProjectsParams,
+  type AdminFinancialProjectStatementParams,
   type AdminFinancialReceivablesParams,
   type AdminFinancialSummaryParams,
+  type AdminFinancialDrilldownMetric,
+  type AdminFinancialSummaryDrilldownParams,
 } from '@/services/api/adminFinancial';
 
 export const adminFinancialQueryKeys = {
   all: ['admin-financial'] as const,
   summary: (params?: AdminFinancialSummaryParams) => ['admin-financial', 'summary', params] as const,
+  summaryDrilldown: (metric: AdminFinancialDrilldownMetric, params: AdminFinancialSummaryDrilldownParams) =>
+    ['admin-financial', 'summary-drilldown', metric, params] as const,
   receivables: (params?: AdminFinancialReceivablesParams) => ['admin-financial', 'receivables', params] as const,
   receivableItems: (params?: AdminFinancialReceivablesParams) =>
     ['admin-financial', 'receivable-items', params] as const,
@@ -31,6 +39,9 @@ export const adminFinancialQueryKeys = {
     ['admin-financial', 'collection-trend', params] as const,
   projects: (params?: AdminFinancialProjectsParams) => ['admin-financial', 'projects', params] as const,
   project: (projectId: string) => ['admin-financial', 'project', projectId] as const,
+  projectStatement: (projectId: string, params?: AdminFinancialProjectStatementParams) =>
+    ['admin-financial', 'project-statement', projectId, params] as const,
+  receivableOrderDetail: (orderId: string) => ['admin-financial', 'receivable-order-detail', orderId] as const,
   payments: (params?: AdminFinancialPaymentsParams) => ['admin-financial', 'payments', params] as const,
   exceptions: (params?: AdminFinancialExceptionsParams) => ['admin-financial', 'exceptions', params] as const,
 };
@@ -40,6 +51,18 @@ export function useAdminFinancialSummary(params?: AdminFinancialSummaryParams, o
     queryKey: adminFinancialQueryKeys.summary(params),
     queryFn: () => getAdminFinancialSummary(params),
     enabled: options?.enabled ?? true,
+  });
+}
+
+export function useAdminFinancialSummaryDrilldown(
+  metric: AdminFinancialDrilldownMetric,
+  params: AdminFinancialSummaryDrilldownParams,
+  options?: { enabled?: boolean },
+) {
+  return useQuery({
+    queryKey: adminFinancialQueryKeys.summaryDrilldown(metric, params),
+    queryFn: () => getAdminFinancialSummaryDrilldown(metric, params),
+    enabled: (options?.enabled ?? true) && Boolean(params.from && params.to),
   });
 }
 
@@ -100,6 +123,26 @@ export function useAdminFinancialProject(projectId: string, options?: { enabled?
     queryKey: adminFinancialQueryKeys.project(projectId),
     queryFn: () => getAdminFinancialProject(projectId),
     enabled: (options?.enabled ?? true) && Boolean(projectId),
+  });
+}
+
+export function useAdminFinancialProjectStatement(
+  projectId: string,
+  params?: AdminFinancialProjectStatementParams,
+  options?: { enabled?: boolean },
+) {
+  return useQuery({
+    queryKey: adminFinancialQueryKeys.projectStatement(projectId, params),
+    queryFn: () => getAdminFinancialProjectStatement(projectId, params),
+    enabled: (options?.enabled ?? true) && Boolean(projectId),
+  });
+}
+
+export function useAdminFinancialReceivableOrderDetail(orderId: string, options?: { enabled?: boolean }) {
+  return useQuery({
+    queryKey: adminFinancialQueryKeys.receivableOrderDetail(orderId),
+    queryFn: () => getAdminFinancialReceivableOrderDetail(orderId),
+    enabled: (options?.enabled ?? true) && Boolean(orderId),
   });
 }
 
