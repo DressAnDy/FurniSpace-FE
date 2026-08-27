@@ -1799,9 +1799,3 @@ function ErrorBlock({ error }: { error: unknown }) {
     </div>
   );
 }
-
-function shortenCode(value: string | null | undefined, keep = 6) {
-  if (!value) return '—';
-  if (value.length <= keep * 2 + 1) return value;
-  return `${value.slice(0, keep)}…${value.slice(-keep)}`;
-}
