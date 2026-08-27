@@ -75,6 +75,7 @@ export interface ProductionRequest {
   assignedToName?: string;
   status: ProductionRequestStatus;
   priority: Priority;
+  productionDeadline?: string;
   estimatedStartDate?: string;
   estimatedCompletionDate?: string;
   actualStartDate?: string;

@@ -33,6 +33,10 @@ export type ProjectAreaType = 'STORE' | 'FLOOR' | 'ROOM' | 'ZONE' | 'OUTDOOR_ARE
 
 export type ProjectAreaStatus = 'DRAFT' | 'NEED_MEASUREMENT' | 'MEASURED' | 'VERIFIED' | 'CANCELLED';
 
+export type ProjectAreaFileType = 'FLOOR_PLAN' | 'PDF_DRAWING' | 'REFERENCE_IMAGE' | 'LIDAR_SCAN' | 'MEASUREMENT_REPORT' | 'OTHER';
+
+export type ProjectAreaFileVisibility = 'CUSTOMER_VISIBLE' | 'STAFF_ONLY' | 'PRIVATE';
+
 export type ProjectAreaDto = {
   projectAreaId: string;
   projectId: string;
@@ -80,6 +84,50 @@ export type ProjectAreaListParams = {
   includeCancelled?: boolean;
 };
 
+export type ProjectAreaFileDto = {
+  fileId: string;
+  fileLinkId?: string | null;
+  projectId?: string | null;
+  referenceType?: 'PROJECT_AREA' | string | null;
+  referenceId?: string | null;
+  originalFileName?: string | null;
+  fileType?: ProjectAreaFileType | string | null;
+  mimeType?: string | null;
+  fileSize?: number | null;
+  publicUrl?: string | null;
+  url?: string | null;
+  visibility?: ProjectAreaFileVisibility | string | null;
+  isPrimary?: boolean | null;
+  displayOrder?: number | null;
+  note?: string | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+};
+
+export type ProjectAreaFileListParams = {
+  projectAreaId: string;
+  fileType?: ProjectAreaFileType | null;
+  visibility?: ProjectAreaFileVisibility | null;
+  page?: number;
+  limit?: number;
+};
+
+export type ProjectAreaFileListData = {
+  items: ProjectAreaFileDto[];
+  page?: number;
+  limit?: number;
+  total?: number;
+};
+
+export type UploadProjectAreaFileInput = {
+  projectAreaId: string;
+  file: File;
+  fileType?: ProjectAreaFileType;
+  visibility?: ProjectAreaFileVisibility;
+  displayOrder?: number;
+  note?: string | null;
+};
+
 type ServiceResult<T> = {
   status: number;
   message?: string;
@@ -96,6 +144,8 @@ const PROJECT_AREA_ERROR_MESSAGES: Record<string, string> = {
   PROJECT_AREA_ALREADY_CANCELLED: 'This project area has already been cancelled.',
   PROJECT_AREA_IN_USE_BY_PROPOSAL_ITEM: 'This area is already used by proposal items, so it cannot be cancelled.',
   PROJECT_AREA_IN_USE_BY_SCENE: 'This area is already used by proposal scenes, so it cannot be cancelled.',
+  PROJECT_AREA_FILE_UPLOAD_FAILED: 'Cannot upload this area file. Please try again.',
+  PROJECT_AREA_FILE_NOT_FOUND: 'Project area file was not found.',
   PROJECT_AREA_NOT_FOUND: 'Project area was not found.',
 };
 
@@ -164,6 +214,40 @@ export async function updateProjectArea(input: UpdateProjectAreaInput) {
   return response.data.data;
 }
 
+export async function getProjectAreaFiles(params: ProjectAreaFileListParams) {
+  const response = await projectAreaApiClient.get<ServiceResult<ProjectAreaFileDto[] | ProjectAreaFileListData>>(
+    `/project-areas/${params.projectAreaId}/files`,
+    {
+      params: {
+        fileType: params.fileType ?? undefined,
+        visibility: params.visibility ?? undefined,
+        page: params.page,
+        limit: params.limit,
+      },
+    },
+  );
+
+  return normalizeProjectAreaFileList(response.data.data);
+}
+
+export async function uploadProjectAreaFile(input: UploadProjectAreaFileInput) {
+  const formData = new FormData();
+
+  formData.append('file', input.file);
+  formData.append('fileType', input.fileType ?? 'REFERENCE_IMAGE');
+
+  if (input.visibility) formData.append('visibility', input.visibility);
+  if (typeof input.displayOrder === 'number') formData.append('displayOrder', String(input.displayOrder));
+  if (input.note?.trim()) formData.append('note', input.note.trim());
+
+  const response = await projectAreaApiClient.post<ServiceResult<ProjectAreaFileDto>>(
+    `/project-areas/${input.projectAreaId}/files`,
+    formData,
+  );
+
+  return response.data.data;
+}
+
 function toProjectAreaPayload(input: ProjectAreaWriteInput) {
   return {
     parentAreaId: input.parentAreaId ?? null,
@@ -179,6 +263,17 @@ function toProjectAreaPayload(input: ProjectAreaWriteInput) {
     currentCondition: input.currentCondition?.trim() || null,
     requirementNote: input.requirementNote?.trim() || null,
     status: input.status ?? undefined,
+  };
+}
+
+function normalizeProjectAreaFileList(data: ProjectAreaFileDto[] | ProjectAreaFileListData): ProjectAreaFileListData {
+  if (Array.isArray(data)) {
+    return { items: data };
+  }
+
+  return {
+    ...data,
+    items: data.items ?? [],
   };
 }
 

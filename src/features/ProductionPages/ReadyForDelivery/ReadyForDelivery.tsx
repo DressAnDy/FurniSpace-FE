@@ -21,7 +21,7 @@ import {
   useProductionRequests,
   useProjectScheduleList,
 } from '@/services/queries';
-import { validateScheduleDateTimeRange } from '@/shared/utils/dateValidation';
+import { getScheduleDateRangePayload } from '@/shared/utils/dateValidation';
 
 type BatchQuantityDraft = Record<string, string>;
 type ScheduleRescheduleDraft = {
@@ -183,16 +183,11 @@ export function ReadyForDelivery() {
     }
 
     const assignedStaffId = selectedRequest.assignedTo;
-    const dateRange = validateScheduleDateTimeRange(scheduleStartInput, scheduleEndInput, { requireEnd: true });
+    const dateRange = getScheduleDateRangePayload(scheduleStartInput, scheduleEndInput);
     const scheduleLocation = scheduleLocationInput.trim();
 
     if (!assignedStaffId) {
       setMessage({ tone: 'error', text: 'Production staff is required for delivery scheduling.' });
-      return;
-    }
-
-    if (!dateRange.ok) {
-      setMessage({ tone: 'error', text: dateRange.message });
       return;
     }
 
@@ -305,16 +300,11 @@ export function ReadyForDelivery() {
     event.preventDefault();
 
     const assignedStaffId = schedule.assignedStaffId ?? selectedRequest?.assignedTo ?? null;
-    const dateRange = validateScheduleDateTimeRange(rescheduleDraft.start, rescheduleDraft.end, { requireEnd: true });
+    const dateRange = getScheduleDateRangePayload(rescheduleDraft.start, rescheduleDraft.end);
     const location = rescheduleDraft.location.trim();
 
     if (!assignedStaffId) {
       setMessage({ tone: 'error', text: 'Production staff is required for delivery scheduling.' });
-      return;
-    }
-
-    if (!dateRange.ok) {
-      setMessage({ tone: 'error', text: dateRange.message });
       return;
     }
 

@@ -233,8 +233,21 @@ export type RoomPlannerSceneData = RoomPlannerScenePayload & {
   projectAreaId?: string | null;
   projectAreaIds?: string[];
   areas?: ProposalSceneAreaDto[];
+  areaBlueprints?: RoomPlannerAreaBlueprintDto[];
   mongoSceneId: string | null;
   lastSavedAt?: string | null;
+};
+
+export type RoomPlannerAreaBlueprintDto = {
+  projectAreaId: string;
+  fileId: string;
+  fileLinkId: string;
+  fileType?: string | null;
+  originalFileName: string;
+  publicUrl: string;
+  mimeType: string;
+  displayOrder?: number | null;
+  isPrimary: boolean;
 };
 
 export type SaveRoomPlannerSceneData = {

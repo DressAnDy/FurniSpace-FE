@@ -8,7 +8,7 @@ import {
 } from '@/services/api';
 import type { ProjectListItemDto } from '@/services/api/projects';
 import { useCreateProjectSchedule, useProjectDetail, useUpdateProjectSchedule } from '@/services/queries';
-import { validateScheduleDateTimeRange } from '@/shared/utils/dateValidation';
+import { getScheduleDateRangePayload } from '@/shared/utils/dateValidation';
 
 type CreateScheduleModalProps = {
   editingSchedule: ProjectScheduleDto | null;
@@ -108,12 +108,7 @@ export function CreateScheduleModal({ editingSchedule, isOpen, projects, onClose
     }
 
     const scheduleType = editingSchedule?.scheduleType ?? selectedScheduleType;
-    const dateRange = validateScheduleDateTimeRange(scheduledStart, scheduledEnd, { requireEnd: requiresCompleteScheduleWindow(scheduleType) });
-
-    if (!dateRange.ok) {
-      setMessage(dateRange.message);
-      return;
-    }
+    const dateRange = getScheduleDateRangePayload(scheduledStart, scheduledEnd);
 
     try {
       if (editingSchedule) {
@@ -223,7 +218,6 @@ export function CreateScheduleModal({ editingSchedule, isOpen, projects, onClose
               <span>Start Date & Time</span>
               <input
                 name="scheduledStart"
-                required
                 type="datetime-local"
                 value={scheduledStart}
                 onChange={(event) => setScheduledStart(event.target.value)}
@@ -233,7 +227,6 @@ export function CreateScheduleModal({ editingSchedule, isOpen, projects, onClose
               <span>End Date & Time</span>
               <input
                 name="scheduledEnd"
-                required={requiresCompleteScheduleWindow(selectedScheduleType)}
                 type="datetime-local"
                 value={scheduledEnd}
                 onChange={(event) => setScheduledEnd(event.target.value)}
@@ -279,10 +272,6 @@ export function CreateScheduleModal({ editingSchedule, isOpen, projects, onClose
 
 function getDefaultScheduleTitle(project: ProjectListItemDto) {
   return `${project.projectName} - designer schedule`;
-}
-
-function requiresCompleteScheduleWindow(scheduleType: ProjectScheduleType) {
-  return scheduleType === 'MEASUREMENT' || scheduleType === 'DELIVERY';
 }
 
 function toDateTimeLocal(value?: string | null) {

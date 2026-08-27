@@ -1425,6 +1425,7 @@
   line-height: 16px;
 }
 
+.project-detail-designer-form input,
 .project-detail-designer-form select,
 .project-detail-designer-form textarea {
   width: 100%;
@@ -1437,6 +1438,53 @@
   font-size: 14px;
   outline: 0;
   padding: 0 12px;
+}
+
+.project-detail-designer-form input:hover,
+.project-detail-designer-form select:hover,
+.project-detail-designer-form textarea:hover {
+  border-color: rgba(139, 111, 71, 0.32);
+}
+
+.project-detail-designer-form input:focus,
+.project-detail-designer-form select:focus,
+.project-detail-designer-form textarea:focus {
+  border-color: #8b6f47;
+  box-shadow: 0 0 0 3px rgba(139, 111, 71, 0.12);
+}
+
+.project-detail-designer-deadline-field {
+  border: 1px solid rgba(139, 111, 71, 0.12);
+  border-radius: 10px;
+  background: linear-gradient(180deg, #fff 0%, #faf8f5 100%);
+  padding: 12px;
+}
+
+.project-detail-designer-deadline-field > span {
+  color: #6f5636;
+  font-weight: 800;
+}
+
+.project-detail-designer-date-input {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.project-detail-designer-date-input svg {
+  position: absolute;
+  left: 12px;
+  color: #8b6f47;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.project-detail-designer-date-input input {
+  min-height: 42px;
+  border-color: rgba(139, 111, 71, 0.22);
+  background: #ffffff;
+  font-weight: 700;
+  padding-left: 38px;
 }
 
 .project-detail-designer-form textarea {
