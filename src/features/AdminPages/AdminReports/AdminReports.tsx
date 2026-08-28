@@ -4,12 +4,12 @@ import {
   IconCash,
   IconClipboardList,
   IconCreditCard,
-  IconFolder,
+  IconDiscount2,
   IconReceipt,
 } from '@tabler/icons-react';
 
 import { useLang } from '@/app/providers/useLang';
-import { getAdminFinancialServiceResultMessage, type AdminFinancialExceptionRowDto } from '@/services/api/adminFinancial';
+import { getAdminFinancialServiceResultMessage, type AdminFinancialDrilldownMetric, type AdminFinancialExceptionRowDto } from '@/services/api/adminFinancial';
 import { getProjectReportServiceResultMessage } from '@/services/api/projectReports';
 import type {
   ProjectReportAttentionReason,
@@ -24,7 +24,7 @@ import {
 } from '@/services/queries';
 
 import { AdminNavbar, AdminSidebar } from '../admincomponents';
-import { FinancialPanel, type FinancialListView } from './AdminFinancialPanel';
+import { FinancialPanel, type FinancialListView, type FinancialUrlParams } from './AdminFinancialPanel';
 import {
   AttentionReportPanel,
   moneyExceptionKey,
@@ -38,13 +38,33 @@ type ReportTabId = 'attention' | 'financial';
 const EMPTY_ITEMS: ProjectReportListItemDto[] = [];
 const EMPTY_MONEY: AdminFinancialExceptionRowDto[] = [];
 
-const FINANCIAL_LIST_OPTIONS: FinancialListView[] = ['receivables', 'projects', 'payments'];
+const FINANCIAL_LIST_OPTIONS: FinancialListView[] = ['receivables', 'payments', 'discounts'];
 
 const FINANCIAL_LIST_ICONS = {
   receivables: IconReceipt,
-  projects: IconFolder,
   payments: IconCreditCard,
+  discounts: IconDiscount2,
 } as const;
+
+function isFinancialListView(value: string | null): value is FinancialListView {
+  return value === 'receivables' || value === 'payments' || value === 'discounts';
+}
+
+function normalizeFinancialListView(value: string | null): FinancialListView {
+  if (value === 'projects') return 'receivables';
+  return isFinancialListView(value) ? value : 'receivables';
+}
+
+function isFinancialMetric(value: string | null): value is AdminFinancialDrilldownMetric {
+  return (
+    value === 'COLLECTED' ||
+    value === 'OUTSTANDING' ||
+    value === 'CONTRACTED_RECEIVABLE' ||
+    value === 'ORDER_VALUE' ||
+    value === 'FAILED_TRANSACTIONS' ||
+    value === 'ACTIVE_PAYMENTS'
+  );
+}
 
 function defaultDateRange() {
   const to = new Date();
@@ -66,24 +86,34 @@ export function AdminReports() {
   const [searchParams, setSearchParams] = useSearchParams();
   const initialRange = useMemo(() => defaultDateRange(), []);
   const tabFromUrl = searchParams.get('tab');
-  const projectFromUrl = searchParams.get('projectId');
+  const listFromUrl = searchParams.get('list');
+  const financialProjectFromUrl = searchParams.get('projectId');
+  const financialOrderFromUrl = searchParams.get('orderId');
+  const metricFromUrl = searchParams.get('metric');
+  const attentionProjectFromUrl = searchParams.get('projectId');
 
   const [activeTab, setActiveTab] = useState<ReportTabId>(isReportTabId(tabFromUrl) ? tabFromUrl : 'attention');
   const [financialFromDate, setFinancialFromDate] = useState(initialRange.from);
   const [financialToDate, setFinancialToDate] = useState(initialRange.to);
-  const [financialListView, setFinancialListView] = useState<FinancialListView>('receivables');
+  const [financialListView, setFinancialListView] = useState<FinancialListView>(
+    normalizeFinancialListView(listFromUrl),
+  );
   const [keyword, setKeyword] = useState('');
   const [draftKeyword, setDraftKeyword] = useState('');
   const [severity, setSeverity] = useState<ProjectReportSeverity | ''>('');
   const [stage, setStage] = useState<ProjectReportStageKey | ''>('');
   const [attentionReason, setAttentionReason] = useState<ProjectReportAttentionReason | ''>('');
   const [attentionFeedKind, setAttentionFeedKind] = useState<AttentionFeedKind>('all');
-  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(projectFromUrl);
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(
+    activeTab === 'attention' ? attentionProjectFromUrl : null,
+  );
   const [selectedMoneyKey, setSelectedMoneyKey] = useState<string | null>(null);
 
   useEffect(() => {
-    setSelectedProjectId(projectFromUrl);
-  }, [projectFromUrl]);
+    if (activeTab === 'attention') {
+      setSelectedProjectId(attentionProjectFromUrl);
+    }
+  }, [activeTab, attentionProjectFromUrl]);
 
   useEffect(() => {
     if (isReportTabId(tabFromUrl)) {
@@ -92,6 +122,60 @@ export function AdminReports() {
       setActiveTab('attention');
     }
   }, [tabFromUrl]);
+
+  useEffect(() => {
+    if (activeTab !== 'financial') return;
+    if (listFromUrl === 'projects') {
+      handleFinancialUrlChange({ list: 'receivables' });
+      setFinancialListView('receivables');
+      return;
+    }
+    if (isFinancialListView(listFromUrl)) {
+      setFinancialListView(listFromUrl);
+    }
+  }, [activeTab, listFromUrl]);
+
+  const financialUrlParams = useMemo<FinancialUrlParams>(
+    () => ({
+      list: financialListView,
+      projectId: activeTab === 'financial' ? financialProjectFromUrl : null,
+      orderId: activeTab === 'financial' ? financialOrderFromUrl : null,
+      metric: isFinancialMetric(metricFromUrl) ? metricFromUrl : null,
+    }),
+    [activeTab, financialListView, financialOrderFromUrl, financialProjectFromUrl, metricFromUrl],
+  );
+
+  const handleFinancialUrlChange = (params: Partial<FinancialUrlParams>) => {
+    const next = new URLSearchParams(searchParams);
+    next.set('tab', 'financial');
+
+    if (params.list !== undefined) {
+      if (params.list) next.set('list', params.list);
+      else next.delete('list');
+    }
+
+    if (params.projectId !== undefined) {
+      if (params.projectId) next.set('projectId', params.projectId);
+      else next.delete('projectId');
+    }
+
+    if (params.orderId !== undefined) {
+      if (params.orderId) next.set('orderId', params.orderId);
+      else next.delete('orderId');
+    }
+
+    if (params.metric !== undefined) {
+      if (params.metric) next.set('metric', params.metric);
+      else next.delete('metric');
+    }
+
+    setSearchParams(next, { replace: true });
+  };
+
+  const handleFinancialListChange = (list: FinancialListView) => {
+    setFinancialListView(list);
+    handleFinancialUrlChange({ list, projectId: null, orderId: null });
+  };
 
   const dateParams = useMemo(
     () => ({
@@ -244,8 +328,8 @@ export function AdminReports() {
                       const Icon = FINANCIAL_LIST_ICONS[id];
                       const labels = {
                         receivables: financialCopy[lang].listBtnReceivables,
-                        projects: financialCopy[lang].listBtnProjects,
                         payments: financialCopy[lang].listBtnPayments,
+                        discounts: financialCopy[lang].listBtnDiscounts,
                       };
                       const selected = financialListView === id;
                       return (
@@ -255,7 +339,7 @@ export function AdminReports() {
                           role="tab"
                           aria-selected={selected}
                           className={`admin-pr-financial-list-btn${selected ? ' is-active' : ''}`}
-                          onClick={() => setFinancialListView(id)}
+                          onClick={() => handleFinancialListChange(id)}
                         >
                           <Icon size={15} />
                           {labels[id]}
@@ -265,10 +349,12 @@ export function AdminReports() {
                   </div>
                 </section>
                 <FinancialPanel
+                  activeList={financialListView}
                   dateParams={dateParams}
                   fromDate={financialFromDate}
                   toDate={financialToDate}
-                  activeList={financialListView}
+                  urlParams={financialUrlParams}
+                  onUrlChange={handleFinancialUrlChange}
                 />
               </>
             ) : (

@@ -63,7 +63,9 @@ export type DashboardQueueItemDto = {
   priority: DashboardPriority;
   action: string;
   actionPath: string;
+  /** Production phase committed deadline (ProjectPhaseTimeline PRODUCTION due date). */
   dueAt: string | null;
+  /** Derived from production deadline for queue sort/filter (today / thisWeek / thisMonth). */
   dueBucket: DashboardDueBucket | null;
   warning: string | null;
   lastUpdatedAt: string;
@@ -106,6 +108,7 @@ export type ProductionDashboardKpisDto = {
   pendingReview: number;
   inProduction: number;
   readyToComplete: number;
+  /** Active requests past committed production deadline. */
   overdueTasks: number;
 };
 

@@ -105,7 +105,6 @@ export interface CustomerProductionTrackingItem {
   materialNote?: string;
   productionNote?: string;
   cancellationReason?: string;
-  estimatedCompletionDate?: string;
   completedAt?: string;
 }
 
@@ -118,6 +117,7 @@ export interface CustomerProductionTrackingRequest {
   orderId: string;
   orderCode: string;
   status: ProjectStatus;
+  productionDeadline?: string;
   estimatedCompletionDate?: string;
   actualCompletionDate?: string;
   deliveryScheduleDate?: string;

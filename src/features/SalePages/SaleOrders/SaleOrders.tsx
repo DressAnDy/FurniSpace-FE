@@ -346,8 +346,8 @@ function OrderDetailPanel({
             event.preventDefault();
             setProductionDateMessage('');
             const dateRange = validateOptionalFutureDateRange(estimatedStartDate, estimatedCompletionDate, {
-              startLabel: 'Estimated start date',
-              endLabel: 'Estimated completion date',
+              startLabel: 'Internal start estimate',
+              endLabel: 'Internal complete estimate',
             });
             if (!dateRange.ok) {
               setProductionDateMessage(dateRange.message);
@@ -369,7 +369,7 @@ function OrderDetailPanel({
           <header>
             <div>
               <h3>Production Assignment</h3>
-              <p>Choose a staff member, priority, and estimated schedule, then create the production request.</p>
+              <p>Choose staff, priority, and optional internal schedule. Overdue tracking uses Production Deadline above.</p>
             </div>
           </header>
           <div className={`sale-orders-deadline-strip ${productionDeadline ? 'is-ready' : 'is-missing'}`}>
@@ -418,7 +418,7 @@ function OrderDetailPanel({
               </select>
             </label>
             <label>
-              <span>Start</span>
+              <span>Internal Start</span>
               <input
                 max={projectTargetCompletionDate ?? undefined}
                 min={getLocalDateInputValue()}
@@ -434,7 +434,7 @@ function OrderDetailPanel({
               />
             </label>
             <label>
-              <span>Complete</span>
+              <span>Internal Complete</span>
               <input
                 disabled={!estimatedStartDate}
                 max={projectTargetCompletionDate ?? undefined}
