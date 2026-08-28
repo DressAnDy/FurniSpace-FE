@@ -355,6 +355,10 @@ export type AdminFinancialProjectRowDto = {
   activePaymentStatus: FinancialPaymentStatus | null;
   totalProjectCashCollected: number;
   lastPaidAt: string | null;
+  /** Sum of PAID payments with PaidAt in [from, to] when both query params are sent. */
+  collectedInPeriod?: number;
+  /** Latest PAID payment PaidAt within [from, to]. */
+  lastPaidInPeriod?: string | null;
 };
 
 export type AdminFinancialStatementEntryType = 'COLLECTION' | 'REFUND' | 'ADJUSTMENT';

@@ -1218,6 +1218,39 @@
   align-items: center;
 }
 
+.admin-financial-drilldown-table-collected .admin-financial-col-project {
+  min-width: 140px;
+  width: auto;
+}
+
+.admin-financial-drilldown-table-collected .admin-financial-drilldown-project-link,
+.admin-financial-drilldown-table-collected .admin-financial-col-project .admin-financial-code-link {
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
+  max-width: none;
+  overflow: visible;
+  white-space: nowrap;
+  text-overflow: clip;
+}
+
+.admin-financial-drilldown-table-collected .admin-financial-col-narrow {
+  width: 48px;
+  min-width: 48px;
+  max-width: 56px;
+  padding-left: 4px;
+  padding-right: 4px;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.admin-financial-drilldown-table-collected th.admin-financial-col-narrow {
+  font-size: 10px;
+  letter-spacing: 0;
+  line-height: 1.2;
+}
+
 .admin-financial-list-filters {
   display: flex;
   flex-wrap: nowrap;
@@ -1458,6 +1491,270 @@
 .admin-financial-suggested-action strong {
   color: #7c2d12;
   font-size: 12px;
+}
+
+.admin-financial-commercial-block {
+  display: grid;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid #e8e0d5;
+  border-radius: 12px;
+  background: #fff;
+}
+
+.admin-financial-commercial-block > header {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.admin-financial-commercial-block > header span {
+  color: #9a3412;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.admin-financial-commercial-block > header strong {
+  color: #1f1a17;
+  font-size: 14px;
+}
+
+.admin-financial-commercial-block dl {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 8px;
+  margin: 0;
+}
+
+.admin-financial-commercial-block dt {
+  color: #9ca3af;
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.admin-financial-commercial-block dd {
+  margin: 2px 0 0;
+  color: #374151;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.admin-financial-bridge-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  padding-top: 4px;
+}
+
+.admin-financial-bridge-actions button,
+.admin-financial-bridge-actions a {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  height: 32px;
+  padding: 0 12px;
+  border: 1px solid #ded8cf;
+  border-radius: 8px;
+  background: #fff;
+  color: #5c4030;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.admin-financial-bridge-actions button:hover,
+.admin-financial-bridge-actions a:hover {
+  border-color: #c9b8a8;
+  background: #fffaf3;
+}
+
+.admin-financial-receivable-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 34px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #f3f4f6;
+  color: #6b7280;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.admin-financial-receivable-badge.is-yes {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.admin-financial-table tr.is-highlighted td {
+  background: #fff7ed;
+}
+
+.admin-financial-discount-panel {
+  display: grid;
+  gap: 16px;
+}
+
+.admin-financial-discount-summary-card,
+.admin-financial-discount-table-card {
+  gap: 14px;
+}
+
+.admin-financial-discount-header {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.admin-financial-discount-header h3 {
+  margin: 4px 0 0;
+  color: #1f1a17;
+  font-size: 18px;
+}
+
+.admin-financial-discount-header p {
+  margin: 4px 0 0;
+  color: #6b7280;
+  font-size: 13px;
+}
+
+.admin-financial-discount-period {
+  flex: 0 0 auto;
+  padding: 6px 10px;
+  border: 1px solid #e8e0d5;
+  border-radius: 999px;
+  background: #fffaf3;
+  color: #92400e;
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.admin-financial-discount-note {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: #f8f7f5;
+  color: #6b7280;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.admin-financial-discount-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+}
+
+.admin-financial-discount-kpi {
+  display: grid;
+  gap: 6px;
+  padding: 12px 14px;
+  border: 1px solid #e8e0d5;
+  border-radius: 12px;
+  background: #fff;
+}
+
+.admin-financial-discount-kpi span {
+  color: #9ca3af;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.admin-financial-discount-kpi strong {
+  color: #1f2937;
+  font-size: 15px;
+  line-height: 1.3;
+}
+
+.admin-financial-discount-kpi.is-warn strong {
+  color: #b45309;
+}
+
+.admin-financial-discount-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.admin-financial-discount-toolbar .admin-financial-search {
+  flex: 1 1 240px;
+  width: min(320px, 100%);
+}
+
+.admin-financial-discount-table-footer {
+  padding-top: 12px;
+  border-top: 1px solid #ede9e3;
+}
+
+.admin-financial-discount-exceptions {
+  display: grid;
+  gap: 10px;
+  padding: 14px 16px;
+  border: 1px solid #fde68a;
+  border-radius: 12px;
+  background: #fffbeb;
+}
+
+.admin-financial-discount-exceptions h4 {
+  margin: 0;
+  color: #92400e;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.admin-financial-discount-exceptions ul {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.admin-financial-discount-exceptions li {
+  display: grid;
+  gap: 2px;
+  padding: 8px 10px;
+  border: 1px solid #fde68a;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.admin-financial-discount-exceptions li strong {
+  color: #92400e;
+  font-size: 11px;
+}
+
+.admin-financial-discount-exceptions li span {
+  color: #78716c;
+  font-size: 12px;
+}
+
+.admin-financial-discount-detail .admin-financial-commercial-block {
+  margin-top: 4px;
+}
+
+@media (max-width: 900px) {
+  .admin-financial-discount-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .admin-financial-discount-period {
+    align-self: flex-start;
+  }
 }
 
 .admin-financial-payment-rounds {

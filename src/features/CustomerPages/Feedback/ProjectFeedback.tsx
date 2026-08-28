@@ -1,11 +1,11 @@
-import { type FormEvent, useMemo, useState } from 'react';
+import { useState, type FormEvent } from 'react';
 import { IconArrowLeft, IconStar, IconStarFilled } from '@tabler/icons-react';
 import { Link, useParams } from 'react-router-dom';
 
-import { mockCustomerProjectReviews, mockCustomerTrackingProjects } from '@/features/CustomerPages/mock';
 import { CustomerEmptyState, CustomerNavbar, CustomerStatusBadge } from '@/features/CustomerPages/customercomponents';
 import { formatCustomerDate, getProjectStatusLabel } from '@/features/CustomerPages/utils';
-import { useUpdateProjectReviewPublicConsent } from '@/services/queries';
+import { getProjectReviewServiceResultMessage } from '@/services/api/projectReview';
+import { useCreateProjectReview, useProjectDetail, useProjectReview, useUpdateProjectReviewPublicConsent } from '@/services/queries';
 import { getShowcaseServiceResultMessage } from '@/services/api/showcases';
 
 import './ProjectFeedback.css';
@@ -28,35 +28,44 @@ const initialForm: ReviewForm = {
 
 export function ProjectFeedback() {
   const { projectId } = useParams();
-  const project = useMemo(
-    () => mockCustomerTrackingProjects.find((item) => item.projectId === projectId) ?? mockCustomerTrackingProjects.find((item) => item.status === 'COMPLETED'),
-    [projectId],
-  );
-  const existingReview = mockCustomerProjectReviews.find((review) => review.projectId === project?.projectId) ?? null;
+  const projectQuery = useProjectDetail(projectId);
+  const reviewQuery = useProjectReview(projectId, { enabled: Boolean(projectId) });
+  const createReviewMutation = useCreateProjectReview();
   const [form, setForm] = useState<ReviewForm>(initialForm);
-  const [submittedReview, setSubmittedReview] = useState(existingReview);
-  const isCompleted = project?.status === 'COMPLETED';
-  const isValid = form.rating > 0 && form.designQualityRating > 0 && form.serviceQualityRating > 0 && form.deliveryRating > 0 && isCompleted;
+  const [submitError, setSubmitError] = useState('');
 
-  function submitReview(event: FormEvent<HTMLFormElement>) {
+  const project = projectQuery.data;
+  const existingReview = reviewQuery.data ?? null;
+  const isCompleted = project?.status === 'COMPLETED';
+  const isValid =
+    form.rating > 0 &&
+    form.designQualityRating > 0 &&
+    form.serviceQualityRating > 0 &&
+    form.deliveryRating > 0 &&
+    isCompleted;
+
+  async function submitReview(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    if (!project || !isValid) return;
+    if (!projectId || !project || !isValid) return;
 
-    setSubmittedReview({
-      reviewId: 'REV-MOCK-NEW',
-      projectId: project.projectId,
-      orderId: 'ORD-MOCK',
-      customerId: 'CUS-MOCK',
-      rating: form.rating,
-      designQualityRating: form.designQualityRating,
-      serviceQualityRating: form.serviceQualityRating,
-      deliveryRating: form.deliveryRating,
-      comment: form.comment,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    });
+    setSubmitError('');
+
+    try {
+      await createReviewMutation.mutateAsync({
+        projectId,
+        rating: form.rating,
+        designQualityRating: form.designQualityRating,
+        serviceQualityRating: form.serviceQualityRating,
+        deliveryRating: form.deliveryRating,
+        comment: form.comment,
+      });
+    } catch (error) {
+      setSubmitError(getProjectReviewServiceResultMessage(error));
+    }
   }
+
+  const loading = projectQuery.isLoading || reviewQuery.isLoading;
 
   return (
     <main className="customer-workspace-page customer-feedback-page">
@@ -74,7 +83,12 @@ export function ProjectFeedback() {
           </Link>
         </section>
 
-        {project ? (
+        {loading ? <CustomerEmptyState message="Loading project feedback..." /> : null}
+        {projectQuery.isError ? (
+          <CustomerEmptyState message="Project not found or you do not have access." />
+        ) : null}
+
+        {project && !loading ? (
           <section className="customer-workspace-grid">
             <article className="customer-workspace-card">
               <header>
@@ -85,20 +99,21 @@ export function ProjectFeedback() {
               </header>
               <div className="customer-workspace-field-grid">
                 <Field label="Project name" value={project.projectName} />
-                <Field label="Project code" value={project.projectCode} />
-                <Field label="Order code" value="ORD-2026-003" />
-                <Field label="Business type" value={project.businessType} />
-                <Field label="Completed at" value={formatCustomerDate(project.targetCompletionDate)} />
+                <Field label="Project code" value={project.projectCode ?? '—'} />
+                <Field label="Business type" value={project.businessType ?? '—'} />
+                <Field label="Completed at" value={formatCustomerDate(project.targetCompletionDate ?? project.submittedAt)} />
                 <div className="customer-workspace-field">
                   <span>Final status</span>
-                  <strong><CustomerStatusBadge label={getProjectStatusLabel(project.status)} status={project.status} /></strong>
+                  <strong>
+                    <CustomerStatusBadge label={getProjectStatusLabel(project.status)} status={project.status} />
+                  </strong>
                 </div>
               </div>
             </article>
 
             <article className="customer-workspace-card">
-              {submittedReview ? (
-                <ExistingReviewCard review={submittedReview} />
+              {existingReview ? (
+                <ExistingReviewCard review={existingReview} />
               ) : isCompleted ? (
                 <form className="customer-feedback-form" onSubmit={submitReview}>
                   <header>
@@ -115,23 +130,41 @@ export function ProjectFeedback() {
                     <span>Comment</span>
                     <textarea rows={5} value={form.comment} onChange={(event) => setForm((current) => ({ ...current, comment: event.target.value }))} />
                   </label>
-                  <button className="customer-workspace-button" disabled={!isValid} type="submit">Submit Feedback</button>
+                  {submitError ? <p className="customer-feedback-consent-message">{submitError}</p> : null}
+                  <button className="customer-workspace-button" disabled={!isValid || createReviewMutation.isPending} type="submit">
+                    {createReviewMutation.isPending ? 'Submitting...' : 'Submit Feedback'}
+                  </button>
                 </form>
               ) : (
                 <CustomerEmptyState message="Feedback form is available after the project status becomes Completed." />
               )}
             </article>
           </section>
-        ) : (
+        ) : null}
+
+        {!loading && !project && !projectQuery.isError ? (
           <CustomerEmptyState message="Completed project was not found." />
-        )}
+        ) : null}
       </div>
     </main>
   );
 }
 
-function ExistingReviewCard({ review }: { review: NonNullable<typeof mockCustomerProjectReviews[number]> }) {
-  const [allowPublicDisplay, setAllowPublicDisplay] = useState(Boolean((review as { allowPublicDisplay?: boolean }).allowPublicDisplay));
+function ExistingReviewCard({
+  review,
+}: {
+  review: {
+    reviewId: string;
+    rating: number;
+    designQualityRating: number;
+    serviceQualityRating: number;
+    deliveryRating: number;
+    comment: string | null;
+    createdAt: string;
+    allowPublicDisplay: boolean;
+  };
+}) {
+  const [allowPublicDisplay, setAllowPublicDisplay] = useState(review.allowPublicDisplay);
   const [message, setMessage] = useState('');
   const consentMutation = useUpdateProjectReviewPublicConsent();
 

@@ -7,7 +7,6 @@ import {
   IconClock,
   IconCreditCard,
   IconExternalLink,
-  IconFolder,
   IconReceipt,
   IconSearch,
   IconWorld,
@@ -22,7 +21,6 @@ import {
   type AdminFinancialDrilldownItemDto,
   type AdminFinancialDrilldownMetric,
   type AdminFinancialCollectionState,
-  type AdminFinancialProjectStatementDto,
   type AdminFinancialReceivableOrderDetailDto,
   type AdminFinancialSummaryDrilldownDto,
 } from '@/services/api/adminFinancial';
@@ -31,8 +29,6 @@ import {
   useAdminFinancialExceptions,
   useAdminFinancialPaymentBreakdown,
   useAdminFinancialPayments,
-  useAdminFinancialProjectStatement,
-  useAdminFinancialProjects,
   useAdminFinancialReceivableOrderDetail,
   useAdminFinancialReceivables,
   useAdminFinancialSummary,
@@ -49,16 +45,26 @@ import {
   formatTrendPeriod,
   getMoneyParts,
 } from './adminReportsI18n';
+import { DiscountPanel } from './AdminFinancialDiscountPanel';
 
 type DateParams = { from: string; to: string };
 
-export type FinancialListView = 'receivables' | 'projects' | 'payments';
+export type FinancialListView = 'receivables' | 'payments' | 'discounts';
+
+export type FinancialUrlParams = {
+  list?: FinancialListView | null;
+  projectId?: string | null;
+  orderId?: string | null;
+  metric?: AdminFinancialDrilldownMetric | null;
+};
 
 type FinancialPanelProps = {
   dateParams: DateParams;
   fromDate: string;
   toDate: string;
   activeList: FinancialListView;
+  urlParams?: FinancialUrlParams;
+  onUrlChange?: (params: Partial<FinancialUrlParams>) => void;
 };
 
 type KpiTone = 'green' | 'amber' | 'blue' | 'red' | 'neutral';
@@ -67,37 +73,61 @@ const DEFAULT_LIST_PAGE_SIZE = 10;
 const MIN_PAGE_SIZE = 1;
 const MAX_PAGE_SIZE = 100;
 
-export function FinancialPanel({ dateParams, fromDate, toDate, activeList }: FinancialPanelProps) {
+export function FinancialPanel({
+  dateParams,
+  fromDate,
+  toDate,
+  activeList,
+  urlParams,
+  onUrlChange,
+}: FinancialPanelProps) {
   const { lang } = useLang();
   const t = financialCopy[lang];
   const [listPageSize, setListPageSize] = useState(DEFAULT_LIST_PAGE_SIZE);
   const [receivablesPage, setReceivablesPage] = useState(1);
-  const [projectsPage, setProjectsPage] = useState(1);
   const [paymentsPage, setPaymentsPage] = useState(1);
   const [receivableKeyword, setReceivableKeyword] = useState('');
   const [receivableCollectionState, setReceivableCollectionState] = useState<AdminFinancialCollectionState | ''>('');
-  const [selectedReceivableOrderId, setSelectedReceivableOrderId] = useState<string | null>(null);
-  const [projectKeyword, setProjectKeyword] = useState('');
-  const [selectedStatementProjectId, setSelectedStatementProjectId] = useState<string | null>(null);
-  const [statementPage, setStatementPage] = useState(1);
-  const [statementPageSize, setStatementPageSize] = useState(DEFAULT_LIST_PAGE_SIZE);
+  const [selectedReceivableOrderId, setSelectedReceivableOrderId] = useState<string | null>(
+    urlParams?.orderId ?? null,
+  );
   const [paymentFailedOnly, setPaymentFailedOnly] = useState(false);
-  const [selectedMetric, setSelectedMetric] = useState<AdminFinancialDrilldownMetric | null>(null);
+  const [selectedMetric, setSelectedMetric] = useState<AdminFinancialDrilldownMetric | null>(
+    urlParams?.metric ?? null,
+  );
   const [drilldownPage, setDrilldownPage] = useState(1);
   const [drilldownPageSize, setDrilldownPageSize] = useState(DEFAULT_LIST_PAGE_SIZE);
 
   useEffect(() => {
     setDrilldownPage(1);
     setReceivablesPage(1);
-    setProjectsPage(1);
     setPaymentsPage(1);
-    setStatementPage(1);
   }, [dateParams.from, dateParams.to]);
 
   useEffect(() => {
     if (activeList !== 'receivables') setSelectedReceivableOrderId(null);
-    if (activeList !== 'projects') setSelectedStatementProjectId(null);
   }, [activeList]);
+
+  useEffect(() => {
+    if (urlParams?.orderId && activeList === 'receivables') {
+      setSelectedReceivableOrderId(urlParams.orderId);
+    }
+  }, [activeList, urlParams?.orderId]);
+
+  useEffect(() => {
+    if (urlParams?.metric) {
+      setSelectedMetric(urlParams.metric);
+    }
+  }, [urlParams?.metric]);
+
+  const navigateFinancial = (params: Partial<FinancialUrlParams>) => {
+    onUrlChange?.(params);
+  };
+
+  const openReceivablesForProject = (projectId: string, orderId?: string | null) => {
+    if (orderId) setSelectedReceivableOrderId(orderId);
+    navigateFinancial({ list: 'receivables', projectId, orderId: orderId ?? null, metric: null });
+  };
 
   useEffect(() => {
     if (!selectedMetric) return;
@@ -113,7 +143,6 @@ export function FinancialPanel({ dateParams, fromDate, toDate, activeList }: Fin
   const handlePageSizeChange = (nextSize: number) => {
     setListPageSize(nextSize);
     setReceivablesPage(1);
-    setProjectsPage(1);
     setPaymentsPage(1);
   };
 
@@ -157,6 +186,7 @@ export function FinancialPanel({ dateParams, fromDate, toDate, activeList }: Fin
     {
       keyword: receivableKeyword.trim() || undefined,
       collectionState: receivableCollectionState || undefined,
+      projectId: activeList === 'receivables' ? urlParams?.projectId ?? undefined : undefined,
       confirmedFrom: dateParams.from,
       confirmedTo: dateParams.to,
       page: receivablesPage,
@@ -165,18 +195,6 @@ export function FinancialPanel({ dateParams, fromDate, toDate, activeList }: Fin
       sortDirection: 'desc',
     },
     { enabled: activeList === 'receivables' },
-  );
-  const projectsQuery = useAdminFinancialProjects(
-    {
-      keyword: projectKeyword.trim() || undefined,
-      from: dateParams.from,
-      to: dateParams.to,
-      page: projectsPage,
-      pageSize: listPageSize,
-      sortBy: 'createdAt',
-      sortDirection: 'desc',
-    },
-    { enabled: activeList === 'projects' },
   );
   const paymentsQuery = useAdminFinancialPayments(
     {
@@ -194,22 +212,13 @@ export function FinancialPanel({ dateParams, fromDate, toDate, activeList }: Fin
   const receivableDetailQuery = useAdminFinancialReceivableOrderDetail(selectedReceivableOrderId ?? '', {
     enabled: activeList === 'receivables' && Boolean(selectedReceivableOrderId),
   });
-  const statementQuery = useAdminFinancialProjectStatement(
-    selectedStatementProjectId ?? '',
-    {
-      from: dateParams.from,
-      to: dateParams.to,
-      page: statementPage,
-      pageSize: statementPageSize,
-      sortDirection: 'desc',
-    },
-    { enabled: activeList === 'projects' && Boolean(selectedStatementProjectId) },
-  );
 
   const summary = summaryQuery.data;
   const handleKpiClick = (metric: AdminFinancialDrilldownMetric) => {
-    setSelectedMetric((current) => (current === metric ? null : metric));
+    const next = selectedMetric === metric ? null : metric;
+    setSelectedMetric(next);
     setDrilldownPage(1);
+    navigateFinancial({ metric: next });
   };
 
   return (
@@ -308,7 +317,11 @@ export function FinancialPanel({ dateParams, fromDate, toDate, activeList }: Fin
           metric={selectedMetric}
           page={drilldownPage}
           pageSize={drilldownPageSize}
-          onClose={() => setSelectedMetric(null)}
+          onClose={() => {
+            setSelectedMetric(null);
+            navigateFinancial({ metric: null });
+          }}
+          onNavigateToProject={(projectId) => openReceivablesForProject(projectId)}
           onPageChange={setDrilldownPage}
           onPageSizeChange={(nextSize) => {
             setDrilldownPageSize(nextSize);
@@ -454,7 +467,15 @@ export function FinancialPanel({ dateParams, fromDate, toDate, activeList }: Fin
                         </tr>
                       ) : (
                         receivablesQuery.data.items.map((item) => (
-                          <tr key={item.orderId} className={selectedReceivableOrderId === item.orderId ? 'is-selected' : undefined}>
+                          <tr
+                            key={item.orderId}
+                            className={
+                              selectedReceivableOrderId === item.orderId ||
+                              (urlParams?.projectId && item.projectId === urlParams.projectId)
+                                ? 'is-selected'
+                                : undefined
+                            }
+                          >
                             <td>
                               <button
                                 type="button"
@@ -525,7 +546,10 @@ export function FinancialPanel({ dateParams, fromDate, toDate, activeList }: Fin
                     error={receivableDetailQuery.isError ? receivableDetailQuery.error : null}
                     isLoading={receivableDetailQuery.isLoading}
                     lang={lang}
-                    onClose={() => setSelectedReceivableOrderId(null)}
+                    onClose={() => {
+                      setSelectedReceivableOrderId(null);
+                      navigateFinancial({ orderId: null });
+                    }}
                     onRetry={() => void receivableDetailQuery.refetch()}
                   />
                 ) : null}
@@ -534,120 +558,16 @@ export function FinancialPanel({ dateParams, fromDate, toDate, activeList }: Fin
           </>
         ) : null}
 
-        {activeList === 'projects' ? (
-          <>
-            <SectionHeader
-              icon={<IconFolder size={18} />}
-              title={t.projectsTitle}
-              subtitle={t.projectsSubtitle}
-              aside={
-                <label className="admin-financial-search">
-                  <IconSearch size={15} />
-                  <input
-                    aria-label={t.searchProjects}
-                    placeholder={t.searchPlaceholder}
-                    value={projectKeyword}
-                    onChange={(event) => {
-                      setProjectKeyword(event.target.value);
-                      setProjectsPage(1);
-                    }}
-                  />
-                </label>
-              }
-            />
-            {projectsQuery.isLoading ? <StateBlock>{t.loadingProjects}</StateBlock> : null}
-            {projectsQuery.isError ? <ErrorBlock error={projectsQuery.error} /> : null}
-            {projectsQuery.data ? (
-              <>
-                <div className="admin-report-table-wrap admin-financial-table-wrap">
-                  <table className="admin-report-table admin-financial-table">
-                    <thead>
-                      <tr>
-                        <th>{t.project}</th>
-                        <th>{t.customer}</th>
-                        <th>{t.order}</th>
-                        <th>{t.collected}</th>
-                        <th>{t.remaining}</th>
-                        <th>{t.activePayment}</th>
-                        <th>{t.lastPaid}</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {projectsQuery.data.items.length === 0 ? (
-                        <tr>
-                          <td colSpan={7}>
-                            <EmptyRow text={t.emptyProjects} />
-                          </td>
-                        </tr>
-                      ) : (
-                        projectsQuery.data.items.map((item) => (
-                          <tr key={item.projectId} className={selectedStatementProjectId === item.projectId ? 'is-selected' : undefined}>
-                            <td>
-                              <button
-                                type="button"
-                                className="admin-financial-table-link"
-                                onClick={() => {
-                                  setSelectedStatementProjectId(item.projectId);
-                                  setStatementPage(1);
-                                }}
-                              >
-                                {item.projectCode || item.projectName}
-                              </button>
-                              <div className="admin-report-cell-sub">
-                                {item.projectName} · {formatEnumLabel(lang, item.projectStatus || '')}
-                              </div>
-                            </td>
-                            <td>{item.customerName || '—'}</td>
-                            <td>
-                              {item.orderCode || '—'}
-                              <div className="admin-report-cell-sub">{formatEnumLabel(lang, item.orderStatus || '')}</div>
-                            </td>
-                            <td className="admin-financial-money is-good" title={formatMoney(lang, item.totalProjectCashCollected)}>
-                              {formatKpiMoney(lang, item.totalProjectCashCollected)}
-                            </td>
-                            <td className="admin-financial-money is-warn">{formatKpiMoney(lang, item.orderRemainingAmount)}</td>
-                            <td>
-                              {item.activePaymentType ? formatEnumLabel(lang, item.activePaymentType) : '—'}
-                              <div className="admin-report-cell-sub">
-                                {item.activePaymentStatus ? <StatusPill lang={lang} status={item.activePaymentStatus} /> : null}
-                              </div>
-                            </td>
-                            <td>{formatDateTime(lang, item.lastPaidAt)}</td>
-                          </tr>
-                        ))
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-                <Pager
-                  lang={lang}
-                  page={projectsQuery.data.page}
-                  pageSize={listPageSize}
-                  totalPages={projectsQuery.data.totalPages}
-                  totalItems={projectsQuery.data.totalItems}
-                  onChange={setProjectsPage}
-                  onPageSizeChange={handlePageSizeChange}
-                />
-                {selectedStatementProjectId ? (
-                  <ProjectStatementPanel
-                    data={statementQuery.data}
-                    error={statementQuery.isError ? statementQuery.error : null}
-                    isLoading={statementQuery.isLoading}
-                    lang={lang}
-                    page={statementPage}
-                    pageSize={statementPageSize}
-                    onClose={() => setSelectedStatementProjectId(null)}
-                    onPageChange={setStatementPage}
-                    onPageSizeChange={(nextSize) => {
-                      setStatementPageSize(nextSize);
-                      setStatementPage(1);
-                    }}
-                    onRetry={() => void statementQuery.refetch()}
-                  />
-                ) : null}
-              </>
-            ) : null}
-          </>
+        {activeList === 'discounts' ? (
+          <DiscountPanel
+            dateParams={dateParams}
+            fromDate={fromDate}
+            toDate={toDate}
+            navigation={{
+              initialOrderId: urlParams?.orderId,
+              onOrderSelect: (orderId) => navigateFinancial({ orderId, list: 'discounts' }),
+            }}
+          />
         ) : null}
 
         {activeList === 'payments' ? (
@@ -895,130 +815,6 @@ function ReceivableOrderDetailPanel({
   );
 }
 
-function ProjectStatementPanel({
-  data,
-  error,
-  isLoading,
-  lang,
-  page,
-  pageSize,
-  onClose,
-  onPageChange,
-  onPageSizeChange,
-  onRetry,
-}: {
-  data: AdminFinancialProjectStatementDto | undefined;
-  error: unknown;
-  isLoading: boolean;
-  lang: Lang;
-  page: number;
-  pageSize: number;
-  onClose: () => void;
-  onPageChange: (page: number) => void;
-  onPageSizeChange: (pageSize: number) => void;
-  onRetry: () => void;
-}) {
-  const t = financialCopy[lang];
-
-  return (
-    <section className="admin-financial-inline-detail admin-financial-statement" aria-label={t.projectStatement}>
-      <header>
-        <div>
-          <span>{t.projectStatement}</span>
-          <h4>{data?.project.projectCode ?? t.loadingStatement}</h4>
-          <p>{data ? `${data.project.projectName} · ${data.project.customerName || '—'}` : ''}</p>
-        </div>
-        <button type="button" onClick={onClose} aria-label={t.closeStatement}>
-          <IconX size={16} />
-        </button>
-      </header>
-
-      {isLoading ? <StateBlock>{t.loadingStatement}</StateBlock> : null}
-      {error ? (
-        <>
-          <ErrorBlock error={error} />
-          <button type="button" className="admin-button admin-button-ghost" onClick={onRetry}>
-            {t.retryDrilldown}
-          </button>
-        </>
-      ) : null}
-
-      {data && !isLoading ? (
-        <>
-          <div className="admin-financial-detail-summary statement-summary">
-            <DetailMetric label={t.openingBalance} value={formatMoney(lang, data.summary.openingBalance)} />
-            <DetailMetric label={t.totalCollected} value={formatMoney(lang, data.summary.totalCollected)} tone="good" />
-            <DetailMetric label={t.totalRefunded} value={formatMoney(lang, data.summary.totalRefunded)} tone="bad" />
-            <DetailMetric label={t.netCollected} value={formatMoney(lang, data.summary.netCollected)} />
-            <DetailMetric label={t.closingBalance} value={formatMoney(lang, data.summary.closingBalance)} />
-          </div>
-
-          <div className="admin-report-table-wrap admin-financial-table-wrap">
-            <table className="admin-report-table admin-financial-table admin-financial-statement-table">
-              <thead>
-                <tr>
-                  <th>{t.transactionDate}</th>
-                  <th>{t.statementContent}</th>
-                  <th>{t.reference}</th>
-                  <th>{t.type}</th>
-                  <th>{t.moneyIn}</th>
-                  <th>{t.moneyOut}</th>
-                  <th>{t.runningBalance}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.items.length === 0 ? (
-                  <tr>
-                    <td colSpan={7}>
-                      <EmptyRow text={t.emptyStatement} />
-                    </td>
-                  </tr>
-                ) : (
-                  data.items.map((item) => (
-                    <tr key={item.entryId}>
-                      <td>{formatDateTime(lang, item.occurredAt)}</td>
-                      <td>
-                        <strong>{item.description}</strong>
-                        <div className="admin-report-cell-sub">
-                          {item.provider ? formatEnumLabel(lang, item.provider) : '—'}
-                          {item.status ? ` · ${formatEnumLabel(lang, item.status)}` : ''}
-                        </div>
-                      </td>
-                      <td>
-                        <span className="admin-financial-mono">{item.referenceCode || '—'}</span>
-                        <div className="admin-report-cell-sub">{item.orderCode || '—'}</div>
-                      </td>
-                      <td>{formatEnumLabel(lang, item.paymentType || item.entryType)}</td>
-                      <td className="admin-financial-money is-good">
-                        {item.direction === 'CREDIT' ? formatKpiMoney(lang, item.amount) : '—'}
-                      </td>
-                      <td className="admin-financial-money is-bad">
-                        {item.direction === 'DEBIT' ? formatKpiMoney(lang, item.amount) : '—'}
-                      </td>
-                      <td className="admin-financial-money">
-                        <strong>{formatKpiMoney(lang, item.runningBalance)}</strong>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-          <Pager
-            lang={lang}
-            page={data.page || page}
-            pageSize={pageSize}
-            totalPages={data.totalPages}
-            totalItems={data.totalItems}
-            onChange={onPageChange}
-            onPageSizeChange={onPageSizeChange}
-          />
-        </>
-      ) : null}
-    </section>
-  );
-}
-
 function DetailMetric({
   label,
   tone,
@@ -1156,24 +952,26 @@ function FinancialKpiDrilldown({
   isLoading,
   lang,
   metric,
-  page,
-  pageSize,
   onClose,
+  onNavigateToProject,
   onPageChange,
   onPageSizeChange,
   onRetry,
+  page,
+  pageSize,
 }: {
   data: AdminFinancialSummaryDrilldownDto | undefined;
   error: unknown;
   isLoading: boolean;
   lang: Lang;
   metric: AdminFinancialDrilldownMetric;
-  page: number;
-  pageSize: number;
   onClose: () => void;
+  onNavigateToProject?: (projectId: string) => void;
   onPageChange: (page: number) => void;
   onPageSizeChange: (pageSize: number) => void;
   onRetry: () => void;
+  page: number;
+  pageSize: number;
 }) {
   const t = financialCopy[lang];
   const metricLabel = financialMetricLabel(lang, metric);
@@ -1236,7 +1034,12 @@ function FinancialKpiDrilldown({
             ))}
           </div>
 
-          <FinancialDrilldownTable data={data} lang={lang} metric={metric} />
+          <FinancialDrilldownTable
+            data={data}
+            lang={lang}
+            metric={metric}
+            onNavigateToProject={onNavigateToProject}
+          />
 
           <Pager
             lang={lang}
@@ -1263,28 +1066,36 @@ function FinancialDrilldownTable({
   data,
   lang,
   metric,
+  onNavigateToProject,
 }: {
   data: AdminFinancialSummaryDrilldownDto;
   lang: Lang;
   metric: AdminFinancialDrilldownMetric;
+  onNavigateToProject?: (projectId: string) => void;
 }) {
   const t = financialCopy[lang];
   const isCollectedByProject = metric === 'COLLECTED';
 
   return (
     <div className="admin-report-table-wrap admin-financial-table-wrap">
-      <table className="admin-report-table admin-financial-table admin-financial-drilldown-table">
+      <table
+        className={`admin-report-table admin-financial-table admin-financial-drilldown-table${
+          isCollectedByProject ? ' admin-financial-drilldown-table-collected' : ''
+        }`}
+      >
         <thead>
           {isCollectedByProject ? (
             <tr>
-              <th>{t.project}</th>
+              <th className="admin-financial-col-project">{t.project}</th>
               <th>{t.customer}</th>
               <th>{t.startFee}</th>
               <th>{t.deposit}</th>
               <th>{t.remainingPayment}</th>
               <th>{t.needToCollect}</th>
               <th>{t.totalCollected}</th>
-              <th>{t.paymentCount}</th>
+              <th className="admin-financial-col-narrow" title={t.paymentCount}>
+                {t.paymentCountShort}
+              </th>
               <th>{t.lastPaid}</th>
             </tr>
           ) : (
@@ -1307,7 +1118,12 @@ function FinancialDrilldownTable({
             </tr>
           ) : isCollectedByProject ? (
             data.items.map((item, index) => (
-              <CollectedProjectRow key={financialDrilldownItemKey(item, index)} item={item} lang={lang} />
+              <CollectedProjectRow
+                key={financialDrilldownItemKey(item, index)}
+                item={item}
+                lang={lang}
+                onNavigateToProject={onNavigateToProject}
+              />
             ))
           ) : (
             data.items.map((item, index) => (
@@ -1320,13 +1136,30 @@ function FinancialDrilldownTable({
   );
 }
 
-function CollectedProjectRow({ item, lang }: { item: AdminFinancialDrilldownItemDto; lang: Lang }) {
+function CollectedProjectRow({
+  item,
+  lang,
+  onNavigateToProject,
+}: {
+  item: AdminFinancialDrilldownItemDto;
+  lang: Lang;
+  onNavigateToProject?: (projectId: string) => void;
+}) {
   const t = financialCopy[lang];
 
   return (
     <tr>
-      <td>
-        {item.projectId ? (
+      <td className="admin-financial-col-project">
+        {item.projectId && onNavigateToProject ? (
+          <button
+            type="button"
+            className="admin-financial-table-link admin-financial-drilldown-project-link"
+            onClick={() => onNavigateToProject(item.projectId!)}
+          >
+            {item.projectCode || item.projectName || t.openProject}
+            <IconChevronRight size={14} />
+          </button>
+        ) : item.projectId ? (
           <Link className="admin-financial-code-link" to={`/admin/projects?projectId=${item.projectId}`}>
             {item.projectCode || item.projectName || t.openProject}
             <IconExternalLink size={13} />
@@ -1344,7 +1177,7 @@ function CollectedProjectRow({ item, lang }: { item: AdminFinancialDrilldownItem
       <td className="admin-financial-money is-good" title={formatMoney(lang, item.totalCollectedAmount)}>
         <strong>{formatKpiMoney(lang, item.totalCollectedAmount)}</strong>
       </td>
-      <td>{item.paymentCount ?? 0}</td>
+      <td className="admin-financial-col-narrow">{item.paymentCount ?? 0}</td>
       <td>{formatDateTime(lang, item.lastPaidAt ?? item.occurredAt)}</td>
     </tr>
   );

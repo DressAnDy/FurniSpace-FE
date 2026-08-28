@@ -7,12 +7,14 @@ import {
   getAvailableProductionStaff,
   getProductionRequestById,
   getProductionRequests,
+  getUnavailableProductionItems,
   startProductionRequest,
   updateProductionItemStatus,
   type AssignProductionRequestInput,
   type AvailableProductionStaffParams,
   type CreateProductionRequestInput,
   type ProductionRequestListParams,
+  type UnavailableProductionItemsParams,
   type UpdateProductionItemStatusInput,
 } from '@/services/api/production';
 import { orderQueryKeys } from './useOrders';
@@ -22,6 +24,7 @@ export const productionQueryKeys = {
   requests: (params?: ProductionRequestListParams) => ['production', 'requests', params] as const,
   detail: (productionRequestId: string) => ['production', 'requests', 'detail', productionRequestId] as const,
   staff: (params?: AvailableProductionStaffParams) => ['production', 'staff', params] as const,
+  unavailable: (params?: UnavailableProductionItemsParams) => ['production', 'unavailable', params] as const,
 };
 
 export function useProductionRequests(params?: ProductionRequestListParams) {
@@ -43,6 +46,17 @@ export function useAvailableProductionStaff(params?: AvailableProductionStaffPar
   return useQuery({
     queryKey: productionQueryKeys.staff(params),
     queryFn: () => getAvailableProductionStaff(params),
+    enabled: options?.enabled ?? true,
+  });
+}
+
+export function useUnavailableProductionItems(
+  params?: UnavailableProductionItemsParams,
+  options?: { enabled?: boolean },
+) {
+  return useQuery({
+    queryKey: productionQueryKeys.unavailable(params),
+    queryFn: () => getUnavailableProductionItems(params),
     enabled: options?.enabled ?? true,
   });
 }
