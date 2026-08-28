@@ -71,6 +71,10 @@ export function ProductionRequests() {
 
           if (priorityDiff !== 0) return priorityDiff;
 
+          const deadlineDiff = getProductionDeadlineTime(first.productionDeadline) - getProductionDeadlineTime(second.productionDeadline);
+
+          if (deadlineDiff !== 0) return deadlineDiff;
+
           const receivedTimeDiff = getRequestReceivedTime(first.createdAt) - getRequestReceivedTime(second.createdAt);
 
           if (receivedTimeDiff !== 0) return receivedTimeDiff;
@@ -173,7 +177,7 @@ export function ProductionRequests() {
                   <th>Assigned To</th>
                   <th>Priority</th>
                   <th>Status</th>
-                  <th>Estimated Completion</th>
+                  <th>Production Deadline</th>
                   <th>Actual Completion</th>
                   <th>Action</th>
                 </tr>
@@ -209,7 +213,7 @@ export function ProductionRequests() {
                     <td>{request.assignedToName ?? '-'}</td>
                     <td>{request.priority}</td>
                     <td><ProductionStatusBadge label={getProductionRequestStatusLabel(request.status)} status={request.status} /></td>
-                    <td>{formatDate(request.estimatedCompletionDate)}</td>
+                    <td>{formatDate(request.productionDeadline)}</td>
                     <td>{formatDate(request.actualCompletionDate)}</td>
                     <td>
                       <div className="production-workspace-row-actions">
@@ -264,6 +268,14 @@ function formatCompactCode(value: string) {
 }
 
 function getRequestReceivedTime(value?: string | null) {
+  if (!value) return Number.MAX_SAFE_INTEGER;
+
+  const time = new Date(value).getTime();
+
+  return Number.isFinite(time) ? time : Number.MAX_SAFE_INTEGER;
+}
+
+function getProductionDeadlineTime(value?: string | null) {
   if (!value) return Number.MAX_SAFE_INTEGER;
 
   const time = new Date(value).getTime();
