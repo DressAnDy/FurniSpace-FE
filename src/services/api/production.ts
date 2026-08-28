@@ -78,6 +78,7 @@ export type ProductionWorkloadDto = {
   fullName: string;
   email: string;
   openRequestCount: number;
+  /** Open requests past committed production deadline for this staff member. */
   overdueCount: number;
   maxActiveRequests: number;
   availableSlot: number;
@@ -108,6 +109,7 @@ export type ProductionWorkloadSummaryDto = {
   fullCount: number;
   overCount: number;
   totalOpenRequests: number;
+  /** Open requests past committed production deadline across active staff. */
   overdueCount: number;
   maxActiveRequests: number;
 };
