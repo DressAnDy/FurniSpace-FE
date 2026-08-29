@@ -78,6 +78,7 @@ export type ProductionWorkloadDto = {
   fullName: string;
   email: string;
   openRequestCount: number;
+  /** Open requests past committed production deadline for this staff member. */
   overdueCount: number;
   maxActiveRequests: number;
   availableSlot: number;
@@ -108,6 +109,7 @@ export type ProductionWorkloadSummaryDto = {
   fullCount: number;
   overCount: number;
   totalOpenRequests: number;
+  /** Open requests past committed production deadline across active staff. */
   overdueCount: number;
   maxActiveRequests: number;
 };
@@ -151,6 +153,41 @@ export type UpdateProductionItemStatusInput = {
   status: ProductionItemStatus;
   productionNote?: string | null;
   cancellationReason?: string | null;
+};
+
+export type UnavailableProductionItemDto = {
+  productionItemId: string;
+  productionRequestId: string;
+  productionCode: string | null;
+  projectId: string;
+  projectCode: string | null;
+  projectName: string;
+  orderId: string;
+  orderCode: string | null;
+  assignedTo: string | null;
+  assignedToName: string | null;
+  orderItemId: string;
+  productNameSnapshot: string | null;
+  productVersionNameSnapshot: string | null;
+  quantity: number;
+  status: ProductionItemStatus;
+  cancellationReason: string | null;
+  completedAt: string | null;
+};
+
+export type UnavailableProductionItemsDto = {
+  items: UnavailableProductionItemDto[];
+  page: number;
+  pageSize: number;
+  totalItems: number;
+  totalPages: number;
+};
+
+export type UnavailableProductionItemsParams = {
+  keyword?: string | null;
+  assignedTo?: string | null;
+  page?: number;
+  pageSize?: number;
 };
 
 export function getProductionServiceResultMessage(error: unknown) {
@@ -306,6 +343,22 @@ export async function updateProductionItemStatus(input: UpdateProductionItemStat
       status: input.status,
       productionNote: normalizeOptionalText(input.productionNote),
       cancellationReason: normalizeOptionalText(input.cancellationReason),
+    },
+  );
+
+  return response.data.data;
+}
+
+export async function getUnavailableProductionItems(params: UnavailableProductionItemsParams = {}) {
+  const response = await productionApiClient.get<ServiceResult<UnavailableProductionItemsDto>>(
+    '/production-items/unavailable',
+    {
+      params: {
+        keyword: params.keyword ?? undefined,
+        assignedTo: params.assignedTo ?? undefined,
+        page: params.page ?? 1,
+        pageSize: params.pageSize ?? 20,
+      },
     },
   );
 

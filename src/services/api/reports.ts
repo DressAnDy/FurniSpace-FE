@@ -108,6 +108,7 @@ export type ReportOverviewDto = {
   production: {
     requestsOpen: number;
     blockedCount: number;
+    /** Active requests past committed production deadline. */
     overdueCount: number;
   };
   delivery: {
@@ -199,6 +200,7 @@ export type ReportProductionDto = {
   blockedCount: number;
   pendingReviewCount: number;
   unassignedCount: number;
+  /** Active requests past committed production deadline. */
   overdueCount: number;
   createdInRange: number;
   completedInRange: number;

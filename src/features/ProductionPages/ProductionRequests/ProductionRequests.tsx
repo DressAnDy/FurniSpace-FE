@@ -71,6 +71,10 @@ export function ProductionRequests() {
 
           if (priorityDiff !== 0) return priorityDiff;
 
+          const deadlineDiff = getProductionDeadlineTime(first.productionDeadline) - getProductionDeadlineTime(second.productionDeadline);
+
+          if (deadlineDiff !== 0) return deadlineDiff;
+
           const receivedTimeDiff = getRequestReceivedTime(first.createdAt) - getRequestReceivedTime(second.createdAt);
 
           if (receivedTimeDiff !== 0) return receivedTimeDiff;
@@ -264,6 +268,14 @@ function formatCompactCode(value: string) {
 }
 
 function getRequestReceivedTime(value?: string | null) {
+  if (!value) return Number.MAX_SAFE_INTEGER;
+
+  const time = new Date(value).getTime();
+
+  return Number.isFinite(time) ? time : Number.MAX_SAFE_INTEGER;
+}
+
+function getProductionDeadlineTime(value?: string | null) {
   if (!value) return Number.MAX_SAFE_INTEGER;
 
   const time = new Date(value).getTime();

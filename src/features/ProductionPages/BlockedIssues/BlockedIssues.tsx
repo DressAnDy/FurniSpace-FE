@@ -1,13 +1,33 @@
+import { useMemo, useState } from 'react';
 import { IconAlertTriangle, IconBan, IconBell } from '@tabler/icons-react';
 import { Link } from 'react-router-dom';
 
-import { mockProductionRequests } from '@/features/ProductionPages/mock';
 import { ProductionLayout, ProductionStatusBadge, ProductionSummaryCard } from '@/features/ProductionPages/productioncomponents';
-import { formatDate, getProductionItemStatusLabel, getProductionRequestStatusLabel } from '@/features/ProductionPages/utils';
+import { formatDate, getProductionItemStatusLabel } from '@/features/ProductionPages/utils';
+import { getProductionServiceResultMessage } from '@/services/api/production';
+import { useUnavailableProductionItems } from '@/services/queries';
 
 export function BlockedIssues() {
-  const unavailableRequests = mockProductionRequests.filter((request) => request.items.some((item) => item.status === 'CANCELLED'));
-  const unavailableItems = mockProductionRequests.flatMap((request) => request.items.filter((item) => item.status === 'CANCELLED').map((item) => ({ item, request })));
+  const [keyword, setKeyword] = useState('');
+  const unavailableQuery = useUnavailableProductionItems({
+    keyword: keyword.trim() || undefined,
+    page: 1,
+    pageSize: 100,
+  });
+
+  const items = unavailableQuery.data?.items ?? [];
+
+  const requestGroups = useMemo(() => {
+    const map = new Map<string, typeof items>();
+    for (const item of items) {
+      const group = map.get(item.productionRequestId) ?? [];
+      group.push(item);
+      map.set(item.productionRequestId, group);
+    }
+    return map;
+  }, [items]);
+
+  const missingReasonCount = items.filter((item) => !item.cancellationReason?.trim()).length;
 
   return (
     <ProductionLayout activeLabel="Unavailable Items" searchPlaceholder="Search unavailable production items...">
@@ -18,46 +38,59 @@ export function BlockedIssues() {
             <h2>Unavailable Items</h2>
             <p>Review cancelled production items caused by material, technical, or customization issues.</p>
           </div>
+          <input
+            className="production-workspace-search"
+            placeholder="Production code, project, product, reason..."
+            value={keyword}
+            onChange={(event) => setKeyword(event.target.value)}
+          />
         </section>
 
+        {unavailableQuery.isError ? (
+          <p className="production-workspace-error">{getProductionServiceResultMessage(unavailableQuery.error)}</p>
+        ) : null}
+
         <section className="production-workspace-summary-grid">
-          <ProductionSummaryCard icon={IconAlertTriangle} label="Requests With Unavailable Items" value={unavailableRequests.length} />
-          <ProductionSummaryCard icon={IconBan} label="Unavailable Items" value={unavailableItems.length} />
-          <ProductionSummaryCard icon={IconBell} label="Sales Notifications" value={unavailableItems.length} />
-          <ProductionSummaryCard icon={IconAlertTriangle} label="Cancellation Reasons Needed" value={0} />
+          <ProductionSummaryCard icon={IconAlertTriangle} label="Requests With Unavailable Items" value={requestGroups.size} />
+          <ProductionSummaryCard icon={IconBan} label="Unavailable Items" value={items.length} />
+          <ProductionSummaryCard icon={IconBell} label="Sales Notifications" value={items.length} />
+          <ProductionSummaryCard icon={IconAlertTriangle} label="Cancellation Reasons Needed" value={missingReasonCount} />
         </section>
 
         <BlockedTable
           title="Requests With Unavailable Items"
-          rows={unavailableRequests.map((request) => ({
-            id: request.productionRequestId,
-            type: 'Request',
-            project: request.projectName,
-            productionCode: request.productionCode,
-            item: '-',
-            note: request.note ?? '-',
-            updatedAt: formatDate(request.updatedAt),
-            assignedTo: request.assignedToName ?? '-',
-            status: request.status,
-            label: getProductionRequestStatusLabel(request.status),
-            detailPath: `/production/requests/${request.productionRequestId}`,
-          }))}
+          rows={[...requestGroups.entries()].map(([requestId, group]) => {
+            const first = group[0];
+            return {
+              id: requestId,
+              type: 'Request',
+              project: first.projectName,
+              productionCode: first.productionCode ?? '-',
+              item: `${group.length} item(s)`,
+              note: group.map((item) => item.cancellationReason).filter(Boolean).join('; ') || '-',
+              updatedAt: formatDate(first.completedAt ?? undefined),
+              assignedTo: first.assignedToName ?? '-',
+              status: 'CANCELLED',
+              label: getProductionItemStatusLabel('CANCELLED'),
+              detailPath: `/production/requests/${requestId}`,
+            };
+          })}
         />
 
         <BlockedTable
           title="Unavailable Items"
-          rows={unavailableItems.map(({ item, request }) => ({
+          rows={items.map((item) => ({
             id: item.productionItemId,
             type: 'Item',
-            project: request.projectName,
-            productionCode: request.productionCode,
-            item: item.productNameSnapshot,
-            note: item.materialNote ?? item.productionNote ?? '-',
-            updatedAt: formatDate(item.startedAt ?? request.updatedAt),
-            assignedTo: request.assignedToName ?? '-',
+            project: item.projectName,
+            productionCode: item.productionCode ?? '-',
+            item: item.productNameSnapshot ?? '-',
+            note: item.cancellationReason ?? '-',
+            updatedAt: formatDate(item.completedAt ?? undefined),
+            assignedTo: item.assignedToName ?? '-',
             status: item.status,
             label: getProductionItemStatusLabel(item.status),
-            detailPath: `/production/requests/${request.productionRequestId}`,
+            detailPath: `/production/requests/${item.productionRequestId}`,
           }))}
         />
       </div>
@@ -103,24 +136,30 @@ function BlockedTable({ rows, title }: { rows: BlockedRow[]; title: string }) {
             </tr>
           </thead>
           <tbody>
-            {rows.map((row) => (
-              <tr key={row.id}>
-                <td><ProductionStatusBadge label={row.type} status={row.status} /></td>
-                <td>{row.project}</td>
-                <td>{row.productionCode}</td>
-                <td>{row.item}</td>
-                <td>{row.note}</td>
-                <td>{row.updatedAt}</td>
-                <td>{row.assignedTo}</td>
-                <td>
-                  <div className="production-workspace-row-actions">
-                    <Link to={row.detailPath}>View Detail</Link>
-                    <button className="is-secondary" type="button">Review Item</button>
-                    <button className="is-secondary" type="button">Notify Sales</button>
-                  </div>
-                </td>
+            {rows.length === 0 ? (
+              <tr>
+                <td colSpan={8}>No unavailable items found.</td>
               </tr>
-            ))}
+            ) : (
+              rows.map((row) => (
+                <tr key={row.id}>
+                  <td>
+                    <ProductionStatusBadge label={row.type} status={row.status} />
+                  </td>
+                  <td>{row.project}</td>
+                  <td>{row.productionCode}</td>
+                  <td>{row.item}</td>
+                  <td>{row.note}</td>
+                  <td>{row.updatedAt}</td>
+                  <td>{row.assignedTo}</td>
+                  <td>
+                    <div className="production-workspace-row-actions">
+                      <Link to={row.detailPath}>View Detail</Link>
+                    </div>
+                  </td>
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
       </div>

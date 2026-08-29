@@ -192,7 +192,7 @@ export function ProductionDashbroad() {
                 <span>Phase</span>
                 <span className="production-ops-queue-col-center">Priority</span>
                 <span>Action</span>
-                <span>Due</span>
+                <span>Deadline</span>
                 <span className="production-ops-queue-col-center">Status</span>
                 <span />
               </div>
@@ -268,9 +268,9 @@ function mapProductionKpis(data: ProductionDashboardKpisDto | undefined, rangeLa
       value: String(data?.readyToComplete ?? 0),
     },
     {
-      description: 'Overdue production tasks',
+      description: 'Active requests past committed production deadline',
       icon: IconBan,
-      label: 'Overdue Tasks',
+      label: 'Overdue (Deadline)',
       note: rangeLabel,
       path: '/production/blocked-issues',
       tone: 'red',
@@ -306,12 +306,12 @@ function formatStatusLabel(status: string) {
 }
 
 function formatDueLabel(dueAt: string | null, dueBucket: DashboardDueBucket | null) {
-  if (dueBucket === 'OVERDUE') return 'Overdue';
-  if (dueBucket === 'TODAY') return 'Today';
-  if (dueBucket === 'THIS_WEEK') return 'This week';
+  if (dueBucket === 'OVERDUE') return dueAt ? `Overdue · ${formatShortDate(dueAt)}` : 'Overdue';
+  if (dueBucket === 'TODAY') return 'Deadline today';
+  if (dueBucket === 'THIS_WEEK') return dueAt ? `This week · ${formatShortDate(dueAt)}` : 'This week';
   if (dueBucket === 'LATER') return dueAt ? formatShortDate(dueAt) : 'Later';
   if (dueAt) return formatShortDate(dueAt);
-  return '-';
+  return 'No deadline';
 }
 
 function formatShortDate(value: string) {
