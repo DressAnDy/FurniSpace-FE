@@ -117,6 +117,51 @@ export type DashboardKpiQueryDto = {
   dateRange?: DashboardDateRange | null;
 };
 
+export type ProjectPhaseDeadlineRiskPhase = 'PROPOSAL' | 'PRODUCTION';
+export type ProjectPhaseDeadlineRiskStatus =
+  | 'OVERDUE'
+  | 'ON_TRACK'
+  | 'COMPLETED_ON_TIME'
+  | 'COMPLETED_LATE';
+
+export type ProjectPhaseDeadlineRiskItemDto = {
+  projectId: string;
+  projectCode: string;
+  projectName: string;
+  phase: ProjectPhaseDeadlineRiskPhase | string;
+  dueDate: string;
+  completedAt: string | null;
+  projectStatus: string;
+  assignedSalesId: string | null;
+  assignedSalesName: string | null;
+  assignedDesignerId: string | null;
+  assignedDesignerName: string | null;
+  assignedProductionId: string | null;
+  assignedProductionName: string | null;
+  status: ProjectPhaseDeadlineRiskStatus | string;
+  group: string;
+  days: number;
+};
+
+export type ProjectPhaseDeadlineRiskResponseDto = {
+  items: ProjectPhaseDeadlineRiskItemDto[];
+  countsByGroup: Record<string, number>;
+  page: number;
+  limit: number;
+  total: number;
+};
+
+export type ProjectPhaseDeadlineRiskParams = {
+  phase?: ProjectPhaseDeadlineRiskPhase | null;
+  status?: ProjectPhaseDeadlineRiskStatus | null;
+  salesId?: string | null;
+  designerId?: string | null;
+  from?: string | null;
+  to?: string | null;
+  page?: number;
+  limit?: number;
+};
+
 export async function getSalesActionQueue(params?: DashboardQueueQueryDto) {
   const response = await dashboardApiClient.get<ServiceResult<DashboardQueueResponseDto>>('/api/dashboard/sales/action-queue', {
     params: getDashboardSearchParams(params),
@@ -161,6 +206,26 @@ export async function getProductionDashboardKpis(params?: DashboardKpiQueryDto) 
   const response = await dashboardApiClient.get<ServiceResult<ProductionDashboardKpisDto>>('/api/dashboard/production/kpis', {
     params: getDashboardSearchParams(params),
   });
+
+  return response.data.data;
+}
+
+export async function getProjectPhaseDeadlineRisks(params: ProjectPhaseDeadlineRiskParams = {}) {
+  const response = await dashboardApiClient.get<ServiceResult<ProjectPhaseDeadlineRiskResponseDto>>(
+    '/api/dashboard/project-phase-deadlines',
+    {
+      params: {
+        phase: params.phase ?? undefined,
+        status: params.status ?? undefined,
+        salesId: params.salesId ?? undefined,
+        designerId: params.designerId ?? undefined,
+        from: params.from ?? undefined,
+        to: params.to ?? undefined,
+        page: params.page ?? 1,
+        limit: params.limit ?? 20,
+      },
+    },
+  );
 
   return response.data.data;
 }

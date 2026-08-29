@@ -3,6 +3,8 @@ import { IconCube, IconPhoto, IconPlus, IconRefresh, IconSearch, IconStar, IconT
 import { useNavigate } from 'react-router-dom';
 
 import { AdminNavbar, AdminSidebar } from '@/features/AdminPages/admincomponents';
+import { useLang } from '@/app/providers/useLang';
+import { adminCopy } from '@/features/AdminPages/admincomponents/adminI18n';
 import {
   getLayoutAssetServiceResultMessage,
   type LayoutAssetDto,
@@ -40,6 +42,8 @@ const layoutAssetTypes: LayoutAssetType[] = [
 const fileTypes: LayoutAssetFileType[] = ['PREVIEW', 'MODEL_3D', 'TEXTURE'];
 
 export function LayoutAssetManagementPage() {
+  const { lang } = useLang();
+  const t = adminCopy[lang];
   const navigate = useNavigate();
   const [query, setQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState<LayoutAssetType | ''>('');
@@ -190,13 +194,13 @@ export function LayoutAssetManagementPage() {
   return (
     <main className="admin-dashboard-page">
       <div className="admin-dashboard-shell">
-        <AdminSidebar activeLabel="Layout Assets" />
+        <AdminSidebar activeKey="layoutAssets" />
         <section className="admin-main">
-          <AdminNavbar activeLabel="Layout Assets" />
+          <AdminNavbar activeLabel={t.nav.layoutAssets} />
           <div className="admin-content catalog-model-content">
             <header className="product-management-heading catalog-model-heading">
               <div>
-                <h2>Layout Assets</h2>
+                <h2>{t.layoutAssets.title}</h2>
                 <p>Manage Room Planner materials, structural assets, and decorative models separately from product models.</p>
               </div>
               <button className="admin-button admin-button-primary" type="button" onClick={() => setIsCreateAssetModalOpen(true)}>

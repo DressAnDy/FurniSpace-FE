@@ -20,15 +20,305 @@
 
 .admin-projects-summary-card {
   display: flex;
-  min-height: 122px;
+  min-height: 104px;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 16px;
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
+  gap: 14px;
+  border: 1px solid #e8e0d5;
+  border-radius: 12px;
   background: #ffffff;
-  box-shadow: 0 12px 30px rgba(26, 29, 41, 0.05);
-  padding: 18px;
+  box-shadow: none;
+  padding: 16px;
+}
+
+.admin-projects-summary-card strong {
+  display: block;
+  margin-top: 6px;
+  color: #111827;
+  font-size: 26px;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.admin-projects-summary-icon {
+  display: flex;
+  width: 40px;
+  height: 40px;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 40px;
+  border-radius: 10px;
+  background: #5c4030;
+  color: #ffffff;
+}
+
+.admin-projects-deadline-risk {
+  display: grid;
+  gap: 14px;
+}
+
+.admin-projects-deadline-risk-header {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.admin-projects-deadline-risk-eyebrow {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  color: #9a3412;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.admin-projects-deadline-risk-header h3 {
+  margin: 4px 0 0;
+  color: #1f1a17;
+  font-size: 18px;
+}
+
+.admin-projects-deadline-risk-header p {
+  margin: 4px 0 0;
+  color: #6b7280;
+  font-size: 13px;
+}
+
+.admin-projects-deadline-risk-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.admin-projects-deadline-risk-filters label {
+  display: grid;
+  gap: 4px;
+  min-width: 140px;
+}
+
+.admin-projects-deadline-risk-filters span {
+  color: #9ca3af;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.admin-projects-deadline-risk-filters select {
+  height: 36px;
+  border: 1px solid #ded8cf;
+  border-radius: 8px;
+  background: #fff;
+  color: #374151;
+  font: inherit;
+  font-size: 12px;
+  padding: 0 10px;
+}
+
+.admin-projects-deadline-risk-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.admin-projects-deadline-risk-chips li {
+  display: inline-flex;
+  gap: 6px;
+  align-items: baseline;
+  padding: 6px 10px;
+  border: 1px solid #e8e0d5;
+  border-radius: 999px;
+  background: #fcfbf9;
+}
+
+.admin-projects-deadline-risk-chips strong {
+  color: #1f1a17;
+  font-size: 14px;
+}
+
+.admin-projects-deadline-risk-chips span {
+  color: #6b7280;
+  font-size: 11px;
+}
+
+.admin-projects-deadline-risk-table td span {
+  display: block;
+  color: #6b7280;
+  font-size: 12px;
+}
+
+.admin-projects-deadline-risk-group {
+  margin-top: 2px;
+}
+
+.admin-projects-deadline-risk-status {
+  display: inline-flex !important;
+  width: fit-content;
+  max-width: max-content;
+  gap: 4px;
+  align-items: center;
+  margin-top: 0 !important;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: #f3f4f6;
+  color: #4b5563 !important;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.admin-projects-deadline-risk-table td:has(.admin-projects-deadline-risk-status) {
+  width: 1%;
+  white-space: nowrap;
+}
+
+.admin-projects-deadline-risk-status.is-bad {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.admin-projects-deadline-risk-status.is-warn {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.admin-projects-deadline-risk-status.is-good {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.admin-projects-deadline-risk-table td.is-bad {
+  color: #b91c1c;
+  font-weight: 700;
+}
+
+.admin-projects-deadline-risk-pager {
+  margin-top: 4px;
+}
+
+.admin-projects-production-deadline-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: end;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid #ede9e3;
+}
+
+.admin-projects-production-deadline-form label {
+  display: grid;
+  gap: 4px;
+}
+
+.admin-projects-production-deadline-form span {
+  color: #9ca3af;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.admin-projects-production-deadline-form input {
+  height: 38px;
+  border: 1px solid #ded8cf;
+  border-radius: 8px;
+  padding: 0 10px;
+  font: inherit;
+}
+
+.admin-projects-deadline-hint {
+  margin: 10px 0 0;
+  color: #6b7280;
+  font-size: 12px;
+}
+
+.admin-projects-filters {
+  display: grid;
+  gap: 12px;
+  align-items: end;
+  margin: 0 0 14px;
+  padding: 0 0 14px;
+  border-bottom: 1px solid #efe8de;
+}
+
+.admin-projects-filters.is-projects {
+  grid-template-columns:
+    minmax(220px, 1.5fr)
+    minmax(140px, 1fr)
+    minmax(140px, 1fr)
+    minmax(140px, 1fr);
+}
+
+.admin-projects-filters.is-deadlines {
+  grid-template-columns:
+    minmax(0, 1fr)
+    minmax(140px, 180px)
+    minmax(140px, 180px);
+  align-items: start;
+}
+
+.admin-projects-deadline-risk-meta {
+  min-width: 0;
+  display: grid;
+  gap: 8px;
+  padding-right: 8px;
+}
+
+.admin-projects-deadline-risk-meta h3 {
+  margin: 0;
+  color: #1f1a17;
+  font-size: 18px;
+  line-height: 1.25;
+}
+
+.admin-projects-deadline-risk-meta p {
+  margin: 0;
+  color: #6b7280;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.admin-projects-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.admin-projects-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  flex: 0 0 auto;
+  padding: 0 14px;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  background: #ffffff;
+  color: #4b5563;
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.admin-projects-tab:hover,
+.admin-projects-tab.is-active {
+  border-color: #8b6f47;
+  background: #f8f4ee;
+  color: #1a1d29;
+}
+
+.admin-projects-deadline-risk-compact-copy {
+  margin: 0;
+  color: #6b7280;
+  font-size: 13px;
 }
 
 .admin-projects-summary-card span,
@@ -44,38 +334,8 @@
   font-weight: 700;
 }
 
-.admin-projects-summary-card strong {
-  display: block;
-  margin-top: 8px;
-  color: #111827;
-  font-size: 30px;
-  font-weight: 700;
-  line-height: 36px;
-}
-
 .admin-projects-summary-card p {
   margin-top: 6px;
-}
-
-.admin-projects-summary-icon {
-  display: flex;
-  width: 44px;
-  height: 44px;
-  align-items: center;
-  justify-content: center;
-  flex: 0 0 44px;
-  border-radius: 8px;
-  background: #8b6f47;
-  color: #ffffff;
-}
-
-.admin-projects-filters {
-  display: grid;
-  grid-template-columns: minmax(320px, 1.5fr) repeat(3, minmax(180px, 1fr));
-  align-items: end;
-  gap: 16px;
-  margin-bottom: 20px;
-  padding: 18px;
 }
 
 .admin-projects-search {
@@ -271,13 +531,19 @@
 }
 
 .admin-projects-status {
-  display: inline-flex;
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
   width: fit-content;
+  max-width: 100%;
+  margin-top: 0 !important;
   border-radius: 999px;
   font-size: 12px;
   font-weight: 800;
   line-height: 16px;
   padding: 6px 10px;
+  text-align: center;
+  white-space: nowrap;
 }
 
 .admin-projects-status-success {
@@ -305,8 +571,7 @@
   color: #4b5563;
 }
 
-.admin-projects-view-button,
-.admin-projects-pagination button {
+.admin-projects-view-button {
   display: inline-flex;
   height: 34px;
   align-items: center;
@@ -323,21 +588,76 @@
   padding: 0 12px;
 }
 
-.admin-projects-pagination {
+.admin-projects-pager {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: space-between;
   gap: 12px;
   margin-top: 18px;
+  color: #6b7280;
 }
 
-.admin-projects-pagination span {
+.admin-projects-pager-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+
+.admin-projects-pager-field {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.admin-projects-pager-field input {
+  width: 64px;
+  height: 34px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #fff;
+  color: #1a1d29;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 0 8px;
+  text-align: center;
+}
+
+.admin-projects-pager-field input:focus {
+  border-color: #9ca3af;
+  outline: none;
+}
+
+.admin-projects-pager-of,
+.admin-projects-pager-total {
+  font-size: 13px;
+  font-weight: 500;
   color: #6b7280;
+}
+
+.admin-projects-pager-nav {
+  display: inline-flex;
+  gap: 8px;
+}
+
+.admin-projects-pager-nav button {
+  height: 34px;
+  border: 1px solid #d8c2a8;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #6f5636;
+  cursor: pointer;
+  font: inherit;
   font-size: 13px;
   font-weight: 700;
+  padding: 0 12px;
 }
 
-.admin-projects-pagination button:disabled {
+.admin-projects-pager-nav button:disabled {
   cursor: not-allowed;
   opacity: 0.5;
 }
@@ -812,8 +1132,11 @@
 }
 
 @media (max-width: 1280px) {
-  .admin-projects-summary-grid,
-  .admin-projects-filters {
+  .admin-projects-summary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .admin-projects-filters.is-projects {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
@@ -825,18 +1148,19 @@
 @media (max-width: 760px) {
   .admin-projects-heading,
   .admin-projects-section-title,
-  .admin-projects-pagination {
+  .admin-projects-pager {
     align-items: stretch;
     flex-direction: column;
   }
 
   .admin-projects-summary-grid,
-  .admin-projects-filters,
-  .admin-projects-stage-grid,
-  .admin-projects-detail-grid,
-  .admin-projects-designer-form,
-  .admin-projects-workflow-facts {
+  .admin-projects-filters.is-projects,
+  .admin-projects-filters.is-deadlines {
     grid-template-columns: 1fr;
+  }
+
+  .admin-projects-deadline-risk-header {
+    flex-direction: column;
   }
 
   .admin-projects-workflow-panel-header {

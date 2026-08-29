@@ -2,6 +2,7 @@ import { type FormEvent, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { IconBriefcase, IconEdit, IconEye, IconPlus, IconSearch, IconTrash, IconUser, IconUsers, IconX } from '@tabler/icons-react';
 
+import { useLang } from '@/app/providers/useLang';
 import {
   ACCOUNT_ROLE_OPTIONS,
   ACCOUNT_STATUS_OPTIONS,
@@ -20,7 +21,7 @@ import {
   useUpdateAccount,
 } from '@/services/queries';
 
-import { AdminNavbar, AdminSidebar } from '../admincomponents';
+import { AdminNavbar, AdminSidebar, adminCopy } from '../admincomponents';
 import { DesignerWorkloadPanel } from './DesignerWorkloadPanel';
 import { SalesWorkloadPanel } from './SalesWorkloadPanel';
 import './UserManagement.css';
@@ -39,6 +40,8 @@ function resolveUserManagementTab(value: string | null): UserManagementTab {
 }
 
 export function UserManagement() {
+  const { lang } = useLang();
+  const t = adminCopy[lang];
   const [searchParams, setSearchParams] = useSearchParams();
   const activeTab = resolveUserManagementTab(searchParams.get('tab'));
   const setActiveTab = (tab: UserManagementTab) => {
@@ -177,20 +180,20 @@ export function UserManagement() {
   return (
     <main className="admin-dashboard-page">
       <div className="admin-dashboard-shell">
-        <AdminSidebar activeLabel="User & Role Management" />
+        <AdminSidebar activeKey="users" />
 
         <section className="admin-main">
-          <AdminNavbar activeLabel="User & Role Management" />
+          <AdminNavbar activeLabel={t.nav.users} />
           <div className="admin-content user-management-content">
             <div className="admin-page-heading user-management-heading">
               <div>
-                <h2>User & Role Management</h2>
-                <p>Manage accounts, designer capacity, and sales workload from backend APIs.</p>
+                <h2>{t.users.title}</h2>
+                <p>{t.users.subtitle}</p>
               </div>
               {activeTab === 'accounts' ? (
                 <button className="admin-button admin-button-primary" type="button" onClick={openCreateModal}>
                   <IconPlus size={16} />
-                  Create Staff Account
+                  {t.users.addAccount}
                 </button>
               ) : null}
             </div>
@@ -203,7 +206,7 @@ export function UserManagement() {
                 className={`user-management-tab${activeTab === 'accounts' ? ' is-active' : ''}`}
                 onClick={() => setActiveTab('accounts')}
               >
-                Accounts
+                {t.users.tabAccounts}
               </button>
               <button
                 type="button"
@@ -212,7 +215,7 @@ export function UserManagement() {
                 className={`user-management-tab${activeTab === 'designer-workload' ? ' is-active' : ''}`}
                 onClick={() => setActiveTab('designer-workload')}
               >
-                Designer Workload
+                {t.users.tabDesignerWorkload}
               </button>
               <button
                 type="button"
@@ -221,7 +224,7 @@ export function UserManagement() {
                 className={`user-management-tab${activeTab === 'sales-workload' ? ' is-active' : ''}`}
                 onClick={() => setActiveTab('sales-workload')}
               >
-                Sales Workload
+                {t.users.tabSalesWorkload}
               </button>
             </div>
 
@@ -252,7 +255,7 @@ export function UserManagement() {
                       setSearchValue(event.target.value);
                       setAccountPage(1);
                     }}
-                    placeholder="Search by email, name, or phone..."
+                    placeholder={t.users.searchPlaceholder}
                     type="search"
                   />
                 </label>
@@ -296,7 +299,7 @@ export function UserManagement() {
               ) : null}
 
               {!accountListQuery.isLoading && !accountListQuery.isError && accounts.length === 0 ? (
-                <div className="user-management-state">No accounts found.</div>
+                <div className="user-management-state">{t.users.noAccounts}</div>
               ) : null}
 
               {!accountListQuery.isLoading && !accountListQuery.isError && accounts.length > 0 ? (
@@ -305,22 +308,18 @@ export function UserManagement() {
                     <table className="user-management-table">
                       <thead>
                         <tr>
-                          <th>Account ID</th>
-                          <th>Full Name</th>
-                          <th>Email</th>
-                          <th>Phone</th>
-                          <th>Role</th>
-                          <th>Status</th>
-                          <th>Created At</th>
-                          <th>Actions</th>
+                          <th>{t.users.fullName}</th>
+                          <th>{t.users.email}</th>
+                          <th>{t.users.phone}</th>
+                          <th>{t.users.role}</th>
+                          <th>{t.common.status}</th>
+                          <th>{t.users.createdAt}</th>
+                          <th>{t.common.actions}</th>
                         </tr>
                       </thead>
                       <tbody>
                         {accounts.map((account) => (
                           <tr key={account.accountId}>
-                            <td className="user-management-id" title={account.accountId}>
-                              {shortenId(account.accountId)}
-                            </td>
                             <td>
                               <div className="user-management-user">
                                 <div className="user-management-avatar">
@@ -557,12 +556,15 @@ type AccountDetailModalProps = {
 };
 
 function AccountDetailModal({ isLoading, errorMessage, account, onClose }: AccountDetailModalProps) {
+  const { lang } = useLang();
+  const t = adminCopy[lang];
+
   return (
     <div className="user-modal-overlay">
       <div className="user-modal-panel user-detail-panel">
         <div className="user-modal-header">
           <div>
-            <h2>Account Detail</h2>
+            <h2>{t.users.accountDetail}</h2>
             <p>Loaded from /admin/accounts/:accountId.</p>
           </div>
           <button className="user-modal-icon-button" type="button" aria-label="Close account detail" onClick={onClose}>
@@ -600,12 +602,15 @@ type DeleteAccountModalProps = {
 };
 
 function DeleteAccountModal({ account, isDeleting, onClose, onConfirm }: DeleteAccountModalProps) {
+  const { lang } = useLang();
+  const t = adminCopy[lang];
+
   return (
     <div className="user-modal-overlay">
       <div className="user-modal-panel user-confirm-panel">
         <div className="user-modal-header">
           <div>
-            <h2>Delete Account</h2>
+            <h2>{t.users.deleteAccount}</h2>
             <p>This will soft delete the account and set it inactive.</p>
           </div>
           <button className="user-modal-icon-button" type="button" aria-label="Close delete confirmation" disabled={isDeleting} onClick={onClose}>
@@ -639,10 +644,6 @@ function DetailItem({ label, value }: { label: string; value: string }) {
       <strong>{value}</strong>
     </div>
   );
-}
-
-function shortenId(value: string) {
-  return value.length > 12 ? `${value.slice(0, 8)}...` : value;
 }
 
 function formatDate(value: string | null | undefined) {

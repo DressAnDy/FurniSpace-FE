@@ -524,6 +524,7 @@ export async function getProjectPhaseDeadlines(projectId: string) {
   return normalizeProjectPhaseDeadlines(response.data.data);
 }
 
+/** @deprecated Always fails on BE — use assign designer (proposal) or updateProductionDeadline. */
 export async function updateProjectPhaseDeadlines(input: UpdateProjectPhaseDeadlinesInput) {
   const response = await projectApiClient.put<ServiceResult<ProjectPhaseDeadlinesDto>>(
     `/projects/${input.projectId}/phase-deadlines`,
@@ -537,12 +538,11 @@ export async function updateProjectPhaseDeadlines(input: UpdateProjectPhaseDeadl
 }
 
 export async function updateProductionDeadline(input: UpdateProductionDeadlineInput) {
-  const response = await projectApiClient.put<ServiceResult<ProjectPhaseDeadlineItemDto>>(
-    `/projects/${input.projectId}/phase-deadlines/production`,
-    {
-      productionDeadline: input.productionDeadline,
-    },
-  );
+  const response = await projectApiClient.put<
+    ServiceResult<ProjectPhaseDeadlineItemDto & { projectId?: string; orderId?: string | null }>
+  >(`/projects/${input.projectId}/phase-deadlines/production`, {
+    productionDeadline: input.productionDeadline,
+  });
 
   return normalizeProjectPhaseDeadline(response.data.data);
 }

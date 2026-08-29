@@ -9,6 +9,7 @@ import {
 } from '@tabler/icons-react';
 
 import { useLang } from '@/app/providers/useLang';
+import { adminCopy } from '../admincomponents/adminI18n';
 import { getAdminFinancialServiceResultMessage, type AdminFinancialDrilldownMetric, type AdminFinancialExceptionRowDto } from '@/services/api/adminFinancial';
 import { getProjectReportServiceResultMessage } from '@/services/api/projectReports';
 import type {
@@ -82,6 +83,7 @@ function isReportTabId(value: string | null): value is ReportTabId {
 
 export function AdminReports() {
   const { lang } = useLang();
+  const adminNav = adminCopy[lang];
   const t = reportsCopy[lang];
   const [searchParams, setSearchParams] = useSearchParams();
   const initialRange = useMemo(() => defaultDateRange(), []);
@@ -273,9 +275,9 @@ export function AdminReports() {
   return (
     <main className="admin-dashboard-page">
       <div className="admin-dashboard-shell">
-        <AdminSidebar activeLabel="Reports" />
+        <AdminSidebar activeKey="reports" />
         <section className="admin-main">
-          <AdminNavbar activeLabel="Reports" />
+          <AdminNavbar activeLabel={adminNav.nav.reports} />
           <div className="admin-content admin-reports-content">
             <section className="admin-page-heading admin-reports-heading">
               <div>

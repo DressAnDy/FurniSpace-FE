@@ -17,6 +17,8 @@ import {
 } from '@/services/api/layoutAssets';
 import { useCreateLayoutAsset, useProductList, useUploadLayoutAssetFile } from '@/services/queries';
 import { AdminNavbar, AdminSidebar } from '@/features/AdminPages/admincomponents';
+import { useLang } from '@/app/providers/useLang';
+import { adminCopy } from '@/features/AdminPages/admincomponents/adminI18n';
 
 import { getPlannerReadiness } from './catalogModel.utils';
 import './CatalogModelManagement.css';
@@ -39,6 +41,8 @@ const layoutAssetTypes: LayoutAssetType[] = [
 ];
 
 export function CatalogModelManagementPage() {
+  const { lang } = useLang();
+  const t = adminCopy[lang];
   const navigate = useNavigate();
   const [query, setQuery] = useState('');
   const [readinessFilter, setReadinessFilter] = useState<ReadinessFilter>('ALL');
@@ -95,13 +99,13 @@ export function CatalogModelManagementPage() {
   return (
     <main className="admin-dashboard-page">
       <div className="admin-dashboard-shell">
-        <AdminSidebar activeLabel="3D Model & File Library" />
+        <AdminSidebar activeKey="catalogModels" />
         <section className="admin-main">
-          <AdminNavbar activeLabel="3D Model & File Library" />
+          <AdminNavbar activeLabel={t.nav.catalogModels} />
           <div className="admin-content catalog-model-content">
             <header className="product-management-heading catalog-model-heading">
               <div>
-                <h2>3D Models</h2>
+                <h2>{t.catalogModels.title}</h2>
                 <p>Review Product Version assets and prepare models for Room Planner.</p>
               </div>
               <div className="catalog-model-heading-actions">
