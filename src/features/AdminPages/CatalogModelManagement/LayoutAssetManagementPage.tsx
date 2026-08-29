@@ -1,5 +1,15 @@
 import { useMemo, useState, type FormEvent } from 'react';
-import { IconCube, IconPhoto, IconPlus, IconRefresh, IconSearch, IconStar, IconTrash, IconUpload } from '@tabler/icons-react';
+import {
+  IconCube,
+  IconPhoto,
+  IconPlus,
+  IconRefresh,
+  IconSearch,
+  IconStar,
+  IconTrash,
+  IconUpload,
+  IconX,
+} from '@tabler/icons-react';
 import { useNavigate } from 'react-router-dom';
 
 import { AdminNavbar, AdminSidebar } from '@/features/AdminPages/admincomponents';
@@ -51,28 +61,44 @@ export function LayoutAssetManagementPage() {
   const [isCreateAssetModalOpen, setIsCreateAssetModalOpen] = useState(false);
   const [createAssetType, setCreateAssetType] = useState<LayoutAssetType>('DECORATIVE_OBJECT');
   const [message, setMessage] = useState<{ tone: 'error' | 'success'; text: string } | null>(null);
-  const assetsQuery = useLayoutAssets({ keyword: query, layoutAssetType: typeFilter || null, page: 1, pageSize: 100 });
+  const assetsQuery = useLayoutAssets({ keyword: query, layoutAssetType: null, page: 1, pageSize: 100 });
   const createAssetMutation = useCreateLayoutAsset();
   const updateStatusMutation = useUpdateLayoutAssetStatus();
   const uploadFileMutation = useUploadLayoutAssetFile();
-  const assets = useMemo(() => assetsQuery.data?.items ?? [], [assetsQuery.data?.items]);
-  const selectedAsset = assets.find((asset) => asset.layoutAssetId === selectedAssetId) ?? assets[0] ?? null;
+  const assets = useMemo(() => {
+    const items = assetsQuery.data?.items ?? [];
+    if (!typeFilter) return items;
+    return items.filter((asset) => getAssetType(asset) === typeFilter);
+  }, [assetsQuery.data?.items, typeFilter]);
+  const allAssets = useMemo(() => assetsQuery.data?.items ?? [], [assetsQuery.data?.items]);
+  const selectedAsset = assets.find((asset) => asset.layoutAssetId === selectedAssetId)
+    ?? allAssets.find((asset) => asset.layoutAssetId === selectedAssetId)
+    ?? assets[0]
+    ?? null;
   const selectedAssetFilesQuery = useLayoutAssetFiles(selectedAsset?.layoutAssetId);
   const setPrimaryFileMutation = useSetLayoutAssetPrimaryFile();
   const deleteFileMutation = useDeleteLayoutAssetFile();
   const stats = useMemo(() => {
-    const active = assets.filter((asset) => asset.status === 'ACTIVE').length;
-    const decorative = assets.filter((asset) => getAssetType(asset).startsWith('DECORATIVE')).length;
+    const active = allAssets.filter((asset) => asset.status === 'ACTIVE').length;
+    const decorative = allAssets.filter((asset) => getAssetType(asset).startsWith('DECORATIVE')).length;
 
     return [
-      { label: 'Layout Assets', value: assets.length, helper: 'Materials and decor library', icon: IconCube, tone: 'dark' },
+      { label: 'Layout Assets', value: allAssets.length, helper: 'Materials and decor library', icon: IconCube, tone: 'dark' },
       { label: 'Active', value: active, helper: 'Visible in Room Planner', icon: IconRefresh, tone: 'green' },
       { label: 'Decorative', value: decorative, helper: 'Decorate tab candidates', icon: IconPhoto, tone: 'gold' },
     ];
-  }, [assets]);
+  }, [allAssets]);
   const groupedAssets = useMemo(() => groupAssetsByType(assets), [assets]);
   const selectedAssetFiles = selectedAssetFilesQuery.data?.items ?? [];
   const createAssetFileFields = useMemo(() => getCreateAssetFileFields(createAssetType), [createAssetType]);
+  const typeCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    allAssets.forEach((asset) => {
+      const type = getAssetType(asset);
+      counts.set(type, (counts.get(type) ?? 0) + 1);
+    });
+    return counts;
+  }, [allAssets]);
 
   async function createAsset(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -197,7 +223,7 @@ export function LayoutAssetManagementPage() {
         <AdminSidebar activeKey="layoutAssets" />
         <section className="admin-main">
           <AdminNavbar activeLabel={t.nav.layoutAssets} />
-          <div className="admin-content catalog-model-content">
+          <div className="admin-content catalog-model-content catalog-layout-page">
             <header className="product-management-heading catalog-model-heading">
               <div>
                 <h2>{t.layoutAssets.title}</h2>
@@ -246,48 +272,115 @@ export function LayoutAssetManagementPage() {
                   <label className="product-management-filter">
                     <span>Type</span>
                     <select value={typeFilter} onChange={(event) => setTypeFilter(event.target.value as LayoutAssetType | '')}>
-                      <option value="">All</option>
+                      <option value="">All types</option>
                       {layoutAssetTypes.map((type) => <option key={type} value={type}>{formatEnumLabel(type)}</option>)}
                     </select>
                   </label>
                 </div>
 
-                {assetsQuery.isLoading ? <div className="catalog-layout-asset-state">Loading layout assets...</div> : null}
-                {!assetsQuery.isLoading && assets.length === 0 ? <div className="catalog-layout-asset-state">No layout assets found.</div> : null}
+                <div className="catalog-layout-type-chips" role="tablist" aria-label="Filter by asset type">
+                  <button
+                    className={typeFilter === '' ? 'is-active' : ''}
+                    type="button"
+                    onClick={() => setTypeFilter('')}
+                  >
+                    All
+                    <span>{allAssets.length}</span>
+                  </button>
+                  {layoutAssetTypes
+                    .filter((type) => (typeCounts.get(type) ?? 0) > 0 || typeFilter === type)
+                    .map((type) => (
+                      <button
+                        key={type}
+                        className={typeFilter === type ? 'is-active' : ''}
+                        type="button"
+                        onClick={() => setTypeFilter(type)}
+                      >
+                        {formatEnumLabel(type)}
+                        <span>{typeCounts.get(type) ?? 0}</span>
+                      </button>
+                    ))}
+                </div>
+
+                {assetsQuery.isLoading ? (
+                  <div className="catalog-layout-asset-state catalog-layout-asset-state-card">
+                    <IconRefresh size={22} className="catalog-layout-spin" />
+                    Loading layout assets...
+                  </div>
+                ) : null}
+
+                {!assetsQuery.isLoading && assets.length === 0 ? (
+                  <div className="catalog-layout-asset-state catalog-layout-asset-state-card catalog-layout-asset-empty">
+                    <span className="catalog-layout-empty-icon">
+                      <IconCube size={28} />
+                    </span>
+                    <strong>No layout assets found</strong>
+                    <p>Create a material, door, window, or decorative object for Room Planner.</p>
+                    <button className="admin-button admin-button-primary" type="button" onClick={() => setIsCreateAssetModalOpen(true)}>
+                      <IconPlus size={16} />
+                      New Layout Asset
+                    </button>
+                  </div>
+                ) : null}
 
                 <div className="catalog-layout-asset-groups">
                   {groupedAssets.map((group) => (
                     <section className="catalog-layout-asset-group" key={group.type}>
                       <header>
-                        <h3>{formatEnumLabel(group.type)}</h3>
-                        <span>{group.assets.length} asset(s)</span>
+                        <div>
+                          <h3>{formatEnumLabel(group.type)}</h3>
+                          <p>Assets available for Room Planner placement</p>
+                        </div>
+                        <span className="catalog-layout-group-count">{group.assets.length}</span>
                       </header>
                       <div className="catalog-layout-asset-list">
                         {group.assets.map((asset) => {
                           const previewUrl = getAssetPreviewUrl(asset);
                           const isSelected = selectedAsset?.layoutAssetId === asset.layoutAssetId;
+                          const fileCount = getAssetFileCount(asset);
 
                           return (
-                            <article className={isSelected ? 'catalog-layout-asset-item is-selected' : 'catalog-layout-asset-item'} key={asset.layoutAssetId}>
-                              <button className="catalog-layout-asset-pick" type="button" onClick={() => setSelectedAssetId(asset.layoutAssetId)}>
+                            <article
+                              className={isSelected ? 'catalog-layout-asset-item is-selected' : 'catalog-layout-asset-item'}
+                              key={asset.layoutAssetId}
+                            >
+                              <button
+                                className="catalog-layout-asset-pick"
+                                type="button"
+                                onClick={() => setSelectedAssetId(asset.layoutAssetId)}
+                              >
                                 <span className="catalog-layout-asset-preview">
-                                  {previewUrl ? <img alt="" src={previewUrl} /> : <IconCube size={24} />}
+                                  {previewUrl ? <img alt="" src={previewUrl} /> : <IconCube size={28} />}
+                                  <span className={`catalog-layout-asset-status is-${(asset.status ?? 'UNKNOWN').toLowerCase()}`}>
+                                    {formatEnumLabel(asset.status ?? 'UNKNOWN')}
+                                  </span>
                                 </span>
                                 <span className="catalog-layout-asset-copy">
                                   <strong>{asset.name}</strong>
-                                  <small>{asset.code ?? asset.assetCode ?? asset.layoutAssetId}</small>
+                                  <small>{asset.code ?? asset.assetCode ?? 'No code'}</small>
                                   {asset.description ? <em>{asset.description}</em> : null}
                                 </span>
                               </button>
                               <div className="catalog-layout-asset-meta">
-                                <span className={`catalog-layout-asset-status is-${(asset.status ?? 'UNKNOWN').toLowerCase()}`}>
-                                  {formatEnumLabel(asset.status ?? 'UNKNOWN')}
-                                </span>
-                                <span>{getAssetFileCount(asset)} file(s)</span>
+                                <span>{fileCount} file{fileCount === 1 ? '' : 's'}</span>
                               </div>
                               <div className="catalog-layout-asset-actions">
-                                <button className="admin-button admin-button-secondary" disabled={asset.status === 'ACTIVE'} type="button" onClick={() => void updateStatus(asset, 'ACTIVE')}>Active</button>
-                                <button className="admin-button admin-button-secondary" disabled={asset.status === 'INACTIVE'} type="button" onClick={() => void updateStatus(asset, 'INACTIVE')}>Inactive</button>
+                                <button
+                                  className="catalog-layout-action-btn"
+                                  disabled={asset.status === 'ACTIVE' || updateStatusMutation.isPending}
+                                  type="button"
+                                  onClick={() => void updateStatus(asset, 'ACTIVE')}
+                                >
+                                  Active
+                                </button>
+                                <button
+                                  className="catalog-layout-action-btn"
+                                  disabled={asset.status === 'INACTIVE' || updateStatusMutation.isPending}
+                                  type="button"
+                                  onClick={() => void updateStatus(asset, 'INACTIVE')}
+                                >
+                                  Inactive
+                                </button>
                               </div>
                             </article>
                           );
@@ -299,74 +392,95 @@ export function LayoutAssetManagementPage() {
               </div>
 
               <aside className="catalog-layout-asset-inspector">
-                <section className="catalog-layout-asset-selected">
+                <section className="catalog-layout-inspector-card catalog-layout-asset-selected">
                   <div className="catalog-layout-asset-selected-media">
-                    {selectedAsset && getAssetPreviewUrl(selectedAsset) ? <img alt="" src={getAssetPreviewUrl(selectedAsset) ?? ''} /> : <IconPhoto size={30} />}
+                    {selectedAsset && getAssetPreviewUrl(selectedAsset)
+                      ? <img alt="" src={getAssetPreviewUrl(selectedAsset) ?? ''} />
+                      : <IconPhoto size={28} />}
                   </div>
-                  <div>
+                  <div className="catalog-layout-asset-selected-copy">
                     <span>Selected Asset</span>
                     <strong>{selectedAsset?.name ?? 'No asset selected'}</strong>
-                    <p>{selectedAsset ? `${formatEnumLabel(getAssetType(selectedAsset))} - ${formatEnumLabel(selectedAsset.status ?? 'UNKNOWN')}` : 'Choose an asset to manage files.'}</p>
+                    <p>
+                      {selectedAsset
+                        ? `${formatEnumLabel(getAssetType(selectedAsset))} · ${formatEnumLabel(selectedAsset.status ?? 'UNKNOWN')}`
+                        : 'Choose an asset to manage files.'}
+                    </p>
                   </div>
                 </section>
 
-                <form className="catalog-model-form" onSubmit={(event) => void uploadFile(event)}>
-                  <h3><IconUpload size={18} /> Upload Asset File</h3>
-                  <p className="catalog-model-muted">{selectedAsset ? selectedAsset.name : 'Select an asset first.'}</p>
-                  <label>
+                <form className="catalog-layout-inspector-card catalog-layout-upload-card" onSubmit={(event) => void uploadFile(event)}>
+                  <div className="catalog-layout-inspector-heading">
+                    <h3><IconUpload size={18} /> Upload Asset File</h3>
+                    <p>{selectedAsset ? selectedAsset.name : 'Select an asset first.'}</p>
+                  </div>
+                  <label className="catalog-layout-field">
                     <span>File Type</span>
-                    <select name="fileType">
+                    <select name="fileType" disabled={!selectedAsset}>
                       {fileTypes.map((type) => <option key={type} value={type}>{formatEnumLabel(type)}</option>)}
                     </select>
                   </label>
-                  <label>
+                  <label className="catalog-layout-field">
                     <span>File</span>
-                    <input name="file" type="file" />
+                    <input name="file" type="file" disabled={!selectedAsset} />
                   </label>
-                  <button className="admin-button admin-button-primary" disabled={!selectedAsset || uploadFileMutation.isPending} type="submit">
+                  <button
+                    className="catalog-layout-upload-submit"
+                    disabled={!selectedAsset || uploadFileMutation.isPending}
+                    type="submit"
+                  >
                     {uploadFileMutation.isPending ? 'Uploading...' : 'Upload File'}
                   </button>
                 </form>
 
-                <div className="catalog-model-form">
-                  <h3><IconPhoto size={18} /> Asset Files</h3>
-                  <p className="catalog-model-muted">{selectedAsset ? selectedAsset.name : 'Select an asset first.'}</p>
-                  {selectedAssetFilesQuery.isLoading ? <p className="catalog-model-muted">Loading files...</p> : null}
-                  {selectedAssetFiles.length === 0 ? <p className="catalog-model-muted">No files uploaded yet.</p> : null}
-                  <div className="catalog-model-file-list">
+                <section className="catalog-layout-inspector-card catalog-layout-files-card">
+                  <div className="catalog-layout-inspector-heading">
+                    <h3><IconPhoto size={18} /> Asset Files</h3>
+                    <p>{selectedAsset ? selectedAsset.name : 'Select an asset first.'}</p>
+                  </div>
+                  {selectedAssetFilesQuery.isLoading ? <p className="catalog-layout-files-hint">Loading files...</p> : null}
+                  {selectedAsset && !selectedAssetFilesQuery.isLoading && selectedAssetFiles.length === 0 ? (
+                    <div className="catalog-layout-files-empty">
+                      <IconUpload size={20} />
+                      <p>No files uploaded yet.</p>
+                    </div>
+                  ) : null}
+                  <div className="catalog-layout-file-list">
                     {selectedAssetFiles.map((file) => (
-                      <div className="catalog-model-file-row" key={file.fileId}>
-                        <span className="catalog-model-file-thumb">
+                      <div className="catalog-layout-file-row" key={file.fileId}>
+                        <span className="catalog-layout-file-thumb">
                           {getAssetFileUrl(file) && (file.mimeType?.startsWith('image/') || file.fileType === 'PREVIEW')
                             ? <img alt="" src={getAssetFileUrl(file) ?? ''} />
                             : <IconCube size={18} />}
                         </span>
-                        <div>
+                        <div className="catalog-layout-file-copy">
                           <strong>{file.fileName ?? file.originalFileName ?? file.fileId}</strong>
-                          <small>{formatEnumLabel(file.fileType ?? 'OTHER')} {file.isPrimary ? '- Primary' : ''}</small>
+                          <small>{formatEnumLabel(file.fileType ?? 'OTHER')}{file.isPrimary ? ' · Primary' : ''}</small>
                         </div>
-                        <div className="product-management-row-actions">
+                        <div className="catalog-layout-file-actions">
                           <button
-                            className="admin-button admin-button-secondary"
+                            className="catalog-layout-icon-btn"
                             disabled={Boolean(file.isPrimary) || setPrimaryFileMutation.isPending}
+                            title="Set as primary"
                             type="button"
                             onClick={() => void setPrimaryFile(file.fileId)}
                           >
-                            <IconStar size={15} /> Primary
+                            <IconStar size={15} />
                           </button>
                           <button
-                            className="admin-button admin-button-secondary"
+                            className="catalog-layout-icon-btn is-danger"
                             disabled={deleteFileMutation.isPending}
+                            title="Delete file"
                             type="button"
                             onClick={() => void deleteFile(file.fileId)}
                           >
-                            <IconTrash size={15} /> Delete
+                            <IconTrash size={15} />
                           </button>
                         </div>
                       </div>
                     ))}
                   </div>
-                </div>
+                </section>
               </aside>
             </section>
           </div>
@@ -374,14 +488,20 @@ export function LayoutAssetManagementPage() {
       </div>
 
       {isCreateAssetModalOpen ? (
-        <div className="catalog-model-modal-backdrop" role="presentation">
-          <form className="catalog-model-create-modal" onSubmit={(event) => void createAsset(event)}>
+        <div className="catalog-model-modal-backdrop" role="presentation" onClick={closeCreateAssetModal}>
+          <form
+            className="catalog-model-create-modal"
+            onClick={(event) => event.stopPropagation()}
+            onSubmit={(event) => void createAsset(event)}
+          >
             <header>
               <div>
                 <h3>New Layout Asset</h3>
                 <p>Create a material, structural object, or decorative model for Room Planner.</p>
               </div>
-              <button aria-label="Close create layout asset modal" type="button" onClick={closeCreateAssetModal}>x</button>
+              <button aria-label="Close create layout asset modal" type="button" onClick={closeCreateAssetModal}>
+                <IconX size={18} />
+              </button>
             </header>
 
             <div className="catalog-model-form">

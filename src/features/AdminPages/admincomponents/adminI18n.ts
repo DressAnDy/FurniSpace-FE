@@ -40,11 +40,61 @@ type AdminCopy = {
   dashboard: {
     title: string;
     subtitle: string;
+    eyebrow: string;
     lastRefresh: (time: string) => string;
     periodThisMonth: string;
     periodLastMonth: string;
     periodThisQuarter: string;
     periodThisYear: string;
+    loadingData: string;
+    loadError: string;
+    kpiActive: string;
+    kpiActiveWarn: string;
+    kpiActiveCompare: string;
+    kpiActiveDesc: string;
+    kpiCompleted: string;
+    kpiCompletedCompare: string;
+    kpiCompletedDesc: string;
+    kpiRejectedInPeriod: (count: number) => string;
+    kpiCollected: string;
+    kpiCollectedDesc: string;
+    kpiFailedAttempts: (count: number) => string;
+    kpiActivePayments: (count: number) => string;
+    kpiOutstanding: string;
+    kpiOutstandingWarn: string;
+    kpiOutstandingDesc: string;
+    kpiObligations: (count: number) => string;
+    kpiReceivable: string;
+    kpiReceivableWarn: string;
+    kpiReceivableDesc: string;
+    kpiReceivableCompare: string;
+    kpiCommercial: string;
+    kpiCommercialDesc: string;
+    kpiCommercialCompare: string;
+    overviewTitle: string;
+    overviewSubtitle: string;
+    overviewLoading: string;
+    overviewEmpty: string;
+    overviewTotal: string;
+    bucketIntake: string;
+    bucketDesign: string;
+    bucketCommercial: string;
+    bucketFulfillment: string;
+    bucketTerminal: string;
+    bucketOther: string;
+    breakdownTitle: string;
+    breakdownSubtitle: string;
+    breakdownLoading: string;
+    breakdownPaidOpenExpired: (paid: number, open: number, expired: number) => string;
+    breakdownOutstanding: string;
+    paymentStartFee: string;
+    paymentDeposit: string;
+    paymentRemaining: string;
+    exceptionsTitle: string;
+    exceptionsSubtitle: string;
+    exceptionsLoading: string;
+    exceptionsEmpty: string;
+    exceptionsViewAll: (total: number) => string;
   };
   users: {
     title: string;
@@ -167,11 +217,61 @@ export const adminCopy: Record<Lang, AdminCopy> = {
     dashboard: {
       title: 'Admin Dashboard',
       subtitle: 'Overview of projects, collections, and exceptions across the workspace.',
+      eyebrow: 'Operational command center',
       lastRefresh: (time) => `Updated ${time}`,
       periodThisMonth: 'This month',
       periodLastMonth: 'Last month',
       periodThisQuarter: 'This quarter',
       periodThisYear: 'This year',
+      loadingData: 'Loading project and financial data...',
+      loadError: 'Some live API data could not be loaded.',
+      kpiActive: 'Active Projects',
+      kpiActiveWarn: 'System-wide count',
+      kpiActiveCompare: 'Non-terminal',
+      kpiActiveDesc: 'All projects that are not COMPLETED or REJECTED across the system.',
+      kpiCompleted: 'Completed Projects',
+      kpiCompletedCompare: 'In selected period',
+      kpiCompletedDesc: 'Projects completed within the selected financial period.',
+      kpiRejectedInPeriod: (count) => `${count} rejected in period`,
+      kpiCollected: 'Amount Collected',
+      kpiCollectedDesc: 'Verified start fee, deposit, and remaining payment collected in period.',
+      kpiFailedAttempts: (count) => `${count} failed attempts`,
+      kpiActivePayments: (count) => `${count} active`,
+      kpiOutstanding: 'Outstanding Payments',
+      kpiOutstandingWarn: 'Do not sum with contracted receivable',
+      kpiOutstandingDesc: 'Active collectible payment obligations (current state).',
+      kpiObligations: (count) => `${count} obligations`,
+      kpiReceivable: 'Contracted Receivable',
+      kpiReceivableWarn: 'Separate from outstanding payments',
+      kpiReceivableDesc: 'Active orders with remainingAmount > 0 (current state).',
+      kpiReceivableCompare: 'Order remaining',
+      kpiCommercial: 'Order Commercial Value',
+      kpiCommercialDesc: 'Sum of confirmed order finalTotalAmount in period.',
+      kpiCommercialCompare: 'Confirmed in period',
+      overviewTitle: 'Overview distribution',
+      overviewSubtitle: 'Project buckets from admin reports overview (system-wide).',
+      overviewLoading: 'Loading project distribution...',
+      overviewEmpty: 'No project status data loaded yet.',
+      overviewTotal: 'Total',
+      bucketIntake: 'Intake',
+      bucketDesign: 'Design',
+      bucketCommercial: 'Commercial',
+      bucketFulfillment: 'Fulfillment',
+      bucketTerminal: 'Terminal',
+      bucketOther: 'Other',
+      breakdownTitle: 'Payment type breakdown',
+      breakdownSubtitle: 'Collected vs outstanding for start fee, deposit, and remaining payment.',
+      breakdownLoading: 'Loading breakdown...',
+      breakdownPaidOpenExpired: (paid, open, expired) => `${paid} paid · ${open} open · ${expired} expired`,
+      breakdownOutstanding: 'Outstanding',
+      paymentStartFee: 'Project Start Fee',
+      paymentDeposit: 'Deposit',
+      paymentRemaining: 'Remaining Payment',
+      exceptionsTitle: 'Financial exceptions',
+      exceptionsSubtitle: 'Operational issues needing admin attention.',
+      exceptionsLoading: 'Loading exceptions...',
+      exceptionsEmpty: 'No open financial exceptions.',
+      exceptionsViewAll: (total) => `View all exceptions (${total})`,
     },
     users: {
       title: 'User & Role Management',
@@ -292,11 +392,61 @@ export const adminCopy: Record<Lang, AdminCopy> = {
     dashboard: {
       title: 'Bảng điều khiển',
       subtitle: 'Tổng quan dự án, thu tiền và ngoại lệ trên toàn hệ thống.',
+      eyebrow: 'Trung tâm điều hành',
       lastRefresh: (time) => `Cập nhật ${time}`,
       periodThisMonth: 'Tháng này',
       periodLastMonth: 'Tháng trước',
       periodThisQuarter: 'Quý này',
       periodThisYear: 'Năm nay',
+      loadingData: 'Đang tải dữ liệu dự án và tài chính...',
+      loadError: 'Một phần dữ liệu API không tải được.',
+      kpiActive: 'Dự án đang chạy',
+      kpiActiveWarn: 'Đếm toàn hệ thống',
+      kpiActiveCompare: 'Chưa kết thúc',
+      kpiActiveDesc: 'Tất cả dự án chưa COMPLETED hoặc REJECTED trên hệ thống.',
+      kpiCompleted: 'Dự án hoàn tất',
+      kpiCompletedCompare: 'Trong kỳ đã chọn',
+      kpiCompletedDesc: 'Dự án hoàn tất trong kỳ tài chính đã chọn.',
+      kpiRejectedInPeriod: (count) => `${count} bị từ chối trong kỳ`,
+      kpiCollected: 'Số tiền đã thu',
+      kpiCollectedDesc: 'Phí khởi tạo, đặt cọc và phần còn lại đã thu trong kỳ.',
+      kpiFailedAttempts: (count) => `${count} lần thất bại`,
+      kpiActivePayments: (count) => `${count} đang hoạt động`,
+      kpiOutstanding: 'Công nợ chưa thu',
+      kpiOutstandingWarn: 'Không cộng với phải thu theo hợp đồng',
+      kpiOutstandingDesc: 'Nghĩa vụ thanh toán còn hiệu lực (trạng thái hiện tại).',
+      kpiObligations: (count) => `${count} nghĩa vụ`,
+      kpiReceivable: 'Phải thu theo hợp đồng',
+      kpiReceivableWarn: 'Tách biệt với công nợ chưa thu',
+      kpiReceivableDesc: 'Đơn hàng còn remainingAmount > 0 (trạng thái hiện tại).',
+      kpiReceivableCompare: 'Phần còn lại đơn',
+      kpiCommercial: 'Giá trị thương mại đơn',
+      kpiCommercialDesc: 'Tổng finalTotalAmount đơn đã xác nhận trong kỳ.',
+      kpiCommercialCompare: 'Đã xác nhận trong kỳ',
+      overviewTitle: 'Phân bố tổng quan',
+      overviewSubtitle: 'Nhóm dự án từ báo cáo admin (toàn hệ thống).',
+      overviewLoading: 'Đang tải phân bố dự án...',
+      overviewEmpty: 'Chưa có dữ liệu trạng thái dự án.',
+      overviewTotal: 'Tổng',
+      bucketIntake: 'Tiếp nhận',
+      bucketDesign: 'Thiết kế',
+      bucketCommercial: 'Thương mại',
+      bucketFulfillment: 'Thực hiện',
+      bucketTerminal: 'Kết thúc',
+      bucketOther: 'Khác',
+      breakdownTitle: 'Phân tích loại thanh toán',
+      breakdownSubtitle: 'Đã thu và còn lại theo phí khởi tạo, đặt cọc và phần còn lại.',
+      breakdownLoading: 'Đang tải phân tích...',
+      breakdownPaidOpenExpired: (paid, open, expired) => `${paid} đã trả · ${open} mở · ${expired} hết hạn`,
+      breakdownOutstanding: 'Còn lại',
+      paymentStartFee: 'Phí khởi tạo dự án',
+      paymentDeposit: 'Đặt cọc',
+      paymentRemaining: 'Phần còn lại',
+      exceptionsTitle: 'Ngoại lệ tài chính',
+      exceptionsSubtitle: 'Vấn đề vận hành cần admin xử lý.',
+      exceptionsLoading: 'Đang tải ngoại lệ...',
+      exceptionsEmpty: 'Không có ngoại lệ tài chính đang mở.',
+      exceptionsViewAll: (total) => `Xem tất cả ngoại lệ (${total})`,
     },
     users: {
       title: 'Người dùng & Vai trò',

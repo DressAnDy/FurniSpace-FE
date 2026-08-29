@@ -1,4 +1,4 @@
-import { type FormEvent, useMemo, useState } from 'react';
+import { type FormEvent, useEffect, useMemo, useState } from 'react';
 import { IconArchive, IconCheck, IconClock, IconEdit, IconPackage, IconPlus, IconSearch, IconX } from '@tabler/icons-react';
 import { useNavigate } from 'react-router-dom';
 
@@ -8,9 +8,12 @@ import { useBusinessTypeList, useCategoryList, useProductList, useUpdateProduct 
 import { AdminNavbar, AdminSidebar } from '../admincomponents';
 import { useLang } from '@/app/providers/useLang';
 import { adminCopy } from '../admincomponents/adminI18n';
+import { ProjectsPager } from '../AdminProjects/ProjectsPager';
 import './Productmanagement.css';
 
 type ProductViewTab = 'catalog' | 'customer-specific';
+
+const PRODUCT_PAGE_SIZE = 5;
 
 const statusClassName: Record<string, string> = {
   ACTIVE: 'product-management-status-active',
@@ -27,6 +30,8 @@ export function Productmanagement() {
   const [businessTypeFilterIds, setBusinessTypeFilterIds] = useState<number[]>([]);
   const [activeProductTab, setActiveProductTab] = useState<ProductViewTab>('catalog');
   const [editingProductId, setEditingProductId] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(PRODUCT_PAGE_SIZE);
   const productListQuery = useProductList({ page: 1, limit: 100, businessTypeIds: businessTypeFilterIds });
   const categoryListQuery = useCategoryList({ page: 1, limit: 100 });
   const businessTypeListQuery = useBusinessTypeList({ page: 1, limit: 100 });
@@ -55,6 +60,27 @@ export function Productmanagement() {
     return nextProducts;
   }, [activeProductTab, categoryFilter, productListQuery.data?.items, searchValue]);
 
+  const totalItems = filteredProducts.length;
+  const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+  const currentPage = Math.min(page, totalPages);
+  const visibleProducts = useMemo(
+    () => filteredProducts.slice((currentPage - 1) * pageSize, currentPage * pageSize),
+    [filteredProducts, currentPage, pageSize],
+  );
+
+  useEffect(() => {
+    setPage(1);
+  }, [searchValue, categoryFilter, businessTypeFilterIds, activeProductTab]);
+
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages);
+  }, [page, totalPages]);
+
+  function handlePageSizeChange(nextSize: number) {
+    setPageSize(nextSize);
+    setPage(1);
+  }
+
   const productStats = useMemo(() => {
     const products = productListQuery.data?.items ?? [];
     const countStatus = (statuses: string[]) => products.filter((product) => statuses.includes(product.status)).length;
@@ -77,8 +103,6 @@ export function Productmanagement() {
 
     return Array.from(categories.entries()).map(([categoryId, categoryName]) => ({ categoryId, categoryName }));
   }, [productListQuery.data?.items]);
-
-  const visibleProducts = filteredProducts;
 
   const handleEditSubmit = async (event: FormEvent<HTMLFormElement>, productId: string) => {
     event.preventDefault();
@@ -160,6 +184,7 @@ export function Productmanagement() {
                           setCategoryFilter('');
                           setBusinessTypeFilterIds([]);
                           setActiveProductTab('catalog');
+                          setPage(1);
                         }}
                       >
                         Reset
@@ -246,11 +271,12 @@ export function Productmanagement() {
                     </div>
                   ) : null}
 
-                  {!productListQuery.isLoading && !productListQuery.isError && visibleProducts.length === 0 ? (
+                  {!productListQuery.isLoading && !productListQuery.isError && totalItems === 0 ? (
                     <div className="product-management-state">No products found.</div>
                   ) : null}
 
-                  {!productListQuery.isLoading && !productListQuery.isError && visibleProducts.length > 0 ? (
+                  {!productListQuery.isLoading && !productListQuery.isError && totalItems > 0 ? (
+                    <>
                     <section className="product-management-grid">
                   {visibleProducts.map((product) => {
                     const thumbnailUrl = product.thumbnail?.fileUrl ?? product.defaultVersion?.thumbnail?.fileUrl;
@@ -412,6 +438,16 @@ export function Productmanagement() {
                     );
                   })}
                     </section>
+                    <ProjectsPager
+                      page={currentPage}
+                      pageSize={pageSize}
+                      totalItems={totalItems}
+                      totalPages={totalPages}
+                      disabled={productListQuery.isFetching}
+                      onPageChange={setPage}
+                      onPageSizeChange={handlePageSizeChange}
+                    />
+                    </>
                   ) : null}
                 </div>
               </div>
