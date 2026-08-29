@@ -173,7 +173,7 @@ export function ProductionRequests() {
                   <th>Assigned To</th>
                   <th>Priority</th>
                   <th>Status</th>
-                  <th>Estimated Completion</th>
+                  <th>Production Deadline</th>
                   <th>Actual Completion</th>
                   <th>Action</th>
                 </tr>
@@ -209,7 +209,7 @@ export function ProductionRequests() {
                     <td>{request.assignedToName ?? '-'}</td>
                     <td>{request.priority}</td>
                     <td><ProductionStatusBadge label={getProductionRequestStatusLabel(request.status)} status={request.status} /></td>
-                    <td>{formatDate(request.estimatedCompletionDate)}</td>
+                    <td>{formatDate(request.productionDeadline)}</td>
                     <td>{formatDate(request.actualCompletionDate)}</td>
                     <td>
                       <div className="production-workspace-row-actions">

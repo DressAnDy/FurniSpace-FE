@@ -204,7 +204,6 @@ export function SchedulesTab({ project }: SchedulesTabProps) {
           <div className="project-detail-schedule-list-header">
             <div>
               <h4>Current Schedules</h4>
-              <p>GET /project-schedules?projectId={project.projectId}</p>
             </div>
             <span>{schedules.length} total</span>
           </div>

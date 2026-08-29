@@ -150,9 +150,9 @@ export {
   useLinkMeasurementImageToArea,
   useProjectAreaMeasurementImages,
   useProjectMeasurementImages,
-  useRegisterMeasurementImage,
   useScheduleMeasurementImages,
   useUnlinkMeasurementImageFromArea,
+  useUploadMeasurementImage,
 } from './useMeasurementImages';
 export {
   notificationQueryKeys,

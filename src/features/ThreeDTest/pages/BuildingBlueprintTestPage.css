@@ -75,6 +75,30 @@
   padding-top: 8px;
 }
 
+.building-blueprint-loading {
+  align-items: center;
+  background: var(--blueprint-panel);
+  border: 1px solid var(--blueprint-border);
+  color: var(--blueprint-muted);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  height: calc(100vh - 72px);
+  justify-content: center;
+  margin-top: 8px;
+  text-align: center;
+}
+
+.building-blueprint-loading strong {
+  color: var(--blueprint-text);
+  font-size: 18px;
+}
+
+.building-blueprint-loading p {
+  margin: 0;
+  max-width: 520px;
+}
+
 .building-blueprint-controls {
   display: grid;
   gap: 8px;

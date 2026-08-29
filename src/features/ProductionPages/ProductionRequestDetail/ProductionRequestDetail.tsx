@@ -170,8 +170,6 @@ export function ProductionRequestDetail() {
             <Meta label="Priority" value={request.priority} />
             <Meta label="Assigned Staff" value={request.assignedToName ?? '-'} />
             <Meta label="Production Deadline" value={formatDate(request.productionDeadline)} />
-            <Meta label="Estimated Start Date" value={formatDate(request.estimatedStartDate)} />
-            <Meta label="Estimated Completion Date" value={formatDate(request.estimatedCompletionDate)} />
             <Meta label="Actual Start Date" value={formatDate(request.actualStartDate)} />
             <Meta label="Actual Completion Date" value={formatDate(request.actualCompletionDate)} />
             <Meta label="Order Code" value={request.orderCode} />
@@ -201,7 +199,6 @@ export function ProductionRequestDetail() {
               <Field label="Assigned Production Staff" value={request.assignedToName ?? '-'} />
               <Field label="Request Note" value={request.note ?? '-'} />
               <Field label="Production Deadline" value={formatDate(request.productionDeadline)} />
-              <Field label="Internal Estimate" value={`Start ${formatDate(request.estimatedStartDate)} / Complete ${formatDate(request.estimatedCompletionDate)}`} />
               <Field label="Created" value={formatDate(request.createdAt)} />
               <Field label="Actual Timeline" value={`Start ${formatDate(request.actualStartDate)} / Complete ${formatDate(request.actualCompletionDate)}`} />
               <Field label="Cancellation Reason" value={request.cancellationReason ?? '-'} />
@@ -220,7 +217,6 @@ export function ProductionRequestDetail() {
                     <th>Quantity</th>
                     <th>Status</th>
                     <th>Start At</th>
-                    <th>Estimated Completion</th>
                     <th>Completed At</th>
                     <th>Action</th>
                   </tr>
@@ -236,7 +232,6 @@ export function ProductionRequestDetail() {
                       <td>{group.totalQuantity}</td>
                       <td><ProductionStatusBadge label={getProductionItemStatusLabel(group.status)} status={group.status} /></td>
                       <td>{formatDate(group.startAt)}</td>
-                      <td>{formatDate(group.estimatedCompletionDate)}</td>
                       <td>{formatDate(group.completedAt)}</td>
                       <td>
                         <div className="production-workspace-row-actions">
@@ -281,7 +276,6 @@ function Field({ label, value }: { label: string; value: string }) {
 
 type ProductionItemGroup = {
   completedAt?: string;
-  estimatedCompletionDate?: string;
   items: ProductionItem[];
   key: string;
   productName: string;
@@ -311,7 +305,6 @@ function groupProductionItems(items: ProductionItem[]): ProductionItemGroup[] {
 
     groupsByKey.set(key, {
       completedAt: item.completedAt,
-      estimatedCompletionDate: item.estimatedCompletionDate,
       items: [item],
       key,
       productName: item.productNameSnapshot,

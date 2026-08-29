@@ -21,7 +21,9 @@ import { getLocalDateInputValue, validateOptionalFutureDate } from '@/shared/uti
 import {
   PROJECT_BUDGET_MAX,
   PROJECT_BUDGET_MIN,
+  formatProjectRequestMoneyInput,
   getProjectSpaceAndBudgetFieldErrors,
+  parseOptionalProjectRequestMoney,
   parseOptionalProjectRequestNumber,
   validateProjectSpaceAndBudget,
   type ProjectRequestFieldErrors,
@@ -60,8 +62,8 @@ export function CustomerProjectRequestPage() {
     const nextErrors = getProjectSpaceAndBudgetFieldErrors({
       totalAreaSqm: parseOptionalProjectRequestNumber(formData.get('totalAreaSqm')),
       numberOfFloors: parseOptionalProjectRequestNumber(formData.get('numberOfFloors')),
-      budgetMin: parseOptionalProjectRequestNumber(formData.get('budgetMin')),
-      budgetMax: parseOptionalProjectRequestNumber(formData.get('budgetMax')),
+      budgetMin: parseOptionalProjectRequestMoney(formData.get('budgetMin')),
+      budgetMax: parseOptionalProjectRequestMoney(formData.get('budgetMax')),
     });
 
     setFieldErrors((current) => {
@@ -103,8 +105,8 @@ export function CustomerProjectRequestPage() {
     const spaceAndBudget = validateProjectSpaceAndBudget({
       totalAreaSqm: parseOptionalProjectRequestNumber(formData.get('totalAreaSqm')),
       numberOfFloors: parseOptionalProjectRequestNumber(formData.get('numberOfFloors')),
-      budgetMin: parseOptionalProjectRequestNumber(formData.get('budgetMin')),
-      budgetMax: parseOptionalProjectRequestNumber(formData.get('budgetMax')),
+      budgetMin: parseOptionalProjectRequestMoney(formData.get('budgetMin')),
+      budgetMax: parseOptionalProjectRequestMoney(formData.get('budgetMax')),
     });
 
     const nextFieldErrors: ProjectRequestFieldErrors = {};
@@ -207,7 +209,7 @@ export function CustomerProjectRequestPage() {
                 <textarea name="furnitureRequirement" placeholder="e.g., Counter seating, dining tables, lounge area, display cases" required rows={3} />
               </Field>
 
-              <Field label="Additional Description">
+              <Field label="Description">
                 <textarea name="description" placeholder="Describe your vision, style preferences, or specific requirements..." rows={4} />
               </Field>
             </FormSection>
@@ -254,9 +256,12 @@ export function CustomerProjectRequestPage() {
                       min={PROJECT_BUDGET_MIN}
                       name="budgetMin"
                       inputMode="decimal"
-                      placeholder={`e.g., ${PROJECT_BUDGET_MIN}`}
+                      placeholder={`e.g., ${formatProjectRequestMoneyInput(PROJECT_BUDGET_MIN)}`}
                       type="text"
-                      onChange={(event) => syncSpaceAndBudgetFieldErrors(event.currentTarget.form)}
+                      onChange={(event) => {
+                        event.currentTarget.value = formatProjectRequestMoneyInput(event.currentTarget.value);
+                        syncSpaceAndBudgetFieldErrors(event.currentTarget.form);
+                      }}
                     />
                     <span aria-hidden="true" className="customer-project-request-input-suffix">
                       VNĐ
@@ -272,9 +277,12 @@ export function CustomerProjectRequestPage() {
                       min={PROJECT_BUDGET_MIN}
                       name="budgetMax"
                       inputMode="decimal"
-                      placeholder={`e.g., ${PROJECT_BUDGET_MAX}`}
+                      placeholder={`e.g., ${formatProjectRequestMoneyInput(PROJECT_BUDGET_MAX)}`}
                       type="text"
-                      onChange={(event) => syncSpaceAndBudgetFieldErrors(event.currentTarget.form)}
+                      onChange={(event) => {
+                        event.currentTarget.value = formatProjectRequestMoneyInput(event.currentTarget.value);
+                        syncSpaceAndBudgetFieldErrors(event.currentTarget.form);
+                      }}
                     />
                     <span aria-hidden="true" className="customer-project-request-input-suffix">
                       VNĐ

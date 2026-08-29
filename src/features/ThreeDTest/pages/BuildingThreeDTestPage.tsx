@@ -32,7 +32,11 @@ import type {
   PlacedBuildingProduct,
   Vector3State,
 } from '@/features/ThreeDTest/schemas/buildingScene.types';
-import { createBuildingTestSceneFromProjectFloorAreas, type BuildingProjectFloorAreaSource } from '@/features/ThreeDTest/utils/buildingTestSceneFactory';
+import {
+  createBuildingTestSceneFromProjectFloorAreas,
+  shouldReplaceSceneWithProjectAreaTemplate,
+  type BuildingProjectFloorAreaSource,
+} from '@/features/ThreeDTest/utils/buildingTestSceneFactory';
 import {
   getProductById,
   getProjectCatalogProductVersion,
@@ -647,6 +651,10 @@ export function BuildingThreeDTestPage() {
       return routeState.areas;
     }
 
+    if (roomPlannerSceneQuery.data?.areas?.length) {
+      return roomPlannerSceneQuery.data.areas.map(toBuildingProjectFloorAreaSource);
+    }
+
     const fetchedAreas = projectAreasQuery.data ?? [];
     const selectedAreaIds = new Set(sceneProjectAreaIds);
 
@@ -656,7 +664,7 @@ export function BuildingThreeDTestPage() {
           .filter((area): area is NonNullable<typeof area> => Boolean(area))
           .map(toBuildingProjectFloorAreaSource)
       : fetchedAreas.map(toBuildingProjectFloorAreaSource);
-  }, [projectAreasQuery.data, routeState?.areas, sceneProjectAreaIds]);
+  }, [projectAreasQuery.data, roomPlannerSceneQuery.data?.areas, routeState?.areas, sceneProjectAreaIds]);
 
   useEffect(() => {
     if (!message) {
@@ -744,9 +752,13 @@ export function BuildingThreeDTestPage() {
       return;
     }
 
+    const sceneToApply = shouldReplaceSceneWithProjectAreaTemplate(hydratedScene.sceneData, templateAreas)
+      ? createBuildingTestSceneFromProjectFloorAreas(templateAreas)
+      : hydratedScene.sceneData;
+
     if (!shouldKeepSceneDraft(roomPlannerSceneQuery.data.lastSavedAt) && appliedRemoteSceneKeyRef.current !== remoteKey) {
       appliedRemoteSceneKeyRef.current = remoteKey;
-      setRemoteSceneData(hydratedScene.sceneData, roomPlannerSceneQuery.data.lastSavedAt);
+      setRemoteSceneData(sceneToApply, roomPlannerSceneQuery.data.lastSavedAt);
     }
 
     if (!shouldKeepPlacedProductsDraft(roomPlannerSceneQuery.data.lastSavedAt) && appliedRemoteProductsKeyRef.current !== remoteKey) {
@@ -798,13 +810,22 @@ export function BuildingThreeDTestPage() {
         && hydratedScene.activeLevel !== 'site'
         && (
           hydratedScene.activeLevel === 'all'
-          || hydratedScene.sceneData.building.levels.some((level) => level.id === hydratedScene.activeLevel)
+          || sceneToApply.building.levels.some((level) => level.id === hydratedScene.activeLevel)
         )
       ) {
         setActiveLevel(hydratedScene.activeLevel);
       }
     }
-  }, [modelsByLayoutAssetId, modelsByVersionId, roomPlannerSceneQuery.data, sceneId, setRemoteSceneData, shouldKeepSceneDraft, shouldKeepPlacedProductsDraft]);
+  }, [
+    modelsByLayoutAssetId,
+    modelsByVersionId,
+    roomPlannerSceneQuery.data,
+    sceneId,
+    setRemoteSceneData,
+    shouldKeepSceneDraft,
+    shouldKeepPlacedProductsDraft,
+    templateAreas,
+  ]);
 
   useEffect(() => {
     if (!placedProductsDraft?.placedProducts.length) {

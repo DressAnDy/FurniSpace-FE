@@ -2,7 +2,7 @@ import axios, { AxiosError } from 'axios';
 
 import { shouldRedirectUnauthorized } from '@/shared/config/authPreview';
 import { getStoredAccessToken } from './tokenStore';
-import type { FileVisibility } from './projects';
+import type { FileVisibility, ProjectFileUploadResponseDto } from './projects';
 
 const measurementImageApiClient = axios.create({
   baseURL: getApiBaseUrl(),
@@ -62,6 +62,8 @@ export type MeasurementImageDto = {
   areas?: MeasurementImageAreaDto[];
 };
 
+export type MeasurementImageVisibility = Extract<FileVisibility, 'STAFF_ONLY' | 'CUSTOMER_VISIBLE'>;
+
 export type MeasurementImageListData = {
   items: MeasurementImageDto[];
   page?: number;
@@ -69,17 +71,27 @@ export type MeasurementImageListData = {
   total?: number;
 };
 
-export type RegisterMeasurementImageInput = {
-  contentType?: string | null;
-  fileSizeBytes?: number | null;
-  scheduleId: string;
-  storagePath: string;
-  publicUrl: string;
-  originalFileName: string;
-  mimeType?: string | null;
-  fileSize?: number | null;
-  visibility?: FileVisibility | null;
+export type MeasurementImageUploadInput = {
+  file: File;
   note?: string | null;
+  projectAreaId?: string | null;
+  scheduleId: string;
+  visibility?: MeasurementImageVisibility | null;
+};
+
+export type MeasurementImageAreaLinkDto = {
+  fileId: string;
+  fileLinkId: string;
+  projectAreaId: string;
+};
+
+export type MeasurementImageUploadResponse = {
+  areaLink: MeasurementImageAreaLinkDto | null;
+  file: ProjectFileUploadResponseDto & {
+    referenceId: string;
+    referenceType: 'PROJECT_SCHEDULE';
+  };
+  scheduleId: string;
 };
 
 export type MeasurementImageGalleryQuery = {
@@ -90,11 +102,11 @@ export type MeasurementImageGalleryQuery = {
 };
 
 const MEASUREMENT_IMAGE_ERROR_MESSAGES: Record<string, string> = {
-  MEASUREMENT_IMAGE_SCHEDULE_NOT_ELIGIBLE: 'This measurement schedule is not eligible for image registration.',
-  MEASUREMENT_IMAGE_CAPTURE_BEFORE_START: 'Measurement images can only be registered after the schedule starts.',
-  MEASUREMENT_IMAGE_INVALID_FILE_METADATA: 'Measurement image metadata is invalid.',
+  MEASUREMENT_IMAGE_SCHEDULE_NOT_ELIGIBLE: 'This measurement schedule is not eligible for image upload.',
+  MEASUREMENT_IMAGE_CAPTURE_BEFORE_START: 'Measurement images can be uploaded before the schedule starts.',
+  MEASUREMENT_IMAGE_INVALID_FILE_METADATA: 'Measurement image file is invalid.',
   MEASUREMENT_IMAGE_STORAGE_PATH_INVALID: 'Measurement image storage path is invalid.',
-  MEASUREMENT_IMAGE_STORAGE_PATH_DUPLICATE: 'This measurement image has already been registered.',
+  MEASUREMENT_IMAGE_STORAGE_PATH_DUPLICATE: 'This measurement image has already been uploaded.',
   MEASUREMENT_IMAGE_NOT_FOUND: 'Measurement image was not found.',
   MEASUREMENT_IMAGE_AREA_LINK_EXISTS: 'This image is already linked to the selected area.',
   MEASUREMENT_IMAGE_AREA_LINK_NOT_FOUND: 'This image is not linked to the selected area.',
@@ -155,24 +167,20 @@ export function getMeasurementImageServiceResultFromError(error: unknown) {
   return null;
 }
 
-export async function registerMeasurementImage(input: RegisterMeasurementImageInput) {
-  const request = {
-    storagePath: input.storagePath,
-    publicUrl: input.publicUrl,
-    originalFileName: input.originalFileName,
-    contentType: input.contentType ?? input.mimeType ?? null,
-    fileSizeBytes: input.fileSizeBytes ?? input.fileSize ?? null,
-    mimeType: input.mimeType ?? null,
-    fileSize: input.fileSize ?? null,
-    note: input.note?.trim() || null,
-    ...(input.visibility ? { visibility: input.visibility } : {}),
-  };
-  const response = await measurementImageApiClient.post<ServiceResult<MeasurementImageDto>>(
+export async function uploadMeasurementImage(input: MeasurementImageUploadInput) {
+  const formData = new FormData();
+
+  formData.append('file', input.file);
+  if (input.visibility) formData.append('visibility', input.visibility);
+  if (input.note?.trim()) formData.append('note', input.note.trim());
+  if (input.projectAreaId) formData.append('projectAreaId', input.projectAreaId);
+
+  const response = await measurementImageApiClient.post<ServiceResult<MeasurementImageUploadResponse> | MeasurementImageUploadResponse>(
     `/project-schedules/${input.scheduleId}/measurement-images`,
-    { request },
+    formData,
   );
 
-  return response.data.data;
+  return unwrapMeasurementImageResponse(response.data);
 }
 
 export async function getScheduleMeasurementImages(scheduleId: string, query: MeasurementImageGalleryQuery = {}) {
@@ -231,6 +239,14 @@ function getGalleryParams(query: MeasurementImageGalleryQuery) {
     page: query.page ?? undefined,
     projectAreaId: query.projectAreaId ?? undefined,
   };
+}
+
+function unwrapMeasurementImageResponse<T>(response: ServiceResult<T> | T) {
+  if (response && typeof response === 'object' && 'data' in response) {
+    return (response as ServiceResult<T>).data;
+  }
+
+  return response as T;
 }
 
 function getFirstMeasurementImageErrorCode(result: ServiceResult<unknown>) {

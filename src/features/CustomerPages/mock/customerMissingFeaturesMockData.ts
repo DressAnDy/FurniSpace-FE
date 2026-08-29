@@ -178,7 +178,7 @@ export const mockCustomerProductionRequests: CustomerProductionTrackingRequest[]
     orderId: 'ORD-001',
     orderCode: 'ORD-2026-001',
     status: 'IN_PRODUCTION',
-    estimatedCompletionDate: '2026-08-15',
+    productionDeadline: '2026-08-15',
     deliveryScheduleDate: '2026-08-18',
     note: 'Production is active. One display shelf item is waiting for replacement material confirmation.',
     items: [
@@ -190,7 +190,6 @@ export const mockCustomerProductionRequests: CustomerProductionTrackingRequest[]
         status: 'IN_PRODUCTION',
         materialNote: 'Oak board prepared.',
         productionNote: 'Frame cutting completed and surface finishing is in progress.',
-        estimatedCompletionDate: '2026-08-08',
       },
       {
         productionItemId: 'PROD-ITEM-CUS-002',
@@ -200,7 +199,6 @@ export const mockCustomerProductionRequests: CustomerProductionTrackingRequest[]
         status: 'CANCELLED',
         materialNote: 'Selected metal frame is temporarily unavailable.',
         productionNote: 'Team is checking replacement frame options with the same finish.',
-        estimatedCompletionDate: '2026-08-12',
       },
       {
         productionItemId: 'PROD-ITEM-CUS-003',
@@ -210,7 +208,6 @@ export const mockCustomerProductionRequests: CustomerProductionTrackingRequest[]
         status: 'PENDING',
         materialNote: 'Fabric and oak board reserved.',
         productionNote: 'Waiting to start after cashier counter assembly.',
-        estimatedCompletionDate: '2026-08-14',
       },
     ],
   },
@@ -223,7 +220,7 @@ export const mockCustomerProductionRequests: CustomerProductionTrackingRequest[]
     orderId: 'ORD-003',
     orderCode: 'ORD-2026-003',
     status: 'READY_FOR_DELIVERY',
-    estimatedCompletionDate: '2026-07-25',
+    productionDeadline: '2026-07-25',
     actualCompletionDate: '2026-07-24',
     deliveryScheduleDate: '2026-07-27',
     note: 'All production items are completed and packed for delivery coordination.',
@@ -236,7 +233,6 @@ export const mockCustomerProductionRequests: CustomerProductionTrackingRequest[]
         status: 'COMPLETED',
         materialNote: 'Wood frame and LED strip installed.',
         productionNote: 'Completed and packed.',
-        estimatedCompletionDate: '2026-07-24',
         completedAt: '2026-07-24T16:20:00',
       },
       {
@@ -247,7 +243,6 @@ export const mockCustomerProductionRequests: CustomerProductionTrackingRequest[]
         status: 'COMPLETED',
         materialNote: 'Acrylic and brass finish approved.',
         productionNote: 'Completed quality check.',
-        estimatedCompletionDate: '2026-07-23',
         completedAt: '2026-07-23T15:00:00',
       },
     ],
@@ -261,7 +256,7 @@ export const mockCustomerProductionRequests: CustomerProductionTrackingRequest[]
     orderId: 'ORD-004',
     orderCode: 'ORD-2026-004',
     status: 'IN_PRODUCTION',
-    estimatedCompletionDate: '2026-08-30',
+    productionDeadline: '2026-08-30',
     deliveryScheduleDate: '2026-09-02',
     note: 'Core showroom fixtures are being prepared.',
     items: [
@@ -273,7 +268,6 @@ export const mockCustomerProductionRequests: CustomerProductionTrackingRequest[]
         status: 'IN_PRODUCTION',
         materialNote: 'Walnut veneer and bronze trim reserved.',
         productionNote: 'Cabinet body assembly started.',
-        estimatedCompletionDate: '2026-08-24',
       },
       {
         productionItemId: 'PROD-ITEM-CUS-007',
@@ -284,7 +278,6 @@ export const mockCustomerProductionRequests: CustomerProductionTrackingRequest[]
         materialNote: 'Original laminate board cannot meet requested fire rating.',
         productionNote: 'Production stopped for this item.',
         cancellationReason: 'Selected laminate version is unavailable with the required fire rating.',
-        estimatedCompletionDate: '2026-08-26',
       },
     ],
   },

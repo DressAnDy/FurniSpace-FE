@@ -76,8 +76,6 @@ export interface ProductionRequest {
   status: ProductionRequestStatus;
   priority: Priority;
   productionDeadline?: string;
-  estimatedStartDate?: string;
-  estimatedCompletionDate?: string;
   actualStartDate?: string;
   actualCompletionDate?: string;
   cancellationReason?: string;
@@ -101,6 +99,5 @@ export interface ProductionItem {
   materialNote?: string;
   productionNote?: string;
   cancellationReason?: string;
-  estimatedCompletionDate?: string;
   completedAt?: string;
 }
