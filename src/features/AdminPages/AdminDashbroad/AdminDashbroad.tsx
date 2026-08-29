@@ -220,7 +220,6 @@ export function AdminDashbroad() {
                   exceptionsQuery.data.items.length > 0 ? (
                     <ExceptionsList
                       items={exceptionsQuery.data.items}
-                      total={exceptionsQuery.data.totalItems}
                       viewAllLabel={d.exceptionsViewAll(exceptionsQuery.data.totalItems)}
                       formatExceptionType={(value) => formatPaymentOrExceptionLabel(value, d)}
                     />
@@ -491,7 +490,6 @@ function BreakdownList({
 
 function ExceptionsList({
   items,
-  total,
   viewAllLabel,
   formatExceptionType,
 }: {
@@ -502,7 +500,6 @@ function ExceptionsList({
     amount: number | null;
     projectId: string | null;
   }>;
-  total: number;
   viewAllLabel: string;
   formatExceptionType: (value: string) => string;
 }) {
