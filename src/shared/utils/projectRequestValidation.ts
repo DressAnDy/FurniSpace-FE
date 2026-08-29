@@ -86,6 +86,22 @@ export function formatProjectRequestMoneyInput(value: FormDataEntryValue | strin
   return isNegative ? `-${formattedValue}` : formattedValue;
 }
 
+export function sanitizeProjectRequestIntegerInput(value: string) {
+  return value.replace(/\D/g, '');
+}
+
+export function sanitizeProjectRequestDecimalInput(value: string) {
+  const cleanedValue = value.replace(/[^\d.,]/g, '');
+  const [integerPart = '', ...decimalParts] = cleanedValue.split(/[.,]/);
+  const decimalPart = decimalParts.join('');
+
+  if (decimalParts.length === 0) {
+    return integerPart;
+  }
+
+  return `${integerPart}.${decimalPart}`;
+}
+
 export function validateOptionalNonNegativeNumber(
   value: number | null,
   label: string,

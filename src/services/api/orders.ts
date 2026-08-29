@@ -248,6 +248,7 @@ export type DeliveryBatchItemDto = {
   productName?: string | null;
   productNameSnapshot?: string | null;
   itemName?: string | null;
+  batchQuantity?: number | null;
   deliveredQuantity?: number | null;
   quantity?: number | null;
   note?: string | null;

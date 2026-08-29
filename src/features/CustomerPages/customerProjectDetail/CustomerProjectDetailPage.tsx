@@ -31,6 +31,7 @@ import {
   useReopenProjectProposal,
   useUpdateProjectScheduleStatus,
 } from '@/services/queries';
+import { isScheduleVisible } from '@/shared/utils/scheduleVisibility';
 
 import { CustomerProjectProposalAccordionItem } from './CustomerProjectProposalAccordion';
 import '../customerProjectList/CustomerProjectListPage.css';
@@ -69,7 +70,9 @@ export function CustomerProjectDetailPage() {
       : undefined,
   );
   const schedules = useMemo(
-    () => [...(schedulesQuery.data?.items ?? [])].sort((left, right) => new Date(left.scheduledStart).getTime() - new Date(right.scheduledStart).getTime()),
+    () => [...(schedulesQuery.data?.items ?? [])]
+      .filter((schedule) => isScheduleVisible(schedule.status))
+      .sort((left, right) => new Date(left.scheduledStart).getTime() - new Date(right.scheduledStart).getTime()),
     [schedulesQuery.data?.items],
   );
   const requestScheduleChangeMutation = useRequestProjectScheduleChange();

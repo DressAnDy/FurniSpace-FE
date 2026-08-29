@@ -2400,11 +2400,38 @@
   line-height: 16px;
 }
 
-.project-detail-schedule-card > strong {
+.project-detail-schedule-card > strong,
+.project-detail-schedule-card-actions strong {
   height: fit-content;
   border-color: #8b6f47;
   background: #8b6f47;
   color: #ffffff;
+}
+
+.project-detail-schedule-card-actions {
+  display: flex;
+  flex-shrink: 0;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.project-detail-danger-button {
+  min-height: 24px;
+  border: 1px solid rgba(220, 38, 38, 0.24);
+  border-radius: 6px;
+  background: rgba(220, 38, 38, 0.08);
+  color: #b91c1c;
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 16px;
+  padding: 2px 8px;
+}
+
+.project-detail-danger-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
 }
 
 .project-detail-schedule-card p {

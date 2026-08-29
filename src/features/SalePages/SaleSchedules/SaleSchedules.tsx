@@ -20,10 +20,12 @@ import {
 import type { ProjectListItemDto } from '@/services/api/projects';
 import {
   useCurrentUser,
+  useDeleteProjectSchedule,
   useMultiProjectSchedules,
   useProjectList,
   useUpdateProjectScheduleStatus,
 } from '@/services/queries';
+import { isScheduleVisible } from '@/shared/utils/scheduleVisibility';
 
 import { CreateScheduleModal } from './components';
 import './SaleSchedules.css';
@@ -51,7 +53,6 @@ const scheduleStatusOptions: Array<ProjectScheduleStatus | ''> = [
   '',
   'PENDING_CONFIRMATION',
   'CONFIRMED',
-  'COMPLETED',
   'CANCELLED',
 ];
 
@@ -70,13 +71,6 @@ export function SaleSchedules() {
   const [selectedDateKey, setSelectedDateKey] = useState(() => getDateKey(new Date()));
   const [selectedScheduleId, setSelectedScheduleId] = useState<string | null>(searchParams.get('scheduleId'));
   const [expandedDateKey, setExpandedDateKey] = useState<string | null>(null);
-  const [participantCalendarActor, setParticipantCalendarActor] = useState<ParticipantCalendarActor>('customer');
-  const [participantCalendarMonth, setParticipantCalendarMonth] = useState(() => {
-    const now = new Date();
-
-    return new Date(now.getFullYear(), now.getMonth(), 1);
-  });
-  const [participantListDateKey, setParticipantListDateKey] = useState<string | null>(null);
   const currentUserQuery = useCurrentUser();
   const currentUser = currentUserQuery.data;
   const projectsQuery = useProjectList(
@@ -97,6 +91,7 @@ export function SaleSchedules() {
     enabled: projectsQuery.isSuccess && projectIds.length > 0,
   });
   const updateStatusMutation = useUpdateProjectScheduleStatus();
+  const deleteScheduleMutation = useDeleteProjectSchedule();
   const managedSchedules = useMemo<ManagedSchedule[]>(
     () =>
       (schedulesQuery.data ?? [])
@@ -104,6 +99,10 @@ export function SaleSchedules() {
           const project = projectById[schedule.projectId];
 
           if (!project) {
+            return null;
+          }
+
+          if (!isScheduleVisible(schedule.status)) {
             return null;
           }
 
@@ -145,13 +144,6 @@ export function SaleSchedules() {
       ?? null,
     [managedSchedules, schedulesByDate, selectedDateKey, selectedScheduleId],
   );
-  const selectedProjectSchedules = useMemo(
-    () => selectedItem
-      ? managedSchedules.filter((item) => item.project.projectId === selectedItem.project.projectId)
-      : [],
-    [managedSchedules, selectedItem],
-  );
-
   useEffect(() => {
     const scheduleId = searchParams.get('scheduleId');
 
@@ -180,10 +172,6 @@ export function SaleSchedules() {
   useEffect(() => {
     setExpandedDateKey(null);
   }, [calendarMonth]);
-
-  useEffect(() => {
-    setParticipantListDateKey(null);
-  }, [participantCalendarActor, selectedItem?.project.projectId]);
 
   function selectSchedule(scheduleId: string, dateKey: string) {
     setSelectedDateKey(dateKey);
@@ -218,6 +206,24 @@ export function SaleSchedules() {
         note: `${formatEnumLabel(nextStatus)} by sales from schedule management.`,
       });
       setActionMessage(`Schedule ${formatEnumLabel(nextStatus).toLowerCase()} successfully.`);
+    } catch (error) {
+      setActionMessage(getProjectScheduleServiceResultMessage(error));
+    }
+  }
+
+  async function deleteSchedule(schedule: ProjectScheduleDto) {
+    const confirmed = window.confirm(`Delete ${schedule.title ?? formatEnumLabel(schedule.scheduleType)}?`);
+
+    if (!confirmed) {
+      return;
+    }
+
+    setActionMessage('');
+
+    try {
+      await deleteScheduleMutation.mutateAsync(schedule.scheduleId);
+      setActionMessage('Schedule deleted successfully.');
+      setSelectedScheduleId(null);
     } catch (error) {
       setActionMessage(getProjectScheduleServiceResultMessage(error));
     }
@@ -363,28 +369,14 @@ export function SaleSchedules() {
 
               <section className="sale-schedules-calendar-detail" aria-label="Schedule detail">
                 {selectedItem ? (
-                  <>
-                    <ScheduleDetail
-                      item={selectedItem}
-                      isUpdating={updateStatusMutation.isPending}
-                      onCancel={() => void updateScheduleStatus(selectedItem.schedule, 'CANCELLED')}
-                      onComplete={() => void updateScheduleStatus(selectedItem.schedule, 'COMPLETED')}
-                      onReschedule={() => setEditingSchedule(selectedItem.schedule)}
-                    />
-                    <ParticipantScheduleCalendar
-                      actor={participantCalendarActor}
-                      listDateKey={participantListDateKey}
-                      month={participantCalendarMonth}
-                      project={selectedItem.project}
-                      schedules={selectedProjectSchedules}
-                      selectedScheduleId={selectedItem.schedule.scheduleId}
-                      onActorChange={setParticipantCalendarActor}
-                      onBackToCalendar={() => setParticipantListDateKey(null)}
-                      onMonthChange={setParticipantCalendarMonth}
-                      onOpenDateList={setParticipantListDateKey}
-                      onSelectSchedule={(schedule, dateKey) => selectSchedule(schedule.scheduleId, dateKey)}
-                    />
-                  </>
+                  <ScheduleDetail
+                    item={selectedItem}
+                    isUpdating={updateStatusMutation.isPending || deleteScheduleMutation.isPending}
+                    onCancel={() => void updateScheduleStatus(selectedItem.schedule, 'CANCELLED')}
+                    onComplete={() => void updateScheduleStatus(selectedItem.schedule, 'COMPLETED')}
+                    onDelete={() => void deleteSchedule(selectedItem.schedule)}
+                    onReschedule={() => setEditingSchedule(selectedItem.schedule)}
+                  />
                 ) : (
                   <div className="sale-schedules-empty-detail">
                     <IconCalendarEvent size={32} />
@@ -414,14 +406,16 @@ type ScheduleDetailProps = Readonly<{
   isUpdating: boolean;
   onCancel: () => void;
   onComplete: () => void;
+  onDelete: () => void;
   onReschedule: () => void;
 }>;
 
-function ScheduleDetail({ item, isUpdating, onCancel, onComplete, onReschedule }: ScheduleDetailProps) {
+function ScheduleDetail({ item, isUpdating, onCancel, onComplete, onDelete, onReschedule }: ScheduleDetailProps) {
   const { project, schedule } = item;
   const canReschedule = schedule.status === 'PENDING_CONFIRMATION' || schedule.status === 'CONFIRMED' || schedule.status === 'CANCELLED';
   const canCancel = schedule.status === 'PENDING_CONFIRMATION' || schedule.status === 'CONFIRMED';
   const canComplete = schedule.status === 'CONFIRMED';
+  const canDelete = schedule.status !== 'COMPLETED';
 
   return (
     <>
@@ -462,11 +456,12 @@ function ScheduleDetail({ item, isUpdating, onCancel, onComplete, onReschedule }
         <p>{schedule.description || schedule.internalNote || schedule.customerNote || 'No additional schedule details were provided.'}</p>
       </div>
 
-      {canReschedule || canComplete || canCancel ? (
+      {canReschedule || canComplete || canCancel || canDelete ? (
         <div className="sale-schedules-detail-actions">
           {canReschedule ? <button disabled={isUpdating} type="button" onClick={onReschedule}>{schedule.status === 'CANCELLED' ? 'Update Schedule' : 'Reschedule'}</button> : null}
           {canComplete ? <button disabled={isUpdating} type="button" onClick={onComplete}>Mark Complete</button> : null}
           {canCancel ? <button className="sale-schedules-cancel-button" disabled={isUpdating} type="button" onClick={onCancel}>Cancel</button> : null}
+          {canDelete ? <button className="sale-schedules-cancel-button" disabled={isUpdating} type="button" onClick={onDelete}>Delete</button> : null}
         </div>
       ) : null}
     </>

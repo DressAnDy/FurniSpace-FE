@@ -7,6 +7,8 @@ import {
   getProjectSpaceAndBudgetFieldErrors,
   parseOptionalProjectRequestMoney,
   parseOptionalProjectRequestNumber,
+  sanitizeProjectRequestDecimalInput,
+  sanitizeProjectRequestIntegerInput,
   validateOptionalBudgetMax,
   validateOptionalBudgetMin,
   validateOptionalNonNegativeInteger,
@@ -35,6 +37,14 @@ describe('projectRequestValidation', () => {
     expect(parseOptionalProjectRequestMoney('100.000')).toBe(100_000);
     expect(Number.isNaN(parseOptionalProjectRequestMoney('100,000'))).toBe(true);
     expect(Number.isNaN(parseOptionalProjectRequestMoney('1..000'))).toBe(true);
+  });
+
+  it('sanitizes numeric project request inputs while typing', () => {
+    expect(sanitizeProjectRequestIntegerInput('1a2-3!')).toBe('123');
+    expect(sanitizeProjectRequestIntegerInput('floor 05')).toBe('05');
+    expect(sanitizeProjectRequestDecimalInput('12abc.5 sqm')).toBe('12.5');
+    expect(sanitizeProjectRequestDecimalInput('12,5')).toBe('12.5');
+    expect(sanitizeProjectRequestDecimalInput('12.3.4')).toBe('12.34');
   });
 
   it('rejects negative total area and zero/negative floors', () => {
