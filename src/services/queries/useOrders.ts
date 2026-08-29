@@ -204,6 +204,11 @@ export function upsertOrderListItem(
             paidAmount: order.paidAmount,
             remainingAmount: order.remainingAmount,
             status: order.status,
+            deliveryAddress: order.deliveryAddress ?? order.deliveryDetails?.deliveryAddress ?? item.deliveryAddress,
+            receiverName: order.receiverName ?? order.deliveryDetails?.receiverName ?? item.receiverName,
+            receiverPhone: order.receiverPhone ?? order.deliveryDetails?.receiverPhone ?? item.receiverPhone,
+            deliveryNote: order.deliveryNote ?? order.deliveryDetails?.deliveryNote ?? item.deliveryNote,
+            deliveryDetails: order.deliveryDetails ?? item.deliveryDetails,
           }
         : item,
     ),

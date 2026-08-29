@@ -77,9 +77,6 @@ export interface ProductionRequest {
   priority: Priority;
   /** Committed production phase deadline (ProjectPhaseTimeline PRODUCTION). */
   productionDeadline?: string;
-  /** Internal operational estimate; not used for overdue/priority reporting. */
-  estimatedStartDate?: string;
-  estimatedCompletionDate?: string;
   actualStartDate?: string;
   actualCompletionDate?: string;
   cancellationReason?: string;

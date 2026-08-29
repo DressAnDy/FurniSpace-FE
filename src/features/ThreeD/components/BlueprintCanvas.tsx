@@ -57,6 +57,7 @@ export type BlueprintCanvasProps = {
   }>;
   hideLabels: boolean;
   layout: RoomLayoutState | null;
+  lockLayoutGeometry?: boolean;
   onLayoutChange: (layout: RoomLayoutState) => void;
   onLayoutMove?: (delta: { x: number; y: number }) => void;
   onFloorOpeningAdd?: (position: { x: number; z: number }) => void;
@@ -83,6 +84,7 @@ const MAX_ZOOM = 3.2;
 const MIN_ZOOM = 0.35;
 const MAX_LAYOUT_COORDINATE = 10000;
 const MIN_LAYOUT_COORDINATE = -10000;
+const EDGE_RELEASE_SNAP_TOLERANCE = 0.35;
 
 type CanvasTransform = {
   maxX: number;
@@ -91,6 +93,8 @@ type CanvasTransform = {
   minY: number;
   scale: number;
 };
+
+type LayoutBounds = Pick<CanvasTransform, 'maxX' | 'maxY' | 'minX' | 'minY'>;
 
 type ViewOffset = {
   x: number;
@@ -272,6 +276,45 @@ function roundCoordinate(value: number) {
   return Number(clamp(value, MIN_LAYOUT_COORDINATE, MAX_LAYOUT_COORDINATE).toFixed(2));
 }
 
+function getClosestSnapDelta(candidates: number[]) {
+  return candidates
+    .map((delta) => ({ delta, distance: Math.abs(delta) }))
+    .filter((candidate) => candidate.distance > 0.001 && candidate.distance <= EDGE_RELEASE_SNAP_TOLERANCE)
+    .sort((first, second) => first.distance - second.distance)[0]?.delta ?? 0;
+}
+
+function getReleaseSnapDelta(layoutBounds: LayoutBounds, underlayBounds: LayoutBounds | null) {
+  if (!underlayBounds) {
+    return { x: 0, y: 0 };
+  }
+
+  return {
+    x: roundCoordinate(getClosestSnapDelta([
+      underlayBounds.minX - layoutBounds.minX,
+      underlayBounds.maxX - layoutBounds.maxX,
+    ])),
+    y: roundCoordinate(getClosestSnapDelta([
+      underlayBounds.minY - layoutBounds.minY,
+      underlayBounds.maxY - layoutBounds.maxY,
+    ])),
+  };
+}
+
+function translateLayoutPoints(layout: RoomLayoutState, delta: { x: number; y: number }) {
+  if (Math.abs(delta.x) < 0.001 && Math.abs(delta.y) < 0.001) {
+    return layout;
+  }
+
+  return {
+    ...layout,
+    points: layout.points.map((point) => ({
+      ...point,
+      x: roundCoordinate(point.x + delta.x),
+      y: roundCoordinate(point.y + delta.y),
+    })),
+  };
+}
+
 export function BlueprintCanvas({
   activeTool,
   boundaryGuide,
@@ -279,6 +322,7 @@ export function BlueprintCanvas({
   floorOpenings = [],
   hideLabels,
   layout,
+  lockLayoutGeometry = false,
   onLayoutChange,
   onLayoutMove,
   onFloorOpeningAdd,
@@ -546,7 +590,9 @@ export function BlueprintCanvas({
           y: Number((totalDelta.y - dragLayout.appliedDelta.y).toFixed(2)),
         };
 
-        onLayoutMove(incrementalDelta);
+        if (Math.abs(incrementalDelta.x) > 0.001 || Math.abs(incrementalDelta.y) > 0.001) {
+          onLayoutMove(incrementalDelta);
+        }
         setDragLayout({
           ...dragLayout,
           appliedDelta: totalDelta,
@@ -568,12 +614,12 @@ export function BlueprintCanvas({
     if (dragWall) {
       onLayoutChange(
         keepLayoutWithinBoundary(moveWallAlongNormal(
-            layout,
-            dragWall.wallId,
-            dragWall.start,
-            clampPointToBoundary(nextPoint),
-            dragWall.originalPoints,
-          )),
+          layout,
+          dragWall.wallId,
+          dragWall.start,
+          clampPointToBoundary(nextPoint),
+          dragWall.originalPoints,
+        )),
       );
     }
   }
@@ -661,6 +707,11 @@ export function BlueprintCanvas({
     }
 
     if (activeTool === 'draw') {
+      if (lockLayoutGeometry) {
+        onMessage?.('Standard area geometry is locked to its project area dimensions.');
+        return;
+      }
+
       const clickedPoint = fromPointer(event);
 
       if (!pendingWallStart) {
@@ -715,6 +766,11 @@ export function BlueprintCanvas({
       }
 
       if (activeTool === 'node') {
+        if (lockLayoutGeometry) {
+          onMessage?.('Standard area nodes are locked to keep the configured area size.');
+          return;
+        }
+
         onLayoutChange(insertNodeOnWall(layout, nearestWall.wall.id, clickedPoint));
         onMessage?.('Node added. Drag the new point to adjust the wall angle.');
         return;
@@ -774,6 +830,11 @@ export function BlueprintCanvas({
     }
 
     if (event.button === 0 && activeTool === 'node') {
+      if (lockLayoutGeometry) {
+        onMessage?.('Standard area nodes are locked to keep the configured area size.');
+        return;
+      }
+
       onLayoutChange(insertNodeOnWall(layout, wall.id, fromPointer(event)));
       onMessage?.('Node added. Drag the new point to adjust the wall angle.');
       return;
@@ -800,6 +861,11 @@ export function BlueprintCanvas({
       return;
     }
 
+    if (lockLayoutGeometry) {
+      onMessage?.('Standard area edges are locked to keep the configured area size.');
+      return;
+    }
+
     if (event.button !== 2) {
       return;
     }
@@ -823,6 +889,20 @@ export function BlueprintCanvas({
   }
 
   function finishPointerInteraction() {
+    if ((dragPoint || dragWall || dragLayout) && layout && underlay?.layout?.points.length) {
+      const snapDelta = getReleaseSnapDelta(getRoomBounds(layout.points), getRoomBounds(underlay.layout.points));
+
+      if (Math.abs(snapDelta.x) > 0.001 || Math.abs(snapDelta.y) > 0.001) {
+        if (onLayoutMove) {
+          onLayoutMove(snapDelta);
+        } else {
+          onLayoutChange(translateLayoutPoints(layout, snapDelta));
+        }
+
+        onMessage?.('Floor aligned to lower floor edge.');
+      }
+    }
+
     setDragPoint(null);
     setDragWall(null);
     setDragOpening(null);
@@ -1260,7 +1340,10 @@ export function BlueprintCanvas({
                   key={point.id}
                   r="9"
                   onPointerDown={(event) => {
-                    if (activeTool !== 'select' || readOnly) {
+                    if (activeTool !== 'select' || readOnly || lockLayoutGeometry) {
+                      if (lockLayoutGeometry) {
+                        onMessage?.('Standard area nodes are locked to keep the configured area size.');
+                      }
                       return;
                     }
 
@@ -1293,40 +1376,42 @@ export function BlueprintCanvas({
             <strong>Edit Wall</strong>
             <button aria-label="Close editor" type="button" onClick={() => setItemEditorMenu(null)}>x</button>
           </div>
-          <div className="blueprint-opening-stepper">
-            <div>
-              <button
-                aria-label="Decrease wall length"
-                type="button"
-                onClick={() => onLayoutChange(resizeWallLength(
-                  layout,
-                  contextWall.id,
-                  Math.max(0.2, getWallLength(contextWall, layout.points) - 0.25),
-                ))}
-              >
-                &lsaquo;
-              </button>
-              <MetricStepperInput
-                ariaLabel="Wall length"
-                min={0.2}
-                step={0.05}
-                value={getWallLength(contextWall, layout.points)}
-                onChange={(value) => onLayoutChange(resizeWallLength(layout, contextWall.id, value))}
-              />
-              <button
-                aria-label="Increase wall length"
-                type="button"
-                onClick={() => onLayoutChange(resizeWallLength(
-                  layout,
-                  contextWall.id,
-                  getWallLength(contextWall, layout.points) + 0.25,
-                ))}
-              >
-                &rsaquo;
-              </button>
+          {!lockLayoutGeometry ? (
+            <div className="blueprint-opening-stepper">
+              <div>
+                <button
+                  aria-label="Decrease wall length"
+                  type="button"
+                  onClick={() => onLayoutChange(resizeWallLength(
+                    layout,
+                    contextWall.id,
+                    Math.max(0.2, getWallLength(contextWall, layout.points) - 0.25),
+                  ))}
+                >
+                  &lsaquo;
+                </button>
+                <MetricStepperInput
+                  ariaLabel="Wall length"
+                  min={0.2}
+                  step={0.05}
+                  value={getWallLength(contextWall, layout.points)}
+                  onChange={(value) => onLayoutChange(resizeWallLength(layout, contextWall.id, value))}
+                />
+                <button
+                  aria-label="Increase wall length"
+                  type="button"
+                  onClick={() => onLayoutChange(resizeWallLength(
+                    layout,
+                    contextWall.id,
+                    getWallLength(contextWall, layout.points) + 0.25,
+                  ))}
+                >
+                  &rsaquo;
+                </button>
+              </div>
+              <label>Length</label>
             </div>
-            <label>Length</label>
-          </div>
+          ) : null}
           <div className="blueprint-opening-stepper">
             <div>
               <button
@@ -1386,17 +1471,19 @@ export function BlueprintCanvas({
             </div>
             <label>Thickness</label>
           </div>
-          <button
-            className="blueprint-opening-menu-action is-danger"
-            type="button"
-            onClick={() => {
-              onLayoutChange(deleteWall(layout, contextWall.id));
-              onSelectItem(null);
-              setItemEditorMenu(null);
-            }}
-          >
-            Delete Wall
-          </button>
+          {!lockLayoutGeometry ? (
+            <button
+              className="blueprint-opening-menu-action is-danger"
+              type="button"
+              onClick={() => {
+                onLayoutChange(deleteWall(layout, contextWall.id));
+                onSelectItem(null);
+                setItemEditorMenu(null);
+              }}
+            >
+              Delete Wall
+            </button>
+          ) : null}
         </div>
       )}
       {itemEditorMenu?.itemType === 'floor-hole' && contextFloorOpening && (

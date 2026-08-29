@@ -1,5 +1,6 @@
 export const PROJECT_BUDGET_MIN = 100_000;
 export const PROJECT_BUDGET_MAX = 1_000_000_000;
+export const PROJECT_AREA_MAX_SQM = 10_000;
 
 export type OptionalNumberValidationResult =
   | { ok: true; value: number | null }
@@ -42,6 +43,65 @@ export function parseOptionalProjectRequestNumber(value: FormDataEntryValue | st
   return Number(trimmedValue.replace(',', '.'));
 }
 
+export function parseOptionalProjectRequestMoney(value: FormDataEntryValue | string | null | undefined) {
+  if (typeof value !== 'string') {
+    return null;
+  }
+
+  const trimmedValue = value.trim();
+
+  if (!trimmedValue) {
+    return null;
+  }
+
+  if (!/^-?(?:\d+|\d{1,3}(?:\.\d{3})+)$/.test(trimmedValue)) {
+    return Number.NaN;
+  }
+
+  const normalizedValue = trimmedValue.replace(/\./g, '');
+
+  if (!/^-?\d+$/.test(normalizedValue)) {
+    return Number.NaN;
+  }
+
+  return Number(normalizedValue);
+}
+
+export function formatProjectRequestMoneyInput(value: FormDataEntryValue | string | number | null | undefined) {
+  if (value == null) {
+    return '';
+  }
+
+  const rawValue = String(value);
+  const isNegative = rawValue.trim().startsWith('-');
+  const digits = rawValue.replace(/\D/g, '');
+
+  if (!digits) {
+    return isNegative ? '-' : '';
+  }
+
+  const normalizedDigits = digits.replace(/^0+(?=\d)/, '');
+  const formattedValue = normalizedDigits.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+
+  return isNegative ? `-${formattedValue}` : formattedValue;
+}
+
+export function sanitizeProjectRequestIntegerInput(value: string) {
+  return value.replace(/\D/g, '');
+}
+
+export function sanitizeProjectRequestDecimalInput(value: string) {
+  const cleanedValue = value.replace(/[^\d.,]/g, '');
+  const [integerPart = '', ...decimalParts] = cleanedValue.split(/[.,]/);
+  const decimalPart = decimalParts.join('');
+
+  if (decimalParts.length === 0) {
+    return integerPart;
+  }
+
+  return `${integerPart}.${decimalPart}`;
+}
+
 export function validateOptionalNonNegativeNumber(
   value: number | null,
   label: string,
@@ -55,6 +115,23 @@ export function validateOptionalNonNegativeNumber(
   }
 
   return { ok: true, value };
+}
+
+export function validateOptionalTotalAreaSqm(value: number | null): OptionalNumberValidationResult {
+  const result = validateOptionalNonNegativeNumber(value, 'Total Area (sqm)');
+
+  if (!result.ok || result.value == null) {
+    return result;
+  }
+
+  if (result.value > PROJECT_AREA_MAX_SQM) {
+    return {
+      ok: false,
+      message: `Total Area (sqm) cannot exceed ${PROJECT_AREA_MAX_SQM.toLocaleString('en-US')}. This project request is not feasible.`,
+    };
+  }
+
+  return result;
 }
 
 export function validateOptionalPositiveNumber(
@@ -158,7 +235,7 @@ export function getProjectSpaceAndBudgetFieldErrors(input: {
 }): ProjectRequestFieldErrors {
   const fieldErrors: ProjectRequestFieldErrors = {};
 
-  const totalAreaSqm = validateOptionalNonNegativeNumber(input.totalAreaSqm, 'Total Area (sqm)');
+  const totalAreaSqm = validateOptionalTotalAreaSqm(input.totalAreaSqm);
   if (!totalAreaSqm.ok) fieldErrors.totalAreaSqm = totalAreaSqm.message;
 
   const numberOfFloors = validateOptionalPositiveInteger(input.numberOfFloors, 'Number of Floors');

@@ -86,6 +86,7 @@ export function CustomerQuotationsPage() {
 
     return savedDeliveryDetails ? { ...orderDetail, ...savedDeliveryDetails } : orderDetail;
   }, [savedDeliveryDetailsByOrderId, selectedQuotationOrderDetailQuery.data]);
+  const selectedQuotationDeliveryDetailsSource = selectedQuotationOrderDetail ?? selectedQuotationOrder;
   const proposalNameById = useMemo(
     () => new Map((projectProposalsQuery.data?.items ?? []).map((proposal) => [proposal.proposalId, proposal.proposalName])),
     [projectProposalsQuery.data?.items],
@@ -137,7 +138,7 @@ export function CustomerQuotationsPage() {
 
     setMessage(null);
 
-    if (!selectedQuotationOrderDetail || !hasCompleteDeliveryDetails(selectedQuotationOrderDetail)) {
+    if (!selectedQuotationDeliveryDetailsSource || !hasCompleteDeliveryDetails(selectedQuotationDeliveryDetailsSource)) {
       setMessage({ tone: 'error', text: 'Please complete delivery details before creating the deposit payment.' });
       return;
     }
@@ -284,6 +285,7 @@ export function CustomerQuotationsPage() {
                 deliveryDetailsPending={updateDeliveryDetailsMutation.isPending}
                 order={selectedQuotationOrder}
                 orderDetail={selectedQuotationOrderDetail}
+                orderDetailLoading={selectedQuotationOrderDetailQuery.isLoading}
                 quotation={selectedQuotation}
                 proposalName={selectedProposalName}
                 revisionPending={revisionMutation.isPending}
@@ -328,6 +330,7 @@ function QuotationDetail({
   quotation,
   order,
   orderDetail,
+  orderDetailLoading,
   proposalName,
   revisionPending,
   revisionReason,
@@ -341,6 +344,7 @@ function QuotationDetail({
   onRequestRevision: (event: FormEvent<HTMLFormElement>) => void;
   onRevisionReasonChange: (value: string) => void;
   orderDetail: OrderDetailDto | null;
+  orderDetailLoading: boolean;
   proposalName: string;
   quotation: QuotationDto & { items?: QuotationItemDto[] };
   order: OrderListItemDto | null;
@@ -361,7 +365,11 @@ function QuotationDetail({
     [quotation.items],
   );
   const depositAmount = getQuotationDepositAmount(quotation);
-  const deliveryDetailsComplete = orderDetail ? hasCompleteDeliveryDetails(orderDetail) : false;
+  const deliveryDetailsComplete = orderDetail
+    ? hasCompleteDeliveryDetails(orderDetail)
+    : order
+      ? hasCompleteDeliveryDetails(order)
+      : false;
 
   return (
     <section className="customer-quotations-card customer-quotations-detail">
@@ -405,7 +413,7 @@ function QuotationDetail({
       <section className="customer-quotations-payment-panel">
         <div>
           <span>Deposit Payment</span>
-          <strong>{getDepositPaymentLabel(quotation.status, order, deliveryDetailsComplete)}</strong>
+          <strong>{getDepositPaymentLabel(quotation.status, order, deliveryDetailsComplete, orderDetailLoading)}</strong>
         </div>
         {order && canCreateDepositPayment(order.status) ? (
           <button disabled={depositPending || !deliveryDetailsComplete} type="button" onClick={onCreateDeposit}>
@@ -504,7 +512,18 @@ function DeliveryDetailsPanel({
 
   useEffect(() => {
     setDraft(getOrderDeliveryDetailsDraft(order));
-  }, [order, order.orderId, order.deliveryAddress, order.receiverName, order.receiverPhone, order.deliveryNote]);
+  }, [
+    order,
+    order.orderId,
+    order.deliveryAddress,
+    order.deliveryDetails?.deliveryAddress,
+    order.deliveryDetails?.deliveryNote,
+    order.deliveryDetails?.receiverName,
+    order.deliveryDetails?.receiverPhone,
+    order.deliveryNote,
+    order.receiverName,
+    order.receiverPhone,
+  ]);
 
   return (
     <section className="customer-quotations-delivery-details">
@@ -582,7 +601,12 @@ function canCreateDepositPayment(status?: OrderStatus | null) {
   return status === 'CREATED' || status === 'DEPOSIT_PENDING';
 }
 
-function getDepositPaymentLabel(status: QuotationStatus | null | undefined, order: OrderListItemDto | null, deliveryDetailsComplete: boolean) {
+function getDepositPaymentLabel(
+  status: QuotationStatus | null | undefined,
+  order: OrderListItemDto | null,
+  deliveryDetailsComplete: boolean,
+  orderDetailLoading: boolean,
+) {
   if (status === 'SENT' || status === 'REVISED') {
     return 'Accept quotation first';
   }
@@ -591,6 +615,7 @@ function getDepositPaymentLabel(status: QuotationStatus | null | undefined, orde
     return status === 'ACCEPTED' ? 'Preparing order' : 'Not available';
   }
 
+  if (canCreateDepositPayment(order.status) && orderDetailLoading && !deliveryDetailsComplete) return 'Loading delivery details';
   if (canCreateDepositPayment(order.status) && !deliveryDetailsComplete) return 'Complete delivery details first';
   if (order.status === 'CREATED') return 'Ready to create payment';
   if (order.status === 'DEPOSIT_PENDING') return 'Payment pending';
@@ -599,12 +624,12 @@ function getDepositPaymentLabel(status: QuotationStatus | null | undefined, orde
   return formatEnumLabel(order.status ?? 'UNKNOWN');
 }
 
-function getOrderDeliveryDetailsDraft(order: OrderDetailDto): OrderDeliveryDetailsDraft {
+function getOrderDeliveryDetailsDraft(order: Pick<OrderDetailDto | OrderListItemDto, 'deliveryAddress' | 'deliveryDetails' | 'deliveryNote' | 'receiverName' | 'receiverPhone'>): OrderDeliveryDetailsDraft {
   return {
-    deliveryAddress: order.deliveryAddress ?? '',
-    deliveryNote: order.deliveryNote ?? '',
-    receiverName: order.receiverName ?? '',
-    receiverPhone: order.receiverPhone ?? '',
+    deliveryAddress: order.deliveryAddress ?? order.deliveryDetails?.deliveryAddress ?? '',
+    deliveryNote: order.deliveryNote ?? order.deliveryDetails?.deliveryNote ?? '',
+    receiverName: order.receiverName ?? order.deliveryDetails?.receiverName ?? '',
+    receiverPhone: order.receiverPhone ?? order.deliveryDetails?.receiverPhone ?? '',
   };
 }
 
@@ -617,11 +642,13 @@ function normalizeDeliveryDetailsDraft(details: OrderDeliveryDetailsDraft): Orde
   };
 }
 
-function hasCompleteDeliveryDetails(details: OrderDeliveryDetailsDraft | OrderDetailDto) {
+function hasCompleteDeliveryDetails(details: OrderDeliveryDetailsDraft | OrderDetailDto | OrderListItemDto) {
+  const resolvedDetails = 'deliveryDetails' in details ? getOrderDeliveryDetailsDraft(details) : details;
+
   return Boolean(
-    details.deliveryAddress?.trim()
-    && details.receiverName?.trim()
-    && details.receiverPhone?.trim(),
+    resolvedDetails.deliveryAddress?.trim()
+    && resolvedDetails.receiverName?.trim()
+    && resolvedDetails.receiverPhone?.trim(),
   );
 }
 

@@ -4,12 +4,10 @@ import { IconLink, IconPhoto, IconRulerMeasure, IconUpload, IconX } from '@table
 import { getMeasurementImageServiceResultMessage, type MeasurementImageDto } from '@/services/api/measurementImages';
 import type { ProjectDto } from '@/services/api/projects';
 import {
-  useLinkMeasurementImageToArea,
   useProjectAreas,
   useProjectMeasurementImages,
   useProjectScheduleList,
-  useRegisterMeasurementImage,
-  useUploadProjectFile,
+  useUploadMeasurementImage,
 } from '@/services/queries';
 
 type MeasurementImagesTabProps = {
@@ -43,19 +41,18 @@ export function MeasurementImagesTab({ project }: Readonly<MeasurementImagesTabP
     page: 1,
     limit: 100,
   }, { fetchAll: true, staleTime: 60_000 });
-  const uploadProjectFileMutation = useUploadProjectFile();
-  const registerImageMutation = useRegisterMeasurementImage();
-  const linkImageMutation = useLinkMeasurementImageToArea();
+  const uploadImageMutation = useUploadMeasurementImage();
   const images = imagesQuery.data?.items ?? [];
   const areas = useMemo(() => (areasQuery.data ?? []).filter((area) => area.status !== 'CANCELLED'), [areasQuery.data]);
   const measurementSchedules = schedulesQuery.data?.items ?? [];
   const eligibleSchedules = measurementSchedules.filter(isEligibleMeasurementSchedule);
-  const isUploading = uploadProjectFileMutation.isPending || registerImageMutation.isPending || linkImageMutation.isPending;
+  const isUploading = uploadImageMutation.isPending;
 
   function addMeasurementFiles(fileList: FileList | null) {
-    const nextFiles = Array.from(fileList ?? []).filter((file) => file.type.startsWith('image/'));
+    const nextFiles = Array.from(fileList ?? []).filter(isSupportedMeasurementImageFile);
 
     if (nextFiles.length === 0) {
+      setUploadMessage({ tone: 'error', text: 'Measurement images must be JPG, PNG, or WebP files.' });
       return;
     }
 
@@ -83,26 +80,12 @@ export function MeasurementImagesTab({ project }: Readonly<MeasurementImagesTabP
     )));
 
     try {
-      const uploadedFile = await uploadProjectFileMutation.mutateAsync({
+      await uploadImageMutation.mutateAsync({
         file: item.file,
-        fileType: 'MEASUREMENT_REPORT',
         note,
-        projectId: project.projectId,
-        visibility: 'STAFF_ONLY',
-      });
-      const registeredImage = await registerImageMutation.mutateAsync({
-        contentType: uploadedFile.mimeType,
-        fileSizeBytes: uploadedFile.fileSize,
-        originalFileName: uploadedFile.originalFileName,
-        publicUrl: uploadedFile.publicUrl,
-        scheduleId,
-        storagePath: uploadedFile.storagePath,
-        note,
-      });
-
-      await linkImageMutation.mutateAsync({
-        fileId: registeredImage.fileId,
         projectAreaId,
+        scheduleId,
+        visibility: 'STAFF_ONLY',
       });
 
       setUploadItems((currentItems) => currentItems.map((currentItem) => (
@@ -189,7 +172,7 @@ export function MeasurementImagesTab({ project }: Readonly<MeasurementImagesTabP
         <header>
           <div>
             <h4><IconUpload size={17} /> Upload Measurement Image</h4>
-            <p>Register the image to a measurement schedule, then link it to the measured area.</p>
+            <p>Upload image files to a confirmed measurement schedule and link them to the measured area.</p>
           </div>
         </header>
         <div className="designer-project-measurement-form-grid">
@@ -225,7 +208,7 @@ export function MeasurementImagesTab({ project }: Readonly<MeasurementImagesTabP
         <div className="designer-project-measurement-file-picker">
           <label className={isUploading ? 'designer-project-measurement-dropzone is-disabled' : 'designer-project-measurement-dropzone'}>
             <input
-              accept="image/*"
+              accept="image/jpeg,image/png,image/webp"
               multiple
               name="files"
               type="file"
@@ -257,7 +240,7 @@ export function MeasurementImagesTab({ project }: Readonly<MeasurementImagesTabP
           <p className="designer-project-file-message designer-project-file-error">Create at least one project area before linking measurement images.</p>
         ) : null}
         {eligibleSchedules.length === 0 && !schedulesQuery.isLoading ? (
-          <p className="designer-project-file-message designer-project-file-error">No confirmed or completed measurement schedule is available for this project.</p>
+          <p className="designer-project-file-message designer-project-file-error">No confirmed measurement schedule is available for this project.</p>
         ) : null}
         {uploadMessage ? <p className={`designer-project-file-message designer-project-file-${uploadMessage.tone}`}>{uploadMessage.text}</p> : null}
         <div className="designer-project-measurement-actions">
@@ -367,7 +350,11 @@ function MeasurementImageCard({ image }: { image: MeasurementImageDto }) {
 function isEligibleMeasurementSchedule(schedule: { status?: string | null }) {
   const status = normalizeStatus(schedule.status);
 
-  return status === 'CONFIRMED' || status === 'MEASUREMENT_CONFIRMED' || status === 'COMPLETED';
+  return status === 'CONFIRMED' || status === 'MEASUREMENT_CONFIRMED';
+}
+
+function isSupportedMeasurementImageFile(file: File) {
+  return ['image/jpeg', 'image/png', 'image/webp'].includes(file.type);
 }
 
 function normalizeStatus(value?: string | null) {

@@ -100,6 +100,12 @@
   color: #6f5636;
 }
 
+.production-workspace-row-actions .is-danger {
+  border-color: rgba(220, 38, 38, 0.24);
+  background: rgba(220, 38, 38, 0.08);
+  color: #b91c1c;
+}
+
 .production-workspace-summary-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -411,6 +417,8 @@
 
 .production-ready-schedule-actions {
   display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
   justify-content: flex-end;
 }
 
@@ -430,6 +438,12 @@
 .production-ready-schedule-actions button:disabled {
   cursor: not-allowed;
   opacity: 0.58;
+}
+
+.production-ready-schedule-actions .is-danger {
+  border-color: rgba(220, 38, 38, 0.24);
+  background: rgba(220, 38, 38, 0.08);
+  color: #b91c1c;
 }
 
 .production-ready-reschedule-form {

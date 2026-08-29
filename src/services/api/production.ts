@@ -118,8 +118,6 @@ export type CreateProductionRequestInput = {
   orderId: string;
   assignedTo?: string | null;
   priority: Priority;
-  estimatedStartDate?: string | null;
-  estimatedCompletionDate?: string | null;
   note?: string | null;
 };
 
@@ -250,8 +248,6 @@ export async function createProductionRequest(input: CreateProductionRequestInpu
     {
       assignedTo: normalizeOptionalText(input.assignedTo),
       priority: input.priority,
-      estimatedStartDate: input.estimatedStartDate || null,
-      estimatedCompletionDate: input.estimatedCompletionDate || null,
       note: normalizeOptionalText(input.note),
     },
   );

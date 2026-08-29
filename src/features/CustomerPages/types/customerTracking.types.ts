@@ -118,7 +118,6 @@ export interface CustomerProductionTrackingRequest {
   orderCode: string;
   status: ProjectStatus;
   productionDeadline?: string;
-  estimatedCompletionDate?: string;
   actualCompletionDate?: string;
   deliveryScheduleDate?: string;
   note?: string;

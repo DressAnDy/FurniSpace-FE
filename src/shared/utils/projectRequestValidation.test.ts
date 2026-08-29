@@ -3,8 +3,12 @@ import { describe, expect, it } from 'vitest';
 import {
   PROJECT_BUDGET_MAX,
   PROJECT_BUDGET_MIN,
+  formatProjectRequestMoneyInput,
   getProjectSpaceAndBudgetFieldErrors,
+  parseOptionalProjectRequestMoney,
   parseOptionalProjectRequestNumber,
+  sanitizeProjectRequestDecimalInput,
+  sanitizeProjectRequestIntegerInput,
   validateOptionalBudgetMax,
   validateOptionalBudgetMin,
   validateOptionalNonNegativeInteger,
@@ -24,6 +28,25 @@ describe('projectRequestValidation', () => {
     expect(Number.isNaN(parseOptionalProjectRequestNumber('12abc'))).toBe(true);
   });
 
+  it('formats and parses project request money with dot grouping', () => {
+    expect(formatProjectRequestMoneyInput(100000)).toBe('100.000');
+    expect(formatProjectRequestMoneyInput('1000000')).toBe('1.000.000');
+    expect(formatProjectRequestMoneyInput('1.000.000')).toBe('1.000.000');
+    expect(parseOptionalProjectRequestMoney('')).toBeNull();
+    expect(parseOptionalProjectRequestMoney('1.000.000')).toBe(1_000_000);
+    expect(parseOptionalProjectRequestMoney('100.000')).toBe(100_000);
+    expect(Number.isNaN(parseOptionalProjectRequestMoney('100,000'))).toBe(true);
+    expect(Number.isNaN(parseOptionalProjectRequestMoney('1..000'))).toBe(true);
+  });
+
+  it('sanitizes numeric project request inputs while typing', () => {
+    expect(sanitizeProjectRequestIntegerInput('1a2-3!')).toBe('123');
+    expect(sanitizeProjectRequestIntegerInput('floor 05')).toBe('05');
+    expect(sanitizeProjectRequestDecimalInput('12abc.5 sqm')).toBe('12.5');
+    expect(sanitizeProjectRequestDecimalInput('12,5')).toBe('12.5');
+    expect(sanitizeProjectRequestDecimalInput('12.3.4')).toBe('12.34');
+  });
+
   it('rejects negative total area and zero/negative floors', () => {
     expect(validateOptionalNonNegativeNumber(-1, 'Total Area (sqm)').ok).toBe(false);
     expect(validateOptionalNonNegativeNumber(0, 'Total Area (sqm)')).toEqual({ ok: true, value: 0 });
@@ -31,6 +54,20 @@ describe('projectRequestValidation', () => {
     expect(validateOptionalPositiveInteger(-2, 'Number of Floors').ok).toBe(false);
     expect(validateOptionalPositiveInteger(1.5, 'Number of Floors').ok).toBe(false);
     expect(validateOptionalPositiveInteger(2, 'Number of Floors')).toEqual({ ok: true, value: 2 });
+  });
+
+  it('rejects total area above feasible limit', () => {
+    const result = validateProjectSpaceAndBudget({
+      totalAreaSqm: 10_000.1,
+      numberOfFloors: 1,
+      budgetMin: 100_000,
+      budgetMax: 200_000,
+    });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.fieldErrors.totalAreaSqm).toContain('not feasible');
+    }
   });
 
   it('allows zero for optional non-negative integers like Floor', () => {
