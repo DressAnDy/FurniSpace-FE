@@ -4,8 +4,10 @@ import { Link } from 'react-router-dom';
 
 import { ProductionLayout, ProductionStatusBadge, ProductionSummaryCard } from '@/features/ProductionPages/productioncomponents';
 import { formatDate, getProductionItemStatusLabel } from '@/features/ProductionPages/utils';
-import { getProductionServiceResultMessage } from '@/services/api/production';
+import { getProductionServiceResultMessage, type UnavailableProductionItemDto } from '@/services/api/production';
 import { useUnavailableProductionItems } from '@/services/queries';
+
+const EMPTY_UNAVAILABLE_ITEMS: UnavailableProductionItemDto[] = [];
 
 export function BlockedIssues() {
   const [keyword, setKeyword] = useState('');
@@ -15,7 +17,7 @@ export function BlockedIssues() {
     pageSize: 100,
   });
 
-  const items = unavailableQuery.data?.items ?? [];
+  const items = unavailableQuery.data?.items ?? EMPTY_UNAVAILABLE_ITEMS;
 
   const requestGroups = useMemo(() => {
     const map = new Map<string, typeof items>();
