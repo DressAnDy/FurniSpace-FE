@@ -299,7 +299,7 @@ export function SaleQuotations() {
 
           return {
             quotationItemId: item.quotationItemId,
-            discountAmount: normalizeNumber(draft.discountAmount),
+            discountAmount: normalizeMoneyInput(draft.discountAmount),
           };
         }),
       });
@@ -881,11 +881,13 @@ function parseFinancialInput(value: string) {
     return { ok: false as const, message: 'Discount is required.' };
   }
 
-  if (!/^\d+([.,]\d+)?$/.test(trimmedValue)) {
+  const normalizedValue = trimmedValue.replace(/\./g, '').replace(',', '.');
+
+  if (!/^\d+(\.\d+)?$/.test(normalizedValue)) {
     return { ok: false as const, message: 'Discount must be a non-negative number.' };
   }
 
-  const parsedValue = Number(trimmedValue.replace(',', '.'));
+  const parsedValue = Number(normalizedValue);
 
   if (!Number.isFinite(parsedValue)) {
     return { ok: false as const, message: 'Discount must be a non-negative number.' };
@@ -898,14 +900,24 @@ function parseFinancialInput(value: string) {
   return { ok: true as const, value: parsedValue };
 }
 
-function isAllowedNonNegativeNumberDraft(value: string) {
-  return value === '' || /^\d*([.,]\d*)?$/.test(value);
+function isAllowedDiscountDraft(value: string) {
+  return value === '' || /^[\d.,\s]+$/.test(value);
 }
 
 function normalizeMoneyInput(value: string) {
   const parsed = Number(value.trim().replace(/\./g, '').replace(',', '.'));
 
   return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function formatDiscountInput(value: string) {
+  const digits = value.replace(/\D/g, '');
+
+  if (!digits) {
+    return '';
+  }
+
+  return new Intl.NumberFormat('vi-VN').format(Number(digits));
 }
 
 function getFinancialDrafts(items: QuotationItemDto[]) {
@@ -916,7 +928,7 @@ function getFinancialDraft(item: QuotationItemDto): FinancialDraft {
   return {
     quantity: String(item.quantity ?? 0),
     unitPrice: String(item.unitPrice ?? 0),
-    discountAmount: String(item.discountAmount ?? 0),
+    discountAmount: formatDiscountInput(String(item.discountAmount ?? 0)),
   };
 }
 
@@ -941,7 +953,7 @@ function getGroupedQuotationItems(items: QuotationItemDto[], drafts: Record<stri
         const draft = drafts[item.quotationItemId] ?? getFinancialDraft(item);
         const quantity = normalizeNumber(draft.quantity);
         const unitPrice = normalizeNumber(draft.unitPrice);
-        const discountAmount = normalizeNumber(draft.discountAmount);
+        const discountAmount = normalizeMoneyInput(draft.discountAmount);
         const grossAmount = quantity * unitPrice;
 
         return {
@@ -1022,16 +1034,17 @@ function setFinancialGroupDraft(
       return nextDrafts;
     }
 
-    if (!isAllowedNonNegativeNumberDraft(value)) {
+    if (!isAllowedDiscountDraft(value)) {
       return current;
     }
 
-    const parsedDiscount = parseFinancialInput(value);
+    const formattedDiscount = formatDiscountInput(value);
+    const parsedDiscount = parseFinancialInput(formattedDiscount);
     if (!parsedDiscount.ok) {
       group.items.forEach((item) => {
         nextDrafts[item.quotationItemId] = {
           ...getCurrentFinancialDraft(item, nextDrafts),
-          discountAmount: value,
+          discountAmount: formattedDiscount,
         };
       });
 
@@ -1042,7 +1055,7 @@ function setFinancialGroupDraft(
     group.items.forEach((item, index) => {
       nextDrafts[item.quotationItemId] = {
         ...getCurrentFinancialDraft(item, nextDrafts),
-        discountAmount: formatDraftNumber(discounts[index] ?? 0),
+        discountAmount: formatDiscountInput(formatDraftNumber(discounts[index] ?? 0)),
       };
     });
 
@@ -1073,7 +1086,7 @@ function getGroupFinancialInputValue(
     return invalidDiscountDraft;
   }
 
-  return formatDraftNumber(group.discountAmount);
+  return formatDiscountInput(formatDraftNumber(group.discountAmount));
 }
 
 function distributeTotalAcrossItems(total: number, itemCount: number) {

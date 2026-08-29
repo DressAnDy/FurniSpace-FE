@@ -23,6 +23,7 @@ import {
   createBuildingTestSceneFromProjectFloorAreas,
   createRectLevelLayout,
   getLevelCenter,
+  shouldReplaceSceneWithProjectAreaTemplate,
   type BuildingProjectFloorAreaSource,
 } from '@/features/ThreeDTest/utils/buildingTestSceneFactory';
 import type { RoomPlannerAreaBlueprintDto } from '@/services/api/proposals';
@@ -45,6 +46,9 @@ const SHOW_FRONT_YARD_CONTROLS = false;
 const SHOW_BUILDING_FOOTPRINT_CONTROLS = false;
 const LEVEL_STACK_VERTICAL_GAP = 0.3;
 const LINKED_AREA_LAYOUT_SYNC_TOLERANCE = 0.05;
+const DEFAULT_BUILDING_FALLBACK_DEPTH = 8;
+const DEFAULT_BUILDING_FALLBACK_WIDTH = 11;
+const DEFAULT_ROOM_FALLBACK_SIZE = 4;
 
 type BuildingBlueprintRouteState = {
   areas?: BuildingProjectFloorAreaSource[];
@@ -524,6 +528,60 @@ function getLayoutSize(layout: RoomLayoutState) {
   };
 }
 
+function isMetricClose(first: number, second: number) {
+  return Math.abs(first - second) <= LINKED_AREA_LAYOUT_SYNC_TOLERANCE;
+}
+
+function isSimpleAxisAlignedRectangle(layout: RoomLayoutState) {
+  if (layout.points.length !== 4 || layout.walls.length < 4) {
+    return false;
+  }
+
+  const uniqueX = new Set(layout.points.map((point) => roundMetric(point.x)));
+  const uniqueY = new Set(layout.points.map((point) => roundMetric(point.y)));
+
+  return uniqueX.size === 2 && uniqueY.size === 2;
+}
+
+function hasPlacedWallItems(layout: RoomLayoutState) {
+  return layout.doors.length > 0 || layout.openings.length > 0 || layout.windows.length > 0;
+}
+
+function isFallbackLayoutSize(layoutSize: ReturnType<typeof getLayoutSize>) {
+  const isDefaultBuildingSize =
+    (isMetricClose(layoutSize.width, DEFAULT_BUILDING_FALLBACK_WIDTH) &&
+      isMetricClose(layoutSize.depth, DEFAULT_BUILDING_FALLBACK_DEPTH)) ||
+    (isMetricClose(layoutSize.width, DEFAULT_BUILDING_FALLBACK_DEPTH) &&
+      isMetricClose(layoutSize.depth, DEFAULT_BUILDING_FALLBACK_WIDTH));
+  const isDefaultRoomSize =
+    isMetricClose(layoutSize.width, DEFAULT_ROOM_FALLBACK_SIZE) &&
+    isMetricClose(layoutSize.depth, DEFAULT_ROOM_FALLBACK_SIZE);
+
+  return isDefaultBuildingSize || isDefaultRoomSize;
+}
+
+function shouldRebuildSpecialLayoutFromArea(layout: RoomLayoutState | null | undefined, width: number, depth: number) {
+  if (!layout) {
+    return true;
+  }
+
+  const layoutSize = getLayoutSize(layout);
+  const exceedsAreaBoundary =
+    layoutSize.width > width + LINKED_AREA_LAYOUT_SYNC_TOLERANCE ||
+    layoutSize.depth > depth + LINKED_AREA_LAYOUT_SYNC_TOLERANCE;
+
+  if (exceedsAreaBoundary) {
+    return true;
+  }
+
+  return (
+    isSimpleAxisAlignedRectangle(layout) &&
+    !hasPlacedWallItems(layout) &&
+    isFallbackLayoutSize(layoutSize) &&
+    (!isMetricClose(layoutSize.width, width) || !isMetricClose(layoutSize.depth, depth))
+  );
+}
+
 function getLevelDimensionScale(currentValue: number, nextValue: number) {
   return currentValue > 0 ? nextValue / currentValue : 1;
 }
@@ -904,15 +962,30 @@ function syncLinkedLevelDimensionsFromAreas(
     const depth = typeof area.length === 'number' ? Math.max(area.length, 4) : level.depth;
     const height = typeof area.height === 'number' ? Math.max(area.height, 2.4) : level.height;
     const wallHeight = typeof area.height === 'number' ? Math.max(area.height - 0.25, 1.8) : level.wallHeight;
-    const layoutSize = level.layout ? getLayoutSize(level.layout) : null;
-    const shouldResizeLayout =
-      !layoutSize ||
-      Math.abs(layoutSize.width - width) > LINKED_AREA_LAYOUT_SYNC_TOLERANCE ||
-      Math.abs(layoutSize.depth - depth) > LINKED_AREA_LAYOUT_SYNC_TOLERANCE;
     const levelCenter = getLevelCenter(scene, level);
-    const resizedLayout = shouldResizeLayout
-      ? resizeLevelLayout(level.layout, width, depth) ?? createRectLevelLayout(level.id, width, depth, levelCenter.x, levelCenter.z, wallHeight)
-      : level.layout;
+    const layoutSize = level.layout ? getLayoutSize(level.layout) : null;
+    const shouldRebuildStandardLayout =
+      !isSpecialLayout && (!layoutSize ||
+      Math.abs(layoutSize.width - width) > LINKED_AREA_LAYOUT_SYNC_TOLERANCE ||
+      Math.abs(layoutSize.depth - depth) > LINKED_AREA_LAYOUT_SYNC_TOLERANCE);
+    const shouldRebuildSpecialLayout = isSpecialLayout && shouldRebuildSpecialLayoutFromArea(level.layout, width, depth);
+    const areaLayout = createRectLevelLayout(level.id, width, depth, levelCenter.x, levelCenter.z, wallHeight);
+    const syncedLayout = shouldRebuildStandardLayout
+      ? {
+          ...areaLayout,
+          doors: level.layout?.doors ?? [],
+          floorMaterialId: level.layout?.floorMaterialId ?? areaLayout.floorMaterialId,
+          openings: level.layout?.openings ?? [],
+          wallMaterialId: level.layout?.wallMaterialId ?? areaLayout.wallMaterialId,
+          windows: level.layout?.windows ?? [],
+        }
+      : shouldRebuildSpecialLayout
+        ? {
+            ...areaLayout,
+            floorMaterialId: level.layout?.floorMaterialId ?? areaLayout.floorMaterialId,
+            wallMaterialId: level.layout?.wallMaterialId ?? areaLayout.wallMaterialId,
+          }
+        : level.layout ?? areaLayout;
 
     return {
       ...level,
@@ -920,13 +993,13 @@ function syncLinkedLevelDimensionsFromAreas(
       height,
       isSpecialLayout,
       label: area.areaName || level.label,
-      layout: resizedLayout
+      layout: syncedLayout
         ? {
-            ...resizedLayout,
+            ...syncedLayout,
             wallHeight,
-            walls: resizedLayout.walls.map((wall) => ({ ...wall, height: wallHeight })),
+            walls: syncedLayout.walls.map((wall) => ({ ...wall, height: wallHeight })),
           }
-        : resizedLayout,
+        : syncedLayout,
       wallHeight,
       width,
     };
@@ -1168,6 +1241,10 @@ export function BuildingBlueprintTestPage() {
       return routeState.areas;
     }
 
+    if (roomPlannerSceneQuery.data?.areas?.length) {
+      return roomPlannerSceneQuery.data.areas.map(toBuildingProjectFloorAreaSource);
+    }
+
     const fetchedAreas = projectAreasQuery.data ?? [];
     const selectedAreaIds = new Set(sceneProjectAreaIds);
 
@@ -1177,7 +1254,7 @@ export function BuildingBlueprintTestPage() {
           .filter((area): area is NonNullable<typeof area> => Boolean(area))
           .map(toBuildingProjectFloorAreaSource)
       : fetchedAreas.map(toBuildingProjectFloorAreaSource);
-  }, [projectAreasQuery.data, routeState?.areas, sceneProjectAreaIds]);
+  }, [projectAreasQuery.data, roomPlannerSceneQuery.data?.areas, routeState?.areas, sceneProjectAreaIds]);
   const areaByProjectAreaId = useMemo(
     () => new Map(templateAreas.map((area) => [area.projectAreaId, area])),
     [templateAreas],
@@ -1272,6 +1349,7 @@ export function BuildingBlueprintTestPage() {
   const activeLayerLabel = levelTabs.find((tab) => tab.value === activeLayer)?.label ?? 'Layer';
   const activeToolLabel = blueprintTools.find((tool) => tool.value === activeTool)?.label ?? 'Tool';
   const activeAreaInfo = activeLevel ? getLevelAreaInfo(areaByProjectAreaId, activeLevel) : null;
+  const isStandardAreaGeometryLocked = activeAreaInfo ? !activeAreaInfo.isSpecialLayout : false;
   const activeAreaFilesQuery = useProjectAreaFiles(
     activeAreaInfo?.isSpecialLayout && activeAreaInfo.projectAreaId
       ? { projectAreaId: activeAreaInfo.projectAreaId, fileType: 'REFERENCE_IMAGE', page: 1, limit: 50 }
@@ -1292,6 +1370,12 @@ export function BuildingBlueprintTestPage() {
   useEffect(() => {
     setShowSpecialAreaImages(false);
   }, [activeAreaInfo?.projectAreaId]);
+
+  useEffect(() => {
+    if (isStandardAreaGeometryLocked && (activeTool === 'draw' || activeTool === 'node')) {
+      setActiveTool('select');
+    }
+  }, [activeTool, isStandardAreaGeometryLocked]);
 
   function updateSceneDraft(update: Parameters<typeof setSceneData>[0]) {
     hasLocalSceneEditsRef.current = true;
@@ -1371,6 +1455,11 @@ export function BuildingBlueprintTestPage() {
   }
 
   function resetBlueprintToProjectAreas() {
+    if (!templateAreas.length) {
+      setBlueprintMessage('Cannot reset blueprint until linked project areas are loaded.');
+      return;
+    }
+
     hasLocalSceneEditsRef.current = true;
     appliedAreaTemplateRef.current = createAreaTemplateKey(templateAreas);
     setSceneData(centerAndFitFloorStackOnSite(createBuildingTestSceneFromProjectFloorAreas(templateAreas)));
@@ -1384,11 +1473,14 @@ export function BuildingBlueprintTestPage() {
     }
 
     const hydratedScene = hydrateBuildingRoomPlannerPayload(roomPlannerSceneQuery.data);
+    const sceneToApply = shouldReplaceSceneWithProjectAreaTemplate(hydratedScene.sceneData, templateAreas)
+      ? centerAndFitFloorStackOnSite(createBuildingTestSceneFromProjectFloorAreas(templateAreas))
+      : hydratedScene.sceneData;
 
-    if (hydratedScene.sceneData) {
-      setRemoteSceneData(hydratedScene.sceneData, roomPlannerSceneQuery.data.lastSavedAt);
+    if (sceneToApply) {
+      setRemoteSceneData(sceneToApply, roomPlannerSceneQuery.data.lastSavedAt);
     }
-  }, [roomPlannerSceneQuery.data, setRemoteSceneData, shouldKeepSceneDraft]);
+  }, [roomPlannerSceneQuery.data, setRemoteSceneData, shouldKeepSceneDraft, templateAreas]);
 
   useEffect(() => {
     if (!templateAreas.length || roomPlannerSceneQuery.isLoading || projectAreasQuery.isLoading || hasLocalSceneEditsRef.current) {
@@ -1399,7 +1491,14 @@ export function BuildingBlueprintTestPage() {
       ? hydrateBuildingRoomPlannerPayload(roomPlannerSceneQuery.data)
       : null;
 
-    if (hydratedScene?.sceneData || shouldKeepSceneDraft(roomPlannerSceneQuery.data?.lastSavedAt ?? null)) {
+    if (
+      hydratedScene?.sceneData &&
+      !shouldReplaceSceneWithProjectAreaTemplate(hydratedScene.sceneData, templateAreas)
+    ) {
+      return;
+    }
+
+    if (shouldKeepSceneDraft(roomPlannerSceneQuery.data?.lastSavedAt ?? null)) {
       return;
     }
 
@@ -1422,6 +1521,36 @@ export function BuildingBlueprintTestPage() {
     shouldKeepSceneDraft,
     templateAreas,
   ]);
+
+  const shouldShowAreaTemplatePlaceholder = Boolean(sceneId) && !templateAreas.length && (
+    roomPlannerSceneQuery.isLoading ||
+    projectAreasQuery.isLoading ||
+    Boolean(currentProjectId) ||
+    sceneProjectAreaIds.length > 0
+  );
+
+  if (shouldShowAreaTemplatePlaceholder) {
+    return (
+      <main className="building-blueprint-page">
+        <header className="building-blueprint-header">
+          <div>
+            <span><IconBuilding size={16} /> Building 2D Blueprint</span>
+            <h1>Layered campus layout</h1>
+          </div>
+          <nav>
+            <button type="button" onClick={() => roomPlannerSceneQuery.refetch()}>
+              <IconRotateClockwise size={15} />
+              Reload areas
+            </button>
+          </nav>
+        </header>
+        <section className="building-blueprint-loading">
+          <strong>Loading linked project areas</strong>
+          <p>Blueprint dimensions will be generated from project area width and length once the scene area mapping is available.</p>
+        </section>
+      </main>
+    );
+  }
 
   return (
     <main className="building-blueprint-page">
@@ -1477,6 +1606,7 @@ export function BuildingBlueprintTestPage() {
                 {blueprintTools.map((tool) => (
                   <button
                     className={activeTool === tool.value ? 'is-active' : ''}
+                    disabled={isStandardAreaGeometryLocked && (tool.value === 'draw' || tool.value === 'node')}
                     key={tool.value}
                     type="button"
                     onClick={() => setActiveTool(tool.value)}
@@ -1485,12 +1615,18 @@ export function BuildingBlueprintTestPage() {
                   </button>
                 ))}
                 <button
+                  disabled={isStandardAreaGeometryLocked}
                   type="button"
                   onClick={() => setSceneData((scene) => createLevelBox(scene, currentLevelId))}
                 >
                   Add Box
                 </button>
               </div>
+              {isStandardAreaGeometryLocked ? (
+                <div className="building-blueprint-note">
+                  Standard area geometry is locked to the configured project area size.
+                </div>
+              ) : null}
               {blueprintMessage ? <div className="building-blueprint-note">{blueprintMessage}</div> : null}
             </section>
           ) : null}
@@ -1829,6 +1965,7 @@ export function BuildingBlueprintTestPage() {
               floorOpenings={activeLevel?.floorOpenings ?? []}
               hideLabels={false}
               layout={currentLayout}
+              lockLayoutGeometry={isStandardAreaGeometryLocked}
               selectedItem={selectedItem}
               underlay={underlayLayout ? { label: `${underlayLevel?.label ?? 'Lower floor'} underlay`, layout: underlayLayout } : null}
               wallFillColor="#f1eee7"

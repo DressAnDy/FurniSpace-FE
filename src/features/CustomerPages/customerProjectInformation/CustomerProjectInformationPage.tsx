@@ -13,7 +13,9 @@ import { getLocalDateInputValue, validateOptionalFutureDate } from '@/shared/uti
 import {
   PROJECT_BUDGET_MAX,
   PROJECT_BUDGET_MIN,
+  formatProjectRequestMoneyInput,
   getProjectSpaceAndBudgetFieldErrors,
+  parseOptionalProjectRequestMoney,
   parseOptionalProjectRequestNumber,
   validateProjectSpaceAndBudget,
   type ProjectRequestFieldErrors,
@@ -54,8 +56,8 @@ export function CustomerProjectInformationPage() {
     const nextErrors = getProjectSpaceAndBudgetFieldErrors({
       totalAreaSqm: parseOptionalProjectRequestNumber(formData.get('totalAreaSqm')),
       numberOfFloors: parseOptionalProjectRequestNumber(formData.get('numberOfFloors')),
-      budgetMin: parseOptionalProjectRequestNumber(formData.get('budgetMin')),
-      budgetMax: parseOptionalProjectRequestNumber(formData.get('budgetMax')),
+      budgetMin: parseOptionalProjectRequestMoney(formData.get('budgetMin')),
+      budgetMax: parseOptionalProjectRequestMoney(formData.get('budgetMax')),
     });
 
     setFieldErrors((current) => {
@@ -113,8 +115,8 @@ export function CustomerProjectInformationPage() {
     const spaceAndBudget = validateProjectSpaceAndBudget({
       totalAreaSqm: parseOptionalProjectRequestNumber(formData.get('totalAreaSqm')),
       numberOfFloors: parseOptionalProjectRequestNumber(formData.get('numberOfFloors')),
-      budgetMin: parseOptionalProjectRequestNumber(formData.get('budgetMin')),
-      budgetMax: parseOptionalProjectRequestNumber(formData.get('budgetMax')),
+      budgetMin: parseOptionalProjectRequestMoney(formData.get('budgetMin')),
+      budgetMax: parseOptionalProjectRequestMoney(formData.get('budgetMax')),
     });
 
     const nextFieldErrors: ProjectRequestFieldErrors = {};
@@ -224,7 +226,7 @@ export function CustomerProjectInformationPage() {
                   <textarea defaultValue={project.furnitureRequirement} disabled={!canEdit || isSubmitting} name="furnitureRequirement" required rows={3} />
                 </Field>
 
-                <Field label="Additional Description">
+                <Field label="Description">
                   <textarea defaultValue={project.description ?? ''} disabled={!canEdit || isSubmitting} name="description" rows={4} />
                 </Field>
               </FormSection>
@@ -269,14 +271,17 @@ export function CustomerProjectInformationPage() {
                       <input
                         aria-invalid={Boolean(fieldErrors.budgetMin)}
                         className={fieldErrors.budgetMin ? 'customer-project-request-input-invalid' : undefined}
-                        defaultValue={project.budgetMin ?? ''}
+                        defaultValue={formatProjectRequestMoneyInput(project.budgetMin)}
                         disabled={!canEdit || isSubmitting}
                         inputMode="decimal"
                         max={PROJECT_BUDGET_MAX}
                         min={PROJECT_BUDGET_MIN}
                         name="budgetMin"
                         type="text"
-                        onChange={(event) => syncSpaceAndBudgetFieldErrors(event.currentTarget.form)}
+                        onChange={(event) => {
+                          event.currentTarget.value = formatProjectRequestMoneyInput(event.currentTarget.value);
+                          syncSpaceAndBudgetFieldErrors(event.currentTarget.form);
+                        }}
                       />
                       <span aria-hidden="true" className="customer-project-request-input-suffix">
                         VNĐ
@@ -288,14 +293,17 @@ export function CustomerProjectInformationPage() {
                       <input
                         aria-invalid={Boolean(fieldErrors.budgetMax)}
                         className={fieldErrors.budgetMax ? 'customer-project-request-input-invalid' : undefined}
-                        defaultValue={project.budgetMax ?? ''}
+                        defaultValue={formatProjectRequestMoneyInput(project.budgetMax)}
                         disabled={!canEdit || isSubmitting}
                         inputMode="decimal"
                         max={PROJECT_BUDGET_MAX}
                         min={PROJECT_BUDGET_MIN}
                         name="budgetMax"
                         type="text"
-                        onChange={(event) => syncSpaceAndBudgetFieldErrors(event.currentTarget.form)}
+                        onChange={(event) => {
+                          event.currentTarget.value = formatProjectRequestMoneyInput(event.currentTarget.value);
+                          syncSpaceAndBudgetFieldErrors(event.currentTarget.form);
+                        }}
                       />
                       <span aria-hidden="true" className="customer-project-request-input-suffix">
                         VNĐ

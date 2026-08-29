@@ -356,12 +356,12 @@ function getOrderProjects(projects: ProjectListItemDto[]) {
   return projects.filter((project) => orderProjectStatuses.has(project.status));
 }
 
-function getOrderDeliveryDetailsDraft(order: OrderDetailDto): OrderDeliveryDetailsDraft {
+function getOrderDeliveryDetailsDraft(order: Pick<OrderDetailDto, 'deliveryAddress' | 'deliveryDetails' | 'deliveryNote' | 'receiverName' | 'receiverPhone'>): OrderDeliveryDetailsDraft {
   return {
-    deliveryAddress: order.deliveryAddress ?? '',
-    deliveryNote: order.deliveryNote ?? '',
-    receiverName: order.receiverName ?? '',
-    receiverPhone: order.receiverPhone ?? '',
+    deliveryAddress: order.deliveryAddress ?? order.deliveryDetails?.deliveryAddress ?? '',
+    deliveryNote: order.deliveryNote ?? order.deliveryDetails?.deliveryNote ?? '',
+    receiverName: order.receiverName ?? order.deliveryDetails?.receiverName ?? '',
+    receiverPhone: order.receiverPhone ?? order.deliveryDetails?.receiverPhone ?? '',
   };
 }
 
@@ -375,10 +375,12 @@ function normalizeDeliveryDetailsDraft(details: OrderDeliveryDetailsDraft): Orde
 }
 
 function hasCompleteDeliveryDetails(details: OrderDeliveryDetailsDraft | OrderDetailDto) {
+  const resolvedDetails = 'deliveryDetails' in details ? getOrderDeliveryDetailsDraft(details) : details;
+
   return Boolean(
-    details.deliveryAddress?.trim()
-    && details.receiverName?.trim()
-    && details.receiverPhone?.trim(),
+    resolvedDetails.deliveryAddress?.trim()
+    && resolvedDetails.receiverName?.trim()
+    && resolvedDetails.receiverPhone?.trim(),
   );
 }
 
@@ -449,7 +451,18 @@ function DeliveryDetailsPanel({
 
   useEffect(() => {
     setDraft(getOrderDeliveryDetailsDraft(order));
-  }, [order, order.orderId, order.deliveryAddress, order.receiverName, order.receiverPhone, order.deliveryNote]);
+  }, [
+    order,
+    order.orderId,
+    order.deliveryAddress,
+    order.deliveryDetails?.deliveryAddress,
+    order.deliveryDetails?.deliveryNote,
+    order.deliveryDetails?.receiverName,
+    order.deliveryDetails?.receiverPhone,
+    order.deliveryNote,
+    order.receiverName,
+    order.receiverPhone,
+  ]);
 
   return (
     <section className="customer-orders-delivery-details">

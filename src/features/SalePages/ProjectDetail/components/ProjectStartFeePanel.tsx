@@ -14,6 +14,8 @@ type ProjectStartFeePanelProps = {
   enabled?: boolean;
 };
 
+const PROJECT_START_FEE_MIN_AMOUNT = 5_000;
+
 export function ProjectStartFeePanel({ projectId, enabled = true }: ProjectStartFeePanelProps) {
   const [startFeeMessage, setStartFeeMessage] = useState('');
   const [startFeeAmount, setStartFeeAmount] = useState('');
@@ -39,7 +41,7 @@ export function ProjectStartFeePanel({ projectId, enabled = true }: ProjectStart
 
     const amount = normalizePositiveAmount(startFeeAmount);
     if (!amount) {
-      setStartFeeAmountError('Fee amount must be a number greater than 0.');
+      setStartFeeAmountError(`Fee amount must be at least ${PROJECT_START_FEE_MIN_AMOUNT.toLocaleString('en-US')}.`);
       return;
     }
 
@@ -95,7 +97,7 @@ export function ProjectStartFeePanel({ projectId, enabled = true }: ProjectStart
                     aria-invalid={Boolean(startFeeAmountError)}
                     disabled={createStartFeePaymentMutation.isPending}
                     inputMode="decimal"
-                    placeholder="e.g. 2000000"
+                    placeholder="e.g. 5000"
                     type="text"
                     value={startFeeAmount}
                     onChange={(event) => {
@@ -180,7 +182,11 @@ function getFeeAmountError(value: string, options?: { required?: boolean }) {
 
   const amount = Number(normalized);
   if (!Number.isFinite(amount) || amount <= 0) {
-    return 'Fee amount must be greater than 0.';
+    return `Fee amount must be at least ${PROJECT_START_FEE_MIN_AMOUNT.toLocaleString('en-US')}.`;
+  }
+
+  if (amount < PROJECT_START_FEE_MIN_AMOUNT) {
+    return `Fee amount must be at least ${PROJECT_START_FEE_MIN_AMOUNT.toLocaleString('en-US')}.`;
   }
 
   return null;
@@ -193,7 +199,7 @@ function normalizePositiveAmount(value: string) {
 
   const amount = Number(value.trim());
 
-  return Number.isFinite(amount) && amount > 0 ? amount : null;
+  return Number.isFinite(amount) && amount >= PROJECT_START_FEE_MIN_AMOUNT ? amount : null;
 }
 
 function formatDateOnly(value: string | null) {

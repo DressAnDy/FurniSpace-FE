@@ -25,6 +25,7 @@ import {
   useRequestProjectScheduleChange,
   useUpdateProjectScheduleStatus,
 } from '@/services/queries';
+import { isScheduleVisible } from '@/shared/utils/scheduleVisibility';
 
 import './CustomerSchedulesPage.css';
 
@@ -34,7 +35,7 @@ type CustomerScheduleItem = {
 };
 
 const scheduleTypeOptions: Array<ProjectScheduleType | ''> = ['', 'MEASUREMENT', 'CONSULTATION', 'DESIGN_REVIEW', 'DELIVERY', 'HANDOVER', 'OTHER'];
-const scheduleStatusOptions: Array<ProjectScheduleStatus | ''> = ['', 'PENDING_CONFIRMATION', 'CONFIRMED', 'COMPLETED', 'CANCELLED'];
+const scheduleStatusOptions: Array<ProjectScheduleStatus | ''> = ['', 'PENDING_CONFIRMATION', 'CONFIRMED', 'CANCELLED'];
 const weekDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 export function CustomerSchedulesPage() {
@@ -77,6 +78,7 @@ export function CustomerSchedulesPage() {
           return { project, schedule };
         })
         .filter((item): item is CustomerScheduleItem => item !== null)
+        .filter(({ schedule }) => isScheduleVisible(schedule.status))
         .sort((left, right) => new Date(left.schedule.scheduledStart).getTime() - new Date(right.schedule.scheduledStart).getTime()),
     [projectById, schedulesQuery.data],
   );
