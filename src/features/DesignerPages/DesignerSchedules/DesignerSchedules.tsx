@@ -6,11 +6,12 @@ import { DesignerLayout } from '@/features/DesignerPages/designercomponents';
 import { getProjectScheduleServiceResultMessage } from '@/services/api/schedules';
 import type { ProjectScheduleDto, ProjectScheduleStatus } from '@/services/api/schedules';
 import { useMyAssignedProjectSchedules, useProjectDetail, useUpdateProjectScheduleStatus } from '@/services/queries';
+import { isScheduleVisible } from '@/shared/utils/scheduleVisibility';
 
 import './DesignerSchedules.css';
 
 const weekDays = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
-const scheduleStatusLegend: ProjectScheduleStatus[] = ['PENDING_CONFIRMATION', 'CONFIRMED', 'COMPLETED', 'CANCELLED'];
+const scheduleStatusLegend: ProjectScheduleStatus[] = ['PENDING_CONFIRMATION', 'CONFIRMED', 'CANCELLED'];
 
 export function DesignerSchedules() {
   const [statusMessage, setStatusMessage] = useState('');
@@ -22,6 +23,7 @@ export function DesignerSchedules() {
   const [selectedDateKey, setSelectedDateKey] = useState(() => getDateKey(new Date()));
   const [selectedScheduleId, setSelectedScheduleId] = useState<string | null>(null);
   const [expandedDateKey, setExpandedDateKey] = useState<string | null>(null);
+  const [hiddenCompletedScheduleIds, setHiddenCompletedScheduleIds] = useState<Set<string>>(() => new Set());
   const schedulesQuery = useMyAssignedProjectSchedules(
     {
       page: 1,
@@ -29,7 +31,12 @@ export function DesignerSchedules() {
     },
     { fetchAll: true, staleTime: 60_000 },
   );
-  const schedules = useMemo(() => schedulesQuery.data?.items ?? [], [schedulesQuery.data?.items]);
+  const schedules = useMemo(
+    () => (schedulesQuery.data?.items ?? []).filter((schedule) => (
+      isScheduleVisible(schedule.status) && !hiddenCompletedScheduleIds.has(schedule.scheduleId)
+    )),
+    [hiddenCompletedScheduleIds, schedulesQuery.data?.items],
+  );
   const updateScheduleStatusMutation = useUpdateProjectScheduleStatus();
   const schedulesByDate = useMemo(() => {
     const groups = new Map<string, ProjectScheduleDto[]>();
@@ -60,7 +67,10 @@ export function DesignerSchedules() {
         status: 'COMPLETED',
         note: 'Designer marked the schedule as completed.',
       });
+      setHiddenCompletedScheduleIds((current) => new Set(current).add(scheduleId));
+      setSelectedScheduleId(null);
       setStatusMessage('Schedule completed successfully.');
+      void schedulesQuery.refetch();
     } catch (error) {
       setStatusMessage(getProjectScheduleServiceResultMessage(error));
     }

@@ -28,6 +28,11 @@ import {
   type ProjectWorkflowStageDto,
   type ProjectWorkflowStageKey,
 } from '@/services/api/projects';
+import type {
+  ProjectPhaseDeadlineRiskPhase,
+  ProjectPhaseDeadlineRiskStatus,
+} from '@/services/api/dashboard';
+import type { ReportProjectsDto } from '@/services/api/reports';
 import {
   useAccountList,
   useAdminProjectWorkflow,
@@ -37,11 +42,20 @@ import {
   useProjectDetail,
   useProjectFiles,
   useProjectList,
+  useProjectPhaseDeadlines,
+  useReportProjects,
+  useUpdateProductionDeadline,
 } from '@/services/queries';
+import { useQueryClient } from '@tanstack/react-query';
 import { getLocalDateInputValue } from '@/shared/utils/dateValidation';
 import { ProjectShowcaseManager } from '@/features/showcases/ProjectShowcaseManager';
+import { ProjectPhaseTimelineCard } from '@/features/projectPhaseDeadlines/ProjectPhaseTimelineCard';
 
+import { useLang } from '@/app/providers/useLang';
+import { adminCopy } from '../admincomponents/adminI18n';
 import { AdminNavbar, AdminSidebar } from '../admincomponents';
+import { PhaseDeadlineRiskPanel } from './PhaseDeadlineRiskPanel';
+import { ProjectsPager } from './ProjectsPager';
 import './AdminProjects.css';
 
 const PROJECT_STATUSES: ProjectStatus[] = [
@@ -65,25 +79,40 @@ const PROJECT_STATUSES: ProjectStatus[] = [
   'REJECTED',
 ];
 
-const ACTIVE_PROJECT_STATUSES: ProjectStatus[] = PROJECT_STATUSES.filter((status) => status !== 'COMPLETED' && status !== 'REJECTED');
 const EMPTY_ACCOUNTS: AccountDto[] = [];
 const EMPTY_PROJECTS: ProjectListItemDto[] = [];
 const EMPTY_STAGES: ProjectWorkflowStageDto[] = [];
+const PRODUCTION_DEADLINE_STATUSES: ProjectStatus[] = [
+  'ORDER_CONFIRMED',
+  'IN_PRODUCTION',
+  'READY_FOR_DELIVERY',
+  'DELIVERING',
+  'DELIVERED',
+];
 const MONEY_FORMATTER = new Intl.NumberFormat('vi-VN', {
   style: 'currency',
   currency: 'VND',
   maximumFractionDigits: 0,
 });
 
+type ProjectsListModule = 'projects' | 'deadlines';
+
 export function AdminProjects() {
+  const { lang } = useLang();
+  const t = adminCopy[lang];
+  const queryClient = useQueryClient();
   const [searchParams] = useSearchParams();
   const projectFromUrl = searchParams.get('projectId');
   const stageFromUrl = searchParams.get('stage');
+  const [listModule, setListModule] = useState<ProjectsListModule>('projects');
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState<ProjectStatus | ''>('');
   const [salesId, setSalesId] = useState('');
   const [designerId, setDesignerId] = useState('');
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(5);
+  const [riskPhase, setRiskPhase] = useState<ProjectPhaseDeadlineRiskPhase | ''>('');
+  const [riskStatus, setRiskStatus] = useState<ProjectPhaseDeadlineRiskStatus | ''>('');
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(projectFromUrl);
 
   useEffect(() => {
@@ -92,22 +121,27 @@ export function AdminProjects() {
     }
   }, [projectFromUrl]);
 
-  const projectsQuery = useProjectList({
-    search,
-    status: status || null,
-    assignedSalesId: salesId || null,
-    assignedDesignerId: designerId || null,
-    page,
-    limit: 5,
-  });
+  const projectsQuery = useProjectList(
+    {
+      search,
+      status: status || null,
+      assignedSalesId: salesId || null,
+      assignedDesignerId: designerId || null,
+      page,
+      limit: pageSize,
+    },
+    { enabled: listModule === 'projects' },
+  );
+  const projectStatsQuery = useReportProjects();
   const accountsQuery = useAccountList({ page: 1, pageSize: 100, includeDeleted: false });
   const accounts = accountsQuery.data?.items ?? EMPTY_ACCOUNTS;
   const accountById = useMemo(() => createAccountLookup(accounts), [accounts]);
   const salesAccounts = useMemo(() => accounts.filter((account) => getAccountRoleName(account.roleId) === 'SALES'), [accounts]);
   const designerAccounts = useMemo(() => accounts.filter((account) => getAccountRoleName(account.roleId) === 'DESIGNER'), [accounts]);
   const projects = projectsQuery.data?.items ?? EMPTY_PROJECTS;
-  const stats = useMemo(() => getProjectStats(projects), [projects]);
-  const totalPages = Math.max(Math.ceil((projectsQuery.data?.total ?? 0) / (projectsQuery.data?.limit ?? 5)), 1);
+  const stats = useMemo(() => getProjectStats(projectStatsQuery.data), [projectStatsQuery.data]);
+  const totalItems = projectsQuery.data?.total ?? 0;
+  const totalPages = Math.max(Math.ceil(totalItems / (projectsQuery.data?.limit ?? pageSize)), 1);
 
   function handleSearchSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -120,141 +154,200 @@ export function AdminProjects() {
     setPage(1);
   }
 
+  function handlePageSizeChange(nextSize: number) {
+    setPageSize(nextSize);
+    setPage(1);
+  }
+
+  function handleRefresh() {
+    void Promise.all([
+      projectsQuery.refetch(),
+      projectStatsQuery.refetch(),
+      queryClient.invalidateQueries({ queryKey: ['dashboard', 'project-phase-deadlines'] }),
+    ]);
+  }
+
   return (
     <main className="admin-dashboard-page">
       <div className="admin-dashboard-shell">
-        <AdminSidebar activeLabel="Projects" />
+        <AdminSidebar activeKey="projects" />
 
         <section className="admin-main">
-          <AdminNavbar activeLabel="Projects" />
+          <AdminNavbar activeLabel={t.nav.projects} />
           <div className="admin-content admin-projects-content">
             <div className="admin-page-heading admin-projects-heading">
               <div>
-                <h2>Project Management</h2>
-                <p>Monitor every customer project from request intake to design, production, delivery, and completion.</p>
+                <h2>{t.projects.title}</h2>
+                <p>{t.projects.subtitle}</p>
               </div>
-              <button className="admin-button admin-button-secondary" type="button" onClick={() => projectsQuery.refetch()}>
+              <button className="admin-button admin-button-secondary" type="button" onClick={handleRefresh}>
                 <IconRefresh size={16} />
-                Refresh
+                {t.common.refresh}
               </button>
             </div>
 
             <section className="admin-projects-summary-grid" aria-label="Project summary">
-              <SummaryCard icon={IconFolderOpen} label="Projects in View" value={projectsQuery.data?.total ?? projects.length} note="" />
-              <SummaryCard icon={IconBriefcase} label="Active Projects" value={stats.active} note="Not completed/rejected" />
-              <SummaryCard icon={IconUsers} label="Needs Owner" value={stats.unassignedSales + stats.unassignedDesigner} note="Sales or designer missing" />
-              <SummaryCard icon={IconCalendarDue} label="Attention Needed" value={stats.attention} note="Missing info or rejected" />
+              <SummaryCard icon={IconFolderOpen} label={t.projects.projectsInView} value={projectsQuery.data?.total ?? projects.length} note={t.projects.matchesFilters} />
+              <SummaryCard
+                icon={IconBriefcase}
+                label={t.projects.activeProjects}
+                value={projectStatsQuery.isLoading ? '…' : stats.active}
+                note={t.projects.systemWideActive}
+              />
+              <SummaryCard
+                icon={IconUsers}
+                label={t.projects.needsOwner}
+                value={projectStatsQuery.isLoading ? '…' : stats.needsOwner}
+                note={t.projects.unassignedNote}
+              />
+              <SummaryCard
+                icon={IconCalendarDue}
+                label={t.projects.attentionNeeded}
+                value={projectStatsQuery.isLoading ? '…' : stats.attention}
+                note={t.projects.attentionNote}
+              />
             </section>
 
-            <section className="admin-card admin-projects-filters" aria-label="Project filters">
-              <form className="admin-projects-search" onSubmit={handleSearchSubmit}>
-                <IconSearch size={18} />
-                <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search code, project name, business type..." type="search" />
-                <button type="submit">Search</button>
-              </form>
-
-              <FilterSelect label="Status" value={status} onChange={(value) => handleFilterChange(() => setStatus(value as ProjectStatus | ''))}>
-                <option value="">All statuses</option>
-                {PROJECT_STATUSES.map((item) => (
-                  <option key={item} value={item}>{formatEnumLabel(item)}</option>
-                ))}
-              </FilterSelect>
-
-              <FilterSelect label="Sales staff" value={salesId} onChange={(value) => handleFilterChange(() => setSalesId(value))}>
-                <option value="">All sales staff</option>
-                {salesAccounts.map((account) => (
-                  <option key={account.accountId} value={account.accountId}>{account.fullName}</option>
-                ))}
-              </FilterSelect>
-
-              <FilterSelect label="Designer" value={designerId} onChange={(value) => handleFilterChange(() => setDesignerId(value))}>
-                <option value="">All designers</option>
-                {designerAccounts.map((account) => (
-                  <option key={account.accountId} value={account.accountId}>{account.fullName}</option>
-                ))}
-              </FilterSelect>
-            </section>
-
-            
+            <nav className="admin-projects-tabs" aria-label="Projects modules">
+              <button
+                type="button"
+                className={`admin-projects-tab${listModule === 'projects' ? ' is-active' : ''}`}
+                onClick={() => setListModule('projects')}
+              >
+                <IconFolderOpen size={16} />
+                {t.projects.tabProjects}
+              </button>
+              <button
+                type="button"
+                className={`admin-projects-tab${listModule === 'deadlines' ? ' is-active' : ''}`}
+                onClick={() => setListModule('deadlines')}
+              >
+                <IconCalendarDue size={16} />
+                {t.projects.tabDeadlines}
+              </button>
+            </nav>
 
             <section className="admin-card admin-projects-table-card">
-              <div className="admin-projects-section-title">
-                <h3>All Projects</h3>
-                <span>Page {page} of {totalPages}</span>
-              </div>
-
-              {projectsQuery.isError ? (
-                <div className="admin-projects-state admin-projects-state-error">{getProjectServiceResultMessage(projectsQuery.error)}</div>
+              {listModule === 'projects' ? (
+                <div className="admin-projects-section-title">
+                  <h3>{t.projects.allProjects}</h3>
+                  <span>{t.common.page} {page} / {totalPages}</span>
+                </div>
               ) : null}
 
-              <div className="admin-table-wrap">
-                <table className="admin-projects-table">
-                  <thead>
-                    <tr>
-                      <th>Project</th>
-                      <th>Customer</th>
-                      <th>Status</th>
-                      <th>Owners</th>
-                      <th>Business Type</th>
-                      <th>Submitted</th>
-                      <th>Next Focus</th>
-                      <th>Action</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {projectsQuery.isLoading ? (
-                      <tr><td colSpan={8}>Loading projects from API...</td></tr>
-                    ) : null}
+              {listModule === 'deadlines' ? (
+                <PhaseDeadlineRiskPanel
+                  onOpenProject={setSelectedProjectId}
+                  phase={riskPhase}
+                  status={riskStatus}
+                  onPhaseChange={setRiskPhase}
+                  onStatusChange={setRiskStatus}
+                />
+              ) : (
+                <>
+                  {projectsQuery.isError ? (
+                    <div className="admin-projects-state admin-projects-state-error">{getProjectServiceResultMessage(projectsQuery.error)}</div>
+                  ) : null}
 
-                    {!projectsQuery.isLoading && projects.length === 0 && !projectsQuery.isError ? (
-                      <tr><td colSpan={8}>No projects match the current filters.</td></tr>
-                    ) : null}
+                  <div className="admin-table-wrap">
+                    <div className="admin-projects-filters is-projects" aria-label="Project filters">
+                      <form className="admin-projects-search" onSubmit={handleSearchSubmit}>
+                        <IconSearch size={18} />
+                        <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder={t.projects.searchPlaceholder} type="search" />
+                        <button type="submit">{t.common.search}</button>
+                      </form>
 
-                    {projects.map((project) => {
-                      const customer = accountById[project.customerId];
-                      const sales = project.assignedSalesId ? accountById[project.assignedSalesId] : null;
-                      const designer = project.assignedDesignerId ? accountById[project.assignedDesignerId] : null;
+                      <FilterSelect label={t.common.status} value={status} onChange={(value) => handleFilterChange(() => setStatus(value as ProjectStatus | ''))}>
+                        <option value="">{t.projects.allStatuses}</option>
+                        {PROJECT_STATUSES.map((item) => (
+                          <option key={item} value={item}>{formatEnumLabel(item)}</option>
+                        ))}
+                      </FilterSelect>
 
-                      return (
-                        <tr key={project.projectId}>
-                          <td>
-                            <strong>{project.projectCode}</strong>
-                            <span>{project.projectName}</span>
-                          </td>
-                          <td>
-                            <strong>{customer?.fullName ?? 'Unknown customer'}</strong>
-                            <span>{customer?.email ?? shortId(project.customerId)}</span>
-                          </td>
-                          <td><ProjectStatusPill status={project.status} /></td>
-                          <td>
-                            <strong>{sales?.fullName ?? 'Sales unassigned'}</strong>
-                            <span>{designer?.fullName ?? 'Designer unassigned'}</span>
-                          </td>
-                          <td><span className="admin-projects-type">{project.businessType}</span></td>
-                          <td>{formatDate(project.submittedAt)}</td>
-                          <td>{getNextFocus(project)}</td>
-                          <td>
-                            <button className="admin-projects-view-button" type="button" onClick={() => setSelectedProjectId(project.projectId)}>
-                              <IconEye size={16} />
-                              View
-                            </button>
-                          </td>
+                      <FilterSelect label={t.projects.salesStaff} value={salesId} onChange={(value) => handleFilterChange(() => setSalesId(value))}>
+                        <option value="">{t.projects.allSales}</option>
+                        {salesAccounts.map((account) => (
+                          <option key={account.accountId} value={account.accountId}>{account.fullName}</option>
+                        ))}
+                      </FilterSelect>
+
+                      <FilterSelect label={t.projects.designer} value={designerId} onChange={(value) => handleFilterChange(() => setDesignerId(value))}>
+                        <option value="">{t.projects.allDesigners}</option>
+                        {designerAccounts.map((account) => (
+                          <option key={account.accountId} value={account.accountId}>{account.fullName}</option>
+                        ))}
+                      </FilterSelect>
+                    </div>
+
+                    <table className="admin-projects-table">
+                      <thead>
+                        <tr>
+                          <th>{t.projects.colProject}</th>
+                          <th>{t.projects.colCustomer}</th>
+                          <th>{t.common.status}</th>
+                          <th>{t.projects.colOwners}</th>
+                          <th>{t.projects.colBusinessType}</th>
+                          <th>{t.projects.colSubmitted}</th>
+                          <th>{t.projects.colNextFocus}</th>
+                          <th>{t.common.actions}</th>
                         </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
+                      </thead>
+                      <tbody>
+                        {projectsQuery.isLoading ? (
+                          <tr><td colSpan={8}>{t.projects.loadingProjects}</td></tr>
+                        ) : null}
 
-              <div className="admin-projects-pagination">
-                <button type="button" disabled={page <= 1 || projectsQuery.isFetching} onClick={() => setPage((current) => Math.max(current - 1, 1))}>
-                  Previous
-                </button>
-                <span>{projectsQuery.data?.total ?? 0} total projects</span>
-                <button type="button" disabled={page >= totalPages || projectsQuery.isFetching} onClick={() => setPage((current) => current + 1)}>
-                  Next
-                </button>
-              </div>
+                        {!projectsQuery.isLoading && projects.length === 0 && !projectsQuery.isError ? (
+                          <tr><td colSpan={8}>{t.projects.noProjects}</td></tr>
+                        ) : null}
+
+                        {projects.map((project) => {
+                          const customer = accountById[project.customerId];
+                          const sales = project.assignedSalesId ? accountById[project.assignedSalesId] : null;
+                          const designer = project.assignedDesignerId ? accountById[project.assignedDesignerId] : null;
+
+                          return (
+                            <tr key={project.projectId}>
+                              <td>
+                                <strong>{project.projectCode}</strong>
+                                <span>{project.projectName}</span>
+                              </td>
+                              <td>
+                                <strong>{customer?.fullName ?? 'Unknown customer'}</strong>
+                                <span>{customer?.email ?? shortId(project.customerId)}</span>
+                              </td>
+                              <td><ProjectStatusPill status={project.status} /></td>
+                              <td>
+                                <strong>{sales?.fullName ?? 'Sales unassigned'}</strong>
+                                <span>{designer?.fullName ?? 'Designer unassigned'}</span>
+                              </td>
+                              <td><span className="admin-projects-type">{project.businessType}</span></td>
+                              <td>{formatDate(project.submittedAt)}</td>
+                              <td>{getNextFocus(project)}</td>
+                              <td>
+                                <button className="admin-projects-view-button" type="button" onClick={() => setSelectedProjectId(project.projectId)}>
+                                  <IconEye size={16} />
+                                  {t.common.view}
+                                </button>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  <ProjectsPager
+                    page={page}
+                    pageSize={pageSize}
+                    totalItems={totalItems}
+                    totalPages={totalPages}
+                    disabled={projectsQuery.isFetching}
+                    onPageChange={setPage}
+                    onPageSizeChange={handlePageSizeChange}
+                  />
+                </>
+              )}
             </section>
           </div>
         </section>
@@ -286,28 +379,43 @@ function ProjectDetailDrawer({
 }) {
   const [designerId, setDesignerId] = useState('');
   const [proposalDeadline, setProposalDeadline] = useState('');
+  const [productionDeadline, setProductionDeadline] = useState('');
   const [spaceDataStatus, setSpaceDataStatus] = useState<ProjectSpaceDataStatus>('SUFFICIENT');
   const [actionMessage, setActionMessage] = useState('');
   const [selectedStageKey, setSelectedStageKey] = useState<ProjectWorkflowStageKey | null>(null);
   const projectQuery = useProjectDetail(projectId ?? undefined);
   const workflowQuery = useAdminProjectWorkflow(projectId ?? undefined);
   const filesQuery = useProjectFiles(projectId ? { projectId, page: 1, limit: 8 } : undefined);
+  const phaseDeadlinesQuery = useProjectPhaseDeadlines(projectId ?? undefined, { enabled: Boolean(projectId) });
   const assignSalesMutation = useAssignSalesToProject();
   const markReadyForDesignerMutation = useMarkReadyForDesignerAssignment();
   const assignDesignerMutation = useAssignDesignerToProject();
+  const updateProductionDeadlineMutation = useUpdateProductionDeadline();
   const project = projectQuery.data;
   const workflow = workflowQuery.data;
   const stages = workflow?.stages ?? EMPTY_STAGES;
   const proposalDeadlineMin = getLocalDateInputValue();
   const proposalDeadlineMax = project?.targetCompletionDate?.slice(0, 10) || undefined;
+  const canEditProductionDeadline = Boolean(project && PRODUCTION_DEADLINE_STATUSES.includes(project.status));
+  const existingProductionDeadline = useMemo(() => {
+    const item = phaseDeadlinesQuery.data?.deadlines.find((deadline) => deadline.phase === 'PRODUCTION');
+    return (item?.dueDate ?? item?.deadlineAt)?.slice(0, 10) ?? '';
+  }, [phaseDeadlinesQuery.data?.deadlines]);
 
   useEffect(() => {
     setSelectedStageKey(null);
     setActionMessage('');
     setDesignerId('');
     setProposalDeadline('');
+    setProductionDeadline('');
     setSpaceDataStatus('SUFFICIENT');
   }, [projectId]);
+
+  useEffect(() => {
+    if (existingProductionDeadline) {
+      setProductionDeadline(existingProductionDeadline);
+    }
+  }, [existingProductionDeadline]);
 
   useEffect(() => {
     if (!workflow) return;
@@ -391,10 +499,31 @@ function ProjectDetailDrawer({
     }
   }
 
+  async function handleSaveProductionDeadline(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!project || !productionDeadline) return;
+
+    try {
+      setActionMessage('');
+      await updateProductionDeadlineMutation.mutateAsync({
+        projectId: project.projectId,
+        productionDeadline,
+      });
+      setActionMessage('Production deadline saved.');
+      void phaseDeadlinesQuery.refetch();
+    } catch (error) {
+      setActionMessage(getProjectServiceResultMessage(error));
+    }
+  }
+
   const customer = project ? accountById[project.customerId] : null;
   const sales = project?.assignedSalesId ? accountById[project.assignedSalesId] : null;
   const designer = project?.assignedDesignerId ? accountById[project.assignedDesignerId] : null;
-  const isMutating = assignSalesMutation.isPending || markReadyForDesignerMutation.isPending || assignDesignerMutation.isPending;
+  const isMutating =
+    assignSalesMutation.isPending ||
+    markReadyForDesignerMutation.isPending ||
+    assignDesignerMutation.isPending ||
+    updateProductionDeadlineMutation.isPending;
   const selectedStage = stages.find((stage) => stage.key === selectedStageKey) ?? null;
 
   return (
@@ -435,6 +564,37 @@ function ProjectDetailDrawer({
               <h3>Project Requirements</h3>
               <p>{project.furnitureRequirement}</p>
               {project.description ? <p>{project.description}</p> : null}
+            </section>
+
+            <section className="admin-projects-detail-section">
+              <ProjectPhaseTimelineCard
+                projectId={project.projectId}
+                phases={['PROPOSAL', 'PRODUCTION']}
+                title="Phase deadlines"
+                description="Proposal is set when assigning a designer. Production deadline is managed below."
+              />
+              {canEditProductionDeadline ? (
+                <form className="admin-projects-production-deadline-form" onSubmit={handleSaveProductionDeadline}>
+                  <label>
+                    <span>Production deadline</span>
+                    <input
+                      max={proposalDeadlineMax}
+                      min={getLocalDateInputValue()}
+                      required
+                      type="date"
+                      value={productionDeadline}
+                      onChange={(event) => setProductionDeadline(event.target.value)}
+                    />
+                  </label>
+                  <button className="admin-button admin-button-primary" disabled={isMutating || !productionDeadline} type="submit">
+                    {existingProductionDeadline ? 'Update production deadline' : 'Set production deadline'}
+                  </button>
+                </form>
+              ) : (
+                <p className="admin-projects-deadline-hint">
+                  Production deadline can be set after the project has an active order (ORDER_CONFIRMED or later).
+                </p>
+              )}
             </section>
 
             <section className="admin-projects-detail-section">
@@ -637,7 +797,17 @@ function WorkflowLinkChip({ link }: { link: ProjectWorkflowLinkDto }) {
   );
 }
 
-function SummaryCard({ icon: IconComponent, label, value, note }: { icon: Icon; label: string; value: number; note: string }) {
+function SummaryCard({
+  icon: IconComponent,
+  label,
+  value,
+  note,
+}: {
+  icon: Icon;
+  label: string;
+  value: number | string;
+  note: string;
+}) {
   return (
     <article className="admin-projects-summary-card">
       <div>
@@ -761,12 +931,18 @@ function formatDateTime(value: string) {
   }).format(new Date(value));
 }
 
-function getProjectStats(projects: ProjectListItemDto[]) {
+function getProjectStats(report: ReportProjectsDto | undefined) {
+  if (!report) {
+    return { active: 0, needsOwner: 0, attention: 0 };
+  }
+
+  const byStatusCount = (key: string) =>
+    report.byStatus.find((item) => item.key === key)?.count ?? 0;
+
   return {
-    active: projects.filter((project) => ACTIVE_PROJECT_STATUSES.includes(project.status)).length,
-    unassignedSales: projects.filter((project) => !project.assignedSalesId).length,
-    unassignedDesigner: projects.filter((project) => project.status !== 'SUBMITTED' && !project.assignedDesignerId).length,
-    attention: projects.filter((project) => ['NEED_BASIC_INFORMATION', 'REJECTED'].includes(project.status)).length,
+    active: report.totalNonTerminal,
+    needsOwner: report.unassignedIntakeCount + report.waitingForDesignerCount,
+    attention: byStatusCount('NEED_BASIC_INFORMATION') + byStatusCount('REJECTED'),
   };
 }
 

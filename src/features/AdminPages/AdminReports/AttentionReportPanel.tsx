@@ -40,6 +40,7 @@ import {
   severityTone,
   stageOptions,
 } from './adminReportsI18n';
+import { moneyExceptionKey } from './attentionReportUtils';
 
 export type AttentionFeedKind = 'all' | 'project' | 'money';
 
@@ -78,10 +79,6 @@ type AttentionReportPanelProps = {
   onRetryDetail: () => void;
   selectedMoney: AdminFinancialExceptionRowDto | null;
 };
-
-export function moneyExceptionKey(item: AdminFinancialExceptionRowDto, index: number) {
-  return `${item.exceptionType}-${item.targetResourceId ?? item.paymentId ?? item.orderId ?? item.projectId ?? index}`;
-}
 
 export function AttentionReportPanel(props: AttentionReportPanelProps) {
   const {

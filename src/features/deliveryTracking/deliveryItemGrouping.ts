@@ -106,7 +106,7 @@ export function groupDeliveryBatchItems(items: DeliveryBatchItemDto[] = []) {
   items.forEach((item) => {
     const productName = getDeliveryBatchItemName(item);
     const groupId = normalizeGroupKey(productName) || item.orderItemId;
-    const quantity = item.deliveredQuantity ?? item.quantity ?? 0;
+    const quantity = item.batchQuantity ?? item.deliveredQuantity ?? item.quantity ?? 0;
     const current = groups.get(groupId);
 
     if (!current) {

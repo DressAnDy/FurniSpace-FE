@@ -20,6 +20,8 @@ import {
 } from '@/services/queries';
 
 import { AdminNavbar, AdminSidebar } from '../admincomponents';
+import { useLang } from '@/app/providers/useLang';
+import { adminCopy } from '../admincomponents/adminI18n';
 import { CreateBusinessTypeModal, CreateCategoryModal } from './components';
 import './Categorymanagement.css';
 
@@ -36,6 +38,8 @@ type CategorySortFilter = (typeof categorySortOptions)[number];
 type ManagementTab = 'categories' | 'business-types';
 
 export function Categorymanagement() {
+  const { lang } = useLang();
+  const t = adminCopy[lang];
   const [activeTab, setActiveTab] = useState<ManagementTab>('categories');
   const [searchValue, setSearchValue] = useState('');
   const [statusFilter, setStatusFilter] = useState<CategoryStatusFilter>('');
@@ -284,14 +288,14 @@ export function Categorymanagement() {
   return (
     <main className="admin-dashboard-page">
       <div className="admin-dashboard-shell">
-        <AdminSidebar activeLabel="Product Categories" />
+        <AdminSidebar activeKey="categories" />
 
         <section className="admin-main">
-          <AdminNavbar activeLabel="Product Categories" />
+          <AdminNavbar activeLabel={t.nav.categories} />
           <div className="admin-content category-management-content">
             <div className="admin-page-heading category-management-heading">
               <div>
-                <h2>Catalog Taxonomy</h2>
+                <h2>{t.categories.title}</h2>
                 <p>Manage product categories and business type groupings from backend API.</p>
               </div>
               <button className="admin-button admin-button-primary" type="button" onClick={handleOpenCreate}>

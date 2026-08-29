@@ -1647,11 +1647,15 @@ body.admin-sidebar-collapsed .admin-topbar {
 }
 
 .admin-dash-v2-grid-bottom {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
 }
 
-.admin-dash-v2-breakdown-list,
-.admin-dash-v2-exceptions ul {
+.admin-dash-v2-exceptions-wide {
+  grid-column: 1 / 2;
+  min-width: 0;
+}
+
+.admin-dash-v2-breakdown-list {
   display: grid;
   gap: 12px;
   list-style: none;
@@ -1659,8 +1663,15 @@ body.admin-sidebar-collapsed .admin-topbar {
   padding: 0;
 }
 
-.admin-dash-v2-breakdown-list li,
-.admin-dash-v2-exceptions li {
+.admin-dash-v2-exceptions ul {
+  display: grid;
+  gap: 6px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.admin-dash-v2-breakdown-list li {
   align-items: flex-start;
   border: 1px solid rgba(92, 64, 48, 0.12);
   border-radius: 12px;
@@ -1670,24 +1681,47 @@ body.admin-sidebar-collapsed .admin-topbar {
   padding: 12px 14px;
 }
 
-.admin-dash-v2-breakdown-list strong,
-.admin-dash-v2-exceptions strong {
+.admin-dash-v2-exceptions li {
+  align-items: center;
+  border: 1px solid rgba(92, 64, 48, 0.1);
+  border-radius: 8px;
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+  padding: 8px 10px;
+}
+
+.admin-dash-v2-breakdown-list strong {
   color: #1f1a17;
   display: block;
   font-size: 14px;
 }
 
-.admin-dash-v2-breakdown-list span,
-.admin-dash-v2-exceptions small {
+.admin-dash-v2-exceptions strong {
+  color: #1f1a17;
+  display: block;
+  font-size: 13px;
+  line-height: 1.3;
+}
+
+.admin-dash-v2-breakdown-list span {
   color: #6b7280;
   display: block;
   font-size: 12px;
   margin-top: 4px;
 }
 
+.admin-dash-v2-exceptions small {
+  color: #9ca3af;
+  display: block;
+  font-size: 11px;
+  margin-top: 2px;
+}
+
 .admin-dash-v2-breakdown-list em,
 .admin-dash-v2-exceptions em {
   color: #5c4030;
+  font-size: 13px;
   font-style: normal;
   font-weight: 700;
   text-align: right;
@@ -1705,11 +1739,22 @@ body.admin-sidebar-collapsed .admin-topbar {
 .admin-dash-v2-severity {
   border-radius: 999px;
   flex: 0 0 auto;
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 800;
   letter-spacing: 0.04em;
-  padding: 4px 8px;
+  line-height: 1;
+  min-width: 52px;
+  padding: 4px 6px;
+  text-align: center;
   text-transform: uppercase;
+}
+
+.admin-dash-v2-exceptions-wide .admin-dash-v2-section-title h3 {
+  font-size: 16px;
+}
+
+.admin-dash-v2-exceptions-wide .admin-dash-v2-section-title p {
+  font-size: 12px;
 }
 
 .admin-dash-v2-severity-high {
@@ -2074,6 +2119,15 @@ body.admin-sidebar-collapsed .admin-topbar {
   height: 100%;
   justify-content: flex-end;
   min-width: 0;
+}
+
+.admin-dash-v2-revenue-value {
+  color: #374151;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1.2;
+  margin-bottom: 4px;
+  white-space: nowrap;
 }
 
 .admin-dash-v2-revenue-stack {

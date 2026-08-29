@@ -713,7 +713,7 @@ function hydrateSceneData(payload: HydrateBuildingPayload): BuildingTestScene | 
       id: floor.id || metadataLevel?.id || fallbackLevel.id,
       label: floor.name ?? `Floor ${index + 1}`,
       layout,
-      projectAreaId: floor.projectAreaId,
+      projectAreaId: floor.projectAreaId ?? metadataLevel?.projectAreaId ?? fallbackLevel.projectAreaId,
       wallHeight: layout.wallHeight,
       width: pointBounds ? Math.max(pointBounds.width, 1) : metadataLevel?.width ?? fallbackLevel.width,
     };

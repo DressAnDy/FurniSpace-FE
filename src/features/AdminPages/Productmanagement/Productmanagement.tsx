@@ -6,6 +6,8 @@ import { getBusinessTypeServiceResultMessage, getProductServiceResultMessage, no
 import { useBusinessTypeList, useCategoryList, useProductList, useUpdateProduct } from '@/services/queries';
 
 import { AdminNavbar, AdminSidebar } from '../admincomponents';
+import { useLang } from '@/app/providers/useLang';
+import { adminCopy } from '../admincomponents/adminI18n';
 import './Productmanagement.css';
 
 type ProductViewTab = 'catalog' | 'customer-specific';
@@ -17,6 +19,8 @@ const statusClassName: Record<string, string> = {
 };
 
 export function Productmanagement() {
+  const { lang } = useLang();
+  const t = adminCopy[lang];
   const navigate = useNavigate();
   const [searchValue, setSearchValue] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
@@ -112,14 +116,14 @@ export function Productmanagement() {
   return (
     <main className="admin-dashboard-page">
       <div className="admin-dashboard-shell">
-        <AdminSidebar activeLabel="Products" />
+        <AdminSidebar activeKey="products" />
 
         <section className="admin-main">
-          <AdminNavbar activeLabel="Products" />
+          <AdminNavbar activeLabel={t.nav.products} />
           <div className="admin-content product-management-content">
             <div className="product-management-heading">
               <div>
-                <h2>Product Management</h2>
+                <h2>{t.products.title}</h2>
                 <p>Manage product catalog and inventory</p>
               </div>
               <button className="admin-button admin-button-primary" type="button" onClick={() => navigate('/admin/products/create')}>

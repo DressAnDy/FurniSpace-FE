@@ -14,10 +14,14 @@ import {
 import { useCreateProductVersion, useProductDetail, useUpdateProductVersion, useUploadProductVersionFile } from '@/services/queries';
 
 import { AdminNavbar, AdminSidebar } from '../admincomponents';
+import { useLang } from '@/app/providers/useLang';
+import { adminCopy } from '../admincomponents/adminI18n';
 import './Productmanagement.css';
 import { SelectedImagePreview } from './SelectedImagePreview';
 
 export function CreateProductVersionPage() {
+  const { lang } = useLang();
+  const t = adminCopy[lang];
   const navigate = useNavigate();
   const { productId, productVersionId } = useParams();
   const effectiveProductId = productId ?? sessionStorage.getItem('admin.createdProductId') ?? undefined;
@@ -139,17 +143,17 @@ export function CreateProductVersionPage() {
   return (
     <main className="admin-dashboard-page">
       <div className="admin-dashboard-shell">
-        <AdminSidebar activeLabel="Product Versions" />
+        <AdminSidebar activeKey="products" />
 
         <section className="admin-main">
-          <AdminNavbar activeLabel="Product Versions" />
+          <AdminNavbar activeLabel={t.products.versionsTitle} />
           <div className="admin-content product-management-content">
             <div className="product-form-heading">
               <button className="product-version-back" type="button" onClick={() => navigate(`/admin/products/${effectiveProductId}/versions`)}>
                 <IconArrowLeft size={16} />
                 Back to Versions
               </button>
-              <h2>{isEditMode ? 'Update Product Version' : 'Create Product Version'}</h2>
+              <h2>{isEditMode ? t.products.updateVersion : t.products.createVersion}</h2>
               <p>
                 {isEditMode
                   ? `Update details, preview image, and 3D model for ${versionToEdit?.versionName ?? 'selected version'}`

@@ -108,7 +108,19 @@ export type OrderListItemDto = {
   paidAmount?: number | null;
   remainingAmount?: number | null;
   status?: OrderStatus | null;
+  deliveryAddress?: string | null;
+  receiverName?: string | null;
+  receiverPhone?: string | null;
+  deliveryNote?: string | null;
+  deliveryDetails?: OrderDeliveryDetailsDto | null;
   createdAt?: string | null;
+};
+
+export type OrderDeliveryDetailsDto = {
+  deliveryAddress?: string | null;
+  receiverName?: string | null;
+  receiverPhone?: string | null;
+  deliveryNote?: string | null;
 };
 
 export type OrderItemDto = {
@@ -157,6 +169,7 @@ export type OrderDetailDto = {
   receiverName?: string | null;
   receiverPhone?: string | null;
   deliveryNote?: string | null;
+  deliveryDetails?: OrderDeliveryDetailsDto | null;
   items: OrderItemDto[];
 };
 
@@ -235,6 +248,7 @@ export type DeliveryBatchItemDto = {
   productName?: string | null;
   productNameSnapshot?: string | null;
   itemName?: string | null;
+  batchQuantity?: number | null;
   deliveredQuantity?: number | null;
   quantity?: number | null;
   note?: string | null;
@@ -309,12 +323,7 @@ export type DeliveryTrackingDto = {
   orderStatus?: OrderStatus | null;
   projectStatus?: string | null;
   customerConfirmedDeliveryAt?: string | null;
-  deliveryDetails?: {
-    deliveryAddress?: string | null;
-    receiverName?: string | null;
-    receiverPhone?: string | null;
-    deliveryNote?: string | null;
-  } | null;
+  deliveryDetails?: OrderDeliveryDetailsDto | null;
   summary: DeliveryTrackingSummaryDto;
   items: DeliveryTrackingItemDto[];
   timeline: DeliveryTrackingTimelineItemDto[];

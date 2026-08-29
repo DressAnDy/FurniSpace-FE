@@ -14,6 +14,7 @@ import {
   useCompleteOrderDeliveryBatch,
   useCreateOrderDeliveryBatch,
   useCreateProjectSchedule,
+  useDeleteProjectSchedule,
   useUpdateProjectSchedule,
   useOrderDeliveries,
   useOrderDeliveryTracking,
@@ -83,6 +84,7 @@ export function ReadyForDelivery() {
 
   const createScheduleMutation = useCreateProjectSchedule();
   const updateScheduleMutation = useUpdateProjectSchedule();
+  const deleteScheduleMutation = useDeleteProjectSchedule();
   const createBatchMutation = useCreateOrderDeliveryBatch();
   const completeBatchMutation = useCompleteOrderDeliveryBatch();
   const deliverySchedules = useMemo(() => deliverySchedulesQuery.data?.items ?? [], [deliverySchedulesQuery.data?.items]);
@@ -331,12 +333,37 @@ export function ReadyForDelivery() {
     }
   }
 
+  async function deleteDeliverySchedule(schedule: ProjectScheduleDto) {
+    const scheduleKey = getScheduleKey(schedule);
+    const confirmed = window.confirm(`Delete ${schedule.title ?? 'delivery schedule'}?`);
+
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      await deleteScheduleMutation.mutateAsync(schedule.scheduleId);
+      if (selectedScheduleId === scheduleKey) {
+        setSelectedScheduleId('');
+      }
+      if (reschedulingScheduleId === scheduleKey) {
+        setReschedulingScheduleId('');
+      }
+      setMessage({ tone: 'success', text: 'Delivery schedule deleted successfully.' });
+      void deliverySchedulesQuery.refetch();
+      void deliveryTrackingQuery.refetch();
+    } catch (error) {
+      setMessage({ tone: 'error', text: getProjectScheduleServiceResultMessage(error) });
+    }
+  }
+
   function renderScheduleCard(schedule: ProjectScheduleDto) {
     const scheduleKey = getScheduleKey(schedule);
     const linkedBatch = deliveries.find((delivery) => delivery.projectScheduleId === scheduleKey);
     const canSelect = canUseScheduleForBatch(schedule, usedScheduleIds);
     const isRescheduling = reschedulingScheduleId === scheduleKey;
     const canReschedule = !linkedBatch && !isCompletedSchedule(schedule) && !isCancelledSchedule(schedule);
+    const canDelete = !linkedBatch && !isCompletedSchedule(schedule);
 
     return (
       <article
@@ -359,7 +386,7 @@ export function ReadyForDelivery() {
           {canReschedule ? (
             <button
               className="is-secondary"
-              disabled={updateScheduleMutation.isPending}
+              disabled={updateScheduleMutation.isPending || deleteScheduleMutation.isPending}
               type="button"
               onClick={() => {
                 if (isRescheduling) {
@@ -370,6 +397,16 @@ export function ReadyForDelivery() {
               }}
             >
               {isRescheduling ? 'Close' : 'Reschedule'}
+            </button>
+          ) : null}
+          {canDelete ? (
+            <button
+              className="is-danger"
+              disabled={deleteScheduleMutation.isPending}
+              type="button"
+              onClick={() => void deleteDeliverySchedule(schedule)}
+            >
+              {deleteScheduleMutation.isPending ? 'Deleting...' : 'Delete'}
             </button>
           ) : null}
         </div>

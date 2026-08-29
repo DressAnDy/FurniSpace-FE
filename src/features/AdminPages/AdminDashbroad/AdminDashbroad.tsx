@@ -16,6 +16,8 @@ import {
 import { Link } from 'react-router-dom';
 
 import { AdminNavbar, AdminSidebar } from '../admincomponents';
+import { adminCopy } from '../admincomponents/adminI18n';
+import { useLang } from '@/app/providers/useLang';
 import {
   getAdminFinancialServiceResultMessage,
   getFinancialPeriodRange,
@@ -23,14 +25,16 @@ import {
   type FinancialPeriodType,
 } from '@/services/api/adminFinancial';
 import {
-  type ProjectListItemDto,
-  type ProjectStatus,
-  useAdminFinancialCollectionTrend,
+  getReportServiceResultMessage,
+  type ProjectBucketCounts,
+  type ReportOverviewDto,
+} from '@/services/api/reports';
+import {
   useAdminFinancialExceptions,
   useAdminFinancialPaymentBreakdown,
   useAdminFinancialSummary,
   useCurrentUser,
-  useProjectList,
+  useReportOverview,
 } from '@/services/queries';
 
 import './AdminDashbroad.css';
@@ -53,100 +57,45 @@ type StatusBreakdown = {
   label: string;
 };
 
-type CollectionBucket = {
-  label: string;
-  projectStartFee: number;
-  deposit: number;
-  remainingPayment: number;
-  total: number;
-};
-
-const MILLION_VND = 1_000_000;
-
-const collectionSeries = [
-  { key: 'projectStartFee' as const, color: '#22c55e', label: 'Project start fee' },
-  { key: 'deposit' as const, color: '#f97316', label: 'Deposit' },
-  { key: 'remainingPayment' as const, color: '#ef4444', label: 'Remaining payment' },
-];
-
-const activeStatuses: ProjectStatus[] = [
-  'SUBMITTED',
-  'IN_CONSULTATION',
-  'NEED_BASIC_INFORMATION',
-  'WAITING_FOR_DESIGNER_ASSIGNMENT',
-  'MEASUREMENT_REQUIRED',
-  'SPACE_VERIFIED',
-  'PROPOSAL_CONSULTING',
-  'PROPOSAL_SELECTED',
-  'QUOTATION_SENT',
-  'QUOTATION_REVISION_REQUESTED',
-  'ORDER_CONFIRMED',
-  'IN_PRODUCTION',
-  'READY_FOR_DELIVERY',
-  'DELIVERING',
-  'AWAITING_CUSTOMER_CONFIRMATION',
-];
-
-const overviewPhases: Array<{ color: string; label: string; statuses: ProjectStatus[] }> = [
-  { color: '#5c4030', label: 'Request', statuses: ['SUBMITTED', 'NEED_BASIC_INFORMATION'] },
-  {
-    color: '#c4a574',
-    label: 'Design',
-    statuses: [
-      'IN_CONSULTATION',
-      'WAITING_FOR_DESIGNER_ASSIGNMENT',
-      'MEASUREMENT_REQUIRED',
-      'SPACE_VERIFIED',
-      'PROPOSAL_CONSULTING',
-      'PROPOSAL_SELECTED',
-    ],
-  },
-  { color: '#a67c52', label: 'Quotation', statuses: ['QUOTATION_SENT', 'QUOTATION_REVISION_REQUESTED', 'ORDER_CONFIRMED'] },
-  { color: '#e8d5b7', label: 'Production', statuses: ['IN_PRODUCTION'] },
-  { color: '#1f1a17', label: 'Delivery', statuses: ['READY_FOR_DELIVERY', 'DELIVERING', 'AWAITING_CUSTOMER_CONFIRMATION', 'DELIVERED'] },
-  { color: '#b8956c', label: 'Complete', statuses: ['COMPLETED'] },
+const overviewBuckets: Array<{ color: string; key: keyof ProjectBucketCounts; label: string }> = [
+  { color: '#5c4030', key: 'intake', label: 'Intake' },
+  { color: '#c4a574', key: 'designMonitor', label: 'Design' },
+  { color: '#a67c52', key: 'commercial', label: 'Commercial' },
+  { color: '#e8d5b7', key: 'fulfillment', label: 'Fulfillment' },
+  { color: '#b8956c', key: 'terminal', label: 'Terminal' },
+  { color: '#9ca3af', key: 'other', label: 'Other' },
 ];
 
 export function AdminDashbroad() {
+  const { lang } = useLang();
+  const t = adminCopy[lang];
   const [period, setPeriod] = useState<FinancialPeriodType>('THIS_MONTH');
   const [lastRefreshAt, setLastRefreshAt] = useState(() => new Date());
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   const dateRange = useMemo(() => getFinancialPeriodRange(period), [period]);
   const summaryParams = useMemo(() => ({ period, currency: 'VND' as const }), [period]);
-  const trendParams = useMemo(
-    () => ({ from: dateRange.from, to: dateRange.to, granularity: 'MONTH' as const, currency: 'VND' }),
-    [dateRange],
-  );
+  const overviewParams = useMemo(() => ({ from: dateRange.from, to: dateRange.to }), [dateRange]);
 
-  const projectsQuery = useProjectList({ page: 1, limit: 100 });
+  const overviewQuery = useReportOverview(overviewParams);
   const currentUserQuery = useCurrentUser();
   const summaryQuery = useAdminFinancialSummary(summaryParams);
-  const trendQuery = useAdminFinancialCollectionTrend(trendParams);
   const breakdownQuery = useAdminFinancialPaymentBreakdown(dateRange);
-  const exceptionsQuery = useAdminFinancialExceptions({ page: 1, pageSize: 5 });
+  const exceptionsQuery = useAdminFinancialExceptions({ page: 1, pageSize: 3 });
 
-  const projects = useMemo(() => projectsQuery.data?.items ?? [], [projectsQuery.data?.items]);
-  const refreshTime = new Intl.DateTimeFormat('en-US', { hour: '2-digit', minute: '2-digit' }).format(lastRefreshAt);
-  const statusBreakdown = useMemo(() => getStatusBreakdown(projects), [projects]);
-  const collectionData = useMemo(() => {
-    const series = trendQuery.data?.series ?? [];
-    return series.map((bucket) => ({
-      label: formatPeriodLabel(bucket.period),
-      projectStartFee: toTrieu(bucket.projectStartFee),
-      deposit: toTrieu(bucket.deposit),
-      remainingPayment: toTrieu(bucket.remainingPayment),
-      total: toTrieu(bucket.total),
-    }));
-  }, [trendQuery.data?.series]);
-
-  const kpis = useMemo(
-    () => buildKpis(projects, summaryQuery.data),
-    [projects, summaryQuery.data],
+  const refreshTime = new Intl.DateTimeFormat(lang === 'vi' ? 'vi-VN' : 'en-US', { hour: '2-digit', minute: '2-digit' }).format(lastRefreshAt);
+  const statusBreakdown = useMemo(
+    () => getBucketBreakdown(overviewQuery.data?.projects.byBucket),
+    [overviewQuery.data?.projects.byBucket],
   );
 
-  const isLoading = projectsQuery.isLoading || summaryQuery.isLoading;
-  const isError = projectsQuery.isError || summaryQuery.isError;
+  const kpis = useMemo(
+    () => buildKpis(overviewQuery.data, summaryQuery.data),
+    [overviewQuery.data, summaryQuery.data],
+  );
+
+  const isLoading = overviewQuery.isLoading || summaryQuery.isLoading;
+  const isError = overviewQuery.isError || summaryQuery.isError;
 
   async function handleRefresh() {
     if (isRefreshing) return;
@@ -154,10 +103,9 @@ export function AdminDashbroad() {
     setIsRefreshing(true);
     try {
       await Promise.all([
-        projectsQuery.refetch(),
+        overviewQuery.refetch(),
         currentUserQuery.refetch(),
         summaryQuery.refetch(),
-        trendQuery.refetch(),
         breakdownQuery.refetch(),
         exceptionsQuery.refetch(),
       ]);
@@ -170,24 +118,24 @@ export function AdminDashbroad() {
   return (
     <main className="admin-dashboard-page">
       <div className="admin-dashboard-shell">
-        <AdminSidebar activeLabel="Admin Dashboard" />
+        <AdminSidebar activeKey="dashboard" />
 
         <section className="admin-main">
-          <AdminNavbar activeLabel="Admin Dashboard" />
+          <AdminNavbar activeLabel={t.nav.dashboard} />
           <div className="admin-content admin-dash-v2">
             <section className="admin-dash-v2-header">
               <div>
                 <span>Operational command center</span>
-                <h2>Admin Dashboard</h2>
-                <p>Live project workload and financial cash collection for VND.</p>
+                <h2>{t.dashboard.title}</h2>
+                <p>{t.dashboard.subtitle}</p>
               </div>
               <div className="admin-dash-v2-header-actions">
                 <div className="admin-dash-v2-revenue-controls" role="group" aria-label="Financial period">
                   <button className={period === 'THIS_MONTH' ? 'is-active' : undefined} type="button" onClick={() => setPeriod('THIS_MONTH')}>
-                    This month
+                    {t.dashboard.periodThisMonth}
                   </button>
                   <button className={period === 'THIS_YEAR' ? 'is-active' : undefined} type="button" onClick={() => setPeriod('THIS_YEAR')}>
-                    This year
+                    {t.dashboard.periodThisYear}
                   </button>
                 </div>
                 <button
@@ -197,7 +145,7 @@ export function AdminDashbroad() {
                   onClick={() => void handleRefresh()}
                 >
                   <IconRefresh className={isRefreshing ? 'is-spinning' : undefined} size={14} />
-                  {isRefreshing ? 'Refreshing...' : `Refresh · ${refreshTime}`}
+                  {isRefreshing ? t.common.refreshing : `${t.common.refresh} · ${refreshTime}`}
                 </button>
               </div>
             </section>
@@ -208,8 +156,8 @@ export function AdminDashbroad() {
               errorMessage={
                 summaryQuery.isError
                   ? getAdminFinancialServiceResultMessage(summaryQuery.error)
-                  : projectsQuery.isError
-                    ? 'Some project data could not be loaded.'
+                  : overviewQuery.isError
+                    ? getReportServiceResultMessage(overviewQuery.error)
                     : undefined
               }
             />
@@ -225,36 +173,21 @@ export function AdminDashbroad() {
                 <SectionTitle
                   icon={IconChartBar}
                   title="Overview distribution"
-                  subtitle="Current project distribution across lifecycle phases."
+                  subtitle="Project buckets from admin reports overview (system-wide)."
                 />
-                {statusBreakdown.length > 0 ? (
-                  <StatusDonutChart rows={statusBreakdown} />
-                ) : (
-                  <EmptyState text="No project status data loaded yet." />
-                )}
-              </article>
-
-              <article className="admin-card admin-dash-v2-revenue">
-                <SectionTitle
-                  icon={IconCash}
-                  title="Cash collection"
-                  subtitle={`Canonical collected cash by month. Unit: triệu VNĐ (${MILLION_VND.toLocaleString('vi-VN')}).`}
-                />
-                {trendQuery.isLoading ? <EmptyState text="Loading collection trend..." /> : null}
-                {trendQuery.isError ? (
-                  <EmptyState text={getAdminFinancialServiceResultMessage(trendQuery.error)} />
+                {overviewQuery.isLoading ? <EmptyState text="Loading project distribution..." /> : null}
+                {overviewQuery.isError ? (
+                  <EmptyState text={getReportServiceResultMessage(overviewQuery.error)} />
                 ) : null}
-                {!trendQuery.isLoading && !trendQuery.isError ? (
-                  collectionData.length > 0 ? (
-                    <CollectionChart data={collectionData} />
+                {!overviewQuery.isLoading && !overviewQuery.isError ? (
+                  statusBreakdown.length > 0 ? (
+                    <StatusDonutChart rows={statusBreakdown} />
                   ) : (
-                    <EmptyState text="No collection data for this period." />
+                    <EmptyState text="No project status data loaded yet." />
                   )
                 ) : null}
               </article>
-            </section>
 
-            <section className="admin-dash-v2-grid admin-dash-v2-grid-bottom">
               <article className="admin-card">
                 <SectionTitle
                   icon={IconCreditCard}
@@ -267,8 +200,10 @@ export function AdminDashbroad() {
                 ) : null}
                 {breakdownQuery.data ? <BreakdownList items={breakdownQuery.data.items} /> : null}
               </article>
+            </section>
 
-              <article className="admin-card">
+            <section className="admin-dash-v2-grid admin-dash-v2-grid-bottom">
+              <article className="admin-card admin-dash-v2-exceptions-wide">
                 <SectionTitle
                   icon={IconAlertTriangle}
                   title="Financial exceptions"
@@ -297,9 +232,39 @@ export function AdminDashbroad() {
   );
 }
 
-function buildKpis(projects: ProjectListItemDto[], summary: AdminFinancialSummaryDto | undefined): KpiItem[] {
-  const activeProjects = projects.filter((project) => activeStatuses.includes(project.status)).length;
-  const completedProjects = projects.filter((project) => project.status === 'COMPLETED').length;
+function buildKpis(
+  overview: ReportOverviewDto | undefined,
+  summary: AdminFinancialSummaryDto | undefined,
+): KpiItem[] {
+  const activeProjects = overview?.projects.totalNonTerminal ?? 0;
+  const completedProjects = overview?.projects.completedInRange ?? 0;
+
+  const projectKpis: KpiItem[] = overview
+    ? [
+        {
+          comparison: 'Non-terminal',
+          description: 'All projects that are not COMPLETED or REJECTED across the system.',
+          icon: IconBriefcase,
+          label: 'Active Projects',
+          path: '/admin/projects',
+          tone: 'blue',
+          trend: 'up',
+          value: String(activeProjects),
+          warning: 'System-wide count',
+        },
+        {
+          comparison: 'In selected period',
+          description: 'Projects completed within the selected financial period.',
+          icon: IconCheck,
+          label: 'Completed Projects',
+          path: '/admin/projects',
+          tone: 'green',
+          trend: 'up',
+          value: String(completedProjects),
+          warning: `${overview.projects.rejectedInRange} rejected in period`,
+        },
+      ]
+    : [];
 
   const financial: KpiItem[] = summary
     ? [
@@ -350,39 +315,17 @@ function buildKpis(projects: ProjectListItemDto[], summary: AdminFinancialSummar
       ]
     : [];
 
-  return [
-    {
-      comparison: 'Live projects',
-      description: 'Projects currently moving through the FurniSpace workflow.',
-      icon: IconBriefcase,
-      label: 'Active Projects',
-      path: '/admin/projects',
-      tone: 'blue',
-      trend: 'up',
-      value: String(activeProjects),
-      warning: 'Includes delivery and production',
-    },
-    {
-      comparison: 'In sample',
-      description: 'Projects with completed status in the loaded API sample.',
-      icon: IconCheck,
-      label: 'Completed Projects',
-      path: '/admin/projects',
-      tone: 'green',
-      trend: 'up',
-      value: String(completedProjects),
-      warning: 'From loaded project page',
-    },
-    ...financial,
-  ];
+  return [...projectKpis, ...financial];
 }
 
-function getStatusBreakdown(projects: ProjectListItemDto[]): StatusBreakdown[] {
-  return overviewPhases
-    .map((phase) => ({
-      color: phase.color,
-      count: projects.filter((project) => phase.statuses.includes(project.status)).length,
-      label: phase.label,
+function getBucketBreakdown(byBucket: ProjectBucketCounts | undefined): StatusBreakdown[] {
+  if (!byBucket) return [];
+
+  return overviewBuckets
+    .map((bucket) => ({
+      color: bucket.color,
+      count: byBucket[bucket.key] ?? 0,
+      label: bucket.label,
     }))
     .filter((row) => row.count > 0);
 }
@@ -488,69 +431,6 @@ function buildConicGradient(rows: StatusBreakdown[], total: number) {
   return `conic-gradient(from -90deg, ${stops.join(', ')})`;
 }
 
-function CollectionChart({ data }: { data: CollectionBucket[] }) {
-  const yMax = Math.max(1, ...data.map((item) => item.total), 50);
-  const ticks = [0, yMax * 0.25, yMax * 0.5, yMax * 0.75, yMax];
-
-  return (
-    <div className="admin-dash-v2-revenue-chart">
-      <div className="admin-dash-v2-revenue-plot">
-        <div className="admin-dash-v2-revenue-yaxis" aria-hidden="true">
-          {[...ticks].reverse().map((tick) => (
-            <span key={tick}>{formatTrieu(tick)}</span>
-          ))}
-        </div>
-
-        <div className="admin-dash-v2-revenue-canvas">
-          <div className="admin-dash-v2-revenue-grid" aria-hidden="true">
-            {ticks.map((tick) => (
-              <span key={tick} />
-            ))}
-          </div>
-
-          <div className="admin-dash-v2-revenue-bars">
-            {data.map((item) => (
-              <div
-                className="admin-dash-v2-revenue-col"
-                key={item.label}
-                title={`${item.label}: ${formatTrieu(item.total)} triệu`}
-              >
-                <div
-                  className="admin-dash-v2-revenue-stack"
-                  style={{ height: `${Math.min((item.total / yMax) * 100, 100)}%` }}
-                >
-                  <span
-                    style={{ background: '#ef4444', flexGrow: item.remainingPayment || 0.0001 }}
-                    title={`Remaining: ${formatTrieu(item.remainingPayment)}`}
-                  />
-                  <span
-                    style={{ background: '#f97316', flexGrow: item.deposit || 0.0001 }}
-                    title={`Deposit: ${formatTrieu(item.deposit)}`}
-                  />
-                  <span
-                    style={{ background: '#22c55e', flexGrow: item.projectStartFee || 0.0001 }}
-                    title={`Start fee: ${formatTrieu(item.projectStartFee)}`}
-                  />
-                </div>
-                <em>{item.label}</em>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      <ul className="admin-dash-v2-revenue-legend">
-        {collectionSeries.map((series) => (
-          <li key={series.key}>
-            <i style={{ background: series.color }} />
-            <span>{series.label}</span>
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
-}
-
 function BreakdownList({
   items,
 }: {
@@ -619,23 +499,6 @@ function ExceptionsList({
       </Link>
     </div>
   );
-}
-
-function formatPeriodLabel(period: string) {
-  const [year, month] = period.split('-');
-  if (!year || !month) return period;
-  const date = new Date(Number(year), Number(month) - 1, 1);
-  return date.toLocaleString('en-US', { month: 'short' });
-}
-
-function toTrieu(value: number) {
-  return value / MILLION_VND;
-}
-
-function formatTrieu(value: number) {
-  return new Intl.NumberFormat('vi-VN', {
-    maximumFractionDigits: value % 1 === 0 ? 0 : 1,
-  }).format(value);
 }
 
 function formatMoney(value: number | null | undefined) {

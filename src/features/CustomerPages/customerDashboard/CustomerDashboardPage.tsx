@@ -15,6 +15,7 @@ import { useCurrentUser } from '@/services/queries/useAuth';
 import { useProjectDetail, useProjectList } from '@/services/queries/useProjects';
 import { useProjectProposals } from '@/services/queries/useProposals';
 import { useProjectScheduleList, useUpdateProjectScheduleStatus } from '@/services/queries/useSchedules';
+import { isScheduleVisible } from '@/shared/utils/scheduleVisibility';
 
 import './CustomerDashboardPage.css';
 
@@ -106,7 +107,7 @@ export function CustomerDashboardPage() {
   const upcomingSchedules = useMemo(
     () =>
       (schedulesQuery.data?.items ?? [])
-        .filter((schedule) => schedule.status !== 'CANCELLED' && new Date(schedule.scheduledStart).getTime() >= new Date(todayIso).getTime())
+        .filter((schedule) => isScheduleVisible(schedule.status) && schedule.status !== 'CANCELLED' && new Date(schedule.scheduledStart).getTime() >= new Date(todayIso).getTime())
         .sort((left, right) => new Date(left.scheduledStart).getTime() - new Date(right.scheduledStart).getTime()),
     [schedulesQuery.data?.items, todayIso],
   );

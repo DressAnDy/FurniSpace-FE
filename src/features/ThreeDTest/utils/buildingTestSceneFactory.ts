@@ -351,6 +351,28 @@ export function createBuildingTestSceneFromProjectFloorAreas(
   };
 }
 
+export function shouldReplaceSceneWithProjectAreaTemplate(
+  scene: BuildingTestScene | null | undefined,
+  areas: BuildingProjectFloorAreaSource[],
+) {
+  if (!scene || areas.length === 0) {
+    return false;
+  }
+
+  const expectedAreaIds = new Set(areas.map((area) => area.projectAreaId).filter(Boolean));
+  const sceneAreaIds = new Set(scene.building.levels.map((level) => level.projectAreaId).filter(Boolean));
+
+  if (expectedAreaIds.size === 0) {
+    return false;
+  }
+
+  if (sceneAreaIds.size === 0) {
+    return true;
+  }
+
+  return [...expectedAreaIds].some((areaId) => !sceneAreaIds.has(areaId));
+}
+
 export function createBuildingTestCamera(scene: Scene, canvas: HTMLCanvasElement, sceneData: BuildingTestScene) {
   const camera = new ArcRotateCamera(
     'building-test-camera',

@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
   IconCash,
@@ -9,6 +9,7 @@ import {
 } from '@tabler/icons-react';
 
 import { useLang } from '@/app/providers/useLang';
+import { adminCopy } from '../admincomponents/adminI18n';
 import { getAdminFinancialServiceResultMessage, type AdminFinancialDrilldownMetric, type AdminFinancialExceptionRowDto } from '@/services/api/adminFinancial';
 import { getProjectReportServiceResultMessage } from '@/services/api/projectReports';
 import type {
@@ -27,10 +28,10 @@ import { AdminNavbar, AdminSidebar } from '../admincomponents';
 import { FinancialPanel, type FinancialListView, type FinancialUrlParams } from './AdminFinancialPanel';
 import {
   AttentionReportPanel,
-  moneyExceptionKey,
   type AttentionFeedKind,
 } from './AttentionReportPanel';
 import { financialCopy, reportsCopy } from './adminReportsI18n';
+import { moneyExceptionKey } from './attentionReportUtils';
 import './AdminReports.css';
 
 type ReportTabId = 'attention' | 'financial';
@@ -82,6 +83,7 @@ function isReportTabId(value: string | null): value is ReportTabId {
 
 export function AdminReports() {
   const { lang } = useLang();
+  const adminNav = adminCopy[lang];
   const t = reportsCopy[lang];
   const [searchParams, setSearchParams] = useSearchParams();
   const initialRange = useMemo(() => defaultDateRange(), []);
@@ -123,29 +125,7 @@ export function AdminReports() {
     }
   }, [tabFromUrl]);
 
-  useEffect(() => {
-    if (activeTab !== 'financial') return;
-    if (listFromUrl === 'projects') {
-      handleFinancialUrlChange({ list: 'receivables' });
-      setFinancialListView('receivables');
-      return;
-    }
-    if (isFinancialListView(listFromUrl)) {
-      setFinancialListView(listFromUrl);
-    }
-  }, [activeTab, listFromUrl]);
-
-  const financialUrlParams = useMemo<FinancialUrlParams>(
-    () => ({
-      list: financialListView,
-      projectId: activeTab === 'financial' ? financialProjectFromUrl : null,
-      orderId: activeTab === 'financial' ? financialOrderFromUrl : null,
-      metric: isFinancialMetric(metricFromUrl) ? metricFromUrl : null,
-    }),
-    [activeTab, financialListView, financialOrderFromUrl, financialProjectFromUrl, metricFromUrl],
-  );
-
-  const handleFinancialUrlChange = (params: Partial<FinancialUrlParams>) => {
+  const handleFinancialUrlChange = useCallback((params: Partial<FinancialUrlParams>) => {
     const next = new URLSearchParams(searchParams);
     next.set('tab', 'financial');
 
@@ -170,7 +150,29 @@ export function AdminReports() {
     }
 
     setSearchParams(next, { replace: true });
-  };
+  }, [searchParams, setSearchParams]);
+
+  useEffect(() => {
+    if (activeTab !== 'financial') return;
+    if (listFromUrl === 'projects') {
+      handleFinancialUrlChange({ list: 'receivables' });
+      setFinancialListView('receivables');
+      return;
+    }
+    if (isFinancialListView(listFromUrl)) {
+      setFinancialListView(listFromUrl);
+    }
+  }, [activeTab, handleFinancialUrlChange, listFromUrl]);
+
+  const financialUrlParams = useMemo<FinancialUrlParams>(
+    () => ({
+      list: financialListView,
+      projectId: activeTab === 'financial' ? financialProjectFromUrl : null,
+      orderId: activeTab === 'financial' ? financialOrderFromUrl : null,
+      metric: isFinancialMetric(metricFromUrl) ? metricFromUrl : null,
+    }),
+    [activeTab, financialListView, financialOrderFromUrl, financialProjectFromUrl, metricFromUrl],
+  );
 
   const handleFinancialListChange = (list: FinancialListView) => {
     setFinancialListView(list);
@@ -273,9 +275,9 @@ export function AdminReports() {
   return (
     <main className="admin-dashboard-page">
       <div className="admin-dashboard-shell">
-        <AdminSidebar activeLabel="Reports" />
+        <AdminSidebar activeKey="reports" />
         <section className="admin-main">
-          <AdminNavbar activeLabel="Reports" />
+          <AdminNavbar activeLabel={adminNav.nav.reports} />
           <div className="admin-content admin-reports-content">
             <section className="admin-page-heading admin-reports-heading">
               <div>
@@ -411,3 +413,5 @@ function toDateInputValue(date: Date) {
 function toFinancialApiDateTime(date: string) {
   return `${date}T00:00:00+07:00`;
 }
+
+

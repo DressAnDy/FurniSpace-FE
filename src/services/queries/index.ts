@@ -94,6 +94,7 @@ export {
   useDesignerWorkQueue,
   useProductionDashboardKpis,
   useProductionQueue,
+  useProjectPhaseDeadlineRisks,
   useSalesActionQueue,
   useSalesDashboardKpis,
 } from './useDashboard';
@@ -158,9 +159,9 @@ export {
   useLinkMeasurementImageToArea,
   useProjectAreaMeasurementImages,
   useProjectMeasurementImages,
-  useRegisterMeasurementImage,
   useScheduleMeasurementImages,
   useUnlinkMeasurementImageFromArea,
+  useUploadMeasurementImage,
 } from './useMeasurementImages';
 export {
   notificationQueryKeys,

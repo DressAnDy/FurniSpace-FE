@@ -5,9 +5,9 @@ import {
   getProjectMeasurementImages,
   getScheduleMeasurementImages,
   linkMeasurementImageToArea,
-  registerMeasurementImage,
+  uploadMeasurementImage,
   unlinkMeasurementImageFromArea,
-  type RegisterMeasurementImageInput,
+  type MeasurementImageUploadInput,
   type MeasurementImageGalleryQuery,
 } from '@/services/api/measurementImages';
 
@@ -42,14 +42,17 @@ export function useProjectAreaMeasurementImages(projectAreaId?: string, query?: 
   });
 }
 
-export function useRegisterMeasurementImage() {
+export function useUploadMeasurementImage() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (input: RegisterMeasurementImageInput) => registerMeasurementImage(input),
+    mutationFn: (input: MeasurementImageUploadInput) => uploadMeasurementImage(input),
     onSuccess: (_data, input) => {
       void queryClient.invalidateQueries({ queryKey: measurementImageQueryKeys.all });
       void queryClient.invalidateQueries({ queryKey: ['measurement-images', 'schedule', input.scheduleId] });
+      if (input.projectAreaId) {
+        void queryClient.invalidateQueries({ queryKey: ['measurement-images', 'area', input.projectAreaId] });
+      }
     },
   });
 }

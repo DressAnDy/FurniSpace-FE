@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
-  IconAlertTriangle,
   IconCheck,
   IconMessageCircle,
   IconPackage,
@@ -148,7 +147,6 @@ export function Tracking() {
             <Field label="Project code" value={selectedProject?.projectCode ?? '-'} />
             <Field label="Progress" value={`${tracking?.summary.deliveryProgressPercent ?? 0}%`} />
             <Field label="Next delivery" value={tracking?.summary.nextDeliveryAt ? formatDateTime(tracking.summary.nextDeliveryAt) : 'Not scheduled'} />
-            <Field label="Customer confirmed" value={order?.customerConfirmedDeliveryAt ? formatDateTime(order.customerConfirmedDeliveryAt) : 'Not yet'} />
           </div>
           {canFinalConfirm ? (
             <button
@@ -166,7 +164,7 @@ export function Tracking() {
           <CustomerSummaryCard icon={IconPackage} label="Ordered Qty" value={tracking?.summary.totalOrderedQuantity ?? 0} />
           <CustomerSummaryCard icon={IconTruckDelivery} label="Delivered Qty" value={tracking?.summary.totalDeliveredQuantity ?? 0} />
           <CustomerSummaryCard icon={IconCheck} label="Completed Trips" value={tracking?.summary.completedDeliveryCount ?? 0} />
-          <CustomerSummaryCard icon={IconAlertTriangle} label="Remaining Qty" value={tracking?.summary.remainingQuantity ?? 0} />
+          <CustomerSummaryCard icon={IconPackage} label="Remaining Qty" value={tracking?.summary.remainingQuantity ?? 0} />
         </section>
 
         <article className="customer-workspace-card customer-tracking-items-panel">
@@ -226,19 +224,40 @@ function DeliveryItemRow({ item }: { item: DeliveryTrackingItemDto }) {
 
 function TimelineRow({ item }: { item: DeliveryTrackingTimelineItemDto }) {
   const status = item.deliveryStatus ?? item.scheduleStatus ?? 'PENDING_CONFIRMATION';
+  const batchItems = groupDeliveryBatchItems(item.items ?? []);
+  const progressPercent = getTimelineProgressPercent(item);
 
   return (
-    <article className={`customer-tracking-delivery-row customer-tracking-delivery-row-${status.toLowerCase()}`}>
-      <div className="customer-tracking-delivery-main">
-        <strong>{item.scheduledStart ? formatDateTime(item.scheduledStart) : 'Delivery schedule'}</strong>
-        <span>{item.completedAt ? `Completed ${formatDateTime(item.completedAt)}` : item.scheduledEnd ? `Ends ${formatDateTime(item.scheduledEnd)}` : 'Awaiting execution'}</span>
+    <article className={`customer-tracking-timeline-row customer-tracking-delivery-row-${status.toLowerCase()}`}>
+      <div className="customer-tracking-timeline-header">
+        <div className="customer-tracking-delivery-main">
+          <strong>{item.scheduledStart ? formatDateTime(item.scheduledStart) : 'Delivery schedule'}</strong>
+          <span>{getTimelineScheduleMeta(item)}</span>
+        </div>
+        <CustomerStatusBadge label={formatEnumLabel(status)} status={status} />
       </div>
       <div className="customer-tracking-progress">
         <span>{getTimelineSummary(item)}</span>
-        <div aria-hidden="true"><i style={{ width: item.deliveryStatus === 'COMPLETED' || item.scheduleStatus === 'COMPLETED' ? '100%' : '35%' }} /></div>
+        <div aria-hidden="true"><i style={{ width: `${progressPercent}%` }} /></div>
       </div>
-      <CustomerStatusBadge label={formatEnumLabel(status)} status={status} />
+      {item.location ? <p className="customer-tracking-row-note">Location: {item.location}</p> : null}
+      {item.customerNote ? <p className="customer-tracking-row-note">Note: {item.customerNote}</p> : null}
       {item.cancelReason ? <p className="customer-tracking-row-note">Cancelled: {formatEnumLabel(item.cancelReason)}</p> : null}
+      <div className="customer-tracking-timeline-items">
+        <span className="customer-tracking-timeline-items-title">Products in this delivery</span>
+        {batchItems.length > 0 ? (
+          <ul>
+            {batchItems.map((batchItem) => (
+              <li key={batchItem.groupId}>
+                <span>{batchItem.productName}</span>
+                <strong>{batchItem.quantity}</strong>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="customer-workspace-muted">No delivery products added to this schedule yet.</p>
+        )}
+      </div>
     </article>
   );
 }
@@ -261,11 +280,31 @@ function canConfirmFinalDelivery(
 
 function getTimelineSummary(item: DeliveryTrackingTimelineItemDto) {
   if (item.cancelReason) return formatEnumLabel(item.cancelReason);
-  if (!item.items?.length) return item.deliveryId ? 'Batch created' : 'No batch yet';
+  const batchItems = groupDeliveryBatchItems(item.items ?? []);
 
-  return groupDeliveryBatchItems(item.items)
-    .map((batchItem) => `${batchItem.productName}: ${batchItem.quantity}`)
-    .join(', ');
+  if (batchItems.length === 0) return item.deliveryId ? 'Delivery batch created' : 'Delivery batch has not been created yet';
+
+  const totalQuantity = batchItems.reduce((total, batchItem) => total + batchItem.quantity, 0);
+
+  return `${batchItems.length} product${batchItems.length === 1 ? '' : 's'} / ${totalQuantity} item${totalQuantity === 1 ? '' : 's'} scheduled for delivery`;
+}
+
+function getTimelineScheduleMeta(item: DeliveryTrackingTimelineItemDto) {
+  if (item.completedAt) return `Completed ${formatDateTime(item.completedAt)}`;
+  if (item.scheduledEnd) return `Ends ${formatDateTime(item.scheduledEnd)}`;
+  if (item.deliveryId) return 'Delivery batch is in progress';
+
+  return 'Awaiting delivery batch';
+}
+
+function getTimelineProgressPercent(item: DeliveryTrackingTimelineItemDto) {
+  if (item.deliveryStatus === 'COMPLETED' || item.scheduleStatus === 'COMPLETED') return 100;
+  if (item.deliveryStatus === 'IN_PROGRESS') return 65;
+  if (item.deliveryId) return 50;
+  if (item.scheduleStatus === 'CONFIRMED') return 30;
+  if (item.scheduleStatus === 'CANCELLED') return 0;
+
+  return 15;
 }
 
 function getTrackingMessage(status?: string | null) {

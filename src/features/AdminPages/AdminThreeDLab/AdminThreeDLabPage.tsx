@@ -12,6 +12,8 @@ import { useQueries } from '@tanstack/react-query';
 import { useQueryClient } from '@tanstack/react-query';
 
 import { AdminNavbar, AdminSidebar } from '@/features/AdminPages/admincomponents';
+import { useLang } from '@/app/providers/useLang';
+import { adminCopy } from '@/features/AdminPages/admincomponents/adminI18n';
 import { getProjectServiceResultMessage, type ProjectListItemDto } from '@/services/api/projects';
 import {
   type ProposalDto,
@@ -39,6 +41,8 @@ const PROJECTS_PER_PAGE = 6;
 const PREVIEW_PRODUCT_CATALOG_LIMIT = 100;
 
 export function AdminThreeDLabPage() {
+  const { lang } = useLang();
+  const t = adminCopy[lang];
   const [page, setPage] = useState(1);
   const [searchDraft, setSearchDraft] = useState('');
   const [search, setSearch] = useState('');
@@ -120,10 +124,10 @@ export function AdminThreeDLabPage() {
   return (
     <main className="admin-dashboard-page">
       <div className="admin-dashboard-shell">
-        <AdminSidebar activeLabel="3D Lab" />
+        <AdminSidebar activeKey="threeDLab" />
 
         <section className="admin-main admin-three-d-lab-main">
-          <AdminNavbar activeLabel="3D Lab" />
+          <AdminNavbar activeLabel={t.nav.threeDLab} />
           <div className="admin-three-d-lab-content">
             <header className="admin-three-d-lab-header">
               <div>

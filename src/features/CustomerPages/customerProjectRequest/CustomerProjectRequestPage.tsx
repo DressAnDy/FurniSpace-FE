@@ -21,8 +21,12 @@ import { getLocalDateInputValue, validateOptionalFutureDate } from '@/shared/uti
 import {
   PROJECT_BUDGET_MAX,
   PROJECT_BUDGET_MIN,
+  formatProjectRequestMoneyInput,
   getProjectSpaceAndBudgetFieldErrors,
+  parseOptionalProjectRequestMoney,
   parseOptionalProjectRequestNumber,
+  sanitizeProjectRequestDecimalInput,
+  sanitizeProjectRequestIntegerInput,
   validateProjectSpaceAndBudget,
   type ProjectRequestFieldErrors,
   type ProjectRequestFieldName,
@@ -60,8 +64,8 @@ export function CustomerProjectRequestPage() {
     const nextErrors = getProjectSpaceAndBudgetFieldErrors({
       totalAreaSqm: parseOptionalProjectRequestNumber(formData.get('totalAreaSqm')),
       numberOfFloors: parseOptionalProjectRequestNumber(formData.get('numberOfFloors')),
-      budgetMin: parseOptionalProjectRequestNumber(formData.get('budgetMin')),
-      budgetMax: parseOptionalProjectRequestNumber(formData.get('budgetMax')),
+      budgetMin: parseOptionalProjectRequestMoney(formData.get('budgetMin')),
+      budgetMax: parseOptionalProjectRequestMoney(formData.get('budgetMax')),
     });
 
     setFieldErrors((current) => {
@@ -72,6 +76,23 @@ export function CustomerProjectRequestPage() {
       });
       return next;
     });
+  }
+
+  function handleDecimalInputChange(event: React.ChangeEvent<HTMLInputElement>) {
+    event.currentTarget.value = sanitizeProjectRequestDecimalInput(event.currentTarget.value);
+    syncSpaceAndBudgetFieldErrors(event.currentTarget.form);
+  }
+
+  function handleIntegerInputChange(event: React.ChangeEvent<HTMLInputElement>) {
+    event.currentTarget.value = sanitizeProjectRequestIntegerInput(event.currentTarget.value);
+    syncSpaceAndBudgetFieldErrors(event.currentTarget.form);
+  }
+
+  function handleMoneyInputChange(event: React.ChangeEvent<HTMLInputElement>) {
+    event.currentTarget.value = formatProjectRequestMoneyInput(
+      sanitizeProjectRequestIntegerInput(event.currentTarget.value),
+    );
+    syncSpaceAndBudgetFieldErrors(event.currentTarget.form);
   }
 
   function addSelectedFiles(fileList: FileList | null) {
@@ -103,8 +124,8 @@ export function CustomerProjectRequestPage() {
     const spaceAndBudget = validateProjectSpaceAndBudget({
       totalAreaSqm: parseOptionalProjectRequestNumber(formData.get('totalAreaSqm')),
       numberOfFloors: parseOptionalProjectRequestNumber(formData.get('numberOfFloors')),
-      budgetMin: parseOptionalProjectRequestNumber(formData.get('budgetMin')),
-      budgetMax: parseOptionalProjectRequestNumber(formData.get('budgetMax')),
+      budgetMin: parseOptionalProjectRequestMoney(formData.get('budgetMin')),
+      budgetMax: parseOptionalProjectRequestMoney(formData.get('budgetMax')),
     });
 
     const nextFieldErrors: ProjectRequestFieldErrors = {};
@@ -207,7 +228,7 @@ export function CustomerProjectRequestPage() {
                 <textarea name="furnitureRequirement" placeholder="e.g., Counter seating, dining tables, lounge area, display cases" required rows={3} />
               </Field>
 
-              <Field label="Additional Description">
+              <Field label="Description">
                 <textarea name="description" placeholder="Describe your vision, style preferences, or specific requirements..." rows={4} />
               </Field>
             </FormSection>
@@ -224,7 +245,7 @@ export function CustomerProjectRequestPage() {
                     placeholder="e.g., 120"
                     step="0.1"
                     type="text"
-                    onChange={(event) => syncSpaceAndBudgetFieldErrors(event.currentTarget.form)}
+                    onChange={handleDecimalInputChange}
                   />
                 </Field>
                 <Field error={fieldErrors.numberOfFloors} label="Number of Floors">
@@ -237,7 +258,7 @@ export function CustomerProjectRequestPage() {
                     placeholder="e.g., 1"
                     step="1"
                     type="text"
-                    onChange={(event) => syncSpaceAndBudgetFieldErrors(event.currentTarget.form)}
+                    onChange={handleIntegerInputChange}
                   />
                 </Field>
               </div>
@@ -254,9 +275,9 @@ export function CustomerProjectRequestPage() {
                       min={PROJECT_BUDGET_MIN}
                       name="budgetMin"
                       inputMode="decimal"
-                      placeholder={`e.g., ${PROJECT_BUDGET_MIN}`}
+                      placeholder={`e.g., ${formatProjectRequestMoneyInput(PROJECT_BUDGET_MIN)}`}
                       type="text"
-                      onChange={(event) => syncSpaceAndBudgetFieldErrors(event.currentTarget.form)}
+                      onChange={handleMoneyInputChange}
                     />
                     <span aria-hidden="true" className="customer-project-request-input-suffix">
                       VNĐ
@@ -272,9 +293,9 @@ export function CustomerProjectRequestPage() {
                       min={PROJECT_BUDGET_MIN}
                       name="budgetMax"
                       inputMode="decimal"
-                      placeholder={`e.g., ${PROJECT_BUDGET_MAX}`}
+                      placeholder={`e.g., ${formatProjectRequestMoneyInput(PROJECT_BUDGET_MAX)}`}
                       type="text"
-                      onChange={(event) => syncSpaceAndBudgetFieldErrors(event.currentTarget.form)}
+                      onChange={handleMoneyInputChange}
                     />
                     <span aria-hidden="true" className="customer-project-request-input-suffix">
                       VNĐ

@@ -2,11 +2,13 @@ import { FormEvent, useMemo, useState } from 'react';
 
 import {
   useCreateProjectSchedule,
+  useDeleteProjectSchedule,
   useProjectScheduleList,
 } from '@/services/queries';
 import { getProjectScheduleServiceResultMessage } from '@/services/api/schedules';
 import type { ProjectScheduleStatus, ProjectScheduleType } from '@/services/api/schedules';
 import { getScheduleDateRangePayload } from '@/shared/utils/dateValidation';
+import { isScheduleVisible } from '@/shared/utils/scheduleVisibility';
 
 import type { ProjectDetailProject } from '../ProjectDetail';
 
@@ -15,7 +17,7 @@ type SchedulesTabProps = {
 };
 
 const scheduleTypeOptions: ProjectScheduleType[] = ['MEASUREMENT', 'CONSULTATION'];
-const scheduleStatusOptions: ProjectScheduleStatus[] = ['PENDING_CONFIRMATION', 'CONFIRMED', 'COMPLETED', 'CANCELLED'];
+const scheduleStatusOptions: ProjectScheduleStatus[] = ['PENDING_CONFIRMATION', 'CONFIRMED', 'CANCELLED'];
 
 export function SchedulesTab({ project }: SchedulesTabProps) {
   const [message, setMessage] = useState('');
@@ -32,11 +34,12 @@ export function SchedulesTab({ project }: SchedulesTabProps) {
     { fetchAll: true, staleTime: 60_000 },
   );
   const createScheduleMutation = useCreateProjectSchedule();
+  const deleteScheduleMutation = useDeleteProjectSchedule();
   const defaultTitle = useMemo(() => getDefaultScheduleTitle(project), [project]);
   const schedules = useMemo(() => {
-    const items = [...(schedulesQuery.data?.items ?? [])].sort(
-      (left, right) => new Date(left.scheduledStart).getTime() - new Date(right.scheduledStart).getTime(),
-    );
+    const items = [...(schedulesQuery.data?.items ?? [])]
+      .filter((schedule) => isScheduleVisible(schedule.status))
+      .sort((left, right) => new Date(left.scheduledStart).getTime() - new Date(right.scheduledStart).getTime());
 
     if (!statusFilter) {
       return items;
@@ -73,6 +76,24 @@ export function SchedulesTab({ project }: SchedulesTabProps) {
       description: String(formData.get('description') ?? '').trim() || null,
       location: String(formData.get('location') ?? '').trim() || project.projectAddress,
     });
+  }
+
+  async function deleteSchedule(schedule: { scheduleId: string; title: string | null; scheduleType: ProjectScheduleType }) {
+    const confirmed = window.confirm(`Delete ${schedule.title ?? formatEnumLabel(schedule.scheduleType)}?`);
+
+    if (!confirmed) {
+      return;
+    }
+
+    setMessage('');
+
+    try {
+      await deleteScheduleMutation.mutateAsync(schedule.scheduleId);
+      setMessage('Schedule deleted successfully.');
+      void schedulesQuery.refetch();
+    } catch (error) {
+      setMessage(getProjectScheduleServiceResultMessage(error));
+    }
   }
 
   async function createSchedule(input: {
@@ -204,7 +225,6 @@ export function SchedulesTab({ project }: SchedulesTabProps) {
           <div className="project-detail-schedule-list-header">
             <div>
               <h4>Current Schedules</h4>
-              <p>GET /project-schedules?projectId={project.projectId}</p>
             </div>
             <span>{schedules.length} total</span>
           </div>
@@ -235,7 +255,17 @@ export function SchedulesTab({ project }: SchedulesTabProps) {
                     </p>
                   ) : null}
                 </div>
-                <strong>{formatEnumLabel(schedule.status)}</strong>
+                <div className="project-detail-schedule-card-actions">
+                  <strong>{formatEnumLabel(schedule.status)}</strong>
+                  <button
+                    className="project-detail-danger-button"
+                    disabled={deleteScheduleMutation.isPending}
+                    type="button"
+                    onClick={() => void deleteSchedule(schedule)}
+                  >
+                    {deleteScheduleMutation.isPending ? 'Deleting...' : 'Delete'}
+                  </button>
+                </div>
               </article>
             ))}
           </div>

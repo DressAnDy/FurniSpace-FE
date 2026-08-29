@@ -1,5 +1,5 @@
-import { IconCalendarEvent, IconCircleCheck, IconSettings, IconUserPlus, IconX } from '@tabler/icons-react';
-import { FormEvent, useEffect, useMemo, useState } from 'react';
+import { IconCircleCheck, IconSettings, IconUserPlus } from '@tabler/icons-react';
+import { useEffect, useMemo, useState } from 'react';
 
 import { SaleNavbar, SaleSidebar } from '@/features/SalePages/salecomponents';
 import { getOrderServiceResultMessage, type OrderDetailDto, type OrderItemDto } from '@/services/api/orders';
@@ -18,7 +18,7 @@ import {
   useProjectOrders,
   useUpdateProductionDeadline,
 } from '@/services/queries';
-import { getDefaultPaymentExpiredAt, getLocalDateInputValue, getMinimumEndDateInputValue, validateOptionalFutureDateRange } from '@/shared/utils/dateValidation';
+import { getDefaultPaymentExpiredAt } from '@/shared/utils/dateValidation';
 import { aggregateDuplicateItems } from '@/shared/utils/itemAggregation';
 
 import './SaleOrders.css';
@@ -219,27 +219,23 @@ export function SaleOrders() {
                     onCreateProduction={async (input) => {
                       setMessage(null);
                       try {
-                        await createProductionRequestMutation.mutateAsync({ ...input, orderId: order.orderId });
+                        const { productionDeadline: nextProductionDeadline, ...productionRequestInput } = input;
+
+                        await updateProductionDeadlineMutation.mutateAsync({
+                          projectId: order.projectId,
+                          productionDeadline: nextProductionDeadline,
+                        });
+                        await createProductionRequestMutation.mutateAsync({ ...productionRequestInput, orderId: order.orderId });
                         setMessage({ tone: 'success', text: 'Production request created and assigned.' });
+                        void phaseDeadlinesQuery.refetch();
+                        void projectDetailQuery.refetch();
                         void ordersQuery.refetch();
                         void orderDetailQuery.refetch();
                       } catch (error) {
-                        setMessage({ tone: 'error', text: getProductionServiceResultMessage(error) });
-                      }
-                    }}
-                    onSetProductionDeadline={async (productionDeadlineValue) => {
-                      setMessage(null);
-                      try {
-                        await updateProductionDeadlineMutation.mutateAsync({
-                          projectId: order.projectId,
-                          productionDeadline: productionDeadlineValue,
-                        });
-                        setMessage({ tone: 'success', text: 'Production deadline saved.' });
-                        void phaseDeadlinesQuery.refetch();
-                        void projectDetailQuery.refetch();
-                      } catch (error) {
-                        setMessage({ tone: 'error', text: getProjectServiceResultMessage(error) });
-                        throw error;
+                        const projectErrorMessage = getProjectServiceResultMessage(error);
+                        const productionErrorMessage = getProductionServiceResultMessage(error);
+
+                        setMessage({ tone: 'error', text: projectErrorMessage || productionErrorMessage });
                       }
                     }}
                   />
@@ -266,7 +262,6 @@ function OrderDetailPanel({
   onCompleteOrder,
   onCreateDepositPayment,
   onCreateProduction,
-  onSetProductionDeadline,
   order,
   projectTargetCompletionDate,
   productionDeadline,
@@ -279,8 +274,7 @@ function OrderDetailPanel({
   isSavingProductionDeadline: boolean;
   onCompleteOrder: () => void;
   onCreateDepositPayment: () => void;
-  onCreateProduction: (input: { assignedTo?: string | null; priority: 'LOW' | 'MEDIUM' | 'NORMAL' | 'HIGH' | 'URGENT'; estimatedStartDate?: string | null; estimatedCompletionDate?: string | null; note?: string | null }) => void;
-  onSetProductionDeadline: (productionDeadline: string) => Promise<void>;
+  onCreateProduction: (input: { assignedTo?: string | null; priority: 'LOW' | 'MEDIUM' | 'NORMAL' | 'HIGH' | 'URGENT'; productionDeadline: string; note?: string | null }) => void;
   order: OrderDetailDto;
   projectTargetCompletionDate?: string | null;
   productionDeadline?: string | null;
@@ -288,10 +282,8 @@ function OrderDetailPanel({
 }) {
   const [assignedTo, setAssignedTo] = useState('');
   const [priority, setPriority] = useState<'LOW' | 'MEDIUM' | 'NORMAL' | 'HIGH' | 'URGENT'>('NORMAL');
-  const [estimatedStartDate, setEstimatedStartDate] = useState('');
-  const [estimatedCompletionDate, setEstimatedCompletionDate] = useState('');
-  const [productionDateMessage, setProductionDateMessage] = useState('');
-  const [isProductionDeadlineModalOpen, setIsProductionDeadlineModalOpen] = useState(false);
+  const [productionDeadlineDraft, setProductionDeadlineDraft] = useState(productionDeadline?.slice(0, 10) ?? '');
+  const [productionActionMessage, setProductionActionMessage] = useState('');
   const orderItems = useMemo(
     () => aggregateDuplicateItems([...order.items].sort((first, second) => getOrderItemName(first).localeCompare(getOrderItemName(second)))),
     [order.items],
@@ -302,11 +294,15 @@ function OrderDetailPanel({
   const isOrderCompleted = order.status === 'COMPLETED';
   const completeOrderBlocker = getCompleteOrderBlocker(order);
   const showFinalPaymentPanel = order.status === 'AWAITING_CUSTOMER_CONFIRMATION' || order.status === 'DELIVERED' || order.status === 'FINAL_PAYMENT_PENDING' || order.status === 'COMPLETED';
-  const isProductionDeadlineMissing = !isLoadingProductionDeadline && !productionDeadline;
+  const isProductionDeadlineMissing = !isLoadingProductionDeadline && !productionDeadlineDraft;
 
   useEffect(() => {
     setAssignedTo((current) => current || productionStaff.find((staff) => staff.isAvailable)?.accountId || productionStaff[0]?.accountId || '');
   }, [productionStaff]);
+
+  useEffect(() => {
+    setProductionDeadlineDraft(productionDeadline?.slice(0, 10) ?? '');
+  }, [productionDeadline]);
 
   const selectedProductionStaff = productionStaff.find((staff) => staff.accountId === assignedTo) ?? null;
 
@@ -344,44 +340,27 @@ function OrderDetailPanel({
           className="sale-orders-flow-panel sale-orders-flow-panel-production"
           onSubmit={(event) => {
             event.preventDefault();
-            setProductionDateMessage('');
-            const dateRange = validateOptionalFutureDateRange(estimatedStartDate, estimatedCompletionDate, {
-              startLabel: 'Internal start estimate',
-              endLabel: 'Internal complete estimate',
-            });
-            if (!dateRange.ok) {
-              setProductionDateMessage(dateRange.message);
+            setProductionActionMessage('');
+
+            if (!productionDeadlineDraft) {
+              setProductionActionMessage('Please select a production deadline.');
               return;
             }
-            if (projectTargetCompletionDate && isDateRangeAfterTarget(dateRange.start, dateRange.end, projectTargetCompletionDate)) {
-              setProductionDateMessage('Production dates cannot be after project target completion date.');
-              return;
-            }
+
             onCreateProduction({
               assignedTo: assignedTo || null,
-              estimatedCompletionDate: dateRange.end,
-              estimatedStartDate: dateRange.start,
               note: 'Created from Sales order flow.',
               priority,
+              productionDeadline: productionDeadlineDraft,
             });
           }}
         >
           <header>
             <div>
               <h3>Production Assignment</h3>
-              <p>Choose staff, priority, and optional internal schedule. Overdue tracking uses Production Deadline above.</p>
+              <p>Choose a staff member and priority. Planned completion is controlled only by Production Deadline.</p>
             </div>
           </header>
-          <div className={`sale-orders-deadline-strip ${productionDeadline ? 'is-ready' : 'is-missing'}`}>
-            <div>
-              <span>Production Deadline</span>
-              <strong>{isLoadingProductionDeadline ? 'Loading...' : productionDeadline ? formatDate(productionDeadline) : 'Not set yet'}</strong>
-            </div>
-            <button type="button" onClick={() => setIsProductionDeadlineModalOpen(true)}>
-              <IconCalendarEvent size={16} />
-              {productionDeadline ? 'Update Deadline' : 'Set Deadline'}
-            </button>
-          </div>
           {isProductionDeadlineMissing ? (
             <p className="sale-orders-action-note">Vui lòng set Production Deadline trước khi tạo yêu cầu sản xuất.</p>
           ) : null}
@@ -418,43 +397,27 @@ function OrderDetailPanel({
               </select>
             </label>
             <label>
-              <span>Internal Start</span>
+              <span>Production Deadline</span>
               <input
+                disabled={isLoadingProductionDeadline || isSavingProductionDeadline}
                 max={projectTargetCompletionDate ?? undefined}
-                min={getLocalDateInputValue()}
                 type="date"
-                value={estimatedStartDate}
+                value={productionDeadlineDraft}
                 onChange={(event) => {
-                  const nextStart = event.target.value;
-                  const minimumCompletionDate = getMinimumEndDateInputValue(nextStart);
-                  setEstimatedStartDate(nextStart);
-                  setEstimatedCompletionDate((current) => current && minimumCompletionDate && current < minimumCompletionDate ? '' : current);
-                  setProductionDateMessage('');
+                  setProductionDeadlineDraft(event.target.value);
+                  setProductionActionMessage('');
                 }}
               />
-            </label>
-            <label>
-              <span>Internal Complete</span>
-              <input
-                disabled={!estimatedStartDate}
-                max={projectTargetCompletionDate ?? undefined}
-                min={getMinimumEndDateInputValue(estimatedStartDate) || getLocalDateInputValue()}
-                type="date"
-                value={estimatedCompletionDate}
-                onChange={(event) => {
-                  const nextCompletionDate = event.target.value;
-                  const minimumCompletionDate = getMinimumEndDateInputValue(estimatedStartDate);
-                  setEstimatedCompletionDate(nextCompletionDate && minimumCompletionDate && nextCompletionDate < minimumCompletionDate ? '' : nextCompletionDate);
-                  setProductionDateMessage('');
-                }}
-              />
+              {projectTargetCompletionDate ? (
+                <em className="sale-orders-staff-meta">Project target: {formatDate(projectTargetCompletionDate)}</em>
+              ) : null}
             </label>
           </div>
-          {productionDateMessage ? <p className="sale-orders-action-note">{productionDateMessage}</p> : null}
+          {productionActionMessage ? <p className="sale-orders-action-note">{productionActionMessage}</p> : null}
           <div className="sale-orders-production-actions">
-            <button disabled={isCreatingProduction || isLoadingProductionDeadline || isProductionDeadlineMissing} type="submit">
+            <button disabled={isCreatingProduction || isSavingProductionDeadline || isLoadingProductionDeadline || isProductionDeadlineMissing} type="submit">
               <IconUserPlus size={16} />
-              {isCreatingProduction ? 'Assigning...' : 'Create Production Request'}
+              {isSavingProductionDeadline || isCreatingProduction ? 'Assigning...' : 'Create Production Request'}
             </button>
           </div>
         </form>
@@ -504,18 +467,6 @@ function OrderDetailPanel({
           </tbody>
         </table>
       </div>
-      {isProductionDeadlineModalOpen ? (
-        <ProductionDeadlineModal
-          initialDeadline={productionDeadline}
-          isSaving={isSavingProductionDeadline}
-          targetCompletionDate={projectTargetCompletionDate}
-          onClose={() => setIsProductionDeadlineModalOpen(false)}
-          onSave={async (nextDeadline) => {
-            await onSetProductionDeadline(nextDeadline);
-            setIsProductionDeadlineModalOpen(false);
-          }}
-        />
-      ) : null}
     </section>
   );
 }
@@ -525,77 +476,6 @@ function MoneyValue({ label, value }: { label: string; value: string }) {
     <div>
       <span>{label}</span>
       <strong>{value}</strong>
-    </div>
-  );
-}
-
-function ProductionDeadlineModal({
-  initialDeadline,
-  isSaving,
-  onClose,
-  onSave,
-  targetCompletionDate,
-}: {
-  initialDeadline?: string | null;
-  isSaving: boolean;
-  onClose: () => void;
-  onSave: (productionDeadline: string) => Promise<void>;
-  targetCompletionDate?: string | null;
-}) {
-  const [productionDeadline, setProductionDeadline] = useState(initialDeadline?.slice(0, 10) ?? '');
-  const [message, setMessage] = useState('');
-
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setMessage('');
-
-    if (!productionDeadline) {
-      setMessage('Please select a production deadline.');
-      return;
-    }
-
-    try {
-      await onSave(productionDeadline);
-    } catch (error) {
-      setMessage(getProjectServiceResultMessage(error));
-    }
-  }
-
-  return (
-    <div className="sale-orders-modal-backdrop" role="presentation">
-      <form className="sale-orders-deadline-modal" onSubmit={handleSubmit}>
-        <header>
-          <div>
-            <h3>Set Production Deadline</h3>
-            <p>Sales sets this deadline before creating the production request.</p>
-          </div>
-          <button aria-label="Close production deadline modal" type="button" onClick={onClose}>
-            <IconX size={16} />
-          </button>
-        </header>
-        <label>
-          <span>Production Deadline *</span>
-          <input
-            required
-            type="date"
-            value={productionDeadline}
-            onChange={(event) => {
-              setProductionDeadline(event.target.value);
-              setMessage('');
-            }}
-          />
-        </label>
-        {targetCompletionDate ? <p className="sale-orders-modal-note">Project target: {formatDate(targetCompletionDate)}</p> : null}
-        {message ? <p className="sale-orders-modal-message">{message}</p> : null}
-        <footer>
-          <button className="is-secondary" disabled={isSaving} type="button" onClick={onClose}>
-            Cancel
-          </button>
-          <button disabled={isSaving || !productionDeadline} type="submit">
-            {isSaving ? 'Saving...' : 'Save Deadline'}
-          </button>
-        </footer>
-      </form>
     </div>
   );
 }
@@ -661,8 +541,4 @@ function getFinalPaymentFlowMessage(order: OrderDetailDto) {
   if (order.status === 'FINAL_PAYMENT_PENDING') return 'No remaining amount is due. Complete the order if customer delivery was confirmed.';
 
   return 'Final payment is handled after full-order delivery confirmation.';
-}
-
-function isDateRangeAfterTarget(startDate: string | null, endDate: string | null, targetCompletionDate: string) {
-  return Boolean((startDate && startDate > targetCompletionDate) || (endDate && endDate > targetCompletionDate));
 }
