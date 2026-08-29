@@ -11,6 +11,8 @@ import {
 import { useNavigate, useParams } from 'react-router-dom';
 
 import { AdminNavbar, AdminSidebar } from '@/features/AdminPages/admincomponents';
+import { useLang } from '@/app/providers/useLang';
+import { adminCopy } from '@/features/AdminPages/admincomponents/adminI18n';
 import { ModelViewer, type ModelViewerStatus } from '@/features/ThreeD/components';
 import {
   getProductServiceResultMessage,
@@ -30,6 +32,8 @@ function formatPrice(value: number | null) {
 }
 
 export function ProductModelWorkspacePage() {
+  const { lang } = useLang();
+  const t = adminCopy[lang];
   const navigate = useNavigate();
   const { productId, productVersionId } = useParams();
   const productQuery = useProductDetail(productId);
@@ -113,7 +117,7 @@ export function ProductModelWorkspacePage() {
   return (
     <main className="admin-dashboard-page">
       <div className="admin-dashboard-shell">
-        <AdminSidebar activeLabel="3D Model & File Library" />
+        <AdminSidebar activeKey="catalogModels" />
         <section className="admin-main">
           <AdminNavbar
             activeLabel={(
@@ -125,7 +129,7 @@ export function ProductModelWorkspacePage() {
           <div className="admin-content model-workspace-content">
             <header className="product-management-heading model-workspace-heading">
               <div>
-                <h2>{version?.versionName ?? 'Product Version Model Workspace'}</h2>
+                <h2>{version?.versionName ?? t.catalogModels.workspaceFallback}</h2>
               </div>
               <div className="model-workspace-upload-actions">
                 <label className="admin-button admin-button-secondary">

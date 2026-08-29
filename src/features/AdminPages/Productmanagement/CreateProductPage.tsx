@@ -13,6 +13,8 @@ import {
 } from '@/services/queries';
 
 import { AdminNavbar, AdminSidebar } from '../admincomponents';
+import { useLang } from '@/app/providers/useLang';
+import { adminCopy } from '../admincomponents/adminI18n';
 import './Productmanagement.css';
 
 const MAX_PREVIEW_IMAGES = 5;
@@ -29,6 +31,8 @@ type PreviewUploadItem = {
 };
 
 export function CreateProductPage() {
+  const { lang } = useLang();
+  const t = adminCopy[lang];
   const navigate = useNavigate();
   const categoryListQuery = useCategoryList({ page: 1, limit: 100 });
   const businessTypeListQuery = useBusinessTypeList({ page: 1, limit: 100 });
@@ -287,17 +291,17 @@ export function CreateProductPage() {
   return (
     <main className="admin-dashboard-page">
       <div className="admin-dashboard-shell">
-        <AdminSidebar activeLabel="Products" />
+        <AdminSidebar activeKey="products" />
 
         <section className="admin-main">
-          <AdminNavbar activeLabel="Products" />
+          <AdminNavbar activeLabel={t.nav.products} />
           <div className="admin-content product-management-content">
             <div className="product-form-heading">
               <button className="product-version-back" type="button" onClick={() => navigate('/admin/products')}>
                 <IconArrowLeft size={16} />
                 Back to Products
               </button>
-              <h2>Create New Product</h2>
+              <h2>{t.products.createTitle}</h2>
               <p>Add a new product to the catalog</p>
             </div>
 

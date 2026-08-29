@@ -11,6 +11,8 @@ import {
 import { useProductDetail, useSetDefaultProductVersion } from '@/services/queries';
 
 import { AdminNavbar, AdminSidebar } from '../admincomponents';
+import { useLang } from '@/app/providers/useLang';
+import { adminCopy } from '../admincomponents/adminI18n';
 import './Productmanagement.css';
 
 const statusClassName: Record<string, string> = {
@@ -54,6 +56,8 @@ function getCatalogFileUrl(file: CatalogFileDto | null | undefined) {
 }
 
 export function ProductVersionManagement() {
+  const { lang } = useLang();
+  const t = adminCopy[lang];
   const navigate = useNavigate();
   const { productId } = useParams();
   const [previewVersionId, setPreviewVersionId] = useState<string | null>(null);
@@ -76,10 +80,10 @@ export function ProductVersionManagement() {
   return (
     <main className="admin-dashboard-page">
       <div className="admin-dashboard-shell">
-        <AdminSidebar activeLabel="Product Versions" />
+        <AdminSidebar activeKey="products" />
 
         <section className="admin-main">
-          <AdminNavbar activeLabel="Product Versions" />
+          <AdminNavbar activeLabel={t.products.versionsTitle} />
           <div className="admin-content product-management-content">
             <div className="product-version-heading">
               <div>
@@ -87,7 +91,7 @@ export function ProductVersionManagement() {
                   <IconArrowLeft size={16} />
                   Back to Products
                 </button>
-                <h2>Product Versions</h2>
+                <h2>{t.products.versionsTitle}</h2>
                 <p>Product ID: {product?.productCode ?? productId ?? 'Loading...'}</p>
               </div>
               <button className="admin-button admin-button-primary" type="button" onClick={() => navigate(`/admin/products/${productId}/versions/create`)} disabled={!productId}>

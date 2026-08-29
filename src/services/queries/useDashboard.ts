@@ -6,10 +6,12 @@ import {
   getDesignerWorkQueue,
   getProductionDashboardKpis,
   getProductionQueue,
+  getProjectPhaseDeadlineRisks,
   getSalesActionQueue,
   getSalesDashboardKpis,
   type DashboardKpiQueryDto,
   type DashboardQueueQueryDto,
+  type ProjectPhaseDeadlineRiskParams,
 } from '@/services/api/dashboard';
 
 export { getDashboardServiceResultMessage };
@@ -22,6 +24,8 @@ export const dashboardQueryKeys = {
   designerKpis: (params?: DashboardKpiQueryDto) => ['dashboard', 'designer', 'kpis', params] as const,
   productionQueue: (params?: DashboardQueueQueryDto) => ['dashboard', 'production', 'queue', params] as const,
   productionKpis: (params?: DashboardKpiQueryDto) => ['dashboard', 'production', 'kpis', params] as const,
+  phaseDeadlineRisks: (params?: ProjectPhaseDeadlineRiskParams) =>
+    ['dashboard', 'project-phase-deadlines', params] as const,
 };
 
 export function useSalesActionQueue(params?: DashboardQueueQueryDto, enabled = true) {
@@ -69,5 +73,13 @@ export function useProductionDashboardKpis(params?: DashboardKpiQueryDto, enable
     queryKey: dashboardQueryKeys.productionKpis(params),
     queryFn: () => getProductionDashboardKpis(params),
     enabled,
+  });
+}
+
+export function useProjectPhaseDeadlineRisks(params?: ProjectPhaseDeadlineRiskParams, options?: { enabled?: boolean }) {
+  return useQuery({
+    queryKey: dashboardQueryKeys.phaseDeadlineRisks(params),
+    queryFn: () => getProjectPhaseDeadlineRisks(params),
+    enabled: options?.enabled ?? true,
   });
 }

@@ -164,6 +164,7 @@ export function useUpdateProductionDeadline() {
       void queryClient.invalidateQueries({ queryKey: projectQueryKeys.detail(input.projectId) });
       void queryClient.invalidateQueries({ queryKey: projectQueryKeys.workflow(input.projectId) });
       void queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      void queryClient.invalidateQueries({ queryKey: ['dashboard', 'project-phase-deadlines'] });
     },
   });
 }
