@@ -305,10 +305,22 @@ export function Categorymanagement() {
             </div>
 
             <div className="category-management-tabs" role="tablist" aria-label="Catalog taxonomy views">
-              <button className={activeTab === 'categories' ? 'is-active' : ''} type="button" role="tab" onClick={() => handleTabChange('categories')}>
+              <button
+                className={`category-management-tab${activeTab === 'categories' ? ' is-active' : ''}`}
+                type="button"
+                role="tab"
+                aria-selected={activeTab === 'categories'}
+                onClick={() => handleTabChange('categories')}
+              >
                 Categories
               </button>
-              <button className={activeTab === 'business-types' ? 'is-active' : ''} type="button" role="tab" onClick={() => handleTabChange('business-types')}>
+              <button
+                className={`category-management-tab${activeTab === 'business-types' ? ' is-active' : ''}`}
+                type="button"
+                role="tab"
+                aria-selected={activeTab === 'business-types'}
+                onClick={() => handleTabChange('business-types')}
+              >
                 Business Types
               </button>
             </div>
@@ -399,7 +411,6 @@ export function Categorymanagement() {
                   <table className="category-management-table">
                     <thead>
                       <tr>
-                        <th>Category ID</th>
                         <th>Category Name</th>
                         <th>Description</th>
                         <th>Status</th>
@@ -409,9 +420,6 @@ export function Categorymanagement() {
                     <tbody>
                       {filteredCategories.map((category) => (
                         <tr key={category.categoryId}>
-                          <td className="category-management-id" title={category.categoryId}>
-                            {shortenId(category.categoryId)}
-                          </td>
                           <td>
                             <div className="category-management-name">
                               <span>
@@ -452,7 +460,6 @@ export function Categorymanagement() {
                   <table className="category-management-table">
                     <thead>
                       <tr>
-                        <th>ID</th>
                         <th>Business Type</th>
                         <th>Code</th>
                         <th>Status</th>
@@ -462,7 +469,6 @@ export function Categorymanagement() {
                     <tbody>
                       {filteredBusinessTypes.map((businessType) => (
                         <tr key={businessType.id}>
-                          <td className="category-management-id">{businessType.id}</td>
                           <td>
                             <div className="category-management-name">
                               <span>
@@ -541,10 +547,6 @@ export function Categorymanagement() {
       />
     </main>
   );
-}
-
-function shortenId(value: string) {
-  return value.length > 12 ? `${value.slice(0, 8)}...` : value;
 }
 
 function formatSortLabel(value: CategorySortFilter) {

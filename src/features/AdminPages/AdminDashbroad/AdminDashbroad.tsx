@@ -57,18 +57,19 @@ type StatusBreakdown = {
   label: string;
 };
 
-const overviewBuckets: Array<{ color: string; key: keyof ProjectBucketCounts; label: string }> = [
-  { color: '#5c4030', key: 'intake', label: 'Intake' },
-  { color: '#c4a574', key: 'designMonitor', label: 'Design' },
-  { color: '#a67c52', key: 'commercial', label: 'Commercial' },
-  { color: '#e8d5b7', key: 'fulfillment', label: 'Fulfillment' },
-  { color: '#b8956c', key: 'terminal', label: 'Terminal' },
-  { color: '#9ca3af', key: 'other', label: 'Other' },
+const overviewBuckets: Array<{ color: string; key: keyof ProjectBucketCounts }> = [
+  { color: '#5c4030', key: 'intake' },
+  { color: '#c4a574', key: 'designMonitor' },
+  { color: '#a67c52', key: 'commercial' },
+  { color: '#e8d5b7', key: 'fulfillment' },
+  { color: '#b8956c', key: 'terminal' },
+  { color: '#9ca3af', key: 'other' },
 ];
 
 export function AdminDashbroad() {
   const { lang } = useLang();
   const t = adminCopy[lang];
+  const d = t.dashboard;
   const [period, setPeriod] = useState<FinancialPeriodType>('THIS_MONTH');
   const [lastRefreshAt, setLastRefreshAt] = useState(() => new Date());
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -85,13 +86,13 @@ export function AdminDashbroad() {
 
   const refreshTime = new Intl.DateTimeFormat(lang === 'vi' ? 'vi-VN' : 'en-US', { hour: '2-digit', minute: '2-digit' }).format(lastRefreshAt);
   const statusBreakdown = useMemo(
-    () => getBucketBreakdown(overviewQuery.data?.projects.byBucket),
-    [overviewQuery.data?.projects.byBucket],
+    () => getBucketBreakdown(overviewQuery.data?.projects.byBucket, d),
+    [overviewQuery.data?.projects.byBucket, d],
   );
 
   const kpis = useMemo(
-    () => buildKpis(overviewQuery.data, summaryQuery.data),
-    [overviewQuery.data, summaryQuery.data],
+    () => buildKpis(overviewQuery.data, summaryQuery.data, d),
+    [overviewQuery.data, summaryQuery.data, d],
   );
 
   const isLoading = overviewQuery.isLoading || summaryQuery.isLoading;
@@ -125,17 +126,17 @@ export function AdminDashbroad() {
           <div className="admin-content admin-dash-v2">
             <section className="admin-dash-v2-header">
               <div>
-                <span>Operational command center</span>
-                <h2>{t.dashboard.title}</h2>
-                <p>{t.dashboard.subtitle}</p>
+                <span>{d.eyebrow}</span>
+                <h2>{d.title}</h2>
+                <p>{d.subtitle}</p>
               </div>
               <div className="admin-dash-v2-header-actions">
                 <div className="admin-dash-v2-revenue-controls" role="group" aria-label="Financial period">
                   <button className={period === 'THIS_MONTH' ? 'is-active' : undefined} type="button" onClick={() => setPeriod('THIS_MONTH')}>
-                    {t.dashboard.periodThisMonth}
+                    {d.periodThisMonth}
                   </button>
                   <button className={period === 'THIS_YEAR' ? 'is-active' : undefined} type="button" onClick={() => setPeriod('THIS_YEAR')}>
-                    {t.dashboard.periodThisYear}
+                    {d.periodThisYear}
                   </button>
                 </div>
                 <button
@@ -153,6 +154,8 @@ export function AdminDashbroad() {
             <DashboardQueryState
               isError={isError}
               isLoading={isLoading}
+              loadingText={d.loadingData}
+              fallbackError={d.loadError}
               errorMessage={
                 summaryQuery.isError
                   ? getAdminFinancialServiceResultMessage(summaryQuery.error)
@@ -172,18 +175,18 @@ export function AdminDashbroad() {
               <article className="admin-card admin-dash-v2-status">
                 <SectionTitle
                   icon={IconChartBar}
-                  title="Overview distribution"
-                  subtitle="Project buckets from admin reports overview (system-wide)."
+                  title={d.overviewTitle}
+                  subtitle={d.overviewSubtitle}
                 />
-                {overviewQuery.isLoading ? <EmptyState text="Loading project distribution..." /> : null}
+                {overviewQuery.isLoading ? <EmptyState text={d.overviewLoading} /> : null}
                 {overviewQuery.isError ? (
                   <EmptyState text={getReportServiceResultMessage(overviewQuery.error)} />
                 ) : null}
                 {!overviewQuery.isLoading && !overviewQuery.isError ? (
                   statusBreakdown.length > 0 ? (
-                    <StatusDonutChart rows={statusBreakdown} />
+                    <StatusDonutChart rows={statusBreakdown} totalLabel={d.overviewTotal} />
                   ) : (
-                    <EmptyState text="No project status data loaded yet." />
+                    <EmptyState text={d.overviewEmpty} />
                   )
                 ) : null}
               </article>
@@ -191,14 +194,14 @@ export function AdminDashbroad() {
               <article className="admin-card">
                 <SectionTitle
                   icon={IconCreditCard}
-                  title="Payment type breakdown"
-                  subtitle="Collected vs outstanding for start fee, deposit, and remaining payment."
+                  title={d.breakdownTitle}
+                  subtitle={d.breakdownSubtitle}
                 />
-                {breakdownQuery.isLoading ? <EmptyState text="Loading breakdown..." /> : null}
+                {breakdownQuery.isLoading ? <EmptyState text={d.breakdownLoading} /> : null}
                 {breakdownQuery.isError ? (
                   <EmptyState text={getAdminFinancialServiceResultMessage(breakdownQuery.error)} />
                 ) : null}
-                {breakdownQuery.data ? <BreakdownList items={breakdownQuery.data.items} /> : null}
+                {breakdownQuery.data ? <BreakdownList items={breakdownQuery.data.items} copy={d} /> : null}
               </article>
             </section>
 
@@ -206,10 +209,10 @@ export function AdminDashbroad() {
               <article className="admin-card admin-dash-v2-exceptions-wide">
                 <SectionTitle
                   icon={IconAlertTriangle}
-                  title="Financial exceptions"
-                  subtitle="Operational issues needing admin attention."
+                  title={d.exceptionsTitle}
+                  subtitle={d.exceptionsSubtitle}
                 />
-                {exceptionsQuery.isLoading ? <EmptyState text="Loading exceptions..." /> : null}
+                {exceptionsQuery.isLoading ? <EmptyState text={d.exceptionsLoading} /> : null}
                 {exceptionsQuery.isError ? (
                   <EmptyState text={getAdminFinancialServiceResultMessage(exceptionsQuery.error)} />
                 ) : null}
@@ -217,10 +220,11 @@ export function AdminDashbroad() {
                   exceptionsQuery.data.items.length > 0 ? (
                     <ExceptionsList
                       items={exceptionsQuery.data.items}
-                      total={exceptionsQuery.data.totalItems}
+                      viewAllLabel={d.exceptionsViewAll(exceptionsQuery.data.totalItems)}
+                      formatExceptionType={(value) => formatPaymentOrExceptionLabel(value, d)}
                     />
                   ) : (
-                    <EmptyState text="No open financial exceptions." />
+                    <EmptyState text={d.exceptionsEmpty} />
                   )
                 ) : null}
               </article>
@@ -235,6 +239,7 @@ export function AdminDashbroad() {
 function buildKpis(
   overview: ReportOverviewDto | undefined,
   summary: AdminFinancialSummaryDto | undefined,
+  d: (typeof adminCopy)['en']['dashboard'],
 ): KpiItem[] {
   const activeProjects = overview?.projects.totalNonTerminal ?? 0;
   const completedProjects = overview?.projects.completedInRange ?? 0;
@@ -242,26 +247,26 @@ function buildKpis(
   const projectKpis: KpiItem[] = overview
     ? [
         {
-          comparison: 'Non-terminal',
-          description: 'All projects that are not COMPLETED or REJECTED across the system.',
+          comparison: d.kpiActiveCompare,
+          description: d.kpiActiveDesc,
           icon: IconBriefcase,
-          label: 'Active Projects',
+          label: d.kpiActive,
           path: '/admin/projects',
           tone: 'blue',
           trend: 'up',
           value: String(activeProjects),
-          warning: 'System-wide count',
+          warning: d.kpiActiveWarn,
         },
         {
-          comparison: 'In selected period',
-          description: 'Projects completed within the selected financial period.',
+          comparison: d.kpiCompletedCompare,
+          description: d.kpiCompletedDesc,
           icon: IconCheck,
-          label: 'Completed Projects',
+          label: d.kpiCompleted,
           path: '/admin/projects',
           tone: 'green',
           trend: 'up',
           value: String(completedProjects),
-          warning: `${overview.projects.rejectedInRange} rejected in period`,
+          warning: d.kpiRejectedInPeriod(overview.projects.rejectedInRange),
         },
       ]
     : [];
@@ -269,43 +274,43 @@ function buildKpis(
   const financial: KpiItem[] = summary
     ? [
         {
-          comparison: `${summary.activePaymentCount} active`,
-          description: 'Verified start fee, deposit, and remaining payment collected in period.',
+          comparison: d.kpiActivePayments(summary.activePaymentCount),
+          description: d.kpiCollectedDesc,
           icon: IconCreditCard,
-          label: 'Amount Collected',
+          label: d.kpiCollected,
           path: '/admin/reports?tab=financial',
           tone: 'green',
           trend: 'up',
           value: formatKpiMoney(summary.collectedAmount),
-          warning: `${summary.failedTransactionCount} failed attempts`,
+          warning: d.kpiFailedAttempts(summary.failedTransactionCount),
         },
         {
-          comparison: `${summary.activePaymentCount} obligations`,
-          description: 'Active collectible payment obligations (current state).',
+          comparison: d.kpiObligations(summary.activePaymentCount),
+          description: d.kpiOutstandingDesc,
           icon: IconClock,
-          label: 'Outstanding Payments',
+          label: d.kpiOutstanding,
           path: '/admin/reports?tab=financial',
           tone: 'amber',
           trend: 'flat',
           value: formatKpiMoney(summary.outstandingPaymentAmount),
-          warning: 'Do not sum with contracted receivable',
+          warning: d.kpiOutstandingWarn,
         },
         {
-          comparison: 'Order remaining',
-          description: 'Active orders with remainingAmount > 0 (current state).',
+          comparison: d.kpiReceivableCompare,
+          description: d.kpiReceivableDesc,
           icon: IconCash,
-          label: 'Contracted Receivable',
+          label: d.kpiReceivable,
           path: '/admin/reports?tab=financial',
           tone: 'amber',
           trend: 'flat',
           value: formatKpiMoney(summary.contractedReceivableAmount),
-          warning: 'Separate from outstanding payments',
+          warning: d.kpiReceivableWarn,
         },
         {
-          comparison: 'Confirmed in period',
-          description: 'Sum of confirmed order finalTotalAmount in period.',
+          comparison: d.kpiCommercialCompare,
+          description: d.kpiCommercialDesc,
           icon: IconCash,
-          label: 'Order Commercial Value',
+          label: d.kpiCommercial,
           path: '/admin/reports?tab=financial',
           tone: 'blue',
           trend: 'flat',
@@ -318,31 +323,47 @@ function buildKpis(
   return [...projectKpis, ...financial];
 }
 
-function getBucketBreakdown(byBucket: ProjectBucketCounts | undefined): StatusBreakdown[] {
+function getBucketBreakdown(
+  byBucket: ProjectBucketCounts | undefined,
+  d: (typeof adminCopy)['en']['dashboard'],
+): StatusBreakdown[] {
   if (!byBucket) return [];
+
+  const labels: Record<keyof ProjectBucketCounts, string> = {
+    intake: d.bucketIntake,
+    designMonitor: d.bucketDesign,
+    commercial: d.bucketCommercial,
+    fulfillment: d.bucketFulfillment,
+    terminal: d.bucketTerminal,
+    other: d.bucketOther,
+  };
 
   return overviewBuckets
     .map((bucket) => ({
       color: bucket.color,
       count: byBucket[bucket.key] ?? 0,
-      label: bucket.label,
+      label: labels[bucket.key],
     }))
     .filter((row) => row.count > 0);
 }
 
 function DashboardQueryState({
   errorMessage,
+  fallbackError,
   isError,
   isLoading,
+  loadingText,
 }: {
   errorMessage?: string;
+  fallbackError: string;
   isError: boolean;
   isLoading: boolean;
+  loadingText: string;
 }) {
   if (isLoading) {
     return (
       <section className="admin-dash-v2-state">
-        <IconRefresh size={16} /> Loading project and financial data...
+        <IconRefresh size={16} /> {loadingText}
       </section>
     );
   }
@@ -350,7 +371,7 @@ function DashboardQueryState({
   if (isError) {
     return (
       <section className="admin-dash-v2-state admin-dash-v2-state-error">
-        <IconInfoCircle size={16} /> {errorMessage || 'Some live API data could not be loaded.'}
+        <IconInfoCircle size={16} /> {errorMessage || fallbackError}
       </section>
     );
   }
@@ -391,7 +412,7 @@ function SectionTitle({ icon: TitleIcon, subtitle, title }: { icon: Icon; subtit
   );
 }
 
-function StatusDonutChart({ rows }: { rows: StatusBreakdown[] }) {
+function StatusDonutChart({ rows, totalLabel }: { rows: StatusBreakdown[]; totalLabel: string }) {
   const total = rows.reduce((sum, row) => sum + row.count, 0);
   const gradient = buildConicGradient(rows, total);
 
@@ -400,7 +421,7 @@ function StatusDonutChart({ rows }: { rows: StatusBreakdown[] }) {
       <div className="admin-dash-v2-donut-chart" aria-hidden="true" style={{ background: gradient }}>
         <div className="admin-dash-v2-donut-center">
           <strong>{total}</strong>
-          <span>Total</span>
+          <span>{totalLabel}</span>
         </div>
       </div>
 
@@ -433,6 +454,7 @@ function buildConicGradient(rows: StatusBreakdown[], total: number) {
 
 function BreakdownList({
   items,
+  copy,
 }: {
   items: Array<{
     paymentType: string;
@@ -442,21 +464,22 @@ function BreakdownList({
     outstandingCount: number;
     expiredCount: number;
   }>;
+  copy: (typeof adminCopy)['en']['dashboard'];
 }) {
   return (
     <ul className="admin-dash-v2-breakdown-list">
       {items.map((item) => (
         <li key={item.paymentType}>
           <div>
-            <strong>{formatEnumLabel(item.paymentType)}</strong>
+            <strong>{formatPaymentOrExceptionLabel(item.paymentType, copy)}</strong>
             <span>
-              {item.paidCount} paid · {item.outstandingCount} open · {item.expiredCount} expired
+              {copy.breakdownPaidOpenExpired(item.paidCount, item.outstandingCount, item.expiredCount)}
             </span>
           </div>
           <div>
             <em title={formatMoney(item.collectedAmount)}>{formatKpiMoney(item.collectedAmount)}</em>
             <small title={formatMoney(item.outstandingAmount)}>
-              Outstanding {formatKpiMoney(item.outstandingAmount)}
+              {copy.breakdownOutstanding} {formatKpiMoney(item.outstandingAmount)}
             </small>
           </div>
         </li>
@@ -467,7 +490,8 @@ function BreakdownList({
 
 function ExceptionsList({
   items,
-  total,
+  viewAllLabel,
+  formatExceptionType,
 }: {
   items: Array<{
     exceptionType: string;
@@ -476,7 +500,8 @@ function ExceptionsList({
     amount: number | null;
     projectId: string | null;
   }>;
-  total: number;
+  viewAllLabel: string;
+  formatExceptionType: (value: string) => string;
 }) {
   return (
     <div className="admin-dash-v2-exceptions">
@@ -488,17 +513,28 @@ function ExceptionsList({
             </span>
             <div>
               <strong>{item.title}</strong>
-              <small>{formatEnumLabel(item.exceptionType)}</small>
+              <small>{formatExceptionType(item.exceptionType)}</small>
             </div>
             <em>{item.amount != null ? formatKpiMoney(item.amount) : '—'}</em>
           </li>
         ))}
       </ul>
       <Link className="admin-dash-v2-exceptions-link" to="/admin/reports?tab=financial">
-        View all exceptions ({total})
+        {viewAllLabel}
       </Link>
     </div>
   );
+}
+
+function formatPaymentOrExceptionLabel(value: string, d: (typeof adminCopy)['en']['dashboard']) {
+  const map: Record<string, string> = {
+    PROJECT_START_FEE: d.paymentStartFee,
+    START_FEE: d.paymentStartFee,
+    DEPOSIT: d.paymentDeposit,
+    REMAINING_PAYMENT: d.paymentRemaining,
+    REMAINING: d.paymentRemaining,
+  };
+  return map[value] ?? formatEnumLabel(value);
 }
 
 function formatMoney(value: number | null | undefined) {

@@ -1,4 +1,4 @@
-import { useMemo, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import {
   IconAlertTriangle,
   IconBox,
@@ -19,6 +19,7 @@ import { useCreateLayoutAsset, useProductList, useUploadLayoutAssetFile } from '
 import { AdminNavbar, AdminSidebar } from '@/features/AdminPages/admincomponents';
 import { useLang } from '@/app/providers/useLang';
 import { adminCopy } from '@/features/AdminPages/admincomponents/adminI18n';
+import { ProjectsPager } from '@/features/AdminPages/AdminProjects/ProjectsPager';
 
 import { getPlannerReadiness } from './catalogModel.utils';
 import './CatalogModelManagement.css';
@@ -26,6 +27,7 @@ import './CatalogModelManagement.css';
 type ReadinessFilter = 'ALL' | 'READY' | 'INCOMPLETE';
 const catalogSortOptions = ['NEWEST', 'NAME_ASC', 'NAME_DESC'] as const;
 type CatalogSortFilter = (typeof catalogSortOptions)[number];
+const CATALOG_PAGE_SIZE = 5;
 const layoutAssetTypes: LayoutAssetType[] = [
   'WALL_MATERIAL',
   'FLOOR_MATERIAL',
@@ -47,6 +49,8 @@ export function CatalogModelManagementPage() {
   const [query, setQuery] = useState('');
   const [readinessFilter, setReadinessFilter] = useState<ReadinessFilter>('ALL');
   const [sortFilter, setSortFilter] = useState<CatalogSortFilter>('NEWEST');
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(CATALOG_PAGE_SIZE);
   const [isCreateAssetModalOpen, setIsCreateAssetModalOpen] = useState(false);
   const [assetMessage, setAssetMessage] = useState<{ tone: 'error' | 'success'; text: string } | null>(null);
   const productsQuery = useProductList({ limit: 100, page: 1 });
@@ -87,6 +91,27 @@ export function CatalogModelManagementPage() {
       return 0;
     });
   }, [products, query, readinessFilter, sortFilter]);
+
+  const totalItems = filteredProducts.length;
+  const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+  const currentPage = Math.min(page, totalPages);
+  const pagedProducts = useMemo(
+    () => filteredProducts.slice((currentPage - 1) * pageSize, currentPage * pageSize),
+    [filteredProducts, currentPage, pageSize],
+  );
+
+  useEffect(() => {
+    setPage(1);
+  }, [query, readinessFilter, sortFilter]);
+
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages);
+  }, [page, totalPages]);
+
+  function handlePageSizeChange(nextSize: number) {
+    setPageSize(nextSize);
+    setPage(1);
+  }
 
   const readyCount = products.filter((product) => getPlannerReadiness(product.status, product.defaultVersion).isReady).length;
   const attentionCount = Math.max(products.length - readyCount, 0);
@@ -182,14 +207,18 @@ export function CatalogModelManagementPage() {
 
                 <div className="product-management-total">
                   <span>Total</span>
-                  <strong>{products.length}</strong>
+                  <strong>{totalItems}</strong>
                 </div>
               </div>
 
               {productsQuery.isLoading && <div className="product-management-state">Loading catalog from API...</div>}
 
+              {!productsQuery.isLoading && totalItems === 0 ? (
+                <div className="product-management-state">No products match the current filters.</div>
+              ) : null}
+
               <section className="catalog-model-table" aria-label="Product Version model library">
-                {filteredProducts.map((product) => {
+                {pagedProducts.map((product) => {
                   const version = product.defaultVersion;
                   const thumbnailUrl = version?.thumbnail?.fileUrl ?? product.thumbnail?.fileUrl;
 
@@ -228,6 +257,18 @@ export function CatalogModelManagementPage() {
                   );
                 })}
               </section>
+
+              {!productsQuery.isLoading && totalItems > 0 ? (
+                <ProjectsPager
+                  page={currentPage}
+                  pageSize={pageSize}
+                  totalItems={totalItems}
+                  totalPages={totalPages}
+                  disabled={productsQuery.isFetching}
+                  onPageChange={setPage}
+                  onPageSizeChange={handlePageSizeChange}
+                />
+              ) : null}
             </section>
           </div>
         </section>

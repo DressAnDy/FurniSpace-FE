@@ -12,7 +12,7 @@ import { useQueries } from '@tanstack/react-query';
 import { useQueryClient } from '@tanstack/react-query';
 
 import { AdminNavbar, AdminSidebar } from '@/features/AdminPages/admincomponents';
-import { useLang } from '@/app/providers/useLang';
+import { useLang, type Lang } from '@/app/providers/useLang';
 import { adminCopy } from '@/features/AdminPages/admincomponents/adminI18n';
 import { getProjectServiceResultMessage, type ProjectListItemDto } from '@/services/api/projects';
 import {
@@ -44,6 +44,9 @@ export function AdminThreeDLabPage() {
   const { lang } = useLang();
   const t = adminCopy[lang];
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(PROJECTS_PER_PAGE);
+  const [pageDraft, setPageDraft] = useState(String(1));
+  const [sizeDraft, setSizeDraft] = useState(String(PROJECTS_PER_PAGE));
   const [searchDraft, setSearchDraft] = useState('');
   const [search, setSearch] = useState('');
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
@@ -54,13 +57,14 @@ export function AdminThreeDLabPage() {
     scene: ProposalSceneDto;
   } | null>(null);
   const projectsQuery = useProjectList({
-    limit: PROJECTS_PER_PAGE,
+    limit: pageSize,
     page,
     search,
   });
   const projects = useMemo(() => projectsQuery.data?.items ?? [], [projectsQuery.data?.items]);
   const totalProjects = projectsQuery.data?.total ?? 0;
-  const totalPages = Math.max(1, Math.ceil(totalProjects / PROJECTS_PER_PAGE));
+  const totalPages = Math.max(1, Math.ceil(totalProjects / pageSize));
+  const currentPage = Math.min(page, totalPages);
   const selectedProject = projects.find((project) => project.projectId === selectedProjectId) ?? projects[0] ?? null;
   const projectDetailQuery = useProjectDetail(selectedProject?.projectId);
   const proposalsQuery = useProjectProposals(
@@ -88,6 +92,44 @@ export function AdminThreeDLabPage() {
     () => (scenesQuery.data?.items ?? []).filter(isRoomPlannerPreviewScene),
     [scenesQuery.data?.items],
   );
+  const labStats = useMemo(
+    () => [
+      {
+        label: lang === 'vi' ? 'Dự án' : 'Projects',
+        value: totalProjects,
+        helper: lang === 'vi' ? 'Tổng project đang lọc' : 'Total projects in filter',
+        icon: IconFolder,
+        tone: 'dark' as const,
+      },
+      {
+        label: lang === 'vi' ? 'Proposal' : 'Proposals',
+        value: proposals.length,
+        helper: lang === 'vi' ? 'Trong project đang chọn' : 'In selected project',
+        icon: IconFileText,
+        tone: 'gold' as const,
+      },
+      {
+        label: lang === 'vi' ? 'Scene 3D' : '3D Scenes',
+        value: scenes.length,
+        helper: lang === 'vi' ? 'Trong proposal đang chọn' : 'In selected proposal',
+        icon: IconCube,
+        tone: 'green' as const,
+      },
+    ],
+    [lang, proposals.length, scenes.length, totalProjects],
+  );
+
+  useEffect(() => {
+    setPageDraft(String(currentPage));
+  }, [currentPage]);
+
+  useEffect(() => {
+    setSizeDraft(String(pageSize));
+  }, [pageSize]);
+
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages);
+  }, [page, totalPages]);
 
   useEffect(() => {
     if (!projects.length) {
@@ -121,6 +163,23 @@ export function AdminThreeDLabPage() {
     setSearch(searchDraft.trim());
   }
 
+  function commitPage() {
+    const parsed = Number.parseInt(pageDraft, 10);
+    const next = Number.isFinite(parsed) ? Math.min(Math.max(parsed, 1), totalPages) : currentPage;
+    setPageDraft(String(next));
+    if (next !== page) setPage(next);
+  }
+
+  function commitPageSize() {
+    const parsed = Number.parseInt(sizeDraft, 10);
+    const next = Number.isFinite(parsed) ? Math.min(Math.max(parsed, 1), 100) : pageSize;
+    setSizeDraft(String(next));
+    if (next !== pageSize) {
+      setPageSize(next);
+      setPage(1);
+    }
+  }
+
   return (
     <main className="admin-dashboard-page">
       <div className="admin-dashboard-shell">
@@ -132,39 +191,126 @@ export function AdminThreeDLabPage() {
             <header className="admin-three-d-lab-header">
               <div>
                 <span>Admin 3D Lab</span>
-                <h1>3D proposal projects</h1>
-                <p>Select one project, review its selected proposal, then open the 3D scene space inside Room Planner.</p>
+                <h1>{t.threeDLab.title}</h1>
+                <p>{t.threeDLab.subtitle}</p>
               </div>
               <form className="admin-three-d-lab-search" onSubmit={submitSearch}>
                 <IconSearch size={18} />
                 <input
                   aria-label="Search projects"
-                  placeholder="Search project name or code"
+                  placeholder={lang === 'vi' ? 'Tìm tên hoặc mã dự án' : 'Search project name or code'}
                   value={searchDraft}
                   onChange={(event) => setSearchDraft(event.target.value)}
                 />
-                <button type="submit">Search</button>
+                <button type="submit">{lang === 'vi' ? 'Tìm' : 'Search'}</button>
               </form>
             </header>
+
+            <section className="admin-three-d-lab-stats" aria-label="3D lab summary">
+              {labStats.map(({ label, value, helper, icon: Icon, tone }) => (
+                <article className="admin-three-d-stat-card" key={label}>
+                  <div>
+                    <span>{label}</span>
+                    <strong>{value}</strong>
+                    <p>{helper}</p>
+                  </div>
+                  <div className={`admin-three-d-stat-icon is-${tone}`}>
+                    <Icon size={22} />
+                  </div>
+                </article>
+              ))}
+            </section>
 
             {projectsQuery.isError && (
               <div className="admin-three-d-lab-alert">{getProjectServiceResultMessage(projectsQuery.error)}</div>
             )}
 
             {projectsQuery.isLoading ? (
-              <div className="admin-three-d-lab-empty">Loading projects from backend...</div>
+              <div className="admin-three-d-lab-empty">
+                <span className="admin-three-d-empty-icon"><IconCube size={26} /></span>
+                <strong>{lang === 'vi' ? 'Đang tải dự án...' : 'Loading projects...'}</strong>
+                <p>{lang === 'vi' ? 'Đang lấy danh sách project từ backend.' : 'Fetching projects from backend.'}</p>
+              </div>
             ) : projects.length ? (
               <div className="admin-three-d-lab-workspace">
-                <aside className="admin-three-d-project-list" aria-label="Projects">
-                  {projects.map((project) => (
-                    <ProjectPickerItem
-                      isSelected={project.projectId === selectedProject?.projectId}
-                      key={project.projectId}
-                      project={project}
-                      onSelect={() => setSelectedProjectId(project.projectId)}
-                    />
-                  ))}
-                </aside>
+                <div className="admin-three-d-project-column">
+                  <aside className="admin-three-d-project-list" aria-label="Projects">
+                    <div className="admin-three-d-list-heading">
+                      <div>
+                        <span>{lang === 'vi' ? 'Danh sách' : 'Browse'}</span>
+                        <strong>{lang === 'vi' ? 'Projects' : 'Projects'}</strong>
+                      </div>
+                      <em>{projects.length}</em>
+                    </div>
+                    <div className="admin-three-d-project-scroll">
+                      {projects.map((project) => (
+                        <ProjectPickerItem
+                          isSelected={project.projectId === selectedProject?.projectId}
+                          key={project.projectId}
+                          project={project}
+                          onSelect={() => setSelectedProjectId(project.projectId)}
+                        />
+                      ))}
+                    </div>
+                  </aside>
+
+                  <footer className="admin-three-d-lab-pagination">
+                    <div className="admin-three-d-lab-pagination-meta">
+                      <label className="admin-three-d-lab-pagination-field">
+                        <span>{t.common.rows}</span>
+                        <input
+                          aria-label={t.common.rows}
+                          disabled={projectsQuery.isFetching}
+                          max={100}
+                          min={1}
+                          type="number"
+                          value={sizeDraft}
+                          onBlur={commitPageSize}
+                          onChange={(event) => setSizeDraft(event.target.value)}
+                          onKeyDown={(event) => {
+                            if (event.key === 'Enter') event.currentTarget.blur();
+                          }}
+                        />
+                      </label>
+                      <label className="admin-three-d-lab-pagination-field">
+                        <span>{t.common.page}</span>
+                        <input
+                          aria-label={t.common.page}
+                          disabled={projectsQuery.isFetching}
+                          max={totalPages}
+                          min={1}
+                          type="number"
+                          value={pageDraft}
+                          onBlur={commitPage}
+                          onChange={(event) => setPageDraft(event.target.value)}
+                          onKeyDown={(event) => {
+                            if (event.key === 'Enter') event.currentTarget.blur();
+                          }}
+                        />
+                        <span className="admin-three-d-lab-pagination-of">/ {totalPages}</span>
+                      </label>
+                      <span className="admin-three-d-lab-pagination-total">
+                        {totalProjects} {lang === 'vi' ? 'dự án' : 'projects'}
+                      </span>
+                    </div>
+                    <div className="admin-three-d-lab-pagination-nav">
+                      <button
+                        disabled={currentPage <= 1 || projectsQuery.isFetching}
+                        type="button"
+                        onClick={() => setPage((current) => Math.max(1, current - 1))}
+                      >
+                        <IconChevronLeft size={16} /> {t.common.previous}
+                      </button>
+                      <button
+                        disabled={currentPage >= totalPages || projectsQuery.isFetching}
+                        type="button"
+                        onClick={() => setPage((current) => current + 1)}
+                      >
+                        {t.common.next} <IconChevronRight size={16} />
+                      </button>
+                    </div>
+                  </footer>
+                </div>
 
                 <section className="admin-three-d-detail-stack" aria-label="Selected project and proposal">
                   {selectedProject ? (
@@ -175,8 +321,10 @@ export function AdminThreeDLabPage() {
                   ) : null}
 
                   <SelectedProposalPanel
+                    emptyLabel={t.threeDLab.noProposal}
                     isLoadingProposals={proposalsQuery.isLoading}
                     isLoadingScenes={scenesQuery.isLoading}
+                    lang={lang}
                     projectId={selectedProject?.projectId ?? ''}
                     proposal={selectedProposal}
                     proposals={proposals}
@@ -192,22 +340,16 @@ export function AdminThreeDLabPage() {
                 </section>
               </div>
             ) : (
-              <div className="admin-three-d-lab-empty">No projects found for the current filters.</div>
-            )}
-
-            <footer className="admin-three-d-lab-pagination">
-              <span>
-                Page {page} of {totalPages} - {totalProjects} projects
-              </span>
-              <div>
-                <button disabled={page <= 1 || projectsQuery.isFetching} type="button" onClick={() => setPage((current) => Math.max(1, current - 1))}>
-                  <IconChevronLeft size={17} /> Previous
-                </button>
-                <button disabled={page >= totalPages || projectsQuery.isFetching} type="button" onClick={() => setPage((current) => current + 1)}>
-                  Next <IconChevronRight size={17} />
-                </button>
+              <div className="admin-three-d-lab-empty">
+                <span className="admin-three-d-empty-icon"><IconFolder size={26} /></span>
+                <strong>{lang === 'vi' ? 'Không tìm thấy dự án' : 'No projects found'}</strong>
+                <p>
+                  {lang === 'vi'
+                    ? 'Thử đổi từ khóa tìm kiếm hoặc kiểm tra bộ lọc hiện tại.'
+                    : 'Try a different search keyword or check the current filters.'}
+                </p>
               </div>
-            </footer>
+            )}
           </div>
         </section>
       </div>
@@ -293,8 +435,10 @@ function ProjectInformationPanel({
 }
 
 function SelectedProposalPanel({
+  emptyLabel,
   isLoadingProposals,
   isLoadingScenes,
+  lang,
   onOpenScenePreview,
   onSelectProposal,
   projectId,
@@ -303,8 +447,10 @@ function SelectedProposalPanel({
   scenes,
   scenesError,
 }: {
+  emptyLabel: string;
   isLoadingProposals: boolean;
   isLoadingScenes: boolean;
+  lang: Lang;
   onOpenScenePreview: (preview: { projectId: string; proposalId: string; scene: ProposalSceneDto }) => void;
   onSelectProposal: (proposalId: string) => void;
   projectId: string;
@@ -317,14 +463,18 @@ function SelectedProposalPanel({
     <article className="admin-three-d-info-panel admin-three-d-proposal-panel">
       <header className="admin-three-d-panel-heading">
         <div>
-          <span>Selected proposal</span>
-          <h2>{proposal?.proposalName ?? 'No proposal selected'}</h2>
+          <span>{lang === 'vi' ? 'Proposal đang chọn' : 'Selected proposal'}</span>
+          <h2>{proposal?.proposalName ?? emptyLabel}</h2>
         </div>
-        {proposal ? <strong>v{proposal.versionNo} - {proposal.status}</strong> : null}
+        {proposal ? <strong>v{proposal.versionNo} · {proposal.status}</strong> : null}
       </header>
 
-      {isLoadingProposals ? <div className="admin-three-d-muted">Loading proposal versions...</div> : null}
-      {!isLoadingProposals && proposals.length === 0 ? <div className="admin-three-d-muted">No proposal has been created for this project.</div> : null}
+      {isLoadingProposals ? <div className="admin-three-d-muted">{lang === 'vi' ? 'Đang tải proposal...' : 'Loading proposal versions...'}</div> : null}
+      {!isLoadingProposals && proposals.length === 0 ? (
+        <div className="admin-three-d-muted">
+          {lang === 'vi' ? 'Project này chưa có proposal.' : 'No proposal has been created for this project.'}
+        </div>
+      ) : null}
 
       {proposals.length > 0 ? (
         <div className="admin-three-d-proposal-selector" aria-label="Proposal versions">
@@ -338,7 +488,7 @@ function SelectedProposalPanel({
               <IconFileText size={16} />
               <span>
                 <strong>{candidate.proposalName}</strong>
-                <small>v{candidate.versionNo} - {candidate.status}</small>
+                <small>v{candidate.versionNo} · {candidate.status}</small>
               </span>
             </button>
           ))}
@@ -348,15 +498,20 @@ function SelectedProposalPanel({
       {proposal ? (
         <section className="admin-three-d-scene-panel" aria-label="Scenes in selected proposal">
           <div className="admin-three-d-scene-panel-heading">
-            <span>Scenes inside this proposal</span>
+            <span>{lang === 'vi' ? 'Scene trong proposal' : 'Scenes inside this proposal'}</span>
             <strong>{scenes.length}</strong>
           </div>
           {scenesError ? <div className="admin-three-d-card-alert">{scenesError}</div> : null}
-          {isLoadingScenes ? <div className="admin-three-d-muted">Loading 3D scenes...</div> : null}
-          {!isLoadingScenes && scenes.length === 0 ? <div className="admin-three-d-muted">No active 3D scene in this proposal.</div> : null}
+          {isLoadingScenes ? <div className="admin-three-d-muted">{lang === 'vi' ? 'Đang tải scene 3D...' : 'Loading 3D scenes...'}</div> : null}
+          {!isLoadingScenes && scenes.length === 0 ? (
+            <div className="admin-three-d-muted">
+              {lang === 'vi' ? 'Proposal này chưa có scene 3D active.' : 'No active 3D scene in this proposal.'}
+            </div>
+          ) : null}
           {scenes.map((scene) => (
             <SceneLink
               key={scene.sceneId}
+              lang={lang}
               projectId={projectId}
               proposalId={proposal.proposalId}
               scene={scene}
@@ -370,11 +525,13 @@ function SelectedProposalPanel({
 }
 
 function SceneLink({
+  lang,
   onOpen,
   projectId,
   proposalId,
   scene,
 }: {
+  lang: Lang;
   onOpen: (preview: { projectId: string; proposalId: string; scene: ProposalSceneDto }) => void;
   projectId: string;
   proposalId: string;
@@ -398,12 +555,17 @@ function SceneLink({
       onFocus={warmScenePreview}
       onMouseEnter={warmScenePreview}
     >
-      <IconCube size={17} />
+      <span className="admin-three-d-scene-link-icon"><IconCube size={17} /></span>
       <span>
         <strong>{scene.sceneName}</strong>
-        <small>Scene v{scene.versionNo} - {scene.mongoSceneId ? 'Saved Room Planner scene' : 'No Room Planner save yet'}</small>
+        <small>
+          Scene v{scene.versionNo} ·{' '}
+          {scene.mongoSceneId
+            ? (lang === 'vi' ? 'Đã lưu Room Planner' : 'Saved Room Planner scene')
+            : (lang === 'vi' ? 'Chưa có bản lưu' : 'No Room Planner save yet')}
+        </small>
       </span>
-      <IconChevronRight size={17} />
+      <span className="admin-three-d-open-chip">{lang === 'vi' ? 'Mở' : 'Open'}</span>
     </button>
   );
 }
@@ -526,7 +688,12 @@ function ScenePreviewModal({
 }
 
 function SceneModalState({ message }: { message: string }) {
-  return <div className="admin-three-d-scene-modal-state">{message}</div>;
+  return (
+    <div className="admin-three-d-scene-modal-state">
+      <span><IconCube size={24} /></span>
+      {message}
+    </div>
+  );
 }
 
 function InfoItem({ label, value }: { label: string; value: string }) {

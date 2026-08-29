@@ -16,30 +16,31 @@
 }
 
 .category-management-tabs {
-  display: inline-flex;
-  gap: 6px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 18px 0 20px;
+}
+
+.category-management-tabs button,
+.category-management-tab {
+  height: 40px;
   border: 1px solid #e5e7eb;
   border-radius: 8px;
   background: #ffffff;
-  margin: 18px 0 20px;
-  padding: 4px;
-}
-
-.category-management-tabs button {
-  height: 34px;
-  border: 0;
-  border-radius: 6px;
-  background: transparent;
   color: #6b7280;
   cursor: pointer;
-  font-size: 13px;
-  font-weight: 700;
-  padding: 0 14px;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 20px;
+  padding: 0 16px;
 }
 
-.category-management-tabs button.is-active {
-  background: #d4a574;
-  color: #ffffff;
+.category-management-tabs button.is-active,
+.category-management-tab.is-active {
+  border-color: #9a6b3d;
+  background: #f8f1e9;
+  color: #7a4f28;
 }
 
 .category-stat-grid {
@@ -542,9 +543,14 @@
   }
 
   .category-management-tabs {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
+    display: flex;
+    flex-wrap: wrap;
     width: 100%;
+  }
+
+  .category-management-tab {
+    flex: 1 1 auto;
+    min-width: 0;
   }
 
   .category-management-search {

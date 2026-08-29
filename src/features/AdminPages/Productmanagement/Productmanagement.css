@@ -1716,3 +1716,77 @@
   align-self: stretch;
   height: 100%;
 }
+
+.admin-projects-pager {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 18px;
+  color: #6b7280;
+}
+
+.admin-projects-pager-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+
+.admin-projects-pager-field {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.admin-projects-pager-field input {
+  width: 64px;
+  height: 34px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #fff;
+  color: #1a1d29;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 0 8px;
+  text-align: center;
+}
+
+.admin-projects-pager-field input:focus {
+  border-color: #9ca3af;
+  outline: none;
+}
+
+.admin-projects-pager-of,
+.admin-projects-pager-total {
+  font-size: 13px;
+  font-weight: 500;
+  color: #6b7280;
+}
+
+.admin-projects-pager-nav {
+  display: inline-flex;
+  gap: 8px;
+}
+
+.admin-projects-pager-nav button {
+  height: 34px;
+  border: 1px solid #d8c2a8;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #6f5636;
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 0 12px;
+}
+
+.admin-projects-pager-nav button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
