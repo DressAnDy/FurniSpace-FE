@@ -78,6 +78,7 @@ export function PublicShowcasesPage() {
                   <div className="public-showcase-card-title">
                     <h2>{showcase.title ?? showcase.projectName ?? 'Untitled showcase'}</h2>
                   </div>
+                  {showcase.summary ? <p className="public-showcase-card-summary">{showcase.summary}</p> : null}
                   <dl>
                     <div>
                       <dt>The loai</dt>
@@ -85,11 +86,11 @@ export function PublicShowcasesPage() {
                     </div>
                     <div>
                       <dt>Hoan thanh</dt>
-                      <dd>{showcase.publishedAt ? new Date(showcase.publishedAt).getFullYear() : '-'}</dd>
+                      <dd>{formatShowcaseDate(showcase.completedDate) ?? '-'}</dd>
                     </div>
                     <div>
-                      <dt>Trang thai</dt>
-                      <dd>{formatEnumLabel(showcase.status)}</dd>
+                      <dt>Dien tich</dt>
+                      <dd>{formatArea(showcase.totalAreaSqm) ?? '-'}</dd>
                     </div>
                   </dl>
                 </Link>
@@ -106,8 +107,12 @@ export function PublicShowcaseDetailPage() {
   const { slug } = useParams();
   const showcaseQuery = usePublicShowcase(slug);
   const showcase = showcaseQuery.data;
-  const media = showcase?.media ?? [];
+  const media = useMemo(
+    () => [...(showcase?.media ?? [])].sort((first, second) => (first.displayOrder ?? 0) - (second.displayOrder ?? 0)),
+    [showcase?.media],
+  );
   const heroMedia = showcase ? getShowcaseCover(showcase) : null;
+  const projectMeta = showcase ? getShowcaseProjectMeta(showcase) : [];
 
   return (
     <main className="public-showcase-page public-showcase-detail-page">
@@ -129,8 +134,8 @@ export function PublicShowcaseDetailPage() {
                   <dd>{showcase.businessType ?? '-'}</dd>
                 </div>
                 <div>
-                  <dt>Thoi gian</dt>
-                  <dd>{showcase.publishedAt ? new Date(showcase.publishedAt).getFullYear() : '-'}</dd>
+                  <dt>Nam hoan thanh</dt>
+                  <dd>{showcase.completionYear ?? '-'}</dd>
                 </div>
                 <div>
                   <dt>Du an</dt>
@@ -144,15 +149,26 @@ export function PublicShowcaseDetailPage() {
 
             <section className="public-showcase-gallery">
               <h2>Hinh thiet ke</h2>
-              {showcase.description ? <p>{showcase.description}</p> : null}
+              <div className="public-showcase-project-meta">
+                {projectMeta.map((item) => (
+                  <div key={item.label}>
+                    <span>{item.label}</span>
+                    <strong>{item.value}</strong>
+                  </div>
+                ))}
+              </div>
+              {showcase.description ? <p>{showcase.description}</p> : showcase.summary ? <p>{showcase.summary}</p> : null}
               <div className="public-showcase-media-grid">
                 {media.map((item) => {
-                  const mediaUrl = item.url ?? item.publicUrl;
+                  const mediaUrl = item.url ?? item.publicUrl ?? item.fileUrl;
 
                   return mediaUrl ? (
-                    <figure key={item.showcaseMediaId}>
+                    <figure className={item.isCover ? 'is-cover' : undefined} key={item.showcaseMediaId}>
                       <img alt={item.caption ?? item.mediaType} src={mediaUrl} />
-                      <figcaption>{item.caption ?? formatEnumLabel(item.mediaType)}</figcaption>
+                      <figcaption>
+                        {item.caption ?? formatEnumLabel(item.mediaType)}
+                        {item.isCover ? <span>Cover</span> : null}
+                      </figcaption>
                     </figure>
                   ) : null;
                 })}
@@ -170,14 +186,49 @@ function getCategories(showcases: ProjectShowcaseDto[]) {
 }
 
 function getShowcaseCover(showcase: ProjectShowcaseDto) {
-  return showcase.coverMedia?.url
+  return showcase.coverUrl
+    ?? showcase.coverMedia?.url
     ?? showcase.coverMedia?.publicUrl
+    ?? showcase.coverMedia?.fileUrl
     ?? showcase.media?.find((media) => media.isCover)?.url
     ?? showcase.media?.find((media) => media.isCover)?.publicUrl
-    ?? showcase.coverUrl
+    ?? showcase.media?.find((media) => media.isCover)?.fileUrl
     ?? showcase.media?.[0]?.url
     ?? showcase.media?.[0]?.publicUrl
+    ?? showcase.media?.[0]?.fileUrl
     ?? null;
+}
+
+function getShowcaseProjectMeta(showcase: ProjectShowcaseDto) {
+  return [
+    { label: 'Hoan thanh', value: formatShowcaseDate(showcase.completedDate) },
+    { label: 'Dien tich', value: formatArea(showcase.totalAreaSqm) },
+    { label: 'So tang', value: typeof showcase.numberOfFloors === 'number' ? `${showcase.numberOfFloors}` : null },
+    {
+      label: 'Thoi gian trien khai',
+      value: typeof showcase.implementationDurationDays === 'number' ? `${showcase.implementationDurationDays} ngay` : null,
+    },
+    { label: 'Dia diem', value: showcase.projectAddress },
+  ].filter((item): item is { label: string; value: string } => Boolean(item.value));
+}
+
+function formatShowcaseDate(value?: string | null) {
+  if (!value) return null;
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) return value;
+
+  return new Intl.DateTimeFormat('vi-VN', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  }).format(date);
+}
+
+function formatArea(value?: number | null) {
+  if (typeof value !== 'number') return null;
+
+  return `${new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 1 }).format(value)} m2`;
 }
 
 function formatEnumLabel(value: string) {

@@ -7,11 +7,12 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 
 import { CustomerNavbar } from '@/features/CustomerPages/customercomponents';
-import { getOrderServiceResultMessage, type OrderDetailDto, type OrderItemDto, type OrderStatus } from '@/services/api/orders';
+import { getOrderServiceResultMessage, type OrderDetailDto, type OrderItemDto, type OrderListItemDto, type OrderStatus } from '@/services/api/orders';
 import type { PaymentDetailDto } from '@/services/api/payments';
 import type { ProjectListItemDto } from '@/services/api/projects';
 import {
   useConfirmOrderDelivery,
+  useCreateOrderDepositPayment,
   useOrderDetail,
   usePayments,
   useProjectList,
@@ -19,6 +20,7 @@ import {
   useUpdateOrderDeliveryDetails,
 } from '@/services/queries';
 import { aggregateDuplicateItems, getItemAggregateKey } from '@/shared/utils/itemAggregation';
+import { getDefaultPaymentExpiredAt } from '@/shared/utils/dateValidation';
 import { PaymentCollectionModal } from '@/features/payments/PaymentCollectionModal';
 
 import './CustomerOrdersPage.css';
@@ -44,6 +46,7 @@ export function CustomerOrdersPage() {
   const [selectedOrderId, setSelectedOrderId] = useState('');
   const [projectPage, setProjectPage] = useState(1);
   const [activePayment, setActivePayment] = useState<PaymentDetailDto | null>(null);
+  const [savedDeliveryDetailsByOrderId, setSavedDeliveryDetailsByOrderId] = useState<Record<string, OrderDeliveryDetailsDraft>>({});
   const [message, setMessage] = useState<{ tone: 'error' | 'success'; text: string } | null>(null);
   const projectsQuery = useProjectList({ page: 1, limit: 50 });
   const projects = useMemo(() => projectsQuery.data?.items ?? [], [projectsQuery.data?.items]);
@@ -57,12 +60,35 @@ export function CustomerOrdersPage() {
   const ordersQuery = useProjectOrders(selectedProjectId, { enabled: Boolean(selectedProjectId) });
   const orders = useMemo(() => ordersQuery.data?.items ?? [], [ordersQuery.data?.items]);
   const orderDetailQuery = useOrderDetail(selectedOrderId, { enabled: Boolean(selectedOrderId) });
-  const order = orderDetailQuery.data ?? null;
+  const selectedOrderSummary = useMemo(
+    () => orders.find((item) => item.orderId === selectedOrderId) ?? null,
+    [orders, selectedOrderId],
+  );
+  const order = useMemo(() => {
+    const orderDetail = orderDetailQuery.data ?? null;
+
+    if (!orderDetail) return null;
+
+    const summaryDeliveryDetails = selectedOrderSummary ? getOrderDeliveryDetailsDraft(selectedOrderSummary) : null;
+    const savedDeliveryDetails = savedDeliveryDetailsByOrderId[orderDetail.orderId];
+    const resolvedDeliveryDetails = mergeDeliveryDetails(
+      getOrderDeliveryDetailsDraft(orderDetail),
+      summaryDeliveryDetails,
+      savedDeliveryDetails,
+    );
+
+    return { ...orderDetail, ...resolvedDeliveryDetails };
+  }, [orderDetailQuery.data, savedDeliveryDetailsByOrderId, selectedOrderSummary]);
   const remainingPaymentsQuery = usePayments(
     { orderId: selectedOrderId, paymentType: 'REMAINING_PAYMENT', status: 'PENDING' },
     { enabled: Boolean(selectedOrderId) },
   );
+  const depositPaymentsQuery = usePayments(
+    { orderId: selectedOrderId, paymentType: 'DEPOSIT', status: 'PENDING' },
+    { enabled: Boolean(selectedOrderId) },
+  );
   const confirmDeliveryMutation = useConfirmOrderDelivery();
+  const createDepositPaymentMutation = useCreateOrderDepositPayment();
   const updateDeliveryDetailsMutation = useUpdateOrderDeliveryDetails();
 
   useEffect(() => {
@@ -173,6 +199,8 @@ export function CustomerOrdersPage() {
               <OrderDetailCard
                 confirmDeliveryPending={confirmDeliveryMutation.isPending}
                 deliveryDetailsPending={updateDeliveryDetailsMutation.isPending}
+                depositPayment={depositPaymentsQuery.data?.items?.[0] ?? null}
+                depositPaymentPending={createDepositPaymentMutation.isPending}
                 order={order}
                 remainingPayment={remainingPaymentsQuery.data?.items?.[0] ?? null}
                 onConfirmDelivery={async () => {
@@ -185,6 +213,32 @@ export function CustomerOrdersPage() {
                     void ordersQuery.refetch();
                     void projectsQuery.refetch();
                     void remainingPaymentsQuery.refetch();
+                    void depositPaymentsQuery.refetch();
+                  } catch (error) {
+                    setMessage({ tone: 'error', text: getOrderServiceResultMessage(error) });
+                  }
+                }}
+                onCreateDepositPayment={async () => {
+                  setMessage(null);
+
+                  if (!hasCompleteDeliveryDetails(order)) {
+                    setMessage({ tone: 'error', text: 'Please complete all delivery details before creating the deposit payment.' });
+                    return;
+                  }
+
+                  try {
+                    const payment = await createDepositPaymentMutation.mutateAsync({
+                      orderId: order.orderId,
+                      expiredAt: getDefaultPaymentExpiredAt(),
+                      note: 'Customer deposit payment from order.',
+                    });
+
+                    setActivePayment(payment);
+                    setMessage({ tone: 'success', text: 'Deposit payment is ready.' });
+                    void orderDetailQuery.refetch();
+                    void ordersQuery.refetch();
+                    void projectsQuery.refetch();
+                    void depositPaymentsQuery.refetch();
                   } catch (error) {
                     setMessage({ tone: 'error', text: getOrderServiceResultMessage(error) });
                   }
@@ -193,17 +247,23 @@ export function CustomerOrdersPage() {
                   setMessage(null);
 
                   try {
+                    const normalizedDetails = normalizeDeliveryDetailsDraft(details);
+
                     await updateDeliveryDetailsMutation.mutateAsync({
-                      ...details,
+                      ...normalizedDetails,
                       orderId: order.orderId,
                     });
+
+                    setSavedDeliveryDetailsByOrderId((current) => ({
+                      ...current,
+                      [order.orderId]: normalizedDetails,
+                    }));
                     setMessage({ tone: 'success', text: 'Delivery details saved.' });
-                    void orderDetailQuery.refetch();
-                    void ordersQuery.refetch();
                   } catch (error) {
                     setMessage({ tone: 'error', text: getOrderServiceResultMessage(error) });
                   }
                 }}
+                onOpenDepositPayment={(payment) => setActivePayment(payment)}
                 onOpenRemainingPayment={(payment) => setActivePayment(payment)}
               />
             ) : null}
@@ -220,6 +280,8 @@ export function CustomerOrdersPage() {
                 void ordersQuery.refetch();
                 void projectsQuery.refetch();
                 void remainingPaymentsQuery.refetch();
+                void depositPaymentsQuery.refetch();
+                setActivePayment(null);
               }}
             />
           </section>
@@ -232,7 +294,11 @@ export function CustomerOrdersPage() {
 function OrderDetailCard({
   confirmDeliveryPending,
   deliveryDetailsPending,
+  depositPayment,
+  depositPaymentPending,
+  onCreateDepositPayment,
   onConfirmDelivery,
+  onOpenDepositPayment,
   onOpenRemainingPayment,
   onSaveDeliveryDetails,
   order,
@@ -240,13 +306,18 @@ function OrderDetailCard({
 }: {
   confirmDeliveryPending: boolean;
   deliveryDetailsPending: boolean;
+  depositPayment: PaymentDetailDto | null;
+  depositPaymentPending: boolean;
+  onCreateDepositPayment: () => Promise<void>;
   onConfirmDelivery: () => Promise<void>;
+  onOpenDepositPayment: (payment: PaymentDetailDto) => void;
   onOpenRemainingPayment: (payment: PaymentDetailDto) => void;
   onSaveDeliveryDetails: (details: OrderDeliveryDetailsDraft) => Promise<void>;
   order: OrderDetailDto;
   remainingPayment: PaymentDetailDto | null;
 }) {
-  const orderItems = useMemo(() => aggregateOrderItems(order.items), [order.items]);
+  const orderItems = useMemo(() => aggregateOrderItems(order.items ?? []), [order.items]);
+  const deliveryDetailsComplete = hasCompleteDeliveryDetails(order);
 
   return (
     <section className="customer-orders-card customer-orders-detail">
@@ -262,6 +333,26 @@ function OrderDetailCard({
         <MoneyValue label="Paid" value={formatMoney(order.paidAmount)} />
         <MoneyValue label="Remaining" value={formatMoney(order.remainingAmount)} />
       </div>
+
+      {canCreateDepositPayment(order.status) || order.status === 'DEPOSIT_PAID' ? (
+        <section className="customer-orders-payment-panel">
+          <div>
+            <span>Deposit Payment</span>
+            <strong>{getDepositPaymentLabel(order, deliveryDetailsComplete, Boolean(depositPayment))}</strong>
+          </div>
+          {canCreateDepositPayment(order.status) ? (
+            depositPayment ? (
+              <button disabled={!deliveryDetailsComplete} type="button" onClick={() => onOpenDepositPayment(depositPayment)}>
+                Pay Deposit
+              </button>
+            ) : (
+              <button disabled={depositPaymentPending || !deliveryDetailsComplete} type="button" onClick={() => void onCreateDepositPayment()}>
+                {depositPaymentPending ? 'Preparing...' : 'Create Deposit Payment'}
+              </button>
+            )
+          ) : null}
+        </section>
+      ) : null}
 
       {!areDeliveryDetailsLocked(order.status) ? (
         <DeliveryDetailsPanel
@@ -356,13 +447,30 @@ function getOrderProjects(projects: ProjectListItemDto[]) {
   return projects.filter((project) => orderProjectStatuses.has(project.status));
 }
 
-function getOrderDeliveryDetailsDraft(order: Pick<OrderDetailDto, 'deliveryAddress' | 'deliveryDetails' | 'deliveryNote' | 'receiverName' | 'receiverPhone'>): OrderDeliveryDetailsDraft {
+function getOrderDeliveryDetailsDraft(order: Pick<OrderDetailDto | OrderListItemDto, 'deliveryAddress' | 'deliveryDetails' | 'deliveryNote' | 'receiverName' | 'receiverPhone'>): OrderDeliveryDetailsDraft {
   return {
     deliveryAddress: order.deliveryAddress ?? order.deliveryDetails?.deliveryAddress ?? '',
     deliveryNote: order.deliveryNote ?? order.deliveryDetails?.deliveryNote ?? '',
     receiverName: order.receiverName ?? order.deliveryDetails?.receiverName ?? '',
     receiverPhone: order.receiverPhone ?? order.deliveryDetails?.receiverPhone ?? '',
   };
+}
+
+function mergeDeliveryDetails(
+  detail: OrderDeliveryDetailsDraft,
+  summary?: OrderDeliveryDetailsDraft | null,
+  saved?: OrderDeliveryDetailsDraft | null,
+): OrderDeliveryDetailsDraft {
+  return {
+    deliveryAddress: getFirstDeliveryDetailValue(saved?.deliveryAddress, detail.deliveryAddress, summary?.deliveryAddress),
+    deliveryNote: getFirstDeliveryDetailValue(saved?.deliveryNote, detail.deliveryNote, summary?.deliveryNote),
+    receiverName: getFirstDeliveryDetailValue(saved?.receiverName, detail.receiverName, summary?.receiverName),
+    receiverPhone: getFirstDeliveryDetailValue(saved?.receiverPhone, detail.receiverPhone, summary?.receiverPhone),
+  };
+}
+
+function getFirstDeliveryDetailValue(...values: Array<string | null | undefined>) {
+  return values.find((value) => Boolean(value?.trim()))?.trim() ?? '';
 }
 
 function normalizeDeliveryDetailsDraft(details: OrderDeliveryDetailsDraft): OrderDeliveryDetailsDraft {
@@ -379,6 +487,7 @@ function hasCompleteDeliveryDetails(details: OrderDeliveryDetailsDraft | OrderDe
 
   return Boolean(
     resolvedDetails.deliveryAddress?.trim()
+    && resolvedDetails.deliveryNote?.trim()
     && resolvedDetails.receiverName?.trim()
     && resolvedDetails.receiverPhone?.trim(),
   );
@@ -386,6 +495,18 @@ function hasCompleteDeliveryDetails(details: OrderDeliveryDetailsDraft | OrderDe
 
 function areDeliveryDetailsLocked(status?: OrderStatus | null) {
   return Boolean(status && status !== 'CREATED' && status !== 'DEPOSIT_PENDING');
+}
+
+function canCreateDepositPayment(status?: OrderStatus | null) {
+  return status === 'CREATED' || status === 'DEPOSIT_PENDING';
+}
+
+function getDepositPaymentLabel(order: OrderDetailDto, deliveryDetailsComplete: boolean, hasDepositPayment: boolean) {
+  if (order.status === 'DEPOSIT_PAID') return 'Deposit paid';
+  if (!deliveryDetailsComplete) return 'Complete delivery details first';
+  if (hasDepositPayment) return 'Payment pending';
+
+  return 'Ready to create payment';
 }
 
 function statusClass(value?: OrderStatus | null) {

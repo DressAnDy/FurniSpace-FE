@@ -8,15 +8,11 @@ import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 
 import { CustomerNavbar } from '@/features/CustomerPages/customercomponents';
-import { PaymentCollectionModal } from '@/features/payments/PaymentCollectionModal';
-import { getOrderServiceResultMessage, type OrderDetailDto, type OrderListItemDto, type OrderStatus } from '@/services/api/orders';
-import type { PaymentDetailDto } from '@/services/api/payments';
+import { type OrderListItemDto } from '@/services/api/orders';
 import { getQuotationServiceResultMessage, type QuotationDto, type QuotationItemDto, type QuotationStatus } from '@/services/api/quotations';
 import type { ProjectListItemDto } from '@/services/api/projects';
 import {
   useAcceptQuotation,
-  useCreateOrderDepositPayment,
-  useOrderDetail,
   useProjectOrders,
   useProjectList,
   useProjectProposals,
@@ -24,9 +20,7 @@ import {
   useProjectQuotations,
   useQuotationDetail,
   useRequestQuotationRevision,
-  useUpdateOrderDeliveryDetails,
 } from '@/services/queries';
-import { getDefaultPaymentExpiredAt } from '@/shared/utils/dateValidation';
 import { aggregateDuplicateItems } from '@/shared/utils/itemAggregation';
 
 import './CustomerQuotationsPage.css';
@@ -49,8 +43,6 @@ export function CustomerQuotationsPage() {
   const [selectedQuotationId, setSelectedQuotationId] = useState('');
   const [projectPage, setProjectPage] = useState(1);
   const [revisionReason, setRevisionReason] = useState('');
-  const [activePayment, setActivePayment] = useState<PaymentDetailDto | null>(null);
-  const [savedDeliveryDetailsByOrderId, setSavedDeliveryDetailsByOrderId] = useState<Record<string, OrderDeliveryDetailsDraft>>({});
   const [message, setMessage] = useState<{ tone: 'error' | 'success'; text: string } | null>(null);
   const projectsQuery = useProjectList({ page: 1, limit: 50 });
   const projects = useMemo(() => projectsQuery.data?.items ?? [], [projectsQuery.data?.items]);
@@ -74,19 +66,6 @@ export function CustomerQuotationsPage() {
     () => orders.find((order) => order.quotationId === selectedQuotation?.quotationId) ?? null,
     [orders, selectedQuotation?.quotationId],
   );
-  const selectedQuotationOrderDetailQuery = useOrderDetail(selectedQuotationOrder?.orderId, { enabled: Boolean(selectedQuotationOrder?.orderId) });
-  const selectedQuotationOrderDetail = useMemo(() => {
-    const orderDetail = selectedQuotationOrderDetailQuery.data ?? null;
-
-    if (!orderDetail) {
-      return null;
-    }
-
-    const savedDeliveryDetails = savedDeliveryDetailsByOrderId[orderDetail.orderId];
-
-    return savedDeliveryDetails ? { ...orderDetail, ...savedDeliveryDetails } : orderDetail;
-  }, [savedDeliveryDetailsByOrderId, selectedQuotationOrderDetailQuery.data]);
-  const selectedQuotationDeliveryDetailsSource = selectedQuotationOrderDetail ?? selectedQuotationOrder;
   const proposalNameById = useMemo(
     () => new Map((projectProposalsQuery.data?.items ?? []).map((proposal) => [proposal.proposalId, proposal.proposalName])),
     [projectProposalsQuery.data?.items],
@@ -94,8 +73,6 @@ export function CustomerQuotationsPage() {
   const selectedProposalQuery = useProposalDetail(selectedQuotation?.proposalId, { enabled: Boolean(selectedQuotation?.proposalId) });
   const selectedProposalName = getProposalName(selectedQuotation?.proposalId, proposalNameById, selectedProposalQuery.data?.proposalName);
   const acceptMutation = useAcceptQuotation();
-  const depositMutation = useCreateOrderDepositPayment();
-  const updateDeliveryDetailsMutation = useUpdateOrderDeliveryDetails();
   const revisionMutation = useRequestQuotationRevision();
 
   useEffect(() => {
@@ -130,54 +107,6 @@ export function CustomerQuotationsPage() {
       void ordersQuery.refetch();
     } catch (error) {
       setMessage({ tone: 'error', text: getQuotationServiceResultMessage(error) });
-    }
-  }
-
-  async function createDepositPayment() {
-    if (!selectedQuotationOrder) return;
-
-    setMessage(null);
-
-    if (!selectedQuotationDeliveryDetailsSource || !hasCompleteDeliveryDetails(selectedQuotationDeliveryDetailsSource)) {
-      setMessage({ tone: 'error', text: 'Please complete delivery details before creating the deposit payment.' });
-      return;
-    }
-
-    try {
-      const payment = await depositMutation.mutateAsync({
-        orderId: selectedQuotationOrder.orderId,
-        expiredAt: getDefaultPaymentExpiredAt(),
-        note: 'Customer deposit payment from quotation.',
-      });
-
-      setActivePayment(payment);
-      setMessage({ tone: 'success', text: 'Deposit payment is ready.' });
-    } catch (error) {
-      setMessage({ tone: 'error', text: getOrderServiceResultMessage(error) });
-    }
-  }
-
-  async function saveDeliveryDetails(details: OrderDeliveryDetailsDraft) {
-    if (!selectedQuotationOrder) return;
-
-    setMessage(null);
-
-    try {
-      const normalizedDetails = normalizeDeliveryDetailsDraft(details);
-
-      await updateDeliveryDetailsMutation.mutateAsync({
-        ...normalizedDetails,
-        orderId: selectedQuotationOrder.orderId,
-      });
-      setSavedDeliveryDetailsByOrderId((current) => ({
-        ...current,
-        [selectedQuotationOrder.orderId]: normalizedDetails,
-      }));
-      setMessage({ tone: 'success', text: 'Delivery details saved.' });
-      void selectedQuotationOrderDetailQuery.refetch();
-      void ordersQuery.refetch();
-    } catch (error) {
-      setMessage({ tone: 'error', text: getOrderServiceResultMessage(error) });
     }
   }
 
@@ -253,7 +182,6 @@ export function CustomerQuotationsPage() {
                   onClick={() => {
                     setSelectedProjectId(project.projectId);
                     setSelectedQuotationId('');
-                    setActivePayment(null);
                     setMessage(null);
                   }}
                 >
@@ -281,36 +209,16 @@ export function CustomerQuotationsPage() {
             {selectedQuotation ? (
               <QuotationDetail
                 acceptPending={acceptMutation.isPending}
-                depositPending={depositMutation.isPending}
-                deliveryDetailsPending={updateDeliveryDetailsMutation.isPending}
                 order={selectedQuotationOrder}
-                orderDetail={selectedQuotationOrderDetail}
-                orderDetailLoading={selectedQuotationOrderDetailQuery.isLoading}
                 quotation={selectedQuotation}
                 proposalName={selectedProposalName}
                 revisionPending={revisionMutation.isPending}
                 revisionReason={revisionReason}
                 onAccept={() => void acceptQuotation()}
-                onCreateDeposit={() => void createDepositPayment()}
-                onSaveDeliveryDetails={(details) => void saveDeliveryDetails(details)}
                 onRequestRevision={(event) => void requestRevision(event)}
                 onRevisionReasonChange={setRevisionReason}
               />
             ) : null}
-
-            <PaymentCollectionModal
-              completionDescription="Your deposit has been confirmed. The order status will be refreshed automatically."
-              completionTitle="Deposit Paid"
-              continueLabel="Back to Quotation"
-              payment={activePayment}
-              title="Deposit Payment"
-              onClose={() => setActivePayment(null)}
-              onPaid={() => {
-                setActivePayment(null);
-                void ordersQuery.refetch();
-                void projectsQuery.refetch();
-              }}
-            />
           </section>
         </section>
       </div>
@@ -320,31 +228,19 @@ export function CustomerQuotationsPage() {
 
 function QuotationDetail({
   acceptPending,
-  depositPending,
-  deliveryDetailsPending,
   onAccept,
-  onCreateDeposit,
-  onSaveDeliveryDetails,
   onRequestRevision,
   onRevisionReasonChange,
   quotation,
   order,
-  orderDetail,
-  orderDetailLoading,
   proposalName,
   revisionPending,
   revisionReason,
 }: {
   acceptPending: boolean;
-  depositPending: boolean;
-  deliveryDetailsPending: boolean;
   onAccept: () => void;
-  onCreateDeposit: () => void;
-  onSaveDeliveryDetails: (details: OrderDeliveryDetailsDraft) => void;
   onRequestRevision: (event: FormEvent<HTMLFormElement>) => void;
   onRevisionReasonChange: (value: string) => void;
-  orderDetail: OrderDetailDto | null;
-  orderDetailLoading: boolean;
   proposalName: string;
   quotation: QuotationDto & { items?: QuotationItemDto[] };
   order: OrderListItemDto | null;
@@ -365,11 +261,6 @@ function QuotationDetail({
     [quotation.items],
   );
   const depositAmount = getQuotationDepositAmount(quotation);
-  const deliveryDetailsComplete = orderDetail
-    ? hasCompleteDeliveryDetails(orderDetail)
-    : order
-      ? hasCompleteDeliveryDetails(order)
-      : false;
 
   return (
     <section className="customer-quotations-card customer-quotations-detail">
@@ -410,27 +301,7 @@ function QuotationDetail({
         </div>
       </div>
 
-      <section className="customer-quotations-payment-panel">
-        <div>
-          <span>Deposit Payment</span>
-          <strong>{getDepositPaymentLabel(quotation.status, order, deliveryDetailsComplete, orderDetailLoading)}</strong>
-        </div>
-        {order && canCreateDepositPayment(order.status) ? (
-          <button disabled={depositPending || !deliveryDetailsComplete} type="button" onClick={onCreateDeposit}>
-            {depositPending ? 'Preparing...' : order.status === 'CREATED' ? 'Create Deposit Payment' : 'Pay Deposit'}
-          </button>
-        ) : null}
-      </section>
-
-      {orderDetail && !areDeliveryDetailsLocked(orderDetail.status) ? (
-        <DeliveryDetailsPanel
-          isPending={deliveryDetailsPending}
-          order={orderDetail}
-          onSave={onSaveDeliveryDetails}
-        />
-      ) : order ? (
-        <p className="customer-quotations-muted">Loading delivery details before deposit payment...</p>
-      ) : null}
+      {order ? <p className="customer-quotations-muted">Deposit payment and delivery details are managed from Orders.</p> : null}
 
       <div className="customer-quotations-table-wrap">
         <table>
@@ -491,74 +362,6 @@ function QuotationDetail({
   );
 }
 
-type OrderDeliveryDetailsDraft = {
-  deliveryAddress: string;
-  receiverName: string;
-  receiverPhone: string;
-  deliveryNote?: string | null;
-};
-
-function DeliveryDetailsPanel({
-  isPending,
-  onSave,
-  order,
-}: {
-  isPending: boolean;
-  onSave: (details: OrderDeliveryDetailsDraft) => void;
-  order: OrderDetailDto;
-}) {
-  const [draft, setDraft] = useState<OrderDeliveryDetailsDraft>(() => getOrderDeliveryDetailsDraft(order));
-  const isComplete = hasCompleteDeliveryDetails(draft);
-
-  useEffect(() => {
-    setDraft(getOrderDeliveryDetailsDraft(order));
-  }, [
-    order,
-    order.orderId,
-    order.deliveryAddress,
-    order.deliveryDetails?.deliveryAddress,
-    order.deliveryDetails?.deliveryNote,
-    order.deliveryDetails?.receiverName,
-    order.deliveryDetails?.receiverPhone,
-    order.deliveryNote,
-    order.receiverName,
-    order.receiverPhone,
-  ]);
-
-  return (
-    <section className="customer-quotations-delivery-details">
-      <header>
-        <div>
-          <h2>Delivery Details</h2>
-          <p>Complete receiver information before deposit payment.</p>
-        </div>
-        <span className={isComplete ? 'is-complete' : 'is-missing'}>{isComplete ? 'Complete' : 'Required'}</span>
-      </header>
-      <div className="customer-quotations-delivery-details-grid">
-        <label>
-          <span>Delivery address</span>
-          <input disabled={isPending} value={draft.deliveryAddress} onChange={(event) => setDraft((current) => ({ ...current, deliveryAddress: event.target.value }))} />
-        </label>
-        <label>
-          <span>Receiver name</span>
-          <input disabled={isPending} value={draft.receiverName} onChange={(event) => setDraft((current) => ({ ...current, receiverName: event.target.value }))} />
-        </label>
-        <label>
-          <span>Receiver phone</span>
-          <input disabled={isPending} value={draft.receiverPhone} onChange={(event) => setDraft((current) => ({ ...current, receiverPhone: event.target.value }))} />
-        </label>
-        <label className="customer-quotations-delivery-details-note">
-          <span>Delivery note</span>
-          <textarea disabled={isPending} rows={3} value={draft.deliveryNote ?? ''} onChange={(event) => setDraft((current) => ({ ...current, deliveryNote: event.target.value }))} />
-        </label>
-      </div>
-      <button disabled={isPending || !isComplete} type="button" onClick={() => onSave(normalizeDeliveryDetailsDraft(draft))}>
-        {isPending ? 'Saving...' : 'Save Delivery Details'}
-      </button>
-    </section>
-  );
-}
-
 function NoteBlock({ label, value }: { label: string; value?: string | null }) {
   if (!value) return null;
 
@@ -595,65 +398,6 @@ function getQuotationItemName(item: Pick<QuotationItemDto, 'itemName' | 'product
 
 function statusClass(status?: QuotationStatus | null) {
   return (status ?? 'UNKNOWN').toLowerCase().replace(/_/g, '-');
-}
-
-function canCreateDepositPayment(status?: OrderStatus | null) {
-  return status === 'CREATED' || status === 'DEPOSIT_PENDING';
-}
-
-function getDepositPaymentLabel(
-  status: QuotationStatus | null | undefined,
-  order: OrderListItemDto | null,
-  deliveryDetailsComplete: boolean,
-  orderDetailLoading: boolean,
-) {
-  if (status === 'SENT' || status === 'REVISED') {
-    return 'Accept quotation first';
-  }
-
-  if (!order) {
-    return status === 'ACCEPTED' ? 'Preparing order' : 'Not available';
-  }
-
-  if (canCreateDepositPayment(order.status) && orderDetailLoading && !deliveryDetailsComplete) return 'Loading delivery details';
-  if (canCreateDepositPayment(order.status) && !deliveryDetailsComplete) return 'Complete delivery details first';
-  if (order.status === 'CREATED') return 'Ready to create payment';
-  if (order.status === 'DEPOSIT_PENDING') return 'Payment pending';
-  if (order.status === 'DEPOSIT_PAID') return 'Deposit paid';
-
-  return formatEnumLabel(order.status ?? 'UNKNOWN');
-}
-
-function getOrderDeliveryDetailsDraft(order: Pick<OrderDetailDto | OrderListItemDto, 'deliveryAddress' | 'deliveryDetails' | 'deliveryNote' | 'receiverName' | 'receiverPhone'>): OrderDeliveryDetailsDraft {
-  return {
-    deliveryAddress: order.deliveryAddress ?? order.deliveryDetails?.deliveryAddress ?? '',
-    deliveryNote: order.deliveryNote ?? order.deliveryDetails?.deliveryNote ?? '',
-    receiverName: order.receiverName ?? order.deliveryDetails?.receiverName ?? '',
-    receiverPhone: order.receiverPhone ?? order.deliveryDetails?.receiverPhone ?? '',
-  };
-}
-
-function normalizeDeliveryDetailsDraft(details: OrderDeliveryDetailsDraft): OrderDeliveryDetailsDraft {
-  return {
-    deliveryAddress: details.deliveryAddress.trim(),
-    deliveryNote: details.deliveryNote?.trim() || null,
-    receiverName: details.receiverName.trim(),
-    receiverPhone: details.receiverPhone.trim(),
-  };
-}
-
-function hasCompleteDeliveryDetails(details: OrderDeliveryDetailsDraft | OrderDetailDto | OrderListItemDto) {
-  const resolvedDetails = 'deliveryDetails' in details ? getOrderDeliveryDetailsDraft(details) : details;
-
-  return Boolean(
-    resolvedDetails.deliveryAddress?.trim()
-    && resolvedDetails.receiverName?.trim()
-    && resolvedDetails.receiverPhone?.trim(),
-  );
-}
-
-function areDeliveryDetailsLocked(status?: OrderStatus | null) {
-  return Boolean(status && status !== 'CREATED' && status !== 'DEPOSIT_PENDING');
 }
 
 function formatEnumLabel(value: string) {

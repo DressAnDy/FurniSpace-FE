@@ -52,8 +52,14 @@ export function ProductionRequests() {
     priority: priorityFilter === 'ALL' ? null : (priorityFilter as Priority),
     status: statusFilter === 'ALL' ? null : statusFilter,
   });
+  const allStatusRequestsQuery = useProductionRequests({
+    assignedTo: assignedToMe ? currentUserQuery.data?.accountId : null,
+    priority: priorityFilter === 'ALL' ? null : (priorityFilter as Priority),
+    status: null,
+  });
   const startMutation = useStartProductionRequest();
   const rawRequests = useMemo(() => requestsQuery.data?.items ?? [], [requestsQuery.data?.items]);
+  const allStatusRequests = useMemo(() => allStatusRequestsQuery.data?.items ?? [], [allStatusRequestsQuery.data?.items]);
   const requests = useMemo(
     () =>
       rawRequests
@@ -127,9 +133,9 @@ export function ProductionRequests() {
         ) : null}
 
         <section className="production-workspace-summary-grid">
-          <ProductionSummaryCard icon={IconClipboardList} label="Pending" value={rawRequests.filter((request) => request.status === 'PENDING').length} />
-          <ProductionSummaryCard icon={IconClockCog} label="In Production" value={rawRequests.filter((request) => request.status === 'IN_PRODUCTION').length} />
-          <ProductionSummaryCard icon={IconCheck} label="Completed" value={rawRequests.filter((request) => request.status === 'COMPLETED').length} />
+          <ProductionSummaryCard icon={IconClipboardList} label="Pending" value={allStatusRequests.filter((request) => request.status === 'PENDING').length} />
+          <ProductionSummaryCard icon={IconClockCog} label="In Production" value={allStatusRequests.filter((request) => request.status === 'IN_PRODUCTION').length} />
+          <ProductionSummaryCard icon={IconCheck} label="Completed" value={allStatusRequests.filter((request) => request.status === 'COMPLETED').length} />
         </section>
 
         <section className="production-workspace-filter-card">

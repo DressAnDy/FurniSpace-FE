@@ -1275,7 +1275,10 @@ export function BuildingBlueprintTestPage() {
       return;
     }
 
-    const nextScene = syncLinkedLevelDimensionsFromAreas(sceneData, areaByProjectAreaId);
+    const linkedAreaScene = shouldReplaceSceneWithProjectAreaTemplate(sceneData, templateAreas)
+      ? centerAndFitFloorStackOnSite(createBuildingTestSceneFromProjectFloorAreas(templateAreas))
+      : sceneData;
+    const nextScene = syncLinkedLevelDimensionsFromAreas(linkedAreaScene, areaByProjectAreaId);
 
     if (nextScene === sceneData || JSON.stringify(nextScene.building.levels) === JSON.stringify(sceneData.building.levels)) {
       return;
@@ -1294,6 +1297,7 @@ export function BuildingBlueprintTestPage() {
     sceneData,
     setRemoteSceneData,
     setSceneData,
+    templateAreas,
   ]);
 
   useEffect(() => {
@@ -1302,9 +1306,13 @@ export function BuildingBlueprintTestPage() {
     }
 
     appliedTransientSceneRef.current = routeState.transientSceneData;
+    const transientScene = shouldReplaceSceneWithProjectAreaTemplate(routeState.transientSceneData, templateAreas)
+      ? centerAndFitFloorStackOnSite(createBuildingTestSceneFromProjectFloorAreas(templateAreas))
+      : syncLinkedLevelDimensionsFromAreas(routeState.transientSceneData, areaByProjectAreaId);
+
     hasLocalSceneEditsRef.current = true;
-    setSceneData(routeState.transientSceneData);
-  }, [routeState?.transientSceneData, setSceneData]);
+    setSceneData(transientScene);
+  }, [areaByProjectAreaId, routeState?.transientSceneData, setSceneData, templateAreas]);
 
   useEffect(() => {
     setSelectedItem(null);

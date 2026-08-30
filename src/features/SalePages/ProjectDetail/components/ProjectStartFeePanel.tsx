@@ -90,30 +90,32 @@ export function ProjectStartFeePanel({ projectId, enabled = true }: ProjectStart
             </div>
           ) : (
             <div className="project-detail-start-fee-create">
-              <label>
+              <label className={startFeeAmountError ? 'has-error' : undefined}>
                 <span>Fee amount</span>
-                <div className={`project-detail-start-fee-input-wrap${startFeeAmountError ? ' is-invalid' : ''}`}>
-                  <input
-                    aria-invalid={Boolean(startFeeAmountError)}
-                    disabled={createStartFeePaymentMutation.isPending}
-                    inputMode="decimal"
-                    placeholder="e.g. 5000"
-                    type="text"
-                    value={startFeeAmount}
-                    onChange={(event) => {
-                      const nextValue = sanitizePositiveAmountInput(event.currentTarget.value);
-                      setStartFeeAmount(nextValue);
-                      setStartFeeAmountError(getFeeAmountError(nextValue));
-                    }}
-                    onKeyDown={(event) => {
-                      if (event.key === 'e' || event.key === 'E' || event.key === '+' || event.key === '-') {
-                        event.preventDefault();
-                      }
-                    }}
-                  />
-                  <em aria-hidden="true">VND</em>
+                <div className="project-detail-start-fee-field-row">
+                  {startFeeAmountError ? <small className="project-detail-field-error">{startFeeAmountError}</small> : null}
+                  <div className={`project-detail-start-fee-input-wrap${startFeeAmountError ? ' is-invalid' : ''}`}>
+                    <input
+                      aria-invalid={Boolean(startFeeAmountError)}
+                      disabled={createStartFeePaymentMutation.isPending}
+                      inputMode="decimal"
+                      placeholder="e.g. 5000"
+                      type="text"
+                      value={startFeeAmount}
+                      onChange={(event) => {
+                        const nextValue = sanitizePositiveAmountInput(event.currentTarget.value);
+                        setStartFeeAmount(nextValue);
+                        setStartFeeAmountError(getFeeAmountError(nextValue));
+                      }}
+                      onKeyDown={(event) => {
+                        if (event.key === 'e' || event.key === 'E' || event.key === '+' || event.key === '-') {
+                          event.preventDefault();
+                        }
+                      }}
+                    />
+                    <em aria-hidden="true">VND</em>
+                  </div>
                 </div>
-                {startFeeAmountError ? <small className="project-detail-field-error">{startFeeAmountError}</small> : null}
               </label>
               <button
                 type="button"

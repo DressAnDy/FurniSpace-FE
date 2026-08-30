@@ -263,11 +263,6 @@ export {
   useProjectReportList,
 } from './useProjectReports';
 export {
-  projectReviewQueryKeys,
-  useCreateProjectReview,
-  useProjectReview,
-} from './useProjectReview';
-export {
   showcaseQueryKeys,
   useArchiveProjectShowcase,
   useCreateProjectShowcase,
@@ -282,6 +277,7 @@ export {
   useSubmitProjectShowcase,
   useUpdateProjectReviewPublicConsent,
   useUpdateProjectShowcase,
+  useUploadProjectShowcaseMedia,
 } from './useShowcases';
 export {
   proposalQueryKeys,

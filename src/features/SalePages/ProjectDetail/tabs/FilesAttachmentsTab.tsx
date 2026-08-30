@@ -1,6 +1,7 @@
 import { IconDownload, IconEye, IconPaperclip, IconPhoto, IconUpload } from '@tabler/icons-react';
+import { useMemo } from 'react';
 
-import { getMeasurementImageServiceResultMessage } from '@/services/api/measurementImages';
+import { getMeasurementImageServiceResultMessage, type MeasurementImageDto } from '@/services/api/measurementImages';
 import { useProjectMeasurementImages } from '@/services/queries';
 import { useProjectFiles } from '@/services/queries/useProjects';
 
@@ -17,6 +18,7 @@ export function FilesAttachmentsTab({ projectId }: FilesAttachmentsTabProps) {
   const measurementImagesQuery = useProjectMeasurementImages(projectId, { page: 1, limit: 50 });
   const files = filesQuery.data?.items ?? [];
   const measurementImages = measurementImagesQuery.data?.items ?? [];
+  const measurementImageGroups = useMemo(() => groupMeasurementImagesByArea(measurementImages), [measurementImages]);
 
   return (
     <section className="project-detail-card project-detail-tab-panel project-detail-files-stack">
@@ -69,7 +71,6 @@ export function FilesAttachmentsTab({ projectId }: FilesAttachmentsTabProps) {
         <header>
           <div>
             <h3>Measurement Images</h3>
-            <p>Read-only measurement photos linked from designer measurement sessions.</p>
           </div>
         </header>
 
@@ -80,27 +81,40 @@ export function FilesAttachmentsTab({ projectId }: FilesAttachmentsTabProps) {
         {!measurementImagesQuery.isLoading && !measurementImagesQuery.isError && measurementImages.length === 0 ? (
           <p className="project-detail-muted">No measurement images have been uploaded yet.</p>
         ) : null}
-        {measurementImages.length > 0 ? (
-          <div className="project-detail-measurement-grid">
-            {measurementImages.map((image) => {
-              const imageUrl = image.url ?? image.publicUrl;
-
-              return (
-                <article className="project-detail-measurement-card" key={image.fileId}>
-                  {imageUrl ? (
-                    <button type="button" onClick={() => window.open(imageUrl, '_blank', 'noopener,noreferrer')}>
-                      <img alt={image.originalFileName ?? 'Measurement'} src={imageUrl} />
-                    </button>
-                  ) : (
-                    <span><IconPhoto size={24} /></span>
-                  )}
+        {measurementImageGroups.length > 0 ? (
+          <div className="project-detail-measurement-area-list">
+            {measurementImageGroups.map((group) => (
+              <section className="project-detail-measurement-area" key={group.areaKey}>
+                <header>
                   <div>
-                    <strong>{image.originalFileName ?? image.fileId}</strong>
-                    <small>{image.areas?.length ? image.areas.map((area) => area.areaName ?? area.projectAreaId).join(', ') : 'Unassigned'}</small>
+                    <h4>{group.areaName}</h4>
+                    <span>{group.images.length} image{group.images.length > 1 ? 's' : ''}</span>
                   </div>
-                </article>
-              );
-            })}
+                </header>
+                <div className="project-detail-measurement-grid">
+                  {group.images.map((image, imageIndex) => {
+                    const imageUrl = image.url ?? image.publicUrl;
+                    const imageName = getMeasurementImageName(image, imageIndex);
+
+                    return (
+                      <article className="project-detail-measurement-card" key={image.fileId}>
+                        {imageUrl ? (
+                          <button type="button" aria-label={`Preview ${imageName}`} onClick={() => window.open(imageUrl, '_blank', 'noopener,noreferrer')}>
+                            <img alt={imageName} src={imageUrl} />
+                          </button>
+                        ) : (
+                          <span><IconPhoto size={20} /></span>
+                        )}
+                        <div>
+                          <strong title={imageName}>{imageName}</strong>
+                          <small>{image.uploadedAt ? formatDate(image.uploadedAt) : 'Measurement photo'}</small>
+                        </div>
+                      </article>
+                    );
+                  })}
+                </div>
+              </section>
+            ))}
           </div>
         ) : null}
       </section>
@@ -120,4 +134,43 @@ function formatDate(value: string) {
     month: 'short',
     year: 'numeric',
   }).format(new Date(value));
+}
+
+type MeasurementImageAreaGroup = {
+  areaKey: string;
+  areaName: string;
+  images: MeasurementImageDto[];
+};
+
+function groupMeasurementImagesByArea(images: MeasurementImageDto[]): MeasurementImageAreaGroup[] {
+  const groups = new Map<string, MeasurementImageAreaGroup>();
+
+  images.forEach((image) => {
+    const area = image.areas?.find((item) => item.areaName?.trim()) ?? image.areas?.[0] ?? null;
+    const areaName = area?.areaName?.trim() || 'Unassigned Area';
+    const areaKey = areaName.toLowerCase();
+    const currentGroup = groups.get(areaKey);
+
+    if (currentGroup) {
+      currentGroup.images.push(image);
+      return;
+    }
+
+    groups.set(areaKey, {
+      areaKey,
+      areaName,
+      images: [image],
+    });
+  });
+
+  return Array.from(groups.values()).sort((first, second) => {
+    if (first.areaName === 'Unassigned Area') return 1;
+    if (second.areaName === 'Unassigned Area') return -1;
+
+    return first.areaName.localeCompare(second.areaName);
+  });
+}
+
+function getMeasurementImageName(image: MeasurementImageDto, index: number) {
+  return image.originalFileName?.trim() || `Measurement image ${index + 1}`;
 }

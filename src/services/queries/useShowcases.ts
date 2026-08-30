@@ -14,10 +14,12 @@ import {
   submitProjectShowcase,
   updateProjectReviewPublicConsent,
   updateProjectShowcase,
+  uploadProjectShowcaseMedia,
   type CreateProjectShowcaseInput,
   type CreateProjectShowcaseMediaInput,
   type ReorderProjectShowcaseMediaInput,
   type UpdateProjectShowcaseInput,
+  type UploadProjectShowcaseMediaInput,
 } from '@/services/api/showcases';
 
 export const showcaseQueryKeys = {
@@ -90,6 +92,17 @@ export function useCreateProjectShowcaseMedia() {
 
   return useMutation({
     mutationFn: (input: CreateProjectShowcaseMediaInput) => createProjectShowcaseMedia(input),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: showcaseQueryKeys.all });
+    },
+  });
+}
+
+export function useUploadProjectShowcaseMedia() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (input: UploadProjectShowcaseMediaInput) => uploadProjectShowcaseMedia(input),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: showcaseQueryKeys.all });
     },

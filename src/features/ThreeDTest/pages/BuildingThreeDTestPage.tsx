@@ -849,7 +849,6 @@ export function BuildingThreeDTestPage() {
   const levelOptions = useMemo<Array<{ label: string; value: BuildingLevelVisibility }>>(
     () => [
       { label: 'All', value: 'all' },
-      { label: 'Yard', value: 'site' },
       ...sceneData.building.levels.map((level) => ({
         label: level.label,
         value: level.id,
@@ -863,11 +862,11 @@ export function BuildingThreeDTestPage() {
   }, [search, selectedBusinessTypeIds, selectedCategoryId]);
 
   useEffect(() => {
-    if (activeLevel === 'all' || activeLevel === 'site') {
+    if (activeLevel === 'all') {
       return;
     }
 
-    if (!sceneData.building.levels.some((level) => level.id === activeLevel)) {
+    if (activeLevel === 'site' || !sceneData.building.levels.some((level) => level.id === activeLevel)) {
       setActiveLevel('all');
     }
   }, [activeLevel, sceneData.building.levels]);

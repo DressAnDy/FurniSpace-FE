@@ -48,11 +48,15 @@ export type ProjectShowcaseStatus = 'DRAFT' | 'PENDING_REVIEW' | 'PUBLISHED' | '
 export type ProjectShowcaseMediaType = 'BEFORE' | 'AFTER' | 'FINAL' | 'DETAIL' | 'OTHER';
 
 export type ProjectShowcaseMediaDto = {
+  projectShowcaseMediaId?: string | null;
   showcaseMediaId: string;
   mediaId?: string | null;
   fileId?: string | null;
+  fileUrl?: string | null;
   url?: string | null;
   publicUrl?: string | null;
+  originalFileName?: string | null;
+  mimeType?: string | null;
   title?: string | null;
   mediaType: ProjectShowcaseMediaType;
   caption?: string | null;
@@ -75,6 +79,12 @@ export type ProjectShowcaseDto = {
   projectName?: string | null;
   businessType?: string | null;
   projectStatus?: string | null;
+  completedDate?: string | null;
+  totalAreaSqm?: number | null;
+  numberOfFloors?: number | null;
+  implementationDurationDays?: number | null;
+  projectAddress?: string | null;
+  completionYear?: number | null;
   media?: ProjectShowcaseMediaDto[];
   coverMedia?: ProjectShowcaseMediaDto | null;
   coverUrl?: string | null;
@@ -97,6 +107,7 @@ export type ProjectShowcaseListData = {
   items: ProjectShowcaseDto[];
   page: number;
   pageSize: number;
+  total?: number;
   totalCount: number;
 };
 
@@ -125,6 +136,15 @@ export type CreateProjectShowcaseMediaInput = {
   setAsCover?: boolean | null;
 };
 
+export type UploadProjectShowcaseMediaInput = {
+  showcaseId: string;
+  file: File;
+  mediaType?: ProjectShowcaseMediaType | null;
+  title?: string | null;
+  caption?: string | null;
+  setAsCover?: boolean | null;
+};
+
 export type ReorderProjectShowcaseMediaInput = {
   mediaIds: string[];
   showcaseId: string;
@@ -135,6 +155,10 @@ const SHOWCASE_ERROR_MESSAGES: Record<string, string> = {
   PROJECT_SHOWCASE_PUBLISH_REQUIREMENTS_NOT_MET: 'Publish requires a completed project, title, summary, and cover media.',
   PROJECT_SHOWCASE_SLUG_DUPLICATE: 'This showcase slug is already in use.',
   PROJECT_SHOWCASE_ARCHIVED_READ_ONLY: 'Archived showcases cannot be edited.',
+  PROJECT_SHOWCASE_COVER_CONFLICT: 'Another showcase cover update conflicted. Please retry.',
+  PROJECT_SHOWCASE_FILE_NOT_ALLOWED: 'This file cannot be used for showcase media.',
+  PROJECT_SHOWCASE_FILE_NOT_IN_PROJECT: 'This file does not belong to the showcase project.',
+  PROJECT_SHOWCASE_MEDIA_NOT_FOUND: 'Showcase media was not found.',
   PROJECT_REVIEW_CONSENT_FORBIDDEN: 'You cannot update public display consent for this review.',
 };
 
@@ -248,6 +272,32 @@ export async function createProjectShowcaseMedia(input: CreateProjectShowcaseMed
   return normalizeProjectShowcaseMedia(response.data.data);
 }
 
+export async function uploadProjectShowcaseMedia(input: UploadProjectShowcaseMediaInput) {
+  const formData = new FormData();
+  formData.append('file', input.file);
+
+  if (input.mediaType) {
+    formData.append('mediaType', input.mediaType);
+  }
+
+  if (input.title?.trim()) {
+    formData.append('title', input.title.trim());
+  }
+
+  if (input.caption?.trim()) {
+    formData.append('caption', input.caption.trim());
+  }
+
+  formData.append('setAsCover', String(Boolean(input.setAsCover)));
+
+  const response = await showcaseApiClient.post<ServiceResult<ProjectShowcaseMediaDto>>(
+    `/project-showcases/${input.showcaseId}/media/upload`,
+    formData,
+  );
+
+  return normalizeProjectShowcaseMedia(response.data.data);
+}
+
 export async function reorderProjectShowcaseMedia(input: ReorderProjectShowcaseMediaInput) {
   const response = await showcaseApiClient.patch<ServiceResult<ProjectShowcaseDto>>(
     `/project-showcases/${input.showcaseId}/media/reorder`,
@@ -322,20 +372,24 @@ function normalizeProjectShowcase(showcase: ProjectShowcaseDto): ProjectShowcase
 }
 
 function normalizeProjectShowcaseMedia(media: ProjectShowcaseMediaDto): ProjectShowcaseMediaDto {
-  const showcaseMediaId = media.showcaseMediaId ?? media.mediaId ?? '';
+  const showcaseMediaId = media.showcaseMediaId ?? media.projectShowcaseMediaId ?? media.mediaId ?? '';
+  const url = media.url ?? media.publicUrl ?? media.fileUrl ?? null;
 
   return {
     ...media,
+    projectShowcaseMediaId: media.projectShowcaseMediaId ?? showcaseMediaId,
     showcaseMediaId,
     mediaId: media.mediaId ?? showcaseMediaId,
-    publicUrl: media.publicUrl ?? media.url ?? null,
-    url: media.url ?? media.publicUrl ?? null,
+    publicUrl: media.publicUrl ?? url,
+    url,
   };
 }
 
 function normalizeProjectShowcaseList(data: ProjectShowcaseListData): ProjectShowcaseListData {
   return {
     ...data,
+    totalCount: data.totalCount ?? data.total ?? data.items.length,
+    total: data.total ?? data.totalCount ?? data.items.length,
     items: data.items.map(normalizeProjectShowcase),
   };
 }

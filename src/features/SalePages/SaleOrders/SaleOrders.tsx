@@ -274,7 +274,7 @@ function OrderDetailPanel({
   isSavingProductionDeadline: boolean;
   onCompleteOrder: () => void;
   onCreateDepositPayment: () => void;
-  onCreateProduction: (input: { assignedTo?: string | null; priority: 'LOW' | 'MEDIUM' | 'NORMAL' | 'HIGH' | 'URGENT'; productionDeadline: string; note?: string | null }) => void;
+  onCreateProduction: (input: { assignedTo: string; priority: 'LOW' | 'MEDIUM' | 'NORMAL' | 'HIGH' | 'URGENT'; productionDeadline: string; note?: string | null }) => void;
   order: OrderDetailDto;
   projectTargetCompletionDate?: string | null;
   productionDeadline?: string | null;
@@ -347,8 +347,13 @@ function OrderDetailPanel({
               return;
             }
 
+            if (!assignedTo) {
+              setProductionActionMessage('Please select production staff.');
+              return;
+            }
+
             onCreateProduction({
-              assignedTo: assignedTo || null,
+              assignedTo,
               note: 'Created from Sales order flow.',
               priority,
               productionDeadline: productionDeadlineDraft,
@@ -358,8 +363,11 @@ function OrderDetailPanel({
           <header>
             <div>
               <h3>Production Assignment</h3>
-              <p>Choose a staff member and priority. Planned completion is controlled only by Production Deadline.</p>
+              <p>Choose staff, priority, and deadline before creating the request.</p>
             </div>
+            {isProductionDeadlineMissing ? (
+              <span className="sale-orders-production-note">Deadline required</span>
+            ) : null}
           </header>
           {isProductionDeadlineMissing ? (
             <p className="sale-orders-action-note">Vui lòng set Production Deadline trước khi tạo yêu cầu sản xuất.</p>
@@ -368,11 +376,10 @@ function OrderDetailPanel({
             <label>
               <span>Staff</span>
               <select
-                title={selectedProductionStaff?.fullName ?? 'Unassigned'}
+                title={selectedProductionStaff?.fullName ?? 'Select production staff'}
                 value={assignedTo}
                 onChange={(event) => setAssignedTo(event.target.value)}
               >
-                <option value="">Unassigned</option>
                 {productionStaff.map((staff) => (
                   <option key={staff.accountId} value={staff.accountId}>{staff.fullName}</option>
                 ))}
@@ -383,7 +390,7 @@ function OrderDetailPanel({
                   {!selectedProductionStaff.isAvailable ? ' · unavailable' : ''}
                 </em>
               ) : (
-                <em className="sale-orders-staff-meta">No staff selected</em>
+                <em className="sale-orders-staff-meta">No production staff available</em>
               )}
             </label>
             <label>
@@ -412,14 +419,16 @@ function OrderDetailPanel({
                 <em className="sale-orders-staff-meta">Project target: {formatDate(projectTargetCompletionDate)}</em>
               ) : null}
             </label>
-          </div>
-          {productionActionMessage ? <p className="sale-orders-action-note">{productionActionMessage}</p> : null}
-          <div className="sale-orders-production-actions">
-            <button disabled={isCreatingProduction || isSavingProductionDeadline || isLoadingProductionDeadline || isProductionDeadlineMissing} type="submit">
+            <button
+              className="sale-orders-production-submit"
+              disabled={isCreatingProduction || isSavingProductionDeadline || isLoadingProductionDeadline || isProductionDeadlineMissing || !assignedTo}
+              type="submit"
+            >
               <IconUserPlus size={16} />
-              {isSavingProductionDeadline || isCreatingProduction ? 'Assigning...' : 'Create Production Request'}
+              {isSavingProductionDeadline || isCreatingProduction ? 'Assigning...' : 'Create Production'}
             </button>
           </div>
+          {productionActionMessage ? <p className="sale-orders-action-note">{productionActionMessage}</p> : null}
         </form>
       ) : null}
       {showFinalPaymentPanel ? (

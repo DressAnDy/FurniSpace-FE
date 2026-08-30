@@ -411,9 +411,9 @@ function getActionConfig(status: ProjectStatus, projectId?: string) {
   if (status === 'COMPLETED') {
     return {
       title: 'Project Completed',
-      description: 'Your project is complete. Please share feedback about your FurniSpace experience.',
-      label: 'Submit Feedback',
-      path: '/customer/tracking',
+      description: 'Your project is complete. You can still review the project information anytime.',
+      label: 'Open Project',
+      path: `/customer/projects/${projectId}`,
     };
   }
 
