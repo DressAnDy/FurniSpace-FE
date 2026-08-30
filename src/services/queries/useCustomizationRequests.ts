@@ -5,6 +5,7 @@ import {
   cancelCustomizationRequest,
   createCustomizationRequestVersion,
   getCustomizationRequestById,
+  getProductionCustomizationVersionById,
   getProductionCustomizationVersions,
   getProjectCustomizationRequests,
   productionReviewCustomizationVersion,
@@ -67,6 +68,7 @@ export const customizationRequestQueryKeys = {
   byProject: (params: CustomizationRequestListParams) => ['customization-requests', 'project', params] as const,
   detail: (customizationRequestId: string) => ['customization-requests', 'detail', customizationRequestId] as const,
   productionVersions: (params: ProductionCustomizationVersionListParams) => ['customization-versions', 'production-queue', params] as const,
+  productionVersionDetail: (versionId: string) => ['customization-versions', 'production-detail', versionId] as const,
 };
 
 export function useProjectCustomizationRequests(params?: CustomizationRequestListParams, options?: { enabled?: boolean }) {
@@ -90,6 +92,14 @@ export function useProductionCustomizationVersions(params?: ProductionCustomizat
     queryKey: customizationRequestQueryKeys.productionVersions(params ?? {}),
     queryFn: () => getProductionCustomizationVersions(params),
     enabled: options?.enabled ?? true,
+  });
+}
+
+export function useProductionCustomizationVersionDetail(versionId?: string, options?: { enabled?: boolean }) {
+  return useQuery({
+    queryKey: customizationRequestQueryKeys.productionVersionDetail(versionId ?? ''),
+    queryFn: () => getProductionCustomizationVersionById(versionId ?? ''),
+    enabled: Boolean(versionId) && (options?.enabled ?? true),
   });
 }
 

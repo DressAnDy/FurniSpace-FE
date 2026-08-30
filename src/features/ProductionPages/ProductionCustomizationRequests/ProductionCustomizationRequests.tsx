@@ -19,6 +19,7 @@ import {
   type ProductionReviewResult,
 } from '@/services/api/customizationRequests';
 import {
+  useProductionCustomizationVersionDetail,
   useProductionCustomizationVersionQueue,
   useProductionReviewCustomizationVersion,
 } from '@/services/queries';
@@ -58,30 +59,45 @@ const statusFilters: Array<{ label: string; value: StatusFilter }> = [
   { label: 'Accepted', value: 'ACCEPTED' },
 ];
 
-const QUEUE_PAGE_SIZE = 5;
+const MIN_QUEUE_PAGE_SIZE = 1;
+const MAX_QUEUE_PAGE_SIZE = 100;
+const DEFAULT_QUEUE_PAGE_SIZE = 5;
 
 export function ProductionCustomizationRequests() {
   const [searchParams, setSearchParams] = useSearchParams();
   const versionIdFromUrl = searchParams.get('versionId') ?? searchParams.get('requestId') ?? '';
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>('REVIEWING');
-  const [feasibilityFilter, setFeasibilityFilter] = useState<FeasibilityFilter>('PENDING');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('ALL');
+  const [feasibilityFilter, setFeasibilityFilter] = useState<FeasibilityFilter>('ALL');
   const [materialFilter, setMaterialFilter] = useState<MaterialFilter>('ALL');
   const [searchText, setSearchText] = useState('');
   const [queuePage, setQueuePage] = useState(1);
+  const [queuePageSize, setQueuePageSize] = useState(DEFAULT_QUEUE_PAGE_SIZE);
   const [activeVersionId, setActiveVersionId] = useState(versionIdFromUrl);
   const [reviewForm, setReviewForm] = useState<ReviewFormState>(initialReviewForm);
   const [message, setMessage] = useState<{ tone: 'error' | 'success'; text: string } | null>(null);
   const queueQuery = useProductionCustomizationVersionQueue();
+  const versionDetailQuery = useProductionCustomizationVersionDetail(versionIdFromUrl || undefined, {
+    enabled: Boolean(versionIdFromUrl),
+  });
   const productionReviewMutation = useProductionReviewCustomizationVersion();
-  const summaryItems = queueQuery.items;
+  const summaryItems = useMemo(() => {
+    const items = [...queueQuery.items];
+    const detailItem = versionDetailQuery.data;
+
+    if (detailItem && !items.some((item) => item.version.customizationRequestVersionId === detailItem.version.customizationRequestVersionId)) {
+      items.unshift(detailItem);
+    }
+
+    return items;
+  }, [queueQuery.items, versionDetailQuery.data]);
   const items = useMemo(
     () => summaryItems.filter((item) => matchesFilters(item, statusFilter, feasibilityFilter, materialFilter, searchText)),
     [feasibilityFilter, materialFilter, searchText, statusFilter, summaryItems],
   );
-  const queuePageCount = Math.max(Math.ceil(items.length / QUEUE_PAGE_SIZE), 1);
+  const queuePageCount = Math.max(Math.ceil(items.length / queuePageSize) || 1, 1);
   const pagedItems = useMemo(
-    () => items.slice((queuePage - 1) * QUEUE_PAGE_SIZE, queuePage * QUEUE_PAGE_SIZE),
-    [items, queuePage],
+    () => items.slice((queuePage - 1) * queuePageSize, queuePage * queuePageSize),
+    [items, queuePage, queuePageSize],
   );
   const selectedItem = items.find((item) => item.version.customizationRequestVersionId === activeVersionId) ?? null;
 
@@ -94,7 +110,7 @@ export function ProductionCustomizationRequests() {
 
   useEffect(() => {
     setQueuePage(1);
-  }, [feasibilityFilter, materialFilter, searchText, statusFilter]);
+  }, [feasibilityFilter, materialFilter, searchText, statusFilter, queuePageSize]);
 
   useEffect(() => {
     setQueuePage((currentPage) => Math.min(currentPage, queuePageCount));
@@ -279,18 +295,18 @@ export function ProductionCustomizationRequests() {
               {queueQuery.isLoading ? <p className="production-workspace-muted">Loading customization versions...</p> : null}
               {!queueQuery.isLoading && items.length === 0 ? <ProductionEmptyState message="No customization versions match the current filters." /> : null}
             </div>
-            {items.length > QUEUE_PAGE_SIZE ? (
-              <div className="production-ready-pagination">
-                <button disabled={queuePage === 1} type="button" onClick={() => setQueuePage((page) => Math.max(page - 1, 1))}>
-                  Previous
-                </button>
-                <span>
-                  {queuePage} / {queuePageCount}
-                </span>
-                <button disabled={queuePage === queuePageCount} type="button" onClick={() => setQueuePage((page) => Math.min(page + 1, queuePageCount))}>
-                  Next
-                </button>
-              </div>
+            {!queueQuery.isLoading ? (
+              <CustomizationQueuePager
+                page={queuePage}
+                pageSize={queuePageSize}
+                totalItems={items.length}
+                totalPages={queuePageCount}
+                onChange={setQueuePage}
+                onPageSizeChange={(nextSize) => {
+                  setQueuePageSize(nextSize);
+                  setQueuePage(1);
+                }}
+              />
             ) : null}
           </article>
 
@@ -404,6 +420,111 @@ function Field({ label, value }: { label: string; value: string }) {
     <div className="production-workspace-field">
       <span>{label}</span>
       <strong>{value}</strong>
+    </div>
+  );
+}
+
+function CustomizationQueuePager({
+  page,
+  pageSize,
+  totalPages,
+  totalItems,
+  onChange,
+  onPageSizeChange,
+}: {
+  page: number;
+  pageSize: number;
+  totalPages: number;
+  totalItems: number;
+  onChange: (page: number) => void;
+  onPageSizeChange: (pageSize: number) => void;
+}) {
+  const safeTotalPages = Math.max(totalPages, 1);
+  const [pageDraft, setPageDraft] = useState(String(page));
+  const [sizeDraft, setSizeDraft] = useState(String(pageSize));
+
+  useEffect(() => {
+    setPageDraft(String(page));
+  }, [page]);
+
+  useEffect(() => {
+    setSizeDraft(String(pageSize));
+  }, [pageSize]);
+
+  function commitPage() {
+    const parsed = Number.parseInt(pageDraft, 10);
+    if (!Number.isFinite(parsed)) {
+      setPageDraft(String(page));
+      return;
+    }
+
+    const next = Math.min(Math.max(parsed, 1), safeTotalPages);
+    setPageDraft(String(next));
+    if (next !== page) onChange(next);
+  }
+
+  function commitPageSize() {
+    const parsed = Number.parseInt(sizeDraft, 10);
+    if (!Number.isFinite(parsed)) {
+      setSizeDraft(String(pageSize));
+      return;
+    }
+
+    const next = Math.min(Math.max(parsed, MIN_QUEUE_PAGE_SIZE), MAX_QUEUE_PAGE_SIZE);
+    setSizeDraft(String(next));
+    if (next !== pageSize) onPageSizeChange(next);
+  }
+
+  return (
+    <div className="admin-financial-pager production-customization-queue-pager">
+      <div className="admin-financial-pager-meta">
+        <label className="admin-financial-pager-field">
+          <span>Rows / page</span>
+          <input
+            aria-label="Rows per page"
+            inputMode="numeric"
+            max={MAX_QUEUE_PAGE_SIZE}
+            min={MIN_QUEUE_PAGE_SIZE}
+            type="number"
+            value={sizeDraft}
+            onBlur={commitPageSize}
+            onChange={(event) => setSizeDraft(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') {
+                event.currentTarget.blur();
+              }
+            }}
+          />
+        </label>
+        <label className="admin-financial-pager-field">
+          <span>Page</span>
+          <input
+            aria-label="Page"
+            inputMode="numeric"
+            max={safeTotalPages}
+            min={1}
+            type="number"
+            value={pageDraft}
+            onBlur={commitPage}
+            onChange={(event) => setPageDraft(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') {
+                event.currentTarget.blur();
+              }
+            }}
+          />
+          <span className="admin-financial-pager-of">/ {safeTotalPages}</span>
+        </label>
+        <span className="admin-financial-pager-total">{totalItems} total</span>
+      </div>
+      <div className="admin-financial-pager-nav">
+        <button disabled={page <= 1} type="button" onClick={() => onChange(page - 1)}>
+          Previous
+        </button>
+        <button disabled={page >= safeTotalPages} type="button" onClick={() => onChange(page + 1)}>
+          Next
+        </button>
+      </div>
     </div>
   );
 }

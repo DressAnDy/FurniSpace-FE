@@ -21,7 +21,9 @@ import './ProductionRequests.css';
 
 type RequestFilter = ProductionRequestStatus | 'ALL';
 
-const REQUEST_PAGE_SIZE = 5;
+const MIN_REQUEST_PAGE_SIZE = 1;
+const MAX_REQUEST_PAGE_SIZE = 100;
+const DEFAULT_REQUEST_PAGE_SIZE = 5;
 
 const priorityRank: Record<Priority, number> = {
   URGENT: 5,
@@ -40,11 +42,12 @@ const filters: Array<{ label: string; value: RequestFilter }> = [
 ];
 
 export function ProductionRequests() {
-  const [statusFilter, setStatusFilter] = useState<RequestFilter>('PENDING');
+  const [statusFilter, setStatusFilter] = useState<RequestFilter>('ALL');
   const [priorityFilter, setPriorityFilter] = useState('ALL');
   const [assignedToMe, setAssignedToMe] = useState(false);
   const [searchText, setSearchText] = useState('');
   const [requestPage, setRequestPage] = useState(1);
+  const [requestPageSize, setRequestPageSize] = useState(DEFAULT_REQUEST_PAGE_SIZE);
   const [message, setMessage] = useState<{ tone: 'error' | 'success'; text: string } | null>(null);
   const currentUserQuery = useCurrentUser();
   const requestsQuery = useProductionRequests({
@@ -83,15 +86,15 @@ export function ProductionRequests() {
         }),
     [rawRequests, searchText],
   );
-  const requestPageCount = Math.max(Math.ceil(requests.length / REQUEST_PAGE_SIZE), 1);
+  const requestPageCount = Math.max(Math.ceil(requests.length / requestPageSize) || 1, 1);
   const pagedRequests = useMemo(
-    () => requests.slice((requestPage - 1) * REQUEST_PAGE_SIZE, requestPage * REQUEST_PAGE_SIZE),
-    [requestPage, requests],
+    () => requests.slice((requestPage - 1) * requestPageSize, requestPage * requestPageSize),
+    [requestPage, requestPageSize, requests],
   );
 
   useEffect(() => {
     setRequestPage(1);
-  }, [assignedToMe, priorityFilter, searchText, statusFilter]);
+  }, [assignedToMe, priorityFilter, searchText, statusFilter, requestPageSize]);
 
   useEffect(() => {
     setRequestPage((currentPage) => Math.min(currentPage, requestPageCount));
@@ -236,24 +239,127 @@ export function ProductionRequests() {
               </tbody>
             </table>
           </div>
-          {requests.length > REQUEST_PAGE_SIZE ? (
-            <footer className="production-requests-pagination">
-              <span>
-                Page {requestPage} / {requestPageCount}
-              </span>
-              <div>
-                <button disabled={requestPage === 1} type="button" onClick={() => setRequestPage((page) => Math.max(page - 1, 1))}>
-                  Previous
-                </button>
-                <button disabled={requestPage === requestPageCount} type="button" onClick={() => setRequestPage((page) => Math.min(page + 1, requestPageCount))}>
-                  Next
-                </button>
-              </div>
-            </footer>
+          {!requestsQuery.isLoading ? (
+            <ProductionRequestsPager
+              page={requestPage}
+              pageSize={requestPageSize}
+              totalItems={requests.length}
+              totalPages={requestPageCount}
+              onChange={setRequestPage}
+              onPageSizeChange={(nextSize) => {
+                setRequestPageSize(nextSize);
+                setRequestPage(1);
+              }}
+            />
           ) : null}
         </article>
       </div>
     </ProductionLayout>
+  );
+}
+
+function ProductionRequestsPager({
+  page,
+  pageSize,
+  totalPages,
+  totalItems,
+  onChange,
+  onPageSizeChange,
+}: {
+  page: number;
+  pageSize: number;
+  totalPages: number;
+  totalItems: number;
+  onChange: (page: number) => void;
+  onPageSizeChange: (pageSize: number) => void;
+}) {
+  const safeTotalPages = Math.max(totalPages, 1);
+  const [pageDraft, setPageDraft] = useState(String(page));
+  const [sizeDraft, setSizeDraft] = useState(String(pageSize));
+
+  useEffect(() => {
+    setPageDraft(String(page));
+  }, [page]);
+
+  useEffect(() => {
+    setSizeDraft(String(pageSize));
+  }, [pageSize]);
+
+  function commitPage() {
+    const parsed = Number.parseInt(pageDraft, 10);
+    if (!Number.isFinite(parsed)) {
+      setPageDraft(String(page));
+      return;
+    }
+
+    const next = Math.min(Math.max(parsed, 1), safeTotalPages);
+    setPageDraft(String(next));
+    if (next !== page) onChange(next);
+  }
+
+  function commitPageSize() {
+    const parsed = Number.parseInt(sizeDraft, 10);
+    if (!Number.isFinite(parsed)) {
+      setSizeDraft(String(pageSize));
+      return;
+    }
+
+    const next = Math.min(Math.max(parsed, MIN_REQUEST_PAGE_SIZE), MAX_REQUEST_PAGE_SIZE);
+    setSizeDraft(String(next));
+    if (next !== pageSize) onPageSizeChange(next);
+  }
+
+  return (
+    <div className="admin-financial-pager production-requests-queue-pager">
+      <div className="admin-financial-pager-meta">
+        <label className="admin-financial-pager-field">
+          <span>Rows / page</span>
+          <input
+            aria-label="Rows per page"
+            inputMode="numeric"
+            max={MAX_REQUEST_PAGE_SIZE}
+            min={MIN_REQUEST_PAGE_SIZE}
+            type="number"
+            value={sizeDraft}
+            onBlur={commitPageSize}
+            onChange={(event) => setSizeDraft(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') {
+                event.currentTarget.blur();
+              }
+            }}
+          />
+        </label>
+        <label className="admin-financial-pager-field">
+          <span>Page</span>
+          <input
+            aria-label="Page"
+            inputMode="numeric"
+            max={safeTotalPages}
+            min={1}
+            type="number"
+            value={pageDraft}
+            onBlur={commitPage}
+            onChange={(event) => setPageDraft(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') {
+                event.currentTarget.blur();
+              }
+            }}
+          />
+          <span className="admin-financial-pager-of">/ {safeTotalPages}</span>
+        </label>
+        <span className="admin-financial-pager-total">{totalItems} total</span>
+      </div>
+      <div className="admin-financial-pager-nav">
+        <button disabled={page <= 1} type="button" onClick={() => onChange(page - 1)}>
+          Previous
+        </button>
+        <button disabled={page >= safeTotalPages} type="button" onClick={() => onChange(page + 1)}>
+          Next
+        </button>
+      </div>
+    </div>
   );
 }
 
