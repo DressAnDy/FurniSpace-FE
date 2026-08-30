@@ -25,7 +25,7 @@ type MeasurementUploadItem = {
 
 export function MeasurementImagesTab({ project }: Readonly<MeasurementImagesTabProps>) {
   const [areaFilter, setAreaFilter] = useState('');
-  const [assignmentFilter, setAssignmentFilter] = useState<'all' | 'assigned' | 'unassigned'>('all');
+  const [assignmentFilter, setAssignmentFilter] = useState<'all' | 'assigned'>('all');
   const [uploadItems, setUploadItems] = useState<MeasurementUploadItem[]>([]);
   const [uploadMessage, setUploadMessage] = useState<{ tone: 'error' | 'success'; text: string } | null>(null);
   const imagesQuery = useProjectMeasurementImages(project.projectId, {
@@ -262,10 +262,9 @@ export function MeasurementImagesTab({ project }: Readonly<MeasurementImagesTabP
         </label>
         <label>
           <span>Link status</span>
-          <select value={assignmentFilter} onChange={(event) => setAssignmentFilter(event.target.value as 'all' | 'assigned' | 'unassigned')}>
+          <select value={assignmentFilter} onChange={(event) => setAssignmentFilter(event.target.value as 'all' | 'assigned')}>
             <option value="all">All images</option>
             <option value="assigned">Linked to area</option>
-            <option value="unassigned">Unassigned</option>
           </select>
         </label>
       </div>

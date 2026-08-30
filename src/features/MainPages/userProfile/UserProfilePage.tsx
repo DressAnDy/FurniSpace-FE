@@ -1,47 +1,33 @@
-import { type Dispatch, type FormEvent, type SetStateAction, useEffect, useState } from 'react';
+import { type Dispatch, type FormEvent, type SetStateAction, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   IconChevronRight,
-  IconClock,
-  IconCreditCard,
   IconEdit,
-  IconFileInvoice,
   IconHome,
   IconKey,
   IconLock,
   IconMail,
-  IconMapPin,
   IconPhone,
   IconShieldCheck,
   IconUser,
 } from '@tabler/icons-react';
 
-import { mockCustomerPayments } from '@/features/CustomerPages/mock';
-import type { CustomerPayment } from '@/features/CustomerPages/types';
-import { formatCustomerDate, formatCustomerMoney, paymentStatusLabels, paymentTypeLabels } from '@/features/CustomerPages/utils';
 import { MainNavbar } from '@/features/MainPages/maincomponents';
 import { getServiceResultMessage } from '@/services/api/auth';
-import { useChangePassword, useCurrentUser, useUpdateCurrentUser } from '@/services/queries';
+import { useChangePassword, useCurrentUser, useProjectList, useUpdateCurrentUser } from '@/services/queries';
 import { SiteFooter } from '@/shared/components';
 
 import './UserProfilePage.css';
 
-type ProfileTab = 'profile' | 'billing' | 'security';
+type ProfileTab = 'profile' | 'security';
 
 const sidebarItems: Array<{
   id: ProfileTab;
   icon: typeof IconUser;
   label: string;
 }> = [
-  { id: 'profile', icon: IconUser, label: 'Hồ sơ cá nhân' },
-  { id: 'billing', icon: IconCreditCard, label: 'Thanh toán & hóa đơn' },
-  { id: 'security', icon: IconKey, label: 'Bảo mật' },
-];
-
-const profileStats = [
-  { label: 'Dự án đang theo dõi', value: '03' },
-  { label: 'Concept đã duyệt', value: '12' },
-  { label: 'Trạng thái tài khoản', value: 'Active' },
+  { id: 'profile', icon: IconUser, label: 'Thong tin ca nhan' },
+  { id: 'security', icon: IconKey, label: 'Bao mat' },
 ];
 
 type ProfileFormState = {
@@ -58,10 +44,12 @@ type PasswordFormState = {
 export function UserProfilePage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { data: user, isLoading } = useCurrentUser();
+  const currentUserQuery = useCurrentUser();
+  const user = currentUserQuery.data;
+  const projectsSummaryQuery = useProjectList({ page: 1, limit: 1 }, { enabled: Boolean(user?.accountId) });
   const updateProfileMutation = useUpdateCurrentUser();
   const changePasswordMutation = useChangePassword();
-  const [activeTab, setActiveTab] = useState<ProfileTab>(searchParams.get('tab') === 'payments' ? 'billing' : 'profile');
+  const [activeTab, setActiveTab] = useState<ProfileTab>(() => getProfileTabFromSearch(searchParams));
   const [profileForm, setProfileForm] = useState<ProfileFormState>({ fullName: '', phone: '' });
   const [passwordForm, setPasswordForm] = useState<PasswordFormState>({
     currentPassword: '',
@@ -70,10 +58,22 @@ export function UserProfilePage() {
   });
   const [profileMessage, setProfileMessage] = useState<{ tone: 'success' | 'error'; text: string } | null>(null);
   const [securityMessage, setSecurityMessage] = useState<{ tone: 'success' | 'error'; text: string } | null>(null);
-  const displayName = user?.fullName?.trim() || (isLoading ? 'Đang tải...' : 'FurniSpace Client');
-  const email = user?.email || 'client@furnispace.vn';
-  const phone = user?.phone || 'Chưa cập nhật';
+  const isLoading = currentUserQuery.isLoading;
+  const displayName = getDisplayName(user?.fullName, user?.email, isLoading);
+  const email = user?.email || 'Chua co email';
+  const phone = user?.phone?.trim() || 'Chua cap nhat';
   const initials = getInitials(displayName);
+  const overviewStats = useMemo(
+    () => [
+      { label: 'Trang thai', value: formatStatus(user?.status)},
+      { label: 'Vai tro', value: formatRole(user?.role),  },
+      {
+        label: 'Tong du an',
+        value: projectsSummaryQuery.isLoading ? '...' : String(projectsSummaryQuery.data?.total ?? 0),
+      },
+    ],
+    [projectsSummaryQuery.data?.total, projectsSummaryQuery.isError, projectsSummaryQuery.isLoading, user?.role, user?.status],
+  );
 
   useEffect(() => {
     if (!user) return;
@@ -86,32 +86,58 @@ export function UserProfilePage() {
 
   function changeTab(tab: ProfileTab) {
     setActiveTab(tab);
-    setSearchParams(tab === 'billing' ? { tab: 'payments' } : tab === 'security' ? { tab: 'security' } : {});
+    setSearchParams(tab === 'security' ? { tab: 'security' } : {});
   }
 
-  const handleProfileSubmit = async (event: FormEvent<HTMLFormElement>) => {
+  async function handleProfileSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setProfileMessage(null);
 
-    if (!profileForm.fullName.trim()) {
-      setProfileMessage({ tone: 'error', text: 'Vui lòng nhập họ tên.' });
+    const fullName = profileForm.fullName.trim();
+    const phoneValue = profileForm.phone.trim();
+
+    if (!fullName) {
+      setProfileMessage({ tone: 'error', text: 'Vui long nhap ho ten.' });
+      return;
+    }
+
+    if (fullName.length > 100) {
+      setProfileMessage({ tone: 'error', text: 'Ho ten khong duoc vuot qua 100 ky tu.' });
+      return;
+    }
+
+    if (phoneValue.length > 20) {
+      setProfileMessage({ tone: 'error', text: 'So dien thoai khong duoc vuot qua 20 ky tu.' });
       return;
     }
 
     try {
-      const result = await updateProfileMutation.mutateAsync(profileForm);
-      setProfileMessage({ tone: 'success', text: result.message || 'Đã cập nhật hồ sơ.' });
+      const result = await updateProfileMutation.mutateAsync({
+        fullName,
+        phone: phoneValue || null,
+      });
+      setProfileMessage({ tone: 'success', text: result.message || 'Da cap nhat ho so.' });
     } catch (error) {
       setProfileMessage({ tone: 'error', text: getServiceResultMessage(error) });
     }
-  };
+  }
 
-  const handlePasswordSubmit = async (event: FormEvent<HTMLFormElement>) => {
+  async function handlePasswordSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setSecurityMessage(null);
 
+    if (!passwordForm.currentPassword.trim()) {
+      setSecurityMessage({ tone: 'error', text: 'Vui long nhap mat khau hien tai.' });
+      return;
+    }
+
+    if (!isValidPassword(passwordForm.newPassword)) {
+      setSecurityMessage({ tone: 'error', text: 'Mat khau moi phai dai 8-128 ky tu va co chu hoa, chu thuong, chu so.' });
+      return;
+    }
+
     if (passwordForm.newPassword !== passwordForm.confirmPassword) {
-      setSecurityMessage({ tone: 'error', text: 'Mật khẩu mới và xác nhận mật khẩu chưa khớp.' });
+      setSecurityMessage({ tone: 'error', text: 'Mat khau moi va xac nhan mat khau chua khop.' });
       return;
     }
 
@@ -121,12 +147,12 @@ export function UserProfilePage() {
         newPassword: passwordForm.newPassword,
       });
       setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
-      setSecurityMessage({ tone: 'success', text: result.message || 'Đã đổi mật khẩu. Vui lòng đăng nhập lại.' });
+      setSecurityMessage({ tone: 'success', text: result.message || 'Da doi mat khau. Vui long dang nhap lai.' });
       window.setTimeout(() => navigate('/login', { replace: true }), 900);
     } catch (error) {
       setSecurityMessage({ tone: 'error', text: getServiceResultMessage(error) });
     }
-  };
+  }
 
   return (
     <main className="user-profile-page">
@@ -135,9 +161,7 @@ export function UserProfilePage() {
       <section className="user-profile-shell">
         <aside className="user-profile-sidebar" aria-label="User profile navigation">
           <div className="user-profile-sidebar-card">
-            <div className="user-profile-sidebar-avatar">
-              {user?.avatarUrl ? <img src={user.avatarUrl} alt="" /> : <span>{initials}</span>}
-            </div>
+            <Avatar avatarUrl={user?.avatarUrl} initials={initials} size="sm" />
             <div>
               <strong>{displayName}</strong>
               <p>{email}</p>
@@ -169,24 +193,23 @@ export function UserProfilePage() {
         <div className="user-profile-content">
           <section className="user-profile-hero">
             <div>
-              <p className="user-profile-eyebrow">Thông tin người dùng</p>
-              <h1>{activeTab === 'security' ? 'Bảo mật tài khoản FurniSpace' : 'Quản lý hồ sơ FurniSpace của bạn'}</h1>
-              <p>
-                {activeTab === 'security'
-                  ? 'Cập nhật mật khẩu cho tài khoản đang đăng nhập.'
-                  : 'Theo dõi thông tin tài khoản, liên hệ và các thiết lập cá nhân cho hành trình thiết kế không gian.'}
-              </p>
+              <p className="user-profile-eyebrow">Tai khoan FurniSpace</p>
+              <h1>{activeTab === 'security' ? 'Bao mat tai khoan' : 'Thong tin ca nhan'}</h1>
             </div>
             <button className="user-profile-edit-button" type="button" onClick={() => changeTab(activeTab === 'security' ? 'profile' : 'security')}>
               {activeTab === 'security' ? <IconUser size={18} stroke={1.8} /> : <IconEdit size={18} stroke={1.8} />}
-              <span>{activeTab === 'security' ? 'Xem hồ sơ' : 'Mở bảo mật'}</span>
+              <span>{activeTab === 'security' ? 'Xem ho so' : 'Mo bao mat'}</span>
             </button>
           </section>
 
+          {currentUserQuery.isError ? (
+            <FormMessage tone="error">{getServiceResultMessage(currentUserQuery.error)}</FormMessage>
+          ) : null}
+
           <section className="user-profile-overview">
-            {profileStats.map((stat) => (
+            {overviewStats.map((stat) => (
               <article className="user-profile-stat" key={stat.label}>
-                <strong>{stat.label === 'Trạng thái tài khoản' ? formatStatus(user?.status) : stat.value}</strong>
+                <strong>{stat.value}</strong>
                 <span>{stat.label}</span>
               </article>
             ))}
@@ -194,6 +217,7 @@ export function UserProfilePage() {
 
           {activeTab === 'profile' ? (
             <ProfileTabPanel
+              avatarUrl={user?.avatarUrl}
               displayName={displayName}
               email={email}
               initials={initials}
@@ -204,7 +228,6 @@ export function UserProfilePage() {
               role={user?.role}
               status={user?.status}
               updateProfileMutation={updateProfileMutation}
-              avatarUrl={user?.avatarUrl}
               onProfileFormChange={setProfileForm}
               onProfileSubmit={handleProfileSubmit}
             />
@@ -220,8 +243,6 @@ export function UserProfilePage() {
               onPasswordSubmit={handlePasswordSubmit}
             />
           ) : null}
-
-          {activeTab === 'billing' ? <BillingTabPanel /> : null}
         </div>
       </section>
 
@@ -266,8 +287,8 @@ function ProfileTabPanel({
       <article className="user-profile-panel user-profile-main-panel">
         <div className="user-profile-panel-head">
           <div>
-            <p className="user-profile-eyebrow">Hồ sơ</p>
-            <h2>Thông tin cá nhân</h2>
+            <p className="user-profile-eyebrow">Ho so</p>
+            <h2>Thong tin ca nhan</h2>
           </div>
           <span className="user-profile-status">
             <IconShieldCheck size={16} stroke={1.8} />
@@ -276,9 +297,7 @@ function ProfileTabPanel({
         </div>
 
         <div className="user-profile-identity">
-          <div className="user-profile-large-avatar">
-            {avatarUrl ? <img src={avatarUrl} alt="" /> : <span>{initials}</span>}
-          </div>
+          <Avatar avatarUrl={avatarUrl} initials={initials} size="lg" />
           <div>
             <h3>{displayName}</h3>
             <p>{formatRole(role)}</p>
@@ -287,14 +306,14 @@ function ProfileTabPanel({
 
         <div className="user-profile-info-list">
           <InfoRow icon={<IconMail size={18} stroke={1.8} />} label="Email" value={email} />
-          <InfoRow icon={<IconPhone size={18} stroke={1.8} />} label="Số điện thoại" value={phone} />
-          <InfoRow icon={<IconHome size={18} stroke={1.8} />} label="Loại tài khoản" value={formatRole(role)} />
-          <InfoRow icon={<IconMapPin size={18} stroke={1.8} />} label="Địa chỉ" value="Chưa cập nhật" />
+          <InfoRow icon={<IconPhone size={18} stroke={1.8} />} label="So dien thoai" value={phone} />
+          <InfoRow icon={<IconHome size={18} stroke={1.8} />} label="Loai tai khoan" value={formatRole(role)} />
+          <InfoRow icon={<IconShieldCheck size={18} stroke={1.8} />} label="Trang thai" value={formatStatus(status)} />
         </div>
 
         <form className="user-profile-form" id="profile-form" onSubmit={onProfileSubmit}>
           <label>
-            <span>Họ tên</span>
+            <span>Ho ten</span>
             <input
               autoComplete="name"
               disabled={updateProfileMutation.isPending}
@@ -304,30 +323,28 @@ function ProfileTabPanel({
             />
           </label>
           <label>
-            <span>Số điện thoại</span>
+            <span>So dien thoai</span>
             <input
               autoComplete="tel"
               disabled={updateProfileMutation.isPending}
               maxLength={20}
+              placeholder="Chua cap nhat"
               value={profileForm.phone}
               onChange={(event) => onProfileFormChange((current) => ({ ...current, phone: event.target.value }))}
             />
           </label>
           {profileMessage ? <FormMessage tone={profileMessage.tone}>{profileMessage.text}</FormMessage> : null}
           <button className="user-profile-submit" disabled={updateProfileMutation.isPending || isLoading} type="submit">
-            {updateProfileMutation.isPending ? 'Đang lưu...' : 'Lưu thay đổi'}
+            {updateProfileMutation.isPending ? 'Dang luu...' : 'Luu thay doi'}
           </button>
         </form>
       </article>
 
-      <div className="user-profile-side-panels">
-        <article className="user-profile-panel user-profile-gold-panel">
-          <p className="user-profile-eyebrow">Hỗ trợ</p>
-          <h2>Cần tư vấn cho dự án mới?</h2>
-          <p>FurniSpace có thể giúp bạn chuẩn bị brief, concept và kế hoạch triển khai.</p>
-          <button type="button">Liên hệ tư vấn</button>
-        </article>
-      </div>
+      <aside className="user-profile-panel user-profile-readonly-panel">
+        <p className="user-profile-eyebrow">Thong tin chi doc</p>
+        <h2>Du lieu tai khoan</h2>
+        <p>Email, vai tro, trang thai va avatar hien duoc dong bo tu he thong. Endpoint cap nhat ho so chi cho phep sua ho ten va so dien thoai.</p>
+      </aside>
     </section>
   );
 }
@@ -354,8 +371,8 @@ function SecurityTabPanel({
       <article className="user-profile-panel user-profile-security-panel">
         <div className="user-profile-panel-head">
           <div>
-            <p className="user-profile-eyebrow">Bảo mật</p>
-            <h2>Thiết lập đăng nhập</h2>
+            <p className="user-profile-eyebrow">Bao mat</p>
+            <h2>Thiet lap dang nhap</h2>
           </div>
           <span className="user-profile-status">
             <IconLock size={16} stroke={1.8} />
@@ -365,15 +382,15 @@ function SecurityTabPanel({
 
         <div className="user-profile-security-intro">
           <div>
-            <strong>Tài khoản đang đăng nhập</strong>
+            <strong>Tai khoan dang dang nhap</strong>
             <span>{userEmail}</span>
           </div>
-          <p>Đổi mật khẩu định kỳ giúp bảo vệ tài khoản và các thông tin dự án của bạn.</p>
+          <p>Mat khau moi can dai 8-128 ky tu, co chu hoa, chu thuong va chu so.</p>
         </div>
 
         <form className="user-profile-form user-profile-security-form" onSubmit={onPasswordSubmit}>
           <label>
-            <span>Mật khẩu hiện tại</span>
+            <span>Mat khau hien tai</span>
             <input
               autoComplete="current-password"
               disabled={changePasswordMutation.isPending}
@@ -383,22 +400,24 @@ function SecurityTabPanel({
             />
           </label>
           <label>
-            <span>Mật khẩu mới</span>
+            <span>Mat khau moi</span>
             <input
               autoComplete="new-password"
               disabled={changePasswordMutation.isPending}
               minLength={8}
+              maxLength={128}
               type="password"
               value={passwordForm.newPassword}
               onChange={(event) => onPasswordFormChange((current) => ({ ...current, newPassword: event.target.value }))}
             />
           </label>
           <label>
-            <span>Xác nhận mật khẩu mới</span>
+            <span>Xac nhan mat khau moi</span>
             <input
               autoComplete="new-password"
               disabled={changePasswordMutation.isPending}
               minLength={8}
+              maxLength={128}
               type="password"
               value={passwordForm.confirmPassword}
               onChange={(event) => onPasswordFormChange((current) => ({ ...current, confirmPassword: event.target.value }))}
@@ -406,7 +425,7 @@ function SecurityTabPanel({
           </label>
           {securityMessage ? <FormMessage tone={securityMessage.tone}>{securityMessage.text}</FormMessage> : null}
           <button className="user-profile-submit" disabled={changePasswordMutation.isPending} type="submit">
-            {changePasswordMutation.isPending ? 'Đang đổi...' : 'Đổi mật khẩu'}
+            {changePasswordMutation.isPending ? 'Dang doi...' : 'Doi mat khau'}
           </button>
         </form>
       </article>
@@ -414,181 +433,12 @@ function SecurityTabPanel({
   );
 }
 
-function BillingTabPanel() {
-  const [selectedPayment, setSelectedPayment] = useState<CustomerPayment | null>(mockCustomerPayments[0] ?? null);
-  const pendingPayments = mockCustomerPayments.filter((payment) => payment.status === 'PENDING' || payment.status === 'PROCESSING');
-  const historyPayments = mockCustomerPayments.filter((payment) => payment.status !== 'PENDING' && payment.status !== 'PROCESSING');
-  const pendingAmount = pendingPayments.reduce((total, payment) => total + payment.amount, 0);
-
+function Avatar({ avatarUrl, initials, size }: { avatarUrl?: string | null; initials: string; size: 'sm' | 'lg' }) {
   return (
-    <section className="user-profile-billing-layout">
-      <div className="user-profile-billing-overview">
-        <BillingStat icon={<IconCreditCard size={22} />} label="Pending Amount" value={formatCustomerMoney(pendingAmount)} />
-        <BillingStat icon={<IconFileInvoice size={22} />} label="Paid Payments" value={mockCustomerPayments.filter((payment) => payment.status === 'PAID').length} />
-        <BillingStat icon={<IconClock size={22} />} label="Expired Payments" value={mockCustomerPayments.filter((payment) => payment.status === 'EXPIRED').length} />
-        <BillingStat icon={<IconCreditCard size={22} />} label="Refunded Payments" value={mockCustomerPayments.filter((payment) => payment.status === 'REFUNDED').length} />
-      </div>
-
-      <article className="user-profile-panel user-profile-billing-panel">
-        <div className="user-profile-panel-head">
-          <div>
-            <p className="user-profile-eyebrow">Thanh toán</p>
-            <h2>Pending Payments</h2>
-          </div>
-          <span className="user-profile-status">Mock mode</span>
-        </div>
-        <div className="user-profile-payment-list">
-          {pendingPayments.map((payment) => (
-            <PaymentCard key={payment.paymentId} payment={payment} onSelect={setSelectedPayment} />
-          ))}
-        </div>
-      </article>
-
-      <section className="user-profile-billing-grid">
-        <article className="user-profile-panel">
-          <div className="user-profile-panel-head">
-            <div>
-              <p className="user-profile-eyebrow">Lịch sử</p>
-              <h2>Payment History</h2>
-            </div>
-          </div>
-          <div className="user-profile-payment-table-wrap">
-            <table className="user-profile-payment-table">
-              <thead>
-                <tr>
-                  <th>Payment Code</th>
-                  <th>Project</th>
-                  <th>Order</th>
-                  <th>Payment Type</th>
-                  <th>Amount</th>
-                  <th>Status</th>
-                  <th>Paid At</th>
-                  <th>Expired At</th>
-                  <th>Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {historyPayments.map((payment) => (
-                  <tr key={payment.paymentId}>
-                    <td>{payment.paymentCode}</td>
-                    <td>{payment.projectName}</td>
-                    <td>{payment.orderCode ?? '-'}</td>
-                    <td>{paymentTypeLabels[payment.paymentType]}</td>
-                    <td>{formatCustomerMoney(payment.amount, payment.currency)}</td>
-                    <td><PaymentStatusPill status={payment.status} /></td>
-                    <td>{formatCustomerDate(payment.paidAt)}</td>
-                    <td>{formatCustomerDate(payment.expiredAt)}</td>
-                    <td><button type="button" onClick={() => setSelectedPayment(payment)}>View detail</button></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </article>
-
-        <article className="user-profile-panel">
-          <div className="user-profile-panel-head">
-            <div>
-              <p className="user-profile-eyebrow">Chi tiết</p>
-              <h2>Transaction Detail</h2>
-            </div>
-          </div>
-          {selectedPayment ? <TransactionDetail payment={selectedPayment} /> : <p className="user-profile-muted">Select a payment to view transaction attempts.</p>}
-        </article>
-      </section>
-
-      <article className="user-profile-panel user-profile-documents">
-        <div className="user-profile-panel-head">
-          <div>
-            <p className="user-profile-eyebrow">Tài liệu</p>
-            <h2>Invoice & Receipt Documents</h2>
-          </div>
-        </div>
-        <div>
-          {['Quotation File', 'Order Document', 'Payment Receipt', 'Refund Receipt'].map((item) => (
-            <div key={item}>
-              <strong>{item}</strong>
-              <span>Receipt download will be available after payment is confirmed.</span>
-            </div>
-          ))}
-        </div>
-      </article>
-    </section>
-  );
-}
-
-function BillingStat({ icon, label, value }: { icon: React.ReactNode; label: string; value: string | number }) {
-  return (
-    <article className="user-profile-stat user-profile-billing-stat">
-      <span>{icon}</span>
-      <strong>{value}</strong>
-      <em>{label}</em>
-    </article>
-  );
-}
-
-function PaymentCard({ onSelect, payment }: { payment: CustomerPayment; onSelect: (payment: CustomerPayment) => void }) {
-  return (
-    <article>
-      <div>
-        <strong>{payment.paymentCode}</strong>
-        <PaymentStatusPill status={payment.status} />
-      </div>
-      <p>{payment.projectName} - {payment.orderCode ?? payment.quotationCode ?? '-'}</p>
-      <div className="user-profile-payment-card-meta">
-        <span>{paymentTypeLabels[payment.paymentType]}</span>
-        <strong>{formatCustomerMoney(payment.amount, payment.currency)}</strong>
-        <span>Expires {formatCustomerDate(payment.expiredAt)}</span>
-      </div>
-      <div className="user-profile-payment-actions">
-        <button type="button">{getPaymentActionLabel(payment.status)}</button>
-        <button type="button">View QR</button>
-        <button type="button" onClick={() => onSelect(payment)}>View Detail</button>
-      </div>
-    </article>
-  );
-}
-
-function TransactionDetail({ payment }: { payment: CustomerPayment }) {
-  return (
-    <div className="user-profile-transaction-list">
-      <div className="user-profile-payment-selected">
-        <strong>{payment.paymentCode}</strong>
-        <span>{paymentTypeLabels[payment.paymentType]} - {formatCustomerMoney(payment.amount, payment.currency)}</span>
-      </div>
-      {payment.transactions.map((transaction) => (
-        <article key={transaction.paymentTransactionId}>
-          <div><span>Transaction code</span><strong>{transaction.transactionCode}</strong></div>
-          <div><span>Transaction type</span><strong>{transaction.transactionType}</strong></div>
-          <div><span>Amount</span><strong>{formatCustomerMoney(transaction.amount, transaction.currency)}</strong></div>
-          <div><span>Payment provider</span><strong>{transaction.paymentProvider ?? '-'}</strong></div>
-          <div><span>Payment method</span><strong>{transaction.paymentMethod ?? '-'}</strong></div>
-          <div><span>Provider transaction ID</span><strong>{transaction.providerTransactionId ?? '-'}</strong></div>
-          <div><span>Provider reference code</span><strong>{transaction.providerReferenceCode ?? '-'}</strong></div>
-          <div><span>Status</span><strong>{transaction.status}</strong></div>
-          <div><span>Transaction time</span><strong>{formatCustomerDate(transaction.transactionTime)}</strong></div>
-          <div><span>Failure reason</span><strong>{transaction.failureReason ?? '-'}</strong></div>
-        </article>
-      ))}
+    <div className={size === 'lg' ? 'user-profile-large-avatar' : 'user-profile-sidebar-avatar'}>
+      {avatarUrl ? <img src={avatarUrl} alt="" /> : <span>{initials}</span>}
     </div>
   );
-}
-
-function PaymentStatusPill({ status }: { status: CustomerPayment['status'] }) {
-  return <span className={`user-profile-payment-status user-profile-payment-status-${status.toLowerCase()}`}>{paymentStatusLabels[status]}</span>;
-}
-
-function getPaymentActionLabel(status: CustomerPayment['status']) {
-  const labels: Record<CustomerPayment['status'], string> = {
-    PENDING: 'Pay Now',
-    PROCESSING: 'Continue Payment',
-    EXPIRED: 'Contact Sales',
-    PAID: 'View Receipt',
-    CANCELLED: 'Disabled',
-    REFUNDED: 'View Refund Detail',
-  };
-
-  return labels[status];
 }
 
 function FormMessage({ children, tone }: { children: React.ReactNode; tone: 'success' | 'error' }) {
@@ -605,6 +455,24 @@ function InfoRow({ icon, label, value }: { icon: React.ReactNode; label: string;
       </div>
     </div>
   );
+}
+
+function getProfileTabFromSearch(searchParams: URLSearchParams): ProfileTab {
+  return searchParams.get('tab') === 'security' ? 'security' : 'profile';
+}
+
+function getDisplayName(fullName?: string | null, email?: string | null, isLoading?: boolean) {
+  const trimmedName = fullName?.trim();
+
+  if (trimmedName) {
+    return trimmedName;
+  }
+
+  if (email?.includes('@')) {
+    return email.split('@')[0];
+  }
+
+  return isLoading ? 'Dang tai...' : 'FurniSpace Client';
 }
 
 function formatRole(role?: string) {
@@ -636,4 +504,14 @@ function getInitials(value: string) {
     .join('');
 
   return initials || 'U';
+}
+
+function isValidPassword(password: string) {
+  return (
+    password.length >= 8 &&
+    password.length <= 128 &&
+    /[A-Z]/.test(password) &&
+    /[a-z]/.test(password) &&
+    /\d/.test(password)
+  );
 }

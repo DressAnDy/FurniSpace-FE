@@ -471,7 +471,6 @@ export function SaleQuotations() {
               <section className="sale-quotations-card">
                 <header>
                   <h3>Project Quotations</h3>
-                  <p>Quotation items are copied from selected proposal items; adjust item financials before sending.</p>
                 </header>
                 <div className="sale-quotations-table-scroll">
                   <table>
@@ -881,7 +880,7 @@ function parseFinancialInput(value: string) {
     return { ok: false as const, message: 'Discount is required.' };
   }
 
-  const normalizedValue = trimmedValue.replace(/\./g, '').replace(',', '.');
+  const normalizedValue = normalizeFinancialInputString(trimmedValue);
 
   if (!/^\d+(\.\d+)?$/.test(normalizedValue)) {
     return { ok: false as const, message: 'Discount must be a non-negative number.' };
@@ -905,19 +904,40 @@ function isAllowedDiscountDraft(value: string) {
 }
 
 function normalizeMoneyInput(value: string) {
-  const parsed = Number(value.trim().replace(/\./g, '').replace(',', '.'));
+  const parsed = Number(normalizeFinancialInputString(value.trim()));
 
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
 function formatDiscountInput(value: string) {
-  const digits = value.replace(/\D/g, '');
+  return value.replace(/[^\d.,]/g, '');
+}
 
-  if (!digits) {
-    return '';
+function normalizeFinancialInputString(value: string) {
+  const compactValue = value.replace(/\s/g, '');
+  const hasComma = compactValue.includes(',');
+  const hasDot = compactValue.includes('.');
+
+  if (hasComma && hasDot) {
+    const lastCommaIndex = compactValue.lastIndexOf(',');
+    const lastDotIndex = compactValue.lastIndexOf('.');
+    const decimalSeparator = lastCommaIndex > lastDotIndex ? ',' : '.';
+    const thousandSeparator = decimalSeparator === ',' ? '.' : ',';
+
+    return compactValue
+      .replace(new RegExp(`\\${thousandSeparator}`, 'g'), '')
+      .replace(decimalSeparator, '.');
   }
 
-  return new Intl.NumberFormat('vi-VN').format(Number(digits));
+  if (hasComma) {
+    return compactValue.replace(/\./g, '').replace(',', '.');
+  }
+
+  if (/^\d{1,3}(\.\d{3})+$/.test(compactValue)) {
+    return compactValue.replace(/\./g, '');
+  }
+
+  return compactValue;
 }
 
 function getFinancialDrafts(items: QuotationItemDto[]) {

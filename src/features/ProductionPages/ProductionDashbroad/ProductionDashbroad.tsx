@@ -272,7 +272,7 @@ function mapProductionKpis(data: ProductionDashboardKpisDto | undefined, rangeLa
       icon: IconBan,
       label: 'Overdue (Deadline)',
       note: rangeLabel,
-      path: '/production/blocked-issues',
+      path: '/production/requests',
       tone: 'red',
       value: String(data?.overdueTasks ?? 0),
     },

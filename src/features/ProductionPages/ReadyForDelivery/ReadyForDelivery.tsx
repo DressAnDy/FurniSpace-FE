@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useState, type FormEvent, type KeyboardEvent } from 'react';
 import { IconArrowLeft, IconCalendarPlus, IconClipboardCheck, IconNotes, IconPackage, IconTruckDelivery } from '@tabler/icons-react';
 
 import { ProductionLayout, ProductionStatusBadge, ProductionSummaryCard } from '@/features/ProductionPages/productioncomponents';
@@ -221,6 +221,17 @@ export function ReadyForDelivery() {
   async function createDeliveryBatch() {
     if (!order || !selectedSchedule) return;
 
+    const invalidQuantityDraft = deliverableItemGroups.find((group) => {
+      const value = quantityDraft[group.groupId]?.trim();
+
+      return Boolean(value) && !isValidBatchQuantityInput(value);
+    });
+
+    if (invalidQuantityDraft) {
+      setMessage({ tone: 'error', text: 'Batch quantity must contain digits only.' });
+      return;
+    }
+
     const invalidGroup = deliverableItemGroups.find((group) => {
       const quantity = Number(quantityDraft[group.groupId] ?? 0);
       return Number.isFinite(quantity) && quantity > group.remainingQuantity;
@@ -357,13 +368,21 @@ export function ReadyForDelivery() {
     }
   }
 
+  function updateBatchQuantityDraft(groupId: string, value: string) {
+    const nextValue = value.replace(/\D/g, '');
+
+    setQuantityDraft((current) => ({ ...current, [groupId]: nextValue }));
+    setMessage(null);
+  }
+
   function renderScheduleCard(schedule: ProjectScheduleDto) {
     const scheduleKey = getScheduleKey(schedule);
     const linkedBatch = deliveries.find((delivery) => delivery.projectScheduleId === scheduleKey);
     const canSelect = canUseScheduleForBatch(schedule, usedScheduleIds);
     const isRescheduling = reschedulingScheduleId === scheduleKey;
-    const canReschedule = !linkedBatch && !isCompletedSchedule(schedule) && !isCancelledSchedule(schedule);
-    const canDelete = !linkedBatch && !isCompletedSchedule(schedule);
+    const isCustomerConfirmedSchedule = isConfirmedDeliverySchedule(schedule);
+    const canReschedule = !isCustomerConfirmedSchedule && !linkedBatch && !isCompletedSchedule(schedule) && !isCancelledSchedule(schedule);
+    const canDelete = !isCustomerConfirmedSchedule && !linkedBatch && !isCompletedSchedule(schedule);
 
     return (
       <article
@@ -410,7 +429,7 @@ export function ReadyForDelivery() {
             </button>
           ) : null}
         </div>
-        {isRescheduling ? (
+        {isRescheduling && canReschedule ? (
           <form className="production-ready-reschedule-form" onSubmit={(event) => void rescheduleDeliverySchedule(event, schedule)}>
             <div className="production-workspace-form-grid">
               <label>
@@ -491,11 +510,6 @@ export function ReadyForDelivery() {
             <header>
               <div>
                 <h3>Delivery Order Queue</h3>
-                <p>
-                  {requestTab === 'pending'
-                    ? 'Production-completed orders that still need delivery planning or execution.'
-                    : 'Orders that already finished the delivery flow.'}
-                </p>
               </div>
               <div className="production-ready-request-tabs" role="tablist" aria-label="Delivery order queue">
                 <button
@@ -647,7 +661,6 @@ export function ReadyForDelivery() {
                   <header>
                     <div>
                       <h3>Schedules & Batches</h3>
-                      <p>Click a schedule to execute or inspect its batch.</p>
                     </div>
                     <button
                       className="production-workspace-button production-workspace-button-secondary"
@@ -718,12 +731,14 @@ export function ReadyForDelivery() {
                                 <input
                                   className="production-workspace-quantity-input"
                                   disabled={group.remainingQuantity <= 0 || createBatchMutation.isPending}
-                                  inputMode="decimal"
+                                  inputMode="numeric"
                                   max={group.remainingQuantity}
                                   min={0}
-                                  type="number"
+                                  pattern="[0-9]*"
+                                  type="text"
                                   value={quantityDraft[group.groupId] ?? ''}
-                                  onChange={(event) => setQuantityDraft((current) => ({ ...current, [group.groupId]: event.target.value }))}
+                                  onChange={(event) => updateBatchQuantityDraft(group.groupId, event.target.value)}
+                                  onKeyDown={blockInvalidBatchQuantityKey}
                                 />
                               </td>
                             </tr>
@@ -777,7 +792,6 @@ function DeliveryDetailsSummary({
     <section className="production-ready-delivery-details">
       <header>
         <h4>Locked Delivery Details</h4>
-        <p>Use the order delivery details as the source of truth for scheduling and dispatch.</p>
       </header>
       <div className="production-workspace-detail-grid production-ready-compact-grid">
         <Field label="Address" value={deliveryAddress || 'Not provided'} />
@@ -800,6 +814,25 @@ function isConfirmedDeliverySchedule(schedule: ProjectScheduleDto) {
   const status = normalizeWorkflowStatus(schedule.status);
 
   return status === 'CONFIRMED' || status === 'DELIVERY_CONFIRMED' || status === 'CUSTOMER_CONFIRMED' || status === 'CONFIRMED_DELIVERY';
+}
+
+function blockInvalidBatchQuantityKey(event: KeyboardEvent<HTMLInputElement>) {
+  if (
+    event.ctrlKey
+    || event.metaKey
+    || event.altKey
+    || ['Backspace', 'Delete', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End', 'Tab'].includes(event.key)
+  ) {
+    return;
+  }
+
+  if (!/^\d$/.test(event.key)) {
+    event.preventDefault();
+  }
+}
+
+function isValidBatchQuantityInput(value: string) {
+  return /^\d+$/.test(value);
 }
 
 function isInProgressDeliveryBatch(delivery: DeliveryBatchDto) {

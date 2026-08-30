@@ -1,31 +1,39 @@
-import { useEffect, useMemo, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react';
 import {
   IconArchive,
+  IconArrowDown,
+  IconArrowUp,
+  IconBuildingSkyscraper,
+  IconCalendar,
   IconCheck,
+  IconMapPin,
+  IconPhoto,
   IconPhotoPlus,
+  IconRulerMeasure,
   IconSend,
   IconStar,
   IconTrash,
   IconUpload,
+  IconX,
 } from '@tabler/icons-react';
 
 import {
+  getShowcaseServiceResultFromError,
   getShowcaseServiceResultMessage,
   type ProjectShowcaseDto,
-  type ProjectShowcaseMediaType,
 } from '@/services/api/showcases';
 import type { ProjectStatus } from '@/services/api/projects';
 import {
   useArchiveProjectShowcase,
   useCreateProjectShowcase,
-  useCreateProjectShowcaseMedia,
   useDeleteProjectShowcaseMedia,
   useProjectShowcase,
   usePublishProjectShowcase,
+  useReorderProjectShowcaseMedia,
   useSetProjectShowcaseMediaCover,
   useSubmitProjectShowcase,
   useUpdateProjectShowcase,
-  useUploadProjectFile,
+  useUploadProjectShowcaseMedia,
 } from '@/services/queries';
 
 import './ProjectShowcaseManager.css';
@@ -46,7 +54,8 @@ type ShowcaseDraft = {
   title: string;
 };
 
-const mediaTypes: ProjectShowcaseMediaType[] = ['BEFORE', 'AFTER', 'FINAL', 'DETAIL', 'OTHER'];
+const allowedImageMimeTypes = new Set(['image/jpeg', 'image/png', 'image/webp']);
+const allowedImageExtensions = new Set(['jpg', 'jpeg', 'png', 'webp']);
 
 export function ProjectShowcaseManager({ projectId, projectName, projectStatus, role }: ProjectShowcaseManagerProps) {
   const showcaseQuery = useProjectShowcase(projectId);
@@ -54,18 +63,16 @@ export function ProjectShowcaseManager({ projectId, projectName, projectStatus, 
   const [draft, setDraft] = useState<ShowcaseDraft>(() => createEmptyDraft(projectName));
   const [message, setMessage] = useState<{ tone: 'error' | 'success'; text: string } | null>(null);
   const [mediaFiles, setMediaFiles] = useState<File[]>([]);
-  const [mediaType, setMediaType] = useState<ProjectShowcaseMediaType>('FINAL');
   const [mediaTitle, setMediaTitle] = useState('');
   const [mediaCaption, setMediaCaption] = useState('');
-  const [mediaCover, setMediaCover] = useState(false);
 
   const createMutation = useCreateProjectShowcase();
   const updateMutation = useUpdateProjectShowcase();
   const submitMutation = useSubmitProjectShowcase();
   const publishMutation = usePublishProjectShowcase();
   const archiveMutation = useArchiveProjectShowcase();
-  const uploadProjectFileMutation = useUploadProjectFile();
-  const createMediaMutation = useCreateProjectShowcaseMedia();
+  const uploadShowcaseMediaMutation = useUploadProjectShowcaseMedia();
+  const reorderMediaMutation = useReorderProjectShowcaseMedia();
   const setCoverMutation = useSetProjectShowcaseMediaCover();
   const deleteMediaMutation = useDeleteProjectShowcaseMedia();
   const isAdmin = role === 'admin';
@@ -76,6 +83,13 @@ export function ProjectShowcaseManager({ projectId, projectName, projectStatus, 
   const canPublish = Boolean(isAdmin && showcase && showcase.status === 'PENDING_REVIEW');
   const canArchive = Boolean(isAdmin && showcase && !isArchived);
   const coverMedia = showcase?.coverMedia ?? showcase?.media?.find((item) => item.isCover) ?? null;
+  const sortedMedia = useMemo(
+    () => [...(showcase?.media ?? [])].sort((first, second) =>
+      (first.displayOrder ?? Number.MAX_SAFE_INTEGER) - (second.displayOrder ?? Number.MAX_SAFE_INTEGER)
+      || first.showcaseMediaId.localeCompare(second.showcaseMediaId),
+    ),
+    [showcase?.media],
+  );
   const readiness = useMemo(() => getPublishReadiness(showcase, projectStatus), [projectStatus, showcase]);
   const isMutating =
     createMutation.isPending ||
@@ -83,8 +97,8 @@ export function ProjectShowcaseManager({ projectId, projectName, projectStatus, 
     submitMutation.isPending ||
     publishMutation.isPending ||
     archiveMutation.isPending ||
-    uploadProjectFileMutation.isPending ||
-    createMediaMutation.isPending ||
+    uploadShowcaseMediaMutation.isPending ||
+    reorderMediaMutation.isPending ||
     setCoverMutation.isPending ||
     deleteMediaMutation.isPending;
 
@@ -148,31 +162,56 @@ export function ProjectShowcaseManager({ projectId, projectName, projectStatus, 
     if (!showcase || mediaFiles.length === 0) return;
     setMessage(null);
 
-    try {
-      for (const [index, file] of mediaFiles.entries()) {
-        const uploadedFile = await uploadProjectFileMutation.mutateAsync({
-          file,
-          fileType: 'REVIEW_IMAGE',
-          note: 'Project showcase media',
-          projectId,
-          visibility: 'CUSTOMER_VISIBLE',
-        });
+    const invalidFile = mediaFiles.find((file) => !isSupportedShowcaseImage(file));
+    if (invalidFile) {
+      setMessage({ tone: 'error', text: `${invalidFile.name} is not a supported showcase image. Use JPG, PNG, or WEBP.` });
+      return;
+    }
 
-        await createMediaMutation.mutateAsync({
-          caption: mediaCaption,
-          fileId: uploadedFile.fileId,
-          mediaType,
-          setAsCover: mediaCover && index === 0,
+    try {
+      const normalizedTitle = mediaTitle.trim() || null;
+      const normalizedCaption = mediaCaption.trim() || null;
+
+      for (const [index, file] of mediaFiles.entries()) {
+        await uploadShowcaseMediaMutation.mutateAsync({
+          caption: normalizedCaption,
+          file,
+          mediaType: 'FINAL',
+          setAsCover: index === 0,
           showcaseId: showcase.showcaseId,
-          title: mediaTitle || stripFileExtension(file.name),
+          title: normalizedTitle,
         });
       }
 
       setMediaFiles([]);
       setMediaTitle('');
       setMediaCaption('');
-      setMediaCover(false);
       setMessage({ tone: 'success', text: `${mediaFiles.length} showcase media file(s) added.` });
+      void showcaseQuery.refetch();
+    } catch (error) {
+      setMessage({ tone: 'error', text: getShowcaseServiceResultMessage(error) });
+    }
+  }
+
+  async function moveMedia(showcaseMediaId: string, direction: -1 | 1) {
+    if (!showcase) return;
+
+    const currentIndex = sortedMedia.findIndex((media) => media.showcaseMediaId === showcaseMediaId);
+    const nextIndex = currentIndex + direction;
+
+    if (currentIndex < 0 || nextIndex < 0 || nextIndex >= sortedMedia.length) {
+      return;
+    }
+
+    const nextMedia = [...sortedMedia];
+    [nextMedia[currentIndex], nextMedia[nextIndex]] = [nextMedia[nextIndex], nextMedia[currentIndex]];
+
+    try {
+      await reorderMediaMutation.mutateAsync({
+        mediaIds: nextMedia.map((media) => media.showcaseMediaId),
+        showcaseId: showcase.showcaseId,
+      });
+      setMessage({ tone: 'success', text: 'Showcase media order updated.' });
       void showcaseQuery.refetch();
     } catch (error) {
       setMessage({ tone: 'error', text: getShowcaseServiceResultMessage(error) });
@@ -206,8 +245,19 @@ export function ProjectShowcaseManager({ projectId, projectName, projectStatus, 
     setMessage(null);
 
     try {
-      await setCoverMutation.mutateAsync({ showcaseId: showcase.showcaseId, showcaseMediaId });
-      setMessage({ tone: 'success', text: 'Cover media updated.' });
+      try {
+        await setCoverMutation.mutateAsync({ showcaseId: showcase.showcaseId, showcaseMediaId });
+      } catch (error) {
+        const result = getShowcaseServiceResultFromError(error);
+
+        if (result?.errorCode !== 'PROJECT_SHOWCASE_COVER_CONFLICT') {
+          throw error;
+        }
+
+        await showcaseQuery.refetch();
+        await setCoverMutation.mutateAsync({ showcaseId: showcase.showcaseId, showcaseMediaId });
+      }
+      setMessage({ tone: 'success', text: 'Primary media updated.' });
       void showcaseQuery.refetch();
     } catch (error) {
       setMessage({ tone: 'error', text: getShowcaseServiceResultMessage(error) });
@@ -231,9 +281,9 @@ export function ProjectShowcaseManager({ projectId, projectName, projectStatus, 
     <section className="project-showcase-manager">
       <div className="project-showcase-manager-header">
         <div>
-          <span>Portfolio CMS</span>
-          <h3>Project Showcase</h3>
-          <p>{isAdmin ? 'Review and decide whether this project appears on the public portfolio.' : 'Prepare the project story and submit it for admin review.'}</p>
+          <span>Portfolio Showcase</span>
+          <h3>{draft.title || projectName || 'Project Showcase'}</h3>
+          <p>{isAdmin ? 'Review the public story, primary image, and gallery before publishing.' : 'Prepare the public story, primary image, and gallery for admin review.'}</p>
         </div>
         <div className="project-showcase-status-stack">
           <strong>{showcase ? formatEnumLabel(showcase.status) : 'No Draft'}</strong>
@@ -246,45 +296,30 @@ export function ProjectShowcaseManager({ projectId, projectName, projectStatus, 
       {message ? <p className={`project-showcase-message project-showcase-message-${message.tone}`}>{message.text}</p> : null}
 
       <div className="project-showcase-grid">
-        <form className="project-showcase-card project-showcase-form" onSubmit={(event) => void saveDraft(event)}>
-          <div className="project-showcase-section-title">
-            <h4>Draft Content</h4>
-            <p>Title, summary, and slug are used on public pages.</p>
+        <section className="project-showcase-card project-showcase-overview">
+          <div className="project-showcase-cover-stage">
+            {coverMedia ? (
+              <img alt={coverMedia.caption ?? coverMedia.title ?? 'Showcase primary'} src={coverMedia.url ?? coverMedia.publicUrl ?? ''} />
+            ) : (
+              <div className="project-showcase-cover-empty">
+                <IconPhotoPlus size={28} />
+                <span>No primary selected</span>
+              </div>
+            )}
+            <span>{coverMedia ? 'Current Primary' : 'Primary Required'}</span>
           </div>
-          <label>
-            <span>Title</span>
-            <input value={draft.title} disabled={!canEditDraft || isMutating} onChange={(event) => setDraft((current) => ({ ...current, title: event.target.value }))} />
-          </label>
-          <label>
-            <span>Slug</span>
-            <input placeholder="bee-chang-hiang-office" value={draft.slug} disabled={!canEditDraft || isMutating} onChange={(event) => setDraft((current) => ({ ...current, slug: event.target.value }))} />
-          </label>
-          <label>
-            <span>Summary</span>
-            <textarea value={draft.summary} disabled={!canEditDraft || isMutating} onChange={(event) => setDraft((current) => ({ ...current, summary: event.target.value }))} />
-          </label>
-          <label>
-            <span>Description</span>
-            <textarea value={draft.description} disabled={!canEditDraft || isMutating} onChange={(event) => setDraft((current) => ({ ...current, description: event.target.value }))} />
-          </label>
-          <div className="project-showcase-actions">
-            <button disabled={!canEditDraft || isMutating} type="submit">
-              <IconCheck size={16} />
-              {showcase ? 'Save Draft' : 'Create Showcase'}
-            </button>
-            {canSubmit ? (
-              <button className="is-secondary" disabled={isMutating} type="button" onClick={() => void runShowcaseAction('submit')}>
-                <IconSend size={16} />
-                Submit Review
-              </button>
-            ) : null}
+          <div className="project-showcase-live-facts">
+            <ShowcaseFact icon={<IconBuildingSkyscraper size={17} />} label="Business" value={showcase?.businessType} />
+            <ShowcaseFact icon={<IconCalendar size={17} />} label="Completed" value={showcase?.completedDate ? formatDate(showcase.completedDate) : null} />
+            <ShowcaseFact icon={<IconRulerMeasure size={17} />} label="Area" value={typeof showcase?.totalAreaSqm === 'number' ? `${formatNumber(showcase.totalAreaSqm)} m2` : null} />
+            <ShowcaseFact icon={<IconMapPin size={17} />} label="Address" value={showcase?.projectAddress} />
           </div>
-        </form>
+        </section>
 
         <aside className="project-showcase-card project-showcase-readiness">
           <div className="project-showcase-section-title">
             <h4>Publish Readiness</h4>
-            <p>Admin can publish only after every rule passes.</p>
+            <p>{readiness.filter((item) => item.ready).length} of {readiness.length} ready</p>
           </div>
           <ul>
             {readiness.map((item) => (
@@ -294,15 +329,9 @@ export function ProjectShowcaseManager({ projectId, projectName, projectStatus, 
               </li>
             ))}
           </ul>
-          {coverMedia ? (
-            <div className="project-showcase-cover-preview">
-              <img alt={coverMedia.caption ?? 'Showcase cover'} src={coverMedia.url ?? coverMedia.publicUrl ?? ''} />
-              <span>Cover media</span>
-            </div>
-          ) : null}
           <div className="project-showcase-actions">
             {canPublish ? (
-              <button disabled={isMutating} type="button" onClick={() => void runShowcaseAction('publish')}>
+              <button disabled={isMutating || !readiness.every((item) => item.ready)} type="button" onClick={() => void runShowcaseAction('publish')}>
                 <IconStar size={16} />
                 Publish
               </button>
@@ -320,62 +349,98 @@ export function ProjectShowcaseManager({ projectId, projectName, projectStatus, 
         </aside>
       </div>
 
+      <form className="project-showcase-card project-showcase-form" onSubmit={(event) => void saveDraft(event)}>
+        <div className="project-showcase-section-title">
+          <h4>Story Content</h4>
+          <p>Title, slug, summary, and description.</p>
+        </div>
+        <div className="project-showcase-form-grid">
+          <label>
+            <span>Title</span>
+            <input value={draft.title} disabled={!canEditDraft || isMutating} onChange={(event) => setDraft((current) => ({ ...current, title: event.target.value }))} />
+          </label>
+          <label>
+            <span>Slug</span>
+            <input placeholder="bee-chang-hiang-office" value={draft.slug} disabled={!canEditDraft || isMutating} onChange={(event) => setDraft((current) => ({ ...current, slug: event.target.value }))} />
+          </label>
+        </div>
+        <label>
+          <span>Summary</span>
+          <textarea value={draft.summary} disabled={!canEditDraft || isMutating} onChange={(event) => setDraft((current) => ({ ...current, summary: event.target.value }))} />
+        </label>
+        <label>
+          <span>Description</span>
+          <textarea value={draft.description} disabled={!canEditDraft || isMutating} onChange={(event) => setDraft((current) => ({ ...current, description: event.target.value }))} />
+        </label>
+        <div className="project-showcase-actions">
+          <button disabled={!canEditDraft || isMutating} type="submit">
+            <IconCheck size={16} />
+            {showcase ? 'Save Draft' : 'Create Showcase'}
+          </button>
+          {canSubmit ? (
+            <button className="is-secondary" disabled={isMutating} type="button" onClick={() => void runShowcaseAction('submit')}>
+              <IconSend size={16} />
+              Submit Review
+            </button>
+          ) : null}
+        </div>
+      </form>
+
       {showcase ? (
         <div className="project-showcase-card project-showcase-media-card">
           <div className="project-showcase-section-title">
             <h4>Showcase Media</h4>
-            <p>Add final photos, before images, and details. Select one as cover.</p>
+            <p>{sortedMedia.length} curated image{sortedMedia.length === 1 ? '' : 's'}</p>
           </div>
 
           {canEditDraft ? (
-            <form className="project-showcase-media-form" onSubmit={(event) => void uploadMedia(event)}>
-              <label>
-                <span>Image files</span>
-                <input
-                  accept="image/*"
-                  multiple
-                  type="file"
-                  onChange={(event) => {
-                    setMediaFiles((current) => mergeSelectedFiles(current, event.target.files));
-                    event.target.value = '';
-                  }}
-                />
-              </label>
-              <label>
-                <span>Type</span>
-                <select value={mediaType} onChange={(event) => setMediaType(event.target.value as ProjectShowcaseMediaType)}>
-                  {mediaTypes.map((type) => <option key={type} value={type}>{formatEnumLabel(type)}</option>)}
-                </select>
-              </label>
-              <label>
-                <span>Title</span>
-                <input value={mediaTitle} onChange={(event) => setMediaTitle(event.target.value)} />
-              </label>
-              <label>
-                <span>Caption</span>
-                <input value={mediaCaption} onChange={(event) => setMediaCaption(event.target.value)} />
-              </label>
-              <label className="project-showcase-checkbox">
-                <input checked={mediaCover} type="checkbox" onChange={(event) => setMediaCover(event.target.checked)} />
-                <span>Set as cover</span>
-              </label>
-              <button disabled={mediaFiles.length === 0 || isMutating} type="submit">
-                <IconUpload size={16} />
-                Upload {mediaFiles.length > 0 ? `${mediaFiles.length} File(s)` : 'Media'}
-              </button>
-            </form>
+            <div className="project-showcase-media-forms">
+              <form className="project-showcase-media-form" onSubmit={(event) => void uploadMedia(event)}>
+                <label className="project-showcase-upload-dropzone">
+                  <input
+                    accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp"
+                    multiple
+                    type="file"
+                    onChange={(event) => {
+                      setMediaFiles((current) => mergeSelectedFiles(current, event.target.files));
+                      event.target.value = '';
+                    }}
+                  />
+                  <span className="project-showcase-upload-dropzone-body">
+                    <IconUpload size={28} />
+                    <strong>{mediaFiles.length > 0 ? `${mediaFiles.length} image(s) ready` : 'Choose showcase images'}</strong>
+                    <small>You can choose multiple images at once. The first image becomes primary.</small>
+                  </span>
+                </label>
+                <label>
+                  <span>Title</span>
+                  <input value={mediaTitle} onChange={(event) => setMediaTitle(event.target.value)} />
+                </label>
+                <label>
+                  <span>Caption</span>
+                  <input value={mediaCaption} onChange={(event) => setMediaCaption(event.target.value)} />
+                </label>
+                <button disabled={mediaFiles.length === 0 || isMutating} type="submit">
+                  <IconUpload size={16} />
+                  Upload {mediaFiles.length > 0 ? `${mediaFiles.length} File(s)` : 'Media'}
+                </button>
+              </form>
+            </div>
           ) : null}
 
           {mediaFiles.length > 0 ? (
             <div className="project-showcase-selected-files">
-              {mediaFiles.map((file) => (
-                <div key={`${file.name}-${file.size}-${file.lastModified}`}>
-                  <span>{file.name}</span>
-                  <button type="button" onClick={() => setMediaFiles((current) => current.filter((item) => getFileKey(item) !== getFileKey(file)))}>
-                    Remove
-                  </button>
-                </div>
-              ))}
+              <p>{mediaFiles.length} image{mediaFiles.length === 1 ? '' : 's'} selected</p>
+              <div className="project-showcase-selected-file-grid">
+                {mediaFiles.map((file, index) => (
+                  <ShowcaseSelectedFilePreview
+                    file={file}
+                    isPrimary={index === 0}
+                    key={`${file.name}-${file.size}-${file.lastModified}`}
+                    onRemove={() => setMediaFiles((current) => current.filter((item) => getFileKey(item) !== getFileKey(file)))}
+                  />
+                ))}
+              </div>
             </div>
           ) : null}
 
@@ -387,20 +452,29 @@ export function ProjectShowcaseManager({ projectId, projectName, projectStatus, 
           ) : null}
 
           <div className="project-showcase-media-grid">
-            {showcase.media?.map((media) => {
-              const mediaUrl = media.url ?? media.publicUrl;
+            {sortedMedia.map((media, index) => {
+              const mediaUrl = media.url ?? media.publicUrl ?? media.fileUrl;
 
               return (
                 <article key={media.showcaseMediaId}>
-                  {mediaUrl ? <img alt={media.caption ?? media.mediaType} src={mediaUrl} /> : <div className="project-showcase-media-placeholder" />}
+                  <div className="project-showcase-media-thumb">
+                    {mediaUrl ? <img alt={media.caption ?? media.mediaType} src={mediaUrl} /> : <div className="project-showcase-media-placeholder" />}
+                    {media.isCover ? <span>Primary</span> : null}
+                  </div>
                   <div>
                     <strong>{media.title || formatEnumLabel(media.mediaType)}</strong>
                     <span>{media.caption || formatEnumLabel(media.mediaType)}</span>
                   </div>
                   <div className="project-showcase-media-actions">
+                    <button disabled={!canEditDraft || isMutating || index === 0} type="button" aria-label="Move media up" onClick={() => void moveMedia(media.showcaseMediaId, -1)}>
+                      <IconArrowUp size={15} />
+                    </button>
+                    <button disabled={!canEditDraft || isMutating || index === sortedMedia.length - 1} type="button" aria-label="Move media down" onClick={() => void moveMedia(media.showcaseMediaId, 1)}>
+                      <IconArrowDown size={15} />
+                    </button>
                     <button className={media.isCover ? 'is-active' : ''} disabled={!canEditDraft || isMutating || Boolean(media.isCover)} type="button" onClick={() => void setCover(media.showcaseMediaId)}>
                       <IconStar size={15} />
-                      {media.isCover ? 'Cover' : 'Set Cover'}
+                      {media.isCover ? 'Primary' : 'Set Primary'}
                     </button>
                     <button disabled={!canEditDraft || isMutating} type="button" onClick={() => void deleteMedia(media.showcaseMediaId)}>
                       <IconTrash size={15} />
@@ -414,6 +488,43 @@ export function ProjectShowcaseManager({ projectId, projectName, projectStatus, 
         </div>
       ) : null}
     </section>
+  );
+}
+
+function ShowcaseFact({ icon, label, value }: { icon: ReactNode; label: string; value?: string | number | null }) {
+  return (
+    <div>
+      {icon}
+      <span>{label}</span>
+      <strong>{value || '-'}</strong>
+    </div>
+  );
+}
+
+function ShowcaseSelectedFilePreview({ file, isPrimary, onRemove }: { file: File; isPrimary: boolean; onRemove: () => void }) {
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    const objectUrl = URL.createObjectURL(file);
+    setPreviewUrl(objectUrl);
+
+    return () => URL.revokeObjectURL(objectUrl);
+  }, [file]);
+
+  return (
+    <article className="project-showcase-selected-file-card">
+      <div className="project-showcase-selected-file-thumb">
+        {previewUrl ? <img alt={file.name} src={previewUrl} /> : <IconPhoto size={28} />}
+        {isPrimary ? <span>Primary</span> : null}
+      </div>
+      <div className="project-showcase-selected-file-info">
+        <strong title={file.name}>{file.name}</strong>
+        <span>{file.type || 'Image'} - {formatFileSize(file.size)}</span>
+      </div>
+      <button type="button" aria-label={`Remove ${file.name}`} onClick={onRemove}>
+        <IconX size={16} />
+      </button>
+    </article>
   );
 }
 
@@ -446,8 +557,12 @@ function getFileKey(file: File) {
   return `${file.name}-${file.size}-${file.lastModified}`;
 }
 
-function stripFileExtension(fileName: string) {
-  return fileName.replace(/\.[^.]+$/, '');
+function isSupportedShowcaseImage(file: File) {
+  const extension = file.name.split('.').pop()?.toLowerCase() ?? '';
+  const hasValidExtension = allowedImageExtensions.has(extension);
+  const hasValidMimeType = !file.type || allowedImageMimeTypes.has(file.type);
+
+  return hasValidExtension && hasValidMimeType;
 }
 
 function getPublishReadiness(showcase: ProjectShowcaseDto | null, projectStatus?: string | null) {
@@ -455,7 +570,7 @@ function getPublishReadiness(showcase: ProjectShowcaseDto | null, projectStatus?
     { label: 'Project completed', ready: projectStatus === 'COMPLETED' },
     { label: 'Title added', ready: Boolean(showcase?.title?.trim()) },
     { label: 'Summary added', ready: Boolean(showcase?.summary?.trim()) },
-    { label: 'Cover media selected', ready: Boolean(showcase?.coverMedia || showcase?.media?.some((item) => item.isCover)) },
+    { label: 'Primary media selected', ready: Boolean(showcase?.coverMedia || showcase?.media?.some((item) => item.isCover)) },
   ];
 }
 
@@ -473,4 +588,14 @@ function formatDate(value: string) {
     month: 'short',
     year: 'numeric',
   }).format(new Date(value));
+}
+
+function formatNumber(value: number) {
+  return new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 2 }).format(value);
+}
+
+function formatFileSize(size: number) {
+  if (size < 1024) return `${size} B`;
+  if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
+  return `${(size / 1024 / 1024).toFixed(1)} MB`;
 }

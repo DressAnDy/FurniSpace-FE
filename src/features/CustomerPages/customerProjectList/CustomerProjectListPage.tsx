@@ -205,15 +205,13 @@ function ProjectCard({ onOpenChat, onPaymentCompleted, project }: ProjectCardPro
               }
 
               navigate(
-                project.status === 'COMPLETED'
-                  ? `/customer/projects/${project.projectId}/feedback`
-                  : needsInformationUpdate
-                    ? `/customer/projects/${project.projectId}/edit`
-                    : `/customer/projects/${project.projectId}`,
+                needsInformationUpdate
+                  ? `/customer/projects/${project.projectId}/edit`
+                  : `/customer/projects/${project.projectId}`,
               );
             }}
           >
-            {canPayStartFee ? 'Pay Start Fee' : project.status === 'COMPLETED' ? 'Submit Feedback' : needsInformationUpdate ? 'Update Information' : 'Open Project'}
+            {canPayStartFee ? 'Pay Start Fee' : needsInformationUpdate ? 'Update Information' : 'Open Project'}
             <IconArrowRight size={16} stroke={1.8} />
           </button>
           <button type="button" onClick={onOpenChat}>

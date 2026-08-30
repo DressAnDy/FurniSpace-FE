@@ -11,7 +11,9 @@ import { useCurrentUser, useNotificationRealtime, usePaymentRealtime } from '@/s
  */
 export function RealtimeSyncProvider({ children }: Readonly<{ children: ReactNode }>) {
   const currentUserQuery = useCurrentUser();
-  const enabled = Boolean(currentUserQuery.data);
+  const currentUser = currentUserQuery.data;
+  const enabled = Boolean(currentUser);
+  const paymentRealtimeEnabled = enabled && shouldEnablePaymentRealtime(currentUser?.role);
   const [lastInAppNotification, setLastInAppNotification] = useState<RealtimeNotificationPayload | null>(null);
 
   const handleInAppNotification = useCallback((payload: RealtimeNotificationPayload) => {
@@ -25,7 +27,7 @@ export function RealtimeSyncProvider({ children }: Readonly<{ children: ReactNod
     onInAppNotification: handleInAppNotification,
   });
 
-  usePaymentRealtime({ enabled });
+  usePaymentRealtime({ enabled: paymentRealtimeEnabled });
 
   const acknowledgeInAppNotification = useCallback((notificationId: string) => {
     setLastInAppNotification((current) => (current?.notificationId === notificationId ? null : current));
@@ -37,4 +39,14 @@ export function RealtimeSyncProvider({ children }: Readonly<{ children: ReactNod
   );
 
   return <RealtimeSyncContext.Provider value={value}>{children}</RealtimeSyncContext.Provider>;
+}
+
+function shouldEnablePaymentRealtime(role?: string | null) {
+  const normalizedRole = normalizeRole(role);
+
+  return normalizedRole === 'ADMIN' || normalizedRole === 'CUSTOMER' || normalizedRole === 'SALES' || normalizedRole === 'SALE';
+}
+
+function normalizeRole(role?: string | null) {
+  return (role ?? '').trim().replace(/[\s-]+/g, '_').toUpperCase();
 }
