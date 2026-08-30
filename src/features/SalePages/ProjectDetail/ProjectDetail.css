@@ -1163,6 +1163,12 @@
   gap: 6px;
 }
 
+.project-detail-start-fee-create label.has-error {
+  min-width: 320px;
+  max-width: 520px;
+  flex: 1 1 420px;
+}
+
 .project-detail-start-fee-create label span {
   color: #6b6b6b;
   font-size: 12px;
@@ -1170,11 +1176,15 @@
   line-height: 16px;
 }
 
-.project-detail-start-fee-create label small {
-  color: #8a8177;
-  font-size: 11px;
-  font-weight: 600;
-  line-height: 15px;
+.project-detail-start-fee-field-row {
+  display: block;
+}
+
+.project-detail-start-fee-create label.has-error .project-detail-start-fee-field-row {
+  display: grid;
+  grid-template-columns: minmax(140px, 1fr) minmax(160px, 190px);
+  gap: 8px;
+  align-items: center;
 }
 
 .project-detail-start-fee-input-wrap {
@@ -1245,10 +1255,12 @@
 }
 
 .project-detail-field-error {
+  margin: 0;
   color: #c62828;
-  font-size: 12px;
-  font-weight: 600;
-  line-height: 1.35;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.25;
+  text-align: right;
 }
 
 .project-detail-start-fee-actions button {
@@ -1919,30 +1931,65 @@
   font-size: 13px;
 }
 
-.project-detail-measurement-grid {
+.project-detail-measurement-area-list {
   display: grid;
   gap: 12px;
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+}
+
+.project-detail-measurement-area {
+  display: grid;
+  gap: 10px;
+  border: 1px solid rgba(139, 111, 71, 0.12);
+  border-radius: 10px;
+  background: #fffdf9;
+  padding: 12px;
+}
+
+.project-detail-measurement-area > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.project-detail-measurement-area > header h4 {
+  margin: 0;
+  color: #2d2d2d;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.project-detail-measurement-area > header span {
+  color: #8a7b6a;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.project-detail-measurement-grid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(auto-fill, minmax(138px, 1fr));
 }
 
 .project-detail-measurement-card {
   display: grid;
-  gap: 10px;
+  gap: 8px;
   border: 1px solid rgba(139, 111, 71, 0.14);
-  border-radius: 10px;
+  border-radius: 8px;
   background: #faf9f7;
-  padding: 10px;
+  min-width: 0;
+  padding: 8px;
 }
 
 .project-detail-measurement-card button,
 .project-detail-measurement-card > span {
   display: grid;
   width: 100%;
-  aspect-ratio: 4 / 3;
+  aspect-ratio: 1 / 1;
   place-items: center;
   overflow: hidden;
   border: 0;
-  border-radius: 8px;
+  border-radius: 7px;
   background: #ffffff;
   color: #8b6f47;
   cursor: pointer;
@@ -1965,12 +2012,14 @@
 
 .project-detail-measurement-card strong {
   color: #2d2d2d;
-  font-size: 13px;
+  font-size: 12px;
+  line-height: 16px;
 }
 
 .project-detail-measurement-card small {
   color: #6b6b6b;
-  font-size: 12px;
+  font-size: 11px;
+  line-height: 15px;
 }
 
 .project-detail-system-message {
@@ -2681,8 +2730,17 @@
   }
 
   .project-detail-start-fee-create label {
+    min-width: 0;
     max-width: none;
     flex-basis: 100%;
+  }
+
+  .project-detail-start-fee-create label.has-error .project-detail-start-fee-field-row {
+    grid-template-columns: 1fr;
+  }
+
+  .project-detail-field-error {
+    text-align: left;
   }
 
   .project-detail-tabs {

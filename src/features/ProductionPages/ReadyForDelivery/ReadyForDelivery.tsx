@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useState, type FormEvent, type KeyboardEvent } from 'react';
 import { IconArrowLeft, IconCalendarPlus, IconClipboardCheck, IconNotes, IconPackage, IconTruckDelivery } from '@tabler/icons-react';
+import { useSearchParams } from 'react-router-dom';
 
 import { ProductionLayout, ProductionStatusBadge, ProductionSummaryCard } from '@/features/ProductionPages/productioncomponents';
 import { formatDate } from '@/features/ProductionPages/utils';
@@ -33,12 +34,19 @@ type ScheduleRescheduleDraft = {
 };
 type ReadyRequestTab = 'pending' | 'delivered';
 
+const MIN_REQUEST_PAGE_SIZE = 1;
+const MAX_REQUEST_PAGE_SIZE = 100;
+const DEFAULT_REQUEST_PAGE_SIZE = 4;
+
 export function ReadyForDelivery() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const orderIdFromUrl = searchParams.get('orderId') ?? '';
   const [selectedProductionRequestId, setSelectedProductionRequestId] = useState('');
   const [selectedScheduleId, setSelectedScheduleId] = useState('');
   const [batchNote, setBatchNote] = useState('');
   const [quantityDraft, setQuantityDraft] = useState<BatchQuantityDraft>({});
   const [requestPage, setRequestPage] = useState(1);
+  const [requestPageSize, setRequestPageSize] = useState(DEFAULT_REQUEST_PAGE_SIZE);
   const [requestTab, setRequestTab] = useState<ReadyRequestTab>('pending');
   const [isDeliveryDetailOpen, setIsDeliveryDetailOpen] = useState(false);
   const [scheduleStartInput, setScheduleStartInput] = useState(getNowDateTimeLocalInputValue());
@@ -55,11 +63,10 @@ export function ReadyForDelivery() {
   const pendingReadyRequests = useMemo(() => readyRequests.filter((request) => !isDeliveredProductionRequest(request)), [readyRequests]);
   const deliveredReadyRequests = useMemo(() => readyRequests.filter(isDeliveredProductionRequest), [readyRequests]);
   const visibleReadyRequests = requestTab === 'delivered' ? deliveredReadyRequests : pendingReadyRequests;
-  const requestPageSize = 4;
-  const requestPageCount = Math.max(Math.ceil(visibleReadyRequests.length / requestPageSize), 1);
+  const requestPageCount = Math.max(Math.ceil(visibleReadyRequests.length / requestPageSize) || 1, 1);
   const pagedReadyRequests = useMemo(
     () => visibleReadyRequests.slice((requestPage - 1) * requestPageSize, requestPage * requestPageSize),
-    [requestPage, visibleReadyRequests],
+    [requestPage, requestPageSize, visibleReadyRequests],
   );
 
   const orderDetailQuery = useOrderDetail(selectedRequest?.orderId, { enabled: Boolean(selectedRequest?.orderId) });
@@ -132,7 +139,25 @@ export function ReadyForDelivery() {
 
   useEffect(() => {
     setRequestPage(1);
-  }, [requestTab]);
+  }, [requestTab, requestPageSize]);
+
+  useEffect(() => {
+    if (!orderIdFromUrl || readyRequests.length === 0) {
+      return;
+    }
+
+    const matchedRequest =
+      readyRequests.find((request) => request.orderId === orderIdFromUrl)
+      ?? readyRequests.find((request) => request.productionRequestId === orderIdFromUrl);
+
+    if (!matchedRequest) {
+      return;
+    }
+
+    setSelectedProductionRequestId(matchedRequest.productionRequestId);
+    setRequestTab(isDeliveredProductionRequest(matchedRequest) ? 'delivered' : 'pending');
+    setSearchParams({}, { replace: true });
+  }, [orderIdFromUrl, readyRequests, setSearchParams]);
 
   useEffect(() => {
     setSelectedScheduleId('');
@@ -220,6 +245,17 @@ export function ReadyForDelivery() {
 
   async function createDeliveryBatch() {
     if (!order || !selectedSchedule) return;
+
+    const invalidQuantityDraft = deliverableItemGroups.find((group) => {
+      const value = quantityDraft[group.groupId]?.trim();
+
+      return Boolean(value) && !isValidBatchQuantityInput(value);
+    });
+
+    if (invalidQuantityDraft) {
+      setMessage({ tone: 'error', text: 'Batch quantity must contain digits only.' });
+      return;
+    }
 
     const invalidGroup = deliverableItemGroups.find((group) => {
       const quantity = Number(quantityDraft[group.groupId] ?? 0);
@@ -357,13 +393,21 @@ export function ReadyForDelivery() {
     }
   }
 
+  function updateBatchQuantityDraft(groupId: string, value: string) {
+    const nextValue = value.replace(/\D/g, '');
+
+    setQuantityDraft((current) => ({ ...current, [groupId]: nextValue }));
+    setMessage(null);
+  }
+
   function renderScheduleCard(schedule: ProjectScheduleDto) {
     const scheduleKey = getScheduleKey(schedule);
     const linkedBatch = deliveries.find((delivery) => delivery.projectScheduleId === scheduleKey);
     const canSelect = canUseScheduleForBatch(schedule, usedScheduleIds);
     const isRescheduling = reschedulingScheduleId === scheduleKey;
-    const canReschedule = !linkedBatch && !isCompletedSchedule(schedule) && !isCancelledSchedule(schedule);
-    const canDelete = !linkedBatch && !isCompletedSchedule(schedule);
+    const isCustomerConfirmedSchedule = isConfirmedDeliverySchedule(schedule);
+    const canReschedule = !isCustomerConfirmedSchedule && !linkedBatch && !isCompletedSchedule(schedule) && !isCancelledSchedule(schedule);
+    const canDelete = !isCustomerConfirmedSchedule && !linkedBatch && !isCompletedSchedule(schedule);
 
     return (
       <article
@@ -410,7 +454,7 @@ export function ReadyForDelivery() {
             </button>
           ) : null}
         </div>
-        {isRescheduling ? (
+        {isRescheduling && canReschedule ? (
           <form className="production-ready-reschedule-form" onSubmit={(event) => void rescheduleDeliverySchedule(event, schedule)}>
             <div className="production-workspace-form-grid">
               <label>
@@ -491,11 +535,6 @@ export function ReadyForDelivery() {
             <header>
               <div>
                 <h3>Delivery Order Queue</h3>
-                <p>
-                  {requestTab === 'pending'
-                    ? 'Production-completed orders that still need delivery planning or execution.'
-                    : 'Orders that already finished the delivery flow.'}
-                </p>
               </div>
               <div className="production-ready-request-tabs" role="tablist" aria-label="Delivery order queue">
                 <button
@@ -566,12 +605,18 @@ export function ReadyForDelivery() {
                 );
               })}
             </div>
-            {visibleReadyRequests.length > requestPageSize ? (
-              <div className="production-ready-pagination">
-                <button disabled={requestPage === 1} type="button" onClick={() => setRequestPage((page) => Math.max(page - 1, 1))}>Previous</button>
-                <span>{requestPage} / {requestPageCount}</span>
-                <button disabled={requestPage === requestPageCount} type="button" onClick={() => setRequestPage((page) => Math.min(page + 1, requestPageCount))}>Next</button>
-              </div>
+            {!readyRequestsQuery.isLoading ? (
+              <ReadyDeliveryQueuePager
+                page={requestPage}
+                pageSize={requestPageSize}
+                totalItems={visibleReadyRequests.length}
+                totalPages={requestPageCount}
+                onChange={setRequestPage}
+                onPageSizeChange={(nextSize) => {
+                  setRequestPageSize(nextSize);
+                  setRequestPage(1);
+                }}
+              />
             ) : null}
           </article>
           <div className="production-workspace-page production-ready-control-column">
@@ -647,7 +692,6 @@ export function ReadyForDelivery() {
                   <header>
                     <div>
                       <h3>Schedules & Batches</h3>
-                      <p>Click a schedule to execute or inspect its batch.</p>
                     </div>
                     <button
                       className="production-workspace-button production-workspace-button-secondary"
@@ -718,12 +762,14 @@ export function ReadyForDelivery() {
                                 <input
                                   className="production-workspace-quantity-input"
                                   disabled={group.remainingQuantity <= 0 || createBatchMutation.isPending}
-                                  inputMode="decimal"
+                                  inputMode="numeric"
                                   max={group.remainingQuantity}
                                   min={0}
-                                  type="number"
+                                  pattern="[0-9]*"
+                                  type="text"
                                   value={quantityDraft[group.groupId] ?? ''}
-                                  onChange={(event) => setQuantityDraft((current) => ({ ...current, [group.groupId]: event.target.value }))}
+                                  onChange={(event) => updateBatchQuantityDraft(group.groupId, event.target.value)}
+                                  onKeyDown={blockInvalidBatchQuantityKey}
                                 />
                               </td>
                             </tr>
@@ -777,7 +823,6 @@ function DeliveryDetailsSummary({
     <section className="production-ready-delivery-details">
       <header>
         <h4>Locked Delivery Details</h4>
-        <p>Use the order delivery details as the source of truth for scheduling and dispatch.</p>
       </header>
       <div className="production-workspace-detail-grid production-ready-compact-grid">
         <Field label="Address" value={deliveryAddress || 'Not provided'} />
@@ -800,6 +845,25 @@ function isConfirmedDeliverySchedule(schedule: ProjectScheduleDto) {
   const status = normalizeWorkflowStatus(schedule.status);
 
   return status === 'CONFIRMED' || status === 'DELIVERY_CONFIRMED' || status === 'CUSTOMER_CONFIRMED' || status === 'CONFIRMED_DELIVERY';
+}
+
+function blockInvalidBatchQuantityKey(event: KeyboardEvent<HTMLInputElement>) {
+  if (
+    event.ctrlKey
+    || event.metaKey
+    || event.altKey
+    || ['Backspace', 'Delete', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End', 'Tab'].includes(event.key)
+  ) {
+    return;
+  }
+
+  if (!/^\d$/.test(event.key)) {
+    event.preventDefault();
+  }
+}
+
+function isValidBatchQuantityInput(value: string) {
+  return /^\d+$/.test(value);
 }
 
 function isInProgressDeliveryBatch(delivery: DeliveryBatchDto) {
@@ -855,6 +919,111 @@ function getStringRecordValue(record: Record<string, unknown>, key: string) {
 
 function getScheduleKey(schedule: ProjectScheduleDto) {
   return schedule.projectScheduleId ?? schedule.scheduleId;
+}
+
+function ReadyDeliveryQueuePager({
+  page,
+  pageSize,
+  totalPages,
+  totalItems,
+  onChange,
+  onPageSizeChange,
+}: {
+  page: number;
+  pageSize: number;
+  totalPages: number;
+  totalItems: number;
+  onChange: (page: number) => void;
+  onPageSizeChange: (pageSize: number) => void;
+}) {
+  const safeTotalPages = Math.max(totalPages, 1);
+  const [pageDraft, setPageDraft] = useState(String(page));
+  const [sizeDraft, setSizeDraft] = useState(String(pageSize));
+
+  useEffect(() => {
+    setPageDraft(String(page));
+  }, [page]);
+
+  useEffect(() => {
+    setSizeDraft(String(pageSize));
+  }, [pageSize]);
+
+  function commitPage() {
+    const parsed = Number.parseInt(pageDraft, 10);
+    if (!Number.isFinite(parsed)) {
+      setPageDraft(String(page));
+      return;
+    }
+
+    const next = Math.min(Math.max(parsed, 1), safeTotalPages);
+    setPageDraft(String(next));
+    if (next !== page) onChange(next);
+  }
+
+  function commitPageSize() {
+    const parsed = Number.parseInt(sizeDraft, 10);
+    if (!Number.isFinite(parsed)) {
+      setSizeDraft(String(pageSize));
+      return;
+    }
+
+    const next = Math.min(Math.max(parsed, MIN_REQUEST_PAGE_SIZE), MAX_REQUEST_PAGE_SIZE);
+    setSizeDraft(String(next));
+    if (next !== pageSize) onPageSizeChange(next);
+  }
+
+  return (
+    <div className="admin-financial-pager production-ready-queue-pager">
+      <div className="admin-financial-pager-meta">
+        <label className="admin-financial-pager-field">
+          <span>Rows / page</span>
+          <input
+            aria-label="Rows per page"
+            inputMode="numeric"
+            max={MAX_REQUEST_PAGE_SIZE}
+            min={MIN_REQUEST_PAGE_SIZE}
+            type="number"
+            value={sizeDraft}
+            onBlur={commitPageSize}
+            onChange={(event) => setSizeDraft(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') {
+                event.currentTarget.blur();
+              }
+            }}
+          />
+        </label>
+        <label className="admin-financial-pager-field">
+          <span>Page</span>
+          <input
+            aria-label="Page"
+            inputMode="numeric"
+            max={safeTotalPages}
+            min={1}
+            type="number"
+            value={pageDraft}
+            onBlur={commitPage}
+            onChange={(event) => setPageDraft(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') {
+                event.currentTarget.blur();
+              }
+            }}
+          />
+          <span className="admin-financial-pager-of">/ {safeTotalPages}</span>
+        </label>
+        <span className="admin-financial-pager-total">{totalItems} total</span>
+      </div>
+      <div className="admin-financial-pager-nav">
+        <button disabled={page <= 1} type="button" onClick={() => onChange(page - 1)}>
+          Previous
+        </button>
+        <button disabled={page >= safeTotalPages} type="button" onClick={() => onChange(page + 1)}>
+          Next
+        </button>
+      </div>
+    </div>
+  );
 }
 
 function sumRemainingQuantity(items: OrderItemDto[]) {
