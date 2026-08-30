@@ -1,13 +1,17 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
+  IconAdjustments,
   IconArrowRight,
   IconBan,
+  IconCalendarCheck,
+  IconCheck,
   IconChevronRight,
   IconClock,
   IconClockCog,
   IconFilter,
   IconRefresh,
   IconTool,
+  IconTruckDelivery,
   type Icon,
 } from '@tabler/icons-react';
 import { Link } from 'react-router-dom';
@@ -16,15 +20,18 @@ import { ProductionLayout } from '@/features/ProductionPages/productioncomponent
 import type {
   DashboardDateRange,
   DashboardDueBucket,
-  DashboardPriority,
   DashboardQueueItemDto,
   DashboardScope,
   ProductionDashboardKpisDto,
+  ProductionDashboardWorkType,
+  ProjectPhaseDeadlineRiskItemDto,
 } from '@/services/api/dashboard';
 import {
   getDashboardServiceResultMessage,
+  useCurrentUser,
   useProductionDashboardKpis,
   useProductionQueue,
+  useProjectPhaseDeadlineRisks,
 } from '@/services/queries';
 
 import './ProductionDashbroad.css';
@@ -34,16 +41,41 @@ type KpiItem = {
   icon: Icon;
   label: string;
   note: string;
-  path: string;
+  onSelect?: () => void;
+  path?: string;
   tone: 'amber' | 'blue' | 'green' | 'red' | 'neutral';
   value: string;
 };
 
-type QueueTab = 'All Queue' | 'Pending' | 'In Production' | 'Ready to Complete' | 'Completed';
+type QueueTabId = 'all' | 'customization' | 'production' | 'delivery' | 'overdue';
+type ProductionStatusFilter = 'ALL' | 'PENDING' | 'IN_PRODUCTION' | 'READY_TO_COMPLETE' | 'COMPLETED';
+type DeliveryStatusFilter = 'ALL' | 'AWAITING_SCHEDULE' | 'SCHEDULED' | 'IN_PROGRESS' | 'AWAITING_CUSTOMER_CONFIRMATION';
 type DateRangeKey = 'today' | 'this-week' | 'this-month';
 type QueueScopeKey = 'all' | 'assigned';
 
-const queueTabs: QueueTab[] = ['All Queue', 'Pending', 'In Production', 'Ready to Complete', 'Completed'];
+type QueueTabConfig = {
+  id: QueueTabId;
+  label: string;
+  workType?: ProductionDashboardWorkType;
+  dueBucket?: DashboardDueBucket;
+  forceScopeAll?: boolean;
+};
+
+const QUEUE_TABS: QueueTabConfig[] = [
+  { id: 'all', label: 'All Queue' },
+  { id: 'customization', label: 'Customization', workType: 'CUSTOMIZATION_REVIEW', forceScopeAll: true },
+  { id: 'production', label: 'Production', workType: 'PRODUCTION_REQUEST' },
+  { id: 'delivery', label: 'Delivery', workType: 'DELIVERY' },
+  { id: 'overdue', label: 'Overdue', dueBucket: 'OVERDUE' },
+];
+
+const PRODUCTION_STATUS_FILTERS: Array<{ label: string; value: ProductionStatusFilter }> = [
+  { label: 'All', value: 'ALL' },
+  { label: 'Pending', value: 'PENDING' },
+  { label: 'In Production', value: 'IN_PRODUCTION' },
+  { label: 'Ready to Complete', value: 'READY_TO_COMPLETE' },
+  { label: 'Completed', value: 'COMPLETED' },
+];
 
 const DATE_RANGE_LABEL: Record<DateRangeKey, string> = {
   today: 'Today',
@@ -51,61 +83,110 @@ const DATE_RANGE_LABEL: Record<DateRangeKey, string> = {
   'this-month': 'This month',
 };
 
-const TAB_STATUS_MAP: Record<Exclude<QueueTab, 'All Queue'>, string[]> = {
-  Pending: ['PENDING'],
-  'In Production': ['ASSIGNED', 'IN_PRODUCTION'],
-  'Ready to Complete': ['READY_TO_COMPLETE'],
-  Completed: ['COMPLETED'],
-};
+const MIN_QUEUE_PAGE_SIZE = 1;
+const MAX_QUEUE_PAGE_SIZE = 100;
+const DEFAULT_QUEUE_PAGE_SIZE = 10;
 
 export function ProductionDashbroad() {
-  const [activeTab, setActiveTab] = useState<QueueTab>('All Queue');
+  const [activeTab, setActiveTab] = useState<QueueTabId>('all');
+  const [productionStatus, setProductionStatus] = useState<ProductionStatusFilter>('ALL');
+  const [deliveryStatus, setDeliveryStatus] = useState<DeliveryStatusFilter>('ALL');
   const [dateRange, setDateRange] = useState<DateRangeKey>('this-week');
   const [queueScope, setQueueScope] = useState<QueueScopeKey>('all');
+  const [queuePage, setQueuePage] = useState(1);
+  const [queuePageSize, setQueuePageSize] = useState(DEFAULT_QUEUE_PAGE_SIZE);
   const [lastRefreshAt, setLastRefreshAt] = useState(() => new Date());
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  const apiScope: DashboardScope = queueScope === 'assigned' ? 'mine' : 'all';
+  const currentUserQuery = useCurrentUser();
+  const accountId = currentUserQuery.data?.accountId ?? null;
+  const activeTabConfig = QUEUE_TABS.find((tab) => tab.id === activeTab) ?? QUEUE_TABS[0];
+  const apiScope: DashboardScope = activeTabConfig.forceScopeAll || queueScope === 'all' ? 'all' : 'mine';
   const apiDateRange = toApiDateRange(dateRange);
+  const queueStatus = resolveQueueStatus(activeTab, productionStatus, deliveryStatus);
+
   const queueQuery = useProductionQueue({
     scope: apiScope,
     dateRange: apiDateRange,
-    page: 1,
-    limit: 50,
+    workType: activeTabConfig.workType ?? null,
+    status: queueStatus,
+    dueBucket: activeTabConfig.dueBucket ?? null,
+    page: queuePage,
+    limit: queuePageSize,
   });
   const kpisQuery = useProductionDashboardKpis({
-    scope: apiScope,
+    scope: queueScope === 'assigned' ? 'mine' : 'all',
     dateRange: apiDateRange,
   });
-
-  const allItems = useMemo(() => queueQuery.data?.items ?? [], [queueQuery.data?.items]);
-  const tabCounts = useMemo(() => getTabCounts(allItems), [allItems]);
-  const activeQueue = useMemo(() => {
-    if (activeTab === 'All Queue') {
-      return allItems;
-    }
-
-    const statuses = TAB_STATUS_MAP[activeTab];
-    return allItems.filter((item) => statuses.includes(item.status));
-  }, [activeTab, allItems]);
-  const visibleKpis = useMemo(
-    () => mapProductionKpis(kpisQuery.data, DATE_RANGE_LABEL[dateRange]),
-    [dateRange, kpisQuery.data],
+  const customizationKpisQuery = useProductionDashboardKpis(
+    { scope: 'all', dateRange: apiDateRange },
+    queueScope === 'assigned',
   );
+  const deadlineRisksQuery = useProjectPhaseDeadlineRisks(
+    {
+      phase: 'PRODUCTION',
+      status: 'OVERDUE',
+      productionId: accountId,
+      page: 1,
+      limit: 8,
+    },
+    { enabled: Boolean(accountId) },
+  );
+
+  const queueItems = useMemo(() => queueQuery.data?.items ?? [], [queueQuery.data?.items]);
+  const countsByWorkType = queueQuery.data?.countsByWorkType ?? {};
+  const countsByStatus = queueQuery.data?.countsByStatus ?? {};
+  const overdueCount = kpisQuery.data?.overdueTasks ?? 0;
+  const queueTotal = queueQuery.data?.total ?? 0;
+  const queueTotalPages = Math.max(1, Math.ceil(queueTotal / queuePageSize) || 1);
+
+  useEffect(() => {
+    setQueuePage(1);
+  }, [activeTab, productionStatus, deliveryStatus, dateRange, queueScope, queuePageSize]);
+
+  useEffect(() => {
+    setQueuePage((currentPage) => Math.min(currentPage, queueTotalPages));
+  }, [queueTotalPages]);
+
+  function applyKpiFilter(filter: {
+    tab: QueueTabId;
+    productionStatus?: ProductionStatusFilter;
+    deliveryStatus?: DeliveryStatusFilter;
+    forceAllScope?: boolean;
+  }) {
+    setActiveTab(filter.tab);
+    setProductionStatus(filter.productionStatus ?? 'ALL');
+    setDeliveryStatus(filter.deliveryStatus ?? 'ALL');
+    if (filter.forceAllScope) {
+      setQueueScope('all');
+    }
+  }
+
+  const visibleKpis = mapProductionKpis({
+    data: kpisQuery.data,
+    customizationPending:
+      queueScope === 'assigned'
+        ? customizationKpisQuery.data?.pendingCustomizationReview
+        : kpisQuery.data?.pendingCustomizationReview,
+    rangeLabel: DATE_RANGE_LABEL[dateRange],
+    onSelectFilter: applyKpiFilter,
+  });
+  const overdueDeadlines = deadlineRisksQuery.data?.items ?? [];
   const refreshTime = new Intl.DateTimeFormat('en-US', { hour: '2-digit', minute: '2-digit' }).format(lastRefreshAt);
   const isLoading = queueQuery.isLoading || kpisQuery.isLoading;
-  const loadError = queueQuery.error
-    ? getDashboardServiceResultMessage(queueQuery.error)
-    : kpisQuery.error
-      ? getDashboardServiceResultMessage(kpisQuery.error)
-      : null;
+  const loadError = resolveLoadError(queueQuery.error, kpisQuery.error);
 
   async function handleRefresh() {
     if (isRefreshing) return;
 
     setIsRefreshing(true);
     try {
-      await Promise.all([queueQuery.refetch(), kpisQuery.refetch()]);
+      await Promise.all([
+        queueQuery.refetch(),
+        kpisQuery.refetch(),
+        customizationKpisQuery.refetch(),
+        deadlineRisksQuery.refetch(),
+      ]);
       setLastRefreshAt(new Date());
     } finally {
       setIsRefreshing(false);
@@ -119,7 +200,7 @@ export function ProductionDashbroad() {
           <div>
             <span>Production Workspace</span>
             <h2>Production Dashboard</h2>
-            <p>Production queue, item execution, blockers, and delivery readiness</p>
+            <p>Customization review, production queue, deadlines, and delivery readiness</p>
           </div>
           <div className="production-ops-header-side">
             <button
@@ -145,51 +226,116 @@ export function ProductionDashbroad() {
           </label>
           <label>
             <span>Queue scope</span>
-            <select value={queueScope} onChange={(event) => setQueueScope(event.target.value as QueueScopeKey)}>
+            <select
+              disabled={activeTabConfig.forceScopeAll}
+              value={queueScope}
+              onChange={(event) => setQueueScope(event.target.value as QueueScopeKey)}
+            >
               <option value="all">All queue</option>
               <option value="assigned">Assigned to me</option>
             </select>
           </label>
           <Link className="production-ops-primary-action" to="/production/requests">
-            Open Production Queue <IconArrowRight size={16} />
+            Open Production Requests <IconArrowRight size={16} />
           </Link>
         </section>
 
-        <section className="production-ops-kpi-grid">
-          {visibleKpis.map(({ description, icon: KpiIcon, label, note, path, tone, value }) => (
-            <Link className={`production-ops-kpi production-ops-kpi-${tone}`} key={label} title={description} to={path}>
-              <span><KpiIcon size={19} /></span>
-              <div>
-                <small>{label}</small>
-                <strong>{value}</strong>
-                <p>{note}</p>
-              </div>
-            </Link>
-          ))}
+        <section className="production-ops-kpi-grid production-ops-kpi-grid-wide">
+          {visibleKpis.map((kpi) => {
+            const content = (
+              <>
+                <span><kpi.icon size={19} /></span>
+                <div>
+                  <small>{kpi.label}</small>
+                  <strong>{kpi.value}</strong>
+                  <p>{kpi.note}</p>
+                </div>
+              </>
+            );
+
+            if (kpi.onSelect) {
+              return (
+                <button
+                  className={`production-ops-kpi production-ops-kpi-${kpi.tone}`}
+                  key={kpi.label}
+                  title={kpi.description}
+                  type="button"
+                  onClick={kpi.onSelect}
+                >
+                  {content}
+                </button>
+              );
+            }
+
+            return (
+              <Link className={`production-ops-kpi production-ops-kpi-${kpi.tone}`} key={kpi.label} title={kpi.description} to={kpi.path ?? '/production/requests'}>
+                {content}
+              </Link>
+            );
+          })}
         </section>
 
-        <section className="production-ops-main-grid production-ops-main-grid-single">
+        <section className="production-ops-main-grid">
           <article className="production-workspace-card production-ops-queue">
             <header className="production-ops-section-header">
               <div>
                 <h3>Production Queue</h3>
-                <p>Prioritized production work grouped by request stage.</p>
+                <p>Unified work across customization, production requests, and delivery.</p>
               </div>
               <IconFilter size={20} />
             </header>
-            <div className="production-ops-tabs" role="tablist" aria-label="Production queue filters">
-              {queueTabs.map((tab) => (
-                <button aria-selected={activeTab === tab} key={tab} role="tab" type="button" onClick={() => setActiveTab(tab)}>
-                  {tab}
-                  <em>{tabCounts[tab]}</em>
+            <div className="production-ops-tabs" role="tablist" aria-label="Production queue work types">
+              {QUEUE_TABS.map((tab) => (
+                <button
+                  aria-selected={activeTab === tab.id}
+                  key={tab.id}
+                  role="tab"
+                  type="button"
+                  onClick={() => {
+                    setActiveTab(tab.id);
+                    if (tab.forceScopeAll) setQueueScope('all');
+                    if (tab.id !== 'production') setProductionStatus('ALL');
+                    if (tab.id !== 'delivery') setDeliveryStatus('ALL');
+                  }}
+                >
+                  {tab.label}
+                  <em>{getTabCount(tab, queueQuery.data?.total ?? 0, countsByWorkType, overdueCount)}</em>
                 </button>
               ))}
             </div>
+
+            {activeTab === 'production' ? (
+              <div className="production-ops-status-chips" aria-label="Production status filters">
+                {PRODUCTION_STATUS_FILTERS.map((filter) => (
+                  <button
+                    className={productionStatus === filter.value ? 'is-active' : undefined}
+                    key={filter.value}
+                    type="button"
+                    onClick={() => setProductionStatus(filter.value)}
+                  >
+                    {filter.label}
+                    <em>
+                      {filter.value === 'ALL'
+                        ? countsByWorkType.PRODUCTION_REQUEST ?? queueQuery.data?.total ?? 0
+                        : countsByStatus[filter.value] ?? 0}
+                    </em>
+                  </button>
+                ))}
+              </div>
+            ) : null}
+
+            {activeTabConfig.forceScopeAll && queueScope === 'assigned' ? (
+              <p className="production-ops-scope-note">Customization queue always uses scope=all.</p>
+            ) : null}
+            {activeTab === 'delivery' && deliveryStatus === 'AWAITING_SCHEDULE' ? (
+              <p className="production-ops-scope-note">Filtered to delivery items awaiting DELIVERY schedule.</p>
+            ) : null}
+
             <div className="production-ops-queue-table">
-              <div className="production-ops-queue-head">
+              <div className="production-ops-queue-head production-ops-queue-head-typed">
                 <span>Project</span>
+                <span>Type</span>
                 <span>Assigned</span>
-                <span>Phase</span>
                 <span className="production-ops-queue-col-center">Priority</span>
                 <span>Action</span>
                 <span>Deadline</span>
@@ -198,14 +344,14 @@ export function ProductionDashbroad() {
               </div>
               {isLoading ? <div className="production-ops-queue-empty">Loading production queue...</div> : null}
               {loadError ? <div className="production-ops-queue-empty">{loadError}</div> : null}
-              {!isLoading && !loadError && activeQueue.length === 0 ? (
+              {!isLoading && !loadError && queueItems.length === 0 ? (
                 <div className="production-ops-queue-empty">No production work matches the selected filters.</div>
               ) : null}
-              {activeQueue.map((item) => (
-                <div className="production-ops-queue-row" key={item.id}>
+              {queueItems.map((item) => (
+                <div className="production-ops-queue-row production-ops-queue-row-typed" key={item.id}>
                   <strong title={`${item.id} · ${formatProjectLabel(item)}`}>{formatProjectLabel(item)}</strong>
+                  <span>{formatWorkTypeLabel(getWorkType(item))}</span>
                   <span>{item.assigneeName || 'Unassigned'}</span>
-                  <span>{item.phase || '-'}</span>
                   <span className={priorityClass(item.priority)}>{formatPriorityLabel(item.priority)}</span>
                   <span>{item.action}</span>
                   <span>{formatDueLabel(item.dueAt, item.dueBucket)}</span>
@@ -221,62 +367,297 @@ export function ProductionDashbroad() {
                 </div>
               ))}
             </div>
+
+            {!isLoading && !loadError ? (
+              <ProductionQueuePager
+                page={queuePage}
+                pageSize={queuePageSize}
+                totalItems={queueTotal}
+                totalPages={queueTotalPages}
+                onChange={setQueuePage}
+                onPageSizeChange={(nextSize) => {
+                  setQueuePageSize(nextSize);
+                  setQueuePage(1);
+                }}
+              />
+            ) : null}
           </article>
+
+          <aside className="production-workspace-card production-ops-deadline-panel">
+            <header className="production-ops-section-header">
+              <div>
+                <h3>Overdue Production Deadlines</h3>
+                <p>Phase PRODUCTION risks for your assigned work.</p>
+              </div>
+              <IconBan size={20} />
+            </header>
+            {deadlineRisksQuery.isLoading ? <p className="production-ops-queue-empty">Loading deadlines...</p> : null}
+            {deadlineRisksQuery.isError ? (
+              <p className="production-ops-queue-empty">{getDashboardServiceResultMessage(deadlineRisksQuery.error)}</p>
+            ) : null}
+            {!deadlineRisksQuery.isLoading && !deadlineRisksQuery.isError && overdueDeadlines.length === 0 ? (
+              <p className="production-ops-queue-empty">No overdue production deadlines.</p>
+            ) : null}
+            <ul className="production-ops-deadline-list">
+              {overdueDeadlines.map((item) => (
+                <li key={`${item.projectId}-${item.phase}-${item.dueDate}`}>
+                  <div>
+                    <strong>{item.projectCode}</strong>
+                    <span>{item.projectName}</span>
+                  </div>
+                  <em>{formatDeadlineRisk(item)}</em>
+                </li>
+              ))}
+            </ul>
+            <button className="production-ops-deadline-link" type="button" onClick={() => applyKpiFilter({ tab: 'overdue' })}>
+              View overdue queue <IconArrowRight size={14} />
+            </button>
+          </aside>
         </section>
       </div>
     </ProductionLayout>
   );
 }
 
-function getTabCounts(items: DashboardQueueItemDto[]): Record<QueueTab, number> {
-  return {
-    'All Queue': items.length,
-    Pending: items.filter((item) => TAB_STATUS_MAP.Pending.includes(item.status)).length,
-    'In Production': items.filter((item) => TAB_STATUS_MAP['In Production'].includes(item.status)).length,
-    'Ready to Complete': items.filter((item) => TAB_STATUS_MAP['Ready to Complete'].includes(item.status)).length,
-    Completed: items.filter((item) => TAB_STATUS_MAP.Completed.includes(item.status)).length,
-  };
+function getTabCount(
+  tab: QueueTabConfig,
+  total: number,
+  countsByWorkType: Record<string, number>,
+  overdueCount: number,
+) {
+  if (tab.id === 'all') {
+    return Object.values(countsByWorkType).reduce((sum, value) => sum + value, 0) || total;
+  }
+  if (tab.id === 'overdue') {
+    return overdueCount;
+  }
+  if (tab.workType) {
+    return countsByWorkType[tab.workType] ?? 0;
+  }
+  return total;
 }
 
-function mapProductionKpis(data: ProductionDashboardKpisDto | undefined, rangeLabel: string): KpiItem[] {
+function mapProductionKpis(input: {
+  data: ProductionDashboardKpisDto | undefined;
+  customizationPending?: number;
+  rangeLabel: string;
+  onSelectFilter: (filter: {
+    tab: QueueTabId;
+    productionStatus?: ProductionStatusFilter;
+    deliveryStatus?: DeliveryStatusFilter;
+    forceAllScope?: boolean;
+  }) => void;
+}): KpiItem[] {
+  const data = input.data;
+  const pendingStart = data?.pendingStart ?? Number(data && 'pendingReview' in data ? data.pendingReview : 0);
+
   return [
     {
-      description: 'Requests waiting to start production',
-      icon: IconClock,
-      label: 'Pending',
-      note: rangeLabel,
-      path: '/production/requests',
+      description: 'Customization versions waiting for feasibility review',
+      icon: IconAdjustments,
+      label: 'Customization',
+      note: input.rangeLabel,
       tone: 'amber',
-      value: String(data?.pendingReview ?? 0),
+      value: String(input.customizationPending ?? data?.pendingCustomizationReview ?? 0),
+      onSelect: () => input.onSelectFilter({ tab: 'customization', forceAllScope: true }),
+    },
+    {
+      description: 'Production requests waiting to start',
+      icon: IconClock,
+      label: 'Pending Start',
+      note: input.rangeLabel,
+      tone: 'amber',
+      value: String(pendingStart),
+      onSelect: () => input.onSelectFilter({ tab: 'production', productionStatus: 'PENDING' }),
     },
     {
       description: 'Production requests currently active',
       icon: IconClockCog,
       label: 'In Production',
-      note: rangeLabel,
-      path: '/production/requests',
+      note: input.rangeLabel,
       tone: 'neutral',
       value: String(data?.inProduction ?? 0),
+      onSelect: () => input.onSelectFilter({ tab: 'production', productionStatus: 'IN_PRODUCTION' }),
     },
     {
       description: 'Requests ready to complete',
       icon: IconTool,
       label: 'Ready To Complete',
-      note: rangeLabel,
-      path: '/production/requests',
+      note: input.rangeLabel,
       tone: 'blue',
       value: String(data?.readyToComplete ?? 0),
+      onSelect: () => input.onSelectFilter({ tab: 'production', productionStatus: 'READY_TO_COMPLETE' }),
     },
     {
       description: 'Active requests past committed production deadline',
       icon: IconBan,
-      label: 'Overdue (Deadline)',
-      note: rangeLabel,
-      path: '/production/requests',
+      label: 'Overdue',
+      note: input.rangeLabel,
       tone: 'red',
       value: String(data?.overdueTasks ?? 0),
+      onSelect: () => input.onSelectFilter({ tab: 'overdue' }),
+    },
+    {
+      description: 'Orders in delivery flow',
+      icon: IconTruckDelivery,
+      label: 'Ready Delivery',
+      note: input.rangeLabel,
+      tone: 'blue',
+      value: String(data?.readyForDelivery ?? 0),
+      onSelect: () => input.onSelectFilter({ tab: 'delivery' }),
+    },
+    {
+      description: 'Ready for delivery without a DELIVERY schedule',
+      icon: IconCalendarCheck,
+      label: 'Awaiting Schedule',
+      note: input.rangeLabel,
+      tone: 'amber',
+      value: String(data?.awaitingDeliverySchedule ?? 0),
+      onSelect: () => input.onSelectFilter({ tab: 'delivery', deliveryStatus: 'AWAITING_SCHEDULE' }),
+    },
+    {
+      description: 'Production requests completed in selected date range',
+      icon: IconCheck,
+      label: 'Completed',
+      note: input.rangeLabel,
+      tone: 'green',
+      value: String(data?.completedInRange ?? 0),
+      onSelect: () => input.onSelectFilter({ tab: 'production', productionStatus: 'COMPLETED' }),
     },
   ];
+}
+
+function resolveQueueStatus(
+  activeTab: QueueTabId,
+  productionStatus: ProductionStatusFilter,
+  deliveryStatus: DeliveryStatusFilter,
+) {
+  if (activeTab === 'production' && productionStatus !== 'ALL') {
+    return productionStatus;
+  }
+
+  if (activeTab === 'delivery' && deliveryStatus !== 'ALL') {
+    return deliveryStatus;
+  }
+
+  return null;
+}
+
+function resolveLoadError(queueError: unknown, kpisError: unknown) {
+  if (queueError) {
+    return getDashboardServiceResultMessage(queueError);
+  }
+
+  if (kpisError) {
+    return getDashboardServiceResultMessage(kpisError);
+  }
+
+  return null;
+}
+
+function ProductionQueuePager({
+  page,
+  pageSize,
+  totalPages,
+  totalItems,
+  onChange,
+  onPageSizeChange,
+}: {
+  page: number;
+  pageSize: number;
+  totalPages: number;
+  totalItems: number;
+  onChange: (page: number) => void;
+  onPageSizeChange: (pageSize: number) => void;
+}) {
+  const safeTotalPages = Math.max(totalPages, 1);
+  const [pageDraft, setPageDraft] = useState(String(page));
+  const [sizeDraft, setSizeDraft] = useState(String(pageSize));
+
+  useEffect(() => {
+    setPageDraft(String(page));
+  }, [page]);
+
+  useEffect(() => {
+    setSizeDraft(String(pageSize));
+  }, [pageSize]);
+
+  function commitPage() {
+    const parsed = Number.parseInt(pageDraft, 10);
+    if (!Number.isFinite(parsed)) {
+      setPageDraft(String(page));
+      return;
+    }
+
+    const next = Math.min(Math.max(parsed, 1), safeTotalPages);
+    setPageDraft(String(next));
+    if (next !== page) onChange(next);
+  }
+
+  function commitPageSize() {
+    const parsed = Number.parseInt(sizeDraft, 10);
+    if (!Number.isFinite(parsed)) {
+      setSizeDraft(String(pageSize));
+      return;
+    }
+
+    const next = Math.min(Math.max(parsed, MIN_QUEUE_PAGE_SIZE), MAX_QUEUE_PAGE_SIZE);
+    setSizeDraft(String(next));
+    if (next !== pageSize) onPageSizeChange(next);
+  }
+
+  return (
+    <div className="admin-financial-pager production-ops-queue-pager">
+      <div className="admin-financial-pager-meta">
+        <label className="admin-financial-pager-field">
+          <span>Rows / page</span>
+          <input
+            aria-label="Rows per page"
+            inputMode="numeric"
+            max={MAX_QUEUE_PAGE_SIZE}
+            min={MIN_QUEUE_PAGE_SIZE}
+            type="number"
+            value={sizeDraft}
+            onBlur={commitPageSize}
+            onChange={(event) => setSizeDraft(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') {
+                event.currentTarget.blur();
+              }
+            }}
+          />
+        </label>
+        <label className="admin-financial-pager-field">
+          <span>Page</span>
+          <input
+            aria-label="Page"
+            inputMode="numeric"
+            max={safeTotalPages}
+            min={1}
+            type="number"
+            value={pageDraft}
+            onBlur={commitPage}
+            onChange={(event) => setPageDraft(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') {
+                event.currentTarget.blur();
+              }
+            }}
+          />
+          <span className="admin-financial-pager-of">/ {safeTotalPages}</span>
+        </label>
+        <span className="admin-financial-pager-total">{totalItems} total</span>
+      </div>
+      <div className="admin-financial-pager-nav">
+        <button disabled={page <= 1} type="button" onClick={() => onChange(page - 1)}>
+          Previous
+        </button>
+        <button disabled={page >= safeTotalPages} type="button" onClick={() => onChange(page + 1)}>
+          Next
+        </button>
+      </div>
+    </div>
+  );
 }
 
 function toApiDateRange(dateRange: DateRangeKey): DashboardDateRange {
@@ -285,7 +666,7 @@ function toApiDateRange(dateRange: DateRangeKey): DashboardDateRange {
   return 'thisMonth';
 }
 
-function priorityClass(priority: DashboardPriority) {
+function priorityClass(priority: string) {
   return `production-ops-priority production-ops-priority-${priority.toLowerCase()}`;
 }
 
@@ -293,7 +674,7 @@ function formatProjectLabel(item: DashboardQueueItemDto) {
   return `${item.projectCode} ${item.projectName}`.trim();
 }
 
-function formatPriorityLabel(priority: DashboardPriority) {
+function formatPriorityLabel(priority: string) {
   return priority.charAt(0) + priority.slice(1).toLowerCase();
 }
 
@@ -303,6 +684,16 @@ function formatStatusLabel(status: string) {
     .split('_')
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(' ');
+}
+
+function formatWorkTypeLabel(workType: string) {
+  if (workType === 'CUSTOMIZATION_REVIEW') return 'Customization';
+  if (workType === 'DELIVERY') return 'Delivery';
+  return 'Production';
+}
+
+function getWorkType(item: DashboardQueueItemDto) {
+  return item.workType || 'PRODUCTION_REQUEST';
 }
 
 function formatDueLabel(dueAt: string | null, dueBucket: DashboardDueBucket | null) {
@@ -318,17 +709,38 @@ function formatShortDate(value: string) {
   return new Intl.DateTimeFormat('en-US', { month: 'short', day: '2-digit' }).format(new Date(value));
 }
 
+function formatDeadlineRisk(item: ProjectPhaseDeadlineRiskItemDto) {
+  const due = formatShortDate(item.dueDate);
+  return `${item.days}d overdue · due ${due}`;
+}
+
 function resolveProductionActionPath(item: DashboardQueueItemDto) {
+  const workType = getWorkType(item);
+  const links = item.links;
   const path = item.actionPath || '';
-  const requestMatch = path.match(/^\/production-requests\/([^/]+)/);
 
-  if (requestMatch?.[1]) {
-    return `/production/requests/${requestMatch[1]}`;
+  if (path.startsWith('/production/')) {
+    return path;
   }
 
-  if (item.id) {
-    return `/production/requests/${item.id}`;
+  if (workType === 'CUSTOMIZATION_REVIEW') {
+    const versionId = links?.versionId || item.entityId || item.id;
+    return `/production/customization-reviews?versionId=${encodeURIComponent(versionId)}`;
   }
 
-  return path.startsWith('/') ? path : '/production/requests';
+  if (workType === 'DELIVERY') {
+    const orderId = links?.orderId || item.entityId;
+    if (orderId) {
+      return `/production/ready-for-delivery?orderId=${encodeURIComponent(orderId)}`;
+    }
+    return '/production/ready-for-delivery';
+  }
+
+  const productionRequestId = links?.productionRequestId || item.entityId || item.id;
+  const legacyMatch = /\/production-requests\/([^/?]+)/.exec(path);
+  if (legacyMatch?.[1]) {
+    return `/production/requests/${legacyMatch[1]}`;
+  }
+
+  return `/production/requests/${productionRequestId}`;
 }

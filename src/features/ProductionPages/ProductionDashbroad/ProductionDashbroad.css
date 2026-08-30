@@ -188,18 +188,26 @@
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
+.production-ops-kpi-grid-wide {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
 .production-ops-kpi {
   align-items: flex-start;
   background: #ffffff;
   border: 1px solid rgba(139, 111, 71, 0.15);
   border-radius: 8px;
   color: #2d2d2d;
+  cursor: pointer;
   display: grid;
+  font: inherit;
   gap: 12px;
   grid-template-columns: 38px minmax(0, 1fr);
   min-height: 116px;
   padding: 14px;
+  text-align: left;
   text-decoration: none;
+  width: 100%;
 }
 
 .production-ops-kpi > span {
@@ -250,6 +258,201 @@
 
 .production-ops-main-grid-single {
   grid-template-columns: minmax(0, 1fr);
+}
+
+.production-ops-status-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 14px;
+}
+
+.production-ops-status-chips button {
+  align-items: center;
+  background: #f7f3ee;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  color: #6d502f;
+  cursor: pointer;
+  display: inline-flex;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  gap: 6px;
+  min-height: 32px;
+  padding: 0 12px;
+}
+
+.production-ops-status-chips button em {
+  background: rgba(139, 111, 71, 0.12);
+  border-radius: 999px;
+  font-style: normal;
+  min-width: 1.5rem;
+  padding: 1px 6px;
+  text-align: center;
+}
+
+.production-ops-status-chips button.is-active {
+  background: #9a713b;
+  color: #ffffff;
+}
+
+.production-ops-status-chips button.is-active em {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.production-ops-scope-note {
+  color: #6b6b6b;
+  font-size: 12px;
+  margin: 0 0 12px;
+}
+
+.production-ops-queue-head-typed,
+.production-ops-queue-row-typed {
+  grid-template-columns:
+    minmax(0, 1.6fr)
+    110px
+    minmax(0, 1fr)
+    72px
+    minmax(0, 1.2fr)
+    minmax(0, 0.9fr)
+    minmax(88px, 0.9fr)
+    36px;
+}
+
+.production-ops-deadline-panel {
+  padding: 18px;
+}
+
+.production-ops-deadline-list {
+  display: grid;
+  gap: 10px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.production-ops-deadline-list li {
+  align-items: flex-start;
+  border: 1px solid rgba(139, 111, 71, 0.12);
+  border-radius: 8px;
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+  padding: 10px 12px;
+}
+
+.production-ops-deadline-list strong {
+  color: #2d2d2d;
+  display: block;
+  font-size: 13px;
+}
+
+.production-ops-deadline-list span {
+  color: #6b6b6b;
+  display: block;
+  font-size: 12px;
+  margin-top: 2px;
+}
+
+.production-ops-deadline-list em {
+  color: #b91c1c;
+  flex-shrink: 0;
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.production-ops-deadline-link {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  color: #9a713b;
+  cursor: pointer;
+  display: inline-flex;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  gap: 6px;
+  margin-top: 14px;
+  padding: 0;
+}
+
+.production-ops-queue-pager,
+.admin-financial-pager.production-ops-queue-pager {
+  align-items: center;
+  border-top: 1px solid rgba(139, 111, 71, 0.12);
+  color: #6b7280;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: space-between;
+  margin-top: 14px;
+  padding-top: 14px;
+}
+
+.production-ops-queue-pager .admin-financial-pager-meta {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.production-ops-queue-pager .admin-financial-pager-field {
+  align-items: center;
+  display: inline-flex;
+  font-size: 13px;
+  font-weight: 600;
+  gap: 6px;
+}
+
+.production-ops-queue-pager .admin-financial-pager-field input {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  color: #1a1d29;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  height: 34px;
+  padding: 0 8px;
+  text-align: center;
+  width: 64px;
+}
+
+.production-ops-queue-pager .admin-financial-pager-field input:focus {
+  border-color: #9ca3af;
+  outline: none;
+}
+
+.production-ops-queue-pager .admin-financial-pager-of,
+.production-ops-queue-pager .admin-financial-pager-total {
+  color: #6b7280;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.production-ops-queue-pager .admin-financial-pager-nav {
+  display: inline-flex;
+  gap: 8px;
+}
+
+.production-ops-queue-pager .admin-financial-pager-nav button {
+  background: #f8f5f0;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  color: #1a1d29;
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 8px 12px;
+}
+
+.production-ops-queue-pager .admin-financial-pager-nav button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
 }
 
 .production-ops-queue,
@@ -501,6 +704,7 @@
   width: 100%;
 }
 
+.production-ops-priority-urgent { background: #fecaca; color: #991b1b; }
 .production-ops-priority-high { background: #fee2e2; color: #b91c1c; }
 .production-ops-priority-medium { background: #fff4d6; color: #a16207; }
 .production-ops-priority-low { background: #dcfce7; color: #15803d; }

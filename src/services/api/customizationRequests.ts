@@ -355,6 +355,14 @@ export async function getProductionCustomizationVersions(params: ProductionCusto
   return response.data.data;
 }
 
+export async function getProductionCustomizationVersionById(versionId: string) {
+  const response = await customizationRequestApiClient.get<ServiceResult<ProductionCustomizationVersionQueueItemDto>>(
+    `/api/production/customization-versions/${versionId}`,
+  );
+
+  return response.data.data;
+}
+
 export async function getCustomizationRequestById(customizationRequestId: string) {
   const response = await customizationRequestApiClient.get<ServiceResult<CustomizationRequestDetailDto>>(
     `/customization-requests/${customizationRequestId}`,

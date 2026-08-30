@@ -78,6 +78,7 @@ export {
   useCancelCustomizationRequest,
   useCreateCustomizationRequestVersion,
   useCustomizationRequestDetail,
+  useProductionCustomizationVersionDetail,
   useProductionCustomizationVersionQueue,
   useProductionCustomizationVersions,
   useProductionReviewCustomizationVersion,
