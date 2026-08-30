@@ -1,6 +1,5 @@
 import {
   IconAdjustments,
-  IconAlertTriangle,
   IconChevronLeft,
   IconClipboardList,
   IconHome,
@@ -23,7 +22,6 @@ const productionSidebarItems: ProductionSidebarItem[] = [
   { label: 'Dashboard', icon: IconHome, path: '/production/dashbroad' },
   { label: 'Customization Reviews', icon: IconAdjustments, path: '/production/customization-reviews' },
   { label: 'Production Requests', icon: IconClipboardList, path: '/production/requests' },
-  { label: 'Unavailable Items', icon: IconAlertTriangle, path: '/production/blocked-issues' },
   { label: 'Ready for Delivery', icon: IconTruckDelivery, path: '/production/ready-for-delivery' },
 ];
 

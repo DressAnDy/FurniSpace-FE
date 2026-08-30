@@ -1,6 +1,7 @@
 import { CssBaseline, ThemeProvider } from '@mui/material';
 import { QueryClientProvider } from '@tanstack/react-query';
-import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
+import type { ReactNode } from 'react';
+import { BrowserRouter, Navigate, Route, Routes, useParams } from 'react-router-dom';
 
 import { LangProvider } from '@/app/providers/LangContext';
 import { ProtectedRoute } from '@/app/providers/ProtectedRoute';
@@ -16,6 +17,7 @@ import { Categorymanagement } from '@/features/AdminPages/Categorymanagement';
 import { CreateProductPage, CreateProductVersionPage, Productmanagement, ProductVersionManagement } from '@/features/AdminPages/Productmanagement';
 import { UserManagement } from '@/features/AdminPages/UserManagement';
 import { CodeVerifyPage, ForgotPasswordPage, LoginPage, RegisterPage } from '@/features/auth';
+import { getPostLoginPath } from '@/features/auth/authRedirect';
 import { Customer3dPreviewPage } from '@/features/CustomerPages/customer3dPreview';
 import { CustomerChatPage } from '@/features/CustomerPages/customerChat';
 import { CustomerDashboardPage } from '@/features/CustomerPages/customerDashboard';
@@ -27,7 +29,6 @@ import { CustomerProjectListPage } from '@/features/CustomerPages/customerProjec
 import { CustomerProjectRequestPage } from '@/features/CustomerPages/customerProjectRequest';
 import { CustomerQuotationsPage } from '@/features/CustomerPages/customerQuotations';
 import { CustomerSchedulesPage } from '@/features/CustomerPages/customerSchedules';
-import { ProjectFeedback } from '@/features/CustomerPages/Feedback';
 import { Tracking } from '@/features/CustomerPages/Tracking';
 import { DesignerAssignedProjects } from '@/features/DesignerPages/DesignerAssignedProjects';
 import { DesignerDashbroad } from '@/features/DesignerPages/DesignerDashbroad';
@@ -43,7 +44,6 @@ import { ProjectListReviewPage } from '@/features/MainPages/projectListReview';
 import { PublicShowcaseDetailPage, PublicShowcasesPage } from '@/features/MainPages/showcases';
 import { UserProfilePage } from '@/features/MainPages/userProfile';
 import { PaymentCancelPage, PaymentResultPage } from '@/features/payments';
-import { BlockedIssues } from '@/features/ProductionPages/BlockedIssues';
 import { ProductionCustomizationRequests } from '@/features/ProductionPages/ProductionCustomizationRequests';
 import { ProductionDashbroad } from '@/features/ProductionPages/ProductionDashbroad';
 import { ProductionRequestDetail } from '@/features/ProductionPages/ProductionRequestDetail';
@@ -61,6 +61,7 @@ import { ThreeDTestPage } from '@/features/ThreeD/pages/ThreeDTestPage';
 import { BuildingBlueprintTestPage, BuildingThreeDTestPage } from '@/features/ThreeDTest';
 import { ViewerDemoPage } from '@/features/viewer3d';
 import { TileTransitionProvider } from '@/shared/components';
+import { useCurrentUser } from '@/services/queries';
 
 export default function App() {
   return (
@@ -73,8 +74,8 @@ export default function App() {
               <TileTransitionProvider>
                 <Routes>
                 {/* Public routes */}
-                <Route path="/" element={<HomePage />} />
-                <Route path="/login" element={<LoginPage />} />
+                <Route path="/" element={<RedirectAuthenticatedUser><HomePage /></RedirectAuthenticatedUser>} />
+                <Route path="/login" element={<RedirectAuthenticatedUser><LoginPage /></RedirectAuthenticatedUser>} />
                 <Route path="/forgot-password" element={<ForgotPasswordPage />} />
                 <Route path="/register" element={<RegisterPage />} />
                 <Route path="/code-verify" element={<CodeVerifyPage />} />
@@ -144,7 +145,7 @@ export default function App() {
                   <Route path="/customer/quotations" element={<CustomerQuotationsPage />} />
                   <Route path="/customer/orders" element={<CustomerOrdersPage />} />
                   <Route path="/customer/profile" element={<UserProfilePage />} />
-                  <Route path="/customer/projects/:projectId/feedback" element={<ProjectFeedback />} />
+                  <Route path="/customer/projects/:projectId/feedback" element={<CustomerFeedbackLegacyRedirect />} />
                   <Route path="/customer/3d-preview" element={<Customer3dPreviewPage />} />
                   <Route path="/customer/chat" element={<CustomerChatPage />} />
                   <Route path="/customer-dashboard" element={<Navigate to="/customer/dashboard" replace />} />
@@ -196,7 +197,6 @@ export default function App() {
                   <Route path="/production/requests" element={<ProductionRequests />} />
                   <Route path="/production/requests/:productionRequestId" element={<ProductionRequestDetail />} />
                   <Route path="/production/my-tasks" element={<Navigate to="/production/requests" replace />} />
-                  <Route path="/production/blocked-issues" element={<BlockedIssues />} />
                   <Route path="/production/ready-for-delivery" element={<ReadyForDelivery />} />
                   <Route path="/production/settings" element={<Navigate to="/production/dashbroad" replace />} />
                 </Route>
@@ -210,4 +210,32 @@ export default function App() {
       </ThemeProvider>
     </QueryClientProvider>
   );
+}
+
+function CustomerFeedbackLegacyRedirect() {
+  const { projectId } = useParams();
+
+  return <Navigate to={projectId ? `/customer/projects/${projectId}` : '/customer/projects'} replace />;
+}
+
+function RedirectAuthenticatedUser({ children }: { children: ReactNode }) {
+  const { data: user, isLoading } = useCurrentUser();
+
+  if (isLoading) {
+    return (
+      <div className="auth-loading" role="status" aria-label="Đang tải...">
+        <span className="auth-loading-spinner" />
+      </div>
+    );
+  }
+
+  if (user) {
+    const postLoginPath = getPostLoginPath(user.role);
+
+    if (postLoginPath !== '/') {
+      return <Navigate to={postLoginPath} replace />;
+    }
+  }
+
+  return <>{children}</>;
 }

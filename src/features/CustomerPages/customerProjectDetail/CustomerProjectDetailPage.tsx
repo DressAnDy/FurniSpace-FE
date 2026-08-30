@@ -212,16 +212,11 @@ export function CustomerProjectDetailPage() {
             </div>
 
             <div className="customer-project-detail-body">
-              {(project.status === 'NEED_BASIC_INFORMATION' || project.status === 'SUBMITTED' || project.status === 'COMPLETED') ? (
+              {(project.status === 'NEED_BASIC_INFORMATION' || project.status === 'SUBMITTED') ? (
                 <div className="customer-project-detail-actions">
                   {project.status === 'NEED_BASIC_INFORMATION' || project.status === 'SUBMITTED' ? (
                     <button type="button" onClick={() => navigate(`/customer/projects/${project.projectId}/edit`)}>
                       Update Information
-                    </button>
-                  ) : null}
-                  {project.status === 'COMPLETED' ? (
-                    <button type="button" onClick={() => navigate(`/customer/projects/${project.projectId}/feedback`)}>
-                      Submit Feedback
                     </button>
                   ) : null}
                 </div>
