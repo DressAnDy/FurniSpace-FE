@@ -491,14 +491,8 @@ function mapProductionKpis(input: {
     {
       description: 'Active requests past committed production deadline',
       icon: IconBan,
-<<<<<<< HEAD
       label: 'Overdue',
       note: input.rangeLabel,
-=======
-      label: 'Overdue (Deadline)',
-      note: rangeLabel,
-      path: '/production/requests',
->>>>>>> develop
       tone: 'red',
       value: String(data?.overdueTasks ?? 0),
       onSelect: () => input.onSelectFilter({ tab: 'overdue' }),
