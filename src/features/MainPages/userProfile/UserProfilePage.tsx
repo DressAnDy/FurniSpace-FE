@@ -2,6 +2,7 @@ import { type Dispatch, type FormEvent, type SetStateAction, useEffect, useMemo,
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   IconChevronRight,
+  IconCreditCard,
   IconEdit,
   IconHome,
   IconKey,
@@ -14,12 +15,18 @@ import {
 
 import { MainNavbar } from '@/features/MainPages/maincomponents';
 import { getServiceResultMessage } from '@/services/api/auth';
-import { useChangePassword, useCurrentUser, useProjectList, useUpdateCurrentUser } from '@/services/queries';
+import {
+  getPaymentServiceResultMessage,
+  type PaymentDto,
+  type PaymentStatus,
+  type PaymentType,
+} from '@/services/api/payments';
+import { useChangePassword, useCurrentUser, usePayments, useProjectList, useUpdateCurrentUser } from '@/services/queries';
 import { SiteFooter } from '@/shared/components';
 
 import './UserProfilePage.css';
 
-type ProfileTab = 'profile' | 'security';
+type ProfileTab = 'profile' | 'security' | 'payments';
 
 const sidebarItems: Array<{
   id: ProfileTab;
@@ -28,6 +35,7 @@ const sidebarItems: Array<{
 }> = [
   { id: 'profile', icon: IconUser, label: 'Thong tin ca nhan' },
   { id: 'security', icon: IconKey, label: 'Bao mat' },
+  { id: 'payments', icon: IconCreditCard, label: 'Thanh toan' },
 ];
 
 type ProfileFormState = {
@@ -41,6 +49,33 @@ type PasswordFormState = {
   confirmPassword: string;
 };
 
+type PaymentFilterState = {
+  status: '' | PaymentStatus;
+  paymentType: '' | PaymentType;
+  from: string;
+  to: string;
+};
+
+const PAYMENT_PAGE_SIZE = 8;
+
+const paymentStatusOptions: Array<{ label: string; value: '' | PaymentStatus }> = [
+  { label: 'Tat ca trang thai', value: '' },
+  { label: 'Pending', value: 'PENDING' },
+  { label: 'Processing', value: 'PROCESSING' },
+  { label: 'Paid', value: 'PAID' },
+  { label: 'Failed', value: 'FAILED' },
+  { label: 'Cancelled', value: 'CANCELLED' },
+  { label: 'Expired', value: 'EXPIRED' },
+  { label: 'Refunded', value: 'REFUNDED' },
+];
+
+const paymentTypeOptions: Array<{ label: string; value: '' | PaymentType }> = [
+  { label: 'Tat ca loai', value: '' },
+  { label: 'Start fee', value: 'PROJECT_START_FEE' },
+  { label: 'Deposit', value: 'DEPOSIT' },
+  { label: 'Remaining', value: 'REMAINING_PAYMENT' },
+];
+
 export function UserProfilePage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -50,6 +85,13 @@ export function UserProfilePage() {
   const updateProfileMutation = useUpdateCurrentUser();
   const changePasswordMutation = useChangePassword();
   const [activeTab, setActiveTab] = useState<ProfileTab>(() => getProfileTabFromSearch(searchParams));
+  const [paymentPage, setPaymentPage] = useState(1);
+  const [paymentFilters, setPaymentFilters] = useState<PaymentFilterState>({
+    from: '',
+    paymentType: '',
+    status: '',
+    to: '',
+  });
   const [profileForm, setProfileForm] = useState<ProfileFormState>({ fullName: '', phone: '' });
   const [passwordForm, setPasswordForm] = useState<PasswordFormState>({
     currentPassword: '',
@@ -59,6 +101,17 @@ export function UserProfilePage() {
   const [profileMessage, setProfileMessage] = useState<{ tone: 'success' | 'error'; text: string } | null>(null);
   const [securityMessage, setSecurityMessage] = useState<{ tone: 'success' | 'error'; text: string } | null>(null);
   const isLoading = currentUserQuery.isLoading;
+  const paymentsQuery = usePayments(
+    {
+      from: paymentFilters.from || null,
+      limit: PAYMENT_PAGE_SIZE,
+      page: paymentPage,
+      paymentType: paymentFilters.paymentType || null,
+      status: paymentFilters.status || null,
+      to: paymentFilters.to || null,
+    },
+    { enabled: activeTab === 'payments' && Boolean(user?.accountId) },
+  );
   const displayName = getDisplayName(user?.fullName, user?.email, isLoading);
   const email = user?.email || 'Chua co email';
   const phone = user?.phone?.trim() || 'Chua cap nhat';
@@ -86,7 +139,7 @@ export function UserProfilePage() {
 
   function changeTab(tab: ProfileTab) {
     setActiveTab(tab);
-    setSearchParams(tab === 'security' ? { tab: 'security' } : {});
+    setSearchParams(tab === 'profile' ? {} : { tab });
   }
 
   async function handleProfileSubmit(event: FormEvent<HTMLFormElement>) {
@@ -194,11 +247,11 @@ export function UserProfilePage() {
           <section className="user-profile-hero">
             <div>
               <p className="user-profile-eyebrow">Tai khoan FurniSpace</p>
-              <h1>{activeTab === 'security' ? 'Bao mat tai khoan' : 'Thong tin ca nhan'}</h1>
+              <h1>{getProfileHeading(activeTab)}</h1>
             </div>
-            <button className="user-profile-edit-button" type="button" onClick={() => changeTab(activeTab === 'security' ? 'profile' : 'security')}>
-              {activeTab === 'security' ? <IconUser size={18} stroke={1.8} /> : <IconEdit size={18} stroke={1.8} />}
-              <span>{activeTab === 'security' ? 'Xem ho so' : 'Mo bao mat'}</span>
+            <button className="user-profile-edit-button" type="button" onClick={() => changeTab(activeTab === 'profile' ? 'security' : 'profile')}>
+              {activeTab === 'profile' ? <IconEdit size={18} stroke={1.8} /> : <IconUser size={18} stroke={1.8} />}
+              <span>{activeTab === 'profile' ? 'Mo bao mat' : 'Xem ho so'}</span>
             </button>
           </section>
 
@@ -241,6 +294,19 @@ export function UserProfilePage() {
               userEmail={email}
               onPasswordFormChange={setPasswordForm}
               onPasswordSubmit={handlePasswordSubmit}
+            />
+          ) : null}
+
+          {activeTab === 'payments' ? (
+            <PaymentsTabPanel
+              filters={paymentFilters}
+              page={paymentPage}
+              paymentsQuery={paymentsQuery}
+              onFiltersChange={(nextFilters) => {
+                setPaymentFilters(nextFilters);
+                setPaymentPage(1);
+              }}
+              onPageChange={setPaymentPage}
             />
           ) : null}
         </div>
@@ -433,6 +499,137 @@ function SecurityTabPanel({
   );
 }
 
+type PaymentsTabPanelProps = {
+  filters: PaymentFilterState;
+  page: number;
+  paymentsQuery: ReturnType<typeof usePayments>;
+  onFiltersChange: (filters: PaymentFilterState) => void;
+  onPageChange: Dispatch<SetStateAction<number>>;
+};
+
+function PaymentsTabPanel({
+  filters,
+  page,
+  paymentsQuery,
+  onFiltersChange,
+  onPageChange,
+}: PaymentsTabPanelProps) {
+  const payments = paymentsQuery.data?.items ?? [];
+  const total = getPaymentListTotal(paymentsQuery.data);
+  const totalPages = Math.max(1, paymentsQuery.data?.totalPages ?? Math.ceil(total / PAYMENT_PAGE_SIZE));
+
+  function updateFilter(field: keyof PaymentFilterState, value: string) {
+    onFiltersChange({ ...filters, [field]: value } as PaymentFilterState);
+  }
+
+  return (
+    <section className="user-profile-payments-layout">
+      <article className="user-profile-panel user-profile-payments-panel">
+        <div className="user-profile-panel-head">
+          <div>
+            <p className="user-profile-eyebrow">Thanh toan</p>
+            <h2>Lich su thanh toan</h2>
+          </div>
+          <span className="user-profile-status">
+            <IconCreditCard size={16} stroke={1.8} />
+            {paymentsQuery.isLoading ? 'Dang tai' : `${total} giao dich`}
+          </span>
+        </div>
+
+        <div className="user-profile-payment-filters">
+          <label>
+            <span>Trang thai</span>
+            <select value={filters.status} onChange={(event) => updateFilter('status', event.target.value)}>
+              {paymentStatusOptions.map((option) => (
+                <option key={option.value || 'all-status'} value={option.value}>{option.label}</option>
+              ))}
+            </select>
+          </label>
+          <label>
+            <span>Loai thanh toan</span>
+            <select value={filters.paymentType} onChange={(event) => updateFilter('paymentType', event.target.value)}>
+              {paymentTypeOptions.map((option) => (
+                <option key={option.value || 'all-type'} value={option.value}>{option.label}</option>
+              ))}
+            </select>
+          </label>
+          <label>
+            <span>Tu ngay</span>
+            <input type="date" value={filters.from} onChange={(event) => updateFilter('from', event.target.value)} />
+          </label>
+          <label>
+            <span>Den ngay</span>
+            <input type="date" value={filters.to} onChange={(event) => updateFilter('to', event.target.value)} />
+          </label>
+        </div>
+
+        {paymentsQuery.isError ? <FormMessage tone="error">{getPaymentServiceResultMessage(paymentsQuery.error)}</FormMessage> : null}
+        {paymentsQuery.isLoading ? <p className="user-profile-muted">Dang tai lich su thanh toan...</p> : null}
+        {!paymentsQuery.isLoading && payments.length === 0 ? <p className="user-profile-muted">Chua co thanh toan phu hop voi bo loc.</p> : null}
+
+        {payments.length > 0 ? (
+          <div className="user-profile-payment-list">
+            {payments.map((payment) => (
+              <PaymentHistoryRow key={payment.paymentId} payment={payment} />
+            ))}
+          </div>
+        ) : null}
+
+        <div className="user-profile-payment-pagination">
+          <span>Trang {page} / {totalPages}</span>
+          <div>
+            <button disabled={page <= 1 || paymentsQuery.isFetching} type="button" onClick={() => onPageChange((current) => Math.max(1, current - 1))}>
+              Truoc
+            </button>
+            <button disabled={page >= totalPages || paymentsQuery.isFetching} type="button" onClick={() => onPageChange((current) => Math.min(totalPages, current + 1))}>
+              Sau
+            </button>
+          </div>
+        </div>
+      </article>
+    </section>
+  );
+}
+
+function PaymentHistoryRow({ payment }: { payment: PaymentDto }) {
+  return (
+    <article className="user-profile-payment-row">
+      <div>
+        <strong>{getPaymentProjectName(payment)} - {payment.paymentCode}</strong>
+        <span>{formatPaymentDateTime(payment.paidAt ?? payment.createdAt)}</span>
+        <em>{formatPaymentType(payment.paymentType)}</em>
+      </div>
+      <div className="user-profile-payment-row-side">
+        <strong>{formatMoney(payment.amount)}</strong>
+        <PaymentStatusBadge status={payment.status} />
+      </div>
+    </article>
+  );
+}
+
+function getPaymentProjectName(payment: PaymentDto) {
+  return payment.projectName ?? payment.projectCode ?? `Project ${shortCode(payment.projectId)}`;
+}
+
+function formatPaymentDateTime(value?: string | null) {
+  if (!value) return '-';
+
+  const date = new Date(value);
+
+  return `${new Intl.DateTimeFormat('vi-VN', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  }).format(date)} - ${new Intl.DateTimeFormat('vi-VN', {
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(date)}`;
+}
+
+function PaymentStatusBadge({ status }: { status?: PaymentStatus | null }) {
+  return <span className={`user-profile-payment-status user-profile-payment-status-${(status ?? 'PENDING').toLowerCase()}`}>{formatEnumLabel(status ?? 'PENDING')}</span>;
+}
+
 function Avatar({ avatarUrl, initials, size }: { avatarUrl?: string | null; initials: string; size: 'sm' | 'lg' }) {
   return (
     <div className={size === 'lg' ? 'user-profile-large-avatar' : 'user-profile-sidebar-avatar'}>
@@ -458,7 +655,18 @@ function InfoRow({ icon, label, value }: { icon: React.ReactNode; label: string;
 }
 
 function getProfileTabFromSearch(searchParams: URLSearchParams): ProfileTab {
-  return searchParams.get('tab') === 'security' ? 'security' : 'profile';
+  const tab = searchParams.get('tab');
+
+  if (tab === 'security' || tab === 'payments') return tab;
+
+  return 'profile';
+}
+
+function getProfileHeading(tab: ProfileTab) {
+  if (tab === 'security') return 'Bao mat tai khoan';
+  if (tab === 'payments') return 'Lich su thanh toan';
+
+  return 'Thong tin ca nhan';
 }
 
 function getDisplayName(fullName?: string | null, email?: string | null, isLoading?: boolean) {
@@ -493,6 +701,38 @@ function formatStatus(status?: string) {
   }
 
   return status.charAt(0).toUpperCase() + status.slice(1).toLowerCase();
+}
+
+function formatEnumLabel(value: string) {
+  return value
+    .toLowerCase()
+    .split('_')
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
+}
+
+function formatPaymentType(value?: PaymentType | null) {
+  if (!value) return '-';
+
+  return formatEnumLabel(value);
+}
+
+function formatMoney(value?: number | null) {
+  if (typeof value !== 'number') return '-';
+
+  return new Intl.NumberFormat('vi-VN', {
+    currency: 'VND',
+    maximumFractionDigits: 0,
+    style: 'currency',
+  }).format(value);
+}
+
+function getPaymentListTotal(data?: { items?: PaymentDto[]; total?: number; totalCount?: number } | null) {
+  return data?.total ?? data?.totalCount ?? data?.items?.length ?? 0;
+}
+
+function shortCode(value: string) {
+  return value.slice(0, 8);
 }
 
 function getInitials(value: string) {

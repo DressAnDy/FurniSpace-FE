@@ -177,6 +177,33 @@
   background: #f4ede2;
 }
 
+.customer-orders-filter-grid {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.customer-orders-filter-grid input,
+.customer-orders-filter-grid select {
+  width: 100%;
+  min-height: 40px;
+  border: 1px solid rgba(139, 111, 71, 0.18);
+  border-radius: 10px;
+  background: #fbfaf7;
+  color: #2f2a24;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  outline: 0;
+  padding: 0 12px;
+}
+
+.customer-orders-filter-grid input:focus,
+.customer-orders-filter-grid select:focus {
+  border-color: #8b6f47;
+  box-shadow: 0 0 0 3px rgba(139, 111, 71, 0.12);
+}
+
 .customer-orders-project-list strong,
 .customer-orders-order-list strong,
 .customer-orders-order-list span {
@@ -352,6 +379,124 @@
   opacity: 0.58;
 }
 
+.customer-orders-history-panel,
+.customer-orders-delivery-embed {
+  display: grid;
+  gap: 12px;
+  border: 1px solid rgba(139, 111, 71, 0.16);
+  border-radius: 14px;
+  background: #ffffff;
+  padding: 16px;
+}
+
+.customer-orders-history-panel header,
+.customer-orders-delivery-embed header {
+  margin-bottom: 0;
+}
+
+.customer-orders-payment-history-list,
+.customer-orders-delivery-batches {
+  display: grid;
+  gap: 10px;
+}
+
+.customer-orders-payment-history-list article,
+.customer-orders-delivery-batches article {
+  display: grid;
+  gap: 10px;
+  border: 1px solid rgba(139, 111, 71, 0.12);
+  border-radius: 12px;
+  background: #fbfaf7;
+  padding: 12px;
+}
+
+.customer-orders-payment-history-list article > div,
+.customer-orders-delivery-batches article > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.customer-orders-payment-history-list dl,
+.customer-orders-delivery-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0;
+}
+
+.customer-orders-payment-history-list dl div,
+.customer-orders-delivery-summary-grid div {
+  display: grid;
+  min-height: 72px;
+  align-content: center;
+  border-radius: 10px;
+  background: #ffffff;
+  padding: 12px;
+}
+
+.customer-orders-payment-history-list dt,
+.customer-orders-delivery-summary-grid span {
+  color: #8d8174;
+  font-size: 11px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.customer-orders-payment-history-list dd,
+.customer-orders-delivery-summary-grid strong {
+  margin: 4px 0 0;
+  color: #2f2a24;
+  font-size: 14px;
+  font-weight: 800;
+  line-height: 20px;
+  overflow-wrap: anywhere;
+}
+
+.customer-orders-payment-history-list small,
+.customer-orders-delivery-batches small,
+.customer-orders-delivery-batches span,
+.customer-orders-delivery-batches p {
+  margin: 0;
+  color: #756b61;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 18px;
+}
+
+.customer-orders-payment-status {
+  display: inline-flex;
+  min-height: 24px;
+  align-items: center;
+  border-radius: 999px;
+  background: rgba(139, 111, 71, 0.14);
+  color: #6f5636;
+  font-size: 10px;
+  font-weight: 900;
+  padding: 0 9px;
+  text-transform: uppercase;
+}
+
+.customer-orders-payment-status-paid,
+.customer-orders-payment-status-success {
+  background: rgba(22, 163, 74, 0.12);
+  color: #15803d;
+}
+
+.customer-orders-payment-status-cancelled,
+.customer-orders-payment-status-failed,
+.customer-orders-payment-status-expired {
+  background: rgba(220, 38, 38, 0.1);
+  color: #b91c1c;
+}
+
+.customer-orders-payment-status-pending,
+.customer-orders-payment-status-processing {
+  background: rgba(245, 158, 11, 0.15);
+  color: #b45309;
+}
+
 .customer-orders-delivery-details {
   display: grid;
   gap: 14px;
@@ -512,6 +657,8 @@
   }
   .customer-orders-metrics,
   .customer-orders-money-grid,
+  .customer-orders-payment-history-list dl,
+  .customer-orders-delivery-summary-grid,
   .customer-orders-delivery-details-grid,
   .customer-orders-order-list { grid-template-columns: 1fr; }
 }

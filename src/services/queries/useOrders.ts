@@ -8,15 +8,18 @@ import {
   createOrderDeliveryBatch,
   createOrderDepositPayment,
   createOrderRemainingPayment,
+  getCustomerOrders,
   getOrderDeliveries,
   getOrderDeliveryById,
   getOrderDeliveryTracking,
   getOrderById,
+  getOrderPaymentHistory,
   getProjectOrders,
   prepareOrderFinalPayment,
   startOrderDelivery,
   updateOrderDeliveryDetails,
   type CreateDeliveryBatchInput,
+  type CustomerMyOrdersParams,
   type CreateOrderPaymentInput,
   type OrderDetailDto,
   type OrderListItemDto,
@@ -26,18 +29,36 @@ import { paymentQueryKeys } from './usePayments';
 
 export const orderQueryKeys = {
   all: ['orders'] as const,
+  mine: (params?: CustomerMyOrdersParams) => ['orders', 'me', params] as const,
   byProject: (projectId: string) => ['orders', 'project', projectId] as const,
   detail: (orderId: string) => ['orders', 'detail', orderId] as const,
+  paymentHistory: (orderId: string) => ['orders', 'payment-history', orderId] as const,
   deliveries: (orderId: string) => ['orders', 'deliveries', orderId] as const,
   delivery: (orderId: string, deliveryId: string) => ['orders', 'deliveries', orderId, deliveryId] as const,
   deliveryTracking: (orderId: string) => ['orders', 'delivery-tracking', orderId] as const,
 };
+
+export function useCustomerOrders(params?: CustomerMyOrdersParams, options?: { enabled?: boolean }) {
+  return useQuery({
+    queryKey: orderQueryKeys.mine(params),
+    queryFn: () => getCustomerOrders(params),
+    enabled: options?.enabled ?? true,
+  });
+}
 
 export function useProjectOrders(projectId?: string, options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: orderQueryKeys.byProject(projectId ?? ''),
     queryFn: () => getProjectOrders(projectId ?? ''),
     enabled: Boolean(projectId) && (options?.enabled ?? true),
+  });
+}
+
+export function useOrderPaymentHistory(orderId?: string, options?: { enabled?: boolean }) {
+  return useQuery({
+    queryKey: orderQueryKeys.paymentHistory(orderId ?? ''),
+    queryFn: () => getOrderPaymentHistory(orderId ?? ''),
+    enabled: Boolean(orderId) && (options?.enabled ?? true),
   });
 }
 
@@ -199,7 +220,10 @@ export function upsertOrderListItem(
       item.orderId === order.orderId
         ? {
             ...item,
-            originalTotalAmount: order.originalTotalAmount,
+            itemsGrossAmount: order.itemsGrossAmount,
+            totalItemDiscountAmount: order.totalItemDiscountAmount,
+            preVatAmount: order.preVatAmount,
+            totalAmount: order.totalAmount,
             depositAmount: order.depositAmount,
             paidAmount: order.paidAmount,
             remainingAmount: order.remainingAmount,
@@ -222,6 +246,7 @@ function invalidateOrderPaymentCaches(
 ) {
   void queryClient.invalidateQueries({ queryKey: orderQueryKeys.all });
   void queryClient.invalidateQueries({ queryKey: orderQueryKeys.detail(orderId) });
+  void queryClient.invalidateQueries({ queryKey: orderQueryKeys.paymentHistory(orderId) });
   void queryClient.invalidateQueries({ queryKey: paymentQueryKeys.all });
 
   if (projectId) {

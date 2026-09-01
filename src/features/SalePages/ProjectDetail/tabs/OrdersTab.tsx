@@ -52,7 +52,7 @@ export function OrdersTab({ projectId }: OrdersTabProps) {
                   <OrderStatusBadge status={order.status} />
                 </div>
                 <div className="project-detail-order-money-grid">
-                  <OrderMoney label="Total" value={order.originalTotalAmount} />
+                  <OrderMoney label="Total" value={order.totalAmount} />
                   <OrderMoney label="Deposit" value={order.depositAmount} />
                   <OrderMoney label="Paid" value={order.paidAmount} />
                   <OrderMoney label="Remaining" value={order.remainingAmount} />
@@ -85,7 +85,10 @@ export function OrdersTab({ projectId }: OrdersTabProps) {
                   <OrderStatusBadge status={selectedOrder.status} />
                 </div>
                 <div className="project-detail-order-detail-summary">
-                  <OrderMoney label="Final total" value={selectedOrder.finalTotalAmount} />
+                  <OrderMoney label="Items Gross" value={selectedOrder.itemsGrossAmount} />
+                  <OrderMoney label="Item Discount" value={selectedOrder.totalItemDiscountAmount} />
+                  <OrderMoney label="Pre-VAT" value={selectedOrder.preVatAmount} />
+                  <OrderMoney label="Total" value={selectedOrder.totalAmount} />
                   <OrderMoney label="VAT" value={selectedOrder.vatAmount} />
                   <OrderMoney label="Deposit" value={selectedOrder.depositAmount} />
                   <OrderMoney label="Paid" value={selectedOrder.paidAmount} />
@@ -99,7 +102,7 @@ export function OrdersTab({ projectId }: OrdersTabProps) {
                         <span>{formatStatusLabel(item.status)}{item.isCustomized ? ' - Customized' : ''}</span>
                       </div>
                       <div>
-                        <strong>{formatMoney(item.subtotalAmount)}</strong>
+                        <strong>{formatMoney(getOrderItemPreVatAmount(item))}</strong>
                         <span>{item.quantity ?? 0} x {formatMoney(item.unitPrice)}</span>
                       </div>
                     </article>
@@ -129,6 +132,21 @@ function OrderStatusBadge({ status }: { status?: OrderStatus | null }) {
 
 function getOrderItemName(item: Pick<OrderItemDto, 'itemName' | 'productNameSnapshot'>) {
   return item.itemName ?? item.productNameSnapshot ?? 'Order item';
+}
+
+function getOrderItemGrossAmount(item: Pick<OrderItemDto, 'quantity' | 'unitPrice'>) {
+  if (typeof item.quantity !== 'number' || typeof item.unitPrice !== 'number') return null;
+
+  return item.quantity * item.unitPrice;
+}
+
+function getOrderItemPreVatAmount(item: Pick<OrderItemDto, 'discountAmount' | 'quantity' | 'subtotalAmount' | 'unitPrice'>) {
+  if (typeof item.subtotalAmount === 'number') return item.subtotalAmount;
+
+  const grossAmount = getOrderItemGrossAmount(item);
+  if (typeof grossAmount !== 'number') return null;
+
+  return grossAmount - (item.discountAmount ?? 0);
 }
 
 function formatMoney(value?: number | null) {

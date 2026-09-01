@@ -60,8 +60,12 @@ export type PaymentTransactionType = 'CHARGE' | 'REFUND' | 'ADJUSTMENT';
 export type PaymentDto = {
   paymentId: string;
   projectId: string;
+  projectName?: string | null;
+  projectCode?: string | null;
   orderId?: string | null;
+  orderCode?: string | null;
   quotationId?: string | null;
+  quotationCode?: string | null;
   paymentCode: string;
   paidBy?: string | null;
   paymentType?: PaymentType | null;
@@ -101,10 +105,20 @@ export type PaymentListParams = {
   orderId?: string | null;
   status?: PaymentStatus | null;
   paymentType?: PaymentType | null;
+  from?: string | null;
+  to?: string | null;
+  page?: number;
+  limit?: number;
 };
 
 export type PaymentListResponseDto = {
   items: PaymentDto[];
+  page?: number;
+  limit?: number;
+  pageSize?: number;
+  total?: number;
+  totalCount?: number;
+  totalPages?: number;
 };
 
 export type PaymentTransactionListResponseDto = {
@@ -227,6 +241,10 @@ export async function getPayments(params: PaymentListParams = {}) {
       orderId: params.orderId ?? undefined,
       status: params.status ?? undefined,
       paymentType: params.paymentType ?? undefined,
+      from: params.from || undefined,
+      to: params.to || undefined,
+      page: params.page ?? undefined,
+      limit: params.limit ?? undefined,
     },
   });
 
