@@ -309,7 +309,7 @@ export function UserProfilePage() {
         value: projectsSummaryQuery.isLoading ? '...' : String(projectsSummaryQuery.data?.total ?? 0),
       },
     ],
-    [projectsSummaryQuery.data?.total, projectsSummaryQuery.isError, projectsSummaryQuery.isLoading, t, user?.role, user?.status],
+    [projectsSummaryQuery.data?.total, projectsSummaryQuery.isLoading, t, user?.role, user?.status],
   );
 
   useEffect(() => {
