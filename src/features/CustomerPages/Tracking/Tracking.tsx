@@ -3,6 +3,7 @@ import {
   IconCheck,
   IconMessageCircle,
   IconPackage,
+  IconSearch,
   IconTruckDelivery,
 } from '@tabler/icons-react';
 import { Link } from 'react-router-dom';
@@ -50,16 +51,34 @@ const itemStatusLabels: Record<string, string> = {
   CANCELLED: 'Cancelled',
 };
 
+const PROJECTS_PER_PAGE = 6;
+
 export function Tracking() {
   const [selectedProjectId, setSelectedProjectId] = useState('');
   const [selectedOrderId, setSelectedOrderId] = useState('');
+  const [projectSearch, setProjectSearch] = useState('');
+  const [projectPage, setProjectPage] = useState(1);
   const [message, setMessage] = useState<{ tone: 'error' | 'success'; text: string } | null>(null);
-  const projectsQuery = useProjectList({ page: 1, limit: 50 });
+  const projectsQuery = useProjectList({ page: 1, limit: 100 });
   const projects = useMemo(
     () => (projectsQuery.data?.items ?? []).filter((project) => trackableProjectStatuses.has(project.status)),
     [projectsQuery.data?.items],
   );
-  const selectedProject = projects.find((project) => project.projectId === selectedProjectId) ?? projects[0] ?? null;
+  const filteredProjects = useMemo(() => {
+    const keyword = projectSearch.trim().toLowerCase();
+
+    if (!keyword) return projects;
+
+    return projects.filter((project) =>
+      `${project.projectName} ${project.projectCode} ${project.businessType}`.toLowerCase().includes(keyword),
+    );
+  }, [projectSearch, projects]);
+  const projectTotalPages = Math.max(1, Math.ceil(filteredProjects.length / PROJECTS_PER_PAGE));
+  const pagedProjects = useMemo(
+    () => filteredProjects.slice((projectPage - 1) * PROJECTS_PER_PAGE, projectPage * PROJECTS_PER_PAGE),
+    [filteredProjects, projectPage],
+  );
+  const selectedProject = projects.find((project) => project.projectId === selectedProjectId) ?? filteredProjects[0] ?? projects[0] ?? null;
   const ordersQuery = useProjectOrders(selectedProjectId, { enabled: Boolean(selectedProjectId) });
   const orders = useMemo(() => ordersQuery.data?.items ?? [], [ordersQuery.data?.items]);
   const selectedOrder = orders.find((order) => order.orderId === selectedOrderId) ?? orders[0] ?? null;
@@ -72,10 +91,22 @@ export function Tracking() {
   const canFinalConfirm = canConfirmFinalDelivery(tracking?.orderStatus ?? order?.status, tracking?.customerConfirmedDeliveryAt ?? order?.customerConfirmedDeliveryAt);
 
   useEffect(() => {
-    if (!selectedProjectId && projects.length > 0) {
-      setSelectedProjectId(projects[0].projectId);
+    if (!selectedProjectId && filteredProjects.length > 0) {
+      setSelectedProjectId(filteredProjects[0].projectId);
+      return;
     }
-  }, [projects, selectedProjectId]);
+
+    if (selectedProjectId && !projects.some((project) => project.projectId === selectedProjectId)) {
+      setSelectedProjectId(filteredProjects[0]?.projectId ?? '');
+      setSelectedOrderId('');
+    }
+  }, [filteredProjects, projects, selectedProjectId]);
+
+  useEffect(() => {
+    if (projectPage > projectTotalPages) {
+      setProjectPage(projectTotalPages);
+    }
+  }, [projectPage, projectTotalPages]);
 
   useEffect(() => {
     if (!selectedOrderId && orders.length > 0) {
@@ -120,82 +151,122 @@ export function Tracking() {
         {deliveryTrackingQuery.isError ? <section className="customer-tracking-message customer-tracking-message-error">{getOrderServiceResultMessage(deliveryTrackingQuery.error)}</section> : null}
         {message ? <section className={`customer-tracking-message customer-tracking-message-${message.tone}`}>{message.text}</section> : null}
 
-        <article className="customer-workspace-card customer-tracking-control-panel">
-          <header>
-            <div>
-              <h2>{order?.orderCode ?? selectedOrder?.orderCode ?? 'No active order'}</h2>
-              <p>{selectedProject?.projectName ?? 'No project selected'}</p>
-            </div>
-            <div className="customer-tracking-controls">
-              <CustomerStatusBadge label={getCustomerTrackingStatusLabel(tracking?.orderStatus ?? order?.status ?? selectedProject?.status ?? 'ORDER_CONFIRMED')} status={tracking?.orderStatus ?? order?.status ?? selectedProject?.status ?? 'ORDER_CONFIRMED'} />
-              <select
-                className="customer-tracking-selector"
-                value={selectedProjectId}
+        <section className="customer-tracking-layout">
+          <aside className="customer-workspace-card customer-tracking-project-sidebar">
+            <header>
+              <h2>Projects</h2>
+              <span>{filteredProjects.length} found</span>
+            </header>
+            <label className="customer-tracking-search">
+              <IconSearch size={16} />
+              <input
+                placeholder="Search project"
+                value={projectSearch}
                 onChange={(event) => {
-                  setSelectedProjectId(event.target.value);
-                  setSelectedOrderId('');
+                  setProjectSearch(event.target.value);
+                  setProjectPage(1);
                 }}
-              >
-                {projects.map((project) => (
-                  <option key={project.projectId} value={project.projectId}>{project.projectName}</option>
+              />
+            </label>
+            <div className="customer-tracking-project-list">
+              {projectsQuery.isLoading ? <p className="customer-workspace-muted">Loading projects...</p> : null}
+              {!projectsQuery.isLoading && filteredProjects.length === 0 ? <p className="customer-workspace-muted">No projects found.</p> : null}
+              {pagedProjects.map((project) => (
+                <button
+                  className={project.projectId === selectedProject?.projectId ? 'is-active' : undefined}
+                  key={project.projectId}
+                  type="button"
+                  onClick={() => {
+                    setSelectedProjectId(project.projectId);
+                    setSelectedOrderId('');
+                  }}
+                >
+                  <strong>{project.projectName}</strong>
+                  <span>{project.projectCode}</span>
+                  <CustomerStatusBadge label={getCustomerTrackingStatusLabel(project.status)} status={project.status} />
+                </button>
+              ))}
+            </div>
+            {projectTotalPages > 1 ? (
+              <div className="customer-tracking-project-pagination">
+                <button disabled={projectPage <= 1} type="button" onClick={() => setProjectPage((current) => Math.max(1, current - 1))}>
+                  Previous
+                </button>
+                <span>{projectPage} / {projectTotalPages}</span>
+                <button disabled={projectPage >= projectTotalPages} type="button" onClick={() => setProjectPage((current) => Math.min(projectTotalPages, current + 1))}>
+                  Next
+                </button>
+              </div>
+            ) : null}
+          </aside>
+
+          <section className="customer-tracking-content">
+            <article className="customer-workspace-card customer-tracking-control-panel">
+              <header>
+                <div>
+                  <h2>{order?.orderCode ?? selectedOrder?.orderCode ?? 'No active order'}</h2>
+                  <p>{selectedProject?.projectName ?? 'No project selected'}</p>
+                </div>
+                <div className="customer-tracking-controls">
+                  <CustomerStatusBadge label={getCustomerTrackingStatusLabel(tracking?.orderStatus ?? order?.status ?? selectedProject?.status ?? 'ORDER_CONFIRMED')} status={tracking?.orderStatus ?? order?.status ?? selectedProject?.status ?? 'ORDER_CONFIRMED'} />
+                </div>
+              </header>
+              <p className="customer-tracking-current-message">{getTrackingMessage(tracking?.orderStatus ?? order?.status ?? selectedProject?.status)}</p>
+              <div className="customer-tracking-meta-row">
+                <Field label="Project code" value={selectedProject?.projectCode ?? '-'} />
+                <Field label="Progress" value={`${tracking?.summary.deliveryProgressPercent ?? 0}%`} />
+                <Field label="Next delivery" value={tracking?.summary.nextDeliveryAt ? formatDateTime(tracking.summary.nextDeliveryAt) : 'Not scheduled'} />
+              </div>
+              {canFinalConfirm ? (
+                <button
+                  className="customer-workspace-link"
+                  disabled={confirmDeliveryMutation.isPending}
+                  type="button"
+                  onClick={() => void confirmDelivery()}
+                >
+                  {confirmDeliveryMutation.isPending ? 'Confirming...' : 'Confirm Final Delivery'}
+                </button>
+              ) : null}
+            </article>
+
+            <section className="customer-workspace-summary-grid">
+              <CustomerSummaryCard icon={IconPackage} label="Ordered Qty" value={tracking?.summary.totalOrderedQuantity ?? 0} />
+              <CustomerSummaryCard icon={IconTruckDelivery} label="Delivered Qty" value={tracking?.summary.totalDeliveredQuantity ?? 0} />
+              <CustomerSummaryCard icon={IconCheck} label="Completed Trips" value={tracking?.summary.completedDeliveryCount ?? 0} />
+              <CustomerSummaryCard icon={IconPackage} label="Remaining Qty" value={tracking?.summary.remainingQuantity ?? 0} />
+            </section>
+
+            <article className="customer-workspace-card customer-tracking-items-panel">
+              <header>
+                <div>
+                  <h2>Delivery Items</h2>
+                  <p>Quantities update after each completed delivery batch.</p>
+                </div>
+                <Link className="customer-workspace-link" to="/customer/chat"><IconMessageCircle size={16} /> Contact team</Link>
+              </header>
+              {deliveryTrackingQuery.isLoading ? <p className="customer-workspace-muted">Loading delivery tracking...</p> : null}
+              {!deliveryTrackingQuery.isLoading && groupedTrackingItems.length === 0 ? <p className="customer-workspace-muted">No delivery items are available yet.</p> : null}
+              <div className="customer-tracking-delivery-list">
+                {groupedTrackingItems.map((item) => <DeliveryItemRow item={item} key={item.orderItemIds.join('-')} />)}
+              </div>
+            </article>
+
+            <article className="customer-workspace-card customer-tracking-items-panel">
+              <header>
+                <div>
+                  <h2>Delivery Timeline</h2>
+                  <p>Each confirmed schedule becomes a delivery batch when Production executes it.</p>
+                </div>
+              </header>
+              <div className="customer-tracking-delivery-list">
+                {(tracking?.timeline ?? []).map((timelineItem, index) => (
+                  <TimelineRow item={timelineItem} key={`${timelineItem.projectScheduleId ?? 'schedule'}-${timelineItem.deliveryId ?? index}`} />
                 ))}
-              </select>
-            </div>
-          </header>
-          <p className="customer-tracking-current-message">{getTrackingMessage(tracking?.orderStatus ?? order?.status ?? selectedProject?.status)}</p>
-          <div className="customer-tracking-meta-row">
-            <Field label="Project code" value={selectedProject?.projectCode ?? '-'} />
-            <Field label="Progress" value={`${tracking?.summary.deliveryProgressPercent ?? 0}%`} />
-            <Field label="Next delivery" value={tracking?.summary.nextDeliveryAt ? formatDateTime(tracking.summary.nextDeliveryAt) : 'Not scheduled'} />
-          </div>
-          {canFinalConfirm ? (
-            <button
-              className="customer-workspace-link"
-              disabled={confirmDeliveryMutation.isPending}
-              type="button"
-              onClick={() => void confirmDelivery()}
-            >
-              {confirmDeliveryMutation.isPending ? 'Confirming...' : 'Confirm Final Delivery'}
-            </button>
-          ) : null}
-        </article>
-
-        <section className="customer-workspace-summary-grid">
-          <CustomerSummaryCard icon={IconPackage} label="Ordered Qty" value={tracking?.summary.totalOrderedQuantity ?? 0} />
-          <CustomerSummaryCard icon={IconTruckDelivery} label="Delivered Qty" value={tracking?.summary.totalDeliveredQuantity ?? 0} />
-          <CustomerSummaryCard icon={IconCheck} label="Completed Trips" value={tracking?.summary.completedDeliveryCount ?? 0} />
-          <CustomerSummaryCard icon={IconPackage} label="Remaining Qty" value={tracking?.summary.remainingQuantity ?? 0} />
+              </div>
+              {!deliveryTrackingQuery.isLoading && (tracking?.timeline.length ?? 0) === 0 ? <p className="customer-workspace-muted">No delivery timeline yet.</p> : null}
+            </article>
+          </section>
         </section>
-
-        <article className="customer-workspace-card customer-tracking-items-panel">
-          <header>
-            <div>
-              <h2>Delivery Items</h2>
-              <p>Quantities update after each completed delivery batch.</p>
-            </div>
-            <Link className="customer-workspace-link" to="/customer/chat"><IconMessageCircle size={16} /> Contact team</Link>
-          </header>
-          {deliveryTrackingQuery.isLoading ? <p className="customer-workspace-muted">Loading delivery tracking...</p> : null}
-          {!deliveryTrackingQuery.isLoading && groupedTrackingItems.length === 0 ? <p className="customer-workspace-muted">No delivery items are available yet.</p> : null}
-          <div className="customer-tracking-delivery-list">
-            {groupedTrackingItems.map((item) => <DeliveryItemRow item={item} key={item.orderItemIds.join('-')} />)}
-          </div>
-        </article>
-
-        <article className="customer-workspace-card customer-tracking-items-panel">
-          <header>
-            <div>
-              <h2>Delivery Timeline</h2>
-              <p>Each confirmed schedule becomes a delivery batch when Production executes it.</p>
-            </div>
-          </header>
-          <div className="customer-tracking-delivery-list">
-            {(tracking?.timeline ?? []).map((timelineItem, index) => (
-              <TimelineRow item={timelineItem} key={`${timelineItem.projectScheduleId ?? 'schedule'}-${timelineItem.deliveryId ?? index}`} />
-            ))}
-          </div>
-          {!deliveryTrackingQuery.isLoading && (tracking?.timeline.length ?? 0) === 0 ? <p className="customer-workspace-muted">No delivery timeline yet.</p> : null}
-        </article>
       </div>
     </main>
   );

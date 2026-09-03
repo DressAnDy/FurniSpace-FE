@@ -1630,11 +1630,6 @@ export function BuildingBlueprintTestPage() {
                   Add Box
                 </button>
               </div>
-              {isStandardAreaGeometryLocked ? (
-                <div className="building-blueprint-note">
-                  Standard area geometry is locked to the configured project area size.
-                </div>
-              ) : null}
               {blueprintMessage ? <div className="building-blueprint-note">{blueprintMessage}</div> : null}
             </section>
           ) : null}

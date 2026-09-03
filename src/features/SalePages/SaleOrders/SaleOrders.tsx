@@ -312,9 +312,11 @@ function OrderDetailPanel({
         <span className={`sale-orders-status sale-orders-status-${statusClass(order.status)}`}>{formatEnumLabel(order.status ?? 'UNKNOWN')}</span>
       </header>
       <div className="sale-orders-money-grid">
-        <MoneyValue label="Tiền chưa VAT" value={formatMoney(order.originalTotalAmount)} />
+        <MoneyValue label="Items Gross" value={formatMoney(order.itemsGrossAmount)} />
+        <MoneyValue label="Item Discount" value={formatMoney(order.totalItemDiscountAmount)} />
+        <MoneyValue label="Pre-VAT" value={formatMoney(order.preVatAmount)} />
         <MoneyValue label="VAT" value={formatMoney(order.vatAmount)} />
-        <MoneyValue label="Tiền sau VAT" value={formatMoney(order.finalTotalAmount)} />
+        <MoneyValue label="Total" value={formatMoney(order.totalAmount)} />
         <MoneyValue label="Deposit" value={formatMoney(order.depositAmount)} />
         <MoneyValue label="Paid" value={formatMoney(order.paidAmount)} />
         <MoneyValue label="Remain" value={formatMoney(order.remainingAmount)} />
@@ -459,6 +461,7 @@ function OrderDetailPanel({
               <th>Item</th>
               <th>Qty</th>
               <th>Unit</th>
+              <th>Gross</th>
               <th>Discount</th>
               <th>Pre-VAT Subtotal</th>
             </tr>
@@ -469,8 +472,9 @@ function OrderDetailPanel({
                 <td>{getOrderItemName(item)}</td>
                 <td>{item.quantity ?? '-'}</td>
                 <td>{formatMoney(item.unitPrice)}</td>
+                <td>{formatMoney(getOrderItemGrossAmount(item))}</td>
                 <td>{formatMoney(item.discountAmount)}</td>
-                <td>{formatMoney(item.subtotalAmount)}</td>
+                <td>{formatMoney(getOrderItemPreVatAmount(item))}</td>
               </tr>
             ))}
           </tbody>
@@ -491,6 +495,21 @@ function MoneyValue({ label, value }: { label: string; value: string }) {
 
 function getOrderItemName(item: Pick<OrderItemDto, 'itemName' | 'productNameSnapshot'>) {
   return item.itemName ?? item.productNameSnapshot ?? '-';
+}
+
+function getOrderItemGrossAmount(item: Pick<OrderItemDto, 'quantity' | 'unitPrice'>) {
+  if (typeof item.quantity !== 'number' || typeof item.unitPrice !== 'number') return null;
+
+  return item.quantity * item.unitPrice;
+}
+
+function getOrderItemPreVatAmount(item: Pick<OrderItemDto, 'discountAmount' | 'quantity' | 'subtotalAmount' | 'unitPrice'>) {
+  if (typeof item.subtotalAmount === 'number') return item.subtotalAmount;
+
+  const grossAmount = getOrderItemGrossAmount(item);
+  if (typeof grossAmount !== 'number') return null;
+
+  return grossAmount - (item.discountAmount ?? 0);
 }
 
 function getOrderProjects(projects: ProjectListItemDto[]) {

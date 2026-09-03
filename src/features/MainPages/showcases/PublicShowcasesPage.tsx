@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 
-import type { ProjectShowcaseDto } from '@/services/api/showcases';
+import type { ProjectShowcaseDto, ProjectShowcaseListParams } from '@/services/api/showcases';
 import { usePublicShowcase, usePublicShowcases } from '@/services/queries';
 
 import './PublicShowcasesPage.css';
@@ -10,28 +10,20 @@ type SortMode = 'newest' | 'name';
 
 export function PublicShowcasesPage() {
   const [search, setSearch] = useState('');
-  const [category, setCategory] = useState('ALL');
+  const [businessType, setBusinessType] = useState('ALL');
   const [sortMode, setSortMode] = useState<SortMode>('newest');
-  const showcasesQuery = usePublicShowcases({ page: 1, pageSize: 24 });
+  const [page, setPage] = useState(1);
+  const listParams = useMemo<ProjectShowcaseListParams>(() => ({
+    businessType: businessType === 'ALL' ? null : businessType,
+    page,
+    pageSize: 12,
+    search,
+    sort: sortMode === 'name' ? 'name_asc' : 'completedDate_desc',
+  }), [businessType, page, search, sortMode]);
+  const showcasesQuery = usePublicShowcases(listParams);
   const showcases = useMemo(() => showcasesQuery.data?.items ?? [], [showcasesQuery.data?.items]);
   const categories = useMemo(() => getCategories(showcases), [showcases]);
-  const visibleShowcases = useMemo(() => {
-    const query = search.trim().toLowerCase();
-
-    return showcases
-      .filter((showcase) => category === 'ALL' || showcase.businessType === category)
-      .filter((showcase) => {
-        if (!query) return true;
-
-        return [showcase.title, showcase.projectName, showcase.summary, showcase.businessType]
-          .filter(Boolean)
-          .some((value) => value?.toLowerCase().includes(query));
-      })
-      .sort((first, second) => {
-        if (sortMode === 'name') return (first.title ?? first.projectName ?? '').localeCompare(second.title ?? second.projectName ?? '');
-        return new Date(second.publishedAt ?? second.updatedAt ?? 0).getTime() - new Date(first.publishedAt ?? first.updatedAt ?? 0).getTime();
-      });
-  }, [category, search, showcases, sortMode]);
+  const totalPages = showcasesQuery.data?.totalPages ?? 1;
 
   return (
     <main className="public-showcase-page public-showcase-list-page">
@@ -43,22 +35,39 @@ export function PublicShowcasesPage() {
       <div className="public-showcase-list-layout">
         <aside className="public-showcase-filter">
           <h2>Filter</h2>
-          <input aria-label="Search showcases" placeholder="Search" value={search} onChange={(event) => setSearch(event.target.value)} />
+          <input
+            aria-label="Search showcases"
+            placeholder="Search"
+            value={search}
+            onChange={(event) => {
+              setSearch(event.target.value);
+              setPage(1);
+            }}
+          />
           <strong>By Category</strong>
           <div className="public-showcase-category-list">
             <label>
-              <input checked={category === 'ALL'} type="radio" onChange={() => setCategory('ALL')} />
+              <input checked={businessType === 'ALL'} type="radio" onChange={() => {
+                setBusinessType('ALL');
+                setPage(1);
+              }} />
               <span>All Projects</span>
             </label>
             {categories.map((item) => (
               <label key={item}>
-                <input checked={category === item} type="radio" onChange={() => setCategory(item)} />
+                <input checked={businessType === item} type="radio" onChange={() => {
+                  setBusinessType(item);
+                  setPage(1);
+                }} />
                 <span>{item}</span>
               </label>
             ))}
           </div>
           <strong>Sort by</strong>
-          <select value={sortMode} onChange={(event) => setSortMode(event.target.value as SortMode)}>
+          <select value={sortMode} onChange={(event) => {
+            setSortMode(event.target.value as SortMode);
+            setPage(1);
+          }}>
             <option value="newest">Newest</option>
             <option value="name">Name</option>
           </select>
@@ -67,10 +76,11 @@ export function PublicShowcasesPage() {
         <section className="public-showcase-results">
           {showcasesQuery.isLoading ? <p className="public-showcase-state">Loading showcases...</p> : null}
           {showcasesQuery.isError ? <p className="public-showcase-state is-error">Cannot load showcases.</p> : null}
-          {!showcasesQuery.isLoading && visibleShowcases.length === 0 ? <p className="public-showcase-state">No published showcases match this filter.</p> : null}
+          {!showcasesQuery.isLoading && showcases.length === 0 ? <p className="public-showcase-state">No published showcases match this filter.</p> : null}
           <div className="public-showcase-grid">
-            {visibleShowcases.map((showcase) => {
+            {showcases.map((showcase) => {
               const coverUrl = getShowcaseCover(showcase);
+              const introduction = getShowcaseIntroduction(showcase);
 
               return (
                 <Link className="public-showcase-card" to={`/public/showcases/${showcase.slug}`} key={showcase.showcaseId}>
@@ -78,7 +88,7 @@ export function PublicShowcasesPage() {
                   <div className="public-showcase-card-title">
                     <h2>{showcase.title ?? showcase.projectName ?? 'Untitled showcase'}</h2>
                   </div>
-                  {showcase.summary ? <p className="public-showcase-card-summary">{showcase.summary}</p> : null}
+                  {introduction ? <p className="public-showcase-card-summary">{introduction}</p> : null}
                   <dl>
                     <div>
                       <dt>The loai</dt>
@@ -97,6 +107,13 @@ export function PublicShowcasesPage() {
               );
             })}
           </div>
+          {totalPages > 1 ? (
+            <div className="public-showcase-pagination">
+              <button disabled={page <= 1 || showcasesQuery.isFetching} type="button" onClick={() => setPage((current) => Math.max(1, current - 1))}>Previous</button>
+              <span>{page} / {totalPages}</span>
+              <button disabled={page >= totalPages || showcasesQuery.isFetching} type="button" onClick={() => setPage((current) => Math.min(totalPages, current + 1))}>Next</button>
+            </div>
+          ) : null}
         </section>
       </div>
     </main>
@@ -105,14 +122,16 @@ export function PublicShowcasesPage() {
 
 export function PublicShowcaseDetailPage() {
   const { slug } = useParams();
+  const navigate = useNavigate();
   const showcaseQuery = usePublicShowcase(slug);
   const showcase = showcaseQuery.data;
   const media = useMemo(
     () => [...(showcase?.media ?? [])].sort((first, second) => (first.displayOrder ?? 0) - (second.displayOrder ?? 0)),
     [showcase?.media],
   );
-  const heroMedia = showcase ? getShowcaseCover(showcase) : null;
   const projectMeta = showcase ? getShowcaseProjectMeta(showcase) : [];
+  const sidebarMeta = showcase ? getShowcaseSidebarMeta(showcase, projectMeta) : [];
+  const introduction = showcase ? getShowcaseIntroduction(showcase) : null;
 
   return (
     <main className="public-showcase-page public-showcase-detail-page">
@@ -120,27 +139,20 @@ export function PublicShowcaseDetailPage() {
       {showcaseQuery.isError ? <p className="public-showcase-state is-error">Cannot load this showcase.</p> : null}
       {showcase ? (
         <>
-          <section className="public-showcase-detail-hero">
-            {heroMedia ? <img alt={showcase.title ?? 'Project showcase'} src={heroMedia} /> : <div />}
-          </section>
+          <button className="public-showcase-back-button" type="button" onClick={() => navigate(-1)}>
+            Back
+          </button>
           <section className="public-showcase-detail-layout">
             <aside className="public-showcase-info">
-              <p>Thong tin du an</p>
+              <p>Project Information</p>
               <h1>{showcase.title ?? showcase.projectName ?? 'Project Showcase'}</h1>
-              <p>{showcase.summary ?? 'Completed FurniSpace project.'}</p>
               <dl>
-                <div>
-                  <dt>The loai</dt>
-                  <dd>{showcase.businessType ?? '-'}</dd>
-                </div>
-                <div>
-                  <dt>Nam hoan thanh</dt>
-                  <dd>{showcase.completionYear ?? '-'}</dd>
-                </div>
-                <div>
-                  <dt>Du an</dt>
-                  <dd>{showcase.projectName ?? '-'}</dd>
-                </div>
+                {sidebarMeta.map((item) => (
+                  <div key={item.label}>
+                    <dt>{item.label}</dt>
+                    <dd>{item.value}</dd>
+                  </div>
+                ))}
               </dl>
               {showcase.review?.comment ? (
                 <blockquote>{showcase.review.comment}</blockquote>
@@ -148,16 +160,14 @@ export function PublicShowcaseDetailPage() {
             </aside>
 
             <section className="public-showcase-gallery">
-              <h2>Hinh thiet ke</h2>
-              <div className="public-showcase-project-meta">
-                {projectMeta.map((item) => (
-                  <div key={item.label}>
-                    <span>{item.label}</span>
-                    <strong>{item.value}</strong>
-                  </div>
-                ))}
-              </div>
-              {showcase.description ? <p>{showcase.description}</p> : showcase.summary ? <p>{showcase.summary}</p> : null}
+              <section className="public-showcase-story-section">
+                <h2>Project Introduction</h2>
+                <p>{introduction ?? 'Completed FurniSpace project.'}</p>
+              </section>
+
+              <section className="public-showcase-story-section">
+                <h2>Design Images</h2>
+              </section>
               <div className="public-showcase-media-grid">
                 {media.map((item) => {
                   const mediaUrl = item.url ?? item.publicUrl ?? item.fileUrl;
@@ -165,10 +175,6 @@ export function PublicShowcaseDetailPage() {
                   return mediaUrl ? (
                     <figure className={item.isCover ? 'is-cover' : undefined} key={item.showcaseMediaId}>
                       <img alt={item.caption ?? item.mediaType} src={mediaUrl} />
-                      <figcaption>
-                        {item.caption ?? formatEnumLabel(item.mediaType)}
-                        {item.isCover ? <span>Cover</span> : null}
-                      </figcaption>
                     </figure>
                   ) : null;
                 })}
@@ -199,17 +205,26 @@ function getShowcaseCover(showcase: ProjectShowcaseDto) {
     ?? null;
 }
 
+function getShowcaseIntroduction(showcase: ProjectShowcaseDto) {
+  return showcase.introduction?.trim() || showcase.description?.trim() || showcase.summary?.trim() || null;
+}
+
 function getShowcaseProjectMeta(showcase: ProjectShowcaseDto) {
   return [
-    { label: 'Hoan thanh', value: formatShowcaseDate(showcase.completedDate) },
-    { label: 'Dien tich', value: formatArea(showcase.totalAreaSqm) },
-    { label: 'So tang', value: typeof showcase.numberOfFloors === 'number' ? `${showcase.numberOfFloors}` : null },
-    {
-      label: 'Thoi gian trien khai',
-      value: typeof showcase.implementationDurationDays === 'number' ? `${showcase.implementationDurationDays} ngay` : null,
-    },
-    { label: 'Dia diem', value: showcase.projectAddress },
+    { label: 'Completed', value: formatShowcaseDate(showcase.completedDate) },
+    { label: 'Area', value: formatArea(showcase.totalAreaSqm) },
+    { label: 'Floors', value: typeof showcase.numberOfFloors === 'number' ? `${showcase.numberOfFloors}` : null },
+    { label: 'Location', value: showcase.projectAddress },
   ].filter((item): item is { label: string; value: string } => Boolean(item.value));
+}
+
+function getShowcaseSidebarMeta(showcase: ProjectShowcaseDto, projectMeta: Array<{ label: string; value: string }>) {
+  return [
+    { label: 'Category', value: showcase.businessType ?? 'Project' },
+    { label: 'Project', value: showcase.projectName ?? '-' },
+    { label: 'Completion Year', value: showcase.completionYear ? String(showcase.completionYear) : formatCompletionYear(showcase.completedDate) ?? '-' },
+    ...projectMeta,
+  ];
 }
 
 function formatShowcaseDate(value?: string | null) {
@@ -225,16 +240,16 @@ function formatShowcaseDate(value?: string | null) {
   }).format(date);
 }
 
+function formatCompletionYear(value?: string | null) {
+  if (!value) return null;
+  const date = new Date(value);
+
+  return Number.isNaN(date.getTime()) ? null : String(date.getFullYear());
+}
+
 function formatArea(value?: number | null) {
   if (typeof value !== 'number') return null;
 
   return `${new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 1 }).format(value)} m2`;
 }
 
-function formatEnumLabel(value: string) {
-  return value
-    .toLowerCase()
-    .split('_')
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(' ');
-}

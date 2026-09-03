@@ -75,6 +75,7 @@ export type ProjectShowcaseDto = {
   title?: string | null;
   summary?: string | null;
   description?: string | null;
+  introduction?: string | null;
   status: ProjectShowcaseStatus;
   projectName?: string | null;
   businessType?: string | null;
@@ -108,7 +109,18 @@ export type ProjectShowcaseListData = {
   page: number;
   pageSize: number;
   total?: number;
+  totalItems?: number;
+  totalPages?: number;
   totalCount: number;
+};
+
+export type ProjectShowcaseListParams = {
+  businessType?: string | null;
+  page?: number;
+  pageSize?: number;
+  search?: string | null;
+  sort?: string | null;
+  status?: ProjectShowcaseStatus | 'ALL' | null;
 };
 
 export type UpdateProjectShowcaseInput = {
@@ -116,6 +128,7 @@ export type UpdateProjectShowcaseInput = {
   title?: string | null;
   summary?: string | null;
   description?: string | null;
+  introduction?: string | null;
   slug?: string | null;
   featuredReviewId?: string | null;
 };
@@ -125,6 +138,7 @@ export type CreateProjectShowcaseInput = {
   title?: string | null;
   summary?: string | null;
   description?: string | null;
+  introduction?: string | null;
 };
 
 export type CreateProjectShowcaseMediaInput = {
@@ -152,7 +166,11 @@ export type ReorderProjectShowcaseMediaInput = {
 
 const SHOWCASE_ERROR_MESSAGES: Record<string, string> = {
   PROJECT_SHOWCASE_ALREADY_EXISTS: 'This project already has a showcase.',
-  PROJECT_SHOWCASE_PUBLISH_REQUIREMENTS_NOT_MET: 'Publish requires a completed project, title, summary, and cover media.',
+  PROJECT_SHOWCASE_PUBLISH_REQUIREMENTS_NOT_MET: 'Publish requires a completed project, introduction, active media, and exactly one cover media.',
+  SHOWCASE_INTRODUCTION_REQUIRED: 'Introduction is required before submitting this showcase.',
+  PROJECT_SHOWCASE_MEDIA_REQUIRED: 'Add at least one showcase media item before submitting.',
+  PROJECT_SHOWCASE_COVER_REQUIRED: 'Choose exactly one showcase cover before submitting.',
+  PROJECT_SHOWCASE_PROJECT_NOT_COMPLETED: 'Only completed projects can be showcased.',
   PROJECT_SHOWCASE_SLUG_DUPLICATE: 'This showcase slug is already in use.',
   PROJECT_SHOWCASE_ARCHIVED_READ_ONLY: 'Archived showcases cannot be edited.',
   PROJECT_SHOWCASE_COVER_CONFLICT: 'Another showcase cover update conflicted. Please retry.',
@@ -218,6 +236,7 @@ export async function createProjectShowcase(input: string | CreateProjectShowcas
   const body = typeof input === 'string'
     ? undefined
     : {
+        introduction: normalizeOptionalText(input.introduction ?? input.description),
         title: input.title?.trim() || null,
         summary: input.summary?.trim() || null,
         description: input.description?.trim() || null,
@@ -229,6 +248,7 @@ export async function createProjectShowcase(input: string | CreateProjectShowcas
 
 export async function updateProjectShowcase(input: UpdateProjectShowcaseInput) {
   const response = await showcaseApiClient.patch<ServiceResult<ProjectShowcaseDto>>(`/project-showcases/${input.showcaseId}`, {
+    introduction: normalizeOptionalText(input.introduction ?? input.description),
     title: input.title?.trim() || null,
     summary: input.summary?.trim() || null,
     description: input.description?.trim() || null,
@@ -251,6 +271,12 @@ export async function publishProjectShowcase(showcaseId: string) {
   return normalizeProjectShowcase(response.data.data);
 }
 
+export async function rejectProjectShowcase(showcaseId: string) {
+  const response = await showcaseApiClient.patch<ServiceResult<ProjectShowcaseDto>>(`/project-showcases/${showcaseId}/reject`);
+
+  return normalizeProjectShowcase(response.data.data);
+}
+
 export async function archiveProjectShowcase(showcaseId: string) {
   const response = await showcaseApiClient.patch<ServiceResult<ProjectShowcaseDto>>(`/project-showcases/${showcaseId}/archive`);
 
@@ -259,11 +285,11 @@ export async function archiveProjectShowcase(showcaseId: string) {
 
 export async function createProjectShowcaseMedia(input: CreateProjectShowcaseMediaInput) {
   const response = await showcaseApiClient.post<ServiceResult<ProjectShowcaseMediaDto>>(
-    `/project-showcases/${input.showcaseId}/media`,
+    `/project-showcases/${input.showcaseId}/media/from-file`,
     {
       fileId: input.fileId,
       mediaType: input.mediaType,
-      title: input.title?.trim() || null,
+      title: normalizeOptionalText(input.title),
       caption: input.caption?.trim() || null,
       setAsCover: Boolean(input.setAsCover),
     },
@@ -280,18 +306,16 @@ export async function uploadProjectShowcaseMedia(input: UploadProjectShowcaseMed
     formData.append('mediaType', input.mediaType);
   }
 
-  if (input.title?.trim()) {
-    formData.append('title', input.title.trim());
-  }
+  const caption = normalizeOptionalText(input.caption);
 
-  if (input.caption?.trim()) {
-    formData.append('caption', input.caption.trim());
+  if (caption !== null) {
+    formData.append('caption', caption);
   }
 
   formData.append('setAsCover', String(Boolean(input.setAsCover)));
 
   const response = await showcaseApiClient.post<ServiceResult<ProjectShowcaseMediaDto>>(
-    `/project-showcases/${input.showcaseId}/media/upload`,
+    `/project-showcases/${input.showcaseId}/media`,
     formData,
   );
 
@@ -332,12 +356,23 @@ export async function updateProjectReviewPublicConsent(reviewId: string, allowPu
   return response.data.data;
 }
 
-export async function getPublicShowcases(params: { page?: number; pageSize?: number } = {}) {
+export async function getAdminProjectShowcases(params: ProjectShowcaseListParams = {}) {
+  const response = await showcaseApiClient.get<ServiceResult<ProjectShowcaseListData>>('/admin/project-showcases', {
+    params: buildShowcaseListParams(params),
+  });
+
+  return normalizeProjectShowcaseList(response.data.data);
+}
+
+export async function getAdminProjectShowcase(showcaseId: string) {
+  const response = await showcaseApiClient.get<ServiceResult<ProjectShowcaseDto>>(`/admin/project-showcases/${showcaseId}`);
+
+  return normalizeProjectShowcase(response.data.data);
+}
+
+export async function getPublicShowcases(params: ProjectShowcaseListParams = {}) {
   const response = await showcaseApiClient.get<ServiceResult<ProjectShowcaseListData>>('/public/showcases', {
-    params: {
-      page: params.page ?? 1,
-      pageSize: Math.min(params.pageSize ?? 12, 50),
-    },
+    params: buildShowcaseListParams(params, { omitStatus: true }),
     skipAuth: true,
     skipAuthRedirect: true,
     withCredentials: false,
@@ -349,6 +384,7 @@ export async function getPublicShowcases(params: { page?: number; pageSize?: num
 function normalizeProjectShowcase(showcase: ProjectShowcaseDto): ProjectShowcaseDto {
   const media = showcase.media?.map(normalizeProjectShowcaseMedia) ?? [];
   const showcaseId = showcase.showcaseId ?? showcase.projectShowcaseId ?? '';
+  const introduction = showcase.introduction ?? showcase.description ?? '';
   const coverMedia =
     showcase.coverMedia
       ? normalizeProjectShowcaseMedia(showcase.coverMedia)
@@ -363,8 +399,11 @@ function normalizeProjectShowcase(showcase: ProjectShowcaseDto): ProjectShowcase
 
   return {
     ...showcase,
+    description: showcase.description ?? introduction,
+    introduction,
     projectShowcaseId: showcase.projectShowcaseId ?? showcaseId,
     showcaseId,
+    status: normalizeProjectShowcaseStatus(showcase.status),
     media,
     coverMedia,
     coverUrl: showcase.coverUrl ?? coverMedia?.url ?? coverMedia?.publicUrl ?? null,
@@ -386,12 +425,43 @@ function normalizeProjectShowcaseMedia(media: ProjectShowcaseMediaDto): ProjectS
 }
 
 function normalizeProjectShowcaseList(data: ProjectShowcaseListData): ProjectShowcaseListData {
+  const totalCount = data.totalCount ?? data.totalItems ?? data.total ?? data.items.length;
+
   return {
     ...data,
-    totalCount: data.totalCount ?? data.total ?? data.items.length,
-    total: data.total ?? data.totalCount ?? data.items.length,
+    totalCount,
+    total: data.total ?? totalCount,
+    totalItems: data.totalItems ?? totalCount,
+    totalPages: data.totalPages ?? Math.max(1, Math.ceil(totalCount / Math.max(data.pageSize || 1, 1))),
     items: data.items.map(normalizeProjectShowcase),
   };
+}
+
+function normalizeProjectShowcaseStatus(status?: ProjectShowcaseStatus | string | null): ProjectShowcaseStatus {
+  const normalized = status?.replace(/[\s-]+/g, '_').toUpperCase();
+
+  if (normalized === 'PENDING_REVIEW' || normalized === 'PUBLISHED' || normalized === 'ARCHIVED') {
+    return normalized;
+  }
+
+  return 'DRAFT';
+}
+
+function buildShowcaseListParams(params: ProjectShowcaseListParams, options: { omitStatus?: boolean } = {}) {
+  return {
+    businessType: normalizeOptionalText(params.businessType),
+    page: params.page ?? 1,
+    pageSize: Math.min(params.pageSize ?? 12, 50),
+    search: normalizeOptionalText(params.search),
+    sort: normalizeOptionalText(params.sort),
+    status: options.omitStatus || !params.status || params.status === 'ALL' ? undefined : params.status,
+  };
+}
+
+function normalizeOptionalText(value?: string | null) {
+  const normalized = value?.trim();
+
+  return normalized ? normalized : null;
 }
 
 function getFirstShowcaseErrorCode(result: ServiceResult<unknown>) {

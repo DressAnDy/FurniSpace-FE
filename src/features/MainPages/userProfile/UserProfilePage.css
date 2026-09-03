@@ -431,8 +431,200 @@
   margin-top: 14px;
 }
 
+.user-profile-payments-layout {
+  margin-top: 14px;
+}
+
 .user-profile-security-panel {
   max-width: 820px;
+}
+
+.user-profile-payments-panel {
+  display: grid;
+  gap: 14px;
+}
+
+.user-profile-payment-filters {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  border: 1px solid rgba(139, 111, 71, 0.12);
+  border-radius: 8px;
+  background: #f5f1ec;
+  padding: 12px;
+}
+
+.user-profile-payment-filters label {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.user-profile-payment-filters span {
+  color: #6f6a63;
+  font-size: 11px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.user-profile-payment-filters input,
+.user-profile-payment-filters select {
+  width: 100%;
+  min-height: 38px;
+  border: 1px solid rgba(139, 111, 71, 0.16);
+  border-radius: 8px;
+  background: #ffffff;
+  color: #181512;
+  font: inherit;
+  font-size: 13px;
+  outline: none;
+  padding: 0 10px;
+}
+
+.user-profile-payment-filters input:focus,
+.user-profile-payment-filters select:focus {
+  border-color: #9b734b;
+  box-shadow: 0 0 0 3px rgba(155, 115, 75, 0.14);
+}
+
+.user-profile-payment-list {
+  display: grid;
+  border: 1px solid rgba(139, 111, 71, 0.12);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.user-profile-payment-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  border-bottom: 1px solid rgba(139, 111, 71, 0.1);
+  background: #ffffff;
+  padding: 14px;
+}
+
+.user-profile-payment-row:last-child {
+  border-bottom: 0;
+}
+
+.user-profile-payment-row > div:first-child {
+  display: grid;
+  min-width: 0;
+  gap: 4px;
+}
+
+.user-profile-payment-row > div:first-child strong {
+  min-width: 0;
+  overflow: hidden;
+  color: #181512;
+  color: #181512;
+  font-size: 14px;
+  font-weight: 900;
+  line-height: 20px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.user-profile-payment-row > div:first-child span,
+.user-profile-payment-row > div:first-child em {
+  color: #6f6a63;
+  font-size: 12px;
+  font-weight: 700;
+  font-style: normal;
+  line-height: 18px;
+}
+
+.user-profile-payment-row-side {
+  display: grid;
+  flex: 0 0 auto;
+  justify-items: end;
+  gap: 6px;
+  text-align: right;
+}
+
+.user-profile-payment-row-side strong {
+  color: #181512;
+  font-size: 15px;
+  font-weight: 900;
+  line-height: 20px;
+  white-space: nowrap;
+}
+
+.user-profile-payment-status {
+  display: inline-flex;
+  min-height: 24px;
+  align-items: center;
+  border-radius: 999px;
+  background: rgba(139, 111, 71, 0.14);
+  color: #6f5636;
+  flex: 0 0 auto;
+  font-size: 10px;
+  font-weight: 900;
+  padding: 0 9px;
+  text-transform: uppercase;
+}
+
+.user-profile-payment-status-paid,
+.user-profile-payment-status-success {
+  background: rgba(22, 163, 74, 0.12);
+  color: #15803d;
+}
+
+.user-profile-payment-status-pending,
+.user-profile-payment-status-processing {
+  background: rgba(245, 158, 11, 0.15);
+  color: #b45309;
+}
+
+.user-profile-payment-status-failed,
+.user-profile-payment-status-cancelled,
+.user-profile-payment-status-expired {
+  background: rgba(220, 38, 38, 0.12);
+  color: #b91c1c;
+}
+
+.user-profile-payment-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border-top: 1px solid rgba(139, 111, 71, 0.12);
+  padding-top: 12px;
+}
+
+.user-profile-payment-pagination span {
+  color: #6f6a63;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.user-profile-payment-pagination div {
+  display: flex;
+  gap: 8px;
+}
+
+.user-profile-payment-pagination button {
+  min-height: 34px;
+  border: 1px solid rgba(139, 111, 71, 0.2);
+  border-radius: 8px;
+  background: #ffffff;
+  color: #6f5636;
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 900;
+  padding: 0 12px;
+}
+
+.user-profile-payment-pagination button:hover:not(:disabled) {
+  border-color: #9b734b;
+  background: #f5f1ec;
+}
+
+.user-profile-payment-pagination button:disabled {
+  cursor: not-allowed;
+  opacity: 0.48;
 }
 
 .user-profile-security-intro {
@@ -503,9 +695,25 @@
   .user-profile-overview,
   .user-profile-info-list,
   .user-profile-form,
+  .user-profile-payment-filters,
   .user-profile-security-intro,
   .user-profile-sidebar-nav {
     grid-template-columns: 1fr;
+  }
+
+  .user-profile-payment-row {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .user-profile-payment-row > div:first-child strong {
+    white-space: normal;
+  }
+
+  .user-profile-payment-row-side {
+    width: 100%;
+    justify-items: start;
+    text-align: left;
   }
 
   .user-profile-security-form label:first-child {

@@ -517,7 +517,6 @@ export function ReadyForDelivery() {
           </div>
         </section>
 
-        {message ? <section className={`production-workspace-message production-workspace-message-${message.tone}`}>{message.text}</section> : null}
         {readyRequestsQuery.isError ? <section className="production-workspace-message production-workspace-message-error">Cannot load completed production requests.</section> : null}
         {orderDetailQuery.isError ? <section className="production-workspace-message production-workspace-message-error">{getOrderServiceResultMessage(orderDetailQuery.error)}</section> : null}
         {deliverySchedulesQuery.isError ? <section className="production-workspace-message production-workspace-message-error">{getProjectScheduleServiceResultMessage(deliverySchedulesQuery.error)}</section> : null}
@@ -620,6 +619,7 @@ export function ReadyForDelivery() {
             ) : null}
           </article>
           <div className="production-workspace-page production-ready-control-column">
+            {message ? <section className={`production-workspace-message production-workspace-message-${message.tone}`}>{message.text}</section> : null}
             {!selectedRequest ? (
               <article className="production-workspace-card production-ready-empty-state">
                 <header>

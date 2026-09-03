@@ -17,7 +17,7 @@ export function FilesAttachmentsTab({ projectId }: FilesAttachmentsTabProps) {
   });
   const measurementImagesQuery = useProjectMeasurementImages(projectId, { page: 1, limit: 50 });
   const files = filesQuery.data?.items ?? [];
-  const measurementImages = measurementImagesQuery.data?.items ?? [];
+  const measurementImages = useMemo(() => measurementImagesQuery.data?.items ?? [], [measurementImagesQuery.data?.items]);
   const measurementImageGroups = useMemo(() => groupMeasurementImagesByArea(measurementImages), [measurementImages]);
 
   return (

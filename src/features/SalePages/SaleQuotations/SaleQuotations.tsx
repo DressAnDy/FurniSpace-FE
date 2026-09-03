@@ -73,6 +73,14 @@ type SavedQuotationHeaderSnapshot = {
   salesNote?: string | null;
 };
 
+type QuotationMessagePlacement = 'items' | 'total';
+
+type QuotationMessage = {
+  placement: QuotationMessagePlacement;
+  text: string;
+  tone: 'error' | 'success';
+};
+
 export function SaleQuotations() {
   const [selectedProjectId, setSelectedProjectId] = useState('');
   const [selectedStatus, setSelectedStatus] = useState<QuotationStatus | null>(null);
@@ -81,7 +89,7 @@ export function SaleQuotations() {
   const [depositAmount, setDepositAmount] = useState('');
   const [savedHeaderSnapshot, setSavedHeaderSnapshot] = useState<SavedQuotationHeaderSnapshot | null>(null);
   const [financialDrafts, setFinancialDrafts] = useState<Record<string, FinancialDraft>>({});
-  const [message, setMessage] = useState<{ tone: 'error' | 'success'; text: string } | null>(null);
+  const [message, setMessage] = useState<QuotationMessage | null>(null);
   const [projectView, setProjectView] = useState<QuotationProjectView>('pending');
   const [projectPage, setProjectPage] = useState(1);
   const currentUserQuery = useCurrentUser();
@@ -235,13 +243,13 @@ export function SaleQuotations() {
     const defaultValidUntil = getDefaultQuotationValidUntil();
     const validUntilResult = validateRequiredFutureDate(defaultValidUntil, 'Quotation valid-until date');
     if (!validUntilResult.ok) {
-      setMessage({ tone: 'error', text: validUntilResult.message });
+      setMessage({ placement: 'total', tone: 'error', text: validUntilResult.message });
       return;
     }
 
     const depositValidation = validateDepositAmount(depositAmount, selectedQuotation.totalAmount);
     if (!depositValidation.ok) {
-      setMessage({ tone: 'error', text: depositValidation.message });
+      setMessage({ placement: 'total', tone: 'error', text: depositValidation.message });
       return;
     }
 
@@ -266,9 +274,9 @@ export function SaleQuotations() {
       setDepositAmount(String(savedDepositAmount));
       setSalesNote(savedSalesNote);
       void quotationDetailQuery.refetch();
-      setMessage({ tone: 'success', text: 'Quotation header updated.' });
+      setMessage({ placement: 'total', tone: 'success', text: 'Quotation header updated.' });
     } catch (error) {
-      setMessage({ tone: 'error', text: getQuotationServiceResultMessage(error) });
+      setMessage({ placement: 'total', tone: 'error', text: getQuotationServiceResultMessage(error) });
     }
   }
 
@@ -278,14 +286,14 @@ export function SaleQuotations() {
     const items = selectedQuotation.items ?? [];
 
     if (items.length === 0) {
-      setMessage({ tone: 'error', text: 'Quotation must have at least one item before saving financials.' });
+      setMessage({ placement: 'items', tone: 'error', text: 'Quotation must have at least one item before saving financials.' });
       return;
     }
 
     const validationMessage = financialValidationMessage;
 
     if (validationMessage) {
-      setMessage({ tone: 'error', text: validationMessage });
+      setMessage({ placement: 'items', tone: 'error', text: validationMessage });
       return;
     }
 
@@ -315,9 +323,9 @@ export function SaleQuotations() {
         salesNote: quotationAfterSave.salesNote ?? salesNote,
       });
       setDepositAmount(String(nextDepositAmount ?? ''));
-      setMessage({ tone: 'success', text: 'Quotation item financials updated.' });
+      setMessage({ placement: 'items', tone: 'success', text: 'Quotation item financials updated.' });
     } catch (error) {
-      setMessage({ tone: 'error', text: getQuotationServiceResultMessage(error) });
+      setMessage({ placement: 'items', tone: 'error', text: getQuotationServiceResultMessage(error) });
     }
   }
 
@@ -334,18 +342,18 @@ export function SaleQuotations() {
         };
         const blockedReason = getSendBlockedReason(quotationForAction);
         if (blockedReason) {
-          setMessage({ tone: 'error', text: blockedReason });
+          setMessage({ placement: 'total', tone: 'error', text: blockedReason });
           return;
         }
 
         const validUntilResult = validateRequiredFutureDate(quotationForAction.validUntil, 'Quotation valid-until date');
         if (!validUntilResult.ok) {
-          setMessage({ tone: 'error', text: validUntilResult.message });
+          setMessage({ placement: 'total', tone: 'error', text: validUntilResult.message });
           return;
         }
         const depositValidation = validateDepositAmount(depositAmount, quotationForAction.totalAmount);
         if (!depositValidation.ok) {
-          setMessage({ tone: 'error', text: depositValidation.message });
+          setMessage({ placement: 'total', tone: 'error', text: depositValidation.message });
           return;
         }
 
@@ -358,16 +366,16 @@ export function SaleQuotations() {
           depositAmount: depositValidation.value,
         });
         await sendQuotationMutation.mutateAsync(selectedQuotation.quotationId);
-        setMessage({ tone: 'success', text: 'Quotation sent to customer.' });
+        setMessage({ placement: 'total', tone: 'success', text: 'Quotation sent to customer.' });
       } else if (action === 'revise') {
         await reviseQuotationMutation.mutateAsync(selectedQuotation.quotationId);
-        setMessage({ tone: 'success', text: 'Quotation moved to revised version.' });
+        setMessage({ placement: 'total', tone: 'success', text: 'Quotation moved to revised version.' });
       } else {
         await cancelQuotationMutation.mutateAsync(selectedQuotation.quotationId);
-        setMessage({ tone: 'success', text: 'Quotation cancelled.' });
+        setMessage({ placement: 'total', tone: 'success', text: 'Quotation cancelled.' });
       }
     } catch (error) {
-      setMessage({ tone: 'error', text: getQuotationServiceResultMessage(error) });
+      setMessage({ placement: 'total', tone: 'error', text: getQuotationServiceResultMessage(error) });
     }
   }
 
@@ -385,7 +393,6 @@ export function SaleQuotations() {
             </div>
           </section>
 
-          {message ? <section className={`sale-quotations-message sale-quotations-message-${message.tone}`}>{message.text}</section> : null}
           {currentUserQuery.isError ? <section className="sale-quotations-message sale-quotations-message-error">Cannot load current sales account.</section> : null}
           {projectsQuery.isError ? <section className="sale-quotations-message sale-quotations-message-error">Cannot load projects ready for quotation.</section> : null}
           {quotationsQuery.isError ? (
@@ -548,6 +555,7 @@ export function SaleQuotations() {
 
               <div className="sale-quotations-divider" />
 
+              {message?.placement === 'items' ? <QuotationMessageBanner message={message} /> : null}
               <h4>Quotation Items</h4>
               {canEditFinancials(selectedQuotation.status) ? (
                 <div className="sale-quotations-item-toolbar">
@@ -589,7 +597,6 @@ export function SaleQuotations() {
                         </td>
                         <td className="sale-quotations-item-name" title={getQuotationItemGroupTitle(group)}>
                           {getQuotationItemName(item)}
-                          {group.items.length > 1 ? <span>{group.items.length} matching lines merged</span> : null}
                         </td>
                         <td>{formatNumberValue(group.quantity)}</td>
                         <td>{formatMoney(group.unitPrice)}</td>
@@ -613,6 +620,7 @@ export function SaleQuotations() {
                 </table>
               </div>
 
+              {message?.placement === 'total' ? <QuotationMessageBanner message={message} /> : null}
               <div className="sale-quotations-total-list">
                 <div>
                   <span>Subtotal</span>
@@ -683,6 +691,10 @@ export function SaleQuotations() {
       </div>
     </div>
   );
+}
+
+function QuotationMessageBanner({ message }: { message: QuotationMessage }) {
+  return <section className={`sale-quotations-message sale-quotations-message-${message.tone}`}>{message.text}</section>;
 }
 
 function ProjectGroup({
