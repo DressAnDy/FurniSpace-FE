@@ -1,7 +1,8 @@
-import { useCallback, useMemo, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 
 import { RealtimeSyncContext } from '@/app/providers/realtimeSyncContext';
 import type { RealtimeNotificationPayload } from '@/services/api/notifications';
+import { getStoredAccessToken } from '@/services/api/tokenStore';
 import { useCurrentUser, useNotificationRealtime, usePaymentRealtime } from '@/services/queries';
 
 /**
@@ -10,7 +11,8 @@ import { useCurrentUser, useNotificationRealtime, usePaymentRealtime } from '@/s
  * PaymentHub auto-joins user:{accountId}; JoinPayment remains optional on payment detail.
  */
 export function RealtimeSyncProvider({ children }: Readonly<{ children: ReactNode }>) {
-  const currentUserQuery = useCurrentUser();
+  const [hasStoredAuthToken, setHasStoredAuthToken] = useState(() => Boolean(getStoredAccessToken()));
+  const currentUserQuery = useCurrentUser({ enabled: hasStoredAuthToken });
   const currentUser = currentUserQuery.data;
   const enabled = Boolean(currentUser);
   const paymentRealtimeEnabled = enabled && shouldEnablePaymentRealtime(currentUser?.role);
@@ -20,6 +22,20 @@ export function RealtimeSyncProvider({ children }: Readonly<{ children: ReactNod
     if (payload.notificationId) {
       setLastInAppNotification(payload);
     }
+  }, []);
+
+  useEffect(() => {
+    const handleStoredAuthTokenChange = () => {
+      setHasStoredAuthToken(Boolean(getStoredAccessToken()));
+    };
+
+    window.addEventListener('storage', handleStoredAuthTokenChange);
+    window.addEventListener('focus', handleStoredAuthTokenChange);
+
+    return () => {
+      window.removeEventListener('storage', handleStoredAuthTokenChange);
+      window.removeEventListener('focus', handleStoredAuthTokenChange);
+    };
   }, []);
 
   useNotificationRealtime({

@@ -108,8 +108,8 @@
 
 .sale-orders-money-grid {
   display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
-  gap: 10px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
   margin-bottom: 14px;
 }
 
@@ -130,6 +130,13 @@
   font-size: 18px;
   font-weight: 800;
   line-height: 24px;
+}
+
+.sale-orders-money-grid strong {
+  margin-top: 8px;
+  font-size: 20px;
+  line-height: 26px;
+  white-space: nowrap;
 }
 
 .sale-orders-metrics svg {
@@ -314,9 +321,12 @@
 }
 
 .sale-orders-money-grid div {
+  display: grid;
+  min-height: 112px;
+  align-content: center;
   border-radius: 10px;
   background: #faf9f7;
-  padding: 14px;
+  padding: 16px;
 }
 
 .sale-orders-actions {
@@ -790,11 +800,14 @@
 @media (max-width: 1080px) {
   .sale-orders-toolbar,
   .sale-orders-metrics,
-  .sale-orders-money-grid,
   .sale-orders-layout,
   .sale-orders-grid,
   .sale-orders-form-grid {
     grid-template-columns: 1fr;
+  }
+
+  .sale-orders-money-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .sale-orders-form-grid-production {
@@ -807,6 +820,10 @@
 }
 
 @media (max-width: 640px) {
+  .sale-orders-money-grid {
+    grid-template-columns: 1fr;
+  }
+
   .sale-orders-flow-panel-production header {
     align-items: flex-start;
     flex-direction: column;

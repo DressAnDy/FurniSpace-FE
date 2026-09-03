@@ -25,6 +25,7 @@ import {
   useOrderPaymentHistory,
   useUpdateOrderDeliveryDetails,
 } from '@/services/queries';
+import { useProjectList } from '@/services/queries/useProjects';
 import { PaymentCollectionModal } from '@/features/payments/PaymentCollectionModal';
 import { getDefaultPaymentExpiredAt } from '@/shared/utils/dateValidation';
 import { aggregateDuplicateItems, getItemAggregateKey } from '@/shared/utils/itemAggregation';
@@ -33,6 +34,11 @@ import './CustomerOrdersPage.css';
 
 type GroupedOrderItem = OrderItemDto & {
   sourceItems: OrderItemDto[];
+};
+
+type OrderProjectSummary = {
+  projectCode?: string | null;
+  projectName?: string | null;
 };
 
 type OrderDeliveryDetailsDraft = {
@@ -68,6 +74,10 @@ export function CustomerOrdersPage() {
     status: statusFilter || null,
   });
   const orders = useMemo(() => ordersQuery.data?.items ?? [], [ordersQuery.data?.items]);
+  const projectsQuery = useProjectList({ page: 1, limit: 100 });
+  const projectLookup = useMemo(() => {
+    return new Map((projectsQuery.data?.items ?? []).map((project) => [project.projectId, project]));
+  }, [projectsQuery.data?.items]);
   const totalOrderPages = Math.max(1, Math.ceil((ordersQuery.data?.totalCount ?? 0) / ORDER_PAGE_SIZE));
   const orderDetailQuery = useOrderDetail(selectedOrderId, { enabled: Boolean(selectedOrderId) });
   const paymentHistoryQuery = useOrderPaymentHistory(selectedOrderId, { enabled: Boolean(selectedOrderId) });
@@ -163,6 +173,7 @@ export function CustomerOrdersPage() {
             <div className="customer-orders-order-list">
               {orders.map((item) => (
                 <button
+                  aria-label={`Open order ${item.orderCode}`}
                   className={item.orderId === selectedOrderId ? 'is-active' : ''}
                   key={item.orderId}
                   type="button"
@@ -172,8 +183,9 @@ export function CustomerOrdersPage() {
                     setMessage(null);
                   }}
                 >
-                  <strong>{item.orderCode}</strong>
-                  <span>{formatMoney(getOrderTotalAmount(item))}</span>
+                  <strong>{getOrderProjectName(item, projectLookup.get(item.projectId))}</strong>
+                  <span>{getOrderProjectCode(item, projectLookup.get(item.projectId))}</span>
+                  <span className="customer-orders-order-total">{formatMoney(getOrderTotalAmount(item))}</span>
                   <em className={`customer-orders-status customer-orders-status-${statusClass(item.status)}`}>{formatEnumLabel(item.status ?? 'UNKNOWN')}</em>
                 </button>
               ))}
@@ -758,6 +770,14 @@ function sortEmbeddedDeliveries(deliveries: OrderEmbeddedDeliveryDto[]) {
 
 function getOrderTotalAmount(order: Pick<OrderListItemDto, 'totalAmount'>) {
   return order.totalAmount;
+}
+
+function getOrderProjectName(order: OrderListItemDto & OrderProjectSummary, project?: OrderProjectSummary) {
+  return order.projectName?.trim() || project?.projectName?.trim() || 'Project';
+}
+
+function getOrderProjectCode(order: OrderListItemDto & OrderProjectSummary, project?: OrderProjectSummary) {
+  return order.projectCode?.trim() || project?.projectCode?.trim() || 'Project details';
 }
 
 function getItemGrossAmount(item: OrderItemDto) {

@@ -268,6 +268,8 @@ export {
 } from './useProjectReports';
 export {
   showcaseQueryKeys,
+  useAdminProjectShowcase,
+  useAdminProjectShowcases,
   useArchiveProjectShowcase,
   useCreateProjectShowcase,
   useCreateProjectShowcaseMedia,
@@ -276,6 +278,7 @@ export {
   usePublicShowcase,
   usePublicShowcases,
   usePublishProjectShowcase,
+  useRejectProjectShowcase,
   useReorderProjectShowcaseMedia,
   useSetProjectShowcaseMediaCover,
   useSubmitProjectShowcase,

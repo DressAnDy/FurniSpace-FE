@@ -101,6 +101,8 @@ export type DeliveryScheduleStatus = 'PENDING_CONFIRMATION' | 'CONFIRMED' | 'COM
 export type OrderListItemDto = {
   orderId: string;
   projectId: string;
+  projectCode?: string | null;
+  projectName?: string | null;
   quotationId?: string | null;
   orderCode: string;
   itemsGrossAmount?: number | null;

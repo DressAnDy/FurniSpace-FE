@@ -34,7 +34,152 @@
 
 .customer-tracking-control-panel {
   display: grid;
-  gap: 14px;
+  gap: 10px;
+}
+
+.customer-tracking-layout {
+  align-items: start;
+  display: grid;
+  gap: 18px;
+  grid-template-columns: 300px minmax(0, 1fr);
+}
+
+.customer-tracking-content {
+  display: grid;
+  gap: 18px;
+  min-width: 0;
+}
+
+.customer-tracking-project-sidebar {
+  display: grid;
+  gap: 12px;
+  position: sticky;
+  top: 18px;
+}
+
+.customer-tracking-project-sidebar > header {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+}
+
+.customer-tracking-project-sidebar h2 {
+  color: #2d2d2d;
+  font-size: 20px;
+  line-height: 1.2;
+  margin: 0;
+}
+
+.customer-tracking-project-sidebar header span {
+  color: #8b6f47;
+  font-size: 12px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.customer-tracking-search {
+  align-items: center;
+  border: 1px solid rgba(139, 111, 71, 0.18);
+  border-radius: 8px;
+  background: #faf9f7;
+  display: flex;
+  gap: 8px;
+  min-height: 42px;
+  padding: 0 12px;
+}
+
+.customer-tracking-search svg {
+  color: #8b6f47;
+  flex: 0 0 auto;
+}
+
+.customer-tracking-search input {
+  border: 0;
+  background: transparent;
+  color: #2d2d2d;
+  font: inherit;
+  font-size: 14px;
+  min-width: 0;
+  outline: none;
+  width: 100%;
+}
+
+.customer-tracking-project-list {
+  display: grid;
+  gap: 8px;
+}
+
+.customer-tracking-project-list button {
+  border: 1px solid rgba(139, 111, 71, 0.14);
+  border-radius: 8px;
+  background: #ffffff;
+  cursor: pointer;
+  display: grid;
+  gap: 5px;
+  padding: 10px;
+  text-align: left;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.customer-tracking-project-list button:hover {
+  border-color: rgba(139, 111, 71, 0.35);
+  transform: translateY(-1px);
+}
+
+.customer-tracking-project-list button.is-active {
+  border-color: #8b6f47;
+  box-shadow: 0 0 0 2px rgba(139, 111, 71, 0.1);
+}
+
+.customer-tracking-project-list strong {
+  color: #2d2d2d;
+  font-size: 14px;
+  line-height: 1.3;
+}
+
+.customer-tracking-project-list span {
+  color: #77716a;
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.customer-tracking-project-list .customer-status-badge {
+  justify-self: start;
+  margin-top: 2px;
+}
+
+.customer-tracking-project-pagination {
+  align-items: center;
+  border-top: 1px solid rgba(139, 111, 71, 0.12);
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+  padding-top: 10px;
+}
+
+.customer-tracking-project-pagination button {
+  min-height: 34px;
+  border: 1px solid rgba(139, 111, 71, 0.22);
+  border-radius: 8px;
+  background: #ffffff;
+  color: #6d5534;
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 800;
+  padding: 0 10px;
+}
+
+.customer-tracking-project-pagination button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.customer-tracking-project-pagination span {
+  color: #6b6b6b;
+  font-size: 12px;
+  font-weight: 800;
 }
 
 .customer-tracking-control-panel > header,
@@ -48,7 +193,7 @@
 .customer-tracking-control-panel h2 {
   margin: 0;
   color: #2d2d2d;
-  font-size: 24px;
+  font-size: 22px;
   line-height: 1.2;
 }
 
@@ -69,9 +214,34 @@
 }
 
 .customer-tracking-meta-row {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+}
+
+.customer-tracking-meta-row .customer-workspace-field {
+  align-items: baseline;
+  border: 0;
+  background: transparent;
+  display: inline-flex;
+  gap: 6px;
+  min-height: 0;
+  padding: 0;
+}
+
+.customer-tracking-meta-row .customer-workspace-field span {
+  color: #77716a;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.3;
+}
+
+.customer-tracking-meta-row .customer-workspace-field strong {
+  color: #2d2d2d;
+  font-size: 13px;
+  line-height: 1.3;
+  white-space: nowrap;
 }
 
 .customer-tracking-items-panel {
@@ -244,6 +414,14 @@
 }
 
 @media (max-width: 900px) {
+  .customer-tracking-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .customer-tracking-project-sidebar {
+    position: static;
+  }
+
   .customer-tracking-control-panel > header,
   .customer-tracking-items-panel > header {
     flex-direction: column;
@@ -269,6 +447,7 @@
 
 @media (max-width: 640px) {
   .customer-tracking-meta-row {
-    grid-template-columns: 1fr;
+    align-items: flex-start;
+    flex-direction: column;
   }
 }

@@ -160,14 +160,15 @@
 .customer-orders-project-list button,
 .customer-orders-order-list button {
   display: grid;
-  gap: 6px;
+  gap: 12px;
   border: 1px solid rgba(139, 111, 71, 0.14);
   border-radius: 12px;
   background: #fbfaf7;
   color: #2f2a24;
   cursor: pointer;
   font: inherit;
-  padding: 14px;
+  min-height: 118px;
+  padding: 16px;
   text-align: left;
 }
 
@@ -205,9 +206,17 @@
 }
 
 .customer-orders-project-list strong,
-.customer-orders-order-list strong,
 .customer-orders-order-list span {
   overflow-wrap: anywhere;
+}
+
+.customer-orders-order-total {
+  align-self: end;
+  color: #2f2a24;
+  font-size: 15px;
+  font-weight: 800;
+  line-height: 22px;
+  white-space: nowrap;
 }
 
 .customer-orders-project-list strong {
@@ -268,7 +277,37 @@
 .customer-orders-metrics svg { color: #8b6f47; flex: 0 0 auto; }
 
 .customer-orders-order-list {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: 1fr;
+  align-items: stretch;
+}
+
+.customer-orders-order-list button {
+  align-content: start;
+  gap: 7px;
+  min-height: 124px;
+}
+
+.customer-orders-order-list strong {
+  color: #2f2a24;
+  font-size: 15px;
+  font-weight: 800;
+  line-height: 21px;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.customer-orders-order-list button > span:not(.customer-orders-order-total) {
+  color: #756b61;
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 18px;
+}
+
+.customer-orders-order-list .customer-orders-status {
+  margin-top: 4px;
 }
 
 .customer-orders-status {

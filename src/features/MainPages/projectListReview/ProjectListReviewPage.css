@@ -270,13 +270,6 @@
   line-height: 1.1;
 }
 
-.project-review-result-count {
-  color: rgba(0, 0, 0, 0.38);
-  font-size: 14px;
-  font-weight: 500;
-  white-space: nowrap;
-}
-
 .project-review-empty {
   display: flex;
   flex-direction: column;
@@ -305,6 +298,38 @@
 
 .project-review-empty button:hover {
   background: rgba(196, 160, 122, 0.1);
+}
+
+.project-review-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  margin-top: 32px;
+}
+
+.project-review-pagination button {
+  min-height: 38px;
+  border: 1.5px solid #c4a07a;
+  border-radius: 8px;
+  background: transparent;
+  color: #7a5630;
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 800;
+  padding: 0 16px;
+}
+
+.project-review-pagination button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.project-review-pagination span {
+  color: rgba(15, 13, 11, 0.62);
+  font-size: 13px;
+  font-weight: 800;
 }
 
 .project-review-grid,
@@ -419,6 +444,104 @@
   gap: 32px;
 }
 
+.project-review-page {
+  background:
+    radial-gradient(circle at 18% 20%, rgba(196, 160, 122, 0.08), transparent 26%),
+    #f7f4ed;
+}
+
+.project-review-shell {
+  grid-template-columns: minmax(220px, 300px) minmax(0, 1fr);
+  gap: clamp(42px, 7vw, 96px);
+  margin-top: 84px;
+  padding-inline: clamp(32px, 5vw, 72px);
+}
+
+.project-review-content-header {
+  margin-bottom: 28px;
+}
+
+.project-review-content-header h1 {
+  font-size: clamp(38px, 4.8vw, 64px);
+  font-weight: 800;
+}
+
+.project-review-grid {
+  grid-template-columns: repeat(auto-fill, minmax(220px, 260px));
+  gap: 34px 42px;
+  align-items: start;
+}
+
+.product-card {
+  height: auto;
+  max-width: 260px;
+  overflow: visible;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+}
+
+.product-card-link {
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.product-card-link:hover {
+  box-shadow: none;
+}
+
+.product-card-image-wrap {
+  height: auto;
+  aspect-ratio: 0.82;
+  border: 0;
+  border-radius: 28px;
+  background: #e6dfd6;
+  box-shadow: none;
+}
+
+.product-card-title-pill {
+  right: 24px;
+  left: 24px;
+  height: auto;
+  min-height: 42px;
+  border: 0;
+  border-radius: 16px 16px 0 0;
+  box-shadow: none;
+  padding: 8px 12px;
+}
+
+.product-card-title-pill h3 {
+  color: #19253b;
+  font-size: 18px;
+  line-height: 1.15;
+  text-align: center;
+}
+
+.product-card-meta {
+  grid-template-columns: 1.1fr 0.8fr 0.8fr;
+  gap: 12px;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  padding: 12px 4px 0;
+}
+
+.product-card-meta dt {
+  color: #1f2d43;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.product-card-meta dd {
+  color: #1f2d43;
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.project-review-empty {
+  min-height: 280px;
+}
+
 
 @media (max-width: 1180px) {
   .project-review-shell {
@@ -433,6 +556,13 @@
 
   .project-review-latest-grid {
     gap: 48px;
+  }
+}
+
+@media (min-width: 1181px) {
+  .project-review-grid,
+  .project-review-latest-grid {
+    grid-template-columns: repeat(auto-fill, minmax(220px, 260px));
   }
 }
 
@@ -469,6 +599,20 @@
   .project-review-latest {
     margin-top: 64px;
     padding: 0 24px 40px;
+  }
+
+  .product-card-image-wrap {
+    border-radius: 28px;
+  }
+
+  .product-card-title-pill {
+    right: 22px;
+    left: 22px;
+  }
+
+  .product-card-meta {
+    grid-template-columns: 1fr;
+    padding-inline: 10px;
   }
 }
 
