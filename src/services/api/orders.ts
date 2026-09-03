@@ -3,7 +3,7 @@ import axios, { AxiosError } from 'axios';
 import { shouldRedirectUnauthorized } from '@/shared/config/authPreview';
 
 import { getStoredAccessToken } from './tokenStore';
-import type { PaymentDetailDto } from './payments';
+import type { PaymentDetailDto, PaymentStatus, PaymentTransactionStatus, PaymentTransactionType, PaymentType } from './payments';
 
 const orderApiClient = axios.create({
   baseURL: getOrderApiBaseUrl(),
@@ -101,9 +101,18 @@ export type DeliveryScheduleStatus = 'PENDING_CONFIRMATION' | 'CONFIRMED' | 'COM
 export type OrderListItemDto = {
   orderId: string;
   projectId: string;
-  quotationId: string;
+  projectCode?: string | null;
+  projectName?: string | null;
+  quotationId?: string | null;
   orderCode: string;
-  originalTotalAmount: number;
+  itemsGrossAmount?: number | null;
+  totalItemDiscountAmount?: number | null;
+  preVatAmount?: number | null;
+  totalAmount: number;
+  /** @deprecated use totalAmount */
+  finalTotalAmount?: number | null;
+  /** @deprecated use itemsGrossAmount */
+  originalTotalAmount?: number | null;
   depositAmount?: number | null;
   paidAmount?: number | null;
   remainingAmount?: number | null;
@@ -114,6 +123,7 @@ export type OrderListItemDto = {
   deliveryNote?: string | null;
   deliveryDetails?: OrderDeliveryDetailsDto | null;
   createdAt?: string | null;
+  updatedAt?: string | null;
 };
 
 export type OrderDeliveryDetailsDto = {
@@ -146,6 +156,35 @@ export type OrderItemDto = {
   remainingDeliveryQuantity?: number | null;
 };
 
+export type OrderDeliverySummaryDto = {
+  totalOrderedQuantity: number;
+  totalDeliveredQuantity: number;
+  remainingQuantity: number;
+  deliveryProgressPercent: number;
+  completedDeliveryCount: number;
+  inProgressDeliveryCount?: number | null;
+  upcomingDeliveryCount: number;
+  nextDeliveryAt?: string | null;
+};
+
+export type OrderEmbeddedDeliveryItemDto = {
+  orderItemId: string;
+  quantity: number;
+  productName?: string | null;
+};
+
+export type OrderEmbeddedDeliveryDto = {
+  deliveryId: string;
+  status: DeliveryStatus;
+  projectScheduleId?: string | null;
+  scheduledStart?: string | null;
+  scheduledEnd?: string | null;
+  location?: string | null;
+  createdAt?: string | null;
+  completedAt?: string | null;
+  items: OrderEmbeddedDeliveryItemDto[];
+};
+
 export type OrderDetailDto = {
   orderId: string;
   projectId: string;
@@ -154,27 +193,88 @@ export type OrderDetailDto = {
   orderCode: string;
   customerId: string;
   salesId?: string | null;
-  originalTotalAmount: number;
+  itemsGrossAmount: number;
+  totalItemDiscountAmount: number;
+  preVatAmount: number;
   vatRate?: number | null;
   vatAmount?: number | null;
+  totalAmount: number;
+  /** @deprecated use itemsGrossAmount */
+  originalTotalAmount?: number | null;
+  /** @deprecated removed by BE */
   itemAdjustmentAmount?: number | null;
+  /** @deprecated removed by BE */
   additionalDiscountAmount?: number | null;
-  finalTotalAmount: number;
+  /** @deprecated use totalAmount */
+  finalTotalAmount?: number | null;
   depositAmount?: number | null;
   paidAmount?: number | null;
   remainingAmount?: number | null;
   status?: OrderStatus | null;
   customerConfirmedDeliveryAt?: string | null;
+  awaitingCustomerConfirmation?: boolean | null;
   deliveryAddress?: string | null;
   receiverName?: string | null;
   receiverPhone?: string | null;
   deliveryNote?: string | null;
   deliveryDetails?: OrderDeliveryDetailsDto | null;
+  deliverySummary?: OrderDeliverySummaryDto | null;
+  deliveries?: OrderEmbeddedDeliveryDto[] | null;
   items: OrderItemDto[];
 };
 
 export type OrderListResponseDto = {
   items: OrderListItemDto[];
+};
+
+export type CustomerMyOrdersParams = {
+  page?: number;
+  pageSize?: number;
+  status?: OrderStatus | null;
+  search?: string | null;
+};
+
+export type CustomerMyOrdersResponseDto = {
+  items: OrderListItemDto[];
+  page: number;
+  pageSize: number;
+  totalCount: number;
+};
+
+export type OrderPaymentHistoryTransactionDto = {
+  paymentTransactionId: string;
+  transactionType?: PaymentTransactionType | null;
+  amount: number;
+  status?: PaymentTransactionStatus | null;
+  paymentProvider?: string | null;
+  paymentMethod?: string | null;
+  providerTransactionId?: string | null;
+  providerReferenceCode?: string | null;
+  transactionTime?: string | null;
+  failureReason?: string | null;
+};
+
+export type OrderPaymentHistoryPaymentDto = {
+  paymentId: string;
+  paymentCode: string;
+  paymentType?: PaymentType | null;
+  amount: number;
+  currency: string;
+  status?: PaymentStatus | null;
+  createdAt?: string | null;
+  paidAt?: string | null;
+  expiredAt?: string | null;
+  cancelledAt?: string | null;
+  transactions: OrderPaymentHistoryTransactionDto[];
+};
+
+export type OrderPaymentHistoryDto = {
+  orderId: string;
+  totalAmount: number;
+  depositAmount?: number | null;
+  paidAmount?: number | null;
+  remainingAmount?: number | null;
+  payments: OrderPaymentHistoryPaymentDto[];
 };
 
 export type CreateOrderPaymentInput = {
@@ -194,7 +294,9 @@ export type UpdateOrderDeliveryDetailsInput = {
 export type PrepareFinalPaymentResultDto = {
   orderId: string;
   status: OrderStatus;
-  finalTotalAmount: number;
+  totalAmount: number;
+  /** @deprecated use totalAmount */
+  finalTotalAmount?: number | null;
   paidAmount: number;
   remainingAmount: number;
   requiresRemainingPayment: boolean;
@@ -384,8 +486,35 @@ export async function getProjectOrders(projectId: string) {
   return response.data.data;
 }
 
+export async function getCustomerOrders(params: CustomerMyOrdersParams = {}) {
+  const response = await orderApiClient.get<ServiceResult<CustomerMyOrdersResponseDto>>('/orders/me', {
+    params: {
+      page: params.page ?? 1,
+      pageSize: params.pageSize ?? 20,
+      status: params.status ?? undefined,
+      search: params.search?.trim() || undefined,
+    },
+  });
+
+  return response.data.data;
+}
+
 export async function getOrderById(orderId: string) {
   const response = await orderApiClient.get<ServiceResult<OrderDetailDto>>(`/orders/${orderId}`);
+
+  return response.data.data;
+}
+
+export async function getOrderPaymentHistory(
+  orderId: string,
+  params: { paymentType?: PaymentType | null; status?: PaymentStatus | null } = {},
+) {
+  const response = await orderApiClient.get<ServiceResult<OrderPaymentHistoryDto>>(`/orders/${orderId}/payments`, {
+    params: {
+      paymentType: params.paymentType ?? undefined,
+      status: params.status ?? undefined,
+    },
+  });
 
   return response.data.data;
 }

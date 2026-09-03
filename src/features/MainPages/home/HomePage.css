@@ -194,19 +194,20 @@ html.home-header-light .home-header.main-navbar .main-navbar-avatar {
 
 .home-hero-visual {
   position: relative;
+  display: flex;
   min-height: clamp(390px, 50vh, 560px);
+  align-items: center;
+  justify-content: center;
   align-self: center;
   perspective: 1200px;
-  transform: translateY(clamp(-48px, -4vh, -16px));
+  transform: translateY(clamp(-24px, -2vh, -8px));
 }
 
 .home-hero-scene {
-  position: absolute;
-  top: 50%;
-  left: 50%;
   display: block;
   width: min(760px, 52vw);
   max-width: none;
+  aspect-ratio: 1.5;
   height: auto;
   border: 1px solid rgba(196, 160, 122, 0.18);
   border-radius: 34px;
@@ -219,21 +220,21 @@ html.home-header-light .home-header.main-navbar .main-navbar-avatar {
   filter: saturate(0.94) contrast(0.98) brightness(0.96);
   transform-origin: 52% 78%;
   user-select: none;
-  animation: homeHeroSceneBounce 6.8s ease-in-out infinite;
+  animation: homeHeroSceneFloat 6.8s ease-in-out infinite;
 }
 
-@keyframes homeHeroSceneBounce {
+@keyframes homeHeroSceneFloat {
   0%,
   100% {
-    transform: translate(-50%, -50%) translate3d(0, 0, 0) rotateX(0deg) rotateZ(0deg);
+    transform: translate3d(0, 0, 0) rotateX(0deg) rotateZ(0deg);
   }
 
   42% {
-    transform: translate(-50%, -50%) translate3d(0, -12px, 0) rotateX(1.2deg) rotateZ(-0.35deg);
+    transform: translate3d(0, -12px, 0) rotateX(1.2deg) rotateZ(-0.35deg);
   }
 
   62% {
-    transform: translate(-50%, -50%) translate3d(0, -7px, 0) rotateX(0.5deg) rotateZ(0.25deg);
+    transform: translate3d(0, -7px, 0) rotateX(0.5deg) rotateZ(0.25deg);
   }
 }
 
@@ -831,23 +832,18 @@ html.home-header-light .home-header.main-navbar .main-navbar-avatar {
   }
 
   .home-hero-scene {
-    top: auto;
-    left: auto;
-    right: 50%;
-    bottom: 0;
     width: min(620px, 92vw);
-    transform: translateX(50%);
-    animation-name: homeHeroSceneBounceMobile;
+    animation-name: homeHeroSceneFloatMobile;
   }
 
-  @keyframes homeHeroSceneBounceMobile {
+  @keyframes homeHeroSceneFloatMobile {
     0%,
     100% {
-      transform: translateX(50%) translate3d(0, 0, 0);
+      transform: translate3d(0, 0, 0);
     }
 
     50% {
-      transform: translateX(50%) translate3d(0, -8px, 0);
+      transform: translate3d(0, -8px, 0);
     }
   }
 

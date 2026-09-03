@@ -544,7 +544,6 @@ export function DesignerProposalWorkspace() {
         <section className="designer-chat-section">
           {project ? (
             <ProjectChatPanel
-              canClose
               preferredChatType="DESIGNER"
               projectCode={project.projectCode}
               projectId={project.projectId}

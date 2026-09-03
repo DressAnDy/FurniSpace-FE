@@ -143,7 +143,9 @@ export type ProductionCompleteResultDto = {
   actualCompletionDate?: string | null;
   readyOrderItemCount: number;
   unavailableOrderItemCount: number;
-  finalTotalAmount: number;
+  totalAmount: number;
+  /** @deprecated use totalAmount */
+  finalTotalAmount?: number | null;
   paidAmount: number;
   remainingAmount: number;
 };

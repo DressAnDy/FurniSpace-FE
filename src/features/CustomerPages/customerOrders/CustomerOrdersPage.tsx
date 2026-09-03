@@ -7,21 +7,28 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 
 import { CustomerNavbar } from '@/features/CustomerPages/customercomponents';
-import { getOrderServiceResultMessage, type OrderDetailDto, type OrderItemDto, type OrderListItemDto, type OrderStatus } from '@/services/api/orders';
-import type { PaymentDetailDto } from '@/services/api/payments';
-import type { ProjectListItemDto } from '@/services/api/projects';
+import {
+  getOrderServiceResultMessage,
+  type OrderDetailDto,
+  type OrderEmbeddedDeliveryDto,
+  type OrderItemDto,
+  type OrderListItemDto,
+  type OrderPaymentHistoryDto,
+  type OrderStatus,
+} from '@/services/api/orders';
+import type { PaymentDetailDto, PaymentStatus, PaymentType } from '@/services/api/payments';
 import {
   useConfirmOrderDelivery,
   useCreateOrderDepositPayment,
+  useCustomerOrders,
   useOrderDetail,
-  usePayments,
-  useProjectList,
-  useProjectOrders,
+  useOrderPaymentHistory,
   useUpdateOrderDeliveryDetails,
 } from '@/services/queries';
-import { aggregateDuplicateItems, getItemAggregateKey } from '@/shared/utils/itemAggregation';
-import { getDefaultPaymentExpiredAt } from '@/shared/utils/dateValidation';
+import { useProjectList } from '@/services/queries/useProjects';
 import { PaymentCollectionModal } from '@/features/payments/PaymentCollectionModal';
+import { getDefaultPaymentExpiredAt } from '@/shared/utils/dateValidation';
+import { aggregateDuplicateItems, getItemAggregateKey } from '@/shared/utils/itemAggregation';
 
 import './CustomerOrdersPage.css';
 
@@ -29,80 +36,64 @@ type GroupedOrderItem = OrderItemDto & {
   sourceItems: OrderItemDto[];
 };
 
-const PROJECT_PAGE_SIZE = 4;
+type OrderProjectSummary = {
+  projectCode?: string | null;
+  projectName?: string | null;
+};
 
-const orderProjectStatuses = new Set([
-  'ORDER_CONFIRMED',
-  'IN_PRODUCTION',
-  'READY_FOR_DELIVERY',
-  'DELIVERING',
-  'AWAITING_CUSTOMER_CONFIRMATION',
-  'DELIVERED',
-  'COMPLETED',
-]);
+type OrderDeliveryDetailsDraft = {
+  deliveryAddress: string;
+  receiverName: string;
+  receiverPhone: string;
+  deliveryNote?: string | null;
+};
+
+const ORDER_PAGE_SIZE = 10;
+
+const statusOptions: Array<{ label: string; value: '' | OrderStatus }> = [
+  { label: 'All statuses', value: '' },
+  { label: 'Deposit pending', value: 'DEPOSIT_PENDING' },
+  { label: 'In production', value: 'IN_PRODUCTION' },
+  { label: 'Delivering', value: 'DELIVERING' },
+  { label: 'Final payment', value: 'FINAL_PAYMENT_PENDING' },
+  { label: 'Completed', value: 'COMPLETED' },
+];
 
 export function CustomerOrdersPage() {
-  const [selectedProjectId, setSelectedProjectId] = useState('');
   const [selectedOrderId, setSelectedOrderId] = useState('');
-  const [projectPage, setProjectPage] = useState(1);
+  const [orderPage, setOrderPage] = useState(1);
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'' | OrderStatus>('');
   const [activePayment, setActivePayment] = useState<PaymentDetailDto | null>(null);
   const [savedDeliveryDetailsByOrderId, setSavedDeliveryDetailsByOrderId] = useState<Record<string, OrderDeliveryDetailsDraft>>({});
   const [message, setMessage] = useState<{ tone: 'error' | 'success'; text: string } | null>(null);
-  const projectsQuery = useProjectList({ page: 1, limit: 50 });
-  const projects = useMemo(() => projectsQuery.data?.items ?? [], [projectsQuery.data?.items]);
-  const orderProjects = useMemo(() => getOrderProjects(projects), [projects]);
-  const totalProjectPages = Math.max(1, Math.ceil(orderProjects.length / PROJECT_PAGE_SIZE));
-  const pagedOrderProjects = useMemo(() => {
-    const start = (projectPage - 1) * PROJECT_PAGE_SIZE;
-
-    return orderProjects.slice(start, start + PROJECT_PAGE_SIZE);
-  }, [orderProjects, projectPage]);
-  const ordersQuery = useProjectOrders(selectedProjectId, { enabled: Boolean(selectedProjectId) });
+  const ordersQuery = useCustomerOrders({
+    page: orderPage,
+    pageSize: ORDER_PAGE_SIZE,
+    search,
+    status: statusFilter || null,
+  });
   const orders = useMemo(() => ordersQuery.data?.items ?? [], [ordersQuery.data?.items]);
+  const projectsQuery = useProjectList({ page: 1, limit: 100 });
+  const projectLookup = useMemo(() => {
+    return new Map((projectsQuery.data?.items ?? []).map((project) => [project.projectId, project]));
+  }, [projectsQuery.data?.items]);
+  const totalOrderPages = Math.max(1, Math.ceil((ordersQuery.data?.totalCount ?? 0) / ORDER_PAGE_SIZE));
   const orderDetailQuery = useOrderDetail(selectedOrderId, { enabled: Boolean(selectedOrderId) });
-  const selectedOrderSummary = useMemo(
-    () => orders.find((item) => item.orderId === selectedOrderId) ?? null,
-    [orders, selectedOrderId],
-  );
+  const paymentHistoryQuery = useOrderPaymentHistory(selectedOrderId, { enabled: Boolean(selectedOrderId) });
   const order = useMemo(() => {
     const orderDetail = orderDetailQuery.data ?? null;
 
     if (!orderDetail) return null;
 
-    const summaryDeliveryDetails = selectedOrderSummary ? getOrderDeliveryDetailsDraft(selectedOrderSummary) : null;
     const savedDeliveryDetails = savedDeliveryDetailsByOrderId[orderDetail.orderId];
-    const resolvedDeliveryDetails = mergeDeliveryDetails(
-      getOrderDeliveryDetailsDraft(orderDetail),
-      summaryDeliveryDetails,
-      savedDeliveryDetails,
-    );
+    const resolvedDeliveryDetails = mergeDeliveryDetails(getOrderDeliveryDetailsDraft(orderDetail), savedDeliveryDetails);
 
     return { ...orderDetail, ...resolvedDeliveryDetails };
-  }, [orderDetailQuery.data, savedDeliveryDetailsByOrderId, selectedOrderSummary]);
-  const remainingPaymentsQuery = usePayments(
-    { orderId: selectedOrderId, paymentType: 'REMAINING_PAYMENT', status: 'PENDING' },
-    { enabled: Boolean(selectedOrderId) },
-  );
-  const depositPaymentsQuery = usePayments(
-    { orderId: selectedOrderId, paymentType: 'DEPOSIT', status: 'PENDING' },
-    { enabled: Boolean(selectedOrderId) },
-  );
+  }, [orderDetailQuery.data, savedDeliveryDetailsByOrderId]);
   const confirmDeliveryMutation = useConfirmOrderDelivery();
   const createDepositPaymentMutation = useCreateOrderDepositPayment();
   const updateDeliveryDetailsMutation = useUpdateOrderDeliveryDetails();
-
-  useEffect(() => {
-    if (!selectedProjectId && orderProjects.length > 0) {
-      setSelectedProjectId(orderProjects[0].projectId);
-      setProjectPage(1);
-    }
-  }, [orderProjects, selectedProjectId]);
-
-  useEffect(() => {
-    if (projectPage > totalProjectPages) {
-      setProjectPage(totalProjectPages);
-    }
-  }, [projectPage, totalProjectPages]);
 
   useEffect(() => {
     if (!selectedOrderId && orders.length > 0) {
@@ -110,10 +101,16 @@ export function CustomerOrdersPage() {
       return;
     }
 
-    if (selectedOrderId && !orders.some((item) => item.orderId === selectedOrderId)) {
-      setSelectedOrderId(orders[0]?.orderId ?? '');
+    if (selectedOrderId && orders.length > 0 && !orders.some((item) => item.orderId === selectedOrderId)) {
+      setSelectedOrderId(orders[0].orderId);
     }
   }, [orders, selectedOrderId]);
+
+  useEffect(() => {
+    if (orderPage > totalOrderPages) {
+      setOrderPage(totalOrderPages);
+    }
+  }, [orderPage, totalOrderPages]);
 
   return (
     <main className="customer-orders-page">
@@ -131,12 +128,11 @@ export function CustomerOrdersPage() {
         <section className="customer-orders-heading">
           <div>
             <h1>Orders</h1>
-            <p>Track confirmed orders, deposit payments, production progress, and remaining payment.</p>
+            <p>Track order pricing, payment history, delivery details, and delivery batches.</p>
           </div>
         </section>
 
         {message ? <section className={`customer-orders-message customer-orders-message-${message.tone}`}>{message.text}</section> : null}
-        {projectsQuery.isError ? <section className="customer-orders-message customer-orders-message-error">Cannot load your projects.</section> : null}
         {ordersQuery.isError ? (
           <section className="customer-orders-message customer-orders-message-error">{getOrderServiceResultMessage(ordersQuery.error)}</section>
         ) : null}
@@ -144,48 +140,75 @@ export function CustomerOrdersPage() {
         <section className="customer-orders-layout">
           <aside className="customer-orders-panel">
             <header>
-              <h2>Projects</h2>
+              <div>
+                <h2>My Orders</h2>
+                <p>{ordersQuery.data?.totalCount ?? 0} order(s)</p>
+              </div>
             </header>
-            {projectsQuery.isLoading ? <p className="customer-orders-muted">Loading projects...</p> : null}
-            {!projectsQuery.isLoading && orderProjects.length === 0 ? <p className="customer-orders-muted">No order is available yet.</p> : null}
-            <div className="customer-orders-project-list">
-              {pagedOrderProjects.map((project) => (
+
+            <div className="customer-orders-filter-grid">
+              <input
+                placeholder="Search order code"
+                value={search}
+                onChange={(event) => {
+                  setSearch(event.target.value);
+                  setOrderPage(1);
+                }}
+              />
+              <select
+                value={statusFilter}
+                onChange={(event) => {
+                  setStatusFilter(event.target.value as '' | OrderStatus);
+                  setOrderPage(1);
+                }}
+              >
+                {statusOptions.map((option) => (
+                  <option key={option.value || 'all'} value={option.value}>{option.label}</option>
+                ))}
+              </select>
+            </div>
+
+            {ordersQuery.isLoading ? <p className="customer-orders-muted">Loading orders...</p> : null}
+            {!ordersQuery.isLoading && orders.length === 0 ? <p className="customer-orders-muted">No order is available yet.</p> : null}
+            <div className="customer-orders-order-list">
+              {orders.map((item) => (
                 <button
-                  className={project.projectId === selectedProjectId ? 'is-active' : ''}
-                  key={project.projectId}
+                  aria-label={`Open order ${item.orderCode}`}
+                  className={item.orderId === selectedOrderId ? 'is-active' : ''}
+                  key={item.orderId}
                   type="button"
                   onClick={() => {
-                    setSelectedProjectId(project.projectId);
-                    setSelectedOrderId('');
+                    setSelectedOrderId(item.orderId);
                     setActivePayment(null);
                     setMessage(null);
                   }}
                 >
-                  <strong>{project.projectName}</strong>
-                  <span>{project.projectCode}</span>
-                  <em>{formatEnumLabel(project.status)}</em>
+                  <strong>{getOrderProjectName(item, projectLookup.get(item.projectId))}</strong>
+                  <span>{getOrderProjectCode(item, projectLookup.get(item.projectId))}</span>
+                  <span className="customer-orders-order-total">{formatMoney(getOrderTotalAmount(item))}</span>
+                  <em className={`customer-orders-status customer-orders-status-${statusClass(item.status)}`}>{formatEnumLabel(item.status ?? 'UNKNOWN')}</em>
                 </button>
               ))}
             </div>
-            {orderProjects.length > PROJECT_PAGE_SIZE ? (
+            {(ordersQuery.data?.totalCount ?? 0) > ORDER_PAGE_SIZE ? (
               <footer className="customer-orders-panel-pagination">
                 <p>
-                  Page <strong>{projectPage}</strong> / {totalProjectPages}
+                  Page <strong>{orderPage}</strong> / {totalOrderPages}
                 </p>
                 <div>
                   <button
-                    aria-label="Previous projects page"
-                    disabled={projectPage <= 1}
+                    aria-label="Previous orders page"
+                    disabled={orderPage <= 1}
                     type="button"
-                    onClick={() => setProjectPage((current) => Math.max(1, current - 1))}
+                    onClick={() => setOrderPage((current) => Math.max(1, current - 1))}
                   >
                     <IconChevronLeft size={16} stroke={1.8} />
                   </button>
                   <button
-                    aria-label="Next projects page"
-                    disabled={projectPage >= totalProjectPages}
+                    aria-label="Next orders page"
+                    disabled={orderPage >= totalOrderPages}
                     type="button"
-                    onClick={() => setProjectPage((current) => Math.min(totalProjectPages, current + 1))}
+                    onClick={() => setOrderPage((current) => Math.min(totalOrderPages, current + 1))}
                   >
                     <IconChevronRight size={16} stroke={1.8} />
                   </button>
@@ -199,10 +222,12 @@ export function CustomerOrdersPage() {
               <OrderDetailCard
                 confirmDeliveryPending={confirmDeliveryMutation.isPending}
                 deliveryDetailsPending={updateDeliveryDetailsMutation.isPending}
-                depositPayment={depositPaymentsQuery.data?.items?.[0] ?? null}
+                depositPayment={getCollectablePayment(paymentHistoryQuery.data, 'DEPOSIT', order)}
                 depositPaymentPending={createDepositPaymentMutation.isPending}
+                isPaymentHistoryLoading={paymentHistoryQuery.isLoading}
                 order={order}
-                remainingPayment={remainingPaymentsQuery.data?.items?.[0] ?? null}
+                paymentHistory={paymentHistoryQuery.data ?? null}
+                remainingPayment={getCollectablePayment(paymentHistoryQuery.data, 'REMAINING_PAYMENT', order)}
                 onConfirmDelivery={async () => {
                   setMessage(null);
 
@@ -210,10 +235,8 @@ export function CustomerOrdersPage() {
                     await confirmDeliveryMutation.mutateAsync(order.orderId);
                     setMessage({ tone: 'success', text: 'Delivery confirmed.' });
                     void orderDetailQuery.refetch();
+                    void paymentHistoryQuery.refetch();
                     void ordersQuery.refetch();
-                    void projectsQuery.refetch();
-                    void remainingPaymentsQuery.refetch();
-                    void depositPaymentsQuery.refetch();
                   } catch (error) {
                     setMessage({ tone: 'error', text: getOrderServiceResultMessage(error) });
                   }
@@ -236,13 +259,14 @@ export function CustomerOrdersPage() {
                     setActivePayment(payment);
                     setMessage({ tone: 'success', text: 'Deposit payment is ready.' });
                     void orderDetailQuery.refetch();
+                    void paymentHistoryQuery.refetch();
                     void ordersQuery.refetch();
-                    void projectsQuery.refetch();
-                    void depositPaymentsQuery.refetch();
                   } catch (error) {
                     setMessage({ tone: 'error', text: getOrderServiceResultMessage(error) });
                   }
                 }}
+                onOpenDepositPayment={setActivePayment}
+                onOpenRemainingPayment={setActivePayment}
                 onSaveDeliveryDetails={async (details) => {
                   setMessage(null);
 
@@ -259,13 +283,14 @@ export function CustomerOrdersPage() {
                       [order.orderId]: normalizedDetails,
                     }));
                     setMessage({ tone: 'success', text: 'Delivery details saved.' });
+                    void orderDetailQuery.refetch();
                   } catch (error) {
                     setMessage({ tone: 'error', text: getOrderServiceResultMessage(error) });
                   }
                 }}
-                onOpenDepositPayment={(payment) => setActivePayment(payment)}
-                onOpenRemainingPayment={(payment) => setActivePayment(payment)}
               />
+            ) : orderDetailQuery.isLoading ? (
+              <p className="customer-orders-muted">Loading order detail...</p>
             ) : null}
 
             <PaymentCollectionModal
@@ -277,10 +302,8 @@ export function CustomerOrdersPage() {
               onClose={() => setActivePayment(null)}
               onPaid={() => {
                 void orderDetailQuery.refetch();
+                void paymentHistoryQuery.refetch();
                 void ordersQuery.refetch();
-                void projectsQuery.refetch();
-                void remainingPaymentsQuery.refetch();
-                void depositPaymentsQuery.refetch();
                 setActivePayment(null);
               }}
             />
@@ -296,39 +319,51 @@ function OrderDetailCard({
   deliveryDetailsPending,
   depositPayment,
   depositPaymentPending,
+  isPaymentHistoryLoading,
   onCreateDepositPayment,
   onConfirmDelivery,
   onOpenDepositPayment,
   onOpenRemainingPayment,
   onSaveDeliveryDetails,
   order,
+  paymentHistory,
   remainingPayment,
 }: {
   confirmDeliveryPending: boolean;
   deliveryDetailsPending: boolean;
   depositPayment: PaymentDetailDto | null;
   depositPaymentPending: boolean;
+  isPaymentHistoryLoading: boolean;
   onCreateDepositPayment: () => Promise<void>;
   onConfirmDelivery: () => Promise<void>;
   onOpenDepositPayment: (payment: PaymentDetailDto) => void;
   onOpenRemainingPayment: (payment: PaymentDetailDto) => void;
   onSaveDeliveryDetails: (details: OrderDeliveryDetailsDraft) => Promise<void>;
   order: OrderDetailDto;
+  paymentHistory: OrderPaymentHistoryDto | null;
   remainingPayment: PaymentDetailDto | null;
 }) {
   const orderItems = useMemo(() => aggregateOrderItems(order.items ?? []), [order.items]);
   const deliveryDetailsComplete = hasCompleteDeliveryDetails(order);
+  const deliverySummary = order.deliverySummary;
+  const deliveries = useMemo(() => sortEmbeddedDeliveries(order.deliveries ?? []), [order.deliveries]);
 
   return (
     <section className="customer-orders-card customer-orders-detail">
       <header>
+        <div>
+          <h2>{order.orderCode}</h2>
+          <p>Pricing is based on the order snapshot.</p>
+        </div>
         <span className={`customer-orders-status customer-orders-status-${statusClass(order.status)}`}>{formatEnumLabel(order.status ?? 'UNKNOWN')}</span>
       </header>
 
       <div className="customer-orders-money-grid">
-        <MoneyValue label="Original Total" value={formatMoney(order.originalTotalAmount)} />
+        <MoneyValue label="Items Gross" value={formatMoney(order.itemsGrossAmount)} />
+        <MoneyValue label="Item Discount" value={formatMoney(order.totalItemDiscountAmount)} />
+        <MoneyValue label="Pre-VAT" value={formatMoney(order.preVatAmount)} />
         <MoneyValue label={`VAT ${formatPercentRate(order.vatRate)}`} value={formatMoney(order.vatAmount)} />
-        <MoneyValue label="Final Total" value={formatMoney(order.finalTotalAmount)} />
+        <MoneyValue label="Total" value={formatMoney(order.totalAmount)} />
         <MoneyValue label="Deposit" value={formatMoney(order.depositAmount)} />
         <MoneyValue label="Paid" value={formatMoney(order.paidAmount)} />
         <MoneyValue label="Remaining" value={formatMoney(order.remainingAmount)} />
@@ -360,7 +395,11 @@ function OrderDetailCard({
           order={order}
           onSave={onSaveDeliveryDetails}
         />
+      ) : order.deliveryDetails ? (
+        <DeliveryDetailsSummary details={getOrderDeliveryDetailsDraft(order)} />
       ) : null}
+
+      <DeliverySummaryPanel deliveries={deliveries} summary={deliverySummary} />
 
       <div className="customer-orders-actions">
         {order.status === 'FINAL_PAYMENT_PENDING' && remainingPayment ? (
@@ -378,6 +417,8 @@ function OrderDetailCard({
         ) : null}
       </div>
 
+      <PaymentHistoryPanel history={paymentHistory} isLoading={isPaymentHistoryLoading} />
+
       <div className="customer-orders-table-wrap">
         <table>
           <thead>
@@ -385,178 +426,133 @@ function OrderDetailCard({
               <th>Item</th>
               <th>Quantity</th>
               <th>Unit</th>
+              <th>Gross</th>
               <th>Discount</th>
-              <th>Pre-VAT Subtotal</th>
+              <th>Pre-VAT</th>
               <th>Delivery</th>
               <th>Confirmation</th>
             </tr>
           </thead>
           <tbody>
-            {orderItems.map((item) => {
-              return (
+            {orderItems.map((item) => (
               <tr key={item.sourceItems.map((sourceItem) => sourceItem.orderItemId).join('-')}>
                 <td>{getOrderItemName(item)}</td>
                 <td>{item.quantity ?? '-'}</td>
                 <td>{formatMoney(item.unitPrice)}</td>
+                <td>{formatMoney(getItemGrossAmount(item))}</td>
                 <td>{formatMoney(item.discountAmount)}</td>
-                <td>{formatMoney(item.subtotalAmount)}</td>
+                <td>{formatMoney(getItemPreVatAmount(item))}</td>
                 <td>{formatGroupedDeliveryState(item)}</td>
-                <td>
-                  {confirmDeliveryPending ? 'Confirming...' : getOrderDeliveryConfirmationLabel(order)}
-                </td>
+                <td>{confirmDeliveryPending ? 'Confirming...' : getOrderDeliveryConfirmationLabel(order)}</td>
               </tr>
-            );
-            })}
+            ))}
           </tbody>
         </table>
       </div>
-
     </section>
   );
 }
 
-function MoneyValue({ label, value }: { label: string; value: string }) {
+function PaymentHistoryPanel({ history, isLoading }: { history: OrderPaymentHistoryDto | null; isLoading: boolean }) {
+  const payments = history?.payments ?? [];
+
   return (
-    <div>
-      <span>{label}</span>
-      <strong>{value}</strong>
-    </div>
+    <section className="customer-orders-history-panel">
+      <header>
+        <div>
+          <h2>Payment History</h2>
+          <p>{payments.length} payment record(s)</p>
+        </div>
+      </header>
+      {isLoading ? <p className="customer-orders-muted">Loading payment history...</p> : null}
+      {!isLoading && payments.length === 0 ? <p className="customer-orders-muted">No payment history yet.</p> : null}
+      {payments.length > 0 ? (
+        <div className="customer-orders-payment-history-list">
+          {payments.map((payment) => (
+            <article key={payment.paymentId}>
+              <div>
+                <strong>{payment.paymentCode}</strong>
+                <PaymentStatusPill status={payment.status} />
+              </div>
+              <dl>
+                <div><dt>Type</dt><dd>{formatEnumLabel(payment.paymentType ?? 'PAYMENT')}</dd></div>
+                <div><dt>Amount</dt><dd>{formatMoney(payment.amount)}</dd></div>
+                <div><dt>Paid</dt><dd>{formatDateTime(payment.paidAt)}</dd></div>
+                <div><dt>Expired</dt><dd>{formatDateTime(payment.expiredAt)}</dd></div>
+              </dl>
+              {payment.transactions.length > 0 ? (
+                <small>{payment.transactions.length} transaction attempt(s)</small>
+              ) : null}
+            </article>
+          ))}
+        </div>
+      ) : null}
+    </section>
   );
 }
 
-function getOrderItemName(item: Pick<OrderItemDto, 'itemName' | 'productNameSnapshot'>) {
-  return item.itemName ?? item.productNameSnapshot ?? '-';
+function PaymentStatusPill({ status }: { status?: PaymentStatus | null }) {
+  return <span className={`customer-orders-payment-status customer-orders-payment-status-${(status ?? 'PENDING').toLowerCase()}`}>{formatEnumLabel(status ?? 'PENDING')}</span>;
 }
 
-function aggregateOrderItems(items: OrderItemDto[]): GroupedOrderItem[] {
-  const groupedItems = new Map<string, GroupedOrderItem>();
-  const aggregateItems = aggregateDuplicateItems(items);
-
-  for (const item of aggregateItems) {
-    groupedItems.set(getItemAggregateKey(item), { ...item, sourceItems: [] });
-  }
-
-  for (const item of items) {
-    groupedItems.get(getItemAggregateKey(item))?.sourceItems.push(item);
-  }
-
-  return Array.from(groupedItems.values());
-}
-
-function getOrderProjects(projects: ProjectListItemDto[]) {
-  return projects.filter((project) => orderProjectStatuses.has(project.status));
-}
-
-function getOrderDeliveryDetailsDraft(order: Pick<OrderDetailDto | OrderListItemDto, 'deliveryAddress' | 'deliveryDetails' | 'deliveryNote' | 'receiverName' | 'receiverPhone'>): OrderDeliveryDetailsDraft {
-  return {
-    deliveryAddress: order.deliveryAddress ?? order.deliveryDetails?.deliveryAddress ?? '',
-    deliveryNote: order.deliveryNote ?? order.deliveryDetails?.deliveryNote ?? '',
-    receiverName: order.receiverName ?? order.deliveryDetails?.receiverName ?? '',
-    receiverPhone: order.receiverPhone ?? order.deliveryDetails?.receiverPhone ?? '',
-  };
-}
-
-function mergeDeliveryDetails(
-  detail: OrderDeliveryDetailsDraft,
-  summary?: OrderDeliveryDetailsDraft | null,
-  saved?: OrderDeliveryDetailsDraft | null,
-): OrderDeliveryDetailsDraft {
-  return {
-    deliveryAddress: getFirstDeliveryDetailValue(saved?.deliveryAddress, detail.deliveryAddress, summary?.deliveryAddress),
-    deliveryNote: getFirstDeliveryDetailValue(saved?.deliveryNote, detail.deliveryNote, summary?.deliveryNote),
-    receiverName: getFirstDeliveryDetailValue(saved?.receiverName, detail.receiverName, summary?.receiverName),
-    receiverPhone: getFirstDeliveryDetailValue(saved?.receiverPhone, detail.receiverPhone, summary?.receiverPhone),
-  };
-}
-
-function getFirstDeliveryDetailValue(...values: Array<string | null | undefined>) {
-  return values.find((value) => Boolean(value?.trim()))?.trim() ?? '';
-}
-
-function normalizeDeliveryDetailsDraft(details: OrderDeliveryDetailsDraft): OrderDeliveryDetailsDraft {
-  return {
-    deliveryAddress: details.deliveryAddress.trim(),
-    deliveryNote: details.deliveryNote?.trim() || null,
-    receiverName: details.receiverName.trim(),
-    receiverPhone: details.receiverPhone.trim(),
-  };
-}
-
-function hasCompleteDeliveryDetails(details: OrderDeliveryDetailsDraft | OrderDetailDto) {
-  const resolvedDetails = 'deliveryDetails' in details ? getOrderDeliveryDetailsDraft(details) : details;
-
-  return Boolean(
-    resolvedDetails.deliveryAddress?.trim()
-    && resolvedDetails.deliveryNote?.trim()
-    && resolvedDetails.receiverName?.trim()
-    && resolvedDetails.receiverPhone?.trim(),
+function DeliveryDetailsSummary({ details }: { details: OrderDeliveryDetailsDraft }) {
+  return (
+    <section className="customer-orders-delivery-details">
+      <header>
+        <div>
+          <h2>Locked Delivery Details</h2>
+          <p>Delivery information is locked after deposit payment is confirmed.</p>
+        </div>
+        <span className="is-complete">Locked</span>
+      </header>
+      <div className="customer-orders-delivery-summary-grid">
+        <MoneyValue label="Address" value={details.deliveryAddress || '-'} />
+        <MoneyValue label="Receiver" value={details.receiverName || '-'} />
+        <MoneyValue label="Phone" value={details.receiverPhone || '-'} />
+        <MoneyValue label="Note" value={details.deliveryNote || '-'} />
+      </div>
+    </section>
   );
 }
 
-function areDeliveryDetailsLocked(status?: OrderStatus | null) {
-  return Boolean(status && status !== 'CREATED' && status !== 'DEPOSIT_PENDING');
+function DeliverySummaryPanel({ deliveries, summary }: { deliveries: OrderEmbeddedDeliveryDto[]; summary?: OrderDetailDto['deliverySummary'] | null }) {
+  if (!summary && deliveries.length === 0) {
+    return null;
+  }
+
+  return (
+    <section className="customer-orders-delivery-embed">
+      <header>
+        <div>
+          <h2>Delivery Progress</h2>
+          <p>Delivery summary and batches are embedded in order detail.</p>
+        </div>
+      </header>
+      {summary ? (
+        <div className="customer-orders-delivery-summary-grid">
+          <MoneyValue label="Delivered" value={`${summary.totalDeliveredQuantity} / ${summary.totalOrderedQuantity}`} />
+          <MoneyValue label="Remaining" value={String(summary.remainingQuantity)} />
+          <MoneyValue label="Progress" value={`${summary.deliveryProgressPercent}%`} />
+          <MoneyValue label="Next Delivery" value={formatDateTime(summary.nextDeliveryAt)} />
+        </div>
+      ) : null}
+      {deliveries.length > 0 ? (
+        <div className="customer-orders-delivery-batches">
+          {deliveries.map((delivery) => (
+            <article key={delivery.deliveryId}>
+              <div>
+                <strong>{formatEnumLabel(delivery.status)}</strong>
+                <span>{formatDateTime(delivery.scheduledStart)} - {formatDateTime(delivery.scheduledEnd)}</span>
+              </div>
+              <p>{delivery.location || 'No location'}</p>
+              <small>{delivery.items.map((item) => `${item.productName ?? item.orderItemId}: ${item.quantity}`).join(', ') || 'No items'}</small>
+            </article>
+          ))}
+        </div>
+      ) : null}
+    </section>
+  );
 }
-
-function canCreateDepositPayment(status?: OrderStatus | null) {
-  return status === 'CREATED' || status === 'DEPOSIT_PENDING';
-}
-
-function getDepositPaymentLabel(order: OrderDetailDto, deliveryDetailsComplete: boolean, hasDepositPayment: boolean) {
-  if (order.status === 'DEPOSIT_PAID') return 'Deposit paid';
-  if (!deliveryDetailsComplete) return 'Complete delivery details first';
-  if (hasDepositPayment) return 'Payment pending';
-
-  return 'Ready to create payment';
-}
-
-function statusClass(value?: OrderStatus | null) {
-  return (value ?? 'UNKNOWN').toLowerCase().replace(/_/g, '-');
-}
-
-function formatEnumLabel(value: string) {
-  return value
-    .toLowerCase()
-    .split('_')
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(' ');
-}
-
-function formatMoney(value?: number | null) {
-  if (typeof value !== 'number') return '-';
-
-  return `${new Intl.NumberFormat('vi-VN').format(value)} VND`;
-}
-
-function formatPercentRate(value?: number | null) {
-  if (typeof value !== 'number') return '-';
-
-  return `${new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 2 }).format(value * 100)}%`;
-}
-
-function formatGroupedDeliveryState(item: GroupedOrderItem) {
-  const quantity = item.quantity ?? 0;
-  const statuses = Array.from(new Set(item.sourceItems.map((sourceItem) => sourceItem.status ?? 'PENDING')));
-  const status = statuses.length === 1 ? formatEnumLabel(statuses[0]) : 'Mixed';
-
-  const deliveredDates = item.sourceItems
-    .map((sourceItem) => sourceItem.deliveredAt)
-    .filter((value): value is string => Boolean(value))
-    .sort();
-  const latestDeliveredAt = deliveredDates[deliveredDates.length - 1];
-
-  return `${quantity || '-'} item(s) - ${status}${latestDeliveredAt ? ` - ${formatDateTime(latestDeliveredAt)}` : ''}`;
-}
-
-function canConfirmOrderDelivery(order: OrderDetailDto) {
-  return order.status === 'AWAITING_CUSTOMER_CONFIRMATION' && !order.customerConfirmedDeliveryAt;
-}
-
-type OrderDeliveryDetailsDraft = {
-  deliveryAddress: string;
-  receiverName: string;
-  receiverPhone: string;
-  deliveryNote?: string | null;
-};
 
 function DeliveryDetailsPanel({
   isPending,
@@ -638,16 +634,205 @@ function DeliveryDetailsPanel({
   );
 }
 
+function MoneyValue({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <span>{label}</span>
+      <strong>{value}</strong>
+    </div>
+  );
+}
+
+function getCollectablePayment(history: OrderPaymentHistoryDto | null | undefined, paymentType: PaymentType, order: OrderDetailDto): PaymentDetailDto | null {
+  const payment = history?.payments.find((item) => item.paymentType === paymentType && isCollectablePaymentStatus(item.status));
+
+  if (!payment) return null;
+
+  return {
+    paymentId: payment.paymentId,
+    projectId: order.projectId,
+    orderId: order.orderId,
+    paymentCode: payment.paymentCode,
+    paymentType: payment.paymentType,
+    amount: payment.amount,
+    paidAmount: payment.status === 'PAID' ? payment.amount : 0,
+    remainingAmount: payment.status === 'PAID' ? 0 : payment.amount,
+    currency: payment.currency,
+    status: payment.status,
+    expiredAt: payment.expiredAt,
+    paidAt: payment.paidAt,
+    cancelledAt: payment.cancelledAt,
+    createdAt: payment.createdAt,
+  };
+}
+
+function isCollectablePaymentStatus(status?: PaymentStatus | null) {
+  return status === 'PENDING' || status === 'PROCESSING';
+}
+
+function getOrderItemName(item: Pick<OrderItemDto, 'itemName' | 'productNameSnapshot'>) {
+  return item.itemName ?? item.productNameSnapshot ?? '-';
+}
+
+function aggregateOrderItems(items: OrderItemDto[]): GroupedOrderItem[] {
+  const groupedItems = new Map<string, GroupedOrderItem>();
+  const aggregateItems = aggregateDuplicateItems(items);
+
+  for (const item of aggregateItems) {
+    groupedItems.set(getItemAggregateKey(item), { ...item, sourceItems: [] });
+  }
+
+  for (const item of items) {
+    groupedItems.get(getItemAggregateKey(item))?.sourceItems.push(item);
+  }
+
+  return Array.from(groupedItems.values());
+}
+
+function getOrderDeliveryDetailsDraft(order: Pick<OrderDetailDto | OrderListItemDto, 'deliveryAddress' | 'deliveryDetails' | 'deliveryNote' | 'receiverName' | 'receiverPhone'>): OrderDeliveryDetailsDraft {
+  return {
+    deliveryAddress: order.deliveryAddress ?? order.deliveryDetails?.deliveryAddress ?? '',
+    deliveryNote: order.deliveryNote ?? order.deliveryDetails?.deliveryNote ?? '',
+    receiverName: order.receiverName ?? order.deliveryDetails?.receiverName ?? '',
+    receiverPhone: order.receiverPhone ?? order.deliveryDetails?.receiverPhone ?? '',
+  };
+}
+
+function mergeDeliveryDetails(detail: OrderDeliveryDetailsDraft, saved?: OrderDeliveryDetailsDraft | null): OrderDeliveryDetailsDraft {
+  return {
+    deliveryAddress: getFirstDeliveryDetailValue(saved?.deliveryAddress, detail.deliveryAddress),
+    deliveryNote: getFirstDeliveryDetailValue(saved?.deliveryNote, detail.deliveryNote),
+    receiverName: getFirstDeliveryDetailValue(saved?.receiverName, detail.receiverName),
+    receiverPhone: getFirstDeliveryDetailValue(saved?.receiverPhone, detail.receiverPhone),
+  };
+}
+
+function getFirstDeliveryDetailValue(...values: Array<string | null | undefined>) {
+  return values.find((value) => Boolean(value?.trim()))?.trim() ?? '';
+}
+
+function normalizeDeliveryDetailsDraft(details: OrderDeliveryDetailsDraft): OrderDeliveryDetailsDraft {
+  return {
+    deliveryAddress: details.deliveryAddress.trim(),
+    deliveryNote: details.deliveryNote?.trim() || null,
+    receiverName: details.receiverName.trim(),
+    receiverPhone: details.receiverPhone.trim(),
+  };
+}
+
+function hasCompleteDeliveryDetails(details: OrderDeliveryDetailsDraft | OrderDetailDto) {
+  const resolvedDetails = 'deliveryDetails' in details ? getOrderDeliveryDetailsDraft(details) : details;
+
+  return Boolean(
+    resolvedDetails.deliveryAddress?.trim()
+    && resolvedDetails.deliveryNote?.trim()
+    && resolvedDetails.receiverName?.trim()
+    && resolvedDetails.receiverPhone?.trim(),
+  );
+}
+
+function areDeliveryDetailsLocked(status?: OrderStatus | null) {
+  return Boolean(status && status !== 'CREATED' && status !== 'DEPOSIT_PENDING');
+}
+
+function canCreateDepositPayment(status?: OrderStatus | null) {
+  return status === 'CREATED' || status === 'DEPOSIT_PENDING';
+}
+
+function canConfirmOrderDelivery(order: OrderDetailDto) {
+  return Boolean(order.awaitingCustomerConfirmation ?? order.status === 'AWAITING_CUSTOMER_CONFIRMATION') && !order.customerConfirmedDeliveryAt;
+}
+
+function getDepositPaymentLabel(order: OrderDetailDto, deliveryDetailsComplete: boolean, hasDepositPayment: boolean) {
+  if (order.status === 'DEPOSIT_PAID') return 'Deposit paid';
+  if (!deliveryDetailsComplete) return 'Complete delivery details first';
+  if (hasDepositPayment) return 'Payment pending';
+
+  return 'Ready to create payment';
+}
+
 function getOrderDeliveryConfirmationLabel(order: OrderDetailDto) {
   if (order.customerConfirmedDeliveryAt) return `Confirmed ${formatDateTime(order.customerConfirmedDeliveryAt)}`;
-  if (order.status === 'AWAITING_CUSTOMER_CONFIRMATION') return 'Waiting for your final confirmation';
+  if (order.awaitingCustomerConfirmation ?? order.status === 'AWAITING_CUSTOMER_CONFIRMATION') return 'Waiting for your final confirmation';
   if (order.status === 'DELIVERING') return 'Physical delivery in progress';
   if (order.status === 'DELIVERED' || order.status === 'FINAL_PAYMENT_PENDING' || order.status === 'COMPLETED') return 'Confirmed';
 
   return 'Pending delivery';
 }
 
-function formatDateTime(value: string) {
+function sortEmbeddedDeliveries(deliveries: OrderEmbeddedDeliveryDto[]) {
+  return [...deliveries].sort((first, second) => {
+    const createdDiff = new Date(second.createdAt ?? 0).getTime() - new Date(first.createdAt ?? 0).getTime();
+
+    return createdDiff || second.deliveryId.localeCompare(first.deliveryId);
+  });
+}
+
+function getOrderTotalAmount(order: Pick<OrderListItemDto, 'totalAmount'>) {
+  return order.totalAmount;
+}
+
+function getOrderProjectName(order: OrderListItemDto & OrderProjectSummary, project?: OrderProjectSummary) {
+  return order.projectName?.trim() || project?.projectName?.trim() || 'Project';
+}
+
+function getOrderProjectCode(order: OrderListItemDto & OrderProjectSummary, project?: OrderProjectSummary) {
+  return order.projectCode?.trim() || project?.projectCode?.trim() || 'Project details';
+}
+
+function getItemGrossAmount(item: OrderItemDto) {
+  if (typeof item.unitPrice === 'number' && typeof item.quantity === 'number') {
+    return item.unitPrice * item.quantity;
+  }
+
+  return null;
+}
+
+function getItemPreVatAmount(item: OrderItemDto) {
+  if (typeof item.subtotalAmount === 'number') return item.subtotalAmount;
+
+  const gross = getItemGrossAmount(item);
+  if (typeof gross === 'number') return gross - (item.discountAmount ?? 0);
+
+  return null;
+}
+
+function statusClass(value?: OrderStatus | null) {
+  return (value ?? 'UNKNOWN').toLowerCase().replace(/_/g, '-');
+}
+
+function formatEnumLabel(value: string) {
+  return value
+    .toLowerCase()
+    .split('_')
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
+}
+
+function formatMoney(value?: number | null) {
+  if (typeof value !== 'number') return '-';
+
+  return `${new Intl.NumberFormat('vi-VN').format(value)} VND`;
+}
+
+function formatPercentRate(value?: number | null) {
+  if (typeof value !== 'number') return '-';
+
+  return `${new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 2 }).format(value * 100)}%`;
+}
+
+function formatGroupedDeliveryState(item: GroupedOrderItem) {
+  const deliveredQuantity = item.sourceItems.reduce((total, sourceItem) => total + (sourceItem.deliveredQuantity ?? 0), 0);
+  const quantity = item.quantity ?? 0;
+  const statuses = Array.from(new Set(item.sourceItems.map((sourceItem) => sourceItem.status ?? 'PENDING')));
+  const status = statuses.length === 1 ? formatEnumLabel(statuses[0]) : 'Mixed';
+
+  return `${deliveredQuantity} / ${quantity || '-'} item(s) - ${status}`;
+}
+
+function formatDateTime(value?: string | null) {
+  if (!value) return '-';
+
   return new Intl.DateTimeFormat('vi-VN', {
     day: '2-digit',
     hour: '2-digit',

@@ -117,7 +117,11 @@ export function getMeasurementImageServiceResultMessage(error: unknown) {
   const result = getMeasurementImageServiceResultFromError(error);
 
   if (!result) {
-    return 'Cannot connect to measurement image API. Please check backend and VITE_API_URL.';
+    if (error instanceof AxiosError && !error.response) {
+      return 'Cannot connect to measurement image API. Please check backend and VITE_API_URL.';
+    }
+
+    return 'Measurement image request failed. Please try again.';
   }
 
   const errorCode = getFirstMeasurementImageErrorCode(result);

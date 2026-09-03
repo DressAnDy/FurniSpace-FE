@@ -110,7 +110,8 @@ export function MeasurementImagesTab({ project }: Readonly<MeasurementImagesTabP
     event.preventDefault();
     setUploadMessage(null);
 
-    const formData = new FormData(event.currentTarget);
+    const form = event.currentTarget;
+    const formData = new FormData(form);
     const scheduleId = String(formData.get('scheduleId') ?? '');
     const projectAreaId = String(formData.get('projectAreaId') ?? '');
     const note = String(formData.get('note') ?? '').trim();
@@ -146,7 +147,7 @@ export function MeasurementImagesTab({ project }: Readonly<MeasurementImagesTabP
       }
 
       if (uploadedCount > 0 && failedCount === 0) {
-        event.currentTarget.reset();
+        form.reset();
         setUploadItems([]);
       } else {
         setUploadItems((currentItems) => currentItems.filter((item) => item.status === 'failed'));

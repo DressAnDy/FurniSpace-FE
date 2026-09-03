@@ -2,7 +2,6 @@ import {
   IconFile,
   IconMessageCircle,
   IconSend,
-  IconX,
 } from '@tabler/icons-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
@@ -20,7 +19,6 @@ import {
   projectChatQueryKeys,
   replaceProjectChatTempMessage,
   upsertProjectChatMessage,
-  useCloseProjectChat,
   useProjectChatMessages,
   useProjectChats,
   useProjectChatRealtime,
@@ -35,7 +33,6 @@ type ProjectChatPanelProps = {
   projectCode?: string | null;
   title?: string;
   preferredChatType?: ProjectChatType;
-  canClose?: boolean;
   compact?: boolean;
 };
 
@@ -44,7 +41,6 @@ type PendingMessage = ProjectChatMessage & {
 };
 
 export function ProjectChatPanel({
-  canClose = false,
   compact = false,
   preferredChatType,
   projectCode,
@@ -82,7 +78,6 @@ export function ProjectChatPanel({
   const messagesQuery = useProjectChatMessages(messagesQueryParams);
   const messages = (messagesQuery.data?.items ?? []) as PendingMessage[];
   const sendTextMutation = useSendProjectChatTextMessage();
-  const closeChatMutation = useCloseProjectChat();
   const isReadonly = !activeChat || activeChat.status !== 'OPEN';
   const currentUserId = currentUserQuery.data?.accountId;
   const unreadCounts = useProjectChatUnreadCounts(chats, currentUserId, activeChat?.chatId);
@@ -169,21 +164,6 @@ export function ProjectChatPanel({
     }
   };
 
-  const handleCloseChat = async () => {
-    if (!activeChat || closeChatMutation.isPending) {
-      return;
-    }
-
-    setErrorMessage(null);
-
-    try {
-      await closeChatMutation.mutateAsync(activeChat.chatId);
-      await chatListQuery.refetch();
-    } catch (error) {
-      setErrorMessage(getProjectChatServiceResultMessage(error));
-    }
-  };
-
   return (
     <section className={`project-chat-panel${compact ? ' project-chat-panel-compact' : ''}`}>
       <header className="project-chat-panel-header">
@@ -230,12 +210,6 @@ export function ProjectChatPanel({
               <strong>{getChatTitle(activeChat)}</strong>
               <span>{activeChat?.staffName ?? getChatTypeLabel(activeChat?.chatType)}</span>
             </div>
-            {canClose && activeChat?.status === 'OPEN' ? (
-              <button type="button" disabled={closeChatMutation.isPending} onClick={handleCloseChat}>
-                <IconX size={15} />
-                {closeChatMutation.isPending ? 'Closing...' : 'Close'}
-              </button>
-            ) : null}
           </div>
 
           <div className="project-chat-panel-messages" ref={messageListRef}>

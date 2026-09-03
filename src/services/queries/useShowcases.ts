@@ -5,10 +5,13 @@ import {
   createProjectShowcase,
   createProjectShowcaseMedia,
   deleteProjectShowcaseMedia,
+  getAdminProjectShowcase,
+  getAdminProjectShowcases,
   getProjectShowcase,
   getPublicShowcase,
   getPublicShowcases,
   publishProjectShowcase,
+  rejectProjectShowcase,
   reorderProjectShowcaseMedia,
   setProjectShowcaseMediaCover,
   submitProjectShowcase,
@@ -17,6 +20,7 @@ import {
   uploadProjectShowcaseMedia,
   type CreateProjectShowcaseInput,
   type CreateProjectShowcaseMediaInput,
+  type ProjectShowcaseListParams,
   type ReorderProjectShowcaseMediaInput,
   type UpdateProjectShowcaseInput,
   type UploadProjectShowcaseMediaInput,
@@ -24,8 +28,10 @@ import {
 
 export const showcaseQueryKeys = {
   all: ['showcases'] as const,
+  adminList: (params?: ProjectShowcaseListParams) => ['showcases', 'admin-list', params] as const,
+  adminDetail: (showcaseId: string) => ['showcases', 'admin-detail', showcaseId] as const,
   project: (projectId: string) => ['showcases', 'project', projectId] as const,
-  publicList: (params?: { page?: number; pageSize?: number }) => ['showcases', 'public-list', params] as const,
+  publicList: (params?: ProjectShowcaseListParams) => ['showcases', 'public-list', params] as const,
   publicDetail: (slug: string) => ['showcases', 'public-detail', slug] as const,
 };
 
@@ -38,7 +44,22 @@ export function useProjectShowcase(projectId?: string, options?: { enabled?: boo
   });
 }
 
-export function usePublicShowcases(params?: { page?: number; pageSize?: number }) {
+export function useAdminProjectShowcases(params?: ProjectShowcaseListParams) {
+  return useQuery({
+    queryKey: showcaseQueryKeys.adminList(params),
+    queryFn: () => getAdminProjectShowcases(params),
+  });
+}
+
+export function useAdminProjectShowcase(showcaseId?: string) {
+  return useQuery({
+    queryKey: showcaseQueryKeys.adminDetail(showcaseId ?? ''),
+    queryFn: () => getAdminProjectShowcase(showcaseId ?? ''),
+    enabled: Boolean(showcaseId),
+  });
+}
+
+export function usePublicShowcases(params?: ProjectShowcaseListParams) {
   return useQuery({
     queryKey: showcaseQueryKeys.publicList(params),
     queryFn: () => getPublicShowcases(params),
@@ -81,6 +102,10 @@ export function useSubmitProjectShowcase() {
 
 export function usePublishProjectShowcase() {
   return useShowcaseAction(publishProjectShowcase);
+}
+
+export function useRejectProjectShowcase() {
+  return useShowcaseAction(rejectProjectShowcase);
 }
 
 export function useArchiveProjectShowcase() {

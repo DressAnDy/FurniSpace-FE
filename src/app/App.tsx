@@ -61,6 +61,7 @@ import { ThreeDTestPage } from '@/features/ThreeD/pages/ThreeDTestPage';
 import { BuildingBlueprintTestPage, BuildingThreeDTestPage } from '@/features/ThreeDTest';
 import { ViewerDemoPage } from '@/features/viewer3d';
 import { TileTransitionProvider } from '@/shared/components';
+import { getStoredAccessToken } from '@/services/api/tokenStore';
 import { useCurrentUser } from '@/services/queries';
 
 export default function App() {
@@ -219,9 +220,10 @@ function CustomerFeedbackLegacyRedirect() {
 }
 
 function RedirectAuthenticatedUser({ children }: { children: ReactNode }) {
-  const { data: user, isLoading } = useCurrentUser();
+  const hasStoredAuthToken = Boolean(getStoredAccessToken());
+  const { data: user, isLoading } = useCurrentUser({ enabled: hasStoredAuthToken });
 
-  if (isLoading) {
+  if (hasStoredAuthToken && isLoading) {
     return (
       <div className="auth-loading" role="status" aria-label="Đang tải...">
         <span className="auth-loading-spinner" />

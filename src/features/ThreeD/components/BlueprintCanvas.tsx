@@ -741,7 +741,6 @@ export function BlueprintCanvas({
         x: Number(clamp(clickedPoint.x, MIN_LAYOUT_COORDINATE, MAX_LAYOUT_COORDINATE).toFixed(2)),
         z: Number(clamp(clickedPoint.y, MIN_LAYOUT_COORDINATE, MAX_LAYOUT_COORDINATE).toFixed(2)),
       });
-      onMessage?.('Floor hole added. Adjust its size and position in Floor Stack.');
       return;
     }
 

@@ -4,6 +4,8 @@ import { Link } from 'react-router-dom';
 
 import { useLang } from '@/app/providers/useLang';
 import { MainNavbar } from '@/features/MainPages/maincomponents';
+import type { ProjectShowcaseDto, ProjectShowcaseListParams } from '@/services/api/showcases';
+import { usePublicShowcases } from '@/services/queries';
 import { SiteFooter } from '@/shared/components';
 
 import './ProjectListReviewPage.css';
@@ -61,51 +63,38 @@ const pageContent = {
   },
 } as const;
 
-type Category = (typeof pageContent)['vi']['categories'][number] | (typeof pageContent)['en']['categories'][number];
-
-const allProjects: Array<{ area: number; areaLabel: string; category: number; imageUrl: string | null; title: string; year: number }> = [];
+type Category = string;
+const projectCategoryFilters = ['Cafe', 'Retail', 'Office', 'Restaurant', 'Showroom'] as const;
 
 export function ProjectListReviewPage() {
   const { lang } = useLang();
   const t = pageContent[lang];
 
-  const [selectedCategories, setSelectedCategories] = useState<number[]>([]);
-  const [sortOrder, setSortOrder] = useState<string>('');
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [page, setPage] = useState(1);
+  const showcaseParams = useMemo<ProjectShowcaseListParams>(() => ({
+    businessType: selectedCategory,
+    page,
+    pageSize: 6,
+    search: searchQuery,
+  }), [page, searchQuery, selectedCategory]);
+  const showcasesQuery = usePublicShowcases(showcaseParams);
+  const showcases = showcasesQuery.data?.items ?? [];
+  const totalPages = showcasesQuery.data?.totalPages ?? 1;
 
-  function toggleCategory(index: number) {
-    setSelectedCategories((prev) =>
-      prev.includes(index) ? prev.filter((i) => i !== index) : [...prev, index],
-    );
+  function toggleCategory(category: string) {
+    setSelectedCategory((current) => (current === category ? null : category));
+    setPage(1);
   }
 
   function clearAll() {
-    setSelectedCategories([]);
-    setSortOrder('');
+    setSelectedCategory(null);
     setSearchQuery('');
+    setPage(1);
   }
 
-  const hasActiveFilters = selectedCategories.length > 0 || sortOrder !== '' || searchQuery !== '';
-
-  const filteredAndSorted = useMemo(() => {
-    let result = allProjects.filter((project) => {
-      const categoryMatch =
-        selectedCategories.length === 0 || selectedCategories.includes(project.category);
-      const searchMatch =
-        searchQuery.trim() === '' ||
-        t.categories[project.category].toLowerCase().includes(searchQuery.toLowerCase()) ||
-        project.title.toLowerCase().includes(searchQuery.toLowerCase());
-      return categoryMatch && searchMatch;
-    });
-
-    if (sortOrder === 'newest') {
-      result = [...result].sort((a, b) => b.year - a.year);
-    } else if (sortOrder === 'area') {
-      result = [...result].sort((a, b) => b.area - a.area);
-    }
-
-    return result;
-  }, [selectedCategories, sortOrder, searchQuery, t.categories]);
+  const hasActiveFilters = Boolean(selectedCategory) || searchQuery !== '';
 
   return (
     <main className="project-review-page">
@@ -131,44 +120,27 @@ export function ProjectListReviewPage() {
               placeholder={t.searchPlaceholder}
               aria-label={t.searchLabel}
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                setPage(1);
+              }}
             />
           </div>
 
           <div className="project-review-filter-section">
             <h3>{t.byCategory}</h3>
             <div className="project-review-category-list">
-              {t.categories.map((category, index) => {
-                const active = selectedCategories.includes(index);
+              {projectCategoryFilters.map((category) => {
+                const active = selectedCategory === category;
                 return (
                   <button
                     key={category}
                     className={`project-review-category-tag${active ? ' project-review-category-tag-active' : ''}`}
                     type="button"
                     aria-pressed={active}
-                    onClick={() => toggleCategory(index)}
+                    onClick={() => toggleCategory(category)}
                   >
                     {category}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          <div className="project-review-filter-section">
-            <h3>{t.sortBy}</h3>
-            <div className="project-review-sort-options">
-              {(['', 'newest', 'area'] as const).map((val) => {
-                const label = val === '' ? t.sortDefault : val === 'newest' ? t.sortNewest : t.sortArea;
-                return (
-                  <button
-                    key={val}
-                    className={`project-review-sort-btn${sortOrder === val ? ' project-review-sort-btn-active' : ''}`}
-                    type="button"
-                    aria-pressed={sortOrder === val}
-                    onClick={() => setSortOrder(val)}
-                  >
-                    {label}
                   </button>
                 );
               })}
@@ -179,29 +151,52 @@ export function ProjectListReviewPage() {
         <div className="project-review-content">
           <div className="project-review-content-header">
             <h1>{t.pageTitle}</h1>
-            <span className="project-review-result-count">{t.resultCount(filteredAndSorted.length)}</span>
           </div>
 
-          {filteredAndSorted.length > 0 ? (
+          {showcasesQuery.isLoading ? (
+            <div className="project-review-empty">
+              <p>Loading projects...</p>
+            </div>
+          ) : null}
+          {showcasesQuery.isError ? (
+            <div className="project-review-empty">
+              <p>Cannot load published projects.</p>
+              <button type="button" onClick={() => void showcasesQuery.refetch()}>Retry</button>
+            </div>
+          ) : null}
+          {!showcasesQuery.isLoading && !showcasesQuery.isError && showcases.length > 0 ? (
             <div className="project-review-grid">
-              {filteredAndSorted.map((project, index) => (
+              {showcases.map((project) => (
                 <ProjectCard
-                  key={`${project.title}-${index}`}
-                  area={project.areaLabel}
+                  key={project.showcaseId}
+                  area={formatArea(project.totalAreaSqm)}
                   cardLabels={t.cardLabels}
-                  category={t.categories[project.category] as Category}
-                  imageUrl={project.imageUrl}
-                  title={project.title}
-                  year={String(project.year)}
+                  category={project.businessType ?? 'Project'}
+                  imageUrl={getShowcaseCover(project)}
+                  slug={project.slug}
+                  title={project.title ?? project.projectName ?? 'Project Showcase'}
+                  year={formatYear(project)}
                 />
               ))}
             </div>
-          ) : (
+          ) : null}
+          {!showcasesQuery.isLoading && !showcasesQuery.isError && showcases.length === 0 ? (
             <div className="project-review-empty">
               <p>{t.noResults}</p>
               <button type="button" onClick={clearAll}>{t.clearAll}</button>
             </div>
-          )}
+          ) : null}
+          {!showcasesQuery.isLoading && !showcasesQuery.isError && totalPages > 1 ? (
+            <div className="project-review-pagination">
+              <button disabled={page <= 1 || showcasesQuery.isFetching} type="button" onClick={() => setPage((current) => Math.max(1, current - 1))}>
+                Previous
+              </button>
+              <span>{page} / {totalPages}</span>
+              <button disabled={page >= totalPages || showcasesQuery.isFetching} type="button" onClick={() => setPage((current) => Math.min(totalPages, current + 1))}>
+                Next
+              </button>
+            </div>
+          ) : null}
         </div>
       </section>
 
@@ -216,15 +211,16 @@ type ProjectCardProps = {
   compact?: boolean;
   imageUrl: string | null;
   category: Category;
+  slug?: string | null;
   title: string;
   year: string;
 };
 
-function ProjectCard({ area, cardLabels, category, compact = false, imageUrl, title, year }: ProjectCardProps) {
+function ProjectCard({ area, cardLabels, category, compact = false, imageUrl, slug, title, year }: ProjectCardProps) {
   return (
     <Link
       className={compact ? 'product-card product-card-compact product-card-link' : 'product-card product-card-link'}
-      to="/projects/detail"
+      to={slug ? `/public/showcases/${slug}` : '/projects/detail'}
     >
       <div className="product-card-image-wrap">
         {imageUrl ? <img src={imageUrl} alt={title} /> : null}
@@ -248,4 +244,33 @@ function ProjectCard({ area, cardLabels, category, compact = false, imageUrl, ti
       </dl>
     </Link>
   );
+}
+
+function getShowcaseCover(showcase: ProjectShowcaseDto) {
+  return showcase.coverUrl
+    ?? showcase.coverMedia?.url
+    ?? showcase.coverMedia?.publicUrl
+    ?? showcase.coverMedia?.fileUrl
+    ?? showcase.media?.find((media) => media.isCover)?.url
+    ?? showcase.media?.find((media) => media.isCover)?.publicUrl
+    ?? showcase.media?.find((media) => media.isCover)?.fileUrl
+    ?? showcase.media?.[0]?.url
+    ?? showcase.media?.[0]?.publicUrl
+    ?? showcase.media?.[0]?.fileUrl
+    ?? null;
+}
+
+function formatArea(value?: number | null) {
+  if (typeof value !== 'number') return '-';
+
+  return `${new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 1 }).format(value)} m2`;
+}
+
+function formatYear(showcase: ProjectShowcaseDto) {
+  if (typeof showcase.completionYear === 'number') return String(showcase.completionYear);
+  if (!showcase.completedDate) return '-';
+
+  const date = new Date(showcase.completedDate);
+
+  return Number.isNaN(date.getTime()) ? '-' : String(date.getFullYear());
 }
