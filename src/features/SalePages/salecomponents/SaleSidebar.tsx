@@ -3,107 +3,93 @@ import {
   IconFileDollar,
   IconHome,
   IconMenu2,
+  IconMessageCircle,
   IconChevronLeft,
   IconTruckDelivery,
   type Icon,
 } from '@tabler/icons-react';
 import { NavLink } from 'react-router-dom';
 
+import { useLang } from '@/app/providers/useLang';
 import logoImage from '@/assets/Logo/Logo.png';
 import { useActorSidebarCollapse } from '@/shared/hooks/useActorSidebarCollapse';
 
+import { saleCopy, type SaleNavKey } from './saleI18n';
+
 type SaleSidebarItem = {
-  label: string;
+  key: SaleNavKey;
   icon: Icon;
-  path?: string;
+  path: string;
 };
 
 const saleSidebarItems: SaleSidebarItem[] = [
-  { label: 'Dashboard', icon: IconHome, path: '/sales/dashbroad' },
-  { label: 'Project Request Queue', icon: IconHome, path: '/sales/project-requests' },
-  { label: 'Assigned Projects', icon: IconBriefcase, path: '/sales/assigned-projects' },
-  { label: 'Quotations', icon: IconFileDollar, path: '/sales/quotations' },
-  { label: 'Orders', icon: IconFileDollar, path: '/sales/orders' },
-  { label: 'Tracking', icon: IconTruckDelivery, path: '/sales/tracking' },
+  { key: 'dashboard', icon: IconHome, path: '/sales/dashbroad' },
+  { key: 'projectRequestQueue', icon: IconHome, path: '/sales/project-requests' },
+  { key: 'assignedProjects', icon: IconBriefcase, path: '/sales/assigned-projects' },
+  { key: 'projectChat', icon: IconMessageCircle, path: '/sales/chat' },
+  { key: 'quotations', icon: IconFileDollar, path: '/sales/quotations' },
+  { key: 'orders', icon: IconFileDollar, path: '/sales/orders' },
+  { key: 'tracking', icon: IconTruckDelivery, path: '/sales/tracking' },
 ];
 
 type SaleSidebarProps = {
-  activeLabel: string;
+  activeKey: SaleNavKey;
 };
 
-export function SaleSidebar({ activeLabel }: SaleSidebarProps) {
+export function SaleSidebar({ activeKey }: SaleSidebarProps) {
+  const { lang } = useLang();
+  const t = saleCopy[lang];
   const { collapse, expand, isCollapsed } = useActorSidebarCollapse('sale');
 
   return (
     <>
-    <button
-      aria-label="Open sale sidebar"
-      className="actor-sidebar-open-button sale-sidebar-open-button"
-      hidden={!isCollapsed}
-      type="button"
-      onClick={expand}
-    >
-      <IconMenu2 size={22} />
-    </button>
+      <button
+        aria-label={t.openSidebar}
+        className="actor-sidebar-open-button sale-sidebar-open-button"
+        hidden={!isCollapsed}
+        type="button"
+        onClick={expand}
+      >
+        <IconMenu2 size={22} />
+      </button>
 
-    <aside className={`sale-sidebar ${isCollapsed ? 'is-collapsed' : 'is-expanded'}`}>
-      <div className="sale-sidebar-brand">
-        <img className="sale-sidebar-brand-logo" src={logoImage} alt="FurniSpace" />
-        <div>
-          <h1>FurniSpace</h1>
-          <p>Interior Solutions</p>
+      <aside className={`sale-sidebar ${isCollapsed ? 'is-collapsed' : 'is-expanded'}`}>
+        <div className="sale-sidebar-brand">
+          <img className="sale-sidebar-brand-logo" src={logoImage} alt="FurniSpace" />
+          <div>
+            <h1>FurniSpace</h1>
+            <p>{t.workspace}</p>
+          </div>
+          <button
+            aria-label={t.collapseSidebar}
+            className="actor-sidebar-collapse-button"
+            hidden={isCollapsed}
+            type="button"
+            onClick={collapse}
+          >
+            <IconChevronLeft size={18} />
+          </button>
         </div>
-        <button aria-label="Collapse sale sidebar" className="actor-sidebar-collapse-button" hidden={isCollapsed} type="button" onClick={collapse}>
-          <IconChevronLeft size={18} />
-        </button>
-      </div>
 
-      <nav className="sale-sidebar-nav">
-        {saleSidebarItems.map(({ label, icon: ItemIcon, path }) => {
-          const staticItemClass = label === activeLabel ? 'sale-sidebar-item-active' : '';
+        <nav className="sale-sidebar-nav">
+          {saleSidebarItems.map(({ key, icon: ItemIcon, path }) => {
+            const label = t.nav[key];
+            const isActive = key === activeKey;
 
-          const content = (
-            <>
-              <ItemIcon size={18} />
-              <span>{label}</span>
-            </>
-          );
-
-          if (!path) {
             return (
-              <button
-              key={label}
-              type="button"
-              className={`sale-sidebar-item ${staticItemClass}`}
-              disabled
-              title={label}
-            >
-                {content}
-              </button>
+              <NavLink
+                key={key}
+                to={path}
+                title={label}
+                className={`sale-sidebar-item${isActive ? ' sale-sidebar-item-active' : ''}`}
+              >
+                <ItemIcon size={18} />
+                <span>{label}</span>
+              </NavLink>
             );
-          }
-
-          return (
-            <NavLink
-              key={label}
-              to={path}
-              title={label}
-              className={({ isActive }) => {
-                const itemClass =
-                  isActive || label === activeLabel
-                    ? 'sale-sidebar-item-active'
-                    : '';
-
-                return `sale-sidebar-item ${itemClass}`;
-              }}
-            >
-              {content}
-            </NavLink>
-          );
-        })}
-      </nav>
-
-    </aside>
+          })}
+        </nav>
+      </aside>
     </>
   );
 }

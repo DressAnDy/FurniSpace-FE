@@ -10,7 +10,8 @@ import {
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 
-import { SaleNavbar, SaleSidebar } from '@/features/SalePages/salecomponents';
+import { useLang } from '@/app/providers/useLang';
+import { SaleNavbar, SaleSidebar, saleCopy } from '@/features/SalePages/salecomponents';
 import {
   getProjectScheduleServiceResultMessage,
   type ProjectScheduleDto,
@@ -56,6 +57,9 @@ const scheduleStatusOptions: Array<ProjectScheduleStatus | ''> = [
 ];
 
 export function SaleSchedules() {
+  const { lang } = useLang();
+  const t = saleCopy[lang];
+  const s = t.schedules;
   const [searchParams, setSearchParams] = useSearchParams();
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [editingSchedule, setEditingSchedule] = useState<ProjectScheduleDto | null>(null);
@@ -230,14 +234,14 @@ export function SaleSchedules() {
 
   return (
     <div className="sale-schedules-shell">
-      <SaleSidebar activeLabel="Schedules" />
+      <SaleSidebar activeKey="schedules" />
       <div className="sale-schedules-content">
         <SaleNavbar />
         <main className="sale-schedules-main">
           <section className="sale-schedules-heading">
             <div>
-              <h2>Schedules & Appointments</h2>
-              <p>Manage schedules across projects assigned to your sales workspace</p>
+              <h2>{s.title}</h2>
+              <p>{s.subtitle}</p>
             </div>
             <button
               className="sale-schedules-create-button"
@@ -246,25 +250,25 @@ export function SaleSchedules() {
               onClick={() => setIsCreateModalOpen(true)}
             >
               <IconPlus size={16} />
-              Create Schedule
+              {s.createSchedule}
             </button>
           </section>
 
           <section className="sale-schedules-view-card">
             <div className="sale-schedules-filters">
               <label>
-                <span>Type</span>
+                <span>{s.type}</span>
                 <select value={scheduleType} onChange={(event) => setScheduleType(event.target.value as ProjectScheduleType | '')}>
                   {scheduleTypeOptions.map((option) => (
-                    <option key={option || 'ALL'} value={option}>{option ? formatEnumLabel(option) : 'All types'}</option>
+                    <option key={option || 'ALL'} value={option}>{option ? formatEnumLabel(option) : s.allTypes}</option>
                   ))}
                 </select>
               </label>
               <label>
-                <span>Status</span>
+                <span>{t.common.status}</span>
                 <select value={status} onChange={(event) => setStatus(event.target.value as ProjectScheduleStatus | '')}>
                   {scheduleStatusOptions.map((option) => (
-                    <option key={option || 'ALL'} value={option}>{option ? formatEnumLabel(option) : 'All statuses'}</option>
+                    <option key={option || 'ALL'} value={option}>{option ? formatEnumLabel(option) : s.allStatuses}</option>
                   ))}
                 </select>
               </label>
@@ -272,7 +276,7 @@ export function SaleSchedules() {
           </section>
 
           {actionMessage ? <p className="sale-schedules-message">{actionMessage}</p> : null}
-          {isLoading ? <p className="sale-schedules-state">Loading schedules...</p> : null}
+          {isLoading ? <p className="sale-schedules-state">{t.common.loading}</p> : null}
           {projectsQuery.isError ? <p className="sale-schedules-state sale-schedules-state-error">Could not load projects assigned to this sales account.</p> : null}
           {scheduleError ? <p className="sale-schedules-state sale-schedules-state-error">{getProjectScheduleServiceResultMessage(scheduleError)}</p> : null}
 
@@ -280,7 +284,7 @@ export function SaleSchedules() {
               <section className="sale-schedules-calendar-card" aria-label="Monthly schedule calendar">
                 <div className="sale-schedules-calendar-head">
                   <div>
-                    <span>Monthly overview</span>
+                    <span>{s.monthlyOverview}</span>
                     <h3>{formatMonthYear(calendarMonth)}</h3>
                   </div>
                   <div className="sale-schedules-calendar-controls">
@@ -371,6 +375,9 @@ export function SaleSchedules() {
                   <ScheduleDetail
                     item={selectedItem}
                     isUpdating={updateStatusMutation.isPending || deleteScheduleMutation.isPending}
+                    labels={s}
+                    cancelLabel={t.common.cancel}
+                    deleteLabel={t.common.delete}
                     onCancel={() => void updateScheduleStatus(selectedItem.schedule, 'CANCELLED')}
                     onComplete={() => void updateScheduleStatus(selectedItem.schedule, 'COMPLETED')}
                     onDelete={() => void deleteSchedule(selectedItem.schedule)}
@@ -379,8 +386,8 @@ export function SaleSchedules() {
                 ) : (
                   <div className="sale-schedules-empty-detail">
                     <IconCalendarEvent size={32} />
-                    <h3>No schedule selected</h3>
-                    <p>Select a schedule from the calendar to review its details.</p>
+                    <h3>{s.emptySelected}</h3>
+                    <p>{s.emptyHint}</p>
                   </div>
                 )}
               </section>
@@ -403,13 +410,16 @@ export function SaleSchedules() {
 type ScheduleDetailProps = Readonly<{
   item: ManagedSchedule;
   isUpdating: boolean;
+  labels: (typeof saleCopy)['en']['schedules'];
+  cancelLabel: string;
+  deleteLabel: string;
   onCancel: () => void;
   onComplete: () => void;
   onDelete: () => void;
   onReschedule: () => void;
 }>;
 
-function ScheduleDetail({ item, isUpdating, onCancel, onComplete, onDelete, onReschedule }: ScheduleDetailProps) {
+function ScheduleDetail({ item, isUpdating, labels, cancelLabel, deleteLabel, onCancel, onComplete, onDelete, onReschedule }: ScheduleDetailProps) {
   const { project, schedule } = item;
   const canReschedule = schedule.status === 'PENDING_CONFIRMATION' || schedule.status === 'CONFIRMED' || schedule.status === 'CANCELLED';
   const canCancel = schedule.status === 'PENDING_CONFIRMATION' || schedule.status === 'CONFIRMED';
@@ -430,37 +440,37 @@ function ScheduleDetail({ item, isUpdating, onCancel, onComplete, onDelete, onRe
       <div className="sale-schedules-detail-grid">
         <div>
           <IconClock size={18} />
-          <span>Start</span>
+          <span>{labels.start}</span>
           <strong>{formatDateTime(schedule.scheduledStart)}</strong>
         </div>
         <div>
           <IconClock size={18} />
-          <span>End</span>
+          <span>{labels.end}</span>
           <strong>{schedule.scheduledEnd ? formatDateTime(schedule.scheduledEnd) : 'Not specified'}</strong>
         </div>
         <div>
           <IconMapPin size={18} />
-          <span>Location</span>
+          <span>{labels.location}</span>
           <strong>{schedule.location ?? 'Not specified'}</strong>
         </div>
         <div>
           <IconUser size={18} />
-          <span>Assignment</span>
+          <span>{labels.assignment}</span>
           <strong>{schedule.assignedStaffId ? 'Assigned project designer' : 'No staff assigned'}</strong>
         </div>
       </div>
 
       <div className="sale-schedules-detail-notes">
-        <h4>Details</h4>
+        <h4>{labels.details}</h4>
         <p>{schedule.description || schedule.internalNote || schedule.customerNote || 'No additional schedule details were provided.'}</p>
       </div>
 
       {canReschedule || canComplete || canCancel || canDelete ? (
         <div className="sale-schedules-detail-actions">
-          {canReschedule ? <button disabled={isUpdating} type="button" onClick={onReschedule}>{schedule.status === 'CANCELLED' ? 'Update Schedule' : 'Reschedule'}</button> : null}
-          {canComplete ? <button disabled={isUpdating} type="button" onClick={onComplete}>Mark Complete</button> : null}
-          {canCancel ? <button className="sale-schedules-cancel-button" disabled={isUpdating} type="button" onClick={onCancel}>Cancel</button> : null}
-          {canDelete ? <button className="sale-schedules-cancel-button" disabled={isUpdating} type="button" onClick={onDelete}>Delete</button> : null}
+          {canReschedule ? <button disabled={isUpdating} type="button" onClick={onReschedule}>{labels.reschedule}</button> : null}
+          {canComplete ? <button disabled={isUpdating} type="button" onClick={onComplete}>{labels.markComplete}</button> : null}
+          {canCancel ? <button className="sale-schedules-cancel-button" disabled={isUpdating} type="button" onClick={onCancel}>{cancelLabel}</button> : null}
+          {canDelete ? <button className="sale-schedules-cancel-button" disabled={isUpdating} type="button" onClick={onDelete}>{deleteLabel}</button> : null}
         </div>
       ) : null}
     </>

@@ -2,7 +2,10 @@ import { IconArrowLeft, IconBan, IconCircleCheck, IconInfoCircle, IconLoader2, I
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 
-import { ProjectStatusBadge, ProjectTimeline, SaleNavbar, SaleSidebar } from '@/features/SalePages/salecomponents';
+import { useLang } from '@/app/providers/useLang';
+import { ProjectStatusBadge, ProjectTimeline, SaleNavbar, SaleSidebar, saleCopy } from '@/features/SalePages/salecomponents';
+import { OperationalDelayPanel } from '@/features/operationalDelayReports/OperationalDelayPanel';
+import { ProductIssuePanel } from '@/features/productIssues/ProductIssuePanel';
 import { ProjectShowcaseManager } from '@/features/showcases/ProjectShowcaseManager';
 import type { OrderListItemDto } from '@/services/api/orders';
 import type { ProjectDto, ProjectStatus } from '@/services/api/projects';
@@ -16,31 +19,17 @@ import {
   useReopenProjectProposal,
   useRequestProjectInformation,
 } from '@/services/queries/useProjects';
+import { useProductionRequests } from '@/services/queries/useProduction';
 
-import { ChatTab, FilesAttachmentsTab, OverviewTab, ProjectMemberTab } from './tabs';
+import { FilesAttachmentsTab, OverviewTab, ProjectMemberTab } from './tabs';
 import { ProjectStartFeePanel } from './components/ProjectStartFeePanel';
 import './ProjectDetail.css';
 
-type ProjectDetailTab = 'overview' | 'customer' | 'files' | 'chat' | 'showcase';
+type ProjectDetailTab = 'overview' | 'customer' | 'files' | 'delays' | 'issues' | 'showcase';
 
 export type ProjectDetailProject = ProjectDto;
 
-const reviewTabs: Array<{ id: ProjectDetailTab; label: string }> = [
-  { id: 'overview', label: 'Overview' },
-  { id: 'customer', label: 'Project Member' },
-];
-
-const baseTabs: Array<{ id: ProjectDetailTab; label: string }> = [
-  { id: 'overview', label: 'Overview' },
-  { id: 'customer', label: 'Project Member' },
-  { id: 'files', label: 'Files & Attachments' },
-  { id: 'chat', label: 'Chat' },
-];
-
-const assignedProjectTabs: Array<{ id: ProjectDetailTab; label: string }> = [
-  ...baseTabs,
-  { id: 'showcase', label: 'Showcase' },
-];
+type TabDef = { id: ProjectDetailTab; label: string };
 
 const timelineSteps = [
   'Submitted',
@@ -86,6 +75,9 @@ const statusStepMap: Record<string, string> = {
 };
 
 export function ProjectDetail() {
+  const { lang } = useLang();
+  const t = saleCopy[lang];
+  const pd = t.projectDetail;
   const { projectId } = useParams();
   const location = useLocation();
   const navigate = useNavigate();
@@ -101,14 +93,42 @@ export function ProjectDetail() {
   const completeProjectMutation = useCompleteProject();
   const isAssignedProjectRoute = location.pathname.startsWith('/sales/assigned-projects');
   const projectOrdersQuery = useProjectOrders(projectId, { enabled: Boolean(projectId) && isAssignedProjectRoute });
+  const productionRequestsQuery = useProductionRequests(undefined, { enabled: Boolean(projectId) && isAssignedProjectRoute });
   const project = projectQuery.data;
   const relatedOrder = useMemo(() => getPrimaryRelatedOrder(projectOrdersQuery.data?.items ?? []), [projectOrdersQuery.data?.items]);
-  const activeSidebarLabel = isAssignedProjectRoute ? 'Assigned Projects' : 'Project Request Queue';
+  const relatedProductionRequest = useMemo(
+    () => productionRequestsQuery.data?.items.find((request) => request.projectId === projectId) ?? null,
+    [productionRequestsQuery.data?.items, projectId],
+  );
+  const activeSidebarKey = isAssignedProjectRoute ? 'assignedProjects' as const : 'projectRequestQueue' as const;
   const hasConsultationAccess = Boolean(project && project.status !== 'SUBMITTED');
+  const reviewTabs: TabDef[] = [
+    { id: 'overview', label: pd.tabOverview },
+    { id: 'customer', label: pd.tabMembers },
+  ];
+  const baseTabs: TabDef[] = [
+    { id: 'overview', label: pd.tabOverview },
+    { id: 'customer', label: pd.tabMembers },
+    { id: 'files', label: pd.tabFiles },
+  ];
+  const assignedProjectTabs: TabDef[] = [
+    ...baseTabs,
+    { id: 'delays', label: pd.tabDelay },
+    { id: 'issues', label: pd.tabIssues },
+    { id: 'showcase', label: pd.tabShowcase },
+  ];
   const visibleTabs = hasConsultationAccess ? (isAssignedProjectRoute ? assignedProjectTabs : baseTabs) : reviewTabs;
   const backPath = isAssignedProjectRoute ? '/sales/assigned-projects' : '/sales/project-requests';
-  const backLabel = isAssignedProjectRoute ? 'Back to Assigned Projects' : 'Back to Project Request Queue';
-  const requestedTab = new URLSearchParams(location.search).get('tab') as ProjectDetailTab | null;
+  const backLabel = isAssignedProjectRoute ? pd.backAssigned : pd.backQueue;
+  const requestedTab = new URLSearchParams(location.search).get('tab');
+  const requestedChatId = new URLSearchParams(location.search).get('chatId');
+
+  useEffect(() => {
+    if (requestedTab === 'chat' && projectId) {
+      const chatQuery = requestedChatId ? `&chatId=${encodeURIComponent(requestedChatId)}` : '';
+      navigate(`/sales/chat?projectId=${encodeURIComponent(projectId)}${chatQuery}`, { replace: true });
+    }
+  }, [navigate, projectId, requestedChatId, requestedTab]);
 
   useEffect(() => {
     if (!visibleTabs.some((tab) => tab.id === activeTab)) {
@@ -118,7 +138,7 @@ export function ProjectDetail() {
 
   useEffect(() => {
     if (requestedTab && visibleTabs.some((tab) => tab.id === requestedTab)) {
-      setActiveTab(requestedTab);
+      setActiveTab(requestedTab as ProjectDetailTab);
     }
   }, [requestedTab, visibleTabs]);
 
@@ -221,15 +241,27 @@ export function ProjectDetail() {
     if (activeTab === 'overview') return <OverviewTab project={project} />;
     if (activeTab === 'customer') return <ProjectMemberTab project={project} canManageAssignment={isAssignedProjectRoute} />;
     if (activeTab === 'files') return <FilesAttachmentsTab projectId={project.projectId} />;
+    if (activeTab === 'delays' && isAssignedProjectRoute) {
+      return (
+        <OperationalDelayPanel
+          orderId={relatedOrder?.orderId}
+          productionRequestId={relatedProductionRequest?.productionRequestId}
+          projectId={project.projectId}
+        />
+      );
+    }
+    if (activeTab === 'issues' && isAssignedProjectRoute) {
+      return <ProductIssuePanel projectId={project.projectId} />;
+    }
     if (activeTab === 'showcase' && isAssignedProjectRoute) {
       return <ProjectShowcaseManager projectId={project.projectId} projectName={project.projectName} projectStatus={project.status} role="sales" />;
     }
-    return <ChatTab project={project} />;
+    return <OverviewTab project={project} />;
   };
 
   return (
     <div className="project-detail-shell">
-      <SaleSidebar activeLabel={activeSidebarLabel} />
+      <SaleSidebar activeKey={activeSidebarKey} />
       <div className="project-detail-content">
         <SaleNavbar />
         <main className="project-detail-main">
@@ -240,7 +272,7 @@ export function ProjectDetail() {
                 <span>{backLabel}</span>
               </button>
               <div className="project-detail-title-row">
-                <h2>{project?.projectName ?? 'Project Detail'}</h2>
+                <h2>{project?.projectName ?? pd.fallbackTitle}</h2>
                 {project ? <ProjectStatusBadge status={project.status} /> : null}
               </div>
               {project ? (
@@ -270,7 +302,7 @@ export function ProjectDetail() {
                           ) : (
                             <IconInfoCircle size={16} stroke={2} />
                           )}
-                          <span>{requestInformationMutation.isPending ? 'Sending...' : 'Request More Info'}</span>
+                          <span>{requestInformationMutation.isPending ? t.common.sending : pd.requestMoreInfo}</span>
                         </button>
                       ) : null}
                       {canRejectProject(project.status) ? (
@@ -285,7 +317,7 @@ export function ProjectDetail() {
                           ) : (
                             <IconBan size={16} stroke={2} />
                           )}
-                          <span>{rejectProjectMutation.isPending ? 'Updating...' : 'Reject Project'}</span>
+                          <span>{rejectProjectMutation.isPending ? t.common.refreshing : pd.rejectProject}</span>
                         </button>
                       ) : null}
                       {project.status === 'SUBMITTED' || project.status === 'NEED_BASIC_INFORMATION' ? (
@@ -294,7 +326,7 @@ export function ProjectDetail() {
                           disabled={assignSalesMutation.isPending}
                           onClick={() => void handleAcceptForConsultation()}
                         >
-                          {assignSalesMutation.isPending ? 'Accepting...' : 'Accept for Consultation'}
+                          {assignSalesMutation.isPending ? t.common.refreshing : pd.acceptConsultation}
                         </button>
                       ) : null}
                     </div>
@@ -308,7 +340,7 @@ export function ProjectDetail() {
                     onClick={() => void handleReopenProposal()}
                   >
                     <IconRefresh size={16} />
-                    {reopenProposalMutation.isPending ? 'Reopening...' : 'Reopen Proposal'}
+                    {reopenProposalMutation.isPending ? t.common.refreshing : pd.reopenProposal}
                   </button>
                 ) : null}
               </div>
@@ -321,7 +353,7 @@ export function ProjectDetail() {
             </section>
           ) : null}
 
-          {projectQuery.isLoading ? <section className="project-detail-card project-detail-state">Loading project detail...</section> : null}
+          {projectQuery.isLoading ? <section className="project-detail-card project-detail-state">{t.common.loading}</section> : null}
           {projectQuery.isError ? (
             <section className="project-detail-card project-detail-state">
               {getProjectServiceResultMessage(projectQuery.error)}
@@ -336,8 +368,11 @@ export function ProjectDetail() {
               <ProjectTimeline currentStep={getTimelineCurrentStep(project.status)} steps={getTimelineSteps(project.status)} dates={getTimelineDates(project)} />
               {isAssignedProjectRoute && isPostDeliveryProject(project.status) ? (
                 <ProjectCompletionPanel
+                  completeLabel={pd.completeProject}
+                  completedLabel={pd.projectCompleted}
                   isCompleting={completeProjectMutation.isPending}
                   isLoadingOrder={projectOrdersQuery.isLoading}
+                  kicker={pd.projectCompletion}
                   order={relatedOrder}
                   projectStatus={project.status}
                   onComplete={() => void handleCompleteProject()}
@@ -363,11 +398,11 @@ export function ProjectDetail() {
               <form className="project-detail-request-modal" onSubmit={handleRequestInformationSubmit}>
                 <div className="project-detail-request-modal-header">
                   <div>
-                    <strong>Request Basic Information</strong>
+                    <strong>{pd.requestBasicInfo}</strong>
                     <p>Write the message customers will see before they update their project details.</p>
                   </div>
                   <button
-                    aria-label="Close request information modal"
+                    aria-label={t.common.close}
                     type="button"
                     onClick={() => {
                       setIsRequestInfoModalOpen(false);
@@ -402,10 +437,10 @@ export function ProjectDetail() {
                       setStatusMessage('');
                     }}
                   >
-                    Cancel
+                    {t.common.cancel}
                   </button>
                   <button type="submit" disabled={requestInformationMutation.isPending || !requestInfoMessage.trim()}>
-                    {requestInformationMutation.isPending ? 'Sending...' : 'Send Request'}
+                    {requestInformationMutation.isPending ? t.common.sending : pd.sendRequest}
                   </button>
                 </div>
               </form>
@@ -476,14 +511,20 @@ function isPostDeliveryProject(status: ProjectStatus) {
 }
 
 function ProjectCompletionPanel({
+  completeLabel,
+  completedLabel,
   isCompleting,
   isLoadingOrder,
+  kicker,
   onComplete,
   order,
   projectStatus,
 }: {
+  completeLabel: string;
+  completedLabel: string;
   isCompleting: boolean;
   isLoadingOrder: boolean;
+  kicker: string;
   onComplete: () => void;
   order: OrderListItemDto | null;
   projectStatus: ProjectStatus;
@@ -494,8 +535,8 @@ function ProjectCompletionPanel({
   return (
     <section className="project-detail-completion-card">
       <div>
-        <span className="project-detail-completion-kicker">Project completion</span>
-        <h3>{projectStatus === 'COMPLETED' ? 'Project completed' : 'Post-delivery review'}</h3>
+        <span className="project-detail-completion-kicker">{kicker}</span>
+        <h3>{projectStatus === 'COMPLETED' ? completedLabel : 'Post-delivery review'}</h3>
         <p>{message}</p>
       </div>
       <div className="project-detail-completion-actions">
@@ -506,7 +547,7 @@ function ProjectCompletionPanel({
         ) : null}
         <button disabled={!canCompleteProject || isCompleting} type="button" onClick={onComplete}>
           {isCompleting ? <IconLoader2 className="project-detail-decision-spinner" size={16} stroke={2} /> : <IconCircleCheck size={16} stroke={2} />}
-          <span>{projectStatus === 'COMPLETED' ? 'Completed' : isCompleting ? 'Completing...' : 'Complete Project'}</span>
+          <span>{projectStatus === 'COMPLETED' ? completedLabel : isCompleting ? 'Completing...' : completeLabel}</span>
         </button>
       </div>
     </section>

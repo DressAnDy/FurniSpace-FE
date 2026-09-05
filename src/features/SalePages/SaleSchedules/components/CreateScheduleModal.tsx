@@ -1,6 +1,8 @@
 import { IconX } from '@tabler/icons-react';
 import { type FormEvent, useEffect, useState } from 'react';
 
+import { useLang } from '@/app/providers/useLang';
+import { saleCopy } from '@/features/SalePages/salecomponents';
 import {
   getProjectScheduleServiceResultMessage,
   type ProjectScheduleDto,
@@ -26,6 +28,9 @@ const scheduleTypes: ProjectScheduleType[] = [
 ];
 
 export function CreateScheduleModal({ editingSchedule, isOpen, projects, onClose }: CreateScheduleModalProps) {
+  const { lang } = useLang();
+  const t = saleCopy[lang];
+  const m = t.createScheduleModal;
   const [message, setMessage] = useState('');
   const [selectedProjectId, setSelectedProjectId] = useState('');
   const [selectedScheduleType, setSelectedScheduleType] = useState<ProjectScheduleType>('MEASUREMENT');
@@ -143,12 +148,12 @@ export function CreateScheduleModal({ editingSchedule, isOpen, projects, onClose
   return (
     <div className="sale-schedules-modal-overlay" role="presentation">
       <section className="sale-schedules-modal" role="dialog" aria-modal="true" aria-labelledby="create-schedule-title">
-        <button className="sale-schedules-modal-close" type="button" aria-label="Close schedule modal" onClick={onClose}>
+        <button className="sale-schedules-modal-close" type="button" aria-label={t.common.close} onClick={onClose}>
           <IconX size={16} />
         </button>
 
         <header className="sale-schedules-modal-header">
-          <h3 id="create-schedule-title">{editingSchedule ? 'Update Appointment' : 'Create New Schedule'}</h3>
+          <h3 id="create-schedule-title">{editingSchedule ? m.updateTitle : m.createTitle}</h3>
           <p>
             {editingSchedule?.status === 'CANCELLED'
               ? 'Update the appointment details and send it back to the customer for confirmation.'
@@ -160,9 +165,9 @@ export function CreateScheduleModal({ editingSchedule, isOpen, projects, onClose
 
         <form className="sale-schedules-modal-form" onSubmit={handleSubmit}>
           <label>
-            <span>Project</span>
+            <span>{m.project}</span>
             {editingSchedule ? (
-              <input value={selectedProject ? `${selectedProject.projectCode} - ${selectedProject.projectName}` : 'Assigned project'} disabled readOnly />
+              <input value={selectedProject ? `${selectedProject.projectCode} - ${selectedProject.projectName}` : m.selectProject} disabled readOnly />
             ) : (
               <select
                 name="projectId"
@@ -178,7 +183,7 @@ export function CreateScheduleModal({ editingSchedule, isOpen, projects, onClose
                   setHasEditedLocation(false);
                 }}
               >
-                <option value="" disabled>Select project</option>
+                <option value="" disabled>{m.selectProject}</option>
                 {eligibleProjects.map((project) => (
                   <option key={project.projectId} value={project.projectId}>
                     {project.projectCode} - {project.projectName}
@@ -189,7 +194,7 @@ export function CreateScheduleModal({ editingSchedule, isOpen, projects, onClose
           </label>
 
           <label>
-            <span>Schedule Type</span>
+            <span>{m.scheduleType}</span>
             <select
               disabled={Boolean(editingSchedule)}
               name="scheduleType"
@@ -203,10 +208,10 @@ export function CreateScheduleModal({ editingSchedule, isOpen, projects, onClose
           </label>
 
           <label>
-            <span>Title</span>
+            <span>{m.title}</span>
             <input
               name="title"
-              placeholder="Schedule title"
+              placeholder={m.scheduleTitle}
               type="text"
               value={scheduleTitle}
               onChange={(event) => setScheduleTitle(event.target.value)}
@@ -215,7 +220,7 @@ export function CreateScheduleModal({ editingSchedule, isOpen, projects, onClose
 
           <div className="sale-schedules-modal-grid">
             <label>
-              <span>Start Date & Time</span>
+              <span>{m.startDateTime}</span>
               <input
                 name="scheduledStart"
                 type="datetime-local"
@@ -224,7 +229,7 @@ export function CreateScheduleModal({ editingSchedule, isOpen, projects, onClose
               />
             </label>
             <label>
-              <span>End Date & Time</span>
+              <span>{m.endDateTime}</span>
               <input
                 name="scheduledEnd"
                 type="datetime-local"
@@ -235,10 +240,10 @@ export function CreateScheduleModal({ editingSchedule, isOpen, projects, onClose
           </div>
 
           <label>
-            <span>Location</span>
+            <span>{m.location}</span>
             <input
               name="location"
-              placeholder={selectedProjectDetailQuery.isLoading ? 'Loading project address...' : 'Meeting location or address'}
+              placeholder={selectedProjectDetailQuery.isLoading ? t.common.loading : m.meetingLocation}
               type="text"
               value={scheduleLocation}
               onChange={(event) => {
@@ -249,19 +254,19 @@ export function CreateScheduleModal({ editingSchedule, isOpen, projects, onClose
           </label>
 
           <label>
-            <span>Description</span>
-            <textarea defaultValue={editingSchedule?.description ?? ''} name="description" placeholder="Additional notes..." />
+            <span>{m.description}</span>
+            <textarea defaultValue={editingSchedule?.description ?? ''} name="description" placeholder={m.additionalNotes} />
           </label>
 
           {eligibleProjects.length === 0 && !editingSchedule ? (
-            <p className="sale-schedules-modal-message">No assigned project currently has a designer.</p>
+            <p className="sale-schedules-modal-message">{m.noDesignerProject}</p>
           ) : null}
           {message ? <p className="sale-schedules-modal-message">{message}</p> : null}
 
           <footer className="sale-schedules-modal-footer">
-            <button className="sale-schedules-modal-cancel" disabled={isSaving} type="button" onClick={onClose}>Cancel</button>
+            <button className="sale-schedules-modal-cancel" disabled={isSaving} type="button" onClick={onClose}>{t.common.cancel}</button>
             <button className="sale-schedules-modal-submit" disabled={isSaving || (!editingSchedule && eligibleProjects.length === 0)} type="submit">
-              {isSaving ? 'Saving...' : editingSchedule ? 'Save Changes' : 'Create Schedule'}
+              {isSaving ? 'Saving...' : editingSchedule ? m.saveChanges : m.create}
             </button>
           </footer>
         </form>
@@ -289,4 +294,3 @@ function formatEnumLabel(value: string) {
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(' ');
 }
-

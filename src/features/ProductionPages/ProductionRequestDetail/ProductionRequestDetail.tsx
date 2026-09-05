@@ -8,6 +8,7 @@ import {
   ProductionStatusBadge,
 } from '@/features/ProductionPages/productioncomponents';
 import type { ProductionItem, ProductionItemStatus, ProductionRequestStatus } from '@/features/ProductionPages/types';
+import { OperationalDelayPanel } from '@/features/operationalDelayReports/OperationalDelayPanel';
 import { formatDate, getProductionItemStatusLabel, getProductionRequestStatusLabel } from '@/features/ProductionPages/utils';
 import { ProjectPhaseTimelineCard } from '@/features/projectPhaseDeadlines/ProjectPhaseTimelineCard';
 import { getProductionServiceResultMessage } from '@/services/api/production';
@@ -145,6 +146,12 @@ export function ProductionRequestDetail() {
             <p>{request.orderCode} - {request.note ?? 'No request note provided.'}</p>
           </div>
           <div className="production-workspace-actions">
+            <Link
+              className="production-workspace-action-link production-workspace-button-secondary"
+              to={`/production/chat?projectId=${encodeURIComponent(request.projectId)}&productionRequestId=${encodeURIComponent(request.productionRequestId)}`}
+            >
+              Open Chat
+            </Link>
             {request.status === 'PENDING' ? (
               <button className="production-workspace-button" disabled={startMutation.isPending} type="button" onClick={() => void runRequestAction('start')}>
                 Start
@@ -182,6 +189,14 @@ export function ProductionRequestDetail() {
           title="Production Timeline"
           description="Production and delivery phase deadlines for this assigned project."
           emptyText="No production deadline has been planned yet."
+        />
+
+        <OperationalDelayPanel
+          allowedPhases={['PRODUCTION']}
+          defaultPhase="PRODUCTION"
+          productionRequestId={request.productionRequestId}
+          projectId={request.projectId}
+          title="Production delay history"
         />
 
         <article className="production-workspace-card">

@@ -3,7 +3,8 @@ import { useQueries } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
-import { ProjectStatusBadge, SaleNavbar, SaleSidebar } from '@/features/SalePages/salecomponents';
+import { useLang } from '@/app/providers/useLang';
+import { ProjectStatusBadge, SaleNavbar, SaleSidebar, saleCopy } from '@/features/SalePages/salecomponents';
 import { getAccountById, type AccountDto } from '@/services/api';
 import type { ProjectStatus } from '@/services/api/projects';
 import { useCurrentUser } from '@/services/queries/useAuth';
@@ -38,6 +39,9 @@ const projectStatusRank = new Map<ProjectStatus, number>(
 );
 
 export function AssignedProjects() {
+  const { lang } = useLang();
+  const t = saleCopy[lang];
+  const a = t.assignedProjects;
   const navigate = useNavigate();
   const [keyword, setKeyword] = useState('');
   const [status, setStatus] = useState<ProjectStatus | typeof ALL_STATUS_VALUE>(ALL_STATUS_VALUE);
@@ -148,18 +152,18 @@ export function AssignedProjects() {
 
   return (
     <div className="assigned-projects-shell">
-      <SaleSidebar activeLabel="Assigned Projects" />
+      <SaleSidebar activeKey="assignedProjects" />
       <div className="assigned-projects-content">
         <SaleNavbar />
         <main className="assigned-projects-main">
           <section className="assigned-projects-heading">
             <div>
-              <h2>Assigned Projects</h2>
-              <p>Track customer projects currently assigned to your sales workspace</p>
+              <h2>{a.title}</h2>
+              <p>{a.subtitle}</p>
             </div>
             <div className="assigned-projects-summary">
               <IconUserCheck size={20} />
-              <span>{filteredProjects.length} assigned</span>
+              <span>{a.assignedCount(filteredProjects.length)}</span>
             </div>
           </section>
 
@@ -169,19 +173,19 @@ export function AssignedProjects() {
                 <IconSearch size={17} />
                 <input
                   type="search"
-                  placeholder="Search projects..."
+                  placeholder={t.common.searchProjects}
                   value={keyword}
                   onChange={(event) => setKeyword(event.target.value)}
                 />
               </label>
               <select value={status} onChange={(event) => setStatus(event.target.value as ProjectStatus | typeof ALL_STATUS_VALUE)}>
-                <option value={ALL_STATUS_VALUE}>All status</option>
+                <option value={ALL_STATUS_VALUE}>{t.common.allStatus}</option>
                 {projectStatusPriority.map((projectStatus) => (
                   <option key={projectStatus} value={projectStatus}>{formatStatusLabel(projectStatus)}</option>
                 ))}
               </select>
               <select value={businessType} onChange={(event) => setBusinessType(event.target.value)}>
-                <option value={ALL_BUSINESS_TYPE_VALUE}>All business types</option>
+                <option value={ALL_BUSINESS_TYPE_VALUE}>{t.common.allBusinessTypes}</option>
                 {businessTypeOptions.map((option) => (
                   <option key={option} value={option}>{option}</option>
                 ))}
@@ -194,7 +198,15 @@ export function AssignedProjects() {
               <table>
                 <thead>
                   <tr>
-                    {['Project Code', 'Project Name', 'Customer', 'Business Type', 'Status', 'Assigned Sales', 'Actions'].map((header) => (
+                    {[
+                      t.common.projectCode,
+                      t.common.projectName,
+                      t.common.customer,
+                      t.common.businessType,
+                      t.common.status,
+                      a.assignedSales,
+                      t.common.actions,
+                    ].map((header) => (
                       <th key={header}>{header}</th>
                     ))}
                   </tr>
@@ -202,7 +214,7 @@ export function AssignedProjects() {
                 <tbody>
                   {currentUserQuery.isLoading || assignedProjectsQuery.isLoading ? (
                     <tr>
-                      <td colSpan={7}>Loading assigned projects...</td>
+                      <td colSpan={7}>{t.common.loading}</td>
                     </tr>
                   ) : null}
                   {currentUserQuery.isError || assignedProjectsQuery.isError ? (
@@ -222,7 +234,7 @@ export function AssignedProjects() {
                           <span>{project.submittedAt ? `Submitted ${formatDate(project.submittedAt)}` : '-'}</span>
                         </td>
                         <td>
-                          <strong>{customer?.fullName ?? 'Loading customer...'}</strong>
+                          <strong>{customer?.fullName ?? t.common.loading}</strong>
                           <span>{customer?.email ?? project.customerId}</span>
                         </td>
                         <td>
@@ -232,13 +244,13 @@ export function AssignedProjects() {
                           <ProjectStatusBadge status={project.status} />
                         </td>
                         <td>
-                          <strong>{project.assignedDesignerId ? designer?.fullName ?? 'Loading designer...' : 'Unassigned'}</strong>
+                          <strong>{project.assignedDesignerId ? designer?.fullName ?? t.common.loading : t.common.unassigned}</strong>
                           {project.assignedDesignerId ? <span>{designer?.email ?? project.assignedDesignerId}</span> : null}
                         </td>
                         <td className="assigned-projects-action-cell">
                           <button type="button" onClick={() => navigate(`/sales/assigned-projects/${project.projectId}`)}>
                             <IconEye size={16} />
-                            View
+                            {t.common.view}
                           </button>
                         </td>
                       </tr>
@@ -250,7 +262,7 @@ export function AssignedProjects() {
                   !assignedProjectsQuery.isError &&
                   filteredProjects.length === 0 ? (
                     <tr>
-                      <td colSpan={7}>No projects have moved into the sales workspace yet.</td>
+                      <td colSpan={7}>{a.empty}</td>
                     </tr>
                   ) : null}
                 </tbody>
@@ -260,17 +272,17 @@ export function AssignedProjects() {
             {filteredProjects.length > 0 ? (
               <div className="assigned-projects-pagination">
                 <button type="button" disabled={currentPage <= 1} onClick={() => setPage((current) => Math.max(1, current - 1))}>
-                  Previous
+                  {t.common.previous}
                 </button>
                 <span>
-                  Page {currentPage} / {totalPages}
+                  {t.common.page} {currentPage} / {totalPages}
                 </span>
                 <button
                   type="button"
                   disabled={currentPage >= totalPages}
                   onClick={() => setPage((current) => Math.min(totalPages, current + 1))}
                 >
-                  Next
+                  {t.common.next}
                 </button>
               </div>
             ) : null}

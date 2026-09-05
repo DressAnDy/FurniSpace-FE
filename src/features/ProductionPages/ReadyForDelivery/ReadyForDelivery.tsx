@@ -4,6 +4,8 @@ import { useSearchParams } from 'react-router-dom';
 
 import { ProductionLayout, ProductionStatusBadge, ProductionSummaryCard } from '@/features/ProductionPages/productioncomponents';
 import { formatDate } from '@/features/ProductionPages/utils';
+import { OperationalDelayPanel } from '@/features/operationalDelayReports/OperationalDelayPanel';
+import { ProductIssuePanel } from '@/features/productIssues/ProductIssuePanel';
 import {
   getRemainingQuantity,
   groupOrderItemsForDelivery,
@@ -858,6 +860,23 @@ export function ReadyForDelivery() {
             )}
           </div>
         </section>
+        {selectedRequest ? (
+          <>
+            <OperationalDelayPanel
+              allowedPhases={['DELIVERY']}
+              defaultPhase="DELIVERY"
+              deliveryId={selectedScheduleBatch?.deliveryId}
+              orderId={order?.orderId ?? selectedRequest.orderId}
+              projectId={selectedRequest.projectId}
+              title="Delivery delay history"
+            />
+            <ProductIssuePanel
+              orderId={order?.orderId ?? selectedRequest.orderId}
+              projectId={selectedRequest.projectId}
+              title="Customer product issues"
+            />
+          </>
+        ) : null}
       </div>
     </ProductionLayout>
   );
