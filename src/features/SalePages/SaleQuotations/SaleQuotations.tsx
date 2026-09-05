@@ -1,7 +1,8 @@
 import { type Dispatch, FormEvent, type SetStateAction, useEffect, useMemo, useState } from 'react';
 import { IconAlertTriangle } from '@tabler/icons-react';
 
-import { SaleNavbar, SaleSidebar } from '@/features/SalePages/salecomponents';
+import { useLang } from '@/app/providers/useLang';
+import { SaleNavbar, SaleSidebar, saleCopy } from '@/features/SalePages/salecomponents';
 import { getQuotationServiceResultMessage, type QuotationDto, type QuotationItemDto, type QuotationStatus } from '@/services/api/quotations';
 import type { ProjectListItemDto, ProjectStatus } from '@/services/api/projects';
 import {
@@ -82,6 +83,9 @@ type QuotationMessage = {
 };
 
 export function SaleQuotations() {
+  const { lang } = useLang();
+  const t = saleCopy[lang];
+  const q = t.quotations;
   const [selectedProjectId, setSelectedProjectId] = useState('');
   const [selectedStatus, setSelectedStatus] = useState<QuotationStatus | null>(null);
   const [selectedQuotationId, setSelectedQuotationId] = useState('');
@@ -139,9 +143,9 @@ export function SaleQuotations() {
 
     return visibleProjectGroup.slice(start, start + QUOTATION_PROJECT_PAGE_SIZE);
   }, [projectPage, visibleProjectGroup]);
-  const visibleProjectGroupTitle = projectView === 'pending' ? 'Waiting for quotation' : 'Quotation finalized';
+  const visibleProjectGroupTitle = projectView === 'pending' ? q.waitingTab : q.finalizedTab;
   const visibleProjectGroupEmptyText =
-    projectView === 'pending' ? 'No project is waiting for quotation.' : 'No project has a finalized quotation yet.';
+    projectView === 'pending' ? q.emptyWaiting : q.emptyList;
   const quotations = useMemo(() => quotationsQuery.data?.items ?? [], [quotationsQuery.data?.items]);
   const proposalNameById = useMemo(
     () => new Map((projectProposalsQuery.data?.items ?? []).map((proposal) => [proposal.proposalId, proposal.proposalName])),
@@ -382,14 +386,14 @@ export function SaleQuotations() {
 
   return (
     <div className="sale-quotations-shell">
-      <SaleSidebar activeLabel="Quotations" />
+      <SaleSidebar activeKey="quotations" />
       <div className="sale-quotations-content">
         <SaleNavbar />
         <main className="sale-quotations-main">
           <section className="sale-quotations-heading">
             <div>
-              <h2>Quotations</h2>
-              <p>Review auto-created draft quotations from selected proposals, then adjust pricing and deposit before sending.</p>
+              <h2>{q.title}</h2>
+              <p>{q.subtitle}</p>
             </div>
           </section>
 
@@ -402,8 +406,8 @@ export function SaleQuotations() {
           <section className="sale-quotations-layout">
             <aside className="sale-quotations-project-panel">
               <header>
-                <h3>Projects</h3>
-                <p>Select a project to manage quotations.</p>
+                <h3>{q.selectProject}</h3>
+                <p>{q.selectProject}</p>
               </header>
               <div className="sale-quotations-project-tabs" role="tablist" aria-label="Quotation project lists">
                 <button
@@ -419,7 +423,7 @@ export function SaleQuotations() {
                     setMessage(null);
                   }}
                 >
-                  Waiting
+                  {q.waitingTab}
                   <span>{pendingQuotationProjects.length}</span>
                 </button>
                 <button
@@ -435,15 +439,17 @@ export function SaleQuotations() {
                     setMessage(null);
                   }}
                 >
-                  Finalized
+                  {q.finalizedTab}
                   <span>{finalizedQuotationProjects.length}</span>
                 </button>
               </div>
               <ProjectGroup
                 emptyText={visibleProjectGroupEmptyText}
+                nextLabel={t.common.next}
                 page={projectPage}
                 pageCount={visibleProjectPageCount}
                 pageSize={QUOTATION_PROJECT_PAGE_SIZE}
+                previousLabel={t.common.previous}
                 projects={pagedVisibleProjectGroup}
                 selectedProjectId={selectedProjectId}
                 title={visibleProjectGroupTitle}
@@ -460,44 +466,44 @@ export function SaleQuotations() {
             <section className="sale-quotations-workspace">
               <section className="sale-quotations-toolbar">
                 <label>
-                  <span>Status</span>
+                  <span>{t.common.status}</span>
                   <select value={selectedStatus ?? ''} onChange={(event) => setSelectedStatus((event.target.value || null) as QuotationStatus | null)}>
                     {statusOptions.map((status) => (
                       <option key={status.label} value={status.value ?? ''}>
-                        {status.label}
+                        {status.value === null ? t.common.all : status.label}
                       </option>
                     ))}
                   </select>
                 </label>
                 <div>
-                  <span>Selected Project</span>
-                  <strong>{selectedProject ? `${selectedProject.projectCode} - ${formatEnumLabel(selectedProject.status)}` : 'No project selected'}</strong>
+                  <span>{q.selectedProject}</span>
+                  <strong>{selectedProject ? `${selectedProject.projectCode} - ${formatEnumLabel(selectedProject.status)}` : q.selectProject}</strong>
                 </div>
               </section>
 
               <section className="sale-quotations-card">
                 <header>
-                  <h3>Project Quotations</h3>
+                  <h3>{q.title}</h3>
                 </header>
                 <div className="sale-quotations-table-scroll">
                   <table>
                     <thead>
                       <tr>
-                        <th>Quotation Code</th>
-                        <th>Project</th>
-                        <th>Proposal</th>
-                        <th>Version</th>
-                        <th>Total Amount</th>
-                        <th>Status</th>
-                        <th>Valid Until</th>
+                        <th>{q.quotationCode}</th>
+                        <th>{t.dashboard.colProject}</th>
+                        <th>{q.proposal}</th>
+                        <th>{q.version}</th>
+                        <th>{q.totalAmount}</th>
+                        <th>{t.common.status}</th>
+                        <th>{q.validUntil}</th>
                       </tr>
                     </thead>
                     <tbody>
                       {quotationsQuery.isLoading ? (
-                        <tr><td colSpan={7}>Loading quotations...</td></tr>
+                        <tr><td colSpan={7}>{t.common.loading}</td></tr>
                       ) : null}
                       {!quotationsQuery.isLoading && quotations.length === 0 ? (
-                        <tr><td colSpan={7}>{selectedProjectId ? 'No quotation found for this project.' : 'Select a project to load quotations.'}</td></tr>
+                        <tr><td colSpan={7}>{selectedProjectId ? q.emptyList : q.selectProject}</td></tr>
                       ) : null}
                       {quotations.map((quotation) => (
                         <tr key={quotation.quotationId}>
@@ -536,11 +542,11 @@ export function SaleQuotations() {
 
               <div className="sale-quotations-detail-grid">
                 <div>
-                  <span>Proposal</span>
+                  <span>{q.proposal}</span>
                   <strong title={selectedProposalName}>{selectedProposalName}</strong>
                 </div>
                 <div>
-                  <span>Valid Until</span>
+                  <span>{q.validUntil}</span>
                   <strong>{selectedQuotation.validUntil ?? '-'}</strong>
                 </div>
                 <div>
@@ -548,20 +554,20 @@ export function SaleQuotations() {
                   <strong>{selectedQuotation.sentAt ? formatDate(selectedQuotation.sentAt) : '-'}</strong>
                 </div>
                 <div>
-                  <span>Version</span>
-                  <strong>Version {selectedQuotation.versionNo ?? 1}</strong>
+                  <span>{q.version}</span>
+                  <strong>{q.version} {selectedQuotation.versionNo ?? 1}</strong>
                 </div>
               </div>
 
               <div className="sale-quotations-divider" />
 
               {message?.placement === 'items' ? <QuotationMessageBanner message={message} /> : null}
-              <h4>Quotation Items</h4>
+              <h4>{q.quotationItems}</h4>
               {canEditFinancials(selectedQuotation.status) ? (
                 <div className="sale-quotations-item-toolbar">
                   <span>Matching items are grouped for review. Sales can update discounts in one bulk save.</span>
                   <button disabled={bulkFinancialsMutation.isPending || Boolean(financialValidationMessage)} type="button" onClick={() => void saveFinancials()}>
-                    {bulkFinancialsMutation.isPending ? 'Saving...' : 'Save Discounts'}
+                    {bulkFinancialsMutation.isPending ? 'Saving...' : q.saveDiscounts}
                   </button>
                 </div>
               ) : null}
@@ -623,7 +629,7 @@ export function SaleQuotations() {
               {message?.placement === 'total' ? <QuotationMessageBanner message={message} /> : null}
               <div className="sale-quotations-total-list">
                 <div>
-                  <span>Subtotal</span>
+                  <span>{q.subtotal}</span>
                   <strong>{formatMoney(selectedQuotation.subtotalAmount)}</strong>
                 </div>
                 <div>
@@ -639,11 +645,11 @@ export function SaleQuotations() {
                   <strong>{formatMoney(selectedQuotation.vatAmount)}</strong>
                 </div>
                 <div>
-                  <span>Deposit</span>
+                  <span>{q.deposit}</span>
                   <strong>{formatMoney(displayDepositAmount)}</strong>
                 </div>
                 <div className="sale-quotations-total">
-                  <span>Total Amount</span>
+                  <span>{q.totalAmount}</span>
                   <strong>{formatMoney(selectedQuotation.totalAmount)}</strong>
                 </div>
               </div>
@@ -651,15 +657,15 @@ export function SaleQuotations() {
               {canEditHeader(selectedQuotation.status) ? (
                 <form className="sale-quotations-edit-form" onSubmit={updateHeader}>
                   <label>
-                    <span>Sales Note</span>
+                    <span>{q.salesNote}</span>
                     <input type="text" value={salesNote} onChange={(event) => setSalesNote(event.target.value)} placeholder="Note shown with the quotation" />
                   </label>
                     <label>
-                      <span>Deposit Amount</span>
+                      <span>{q.deposit}</span>
                     <input inputMode="decimal" value={depositAmount} onChange={(event) => setDepositAmount(event.target.value)} placeholder="Deposit amount from backend" />
                     </label>
                   <button disabled={updateQuotationMutation.isPending} type="submit">
-                    {updateQuotationMutation.isPending ? 'Saving...' : 'Save Quotation Details'}
+                    {updateQuotationMutation.isPending ? 'Saving...' : q.saveDetails}
                   </button>
                 </form>
               ) : null}
@@ -671,13 +677,13 @@ export function SaleQuotations() {
                   type="button"
                   onClick={() => void runQuotationAction('send')}
                 >
-                  {sendQuotationMutation.isPending ? 'Sending...' : 'Send to Customer'}
+                  {sendQuotationMutation.isPending ? t.common.sending : q.sendToCustomer}
                 </button>
                 <button disabled={selectedQuotation.status !== 'REVISION_REQUESTED' || reviseQuotationMutation.isPending} type="button" onClick={() => void runQuotationAction('revise')}>
-                  {reviseQuotationMutation.isPending ? 'Revising...' : 'Revise'}
+                  {reviseQuotationMutation.isPending ? 'Revising...' : q.revise}
                 </button>
                 <button disabled={!canCancel(selectedQuotation.status) || cancelQuotationMutation.isPending} type="button" onClick={() => void runQuotationAction('cancel')}>
-                  {cancelQuotationMutation.isPending ? 'Cancelling...' : 'Cancel'}
+                  {cancelQuotationMutation.isPending ? 'Cancelling...' : t.common.cancel}
                 </button>
               </div>
               {selectedQuotationForActions && getSendBlockedReason(selectedQuotationForActions) ? (
@@ -699,22 +705,26 @@ function QuotationMessageBanner({ message }: { message: QuotationMessage }) {
 
 function ProjectGroup({
   emptyText,
+  nextLabel,
   onSelect,
   onPageChange,
   page,
   pageCount,
   pageSize,
+  previousLabel,
   projects,
   selectedProjectId,
   title,
   total,
 }: {
   emptyText: string;
+  nextLabel: string;
   onPageChange: Dispatch<SetStateAction<number>>;
   onSelect: (projectId: string) => void;
   page: number;
   pageCount: number;
   pageSize: number;
+  previousLabel: string;
   projects: ProjectListItemDto[];
   selectedProjectId: string;
   title: string;
@@ -742,11 +752,11 @@ function ProjectGroup({
       {total > pageSize ? (
         <footer className="sale-quotations-project-pagination">
           <button disabled={page === 1} type="button" onClick={() => onPageChange((currentPage) => Math.max(currentPage - 1, 1))}>
-            Previous
+            {previousLabel}
           </button>
           <span>{page} / {pageCount}</span>
           <button disabled={page === pageCount} type="button" onClick={() => onPageChange((currentPage) => Math.min(currentPage + 1, pageCount))}>
-            Next
+            {nextLabel}
           </button>
         </footer>
       ) : null}

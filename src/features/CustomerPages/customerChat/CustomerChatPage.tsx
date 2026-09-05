@@ -57,7 +57,10 @@ export function CustomerChatPage() {
     { enabled: Boolean(activeProject) },
   );
   const { refetch: refetchChats } = chatListQuery;
-  const chats = useMemo(() => chatListQuery.data?.items ?? [], [chatListQuery.data?.items]);
+  const chats = useMemo(
+    () => (chatListQuery.data?.items ?? []).filter((chat) => chat.chatType === 'SALES' || chat.chatType === 'DESIGNER'),
+    [chatListQuery.data?.items],
+  );
   const filteredConversations = useMemo(() => {
     const normalizedKeyword = searchKeyword.trim().toLowerCase();
 

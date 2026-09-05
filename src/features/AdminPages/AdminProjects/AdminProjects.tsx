@@ -43,6 +43,8 @@ import {
   useProjectFiles,
   useProjectList,
   useProjectPhaseDeadlines,
+  useProjectOrders,
+  useProductionRequests,
   useReportProjects,
   useUpdateProductionDeadline,
 } from '@/services/queries';
@@ -50,6 +52,8 @@ import { useQueryClient } from '@tanstack/react-query';
 import { getLocalDateInputValue } from '@/shared/utils/dateValidation';
 import { ProjectShowcaseManager } from '@/features/showcases/ProjectShowcaseManager';
 import { ProjectPhaseTimelineCard } from '@/features/projectPhaseDeadlines/ProjectPhaseTimelineCard';
+import { OperationalDelayPanel } from '@/features/operationalDelayReports/OperationalDelayPanel';
+import { ProductIssuePanel } from '@/features/productIssues/ProductIssuePanel';
 
 import { useLang } from '@/app/providers/useLang';
 import { adminCopy } from '../admincomponents/adminI18n';
@@ -387,11 +391,16 @@ function ProjectDetailDrawer({
   const workflowQuery = useAdminProjectWorkflow(projectId ?? undefined);
   const filesQuery = useProjectFiles(projectId ? { projectId, page: 1, limit: 8 } : undefined);
   const phaseDeadlinesQuery = useProjectPhaseDeadlines(projectId ?? undefined, { enabled: Boolean(projectId) });
+  const projectOrdersQuery = useProjectOrders(projectId ?? undefined, { enabled: Boolean(projectId) });
+  const productionRequestsQuery = useProductionRequests(undefined, { enabled: Boolean(projectId) });
   const assignSalesMutation = useAssignSalesToProject();
   const markReadyForDesignerMutation = useMarkReadyForDesignerAssignment();
   const assignDesignerMutation = useAssignDesignerToProject();
   const updateProductionDeadlineMutation = useUpdateProductionDeadline();
   const project = projectQuery.data;
+  const relatedOrder = projectOrdersQuery.data?.items[0] ?? null;
+  const relatedProductionRequest =
+    productionRequestsQuery.data?.items.find((request) => request.projectId === projectId) ?? null;
   const workflow = workflowQuery.data;
   const stages = workflow?.stages ?? EMPTY_STAGES;
   const proposalDeadlineMin = getLocalDateInputValue();
@@ -564,6 +573,18 @@ function ProjectDetailDrawer({
               <h3>Project Requirements</h3>
               <p>{project.furnitureRequirement}</p>
               {project.description ? <p>{project.description}</p> : null}
+            </section>
+
+            <section className="admin-projects-detail-section">
+              <OperationalDelayPanel
+                orderId={relatedOrder?.orderId}
+                productionRequestId={relatedProductionRequest?.productionRequestId}
+                projectId={project.projectId}
+              />
+            </section>
+
+            <section className="admin-projects-detail-section">
+              <ProductIssuePanel projectId={project.projectId} />
             </section>
 
             <section className="admin-projects-detail-section">

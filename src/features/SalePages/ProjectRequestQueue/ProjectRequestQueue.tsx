@@ -3,18 +3,25 @@ import { useQueries } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
-import { SaleNavbar, SaleSidebar } from '@/features/SalePages/salecomponents';
+import { useLang } from '@/app/providers/useLang';
+import { SaleNavbar, SaleSidebar, saleCopy } from '@/features/SalePages/salecomponents';
 import { getAccountById, type AccountDto } from '@/services/api';
 import { getProjectServiceResultMessage } from '@/services/api/projects';
 import { useAssignSalesToProject, useStaffProjectQueue } from '@/services/queries/useProjects';
 
 import './ProjectRequestQueue.css';
 
+const ALL_STATUS_VALUE = 'ALL';
+const ALL_BUSINESS_TYPE_VALUE = 'ALL';
+
 export function ProjectRequestQueue() {
+  const { lang } = useLang();
+  const t = saleCopy[lang];
+  const q = t.projectRequestQueue;
   const navigate = useNavigate();
   const [keyword, setKeyword] = useState('');
-  const [status, setStatus] = useState('Status');
-  const [businessType, setBusinessType] = useState('Business Type');
+  const [status, setStatus] = useState(ALL_STATUS_VALUE);
+  const [businessType, setBusinessType] = useState(ALL_BUSINESS_TYPE_VALUE);
   const [actionMessage, setActionMessage] = useState('');
   const assignSalesMutation = useAssignSalesToProject();
   const projectQueueQuery = useStaffProjectQueue({
@@ -65,8 +72,8 @@ export function ProjectRequestQueue() {
         customer?.email ?? '',
       ];
       const matchesKeyword = !normalizedKeyword || searchableFields.some((value) => value.toLowerCase().includes(normalizedKeyword));
-      const matchesBusinessType = businessType === 'Business Type' || request.businessType === businessType;
-      const matchesStatus = status === 'Status' || request.status === status;
+      const matchesBusinessType = businessType === ALL_BUSINESS_TYPE_VALUE || request.businessType === businessType;
+      const matchesStatus = status === ALL_STATUS_VALUE || request.status === status;
 
       return matchesKeyword && matchesBusinessType && matchesStatus;
     });
@@ -91,31 +98,50 @@ export function ProjectRequestQueue() {
 
   return (
     <div className="project-request-queue-shell">
-      <SaleSidebar activeLabel="Project Request Queue" />
+      <SaleSidebar activeKey="projectRequestQueue" />
       <div className="project-request-queue-content">
         <SaleNavbar />
 
         <main className="project-request-queue-main">
           <section className="project-request-queue-heading">
-            <h2>Project Request Queue</h2>
-            <p>Review submitted requests and accept them for consultation</p>
+            <h2>{q.title}</h2>
+            <p>{q.subtitle}</p>
           </section>
 
           <section className="project-request-queue-filters">
-            <h3>Filters</h3>
+            <h3>{t.common.filters}</h3>
             <div className="project-request-queue-filter-grid">
               <label className="project-request-queue-search">
                 <IconSearch size={16} />
                 <input
                   type="search"
-                  placeholder="Search projects..."
+                  placeholder={t.common.searchProjects}
                   value={keyword}
                   onChange={(event) => setKeyword(event.target.value)}
                 />
               </label>
 
-              <FilterSelect value={status} onChange={setStatus} options={['Status', 'SUBMITTED', 'NEED_BASIC_INFORMATION']} />
-              <FilterSelect value={businessType} onChange={setBusinessType} options={['Business Type', 'Cafe', 'Fashion Store', 'Office', 'Retail', 'Restaurant']} />
+              <FilterSelect
+                value={status}
+                onChange={setStatus}
+                options={[
+                  { value: ALL_STATUS_VALUE, label: t.common.allStatus },
+                  { value: 'SUBMITTED', label: 'SUBMITTED' },
+                  { value: 'NEED_BASIC_INFORMATION', label: 'NEED_BASIC_INFORMATION' },
+                ]}
+              />
+              <FilterSelect
+                value={businessType}
+                onChange={setBusinessType}
+                options={[
+                  { value: ALL_BUSINESS_TYPE_VALUE, label: t.common.allBusinessTypes },
+                  { value: 'Cafe', label: 'Cafe' },
+                  { value: 'Fashion Store', label: 'Fashion Store' },
+                  { value: 'Office', label: 'Office' },
+                  { value: 'Retail', label: 'Retail' },
+                  { value: 'Restaurant', label: 'Restaurant' },
+                ]}
+              />
             </div>
           </section>
 
@@ -126,7 +152,15 @@ export function ProjectRequestQueue() {
               <table>
                 <thead>
                   <tr>
-                    {['Project Code', 'Project Name', 'Customer', 'Business Type', 'Status', 'Submitted At', 'Actions'].map((header) => (
+                    {[
+                      t.common.projectCode,
+                      t.common.projectName,
+                      t.common.customer,
+                      t.common.businessType,
+                      t.common.status,
+                      q.submittedAt,
+                      t.common.actions,
+                    ].map((header) => (
                       <th key={header}>{header}</th>
                     ))}
                   </tr>
@@ -134,7 +168,7 @@ export function ProjectRequestQueue() {
                 <tbody>
                   {projectQueueQuery.isLoading ? (
                     <tr>
-                      <td colSpan={7}>Loading project requests...</td>
+                      <td colSpan={7}>{t.common.loading}</td>
                     </tr>
                   ) : null}
                   {projectQueueQuery.isError ? (
@@ -152,7 +186,7 @@ export function ProjectRequestQueue() {
                           <strong>{request.projectName}</strong>
                         </td>
                         <td>
-                          <strong>{customer?.fullName ?? 'Loading customer...'}</strong>
+                          <strong>{customer?.fullName ?? t.common.loading}</strong>
                           <span>{customer?.email ?? request.customerId}</span>
                         </td>
                         <td>
@@ -169,14 +203,14 @@ export function ProjectRequestQueue() {
                               onClick={() => navigate(`/sales/project-requests/${request.projectId}`)}
                             >
                               <IconEye size={16} />
-                              View
+                              {t.common.view}
                             </button>
                             <button
                               type="button"
                               disabled={assignSalesMutation.isPending}
                               onClick={() => void acceptForConsultation(request)}
                             >
-                              Accept for Consultation
+                              {q.accept}
                             </button>
                           </div>
                         </td>
@@ -185,7 +219,7 @@ export function ProjectRequestQueue() {
                   })}
                   {!projectQueueQuery.isLoading && !projectQueueQuery.isError && filteredRequests.length === 0 ? (
                     <tr>
-                      <td colSpan={7}>No submitted or information-needed projects found.</td>
+                      <td colSpan={7}>{q.empty}</td>
                     </tr>
                   ) : null}
                 </tbody>
@@ -201,7 +235,7 @@ export function ProjectRequestQueue() {
 type FilterSelectProps = {
   value: string;
   onChange: (value: string) => void;
-  options: string[];
+  options: Array<{ value: string; label: string }>;
 };
 
 function FilterSelect({ value, onChange, options }: FilterSelectProps) {
@@ -213,7 +247,7 @@ function FilterSelect({ value, onChange, options }: FilterSelectProps) {
         onChange={(event) => onChange(event.target.value)}
       >
         {options.map((option) => (
-          <option key={option}>{option}</option>
+          <option key={option.value} value={option.value}>{option.label}</option>
         ))}
       </select>
       <IconChevronDown className="project-request-queue-select-icon" size={16} />

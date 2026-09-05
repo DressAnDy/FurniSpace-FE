@@ -215,6 +215,10 @@ export function NotificationBell({ buttonClassName, className }: NotificationBel
 function getNotificationTargetPath(notification: NotificationDto, role?: string) {
   const normalizedRole = normalizeRole(role);
   const chatId = typeof notification.metadata?.chatId === 'string' ? notification.metadata.chatId : null;
+  const productionRequestId =
+    typeof notification.metadata?.productionRequestId === 'string'
+      ? notification.metadata.productionRequestId
+      : null;
 
   if (notification.referenceType === 'PROJECT_CHAT_MESSAGE' || notification.notificationType === 'ProjectChatMessageSent') {
     const chatQuery = chatId ? `&chatId=${encodeURIComponent(chatId)}` : '';
@@ -224,11 +228,15 @@ function getNotificationTargetPath(notification: NotificationDto, role?: string)
     }
 
     if (normalizedRole === 'SALES') {
-      return notification.projectId ? `/sales/assigned-projects/${notification.projectId}?tab=chat${chatQuery}` : '/sales/assigned-projects';
+      return notification.projectId
+        ? `/sales/chat?projectId=${encodeURIComponent(notification.projectId)}${chatId ? `&chatId=${encodeURIComponent(chatId)}` : ''}`
+        : '/sales/chat';
     }
 
     if (normalizedRole === 'PRODUCTION') {
-      return '/production/requests';
+      return notification.projectId
+        ? `/production/chat?projectId=${encodeURIComponent(notification.projectId)}${chatId ? `&chatId=${encodeURIComponent(chatId)}` : ''}${productionRequestId ? `&productionRequestId=${encodeURIComponent(productionRequestId)}` : ''}`
+        : '/production/chat';
     }
 
     const customerParams = new URLSearchParams();

@@ -1,19 +1,25 @@
 import { useState } from 'react';
-import { IconChevronDown, IconLogout } from '@tabler/icons-react';
+import { IconChevronDown, IconGlobe, IconLogout } from '@tabler/icons-react';
 import { useNavigate } from 'react-router-dom';
 
+import { useLang } from '@/app/providers/useLang';
 import { ActorCommandSearch } from '@/shared/components/ActorCommandSearch';
 import { NotificationBell } from '@/shared/components/NotificationBell';
 import { useCurrentUser, useLogout } from '@/services/queries';
 
+import { saleCopy } from './saleI18n';
+
 export function SaleNavbar() {
   const navigate = useNavigate();
+  const { lang, setLang } = useLang();
+  const t = saleCopy[lang];
   const { data: user } = useCurrentUser();
   const logoutMutation = useLogout();
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
-  const displayName = user?.fullName?.trim() || user?.email || 'Sales User';
+  const displayName = user?.fullName?.trim() || user?.email || t.navbar.salesUser;
   const roleLabel = formatRole(user?.role ?? 'SALE');
   const initials = getInitials(displayName);
+  const nextLang = lang === 'vi' ? 'en' : 'vi';
 
   function handleLogout() {
     logoutMutation.mutate(undefined, {
@@ -28,16 +34,26 @@ export function SaleNavbar() {
       <ActorCommandSearch
         actor="sale"
         className="sale-topbar-search flex h-11 min-w-[320px] max-w-xl flex-1 items-center gap-3 rounded-lg border border-zinc-200 bg-zinc-50 px-4 text-zinc-500"
-        placeholder="Search sale features, e.g. project requests"
+        placeholder={t.navbar.searchPlaceholder}
       />
 
       <div className="sale-topbar-actions flex items-center gap-3">
+        <button
+          aria-label={t.navbar.switchLang}
+          className="sale-language"
+          title={t.navbar.switchLang}
+          type="button"
+          onClick={() => setLang(nextLang)}
+        >
+          <IconGlobe size={16} />
+          <span>{lang.toUpperCase()}</span>
+        </button>
         <NotificationBell buttonClassName="sale-icon-button relative flex h-11 w-11 items-center justify-center rounded-lg border border-zinc-200 text-zinc-600" />
         <div className="sale-user-menu-wrap">
           <button
             aria-expanded={isUserMenuOpen}
             aria-haspopup="menu"
-            aria-label="Open user menu"
+            aria-label={t.navbar.openUserMenu}
             className="sale-user-trigger"
             type="button"
             onClick={() => setIsUserMenuOpen((isOpen) => !isOpen)}
@@ -56,7 +72,7 @@ export function SaleNavbar() {
               </div>
               <button disabled={logoutMutation.isPending} role="menuitem" type="button" onClick={handleLogout}>
                 <IconLogout size={16} />
-                <span>{logoutMutation.isPending ? 'Logging out...' : 'Logout'}</span>
+                <span>{logoutMutation.isPending ? t.navbar.loggingOut : t.navbar.logout}</span>
               </button>
             </div>
           )}

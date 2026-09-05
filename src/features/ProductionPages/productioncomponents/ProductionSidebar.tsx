@@ -4,6 +4,7 @@ import {
   IconClipboardList,
   IconHome,
   IconMenu2,
+  IconMessageCircle,
   IconTruckDelivery,
   type Icon,
 } from '@tabler/icons-react';
@@ -22,6 +23,7 @@ const productionSidebarItems: ProductionSidebarItem[] = [
   { label: 'Dashboard', icon: IconHome, path: '/production/dashbroad' },
   { label: 'Customization Reviews', icon: IconAdjustments, path: '/production/customization-reviews' },
   { label: 'Production Requests', icon: IconClipboardList, path: '/production/requests' },
+  { label: 'Production Chat', icon: IconMessageCircle, path: '/production/chat' },
   { label: 'Ready for Delivery', icon: IconTruckDelivery, path: '/production/ready-for-delivery' },
 ];
 

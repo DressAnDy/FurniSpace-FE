@@ -26,6 +26,7 @@ import {
 } from '@/services/queries';
 import { useProjectList } from '@/services/queries/useProjects';
 import { PaymentCollectionModal } from '@/features/payments/PaymentCollectionModal';
+import { ProductIssuePanel } from '@/features/productIssues/ProductIssuePanel';
 import { getDefaultPaymentExpiredAt } from '@/shared/utils/dateValidation';
 import { aggregateDuplicateItems, getItemAggregateKey } from '@/shared/utils/itemAggregation';
 
@@ -208,7 +209,8 @@ export function CustomerOrdersPage() {
 
           <section className="customer-orders-workspace">
             {order ? (
-              <OrderDetailCard
+              <>
+                <OrderDetailCard
                 confirmDeliveryPending={confirmDeliveryMutation.isPending}
                 deliveryDetailsPending={updateDeliveryDetailsMutation.isPending}
                 depositPayment={getCollectablePayment(paymentHistoryQuery.data, 'DEPOSIT', order)}
@@ -277,7 +279,15 @@ export function CustomerOrdersPage() {
                     setMessage({ tone: 'error', text: getOrderServiceResultMessage(error) });
                   }
                 }}
-              />
+                />
+                <ProductIssuePanel
+                  allowCreate
+                  orderId={order.orderId}
+                  orderItems={order.items ?? []}
+                  projectId={order.projectId}
+                  title="My product issues"
+                />
+              </>
             ) : orderDetailQuery.isLoading ? (
               <p className="customer-orders-muted">Loading order detail...</p>
             ) : null}

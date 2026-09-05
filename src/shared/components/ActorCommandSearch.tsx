@@ -36,6 +36,8 @@ const commandsByActor: Record<Actor, CommandItem[]> = {
     { label: 'Sales Dashboard', path: '/sales/dashbroad', group: 'Overview', keywords: 'dashboard sales sale home overview', description: 'View sale metrics, activity, and project summary.' },
     { label: 'Project Request Queue', path: '/sales/project-requests', group: 'Projects', keywords: 'project request queue requests new leads', description: 'Review incoming project requests and customer leads.' },
     { label: 'Assigned Projects', path: '/sales/assigned-projects', group: 'Projects', keywords: 'assigned projects project customers', description: 'Open projects assigned to the sales consultant.' },
+    { label: 'Production Chat', path: '/production/chat', group: 'Coordination', keywords: 'chat production sales message conversation coordination', description: 'Chat with sales about production requests.' },
+    { label: 'Project Chat', path: '/sales/chat', group: 'Projects', keywords: 'chat project chat message conversation sales production customer', description: 'Chat with customers and production by selecting an assigned project.' },
     { label: 'Schedules', path: '/sales/schedules', group: 'Schedule', keywords: 'schedule calendar appointment schedules', description: 'Manage consultations, meetings, and sale schedules.' },
     { label: 'Quotations', path: '/sales/quotations', group: 'Sales', keywords: 'quotations quotes quotation pricing proposal', description: 'Open quotation and pricing workflows.' },
   ],

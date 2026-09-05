@@ -1,7 +1,8 @@
 import { IconCircleCheck, IconSettings, IconUserPlus } from '@tabler/icons-react';
 import { useEffect, useMemo, useState } from 'react';
 
-import { SaleNavbar, SaleSidebar } from '@/features/SalePages/salecomponents';
+import { useLang } from '@/app/providers/useLang';
+import { SaleNavbar, SaleSidebar, saleCopy } from '@/features/SalePages/salecomponents';
 import { getOrderServiceResultMessage, type OrderDetailDto, type OrderItemDto } from '@/services/api/orders';
 import { getProductionServiceResultMessage } from '@/services/api/production';
 import { getProjectServiceResultMessage, type ProjectListItemDto } from '@/services/api/projects';
@@ -36,6 +37,9 @@ const orderProjectStatuses = new Set([
 ]);
 
 export function SaleOrders() {
+  const { lang } = useLang();
+  const t = saleCopy[lang];
+  const o = t.orders;
   const [selectedProjectId, setSelectedProjectId] = useState('');
   const [selectedOrderId, setSelectedOrderId] = useState('');
   const [projectPage, setProjectPage] = useState(1);
@@ -100,14 +104,14 @@ export function SaleOrders() {
 
   return (
     <div className="sale-orders-shell">
-      <SaleSidebar activeLabel="Orders" />
+      <SaleSidebar activeKey="orders" />
       <div className="sale-orders-content">
         <SaleNavbar />
         <main className="sale-orders-main">
           <section className="sale-orders-heading">
             <div>
-              <h2>Orders</h2>
-              <p>Manage confirmed orders, deposit payments, and final payment collection by assigned project.</p>
+              <h2>{o.title}</h2>
+              <p>{o.subtitle}</p>
             </div>
           </section>
 
@@ -119,11 +123,11 @@ export function SaleOrders() {
           <section className="sale-orders-layout">
             <aside className="sale-orders-project-panel">
               <header>
-                <h3>Projects</h3>
-                <p>Select a confirmed project to manage its orders.</p>
+                <h3>{o.selectedProject}</h3>
+                <p>{o.subtitle}</p>
               </header>
-              {projectsQuery.isLoading ? <p className="sale-orders-muted">Loading projects...</p> : null}
-              {!projectsQuery.isLoading && orderProjects.length === 0 ? <p className="sale-orders-muted">No order project is available.</p> : null}
+              {projectsQuery.isLoading ? <p className="sale-orders-muted">{t.common.loading}</p> : null}
+              {!projectsQuery.isLoading && orderProjects.length === 0 ? <p className="sale-orders-muted">{o.emptyProjects}</p> : null}
               <div className="sale-orders-project-list">
                 {pagedOrderProjects.map((project) => (
                   <button
@@ -149,17 +153,17 @@ export function SaleOrders() {
                     disabled={currentProjectPage <= 1}
                     onClick={() => setProjectPage((current) => Math.max(1, current - 1))}
                   >
-                    Previous
+                    {t.common.previous}
                   </button>
                   <span>
-                    Page {currentProjectPage} / {projectTotalPages}
+                    {t.common.page} {currentProjectPage} / {projectTotalPages}
                   </span>
                   <button
                     type="button"
                     disabled={currentProjectPage >= projectTotalPages}
                     onClick={() => setProjectPage((current) => Math.min(projectTotalPages, current + 1))}
                   >
-                    Next
+                    {t.common.next}
                   </button>
                 </div>
               ) : null}
@@ -168,14 +172,15 @@ export function SaleOrders() {
             <section className="sale-orders-workspace">
               <section className="sale-orders-toolbar">
                 <div>
-                  <span>Selected Project</span>
-                  <strong>{selectedProject ? `${selectedProject.projectCode} - ${formatEnumLabel(selectedProject.status)}` : 'No project selected'}</strong>
+                  <span>{o.selectedProject}</span>
+                  <strong>{selectedProject ? `${selectedProject.projectCode} - ${formatEnumLabel(selectedProject.status)}` : o.emptyProjects}</strong>
                 </div>
               </section>
 
               <section className="sale-orders-grid">
                 {order ? (
                   <OrderDetailPanel
+                    copy={o}
                     isCompleting={completeOrderMutation.isPending}
                     isCreatingDepositPayment={createDepositPaymentMutation.isPending}
                     isCreatingProduction={createProductionRequestMutation.isPending}
@@ -240,9 +245,9 @@ export function SaleOrders() {
                     }}
                   />
                 ) : ordersQuery.isLoading ? (
-                  <p className="sale-orders-muted">Loading orders...</p>
+                  <p className="sale-orders-muted">{t.common.loading}</p>
                 ) : selectedProjectId ? (
-                  <p className="sale-orders-muted">No order found for this project.</p>
+                  <p className="sale-orders-muted">{o.emptyOrder}</p>
                 ) : null}
               </section>
             </section>
@@ -254,6 +259,7 @@ export function SaleOrders() {
 }
 
 function OrderDetailPanel({
+  copy,
   isCompleting,
   isCreatingDepositPayment,
   isCreatingProduction,
@@ -267,6 +273,7 @@ function OrderDetailPanel({
   productionDeadline,
   productionStaff,
 }: {
+  copy: (typeof saleCopy)['en']['orders'];
   isCompleting: boolean;
   isCreatingDepositPayment: boolean;
   isCreatingProduction: boolean;
@@ -325,14 +332,14 @@ function OrderDetailPanel({
         <div className="sale-orders-flow-panel">
           <header>
             <div>
-              <h3>Deposit Payment</h3>
+              <h3>{copy.depositPayment}</h3>
               <p>Deposit amount is copied from the accepted quotation. Change it on quotation before acceptance, not on the order.</p>
             </div>
           </header>
           <div className="sale-orders-actions">
             <button disabled={isCreatingDepositPayment} type="button" onClick={onCreateDepositPayment}>
               <IconSettings size={16} />
-              {isCreatingDepositPayment ? 'Preparing...' : order.status === 'CREATED' ? 'Create Deposit Payment' : 'Reuse Deposit Payment'}
+              {isCreatingDepositPayment ? 'Preparing...' : copy.createDeposit}
             </button>
           </div>
         </div>
@@ -364,7 +371,7 @@ function OrderDetailPanel({
         >
           <header>
             <div>
-              <h3>Production Assignment</h3>
+              <h3>{copy.productionAssignment}</h3>
               <p>Choose staff, priority, and deadline before creating the request.</p>
             </div>
             {isProductionDeadlineMissing ? (
@@ -376,7 +383,7 @@ function OrderDetailPanel({
           ) : null}
           <div className="sale-orders-form-grid sale-orders-form-grid-production">
             <label>
-              <span>Staff</span>
+              <span>{copy.staff}</span>
               <select
                 title={selectedProductionStaff?.fullName ?? 'Select production staff'}
                 value={assignedTo}
@@ -396,7 +403,7 @@ function OrderDetailPanel({
               )}
             </label>
             <label>
-              <span>Priority</span>
+              <span>{copy.priority}</span>
               <select value={priority} onChange={(event) => setPriority(event.target.value as typeof priority)}>
                 <option value="NORMAL">Normal</option>
                 <option value="LOW">Low</option>
@@ -406,7 +413,7 @@ function OrderDetailPanel({
               </select>
             </label>
             <label>
-              <span>Production Deadline</span>
+              <span>{copy.productionDeadline}</span>
               <input
                 disabled={isLoadingProductionDeadline || isSavingProductionDeadline}
                 max={projectTargetCompletionDate ?? undefined}
@@ -427,7 +434,7 @@ function OrderDetailPanel({
               type="submit"
             >
               <IconUserPlus size={16} />
-              {isSavingProductionDeadline || isCreatingProduction ? 'Assigning...' : 'Create Production'}
+              {isSavingProductionDeadline || isCreatingProduction ? 'Assigning...' : copy.createProduction}
             </button>
           </div>
           {productionActionMessage ? <p className="sale-orders-action-note">{productionActionMessage}</p> : null}
@@ -437,7 +444,7 @@ function OrderDetailPanel({
         <div className="sale-orders-flow-panel">
           <header>
             <div>
-              <h3>Final Payment</h3>
+              <h3>{copy.finalPayment}</h3>
               <p>{getFinalPaymentFlowMessage(order)}</p>
             </div>
           </header>

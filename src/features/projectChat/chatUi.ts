@@ -1,6 +1,6 @@
 import type { ProjectChatListItem, ProjectChatMessage, ProjectChatType } from '@/services/api/projectChats';
 
-type ChatViewerRole = 'CUSTOMER' | 'SALES' | 'DESIGNER';
+type ChatViewerRole = 'CUSTOMER' | 'SALES' | 'DESIGNER' | 'PRODUCTION';
 
 type ChatParticipantOptions = {
   viewerRole: ChatViewerRole;
@@ -28,6 +28,13 @@ export function getChatParticipant(chat: ProjectChatListItem | null | undefined,
     return {
       name: options.customerName || options.customerFallback || 'Customer',
       role: 'Customer',
+    };
+  }
+
+  if (options.viewerRole === 'PRODUCTION' && chat.chatType === 'PRODUCTION') {
+    return {
+      name: chat.staffName || chat.title || 'Sales',
+      role: 'Sales',
     };
   }
 
