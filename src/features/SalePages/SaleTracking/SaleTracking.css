@@ -163,7 +163,7 @@
   align-items: start;
   display: grid;
   gap: 18px;
-  grid-template-columns: minmax(260px, 300px) minmax(0, 1fr);
+  grid-template-columns: minmax(300px, 340px) minmax(0, 1fr);
 }
 
 .sale-tracking-project-panel,
@@ -174,9 +174,16 @@
 }
 
 .sale-tracking-project-panel {
+  display: grid;
+  gap: 12px;
+  grid-template-rows: auto auto auto auto;
   padding: 16px;
   position: sticky;
   top: 0;
+}
+
+.sale-tracking-project-panel-header {
+  min-width: 0;
 }
 
 .sale-tracking-project-panel h3,
@@ -203,7 +210,7 @@
   color: #6b6b6b;
   display: flex;
   gap: 8px;
-  margin-top: 12px;
+  margin-top: 0;
   padding: 0 10px;
 }
 
@@ -218,11 +225,11 @@
 }
 
 .sale-tracking-project-list {
-  display: grid;
+  display: flex;
+  flex-direction: column;
   gap: 8px;
-  margin-top: 12px;
-  max-height: calc(100vh - 320px);
-  overflow-y: auto;
+  margin-top: 0;
+  overflow: hidden;
 }
 
 .sale-tracking-project-list button {
@@ -231,12 +238,16 @@
   border-radius: 10px;
   color: #2d2d2d;
   cursor: pointer;
-  display: grid;
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
   font: inherit;
   gap: 6px;
+  min-width: 0;
   padding: 12px;
   text-align: left;
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  width: 100%;
 }
 
 .sale-tracking-project-list button:hover {
@@ -250,20 +261,78 @@
 }
 
 .sale-tracking-project-top {
-  align-items: flex-start;
+  align-items: center;
   display: flex;
   gap: 8px;
   justify-content: space-between;
+  min-width: 0;
 }
 
 .sale-tracking-project-top strong {
+  color: #2d2d2d;
+  display: block;
+  flex: 1 1 auto;
   font-size: 14px;
-  line-height: 18px;
+  font-weight: 700;
+  line-height: 1.35;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sale-tracking-project-top .sale-tracking-badge {
+  flex: 0 0 auto;
+  max-width: 46%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .sale-tracking-project-list span {
   color: #6b6b6b;
   font-size: 12px;
+  line-height: 1.4;
+}
+
+.sale-tracking-pagination {
+  align-items: center;
+  border-top: 1px solid rgba(139, 111, 71, 0.12);
+  display: flex;
+  flex: 0 0 auto;
+  gap: 10px;
+  justify-content: flex-end;
+  padding-top: 12px;
+}
+
+.sale-tracking-pagination span {
+  color: #6b6b6b;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.sale-tracking-pagination button {
+  align-items: center;
+  background: #ffffff;
+  border: 1px solid rgba(139, 111, 71, 0.2);
+  border-radius: 8px;
+  color: #6f5636;
+  cursor: pointer;
+  display: inline-flex;
+  justify-content: center;
+  min-height: 34px;
+  min-width: 34px;
+}
+
+.sale-tracking-pagination button:hover:not(:disabled) {
+  background: #8b6f47;
+  border-color: #8b6f47;
+  color: #ffffff;
+}
+
+.sale-tracking-pagination button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
 }
 
 .sale-tracking-workspace {
@@ -788,7 +857,7 @@
   }
 
   .sale-tracking-project-list {
-    max-height: none;
+    overflow: hidden;
   }
 }
 
