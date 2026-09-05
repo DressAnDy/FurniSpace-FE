@@ -1,5 +1,7 @@
 import {
   IconCalendarCheck,
+  IconChevronLeft,
+  IconChevronRight,
   IconCircleCheck,
   IconPackage,
   IconRefresh,
@@ -24,6 +26,8 @@ import {
 
 import './SaleTracking.css';
 
+const PROJECT_PAGE_SIZE = 5;
+
 const TRACKING_PROJECT_STATUSES = new Set([
   'READY_FOR_DELIVERY',
   'DELIVERING',
@@ -47,6 +51,7 @@ export function SaleTracking() {
   const [selectedProjectId, setSelectedProjectId] = useState('');
   const [selectedOrderId, setSelectedOrderId] = useState('');
   const [search, setSearch] = useState('');
+  const [projectPage, setProjectPage] = useState(1);
   const projectsQuery = useProjectList({ page: 1, limit: 80 });
   const trackingProjects = useMemo(
     () =>
@@ -60,7 +65,14 @@ export function SaleTracking() {
         .sort((left, right) => (STATUS_PRIORITY[left.status] ?? 99) - (STATUS_PRIORITY[right.status] ?? 99)),
     [projectsQuery.data?.items, search],
   );
-  const selectedProject = trackingProjects.find((project) => project.projectId === selectedProjectId) ?? trackingProjects[0] ?? null;
+  const totalProjectPages = Math.max(1, Math.ceil(trackingProjects.length / PROJECT_PAGE_SIZE));
+  const currentProjectPage = Math.min(projectPage, totalProjectPages);
+  const pagedProjects = useMemo(() => {
+    const start = (currentProjectPage - 1) * PROJECT_PAGE_SIZE;
+    return trackingProjects.slice(start, start + PROJECT_PAGE_SIZE);
+  }, [currentProjectPage, trackingProjects]);
+  const selectedProject =
+    trackingProjects.find((project) => project.projectId === selectedProjectId) ?? trackingProjects[0] ?? null;
   const projectDetailQuery = useProjectDetail(selectedProjectId);
   const projectDetail = projectDetailQuery.data ?? null;
   const ordersQuery = useProjectOrders(selectedProjectId, { enabled: Boolean(selectedProjectId) });
@@ -87,6 +99,25 @@ export function SaleTracking() {
   const tracking = deliveryTrackingQuery.data ?? null;
   const groupedTrackingItems = useMemo(() => groupDeliveryTrackingItems(tracking?.items ?? []), [tracking?.items]);
   const deliverySchedules = deliverySchedulesQuery.data?.items ?? [];
+
+  useEffect(() => {
+    setProjectPage(1);
+  }, [search]);
+
+  useEffect(() => {
+    if (projectPage > totalProjectPages) {
+      setProjectPage(totalProjectPages);
+    }
+  }, [projectPage, totalProjectPages]);
+
+  useEffect(() => {
+    if (!selectedProjectId) return;
+
+    const activeIndex = trackingProjects.findIndex((project) => project.projectId === selectedProjectId);
+    if (activeIndex < 0) return;
+
+    setProjectPage(Math.floor(activeIndex / PROJECT_PAGE_SIZE) + 1);
+  }, [selectedProjectId, trackingProjects]);
 
   useEffect(() => {
     if (!selectedProjectId && trackingProjects.length > 0) {
@@ -147,9 +178,13 @@ export function SaleTracking() {
 
           <section className="sale-tracking-layout">
             <aside className="sale-tracking-project-panel">
-              <header>
-                <h3>{tr.deliveryProjects}</h3>
-                <p>{tr.subtitle}</p>
+              <header className="sale-tracking-project-panel-header">
+                <div>
+                  <h3>{tr.deliveryProjects}</h3>
+                  <p>
+                    {t.common.page} {currentProjectPage}/{totalProjectPages}
+                  </p>
+                </div>
               </header>
               <label className="sale-tracking-search">
                 <IconSearch size={16} />
@@ -158,7 +193,7 @@ export function SaleTracking() {
               <div className="sale-tracking-project-list">
                 {projectsQuery.isLoading ? <p className="sale-tracking-muted">{t.common.loading}</p> : null}
                 {!projectsQuery.isLoading && trackingProjects.length === 0 ? <p className="sale-tracking-muted">{tr.emptyProjects}</p> : null}
-                {trackingProjects.map((project) => (
+                {pagedProjects.map((project) => (
                   <button
                     className={project.projectId === selectedProject?.projectId ? 'is-active' : undefined}
                     key={project.projectId}
@@ -169,13 +204,36 @@ export function SaleTracking() {
                     }}
                   >
                     <div className="sale-tracking-project-top">
-                      <strong>{project.projectName}</strong>
+                      <strong title={project.projectName}>{project.projectName}</strong>
                       <StatusBadge kind="project" value={project.status} />
                     </div>
                     <span>{project.projectCode}</span>
                   </button>
                 ))}
               </div>
+              {trackingProjects.length > 0 ? (
+                <div className="sale-tracking-pagination">
+                  <button
+                    aria-label={t.common.previous}
+                    disabled={currentProjectPage <= 1}
+                    type="button"
+                    onClick={() => setProjectPage((current) => Math.max(1, current - 1))}
+                  >
+                    <IconChevronLeft size={16} />
+                  </button>
+                  <span>
+                    {currentProjectPage} / {totalProjectPages}
+                  </span>
+                  <button
+                    aria-label={t.common.next}
+                    disabled={currentProjectPage >= totalProjectPages}
+                    type="button"
+                    onClick={() => setProjectPage((current) => Math.min(totalProjectPages, current + 1))}
+                  >
+                    <IconChevronRight size={16} />
+                  </button>
+                </div>
+              ) : null}
             </aside>
 
             <section className="sale-tracking-workspace">
