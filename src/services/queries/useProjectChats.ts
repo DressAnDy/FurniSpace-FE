@@ -63,10 +63,19 @@ export function useProjectChatUnreadCounts(
       };
     }),
   });
+  const chatIdsKey = chats.map((chat) => chat.chatId).join('|');
+  const messagesVersionKey = messageQueries
+    .map((query) => {
+      const items = query.data?.items ?? [];
+      const lastMessageId = items.length > 0 ? items[items.length - 1]?.messageId ?? '' : '';
+      return `${query.dataUpdatedAt}:${lastMessageId}`;
+    })
+    .join('|');
 
   useEffect(() => {
     setReadThroughByChatId((current) => {
       let next = current;
+      let changed = false;
 
       chats.forEach((chat, index) => {
         const messages = messageQueries[index]?.data?.items ?? [];
@@ -86,15 +95,22 @@ export function useProjectChatUnreadCounts(
           return;
         }
 
+        if (currentReadThrough === latestIncomingCreatedAt) {
+          return;
+        }
+
+        changed = true;
         next = {
           ...next,
           [chat.chatId]: latestIncomingCreatedAt,
         };
       });
 
-      return next;
+      return changed ? next : current;
     });
-  }, [activeChatId, chats, currentUserId, messageQueries]);
+    // messageQueries is intentionally represented by messagesVersionKey to avoid render loops.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeChatId, chatIdsKey, currentUserId, messagesVersionKey]);
 
   return useMemo(
     () =>
@@ -130,7 +146,8 @@ export function useProjectChatUnreadCounts(
 
         return lookup;
       }, {}),
-    [activeChatId, chats, currentUserId, messageQueries, readThroughByChatId],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [activeChatId, chatIdsKey, currentUserId, messagesVersionKey, readThroughByChatId],
   );
 }
 
@@ -204,7 +221,7 @@ export function useProjectChatRealtime(input: {
         accessTokenFactory: () => getStoredAccessToken() ?? '',
         withCredentials: true,
       })
-      .withAutomaticReconnect()
+      .withAutomaticReconnect([0, 2000, 10000, 30000])
       .build();
     connectionRef.current = connection;
 
@@ -243,7 +260,9 @@ export function useProjectChatRealtime(input: {
       isDisposed = true;
       connection.off('project_chat.message_sent');
       connectionRef.current = null;
-      void startPromise.finally(() => connection.stop());
+      void startPromise.finally(() => {
+        void connection.stop().catch(() => undefined);
+      });
     };
   }, [enabled, hubUrl, projectId]);
 

@@ -47,6 +47,7 @@ import { PaymentCancelPage, PaymentResultPage } from '@/features/payments';
 import { ProductionCustomizationRequests } from '@/features/ProductionPages/ProductionCustomizationRequests';
 import { ProductionDashbroad } from '@/features/ProductionPages/ProductionDashbroad';
 import { ProductionRequestDetail } from '@/features/ProductionPages/ProductionRequestDetail';
+import { ProductionProjectChat } from '@/features/ProductionPages/ProductionProjectChat';
 import { ProductionRequests } from '@/features/ProductionPages/ProductionRequests';
 import { ReadyForDelivery } from '@/features/ProductionPages/ReadyForDelivery';
 import { AssignedProjects } from '@/features/SalePages/AssignedProjects';
@@ -54,6 +55,7 @@ import { ProjectDetail } from '@/features/SalePages/ProjectDetail';
 import { ProjectRequestQueue } from '@/features/SalePages/ProjectRequestQueue';
 import { SaleDashbroad } from '@/features/SalePages/SaleDashbroad';
 import { SaleOrders } from '@/features/SalePages/SaleOrders';
+import { SaleProjectChat } from '@/features/SalePages/SaleProjectChat';
 import { SaleQuotations } from '@/features/SalePages/SaleQuotations';
 import { SaleTracking } from '@/features/SalePages/SaleTracking';
 import { ThreeDTestPage } from '@/features/ThreeD/pages/ThreeDTestPage';
@@ -167,6 +169,7 @@ export default function App() {
                   <Route path="/sales/project-requests" element={<ProjectRequestQueue />} />
                   <Route path="/sales/assigned-projects" element={<AssignedProjects />} />
                   <Route path="/sales/assigned-projects/:projectId" element={<ProjectDetail />} />
+                  <Route path="/sales/chat" element={<SaleProjectChat />} />
                   <Route path="/sales/quotations" element={<SaleQuotations />} />
                   <Route path="/sales/orders" element={<SaleOrders />} />
                   <Route path="/sales/tracking" element={<SaleTracking />} />
@@ -195,6 +198,7 @@ export default function App() {
                   <Route path="/production/customization-requests" element={<ProductionCustomizationRequests />} />
                   <Route path="/production/requests" element={<ProductionRequests />} />
                   <Route path="/production/requests/:productionRequestId" element={<ProductionRequestDetail />} />
+                  <Route path="/production/chat" element={<ProductionProjectChat />} />
                   <Route path="/production/my-tasks" element={<Navigate to="/production/requests" replace />} />
                   <Route path="/production/ready-for-delivery" element={<ReadyForDelivery />} />
                   <Route path="/production/settings" element={<Navigate to="/production/dashbroad" replace />} />

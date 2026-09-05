@@ -228,13 +228,15 @@ function getNotificationTargetPath(notification: NotificationDto, role?: string)
     }
 
     if (normalizedRole === 'SALES') {
-      return notification.projectId ? `/sales/assigned-projects/${notification.projectId}?tab=chat${chatQuery}` : '/sales/assigned-projects';
+      return notification.projectId
+        ? `/sales/chat?projectId=${encodeURIComponent(notification.projectId)}${chatId ? `&chatId=${encodeURIComponent(chatId)}` : ''}`
+        : '/sales/chat';
     }
 
     if (normalizedRole === 'PRODUCTION') {
-      return productionRequestId
-        ? `/production/requests/${encodeURIComponent(productionRequestId)}`
-        : '/production/requests';
+      return notification.projectId
+        ? `/production/chat?projectId=${encodeURIComponent(notification.projectId)}${chatId ? `&chatId=${encodeURIComponent(chatId)}` : ''}${productionRequestId ? `&productionRequestId=${encodeURIComponent(productionRequestId)}` : ''}`
+        : '/production/chat';
     }
 
     const customerParams = new URLSearchParams();

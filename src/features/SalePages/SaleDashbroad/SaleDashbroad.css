@@ -16,7 +16,8 @@
 .sale-quotations-shell,
 .sale-schedules-shell,
 .sale-tracking-shell,
-.project-detail-shell {
+.project-detail-shell,
+.sale-project-chat-shell {
   height: 100vh;
   min-height: 100vh;
   overflow: hidden;
@@ -29,7 +30,8 @@
 .sale-quotations-content,
 .sale-schedules-content,
 .sale-tracking-content,
-.project-detail-content {
+.project-detail-content,
+.sale-project-chat-content {
   min-height: 0;
 }
 
@@ -40,7 +42,8 @@
 .sale-quotations-main,
 .sale-schedules-main,
 .sale-tracking-main,
-.project-detail-main {
+.project-detail-main,
+.sale-project-chat-main {
   min-height: 0;
   overflow-y: auto;
   scrollbar-width: thin;
@@ -199,13 +202,15 @@ body.sale-sidebar-collapsed .sale-sidebar-brand {
 }
 
 body.sale-sidebar-collapsed .sale-sidebar-nav {
-  padding: 72px 10px 16px;
+  padding: 72px 0 16px;
 }
 
 body.sale-sidebar-collapsed .sale-sidebar-item {
+  border-radius: 0;
   justify-content: center;
   min-height: 44px;
-  padding: 10px 0;
+  padding: 12px 0;
+  width: 100%;
 }
 
 body.sale-sidebar-collapsed .sale-sidebar-item span {
@@ -265,6 +270,35 @@ body.sale-sidebar-collapsed .sale-sidebar-item span {
   min-width: 0;
   align-items: center;
   gap: 16px;
+}
+
+.sale-language {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 36px;
+  min-width: 64px;
+  padding: 0 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #4b5563;
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+
+.sale-language svg {
+  color: #8b6f47;
+}
+
+.sale-language:hover {
+  border-color: #c4a574;
+  background: #f8f4ee;
+  color: #1a1d29;
 }
 
 .sale-button,
@@ -1271,17 +1305,16 @@ body.sale-sidebar-collapsed .sale-sidebar-item span {
   align-items: center;
   box-sizing: border-box;
   display: grid;
-  gap: 10px;
+  gap: 12px;
   grid-template-columns:
-    minmax(120px, 1.4fr)
-    minmax(90px, 0.9fr)
-    minmax(80px, 0.8fr)
-    76px
-    minmax(110px, 1.1fr)
-    92px
-    minmax(120px, 0.9fr)
+    minmax(150px, 1.5fr)
+    minmax(110px, 1fr)
+    minmax(170px, 1.3fr)
+    78px
+    88px
+    minmax(120px, 1.1fr)
     44px;
-  min-width: 880px;
+  min-width: 820px;
   padding-left: 12px;
   padding-right: 12px;
 }
@@ -1315,7 +1348,7 @@ body.sale-sidebar-collapsed .sale-sidebar-item span {
 }
 
 .sales-ops-queue-row strong,
-.sales-ops-queue-row > span:not([class*='sales-ops-priority']) {
+.sales-ops-queue-row > span:not([class*='sales-ops-priority']):not(.sales-ops-phase):not(.sales-ops-due):not(.sales-ops-updated) {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1325,23 +1358,42 @@ body.sale-sidebar-collapsed .sale-sidebar-item span {
   color: #2d2d2d;
 }
 
-.sales-ops-queue-row em {
-  background: #f5f1ec;
+.sales-ops-phase {
+  align-items: center;
+  background: #f3eee6;
+  border: 1px solid rgba(139, 111, 71, 0.16);
   border-radius: 999px;
   box-sizing: border-box;
   color: #6d502f;
-  display: block;
+  display: inline-flex;
   font-size: 11px;
-  font-style: normal;
-  font-weight: 800;
-  line-height: 1.3;
+  font-weight: 700;
+  justify-content: center;
+  justify-self: stretch;
+  line-height: 1.25;
   max-width: 100%;
+  min-height: 28px;
   overflow: hidden;
-  padding: 5px 10px;
+  padding: 4px 10px;
   text-align: center;
   text-overflow: ellipsis;
   white-space: nowrap;
-  width: 100%;
+}
+
+.sales-ops-due {
+  color: #4b5563;
+  font-size: 13px;
+  font-weight: 600;
+  text-align: center;
+}
+
+.sales-ops-updated {
+  color: #6b6b6b;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.3;
+  text-align: center;
+  white-space: nowrap;
 }
 
 .sales-ops-queue-row a,
@@ -1364,15 +1416,19 @@ body.sale-sidebar-collapsed .sale-sidebar-item span {
 }
 
 .sales-ops-priority {
+  align-items: center;
   border-radius: 999px;
   box-sizing: border-box;
   display: inline-flex;
   font-size: 11px;
   font-weight: 900;
   justify-content: center;
-  padding: 4px 8px;
+  justify-self: center;
+  min-height: 28px;
+  min-width: 56px;
+  padding: 4px 10px;
   text-align: center;
-  width: 100%;
+  width: auto;
 }
 
 .sales-ops-priority-high { background: #fee2e2; color: #b91c1c; }
@@ -1615,7 +1671,8 @@ body.sale-sidebar-collapsed .sale-sidebar-item span {
   .sale-quotations-shell,
   .sale-schedules-shell,
   .sale-tracking-shell,
-  .project-detail-shell {
+  .project-detail-shell,
+  .sale-project-chat-shell {
     height: auto;
     overflow: visible;
     flex-direction: column;

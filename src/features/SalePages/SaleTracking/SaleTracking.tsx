@@ -9,7 +9,8 @@ import {
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 
 import { groupDeliveryBatchItems, groupDeliveryTrackingItems } from '@/features/deliveryTracking/deliveryItemGrouping';
-import { SaleNavbar, SaleSidebar } from '@/features/SalePages/salecomponents';
+import { useLang } from '@/app/providers/useLang';
+import { SaleNavbar, SaleSidebar, saleCopy } from '@/features/SalePages/salecomponents';
 import { getOrderServiceResultMessage, type DeliveryTrackingItemDto, type DeliveryTrackingTimelineItemDto } from '@/services/api/orders';
 import { getProjectScheduleServiceResultMessage, type ProjectScheduleDto } from '@/services/api/schedules';
 import {
@@ -40,6 +41,9 @@ const STATUS_PRIORITY: Record<string, number> = {
 };
 
 export function SaleTracking() {
+  const { lang } = useLang();
+  const t = saleCopy[lang];
+  const tr = t.tracking;
   const [selectedProjectId, setSelectedProjectId] = useState('');
   const [selectedOrderId, setSelectedOrderId] = useState('');
   const [search, setSearch] = useState('');
@@ -114,18 +118,18 @@ export function SaleTracking() {
 
   return (
     <div className="sale-tracking-shell">
-      <SaleSidebar activeLabel="Tracking" />
+      <SaleSidebar activeKey="tracking" />
       <div className="sale-tracking-content">
         <SaleNavbar />
         <main className="sale-tracking-main">
           <section className="sale-tracking-heading">
             <div>
-              <h2>Delivery Coordination</h2>
-              <p>Sales now monitors delivery progress while Production owns delivery scheduling and batch execution.</p>
+              <h2>{tr.title}</h2>
+              <p>{tr.subtitle}</p>
             </div>
             <button className="sale-tracking-refresh" disabled={isRefreshing} type="button" onClick={refresh}>
               <IconRefresh className={isRefreshing ? 'is-spinning' : undefined} size={16} />
-              Refresh
+              {t.common.refresh}
             </button>
           </section>
 
@@ -135,25 +139,25 @@ export function SaleTracking() {
           {deliverySchedulesQuery.isError ? <p className="sale-tracking-message sale-tracking-message-error">{getProjectScheduleServiceResultMessage(deliverySchedulesQuery.error)}</p> : null}
 
           <section className="sale-tracking-summary">
-            <SummaryCard icon={<IconTruckDelivery size={20} />} label="Delivery Projects" tone="active" value={trackingProjects.length} />
-            <SummaryCard icon={<IconPackage size={20} />} label="Remaining Qty" tone="ready" value={tracking?.summary.remainingQuantity ?? 0} />
-            <SummaryCard icon={<IconCalendarCheck size={20} />} label="Upcoming" tone="neutral" value={tracking?.summary.upcomingDeliveryCount ?? 0} />
-            <SummaryCard icon={<IconCircleCheck size={20} />} label="Completed Trips" tone="done" value={tracking?.summary.completedDeliveryCount ?? 0} />
+            <SummaryCard icon={<IconTruckDelivery size={20} />} label={tr.deliveryProjects} tone="active" value={trackingProjects.length} />
+            <SummaryCard icon={<IconPackage size={20} />} label={tr.remainingQty} tone="ready" value={tracking?.summary.remainingQuantity ?? 0} />
+            <SummaryCard icon={<IconCalendarCheck size={20} />} label={tr.upcoming} tone="neutral" value={tracking?.summary.upcomingDeliveryCount ?? 0} />
+            <SummaryCard icon={<IconCircleCheck size={20} />} label={tr.completedTrips} tone="done" value={tracking?.summary.completedDeliveryCount ?? 0} />
           </section>
 
           <section className="sale-tracking-layout">
             <aside className="sale-tracking-project-panel">
               <header>
-                <h3>Delivery Projects</h3>
-                <p>Read-only list for Sales coordination.</p>
+                <h3>{tr.deliveryProjects}</h3>
+                <p>{tr.subtitle}</p>
               </header>
               <label className="sale-tracking-search">
                 <IconSearch size={16} />
-                <input placeholder="Search project" value={search} onChange={(event) => setSearch(event.target.value)} />
+                <input placeholder={t.common.searchProjects} value={search} onChange={(event) => setSearch(event.target.value)} />
               </label>
               <div className="sale-tracking-project-list">
-                {projectsQuery.isLoading ? <p className="sale-tracking-muted">Loading projects...</p> : null}
-                {!projectsQuery.isLoading && trackingProjects.length === 0 ? <p className="sale-tracking-muted">No delivery projects found.</p> : null}
+                {projectsQuery.isLoading ? <p className="sale-tracking-muted">{t.common.loading}</p> : null}
+                {!projectsQuery.isLoading && trackingProjects.length === 0 ? <p className="sale-tracking-muted">{tr.emptyProjects}</p> : null}
                 {trackingProjects.map((project) => (
                   <button
                     className={project.projectId === selectedProject?.projectId ? 'is-active' : undefined}
@@ -177,8 +181,8 @@ export function SaleTracking() {
             <section className="sale-tracking-workspace">
               {!selectedProject ? (
                 <div className="sale-tracking-empty sale-tracking-empty-workspace">
-                  <h3>No delivery project selected</h3>
-                  <p>Projects enter this workspace after production is ready for delivery.</p>
+                  <h3>{tr.emptySelected}</h3>
+                  <p>{tr.subtitle}</p>
                 </div>
               ) : (
                 <>
@@ -191,8 +195,8 @@ export function SaleTracking() {
                       <StatusBadge kind="order" value={tracking?.orderStatus ?? order?.status ?? selectedProject.status} />
                     </header>
                     <div className="sale-tracking-overview-grid">
-                      <Field label="Delivered" value={`${tracking?.summary.totalDeliveredQuantity ?? 0} / ${tracking?.summary.totalOrderedQuantity ?? 0}`} />
-                      <Field label="Remaining" value={String(tracking?.summary.remainingQuantity ?? 0)} />
+                      <Field label={tr.delivered} value={`${tracking?.summary.totalDeliveredQuantity ?? 0} / ${tracking?.summary.totalOrderedQuantity ?? 0}`} />
+                      <Field label={tr.remainingQty} value={String(tracking?.summary.remainingQuantity ?? 0)} />
                       <Field label="Progress" value={`${tracking?.summary.deliveryProgressPercent ?? 0}%`} />
                       <Field label="Next delivery" value={tracking?.summary.nextDeliveryAt ? formatDateTime(tracking.summary.nextDeliveryAt) : 'Not scheduled'} />
                     </div>
@@ -209,52 +213,52 @@ export function SaleTracking() {
                   <div className="sale-tracking-grid">
                     <article className="sale-tracking-card">
                       <header>
-                        <h3>Delivery Schedules</h3>
+                        <h3>{tr.deliverySchedules}</h3>
                         <p>Created by Production, confirmed by Customer.</p>
                       </header>
                       <div className="sale-tracking-list">
-                        {deliverySchedulesQuery.isLoading ? <p className="sale-tracking-muted">Loading schedules...</p> : null}
-                        {!deliverySchedulesQuery.isLoading && deliverySchedules.length === 0 ? <p className="sale-tracking-muted">No delivery schedule yet.</p> : null}
+                        {deliverySchedulesQuery.isLoading ? <p className="sale-tracking-muted">{t.common.loading}</p> : null}
+                        {!deliverySchedulesQuery.isLoading && deliverySchedules.length === 0 ? <p className="sale-tracking-muted">{tr.emptySchedule}</p> : null}
                         {deliverySchedules.map((schedule) => <ScheduleCard key={schedule.scheduleId} schedule={schedule} />)}
                       </div>
                     </article>
 
                     <article className="sale-tracking-card">
                       <header>
-                        <h3>Delivery Timeline</h3>
+                        <h3>{tr.deliveryTimeline}</h3>
                         <p>Completed batches and upcoming confirmed schedules.</p>
                       </header>
                       <div className="sale-tracking-list">
                         {(tracking?.timeline ?? []).map((item, index) => (
                           <TimelineCard item={item} key={`${item.projectScheduleId ?? 'schedule'}-${item.deliveryId ?? index}`} />
                         ))}
-                        {!deliveryTrackingQuery.isLoading && (tracking?.timeline.length ?? 0) === 0 ? <p className="sale-tracking-muted">No timeline yet.</p> : null}
+                        {!deliveryTrackingQuery.isLoading && (tracking?.timeline.length ?? 0) === 0 ? <p className="sale-tracking-muted">{tr.emptyTimeline}</p> : null}
                       </div>
                     </article>
                   </div>
 
                   <article className="sale-tracking-card">
                     <header>
-                      <h3>Item Fulfillment</h3>
+                      <h3>{tr.itemFulfillment}</h3>
                       <p>Quantities are aggregated from delivery batches.</p>
                     </header>
                     <div className="sale-tracking-table-wrap sale-tracking-items-wrap">
                       <table className="sale-tracking-items-table">
                         <thead>
                           <tr>
-                            <th>Item</th>
-                            <th>Ordered</th>
-                            <th>Delivered</th>
-                            <th>Status</th>
+                            <th>{tr.item}</th>
+                            <th>{tr.ordered}</th>
+                            <th>{tr.delivered}</th>
+                            <th>{t.common.status}</th>
                           </tr>
                         </thead>
                         <tbody>
                           {deliveryTrackingQuery.isLoading ? (
-                            <tr><td colSpan={4}>Loading items...</td></tr>
+                            <tr><td colSpan={4}>{t.common.loading}</td></tr>
                           ) : null}
                           {groupedTrackingItems.map((item) => <ItemRow item={item} key={item.orderItemIds.join('-')} />)}
                           {!deliveryTrackingQuery.isLoading && groupedTrackingItems.length === 0 ? (
-                            <tr><td colSpan={4}>No delivery items are available.</td></tr>
+                            <tr><td colSpan={4}>{tr.emptyTimeline}</td></tr>
                           ) : null}
                         </tbody>
                       </table>
