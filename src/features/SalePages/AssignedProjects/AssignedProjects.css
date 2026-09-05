@@ -65,31 +65,24 @@
 }
 
 .assigned-projects-filters {
-  margin-bottom: 24px;
-  padding: 24px;
-}
-
-.assigned-projects-filters h3 {
-  margin: 0 0 20px;
-  color: #2d2d2d;
-  font-size: 16px;
-  font-weight: 500;
+  margin-bottom: 16px;
+  padding: 12px;
 }
 
 .assigned-projects-filter-grid {
   display: grid;
-  grid-template-columns: minmax(280px, 1fr) 190px 220px;
-  gap: 16px;
+  grid-template-columns: minmax(260px, 1fr) minmax(180px, 240px) minmax(170px, 220px);
+  gap: 10px;
 }
 
 .assigned-projects-search,
 .assigned-projects-filter-grid select {
   display: flex;
-  height: 36px;
+  height: 38px;
   align-items: center;
-  border: 1px solid transparent;
+  border: 1px solid rgba(139, 111, 71, 0.14);
   border-radius: 6px;
-  background: #f5f1ec;
+  background: #faf9f7;
   padding: 0 12px;
   color: #6b6b6b;
 }

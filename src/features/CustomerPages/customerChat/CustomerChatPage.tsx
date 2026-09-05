@@ -1,5 +1,4 @@
 import {
-  IconArrowLeft,
   IconFile,
   IconSearch,
   IconSend,
@@ -191,10 +190,6 @@ export function CustomerChatPage() {
 
       <div className="customer-chat-body">
         <header className="customer-chat-page-header">
-          <a className="customer-chat-back-link" href="/customer/projects">
-            <IconArrowLeft size={16} stroke={1.8} />
-            Back to Project
-          </a>
           <h1>Project Chat</h1>
         </header>
 

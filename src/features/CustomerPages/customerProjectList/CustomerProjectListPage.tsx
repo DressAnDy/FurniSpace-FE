@@ -1,8 +1,6 @@
 import {
   IconArrowRight,
   IconCalendar,
-  IconChevronRight,
-  IconHome,
   IconMessageCircle,
   IconSearch,
   IconX,
@@ -48,18 +46,9 @@ export function CustomerProjectListPage() {
       <CustomerNavbar activeLabel="My Projects" classPrefix="customer-project-list" />
 
       <div className="customer-project-list-main">
-        <div className="customer-project-list-breadcrumb">
-          <a href="/customer/dashboard">
-            <IconHome size={16} stroke={1.8} />
-          </a>
-          <IconChevronRight size={16} stroke={1.8} />
-          <span>My Projects</span>
-        </div>
-
         <section className="customer-project-list-heading">
           <div>
             <h1>My Projects</h1>
-            <p>View and manage all your interior design projects</p>
           </div>
           <button type="button" onClick={() => navigate('/customer/project-request')}>Create New Project</button>
         </section>

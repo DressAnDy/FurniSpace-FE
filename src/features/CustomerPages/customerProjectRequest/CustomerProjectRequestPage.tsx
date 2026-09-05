@@ -1,7 +1,5 @@
 import {
-  IconChevronLeft,
   IconFileText,
-  IconInfoCircle,
   IconPhoto,
   IconUpload,
   IconX,
@@ -41,12 +39,6 @@ export function CustomerProjectRequestPage() {
   const [fieldErrors, setFieldErrors] = useState<ProjectRequestFieldErrors>({});
   const [showFieldErrors, setShowFieldErrors] = useState(false);
   const isSubmitting = createProjectMutation.isPending || uploadProjectFileMutation.isPending;
-  const infoItems = [
-    'Our sales team will review your request within 24 hours',
-    'You will be assigned a dedicated sales representative and designer',
-    'We may schedule a site visit or consultation call',
-    'You will receive design proposals for review',
-  ];
 
   function clearFieldError(field: ProjectRequestFieldName) {
     setFieldErrors((current) => {
@@ -188,12 +180,7 @@ export function CustomerProjectRequestPage() {
       <div className="customer-project-request-shell">
         <div className="customer-project-request-main">
           <header className="customer-project-request-header">
-            <a href="/customer/projects">
-              <IconChevronLeft size={16} stroke={1.8} />
-              Back to Projects
-            </a>
             <h1>Create New Project Request</h1>
-            <p>Submit a new interior design project request to our team</p>
           </header>
 
           <form className="customer-project-request-form" noValidate onSubmit={handleSubmit}>
@@ -316,10 +303,7 @@ export function CustomerProjectRequestPage() {
               </Field>
             </FormSection>
 
-            <FormSection
-              description="Upload floor plans, reference images, or any relevant documents"
-              title="Project Files"
-            >
+            <FormSection title="Project Files">
               <label className="customer-project-request-upload">
                 <IconUpload size={48} stroke={1.7} />
                 <strong>Click to upload or drag and drop</strong>
@@ -360,28 +344,6 @@ export function CustomerProjectRequestPage() {
           </form>
         </div>
 
-        <aside className="customer-project-request-sidebar">
-          <section className="customer-project-request-next">
-            <h2>What happens next?</h2>
-            <ul>
-              {infoItems.map((item) => (
-                <li key={item}>{item}</li>
-              ))}
-            </ul>
-          </section>
-
-          <section className="customer-project-request-tip">
-            <h2>
-              <IconInfoCircle size={18} stroke={1.8} />
-              Submission Tips
-            </h2>
-            <ul>
-              <li>Add at least 2-3 reference images for style alignment</li>
-              <li>Include expected capacity and peak usage time</li>
-              <li>Provide budget range to receive more accurate proposals</li>
-            </ul>
-          </section>
-        </aside>
       </div>
     </main>
   );

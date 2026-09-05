@@ -55,7 +55,6 @@ import { ProjectRequestQueue } from '@/features/SalePages/ProjectRequestQueue';
 import { SaleDashbroad } from '@/features/SalePages/SaleDashbroad';
 import { SaleOrders } from '@/features/SalePages/SaleOrders';
 import { SaleQuotations } from '@/features/SalePages/SaleQuotations';
-import { SaleSchedules } from '@/features/SalePages/SaleSchedules';
 import { SaleTracking } from '@/features/SalePages/SaleTracking';
 import { ThreeDTestPage } from '@/features/ThreeD/pages/ThreeDTestPage';
 import { BuildingBlueprintTestPage, BuildingThreeDTestPage } from '@/features/ThreeDTest';
@@ -168,7 +167,6 @@ export default function App() {
                   <Route path="/sales/project-requests" element={<ProjectRequestQueue />} />
                   <Route path="/sales/assigned-projects" element={<AssignedProjects />} />
                   <Route path="/sales/assigned-projects/:projectId" element={<ProjectDetail />} />
-                  <Route path="/sales/schedules" element={<SaleSchedules />} />
                   <Route path="/sales/quotations" element={<SaleQuotations />} />
                   <Route path="/sales/orders" element={<SaleOrders />} />
                   <Route path="/sales/tracking" element={<SaleTracking />} />

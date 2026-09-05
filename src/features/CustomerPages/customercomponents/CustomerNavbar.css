@@ -25,15 +25,25 @@
   background: var(--fs-sidebar);
   color: #ffffff;
   padding: 24px 16px;
+  transition: padding 0.2s ease, width 0.2s ease;
+}
+
+.customer-shell-brand {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 28px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  padding: 0 8px 20px;
 }
 
 .customer-shell-logo.customer-shell-logo {
   display: flex;
   align-items: center;
   gap: 12px;
-  margin-bottom: 28px;
-  padding: 0 8px 20px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  min-width: 0;
+  flex: 1;
+  padding: 0;
   color: #ffffff;
   text-decoration: none;
 }
@@ -117,6 +127,49 @@
   white-space: nowrap;
 }
 
+body.customer-sidebar-collapsed .customer-dashboard-page,
+body.customer-sidebar-collapsed .customer-project-list-page,
+body.customer-sidebar-collapsed .customer-project-request-page,
+body.customer-sidebar-collapsed .customer-schedules-page,
+body.customer-sidebar-collapsed .customer-chat-page,
+body.customer-sidebar-collapsed .customer-tracking-page,
+body.customer-sidebar-collapsed .customer-proposal-detail-page,
+body.customer-sidebar-collapsed .customer-3d-preview-page,
+body.customer-sidebar-collapsed .customer-orders-page,
+body.customer-sidebar-collapsed .customer-quotations-page {
+  padding-left: 72px;
+}
+
+body.customer-sidebar-collapsed .customer-shell-sidebar.customer-shell-sidebar {
+  align-items: center;
+  width: 72px;
+  padding: 72px 10px 16px;
+}
+
+body.customer-sidebar-collapsed .customer-sidebar-open-button {
+  display: flex;
+  left: 15px;
+  top: 11px;
+}
+
+body.customer-sidebar-collapsed .customer-shell-brand {
+  display: none;
+}
+
+body.customer-sidebar-collapsed .customer-shell-sidebar .customer-shell-nav {
+  width: 100%;
+}
+
+body.customer-sidebar-collapsed .customer-shell-sidebar .customer-shell-nav a {
+  justify-content: center;
+  min-height: 44px;
+  padding: 10px 0;
+}
+
+body.customer-sidebar-collapsed .customer-shell-sidebar .customer-shell-nav a span {
+  display: none;
+}
+
 .customer-shell-actionbar.customer-shell-actionbar {
   position: fixed;
   top: 0;
@@ -133,6 +186,10 @@
   background: var(--fs-surface);
   box-shadow: 0 1px 3px rgba(45, 45, 45, 0.1);
   padding: 0 28px;
+}
+
+body.customer-sidebar-collapsed .customer-shell-actionbar.customer-shell-actionbar {
+  left: 72px;
 }
 
 .customer-shell-create.customer-shell-create {
@@ -359,4 +416,113 @@
   .customer-shell-actionbar .customer-user-summary-chevron {
     display: none;
   }
+}
+
+body.customer-sidebar-collapsed .customer-dashboard-page,
+body.customer-sidebar-collapsed .customer-project-list-page,
+body.customer-sidebar-collapsed .customer-project-request-page,
+body.customer-sidebar-collapsed .customer-schedules-page,
+body.customer-sidebar-collapsed .customer-chat-page,
+body.customer-sidebar-collapsed .customer-tracking-page,
+body.customer-sidebar-collapsed .customer-proposal-detail-page,
+body.customer-sidebar-collapsed .customer-3d-preview-page,
+body.customer-sidebar-collapsed .customer-orders-page,
+body.customer-sidebar-collapsed .customer-quotations-page {
+  padding-left: 72px;
+  padding-top: 72px;
+}
+
+body.customer-sidebar-collapsed .customer-shell-sidebar.customer-shell-sidebar {
+  inset: 0 auto 0 0;
+  width: 72px;
+  height: 100vh;
+  min-height: 100vh;
+  flex-direction: column;
+  padding: 72px 10px 16px;
+}
+
+body.customer-sidebar-collapsed .customer-shell-actionbar.customer-shell-actionbar {
+  top: 0;
+  left: 72px;
+  min-height: 72px;
+}
+
+body :is(
+  .customer-project-list-main,
+  .customer-project-request-shell,
+  .customer-orders-main,
+  .customer-quotations-main,
+  .customer-schedules-main,
+  .customer-chat-body
+) {
+  max-width: 1360px;
+  margin-right: auto;
+  margin-left: auto;
+  padding-right: clamp(24px, 3vw, 44px);
+  padding-left: clamp(24px, 3vw, 44px);
+}
+
+body .customer-project-request-shell {
+  padding-top: 28px;
+  padding-bottom: 48px;
+}
+
+body :is(
+  .customer-project-list-heading,
+  .customer-project-request-header,
+  .customer-orders-heading,
+  .customer-quotations-heading,
+  .customer-schedules-heading,
+  .customer-chat-page-header,
+  .customer-project-detail-hero
+) {
+  display: flex;
+  min-width: 0;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 20px;
+  margin-bottom: 22px;
+  border: 1px solid rgba(139, 111, 71, 0.15);
+  border-radius: 12px;
+  background: linear-gradient(174deg, #2d2d2d 0%, #1e1e1e 100%);
+  color: #ffffff;
+  padding: 32px;
+}
+
+body :is(
+  .customer-project-list-heading,
+  .customer-project-request-header,
+  .customer-orders-heading,
+  .customer-quotations-heading,
+  .customer-schedules-heading,
+  .customer-chat-page-header,
+  .customer-project-detail-hero
+) h1 {
+  margin: 0;
+  color: #ffffff;
+  font-size: 30px;
+  font-weight: 800;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
+body :is(
+  .customer-project-list-heading,
+  .customer-project-request-header,
+  .customer-orders-heading,
+  .customer-quotations-heading,
+  .customer-schedules-heading,
+  .customer-chat-page-header,
+  .customer-project-detail-hero
+) p {
+  display: none;
+}
+
+body :is(.customer-project-list-heading button, .customer-quotations-heading a) {
+  flex: 0 0 auto;
+}
+
+body .customer-project-detail-hero .customer-project-detail-kicker,
+body .customer-project-detail-hero .customer-project-detail-code {
+  color: rgba(255, 255, 255, 0.72);
 }

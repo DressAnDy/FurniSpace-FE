@@ -1,4 +1,4 @@
-import { IconChevronLeft, IconFileText, IconPhoto, IconUpload, IconX } from '@tabler/icons-react';
+import { IconFileText, IconPhoto, IconUpload, IconX } from '@tabler/icons-react';
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 
@@ -182,12 +182,7 @@ export function CustomerProjectInformationPage() {
       <div className="customer-project-request-shell">
         <div className="customer-project-request-main">
           <header className="customer-project-request-header">
-            <a href="/customer/projects">
-              <IconChevronLeft size={16} stroke={1.8} />
-              Back to Projects
-            </a>
             <h1>Update Project Information</h1>
-            <p>{project?.projectCode ?? 'Refresh the project details requested by FurniSpace'}</p>
           </header>
 
           {projectQuery.isLoading ? <p className="customer-project-request-message">Loading project information...</p> : null}
@@ -326,7 +321,7 @@ export function CustomerProjectInformationPage() {
                 </Field>
               </FormSection>
 
-              <FormSection description="Add new floor plans, reference images, or documents requested by Sales" title="Additional Files">
+              <FormSection title="Additional Files">
                 <div
                   className={`customer-project-request-upload ${isDraggingFiles ? 'customer-project-request-upload-active' : ''}`}
                   role="button"
