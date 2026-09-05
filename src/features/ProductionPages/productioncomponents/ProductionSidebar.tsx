@@ -37,20 +37,21 @@ export function ProductionSidebar({ activeLabel }: ProductionSidebarProps) {
       <button
         aria-label="Open production sidebar"
         className="actor-sidebar-open-button production-sidebar-open-button"
+        hidden={!isCollapsed}
         type="button"
         onClick={expand}
       >
         <IconMenu2 size={22} />
       </button>
 
-      <aside className="production-sidebar" aria-hidden={isCollapsed}>
+      <aside className={`production-sidebar ${isCollapsed ? 'is-collapsed' : 'is-expanded'}`}>
         <div className="production-sidebar-brand">
           <img className="production-sidebar-brand-logo" src={logoImage} alt="FurniSpace" />
           <div>
             <h1>FurniSpace</h1>
             <p>Production</p>
           </div>
-          <button aria-label="Collapse production sidebar" className="actor-sidebar-collapse-button" type="button" onClick={collapse}>
+          <button aria-label="Collapse production sidebar" className="actor-sidebar-collapse-button" hidden={isCollapsed} type="button" onClick={collapse}>
             <IconChevronLeft size={18} />
           </button>
         </div>
@@ -60,6 +61,7 @@ export function ProductionSidebar({ activeLabel }: ProductionSidebarProps) {
             <NavLink
               key={label}
               to={path}
+              title={label}
               className={({ isActive }) =>
                 `production-sidebar-item ${isActive || label === activeLabel ? 'production-sidebar-item-active' : ''}`
               }

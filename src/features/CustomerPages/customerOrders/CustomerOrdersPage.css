@@ -10,20 +10,6 @@
   padding: 32px 24px 48px;
 }
 
-.customer-orders-breadcrumb {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  color: #8d8174;
-  font-size: 13px;
-  font-weight: 700;
-  margin-bottom: 22px;
-}
-
-.customer-orders-breadcrumb a {
-  color: #8b6f47;
-}
-
 .customer-orders-heading {
   margin-bottom: 22px;
 }
@@ -64,7 +50,7 @@
 
 .customer-orders-layout {
   display: grid;
-  grid-template-columns: minmax(280px, 0.42fr) minmax(0, 1fr);
+  grid-template-columns: minmax(180px, 220px) minmax(0, 1fr);
   gap: 20px;
   align-items: start;
 }
@@ -73,6 +59,10 @@
 .customer-orders-card {
   min-width: 0;
   padding: 20px;
+}
+
+.customer-orders-panel {
+  padding: 14px;
 }
 
 .customer-orders-panel header,
@@ -160,15 +150,15 @@
 .customer-orders-project-list button,
 .customer-orders-order-list button {
   display: grid;
-  gap: 12px;
+  gap: 6px;
   border: 1px solid rgba(139, 111, 71, 0.14);
-  border-radius: 12px;
+  border-radius: 10px;
   background: #fbfaf7;
   color: #2f2a24;
   cursor: pointer;
   font: inherit;
-  min-height: 118px;
-  padding: 16px;
+  min-height: 92px;
+  padding: 12px;
   text-align: left;
 }
 
@@ -208,15 +198,6 @@
 .customer-orders-project-list strong,
 .customer-orders-order-list span {
   overflow-wrap: anywhere;
-}
-
-.customer-orders-order-total {
-  align-self: end;
-  color: #2f2a24;
-  font-size: 15px;
-  font-weight: 800;
-  line-height: 22px;
-  white-space: nowrap;
 }
 
 .customer-orders-project-list strong {
@@ -283,15 +264,15 @@
 
 .customer-orders-order-list button {
   align-content: start;
-  gap: 7px;
-  min-height: 124px;
+  gap: 6px;
+  min-height: 98px;
 }
 
 .customer-orders-order-list strong {
   color: #2f2a24;
-  font-size: 15px;
+  font-size: 13px;
   font-weight: 800;
-  line-height: 21px;
+  line-height: 18px;
   overflow: hidden;
   overflow-wrap: anywhere;
   display: -webkit-box;
@@ -299,15 +280,15 @@
   -webkit-line-clamp: 2;
 }
 
-.customer-orders-order-list button > span:not(.customer-orders-order-total) {
+.customer-orders-order-list button > span {
   color: #756b61;
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 800;
-  line-height: 18px;
+  line-height: 15px;
 }
 
 .customer-orders-order-list .customer-orders-status {
-  margin-top: 4px;
+  margin-top: 2px;
 }
 
 .customer-orders-status {
@@ -318,11 +299,72 @@
   border-radius: 999px;
   background: rgba(139, 111, 71, 0.14);
   color: #6f5636;
-  font-size: 11px;
+  font-size: 10px;
   font-style: normal;
   font-weight: 900;
-  padding: 0 10px;
+  padding: 0 8px;
   text-transform: uppercase;
+}
+
+.customer-orders-accordion {
+  border: 1px solid rgba(139, 111, 71, 0.14);
+  border-radius: 12px;
+  background: #ffffff;
+  overflow: hidden;
+}
+
+.customer-orders-accordion summary {
+  align-items: center;
+  cursor: pointer;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  list-style: none;
+  min-height: 54px;
+  padding: 0 16px;
+}
+
+.customer-orders-accordion summary::-webkit-details-marker {
+  display: none;
+}
+
+.customer-orders-accordion summary > span {
+  color: #2f2a24;
+  font-size: 15px;
+  font-weight: 900;
+}
+
+.customer-orders-accordion summary > div {
+  align-items: center;
+  color: #8b6f47;
+  display: inline-flex;
+  gap: 8px;
+}
+
+.customer-orders-accordion summary em {
+  color: #756b61;
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.customer-orders-accordion summary svg {
+  transition: transform 0.18s ease;
+}
+
+.customer-orders-accordion[open] summary {
+  border-bottom: 1px solid rgba(139, 111, 71, 0.12);
+}
+
+.customer-orders-accordion[open] summary svg {
+  transform: rotate(180deg);
+}
+
+.customer-orders-accordion-body {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
 }
 
 .customer-orders-status-deposit-pending,
@@ -426,6 +468,20 @@
   border-radius: 14px;
   background: #ffffff;
   padding: 16px;
+}
+
+.customer-orders-accordion-body .customer-orders-history-panel,
+.customer-orders-accordion-body .customer-orders-delivery-embed,
+.customer-orders-accordion-body .customer-orders-delivery-details {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  padding: 0;
+}
+
+.customer-orders-accordion-body .customer-orders-payment-panel {
+  border: 0;
+  border-radius: 10px;
 }
 
 .customer-orders-history-panel header,

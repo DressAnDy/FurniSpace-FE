@@ -17,11 +17,11 @@ import {
   useRequestProjectInformation,
 } from '@/services/queries/useProjects';
 
-import { ChatTab, FilesAttachmentsTab, OverviewTab, ProjectMemberTab, SchedulesTab } from './tabs';
+import { ChatTab, FilesAttachmentsTab, OverviewTab, ProjectMemberTab } from './tabs';
 import { ProjectStartFeePanel } from './components/ProjectStartFeePanel';
 import './ProjectDetail.css';
 
-type ProjectDetailTab = 'overview' | 'customer' | 'files' | 'chat' | 'schedules' | 'showcase';
+type ProjectDetailTab = 'overview' | 'customer' | 'files' | 'chat' | 'showcase';
 
 export type ProjectDetailProject = ProjectDto;
 
@@ -39,7 +39,6 @@ const baseTabs: Array<{ id: ProjectDetailTab; label: string }> = [
 
 const assignedProjectTabs: Array<{ id: ProjectDetailTab; label: string }> = [
   ...baseTabs,
-  { id: 'schedules', label: 'Schedules' },
   { id: 'showcase', label: 'Showcase' },
 ];
 
@@ -222,7 +221,6 @@ export function ProjectDetail() {
     if (activeTab === 'overview') return <OverviewTab project={project} />;
     if (activeTab === 'customer') return <ProjectMemberTab project={project} canManageAssignment={isAssignedProjectRoute} />;
     if (activeTab === 'files') return <FilesAttachmentsTab projectId={project.projectId} />;
-    if (activeTab === 'schedules' && isAssignedProjectRoute) return <SchedulesTab project={project} />;
     if (activeTab === 'showcase' && isAssignedProjectRoute) {
       return <ProjectShowcaseManager projectId={project.projectId} projectName={project.projectName} projectStatus={project.status} role="sales" />;
     }

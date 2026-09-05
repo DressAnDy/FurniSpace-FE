@@ -10,20 +10,6 @@
   padding: 32px 24px 48px;
 }
 
-.customer-quotations-breadcrumb {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  color: #8d8174;
-  font-size: 13px;
-  font-weight: 700;
-  margin-bottom: 22px;
-}
-
-.customer-quotations-breadcrumb a {
-  color: #8b6f47;
-}
-
 .customer-quotations-heading {
   display: flex;
   align-items: flex-start;
@@ -92,7 +78,7 @@
 
 .customer-quotations-grid {
   display: grid;
-  grid-template-columns: minmax(280px, 0.42fr) minmax(0, 1fr);
+  grid-template-columns: minmax(180px, 220px) minmax(0, 1fr);
   gap: 20px;
   align-items: start;
 }
@@ -101,6 +87,10 @@
 .customer-quotations-card {
   min-width: 0;
   padding: 20px;
+}
+
+.customer-quotations-project-panel {
+  padding: 14px;
 }
 
 .customer-quotations-project-panel header,
@@ -142,12 +132,12 @@
   min-width: 0;
   gap: 6px;
   border: 1px solid rgba(139, 111, 71, 0.14);
-  border-radius: 12px;
+  border-radius: 10px;
   background: #fbfaf7;
   color: #2f2a24;
   cursor: pointer;
   font: inherit;
-  padding: 14px;
+  padding: 12px;
   text-align: left;
 }
 

@@ -203,26 +203,6 @@
   line-height: 1.4;
 }
 
-.customer-proposal-detail-breadcrumb {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  color: #6b6b6b;
-  font-size: 14px;
-}
-
-.customer-proposal-detail-breadcrumb a {
-  display: inline-flex;
-  align-items: center;
-  color: #6b6b6b;
-  text-decoration: none;
-}
-
-.customer-proposal-detail-breadcrumb span {
-  color: #2d2d2d;
-  font-weight: 500;
-}
-
 .customer-proposal-detail-state,
 .customer-proposal-detail-picker,
 .customer-proposal-detail-proposal-list {

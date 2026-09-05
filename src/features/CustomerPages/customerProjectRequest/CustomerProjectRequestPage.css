@@ -7,7 +7,7 @@
 
 .customer-project-request-shell {
   display: grid;
-  grid-template-columns: minmax(0, 7fr) minmax(280px, 3fr);
+  grid-template-columns: minmax(0, 1fr);
   gap: 24px;
   max-width: 1360px;
   margin: 0 auto;

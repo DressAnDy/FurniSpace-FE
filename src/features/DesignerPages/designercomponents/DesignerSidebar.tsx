@@ -37,20 +37,21 @@ export function DesignerSidebar({ activeLabel }: DesignerSidebarProps) {
     <button
       aria-label="Open designer sidebar"
       className="actor-sidebar-open-button designer-sidebar-open-button"
+      hidden={!isCollapsed}
       type="button"
       onClick={expand}
     >
       <IconMenu2 size={22} />
     </button>
 
-    <aside className="designer-sidebar" aria-hidden={isCollapsed}>
+    <aside className={`designer-sidebar ${isCollapsed ? 'is-collapsed' : 'is-expanded'}`}>
       <div className="designer-sidebar-brand">
         <img src={logoImage} alt="" />
         <div>
           <h1>FurniSpace</h1>
           <p>Designer</p>
         </div>
-        <button aria-label="Collapse designer sidebar" className="actor-sidebar-collapse-button" type="button" onClick={collapse}>
+        <button aria-label="Collapse designer sidebar" className="actor-sidebar-collapse-button" hidden={isCollapsed} type="button" onClick={collapse}>
           <IconChevronLeft size={18} />
         </button>
       </div>
@@ -71,6 +72,7 @@ export function DesignerSidebar({ activeLabel }: DesignerSidebarProps) {
                 className={`designer-sidebar-item ${activeClass}`}
                 disabled
                 key={label}
+                title={label}
                 type="button"
               >
                 {content}
@@ -85,6 +87,7 @@ export function DesignerSidebar({ activeLabel }: DesignerSidebarProps) {
               }
               key={label}
               to={path}
+              title={label}
             >
               {content}
             </NavLink>

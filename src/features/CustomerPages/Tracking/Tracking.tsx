@@ -139,9 +139,7 @@ export function Tracking() {
       <div className="customer-workspace-main">
         <section className="customer-workspace-heading">
           <div>
-            <p className="customer-workspace-eyebrow">Customer Workspace</p>
             <h1>Delivery Tracking</h1>
-            <p>Follow delivery progress by schedule and confirm final receipt after every quantity has arrived.</p>
           </div>
         </section>
 
@@ -240,7 +238,6 @@ export function Tracking() {
               <header>
                 <div>
                   <h2>Delivery Items</h2>
-                  <p>Quantities update after each completed delivery batch.</p>
                 </div>
                 <Link className="customer-workspace-link" to="/customer/chat"><IconMessageCircle size={16} /> Contact team</Link>
               </header>
@@ -255,7 +252,6 @@ export function Tracking() {
               <header>
                 <div>
                   <h2>Delivery Timeline</h2>
-                  <p>Each confirmed schedule becomes a delivery batch when Production executes it.</p>
                 </div>
               </header>
               <div className="customer-tracking-delivery-list">

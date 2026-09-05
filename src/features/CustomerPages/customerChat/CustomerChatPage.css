@@ -182,20 +182,6 @@
   padding: 16px 24px 20px;
 }
 
-.customer-chat-back-link {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  color: #6b6b6b;
-  font-size: 14px;
-  text-decoration: none;
-  margin-bottom: 4px;
-}
-
-.customer-chat-back-link:hover {
-  color: #2d2d2d;
-}
-
 .customer-chat-page-header h1 {
   margin: 8px 0 0;
   font-size: 24px;

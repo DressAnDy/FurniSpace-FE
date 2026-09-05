@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
 
-type ActorKey = 'admin' | 'designer' | 'production' | 'sale';
+type ActorKey = 'admin' | 'customer' | 'designer' | 'production' | 'sale';
 
 const storageKeyByActor: Record<ActorKey, string> = {
   admin: 'furnispace:admin-sidebar-collapsed',
+  customer: 'furnispace:customer-sidebar-collapsed',
   designer: 'furnispace:designer-sidebar-collapsed',
   production: 'furnispace:production-sidebar-collapsed',
   sale: 'furnispace:sale-sidebar-collapsed',
@@ -11,6 +12,7 @@ const storageKeyByActor: Record<ActorKey, string> = {
 
 const bodyClassByActor: Record<ActorKey, string> = {
   admin: 'admin-sidebar-collapsed',
+  customer: 'customer-sidebar-collapsed',
   designer: 'designer-sidebar-collapsed',
   production: 'production-sidebar-collapsed',
   sale: 'sale-sidebar-collapsed',
@@ -18,8 +20,10 @@ const bodyClassByActor: Record<ActorKey, string> = {
 
 export function useActorSidebarCollapse(actor: ActorKey) {
   const [isCollapsed, setIsCollapsed] = useState(() => {
-    if (typeof window === 'undefined') return false;
-    return window.localStorage.getItem(storageKeyByActor[actor]) === 'true';
+    if (typeof window === 'undefined') return true;
+    const savedValue = window.localStorage.getItem(storageKeyByActor[actor]);
+
+    return savedValue === null ? true : savedValue === 'true';
   });
 
   useEffect(() => {
