@@ -38,12 +38,14 @@ export function ChatTab({ project }: ChatTabProps) {
   const messagesListRef = useRef<HTMLDivElement | null>(null);
   const chatListQuery = useProjectChats({
     projectId: project.projectId,
-    chatType: 'SALES',
     page: 1,
     limit: 20,
   });
   const { refetch: refetchChats } = chatListQuery;
-  const chats = useMemo(() => chatListQuery.data?.items ?? [], [chatListQuery.data?.items]);
+  const chats = useMemo(
+    () => (chatListQuery.data?.items ?? []).filter((chat) => chat.chatType === 'SALES' || chat.chatType === 'PRODUCTION'),
+    [chatListQuery.data?.items],
+  );
   const requestedChatId = new URLSearchParams(location.search).get('chatId');
   const activeChat = chats.find((chat) => chat.chatId === activeChatId) ?? chats[0] ?? null;
   const unreadCounts = useProjectChatUnreadCounts(chats, currentUserQuery.data?.accountId, activeChat?.chatId);
@@ -106,7 +108,7 @@ export function ChatTab({ project }: ChatTabProps) {
     activeChatId: activeChat?.chatId ?? null,
     enabled: Boolean(activeChat),
     onMessage: (event) => {
-      void queryClient.invalidateQueries({ queryKey: projectChatQueryKeys.list({ projectId: project.projectId, chatType: 'SALES', page: 1, limit: 20 }) });
+      void queryClient.invalidateQueries({ queryKey: projectChatQueryKeys.list({ projectId: project.projectId, page: 1, limit: 20 }) });
       queryClient.setQueryData(
         projectChatQueryKeys.messages({
           chatId: event.chatId,

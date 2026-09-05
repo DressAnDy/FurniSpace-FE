@@ -3,6 +3,8 @@ import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 
 import { ProjectStatusBadge, ProjectTimeline, SaleNavbar, SaleSidebar } from '@/features/SalePages/salecomponents';
+import { OperationalDelayPanel } from '@/features/operationalDelayReports/OperationalDelayPanel';
+import { ProductIssuePanel } from '@/features/productIssues/ProductIssuePanel';
 import { ProjectShowcaseManager } from '@/features/showcases/ProjectShowcaseManager';
 import type { OrderListItemDto } from '@/services/api/orders';
 import type { ProjectDto, ProjectStatus } from '@/services/api/projects';
@@ -16,12 +18,13 @@ import {
   useReopenProjectProposal,
   useRequestProjectInformation,
 } from '@/services/queries/useProjects';
+import { useProductionRequests } from '@/services/queries/useProduction';
 
 import { ChatTab, FilesAttachmentsTab, OverviewTab, ProjectMemberTab } from './tabs';
 import { ProjectStartFeePanel } from './components/ProjectStartFeePanel';
 import './ProjectDetail.css';
 
-type ProjectDetailTab = 'overview' | 'customer' | 'files' | 'chat' | 'showcase';
+type ProjectDetailTab = 'overview' | 'customer' | 'files' | 'chat' | 'delays' | 'issues' | 'showcase';
 
 export type ProjectDetailProject = ProjectDto;
 
@@ -39,6 +42,8 @@ const baseTabs: Array<{ id: ProjectDetailTab; label: string }> = [
 
 const assignedProjectTabs: Array<{ id: ProjectDetailTab; label: string }> = [
   ...baseTabs,
+  { id: 'delays', label: 'Delay History' },
+  { id: 'issues', label: 'Product Issues' },
   { id: 'showcase', label: 'Showcase' },
 ];
 
@@ -101,8 +106,13 @@ export function ProjectDetail() {
   const completeProjectMutation = useCompleteProject();
   const isAssignedProjectRoute = location.pathname.startsWith('/sales/assigned-projects');
   const projectOrdersQuery = useProjectOrders(projectId, { enabled: Boolean(projectId) && isAssignedProjectRoute });
+  const productionRequestsQuery = useProductionRequests(undefined, { enabled: Boolean(projectId) && isAssignedProjectRoute });
   const project = projectQuery.data;
   const relatedOrder = useMemo(() => getPrimaryRelatedOrder(projectOrdersQuery.data?.items ?? []), [projectOrdersQuery.data?.items]);
+  const relatedProductionRequest = useMemo(
+    () => productionRequestsQuery.data?.items.find((request) => request.projectId === projectId) ?? null,
+    [productionRequestsQuery.data?.items, projectId],
+  );
   const activeSidebarLabel = isAssignedProjectRoute ? 'Assigned Projects' : 'Project Request Queue';
   const hasConsultationAccess = Boolean(project && project.status !== 'SUBMITTED');
   const visibleTabs = hasConsultationAccess ? (isAssignedProjectRoute ? assignedProjectTabs : baseTabs) : reviewTabs;
@@ -221,6 +231,18 @@ export function ProjectDetail() {
     if (activeTab === 'overview') return <OverviewTab project={project} />;
     if (activeTab === 'customer') return <ProjectMemberTab project={project} canManageAssignment={isAssignedProjectRoute} />;
     if (activeTab === 'files') return <FilesAttachmentsTab projectId={project.projectId} />;
+    if (activeTab === 'delays' && isAssignedProjectRoute) {
+      return (
+        <OperationalDelayPanel
+          orderId={relatedOrder?.orderId}
+          productionRequestId={relatedProductionRequest?.productionRequestId}
+          projectId={project.projectId}
+        />
+      );
+    }
+    if (activeTab === 'issues' && isAssignedProjectRoute) {
+      return <ProductIssuePanel projectId={project.projectId} />;
+    }
     if (activeTab === 'showcase' && isAssignedProjectRoute) {
       return <ProjectShowcaseManager projectId={project.projectId} projectName={project.projectName} projectStatus={project.status} role="sales" />;
     }

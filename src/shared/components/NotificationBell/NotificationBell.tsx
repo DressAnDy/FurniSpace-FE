@@ -215,6 +215,10 @@ export function NotificationBell({ buttonClassName, className }: NotificationBel
 function getNotificationTargetPath(notification: NotificationDto, role?: string) {
   const normalizedRole = normalizeRole(role);
   const chatId = typeof notification.metadata?.chatId === 'string' ? notification.metadata.chatId : null;
+  const productionRequestId =
+    typeof notification.metadata?.productionRequestId === 'string'
+      ? notification.metadata.productionRequestId
+      : null;
 
   if (notification.referenceType === 'PROJECT_CHAT_MESSAGE' || notification.notificationType === 'ProjectChatMessageSent') {
     const chatQuery = chatId ? `&chatId=${encodeURIComponent(chatId)}` : '';
@@ -228,7 +232,9 @@ function getNotificationTargetPath(notification: NotificationDto, role?: string)
     }
 
     if (normalizedRole === 'PRODUCTION') {
-      return '/production/requests';
+      return productionRequestId
+        ? `/production/requests/${encodeURIComponent(productionRequestId)}`
+        : '/production/requests';
     }
 
     const customerParams = new URLSearchParams();

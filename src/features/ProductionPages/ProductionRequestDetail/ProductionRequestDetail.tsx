@@ -8,6 +8,8 @@ import {
   ProductionStatusBadge,
 } from '@/features/ProductionPages/productioncomponents';
 import type { ProductionItem, ProductionItemStatus, ProductionRequestStatus } from '@/features/ProductionPages/types';
+import { ProjectChatPanel } from '@/features/projectChat/ProjectChatPanel';
+import { OperationalDelayPanel } from '@/features/operationalDelayReports/OperationalDelayPanel';
 import { formatDate, getProductionItemStatusLabel, getProductionRequestStatusLabel } from '@/features/ProductionPages/utils';
 import { ProjectPhaseTimelineCard } from '@/features/projectPhaseDeadlines/ProjectPhaseTimelineCard';
 import { getProductionServiceResultMessage } from '@/services/api/production';
@@ -18,7 +20,7 @@ import {
   useUpdateProductionItemStatus,
 } from '@/services/queries';
 
-const tabs = ['Overview', 'Production Items'] as const;
+const tabs = ['Overview', 'Production Items', 'Production Chat'] as const;
 type DetailTab = (typeof tabs)[number];
 
 export function ProductionRequestDetail() {
@@ -184,6 +186,14 @@ export function ProductionRequestDetail() {
           emptyText="No production deadline has been planned yet."
         />
 
+        <OperationalDelayPanel
+          allowedPhases={['PRODUCTION']}
+          defaultPhase="PRODUCTION"
+          productionRequestId={request.productionRequestId}
+          projectId={request.projectId}
+          title="Production delay history"
+        />
+
         <article className="production-workspace-card">
           <nav className="production-workspace-tabs">
             {tabs.map((tab) => (
@@ -249,6 +259,14 @@ export function ProductionRequestDetail() {
                 </tbody>
               </table>
             </div>
+          ) : null}
+          {activeTab === 'Production Chat' ? (
+            <ProjectChatPanel
+              preferredChatType="PRODUCTION"
+              projectCode={request.projectCode}
+              projectId={request.projectId}
+              title="Production coordination"
+            />
           ) : null}
         </article>
       </div>

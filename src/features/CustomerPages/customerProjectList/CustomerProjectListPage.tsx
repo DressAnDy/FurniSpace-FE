@@ -117,6 +117,7 @@ export function CustomerProjectListPage() {
               <IconX size={18} />
             </button>
             <ProjectChatPanel
+              preferredChatType="SALES"
               projectCode={chatProject.projectCode}
               projectId={chatProject.projectId}
               title={`${chatProject.projectName} Chat`}
