@@ -1,9 +1,7 @@
 import {
   IconCalendar,
   IconCheck,
-  IconChevronRight,
   IconClock,
-  IconHome,
   IconMapPin,
   IconPalette,
   IconPhoto,
@@ -184,16 +182,6 @@ export function CustomerProjectDetailPage() {
       <CustomerNavbar activeLabel="My Projects" classPrefix="customer-project-list" />
 
       <div className="customer-project-list-main">
-        <div className="customer-project-list-breadcrumb">
-          <Link to="/customer/dashboard">
-            <IconHome size={16} stroke={1.8} />
-          </Link>
-          <IconChevronRight size={16} stroke={1.8} />
-          <Link to="/customer/projects">My Projects</Link>
-          <IconChevronRight size={16} stroke={1.8} />
-          <span>{project?.projectCode ?? 'Project Detail'}</span>
-        </div>
-
         {projectQuery.isLoading ? <section className="customer-project-list-state">Loading project detail...</section> : null}
         {projectQuery.isError ? <section className="customer-project-list-state is-error">{getProjectServiceResultMessage(projectQuery.error)}</section> : null}
         {message ? <section className={`customer-project-detail-message customer-project-detail-message-${message.tone}`}>{message.text}</section> : null}
@@ -207,7 +195,7 @@ export function CustomerProjectDetailPage() {
               <div className="customer-project-detail-hero-copy">
                 <span className="customer-project-detail-kicker">Project Overview</span>
                 <h1>{project.projectName}</h1>
-                <p className="customer-project-detail-code">{project.projectCode}</p>
+                <span className="customer-project-detail-code">{project.projectCode}</span>
               </div>
             </div>
 
@@ -254,14 +242,13 @@ export function CustomerProjectDetailPage() {
                   </section>
 
                   <ProjectPhaseTimelineCard
+                    description=""
                     projectId={project.projectId}
                     title="Project Timeline"
-                    description="All planned project phase deadlines and progress."
                   />
 
                   <section className="customer-project-detail-section customer-project-measurement-section">
                     <h2>Measurement Images</h2>
-                    <p>Photos captured during measurement sessions and linked to project areas.</p>
                     {measurementImagesQuery.isLoading ? <p className="customer-project-detail-proposals-state">Loading measurement images...</p> : null}
                     {measurementImagesQuery.isError ? (
                       <p className="customer-project-detail-proposals-state is-error">
@@ -327,7 +314,6 @@ export function CustomerProjectDetailPage() {
                     </span>
                     <div>
                       <h2>Design Proposals</h2>
-                      <p>Review published design options for this project.</p>
                     </div>
                   </div>
                   <div className="customer-project-detail-proposals-tools">
@@ -420,7 +406,6 @@ function CustomerProjectSchedulesTab({
           </span>
           <div>
             <h2>Project Schedules</h2>
-            <p>Review appointments for this project and confirm schedules from your team.</p>
           </div>
         </div>
         <div className="customer-project-detail-schedule-summary">

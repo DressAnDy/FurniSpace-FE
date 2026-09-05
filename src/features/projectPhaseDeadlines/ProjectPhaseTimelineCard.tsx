@@ -37,7 +37,7 @@ export function ProjectPhaseTimelineCard({
       <header>
         <div>
           <h3>{title}</h3>
-          <p>{description}</p>
+          {description ? <p>{description}</p> : null}
         </div>
         {deadlinesQuery.data?.targetCompletionDate ? (
           <span>Target {formatDateOnly(deadlinesQuery.data.targetCompletionDate)}</span>

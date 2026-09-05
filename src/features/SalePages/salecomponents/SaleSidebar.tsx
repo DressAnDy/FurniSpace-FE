@@ -1,6 +1,5 @@
 import {
   IconBriefcase,
-  IconCalendarEvent,
   IconFileDollar,
   IconHome,
   IconMenu2,
@@ -23,7 +22,6 @@ const saleSidebarItems: SaleSidebarItem[] = [
   { label: 'Dashboard', icon: IconHome, path: '/sales/dashbroad' },
   { label: 'Project Request Queue', icon: IconHome, path: '/sales/project-requests' },
   { label: 'Assigned Projects', icon: IconBriefcase, path: '/sales/assigned-projects' },
-  { label: 'Schedules', icon: IconCalendarEvent, path: '/sales/schedules' },
   { label: 'Quotations', icon: IconFileDollar, path: '/sales/quotations' },
   { label: 'Orders', icon: IconFileDollar, path: '/sales/orders' },
   { label: 'Tracking', icon: IconTruckDelivery, path: '/sales/tracking' },
@@ -41,20 +39,21 @@ export function SaleSidebar({ activeLabel }: SaleSidebarProps) {
     <button
       aria-label="Open sale sidebar"
       className="actor-sidebar-open-button sale-sidebar-open-button"
+      hidden={!isCollapsed}
       type="button"
       onClick={expand}
     >
       <IconMenu2 size={22} />
     </button>
 
-    <aside className="sale-sidebar" aria-hidden={isCollapsed}>
+    <aside className={`sale-sidebar ${isCollapsed ? 'is-collapsed' : 'is-expanded'}`}>
       <div className="sale-sidebar-brand">
         <img className="sale-sidebar-brand-logo" src={logoImage} alt="FurniSpace" />
         <div>
           <h1>FurniSpace</h1>
           <p>Interior Solutions</p>
         </div>
-        <button aria-label="Collapse sale sidebar" className="actor-sidebar-collapse-button" type="button" onClick={collapse}>
+        <button aria-label="Collapse sale sidebar" className="actor-sidebar-collapse-button" hidden={isCollapsed} type="button" onClick={collapse}>
           <IconChevronLeft size={18} />
         </button>
       </div>
@@ -73,11 +72,12 @@ export function SaleSidebar({ activeLabel }: SaleSidebarProps) {
           if (!path) {
             return (
               <button
-                key={label}
-                type="button"
-                className={`sale-sidebar-item ${staticItemClass}`}
-                disabled
-              >
+              key={label}
+              type="button"
+              className={`sale-sidebar-item ${staticItemClass}`}
+              disabled
+              title={label}
+            >
                 {content}
               </button>
             );
@@ -87,6 +87,7 @@ export function SaleSidebar({ activeLabel }: SaleSidebarProps) {
             <NavLink
               key={label}
               to={path}
+              title={label}
               className={({ isActive }) => {
                 const itemClass =
                   isActive || label === activeLabel

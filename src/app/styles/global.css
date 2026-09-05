@@ -220,3 +220,8 @@ button:disabled,
   background: var(--fs-gold);
   color: var(--fs-ink);
 }
+
+.actor-sidebar-open-button[hidden],
+.actor-sidebar-collapse-button[hidden] {
+  display: none !important;
+}

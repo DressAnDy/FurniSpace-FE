@@ -1,10 +1,9 @@
 import {
+  IconChevronDown,
   IconChevronLeft,
   IconChevronRight,
-  IconHome,
 } from '@tabler/icons-react';
-import { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 
 import { CustomerNavbar } from '@/features/CustomerPages/customercomponents';
 import {
@@ -48,7 +47,7 @@ type OrderDeliveryDetailsDraft = {
   deliveryNote?: string | null;
 };
 
-const ORDER_PAGE_SIZE = 10;
+const ORDER_PAGE_SIZE = 5;
 
 const statusOptions: Array<{ label: string; value: '' | OrderStatus }> = [
   { label: 'All statuses', value: '' },
@@ -117,18 +116,9 @@ export function CustomerOrdersPage() {
       <CustomerNavbar activeLabel="Orders" classPrefix="customer-orders" />
 
       <div className="customer-orders-main">
-        <div className="customer-orders-breadcrumb">
-          <Link to="/customer/dashboard">
-            <IconHome size={16} stroke={1.8} />
-          </Link>
-          <IconChevronRight size={16} stroke={1.8} />
-          <span>Orders</span>
-        </div>
-
         <section className="customer-orders-heading">
           <div>
             <h1>Orders</h1>
-            <p>Track order pricing, payment history, delivery details, and delivery batches.</p>
           </div>
         </section>
 
@@ -185,7 +175,6 @@ export function CustomerOrdersPage() {
                 >
                   <strong>{getOrderProjectName(item, projectLookup.get(item.projectId))}</strong>
                   <span>{getOrderProjectCode(item, projectLookup.get(item.projectId))}</span>
-                  <span className="customer-orders-order-total">{formatMoney(getOrderTotalAmount(item))}</span>
                   <em className={`customer-orders-status customer-orders-status-${statusClass(item.status)}`}>{formatEnumLabel(item.status ?? 'UNKNOWN')}</em>
                 </button>
               ))}
@@ -353,103 +342,143 @@ function OrderDetailCard({
       <header>
         <div>
           <h2>{order.orderCode}</h2>
-          <p>Pricing is based on the order snapshot.</p>
         </div>
         <span className={`customer-orders-status customer-orders-status-${statusClass(order.status)}`}>{formatEnumLabel(order.status ?? 'UNKNOWN')}</span>
       </header>
 
-      <div className="customer-orders-money-grid">
-        <MoneyValue label="Items Gross" value={formatMoney(order.itemsGrossAmount)} />
-        <MoneyValue label="Item Discount" value={formatMoney(order.totalItemDiscountAmount)} />
-        <MoneyValue label="Pre-VAT" value={formatMoney(order.preVatAmount)} />
-        <MoneyValue label={`VAT ${formatPercentRate(order.vatRate)}`} value={formatMoney(order.vatAmount)} />
-        <MoneyValue label="Total" value={formatMoney(order.totalAmount)} />
-        <MoneyValue label="Deposit" value={formatMoney(order.depositAmount)} />
-        <MoneyValue label="Paid" value={formatMoney(order.paidAmount)} />
-        <MoneyValue label="Remaining" value={formatMoney(order.remainingAmount)} />
-      </div>
+      <AccordionSection defaultOpen meta={formatMoney(order.totalAmount)} title="Order Summary">
+        <div className="customer-orders-money-grid">
+          <MoneyValue label="Items Gross" value={formatMoney(order.itemsGrossAmount)} />
+          <MoneyValue label="Item Discount" value={formatMoney(order.totalItemDiscountAmount)} />
+          <MoneyValue label="Pre-VAT" value={formatMoney(order.preVatAmount)} />
+          <MoneyValue label={`VAT ${formatPercentRate(order.vatRate)}`} value={formatMoney(order.vatAmount)} />
+          <MoneyValue label="Total" value={formatMoney(order.totalAmount)} />
+          <MoneyValue label="Deposit" value={formatMoney(order.depositAmount)} />
+          <MoneyValue label="Paid" value={formatMoney(order.paidAmount)} />
+          <MoneyValue label="Remaining" value={formatMoney(order.remainingAmount)} />
+        </div>
+      </AccordionSection>
 
       {canCreateDepositPayment(order.status) || order.status === 'DEPOSIT_PAID' ? (
-        <section className="customer-orders-payment-panel">
-          <div>
-            <span>Deposit Payment</span>
-            <strong>{getDepositPaymentLabel(order, deliveryDetailsComplete, Boolean(depositPayment))}</strong>
-          </div>
-          {canCreateDepositPayment(order.status) ? (
-            depositPayment ? (
-              <button disabled={!deliveryDetailsComplete} type="button" onClick={() => onOpenDepositPayment(depositPayment)}>
-                Pay Deposit
-              </button>
-            ) : (
-              <button disabled={depositPaymentPending || !deliveryDetailsComplete} type="button" onClick={() => void onCreateDepositPayment()}>
-                {depositPaymentPending ? 'Preparing...' : 'Create Deposit Payment'}
-              </button>
-            )
-          ) : null}
-        </section>
+        <AccordionSection defaultOpen meta={formatMoney(order.depositAmount)} title="Deposit Payment">
+          <section className="customer-orders-payment-panel">
+            <div>
+              <span>Deposit Payment</span>
+              <strong>{getDepositPaymentLabel(order, deliveryDetailsComplete, Boolean(depositPayment))}</strong>
+            </div>
+            {canCreateDepositPayment(order.status) ? (
+              depositPayment ? (
+                <button disabled={!deliveryDetailsComplete} type="button" onClick={() => onOpenDepositPayment(depositPayment)}>
+                  Pay Deposit
+                </button>
+              ) : (
+                <button disabled={depositPaymentPending || !deliveryDetailsComplete} type="button" onClick={() => void onCreateDepositPayment()}>
+                  {depositPaymentPending ? 'Preparing...' : 'Create Deposit Payment'}
+                </button>
+              )
+            ) : null}
+          </section>
+        </AccordionSection>
       ) : null}
 
-      {!areDeliveryDetailsLocked(order.status) ? (
-        <DeliveryDetailsPanel
-          isPending={deliveryDetailsPending}
-          order={order}
-          onSave={onSaveDeliveryDetails}
-        />
-      ) : order.deliveryDetails ? (
-        <DeliveryDetailsSummary details={getOrderDeliveryDetailsDraft(order)} />
-      ) : null}
+      <AccordionSection defaultOpen meta={deliveryDetailsComplete ? 'Complete' : 'Required'} title="Delivery Details">
+        {!areDeliveryDetailsLocked(order.status) ? (
+          <DeliveryDetailsPanel
+            isPending={deliveryDetailsPending}
+            order={order}
+            onSave={onSaveDeliveryDetails}
+          />
+        ) : order.deliveryDetails ? (
+          <DeliveryDetailsSummary details={getOrderDeliveryDetailsDraft(order)} />
+        ) : (
+          <p className="customer-orders-muted">No delivery details available.</p>
+        )}
+      </AccordionSection>
 
       <DeliverySummaryPanel deliveries={deliveries} summary={deliverySummary} />
 
-      <div className="customer-orders-actions">
-        {order.status === 'FINAL_PAYMENT_PENDING' && remainingPayment ? (
-          <button type="button" onClick={() => onOpenRemainingPayment(remainingPayment)}>
-            Pay Remaining
-          </button>
-        ) : null}
-        {canConfirmOrderDelivery(order) ? (
-          <button disabled={confirmDeliveryPending} type="button" onClick={() => void onConfirmDelivery()}>
-            {confirmDeliveryPending ? 'Confirming...' : 'Confirm Delivery'}
-          </button>
-        ) : null}
-        {order.status === 'FINAL_PAYMENT_PENDING' && !remainingPayment && (order.remainingAmount ?? 0) > 0 ? (
-          <span>Remaining payment is being prepared.</span>
-        ) : null}
-      </div>
+      {(order.status === 'FINAL_PAYMENT_PENDING' || canConfirmOrderDelivery(order)) ? (
+        <AccordionSection defaultOpen title="Actions">
+          <div className="customer-orders-actions">
+            {order.status === 'FINAL_PAYMENT_PENDING' && remainingPayment ? (
+              <button type="button" onClick={() => onOpenRemainingPayment(remainingPayment)}>
+                Pay Remaining
+              </button>
+            ) : null}
+            {canConfirmOrderDelivery(order) ? (
+              <button disabled={confirmDeliveryPending} type="button" onClick={() => void onConfirmDelivery()}>
+                {confirmDeliveryPending ? 'Confirming...' : 'Confirm Delivery'}
+              </button>
+            ) : null}
+            {order.status === 'FINAL_PAYMENT_PENDING' && !remainingPayment && (order.remainingAmount ?? 0) > 0 ? (
+              <span>Remaining payment is being prepared.</span>
+            ) : null}
+          </div>
+        </AccordionSection>
+      ) : null}
 
       <PaymentHistoryPanel history={paymentHistory} isLoading={isPaymentHistoryLoading} />
 
-      <div className="customer-orders-table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>Item</th>
-              <th>Quantity</th>
-              <th>Unit</th>
-              <th>Gross</th>
-              <th>Discount</th>
-              <th>Pre-VAT</th>
-              <th>Delivery</th>
-              <th>Confirmation</th>
-            </tr>
-          </thead>
-          <tbody>
-            {orderItems.map((item) => (
-              <tr key={item.sourceItems.map((sourceItem) => sourceItem.orderItemId).join('-')}>
-                <td>{getOrderItemName(item)}</td>
-                <td>{item.quantity ?? '-'}</td>
-                <td>{formatMoney(item.unitPrice)}</td>
-                <td>{formatMoney(getItemGrossAmount(item))}</td>
-                <td>{formatMoney(item.discountAmount)}</td>
-                <td>{formatMoney(getItemPreVatAmount(item))}</td>
-                <td>{formatGroupedDeliveryState(item)}</td>
-                <td>{confirmDeliveryPending ? 'Confirming...' : getOrderDeliveryConfirmationLabel(order)}</td>
+      <AccordionSection meta={`${orderItems.length} line(s)`} title="Order Items">
+        <div className="customer-orders-table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Item</th>
+                <th>Quantity</th>
+                <th>Unit</th>
+                <th>Gross</th>
+                <th>Discount</th>
+                <th>Pre-VAT</th>
+                <th>Delivery</th>
+                <th>Confirmation</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody>
+              {orderItems.map((item) => (
+                <tr key={item.sourceItems.map((sourceItem) => sourceItem.orderItemId).join('-')}>
+                  <td>{getOrderItemName(item)}</td>
+                  <td>{item.quantity ?? '-'}</td>
+                  <td>{formatMoney(item.unitPrice)}</td>
+                  <td>{formatMoney(getItemGrossAmount(item))}</td>
+                  <td>{formatMoney(item.discountAmount)}</td>
+                  <td>{formatMoney(getItemPreVatAmount(item))}</td>
+                  <td>{formatGroupedDeliveryState(item)}</td>
+                  <td>{confirmDeliveryPending ? 'Confirming...' : getOrderDeliveryConfirmationLabel(order)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </AccordionSection>
     </section>
+  );
+}
+
+function AccordionSection({
+  children,
+  defaultOpen = false,
+  meta,
+  title,
+}: {
+  children: ReactNode;
+  defaultOpen?: boolean;
+  meta?: string;
+  title: string;
+}) {
+  return (
+    <details className="customer-orders-accordion" open={defaultOpen}>
+      <summary>
+        <span>{title}</span>
+        <div>
+          {meta ? <em>{meta}</em> : null}
+          <IconChevronDown size={18} stroke={1.9} />
+        </div>
+      </summary>
+      <div className="customer-orders-accordion-body">
+        {children}
+      </div>
+    </details>
   );
 }
 
@@ -457,13 +486,8 @@ function PaymentHistoryPanel({ history, isLoading }: { history: OrderPaymentHist
   const payments = history?.payments ?? [];
 
   return (
-    <section className="customer-orders-history-panel">
-      <header>
-        <div>
-          <h2>Payment History</h2>
-          <p>{payments.length} payment record(s)</p>
-        </div>
-      </header>
+    <AccordionSection meta={`${payments.length} record(s)`} title="Payment History">
+      <section className="customer-orders-history-panel">
       {isLoading ? <p className="customer-orders-muted">Loading payment history...</p> : null}
       {!isLoading && payments.length === 0 ? <p className="customer-orders-muted">No payment history yet.</p> : null}
       {payments.length > 0 ? (
@@ -487,7 +511,8 @@ function PaymentHistoryPanel({ history, isLoading }: { history: OrderPaymentHist
           ))}
         </div>
       ) : null}
-    </section>
+      </section>
+    </AccordionSection>
   );
 }
 
@@ -501,7 +526,6 @@ function DeliveryDetailsSummary({ details }: { details: OrderDeliveryDetailsDraf
       <header>
         <div>
           <h2>Locked Delivery Details</h2>
-          <p>Delivery information is locked after deposit payment is confirmed.</p>
         </div>
         <span className="is-complete">Locked</span>
       </header>
@@ -521,13 +545,8 @@ function DeliverySummaryPanel({ deliveries, summary }: { deliveries: OrderEmbedd
   }
 
   return (
-    <section className="customer-orders-delivery-embed">
-      <header>
-        <div>
-          <h2>Delivery Progress</h2>
-          <p>Delivery summary and batches are embedded in order detail.</p>
-        </div>
-      </header>
+    <AccordionSection meta={summary ? `${summary.deliveryProgressPercent}%` : `${deliveries.length} batch(es)`} title="Delivery Progress">
+      <section className="customer-orders-delivery-embed">
       {summary ? (
         <div className="customer-orders-delivery-summary-grid">
           <MoneyValue label="Delivered" value={`${summary.totalDeliveredQuantity} / ${summary.totalOrderedQuantity}`} />
@@ -550,7 +569,8 @@ function DeliverySummaryPanel({ deliveries, summary }: { deliveries: OrderEmbedd
           ))}
         </div>
       ) : null}
-    </section>
+      </section>
+    </AccordionSection>
   );
 }
 
@@ -586,7 +606,6 @@ function DeliveryDetailsPanel({
       <header>
         <div>
           <h2>Delivery Details</h2>
-          <p>Complete these details before creating or paying the deposit.</p>
         </div>
         <span className={isComplete ? 'is-complete' : 'is-missing'}>{isComplete ? 'Complete' : 'Required'}</span>
       </header>
@@ -766,10 +785,6 @@ function sortEmbeddedDeliveries(deliveries: OrderEmbeddedDeliveryDto[]) {
 
     return createdDiff || second.deliveryId.localeCompare(first.deliveryId);
   });
-}
-
-function getOrderTotalAmount(order: Pick<OrderListItemDto, 'totalAmount'>) {
-  return order.totalAmount;
 }
 
 function getOrderProjectName(order: OrderListItemDto & OrderProjectSummary, project?: OrderProjectSummary) {

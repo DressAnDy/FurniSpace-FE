@@ -1,9 +1,11 @@
 import {
   IconBox,
   IconCalendarEvent,
+  IconChevronLeft,
   IconFileDollar,
   IconFileText,
   IconHome,
+  IconMenu2,
   IconMessageCircle,
   IconReceipt,
   IconPlus,
@@ -12,6 +14,7 @@ import type { ReactNode } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 
 import { CustomerUserSummary } from '@/shared/components/CustomerUserSummary';
+import { useActorSidebarCollapse } from '@/shared/hooks/useActorSidebarCollapse';
 
 import './CustomerNavbar.css';
 
@@ -38,16 +41,32 @@ type CustomerNavbarProps = {
 
 export function CustomerNavbar({ activeLabel, classPrefix }: CustomerNavbarProps) {
   const navigate = useNavigate();
+  const { collapse, expand, isCollapsed } = useActorSidebarCollapse('customer');
 
   return (
     <>
-      <aside className="customer-shell-sidebar">
+      <button
+        aria-label="Open customer sidebar"
+        className="actor-sidebar-open-button customer-sidebar-open-button"
+        hidden={!isCollapsed}
+        type="button"
+        onClick={expand}
+      >
+        <IconMenu2 size={22} />
+      </button>
+
+      <aside className={`customer-shell-sidebar ${isCollapsed ? 'is-collapsed' : 'is-expanded'}`}>
+        <div className="customer-shell-brand">
         <NavLink className="customer-shell-logo" to="/customer/dashboard">
           <span>
             <IconBox size={19} stroke={1.8} />
           </span>
           <strong>FurniSpace</strong>
         </NavLink>
+          <button aria-label="Collapse customer sidebar" className="actor-sidebar-collapse-button" hidden={isCollapsed} type="button" onClick={collapse}>
+            <IconChevronLeft size={18} />
+          </button>
+        </div>
 
         <nav className="customer-shell-nav" aria-label="Customer navigation">
           {customerNavbarItems.map((item) => (
@@ -55,6 +74,7 @@ export function CustomerNavbar({ activeLabel, classPrefix }: CustomerNavbarProps
               className={({ isActive }) => (isActive || item.label === activeLabel ? 'customer-shell-nav-active' : undefined)}
               key={item.label}
               to={item.path}
+              title={item.label}
             >
               {item.icon}
               <span>{item.label}</span>

@@ -5,18 +5,43 @@ import { useNavigate } from 'react-router-dom';
 
 import { ProjectStatusBadge, SaleNavbar, SaleSidebar } from '@/features/SalePages/salecomponents';
 import { getAccountById, type AccountDto } from '@/services/api';
+import type { ProjectStatus } from '@/services/api/projects';
 import { useCurrentUser } from '@/services/queries/useAuth';
 import { useProjectList } from '@/services/queries/useProjects';
 
 import './AssignedProjects.css';
 
 const PAGE_SIZE = 5;
+const ALL_STATUS_VALUE = 'ALL';
+const ALL_BUSINESS_TYPE_VALUE = 'ALL';
+const projectStatusPriority: ProjectStatus[] = [
+  'SUBMITTED',
+  'IN_CONSULTATION',
+  'NEED_BASIC_INFORMATION',
+  'WAITING_FOR_DESIGNER_ASSIGNMENT',
+  'MEASUREMENT_REQUIRED',
+  'SPACE_VERIFIED',
+  'PROPOSAL_CONSULTING',
+  'PROPOSAL_SELECTED',
+  'QUOTATION_SENT',
+  'QUOTATION_REVISION_REQUESTED',
+  'ORDER_CONFIRMED',
+  'IN_PRODUCTION',
+  'READY_FOR_DELIVERY',
+  'DELIVERING',
+  'AWAITING_CUSTOMER_CONFIRMATION',
+  'DELIVERED',
+  'COMPLETED',
+];
+const projectStatusRank = new Map<ProjectStatus, number>(
+  projectStatusPriority.map((projectStatus, index) => [projectStatus, index]),
+);
 
 export function AssignedProjects() {
   const navigate = useNavigate();
   const [keyword, setKeyword] = useState('');
-  const [status, setStatus] = useState('All Status');
-  const [businessType, setBusinessType] = useState('All Business Types');
+  const [status, setStatus] = useState<ProjectStatus | typeof ALL_STATUS_VALUE>(ALL_STATUS_VALUE);
+  const [businessType, setBusinessType] = useState(ALL_BUSINESS_TYPE_VALUE);
   const [page, setPage] = useState(1);
   const currentUserQuery = useCurrentUser();
   const currentUser = currentUserQuery.data;
@@ -65,31 +90,43 @@ export function AssignedProjects() {
       return lookup;
     }, {});
   }, [accountIds, accountQueries]);
+  const businessTypeOptions = useMemo(
+    () => Array.from(new Set(assignedProjects.map((project) => project.businessType).filter(Boolean))).sort(),
+    [assignedProjects],
+  );
 
   const filteredProjects = useMemo(() => {
     const normalizedKeyword = keyword.trim().toLowerCase();
 
-    return assignedProjects.filter((project) => {
-      const customer = accountById[project.customerId];
-      const designer = project.assignedDesignerId ? accountById[project.assignedDesignerId] : null;
-      const keywordFields = [
-        project.projectCode,
-        project.projectName,
-        project.customerId,
-        project.businessType,
-        project.status,
-        customer?.fullName ?? '',
-        customer?.email ?? '',
-        designer?.fullName ?? '',
-        designer?.email ?? '',
-      ];
-      const matchesKeyword = !normalizedKeyword || keywordFields.some((value) => value.toLowerCase().includes(normalizedKeyword));
-      const matchesStatus = status === 'All Status' || project.status === status;
-      const matchesBusinessType = businessType === 'All Business Types' || project.businessType === businessType;
-      const hasMovedIntoSalesWorkspace = project.status !== 'SUBMITTED';
+    return assignedProjects
+      .filter((project) => {
+        const customer = accountById[project.customerId];
+        const designer = project.assignedDesignerId ? accountById[project.assignedDesignerId] : null;
+        const keywordFields = [
+          project.projectCode,
+          project.projectName,
+          project.customerId,
+          project.businessType,
+          project.status,
+          customer?.fullName ?? '',
+          customer?.email ?? '',
+          designer?.fullName ?? '',
+          designer?.email ?? '',
+        ];
+        const matchesKeyword = !normalizedKeyword || keywordFields.some((value) => value.toLowerCase().includes(normalizedKeyword));
+        const matchesStatus = status === ALL_STATUS_VALUE || project.status === status;
+        const matchesBusinessType = businessType === ALL_BUSINESS_TYPE_VALUE || project.businessType === businessType;
 
-      return matchesKeyword && matchesStatus && matchesBusinessType && hasMovedIntoSalesWorkspace;
-    });
+        return matchesKeyword && matchesStatus && matchesBusinessType;
+      })
+      .sort((left, right) => {
+        const leftRank = projectStatusRank.get(left.status) ?? projectStatusPriority.length;
+        const rightRank = projectStatusRank.get(right.status) ?? projectStatusPriority.length;
+
+        if (leftRank !== rightRank) return leftRank - rightRank;
+
+        return new Date(right.submittedAt).getTime() - new Date(left.submittedAt).getTime();
+      });
   }, [accountById, assignedProjects, businessType, keyword, status]);
 
   const totalPages = Math.max(1, Math.ceil(filteredProjects.length / PAGE_SIZE));
@@ -127,7 +164,6 @@ export function AssignedProjects() {
           </section>
 
           <section className="assigned-projects-filters">
-            <h3>Filters</h3>
             <div className="assigned-projects-filter-grid">
               <label className="assigned-projects-search">
                 <IconSearch size={17} />
@@ -138,19 +174,17 @@ export function AssignedProjects() {
                   onChange={(event) => setKeyword(event.target.value)}
                 />
               </label>
-              <select value={status} onChange={(event) => setStatus(event.target.value)}>
-                <option>All Status</option>
-                <option>IN_CONSULTATION</option>
-                <option>NEED_BASIC_INFORMATION</option>
-                <option>WAITING_FOR_DESIGNER_ASSIGNMENT</option>
-                <option>MEASUREMENT_REQUIRED</option>
-                <option>SPACE_VERIFIED</option>
+              <select value={status} onChange={(event) => setStatus(event.target.value as ProjectStatus | typeof ALL_STATUS_VALUE)}>
+                <option value={ALL_STATUS_VALUE}>All status</option>
+                {projectStatusPriority.map((projectStatus) => (
+                  <option key={projectStatus} value={projectStatus}>{formatStatusLabel(projectStatus)}</option>
+                ))}
               </select>
               <select value={businessType} onChange={(event) => setBusinessType(event.target.value)}>
-                <option>All Business Types</option>
-                <option>Cafe</option>
-                <option>Office</option>
-                <option>Retail</option>
+                <option value={ALL_BUSINESS_TYPE_VALUE}>All business types</option>
+                {businessTypeOptions.map((option) => (
+                  <option key={option} value={option}>{option}</option>
+                ))}
               </select>
             </div>
           </section>
@@ -245,6 +279,14 @@ export function AssignedProjects() {
       </div>
     </div>
   );
+}
+
+function formatStatusLabel(status: string) {
+  return status
+    .toLowerCase()
+    .split('_')
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
 }
 
 function formatDate(value: string) {

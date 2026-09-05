@@ -1,7 +1,5 @@
 import {
   IconArrowRight,
-  IconChevronRight,
-  IconHome,
   IconRefresh
 } from '@tabler/icons-react';
 import { FormEvent, useEffect, useMemo, useState } from 'react';
@@ -139,18 +137,9 @@ export function CustomerQuotationsPage() {
       <CustomerNavbar activeLabel="Quotations" classPrefix="customer-quotations" />
 
       <div className="customer-quotations-main">
-        <div className="customer-quotations-breadcrumb">
-          <Link to="/customer/dashboard">
-            <IconHome size={16} stroke={1.8} />
-          </Link>
-          <IconChevronRight size={16} stroke={1.8} />
-          <span>Quotations</span>
-        </div>
-
         <section className="customer-quotations-heading">
           <div>
             <h1>Quotations</h1>
-            <p>Review pricing, request changes, or confirm the quotation to start order processing.</p>
           </div>
           <Link to="/customer/projects">
             My Projects
@@ -167,7 +156,7 @@ export function CustomerQuotationsPage() {
         <section className="customer-quotations-grid">
           <aside className="customer-quotations-project-panel">
             <header>
-              <h2>Projects With Quotations</h2>
+              <h2>Project</h2>
             </header>
             {projectsQuery.isLoading ? <p className="customer-quotations-muted">Loading projects...</p> : null}
             {!projectsQuery.isLoading && quotationProjects.length === 0 ? (

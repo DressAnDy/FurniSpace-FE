@@ -50,20 +50,21 @@ export function AdminSidebar({ activeKey }: AdminSidebarProps) {
       <button
         aria-label={t.openSidebar}
         className="actor-sidebar-open-button admin-sidebar-open-button"
+        hidden={!isCollapsed}
         type="button"
         onClick={expand}
       >
         <IconMenu2 size={22} />
       </button>
 
-      <aside className="admin-sidebar" aria-hidden={isCollapsed}>
+      <aside className={`admin-sidebar ${isCollapsed ? 'is-collapsed' : 'is-expanded'}`}>
         <div className="admin-brand">
           <img className="admin-brand-logo" src={logoImage} alt="FurniSpace" />
           <div>
             <h1>FurniSpace</h1>
             <p>{t.workspace}</p>
           </div>
-          <button aria-label={t.collapseSidebar} className="actor-sidebar-collapse-button" type="button" onClick={collapse}>
+          <button aria-label={t.collapseSidebar} className="actor-sidebar-collapse-button" hidden={isCollapsed} type="button" onClick={collapse}>
             <IconChevronLeft size={18} />
           </button>
         </div>
@@ -74,6 +75,7 @@ export function AdminSidebar({ activeKey }: AdminSidebarProps) {
               key={key}
               to={path}
               className={`admin-nav-item${key === activeKey ? ' admin-nav-item-active' : ''}`}
+              title={t.nav[key]}
             >
               <ItemIcon size={16} />
               <span>{t.nav[key]}</span>

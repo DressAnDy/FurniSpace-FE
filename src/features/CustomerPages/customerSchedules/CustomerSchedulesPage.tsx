@@ -4,7 +4,6 @@ import {
   IconChevronLeft,
   IconChevronRight,
   IconClock,
-  IconHome,
   IconMapPin,
   IconSearch,
 } from '@tabler/icons-react';
@@ -207,18 +206,9 @@ export function CustomerSchedulesPage() {
       <CustomerNavbar activeLabel="Schedules" classPrefix="customer-schedules" />
 
       <div className="customer-schedules-main">
-        <div className="customer-schedules-breadcrumb">
-          <a href="/customer/dashboard">
-            <IconHome size={16} stroke={1.8} />
-          </a>
-          <IconChevronRight size={16} stroke={1.8} />
-          <span>Schedules</span>
-        </div>
-
         <section className="customer-schedules-heading">
           <div>
             <h1>Project Schedules</h1>
-            <p>Review appointment details and confirm schedules sent by your project team.</p>
           </div>
         </section>
 
@@ -272,7 +262,6 @@ export function CustomerSchedulesPage() {
               <div className="customer-schedules-empty-detail">
                 <IconCalendarEvent size={28} stroke={1.8} />
                 <h2>No schedule selected</h2>
-                <p>Select a schedule from the list to review its details.</p>
               </div>
             )}
           </section>

@@ -155,25 +155,6 @@
   padding: 32px 24px 40px;
 }
 
-.customer-schedules-breadcrumb {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  color: #6b6b6b;
-  font-size: 14px;
-}
-
-.customer-schedules-breadcrumb a {
-  display: inline-grid;
-  place-items: center;
-  color: #6b6b6b;
-}
-
-.customer-schedules-breadcrumb span {
-  color: #2d2d2d;
-  font-weight: 500;
-}
-
 .customer-schedules-heading {
   display: flex;
   align-items: center;
