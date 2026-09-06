@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useLayoutEffect, useState } from 'react';
 
 type ActorKey = 'admin' | 'customer' | 'designer' | 'production' | 'sale';
 
@@ -13,7 +13,7 @@ const bodyClassByActor: Record<ActorKey, string> = {
 export function useActorSidebarCollapse(actor: ActorKey) {
   const [isCollapsed, setIsCollapsed] = useState(true);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const bodyClass = bodyClassByActor[actor];
     document.body.classList.toggle(bodyClass, isCollapsed);
 
