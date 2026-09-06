@@ -6,9 +6,9 @@
 }
 
 .customer-workspace-main {
-  max-width: 1360px;
+  max-width: var(--fs-workspace-max-width);
   margin: 0 auto;
-  padding: 28px 24px 44px;
+  padding: 28px var(--fs-workspace-gutter) 44px;
 }
 
 .customer-workspace-heading,
@@ -391,7 +391,7 @@
 
 @media (max-width: 720px) {
   .customer-workspace-main {
-    padding: 24px 16px 36px;
+    padding: 24px var(--fs-workspace-gutter-mobile) 36px;
   }
 
   .customer-workspace-heading,

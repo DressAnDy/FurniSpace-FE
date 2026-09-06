@@ -217,6 +217,7 @@ type SaleCopy = {
     tabIssues: string;
     tabShowcase: string;
     tabSchedules: string;
+    tabChat: string;
     tabOrders: string;
     requestMoreInfo: string;
     rejectProject: string;
@@ -446,6 +447,7 @@ const en: SaleCopy = {
     tabIssues: 'Product Issues',
     tabShowcase: 'Showcase',
     tabSchedules: 'Schedules',
+    tabChat: 'Chat',
     tabOrders: 'Orders',
     requestMoreInfo: 'Request More Info',
     rejectProject: 'Reject Project',
@@ -675,6 +677,7 @@ const vi: SaleCopy = {
     tabIssues: 'Sự cố sản phẩm',
     tabShowcase: 'Showcase',
     tabSchedules: 'Lịch hẹn',
+    tabChat: 'Chat',
     tabOrders: 'Đơn hàng',
     requestMoreInfo: 'Yêu cầu thêm thông tin',
     rejectProject: 'Từ chối dự án',

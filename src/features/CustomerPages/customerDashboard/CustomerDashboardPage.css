@@ -162,9 +162,9 @@
 }
 
 .customer-dashboard-main {
-  max-width: 1360px;
+  max-width: var(--fs-workspace-max-width);
   margin: 0 auto;
-  padding: 28px 24px 40px;
+  padding: 28px var(--fs-workspace-gutter) 40px;
 }
 
 .customer-dashboard-layout {
@@ -836,7 +836,7 @@
 
 @media (max-width: 760px) {
   .customer-dashboard-main {
-    padding: 24px 16px 32px;
+    padding: 24px var(--fs-workspace-gutter-mobile) 32px;
   }
 
   .customer-dashboard-userbar {

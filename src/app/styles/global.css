@@ -21,6 +21,11 @@
   --fs-danger: #991b1b;
   --fs-ui-font: "Be Vietnam Pro", "DM Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
   --fs-customer-font: var(--fs-ui-font);
+  --fs-workspace-sidebar-width: 256px;
+  --fs-workspace-sidebar-collapsed-width: 72px;
+  --fs-workspace-gutter: clamp(24px, 3vw, 44px);
+  --fs-workspace-gutter-mobile: 16px;
+  --fs-workspace-max-width: 1360px;
   font-family: var(--fs-ui-font);
   color: var(--fs-ink);
   background: var(--fs-bg);
@@ -78,6 +83,195 @@ textarea:focus-visible,
 button:disabled,
 [aria-disabled="true"] {
   cursor: not-allowed;
+}
+
+body :is(
+  .admin-content,
+  .sale-dashboard-main,
+  .assigned-projects-main,
+  .project-request-queue-main,
+  .sale-orders-main,
+  .sale-quotations-main,
+  .sale-schedules-main,
+  .sale-tracking-main,
+  .project-detail-main,
+  .sale-project-chat-main,
+  .designer-layout-main,
+  .production-layout-main,
+  .production-project-chat-main
+) {
+  width: 100%;
+  max-width: var(--fs-workspace-max-width);
+  margin-right: auto;
+  margin-left: auto;
+  padding-right: var(--fs-workspace-gutter);
+  padding-left: var(--fs-workspace-gutter);
+}
+
+body :is(
+  .sale-dashboard-main,
+  .assigned-projects-main,
+  .project-request-queue-main,
+  .sale-orders-main,
+  .sale-quotations-main,
+  .sale-schedules-main,
+  .sale-tracking-main,
+  .sale-project-chat-main,
+  .designer-layout-main,
+  .production-layout-main,
+  .production-project-chat-main
+) {
+  padding-top: 28px;
+  padding-bottom: 48px;
+}
+
+body .project-detail-main {
+  padding-top: 28px;
+  padding-bottom: 160px;
+}
+
+body .admin-content {
+  padding-top: 32px;
+  padding-bottom: 48px;
+}
+
+body :is(.admin-topbar, .designer-topbar) {
+  padding-right: var(--fs-workspace-gutter);
+  padding-left: var(--fs-workspace-gutter);
+}
+
+body :is(.sale-topbar, .production-topbar) {
+  padding-right: var(--fs-workspace-gutter);
+  padding-left: var(--fs-workspace-gutter);
+}
+
+body :is(
+  .admin-content,
+  .sale-dashboard-main,
+  .assigned-projects-main,
+  .project-request-queue-main,
+  .sale-orders-main,
+  .sale-quotations-main,
+  .sale-schedules-main,
+  .sale-tracking-main,
+  .project-detail-main,
+  .sale-project-chat-main,
+  .designer-layout-main,
+  .production-layout-main,
+  .production-project-chat-main
+) :is(table, input, select, textarea, button) {
+  max-width: 100%;
+}
+
+body :is(
+  .admin-content,
+  .sale-dashboard-main,
+  .assigned-projects-main,
+  .project-request-queue-main,
+  .sale-orders-main,
+  .sale-quotations-main,
+  .sale-schedules-main,
+  .sale-tracking-main,
+  .project-detail-main,
+  .sale-project-chat-main,
+  .designer-layout-main,
+  .production-layout-main,
+  .production-project-chat-main
+) :is(th, td, p, span, strong, small, label) {
+  overflow-wrap: anywhere;
+}
+
+html,
+body,
+body :is(
+  .admin-content,
+  .sale-dashboard-main,
+  .assigned-projects-main,
+  .project-request-queue-main,
+  .sale-orders-main,
+  .sale-quotations-main,
+  .sale-schedules-main,
+  .sale-tracking-main,
+  .sale-dashboard-scrollbar,
+  .project-detail-main,
+  .sale-project-chat-main,
+  .designer-layout-main,
+  .production-layout-main,
+  .production-project-chat-main,
+  .customer-workspace-page,
+  .customer-dashboard-page,
+  .customer-project-list-page,
+  .customer-project-request-page,
+  .customer-schedules-page,
+  .customer-chat-page,
+  .customer-tracking-page,
+  .customer-proposal-detail-page,
+  .customer-3d-preview-page,
+  .customer-orders-page,
+  .customer-quotations-page
+) {
+  -ms-overflow-style: none !important;
+  scrollbar-width: none !important;
+}
+
+html::-webkit-scrollbar,
+body::-webkit-scrollbar,
+body :is(
+  .admin-content,
+  .sale-dashboard-main,
+  .assigned-projects-main,
+  .project-request-queue-main,
+  .sale-orders-main,
+  .sale-quotations-main,
+  .sale-schedules-main,
+  .sale-tracking-main,
+  .sale-dashboard-scrollbar,
+  .project-detail-main,
+  .sale-project-chat-main,
+  .designer-layout-main,
+  .production-layout-main,
+  .production-project-chat-main,
+  .customer-workspace-page,
+  .customer-dashboard-page,
+  .customer-project-list-page,
+  .customer-project-request-page,
+  .customer-schedules-page,
+  .customer-chat-page,
+  .customer-tracking-page,
+  .customer-proposal-detail-page,
+  .customer-3d-preview-page,
+  .customer-orders-page,
+  .customer-quotations-page
+)::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
+@media (max-width: 760px) {
+  body :is(
+    .admin-content,
+    .sale-dashboard-main,
+    .assigned-projects-main,
+    .project-request-queue-main,
+    .sale-orders-main,
+    .sale-quotations-main,
+    .sale-schedules-main,
+    .sale-tracking-main,
+    .project-detail-main,
+    .sale-project-chat-main,
+    .designer-layout-main,
+    .production-layout-main,
+    .production-project-chat-main
+  ) {
+    padding-right: var(--fs-workspace-gutter-mobile);
+    padding-left: var(--fs-workspace-gutter-mobile);
+  }
+
+  body :is(.admin-topbar, .designer-topbar, .sale-topbar, .production-topbar) {
+    padding-right: var(--fs-workspace-gutter-mobile);
+    padding-left: var(--fs-workspace-gutter-mobile);
+  }
 }
 
 /* ── Auth loading screen ── */

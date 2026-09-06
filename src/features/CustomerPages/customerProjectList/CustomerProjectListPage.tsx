@@ -20,7 +20,6 @@ import { useProjectList } from '@/services/queries/useProjects';
 const PROJECT_PAGE_SIZE = 6;
 
 export function CustomerProjectListPage() {
-  const navigate = useNavigate();
   const [keyword, setKeyword] = useState('');
   const [status, setStatus] = useState<ProjectStatus | ''>('');
   const [page, setPage] = useState(1);
@@ -50,7 +49,6 @@ export function CustomerProjectListPage() {
           <div>
             <h1>My Projects</h1>
           </div>
-          <button type="button" onClick={() => navigate('/customer/project-request')}>Create New Project</button>
         </section>
 
         <section className="customer-project-list-filters" aria-label="Project filters">

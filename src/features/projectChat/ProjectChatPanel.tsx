@@ -33,7 +33,9 @@ type ProjectChatPanelProps = {
   projectCode?: string | null;
   title?: string;
   preferredChatType?: ProjectChatType;
+  allowedChatTypes?: ProjectChatType[];
   compact?: boolean;
+  initialChatId?: string | null;
 };
 
 type PendingMessage = ProjectChatMessage & {
@@ -41,7 +43,9 @@ type PendingMessage = ProjectChatMessage & {
 };
 
 export function ProjectChatPanel({
+  allowedChatTypes,
   compact = false,
+  initialChatId = null,
   preferredChatType,
   projectCode,
   projectId,
@@ -52,6 +56,7 @@ export function ProjectChatPanel({
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
   const [draft, setDraft] = useState('');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const hasAppliedInitialChatRef = useRef(false);
   const messageListRef = useRef<HTMLDivElement | null>(null);
   const chatListQuery = useProjectChats({
     projectId,
@@ -59,7 +64,15 @@ export function ProjectChatPanel({
     page: 1,
     limit: 20,
   });
-  const chats = useMemo(() => chatListQuery.data?.items ?? [], [chatListQuery.data?.items]);
+  const chats = useMemo(() => {
+    const items = chatListQuery.data?.items ?? [];
+
+    if (!allowedChatTypes?.length) {
+      return items;
+    }
+
+    return items.filter((chat) => allowedChatTypes.includes(chat.chatType));
+  }, [allowedChatTypes, chatListQuery.data?.items]);
   const activeChat = useMemo(() => {
     if (activeChatId) {
       return chats.find((chat) => chat.chatId === activeChatId) ?? null;
@@ -83,10 +96,16 @@ export function ProjectChatPanel({
   const unreadCounts = useProjectChatUnreadCounts(chats, currentUserId, activeChat?.chatId);
 
   useEffect(() => {
+    if (!hasAppliedInitialChatRef.current && initialChatId && chats.some((chat) => chat.chatId === initialChatId)) {
+      hasAppliedInitialChatRef.current = true;
+      setActiveChatId(initialChatId);
+      return;
+    }
+
     if (!activeChatId && chats.length > 0) {
       setActiveChatId(chats[0].chatId);
     }
-  }, [activeChatId, chats]);
+  }, [activeChatId, chats, initialChatId]);
 
   useEffect(() => {
     messageListRef.current?.scrollTo({
