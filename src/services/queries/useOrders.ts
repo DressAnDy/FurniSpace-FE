@@ -62,27 +62,42 @@ export function useOrderPaymentHistory(orderId?: string, options?: { enabled?: b
   });
 }
 
-export function useOrderDetail(orderId?: string, options?: { enabled?: boolean }) {
+export function useOrderDetail(
+  orderId?: string,
+  options?: { enabled?: boolean; staleTime?: number; refetchOnWindowFocus?: boolean },
+) {
   return useQuery({
     queryKey: orderQueryKeys.detail(orderId ?? ''),
     queryFn: () => getOrderById(orderId ?? ''),
     enabled: Boolean(orderId) && (options?.enabled ?? true),
+    staleTime: options?.staleTime,
+    refetchOnWindowFocus: options?.refetchOnWindowFocus,
   });
 }
 
-export function useOrderDeliveryTracking(orderId?: string, options?: { enabled?: boolean }) {
+export function useOrderDeliveryTracking(
+  orderId?: string,
+  options?: { enabled?: boolean; staleTime?: number; refetchOnWindowFocus?: boolean },
+) {
   return useQuery({
     queryKey: orderQueryKeys.deliveryTracking(orderId ?? ''),
     queryFn: () => getOrderDeliveryTracking(orderId ?? ''),
     enabled: Boolean(orderId) && (options?.enabled ?? true),
+    staleTime: options?.staleTime,
+    refetchOnWindowFocus: options?.refetchOnWindowFocus,
   });
 }
 
-export function useOrderDeliveries(orderId?: string, options?: { enabled?: boolean }) {
+export function useOrderDeliveries(
+  orderId?: string,
+  options?: { enabled?: boolean; staleTime?: number; refetchOnWindowFocus?: boolean },
+) {
   return useQuery({
     queryKey: orderQueryKeys.deliveries(orderId ?? ''),
     queryFn: () => getOrderDeliveries(orderId ?? ''),
     enabled: Boolean(orderId) && (options?.enabled ?? true),
+    staleTime: options?.staleTime,
+    refetchOnWindowFocus: options?.refetchOnWindowFocus,
   });
 }
 

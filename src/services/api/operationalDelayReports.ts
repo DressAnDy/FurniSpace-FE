@@ -5,7 +5,7 @@ import { shouldRedirectUnauthorized } from '@/shared/config/authPreview';
 import { getStoredAccessToken } from './tokenStore';
 
 const operationalDelayApiClient = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL ?? import.meta.env.VITE_API_URL,
+  baseURL: getOperationalDelayApiBaseUrl(),
   withCredentials: true,
 });
 
@@ -33,6 +33,46 @@ operationalDelayApiClient.interceptors.response.use(
 export type OperationalDelayPhase = 'PRODUCTION' | 'DELIVERY';
 export type OperationalDelayState = 'AT_RISK' | 'OVERDUE';
 
+export type ProductionDelayReasonCode =
+  | 'MATERIAL_DELAY'
+  | 'TECHNICAL_ISSUE'
+  | 'CUSTOMIZATION_ISSUE'
+  | 'CAPACITY_CONSTRAINT'
+  | 'QUALITY_REWORK'
+  | 'DEPENDENCY_DELAY'
+  | 'OTHER';
+
+export const PRODUCTION_DELAY_REASON_CODES: ProductionDelayReasonCode[] = [
+  'MATERIAL_DELAY',
+  'TECHNICAL_ISSUE',
+  'CUSTOMIZATION_ISSUE',
+  'CAPACITY_CONSTRAINT',
+  'QUALITY_REWORK',
+  'DEPENDENCY_DELAY',
+  'OTHER',
+];
+
+export type DeliveryDelayReasonCode =
+  | 'CUSTOMER_RESCHEDULE'
+  | 'VEHICLE_ISSUE'
+  | 'PRODUCT_NOT_READY'
+  | 'SITE_NOT_READY'
+  | 'STAFF_UNAVAILABLE'
+  | 'WEATHER'
+  | 'ACCESS_RESTRICTION'
+  | 'OTHER';
+
+export const DELIVERY_DELAY_REASON_CODES: DeliveryDelayReasonCode[] = [
+  'CUSTOMER_RESCHEDULE',
+  'VEHICLE_ISSUE',
+  'PRODUCT_NOT_READY',
+  'SITE_NOT_READY',
+  'STAFF_UNAVAILABLE',
+  'WEATHER',
+  'ACCESS_RESTRICTION',
+  'OTHER',
+];
+
 export type OperationalDelayReportDto = {
   operationalDelayReportId: string;
   projectId: string;
@@ -43,7 +83,8 @@ export type OperationalDelayReportDto = {
   deliveryId: string | null;
   deadlineSnapshot: string;
   delayState: OperationalDelayState;
-  reasonCode: string | null;
+  productionReasonCode: string | null;
+  deliveryReasonCode: string | null;
   reasonDetail: string;
   reportedBy: string;
   reporterName: string | null;
@@ -58,7 +99,7 @@ export type OperationalDelayReportListDto = {
 export type CreateProductionDelayReportInput = {
   projectId: string;
   productionRequestId: string;
-  reasonCode?: string | null;
+  productionReasonCode: ProductionDelayReasonCode;
   reasonDetail: string;
 };
 
@@ -66,7 +107,7 @@ export type CreateDeliveryDelayReportInput = {
   projectId: string;
   orderId?: string | null;
   deliveryId?: string | null;
-  reasonCode?: string | null;
+  deliveryReasonCode: DeliveryDelayReasonCode;
   reasonDetail: string;
 };
 
@@ -78,7 +119,10 @@ type ServiceResult<T> = {
   errorCode?: string | null;
 };
 
-export async function getProjectOperationalDelayReports(projectId: string, phase?: OperationalDelayPhase) {
+export async function getProjectOperationalDelayReports(
+  projectId: string,
+  phase: OperationalDelayPhase,
+) {
   const response = await operationalDelayApiClient.get<ServiceResult<OperationalDelayReportListDto>>(
     `/projects/${projectId}/delay-reports`,
     { params: { phase } },
@@ -96,23 +140,38 @@ export async function getOperationalDelayReport(reportId: string) {
 }
 
 export async function createProductionDelayReport(input: CreateProductionDelayReportInput) {
-  const { projectId, ...payload } = input;
+  const { projectId, productionRequestId, productionReasonCode, reasonDetail } = input;
   const response = await operationalDelayApiClient.post<ServiceResult<OperationalDelayReportDto>>(
     `/projects/${projectId}/delay-reports/production`,
-    compactPayload(payload),
+    {
+      productionRequestId,
+      productionReasonCode,
+      reasonDetail: reasonDetail.trim(),
+    },
   );
 
   return response.data.data;
 }
 
 export async function createDeliveryDelayReport(input: CreateDeliveryDelayReportInput) {
-  const { projectId, ...payload } = input;
+  const { projectId, deliveryReasonCode, reasonDetail, orderId, deliveryId } = input;
   const response = await operationalDelayApiClient.post<ServiceResult<OperationalDelayReportDto>>(
     `/projects/${projectId}/delay-reports/delivery`,
-    compactPayload(payload),
+    compactPayload({
+      deliveryReasonCode,
+      reasonDetail: reasonDetail.trim(),
+      orderId,
+      deliveryId,
+    }),
   );
 
   return response.data.data;
+}
+
+export function getReportReasonCode(report: OperationalDelayReportDto) {
+  return report.reportPhase === 'PRODUCTION'
+    ? report.productionReasonCode
+    : report.deliveryReasonCode;
 }
 
 export function getOperationalDelayErrorMessage(error: unknown) {
@@ -122,6 +181,7 @@ export function getOperationalDelayErrorMessage(error: unknown) {
     | { errorCode?: string | null; message?: string | null; errors?: string[] | null }
     | undefined;
   const messages: Record<string, string> = {
+    OPERATIONAL_DELAY_INVALID_REQUEST: 'The delay report request is invalid.',
     OPERATIONAL_DELAY_PRODUCTION_DEADLINE_MISSING:
       'Set the production deadline before recording this report.',
     OPERATIONAL_DELAY_TARGET_COMPLETION_DATE_MISSING:
@@ -131,7 +191,9 @@ export function getOperationalDelayErrorMessage(error: unknown) {
     OPERATIONAL_DELAY_ORDER_PROJECT_MISMATCH: 'The order does not belong to this project.',
     OPERATIONAL_DELAY_DELIVERY_PROJECT_MISMATCH:
       'The delivery batch does not belong to this project.',
-    OPERATIONAL_DELAY_FORBIDDEN: 'You do not have permission to access delay reports for this project.',
+    OPERATIONAL_DELAY_PROJECT_NOT_FOUND: 'Project was not found.',
+    OPERATIONAL_DELAY_PRODUCTION_REQUEST_NOT_FOUND: 'Production request was not found.',
+    OPERATIONAL_DELAY_REPORT_NOT_FOUND: 'Delay report was not found.',
   };
 
   return (
@@ -146,4 +208,10 @@ function compactPayload<T extends Record<string, unknown>>(payload: T) {
   return Object.fromEntries(
     Object.entries(payload).filter(([, value]) => value !== undefined && value !== null && value !== ''),
   );
+}
+
+function getOperationalDelayApiBaseUrl() {
+  const configuredApiUrl = import.meta.env.VITE_API_BASE_URL ?? import.meta.env.VITE_API_URL;
+
+  return configuredApiUrl?.replace(/\/api\/?$/, '');
 }

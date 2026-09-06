@@ -12,14 +12,14 @@ import {
 
 export const operationalDelayQueryKeys = {
   all: ['operational-delay-reports'] as const,
-  project: (projectId: string, phase?: OperationalDelayPhase) =>
-    ['operational-delay-reports', 'project', projectId, phase ?? 'ALL'] as const,
+  project: (projectId: string, phase: OperationalDelayPhase) =>
+    ['operational-delay-reports', 'project', projectId, phase] as const,
   detail: (reportId: string) => ['operational-delay-reports', 'detail', reportId] as const,
 };
 
 export function useProjectOperationalDelayReports(
-  projectId?: string,
-  phase?: OperationalDelayPhase,
+  projectId: string | undefined,
+  phase: OperationalDelayPhase,
   options?: { enabled?: boolean },
 ) {
   return useQuery({

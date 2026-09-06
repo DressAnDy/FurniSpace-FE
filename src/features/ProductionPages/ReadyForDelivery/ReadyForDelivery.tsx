@@ -39,6 +39,8 @@ type ReadyRequestTab = 'pending' | 'delivered';
 const MIN_REQUEST_PAGE_SIZE = 1;
 const MAX_REQUEST_PAGE_SIZE = 100;
 const DEFAULT_REQUEST_PAGE_SIZE = 4;
+const READY_REQUESTS_PARAMS = { status: 'COMPLETED' as const };
+const READY_REQUESTS_STALE_TIME_MS = 30_000;
 
 export function ReadyForDelivery() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -59,11 +61,20 @@ export function ReadyForDelivery() {
   const [rescheduleDraft, setRescheduleDraft] = useState<ScheduleRescheduleDraft>({ customerNote: '', end: '', location: '', start: '' });
   const [message, setMessage] = useState<{ tone: 'error' | 'success'; text: string } | null>(null);
 
-  const readyRequestsQuery = useProductionRequests({ status: 'COMPLETED' });
+  const readyRequestsQuery = useProductionRequests(READY_REQUESTS_PARAMS, {
+    refetchOnWindowFocus: false,
+    staleTime: READY_REQUESTS_STALE_TIME_MS,
+  });
   const readyRequests = useMemo(() => readyRequestsQuery.data?.items ?? [], [readyRequestsQuery.data?.items]);
   const selectedRequest = readyRequests.find((request) => request.productionRequestId === selectedProductionRequestId) ?? null;
-  const pendingReadyRequests = useMemo(() => readyRequests.filter((request) => !isDeliveredProductionRequest(request)), [readyRequests]);
-  const deliveredReadyRequests = useMemo(() => readyRequests.filter(isDeliveredProductionRequest), [readyRequests]);
+  const pendingReadyRequests = useMemo(
+    () => readyRequests.filter((request) => !isDeliveredProductionRequest(request)),
+    [readyRequests],
+  );
+  const deliveredReadyRequests = useMemo(
+    () => readyRequests.filter((request) => isDeliveredProductionRequest(request)),
+    [readyRequests],
+  );
   const visibleReadyRequests = requestTab === 'delivered' ? deliveredReadyRequests : pendingReadyRequests;
   const requestPageCount = Math.max(Math.ceil(visibleReadyRequests.length / requestPageSize) || 1, 1);
   const pagedReadyRequests = useMemo(
@@ -71,12 +82,28 @@ export function ReadyForDelivery() {
     [requestPage, requestPageSize, visibleReadyRequests],
   );
 
-  const orderDetailQuery = useOrderDetail(selectedRequest?.orderId, { enabled: Boolean(selectedRequest?.orderId) });
+  const selectedOrderId = selectedRequest?.orderId ?? '';
+  const shouldLoadDeliveryWorkspace = Boolean(selectedOrderId);
+  const shouldLoadDeliveryExecution = shouldLoadDeliveryWorkspace && isDeliveryDetailOpen;
+
+  const orderDetailQuery = useOrderDetail(selectedOrderId, {
+    enabled: shouldLoadDeliveryWorkspace,
+    refetchOnWindowFocus: false,
+    staleTime: 30_000,
+  });
   const order = orderDetailQuery.data ?? null;
-  const deliveryTrackingQuery = useOrderDeliveryTracking(order?.orderId, { enabled: Boolean(order?.orderId) });
-  const deliveriesQuery = useOrderDeliveries(order?.orderId, { enabled: Boolean(order?.orderId) });
+  const deliveryTrackingQuery = useOrderDeliveryTracking(selectedOrderId, {
+    enabled: shouldLoadDeliveryWorkspace,
+    refetchOnWindowFocus: false,
+    staleTime: 15_000,
+  });
+  const deliveriesQuery = useOrderDeliveries(selectedOrderId, {
+    enabled: shouldLoadDeliveryExecution,
+    refetchOnWindowFocus: false,
+    staleTime: 15_000,
+  });
   const deliverySchedulesQuery = useProjectScheduleList(
-    selectedRequest
+    selectedRequest && shouldLoadDeliveryExecution
       ? {
           limit: 100,
           page: 1,
@@ -85,7 +112,7 @@ export function ReadyForDelivery() {
         }
       : undefined,
     {
-      enabled: Boolean(selectedRequest?.projectId),
+      enabled: shouldLoadDeliveryExecution && Boolean(selectedRequest?.projectId),
       fetchAll: true,
       staleTime: 60_000,
     },
@@ -155,6 +182,8 @@ export function ReadyForDelivery() {
       isDeliveredProductionRequest(selectedRequest)
       || isDeliveryCompleteStatus(order?.status)
       || isDeliveryCompleteStatus(deliveryTrackingQuery.data?.orderStatus)
+      || ((trackingSummary?.remainingQuantity ?? null) === 0
+        && isPhysicallyDeliveredOrderStatus(order?.status ?? deliveryTrackingQuery.data?.orderStatus))
     ),
   );
   const canManageDelivery = !isSelectedDeliveryCompleted;
@@ -166,6 +195,23 @@ export function ReadyForDelivery() {
   useEffect(() => {
     setRequestPage(1);
   }, [requestTab, requestPageSize]);
+
+  useEffect(() => {
+    if (!selectedProductionRequestId) {
+      return;
+    }
+
+    const selectedIndex = visibleReadyRequests.findIndex(
+      (request) => request.productionRequestId === selectedProductionRequestId,
+    );
+
+    if (selectedIndex < 0) {
+      return;
+    }
+
+    const targetPage = Math.floor(selectedIndex / requestPageSize) + 1;
+    setRequestPage((currentPage) => (currentPage === targetPage ? currentPage : targetPage));
+  }, [requestPageSize, selectedProductionRequestId, visibleReadyRequests]);
 
   useEffect(() => {
     if (!orderIdFromUrl || readyRequests.length === 0) {
@@ -268,6 +314,7 @@ export function ReadyForDelivery() {
       setScheduleEndInput('');
       setScheduleLocationInput(deliveryDetails.deliveryAddress ?? '');
       setHasEditedScheduleLocation(false);
+      setIsDeliveryDetailOpen(true);
       setMessage({ tone: 'success', text: 'Delivery schedule created and sent for customer confirmation.' });
     } catch (error) {
       setMessage({ tone: 'error', text: getProjectScheduleServiceResultMessage(error) });
@@ -673,7 +720,7 @@ export function ReadyForDelivery() {
                 </header>
 
                 {order ? (
-                  <div className="production-workspace-detail-grid production-ready-compact-grid">
+                  <div className="production-ready-summary-metrics">
                     <Field label="Order" value={order.orderCode} />
                     <Field label="Remaining" value={`${trackingSummary?.remainingQuantity ?? sumRemainingQuantity(deliverableItems)} item(s)`} />
                     <Field label="Next delivery" value={trackingSummary?.nextDeliveryAt ? formatDateTime(trackingSummary.nextDeliveryAt) : 'Not scheduled'} />
@@ -861,7 +908,7 @@ export function ReadyForDelivery() {
           </div>
         </section>
         {selectedRequest ? (
-          <>
+          <div className="production-ready-ops-stack">
             <OperationalDelayPanel
               allowedPhases={['DELIVERY']}
               defaultPhase="DELIVERY"
@@ -875,7 +922,7 @@ export function ReadyForDelivery() {
               projectId={selectedRequest.projectId}
               title="Customer product issues"
             />
-          </>
+          </div>
         ) : null}
       </div>
     </ProductionLayout>
@@ -906,12 +953,25 @@ function DeliveryDetailsSummary({
     <section className="production-ready-delivery-details">
       <header>
         <h4>Locked Delivery Details</h4>
+        <p>Customer delivery contact locked from the order.</p>
       </header>
-      <div className="production-workspace-detail-grid production-ready-compact-grid">
-        <Field label="Address" value={deliveryAddress || 'Not provided'} />
-        <Field label="Receiver" value={receiverName || 'Not provided'} />
-        <Field label="Phone" value={receiverPhone || 'Not provided'} />
-        <Field label="Note" value={deliveryNote || '-'} />
+      <div className="production-ready-delivery-details-grid">
+        <div className="production-workspace-field production-ready-delivery-field-wide">
+          <span>Address</span>
+          <strong>{deliveryAddress || 'Not provided'}</strong>
+        </div>
+        <div className="production-workspace-field">
+          <span>Receiver</span>
+          <strong>{receiverName || 'Not provided'}</strong>
+        </div>
+        <div className="production-workspace-field">
+          <span>Phone</span>
+          <strong>{receiverPhone || 'Not provided'}</strong>
+        </div>
+        <div className="production-workspace-field production-ready-delivery-field-wide">
+          <span>Note</span>
+          <strong>{deliveryNote || '-'}</strong>
+        </div>
       </div>
     </section>
   );
@@ -1024,11 +1084,22 @@ function isDeliveredProductionRequest(request: unknown) {
       ?? getStringRecordValue(record, 'relatedProjectStatus'),
   );
 
-  return ['DELIVERED', 'COMPLETED', 'ORDER_DELIVERED', 'DELIVERY_COMPLETED', 'CUSTOMER_CONFIRMED_DELIVERY'].includes(status);
+  // Only explicit delivery-finished statuses. Do not use bare COMPLETED here:
+  // list/detail payloads can expose COMPLETED for non-delivery meanings and would
+  // yank rows out of "Not Delivered" as soon as an item is opened.
+  return ['DELIVERED', 'ORDER_DELIVERED', 'DELIVERY_COMPLETED', 'CUSTOMER_CONFIRMED_DELIVERY'].includes(status);
 }
 
 function isDeliveryCompleteStatus(status?: string | null) {
-  return ['DELIVERED', 'COMPLETED', 'ORDER_DELIVERED', 'DELIVERY_COMPLETED', 'CUSTOMER_CONFIRMED_DELIVERY'].includes(normalizeWorkflowStatus(status));
+  return ['DELIVERED', 'ORDER_DELIVERED', 'DELIVERY_COMPLETED', 'CUSTOMER_CONFIRMED_DELIVERY', 'COMPLETED'].includes(
+    normalizeWorkflowStatus(status),
+  );
+}
+
+function isPhysicallyDeliveredOrderStatus(status?: string | null) {
+  return ['DELIVERED', 'ORDER_DELIVERED', 'DELIVERY_COMPLETED', 'CUSTOMER_CONFIRMED_DELIVERY', 'AWAITING_CUSTOMER_CONFIRMATION', 'FINAL_PAYMENT_PENDING', 'COMPLETED'].includes(
+    normalizeWorkflowStatus(status),
+  );
 }
 
 function getStringRecordValue(record: Record<string, unknown>, key: string) {
