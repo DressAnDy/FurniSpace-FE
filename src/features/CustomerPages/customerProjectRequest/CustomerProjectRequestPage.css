@@ -9,9 +9,9 @@
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   gap: 24px;
-  max-width: 1360px;
+  max-width: var(--fs-workspace-max-width);
   margin: 0 auto;
-  padding: 24px;
+  padding: 24px var(--fs-workspace-gutter);
 }
 
 .customer-project-request-topnav {
@@ -592,7 +592,7 @@
 
 @media (max-width: 760px) {
   .customer-project-request-shell {
-    padding: 16px;
+    padding: 16px var(--fs-workspace-gutter-mobile);
   }
 
   .customer-project-request-userbar {

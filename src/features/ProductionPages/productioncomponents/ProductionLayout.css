@@ -42,11 +42,11 @@
 
 .production-sidebar {
   display: flex;
-  width: 256px;
-  max-width: 256px;
+  width: var(--fs-workspace-sidebar-width);
+  max-width: var(--fs-workspace-sidebar-width);
   height: 100vh;
   min-height: 100vh;
-  flex: 0 0 256px;
+  flex: 0 0 var(--fs-workspace-sidebar-width);
   flex-direction: column;
   background: var(--fs-sidebar);
   color: #f5f1ec;
@@ -148,9 +148,9 @@
 }
 
 body.production-sidebar-collapsed .production-sidebar {
-  width: 72px !important;
-  max-width: 72px !important;
-  flex-basis: 72px !important;
+  width: var(--fs-workspace-sidebar-collapsed-width) !important;
+  max-width: var(--fs-workspace-sidebar-collapsed-width) !important;
+  flex-basis: var(--fs-workspace-sidebar-collapsed-width) !important;
 }
 
 body.production-sidebar-collapsed .production-sidebar-open-button {
@@ -185,7 +185,7 @@ body.production-sidebar-collapsed .production-sidebar-item span {
   gap: 24px;
   border-bottom: 1px solid var(--fs-border);
   background: var(--fs-surface);
-  padding: 14px 24px;
+  padding: 14px var(--fs-workspace-gutter);
 }
 
 .production-topbar-search {
@@ -383,10 +383,44 @@ body.production-sidebar-collapsed .production-sidebar-item span {
 }
 
 body.production-sidebar-collapsed .production-sidebar {
-  width: 72px !important;
-  max-width: 72px !important;
-  flex-basis: 72px !important;
+  width: var(--fs-workspace-sidebar-collapsed-width) !important;
+  max-width: var(--fs-workspace-sidebar-collapsed-width) !important;
+  flex-basis: var(--fs-workspace-sidebar-collapsed-width) !important;
   min-height: 100vh;
   height: 100vh;
   position: sticky;
+  overflow: visible;
+}
+
+body.production-sidebar-collapsed .production-sidebar-nav {
+  overflow: visible;
+}
+
+body.production-sidebar-collapsed .production-sidebar-item span {
+  position: absolute;
+  left: calc(100% + 10px);
+  z-index: 60;
+  display: block;
+  width: max-content;
+  max-width: 220px;
+  border: 1px solid rgba(196, 160, 122, 0.22);
+  border-radius: 8px;
+  background: var(--fs-sidebar);
+  box-shadow: 0 14px 32px rgba(0, 0, 0, 0.22);
+  color: #ffffff;
+  opacity: 0;
+  overflow: hidden;
+  padding: 9px 12px;
+  pointer-events: none;
+  text-overflow: ellipsis;
+  transform: translateX(-6px) scale(0.96);
+  transform-origin: left center;
+  transition: opacity 0.16s ease, transform 0.16s ease;
+  white-space: nowrap;
+}
+
+body.production-sidebar-collapsed .production-sidebar-item:hover span,
+body.production-sidebar-collapsed .production-sidebar-item:focus-visible span {
+  opacity: 1;
+  transform: translateX(0) scale(1);
 }
