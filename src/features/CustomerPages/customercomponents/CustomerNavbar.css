@@ -8,7 +8,7 @@
 .customer-3d-preview-page,
 .customer-orders-page,
 .customer-quotations-page {
-  padding-left: 256px;
+  padding-left: var(--fs-workspace-sidebar-width);
   padding-top: 72px;
 }
 
@@ -17,7 +17,7 @@
   inset: 0 auto 0 0;
   z-index: 40;
   display: flex;
-  width: 256px;
+  width: var(--fs-workspace-sidebar-width);
   min-height: 100vh;
   box-sizing: border-box;
   flex-direction: column;
@@ -137,12 +137,12 @@ body.customer-sidebar-collapsed .customer-proposal-detail-page,
 body.customer-sidebar-collapsed .customer-3d-preview-page,
 body.customer-sidebar-collapsed .customer-orders-page,
 body.customer-sidebar-collapsed .customer-quotations-page {
-  padding-left: 72px;
+  padding-left: var(--fs-workspace-sidebar-collapsed-width);
 }
 
 body.customer-sidebar-collapsed .customer-shell-sidebar.customer-shell-sidebar {
   align-items: center;
-  width: 72px;
+  width: var(--fs-workspace-sidebar-collapsed-width);
   padding: 72px 10px 16px;
 }
 
@@ -174,7 +174,7 @@ body.customer-sidebar-collapsed .customer-shell-sidebar .customer-shell-nav a sp
   position: fixed;
   top: 0;
   right: 0;
-  left: 256px;
+  left: var(--fs-workspace-sidebar-width);
   z-index: 35;
   display: flex;
   min-height: 72px;
@@ -185,11 +185,11 @@ body.customer-sidebar-collapsed .customer-shell-sidebar .customer-shell-nav a sp
   border-bottom: 1px solid var(--fs-border);
   background: var(--fs-surface);
   box-shadow: 0 1px 3px rgba(45, 45, 45, 0.1);
-  padding: 0 28px;
+  padding: 0 var(--fs-workspace-gutter);
 }
 
 body.customer-sidebar-collapsed .customer-shell-actionbar.customer-shell-actionbar {
-  left: 72px;
+  left: var(--fs-workspace-sidebar-collapsed-width);
 }
 
 .customer-shell-create.customer-shell-create {
@@ -428,22 +428,23 @@ body.customer-sidebar-collapsed .customer-proposal-detail-page,
 body.customer-sidebar-collapsed .customer-3d-preview-page,
 body.customer-sidebar-collapsed .customer-orders-page,
 body.customer-sidebar-collapsed .customer-quotations-page {
-  padding-left: 72px;
+  padding-left: var(--fs-workspace-sidebar-collapsed-width);
   padding-top: 72px;
 }
 
 body.customer-sidebar-collapsed .customer-shell-sidebar.customer-shell-sidebar {
   inset: 0 auto 0 0;
-  width: 72px;
+  width: var(--fs-workspace-sidebar-collapsed-width);
   height: 100vh;
   min-height: 100vh;
   flex-direction: column;
+  overflow: visible;
   padding: 72px 10px 16px;
 }
 
 body.customer-sidebar-collapsed .customer-shell-actionbar.customer-shell-actionbar {
   top: 0;
-  left: 72px;
+  left: var(--fs-workspace-sidebar-collapsed-width);
   min-height: 72px;
 }
 
@@ -455,11 +456,11 @@ body :is(
   .customer-schedules-main,
   .customer-chat-body
 ) {
-  max-width: 1360px;
+  max-width: var(--fs-workspace-max-width);
   margin-right: auto;
   margin-left: auto;
-  padding-right: clamp(24px, 3vw, 44px);
-  padding-left: clamp(24px, 3vw, 44px);
+  padding-right: var(--fs-workspace-gutter);
+  padding-left: var(--fs-workspace-gutter);
 }
 
 body .customer-project-request-shell {
@@ -525,4 +526,37 @@ body :is(.customer-project-list-heading button, .customer-quotations-heading a) 
 body .customer-project-detail-hero .customer-project-detail-kicker,
 body .customer-project-detail-hero .customer-project-detail-code {
   color: rgba(255, 255, 255, 0.72);
+}
+
+body.customer-sidebar-collapsed .customer-shell-sidebar .customer-shell-nav {
+  overflow: visible;
+}
+
+body.customer-sidebar-collapsed .customer-shell-sidebar .customer-shell-nav a span {
+  position: absolute;
+  left: calc(100% + 10px);
+  z-index: 60;
+  display: block;
+  width: max-content;
+  max-width: 220px;
+  border: 1px solid rgba(196, 160, 122, 0.22);
+  border-radius: 8px;
+  background: var(--fs-sidebar);
+  box-shadow: 0 14px 32px rgba(0, 0, 0, 0.22);
+  color: #ffffff;
+  opacity: 0;
+  overflow: hidden;
+  padding: 9px 12px;
+  pointer-events: none;
+  text-overflow: ellipsis;
+  transform: translateX(-6px) scale(0.96);
+  transform-origin: left center;
+  transition: opacity 0.16s ease, transform 0.16s ease;
+  white-space: nowrap;
+}
+
+body.customer-sidebar-collapsed .customer-shell-sidebar .customer-shell-nav a:hover span,
+body.customer-sidebar-collapsed .customer-shell-sidebar .customer-shell-nav a:focus-visible span {
+  opacity: 1;
+  transform: translateX(0) scale(1);
 }

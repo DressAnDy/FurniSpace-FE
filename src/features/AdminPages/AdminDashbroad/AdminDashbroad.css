@@ -24,7 +24,7 @@
   display: flex;
   height: 100vh;
   flex-direction: column;
-  width: 256px;
+  width: var(--fs-workspace-sidebar-width);
   background: var(--fs-sidebar);
   color: #ffffff;
   padding: 18px 14px;
@@ -82,6 +82,7 @@
 }
 
 .admin-nav-item {
+  position: relative;
   display: flex;
   width: 100%;
   min-height: 40px;
@@ -123,18 +124,18 @@
 .admin-main {
   min-width: 0;
   flex: 1;
-  margin-left: 256px;
+  margin-left: var(--fs-workspace-sidebar-width);
   transition: margin-left 0.2s ease;
 }
 
 body.admin-sidebar-collapsed .admin-sidebar {
   align-items: center;
-  width: 72px;
+  width: var(--fs-workspace-sidebar-collapsed-width);
   padding: 72px 10px 14px;
 }
 
 body.admin-sidebar-collapsed .admin-main {
-  margin-left: 72px;
+  margin-left: var(--fs-workspace-sidebar-collapsed-width);
 }
 
 body.admin-sidebar-collapsed .admin-sidebar-open-button {
@@ -154,11 +155,11 @@ body.admin-sidebar-collapsed .admin-sidebar-open-button {
   gap: 24px;
   border-bottom: 1px solid var(--fs-border);
   background: var(--fs-surface);
-  padding: 0 32px;
+  padding: 0 var(--fs-workspace-gutter);
 }
 
 body.admin-sidebar-collapsed .admin-topbar {
-  padding-left: 32px;
+  padding-left: var(--fs-workspace-gutter);
 }
 
 body.admin-sidebar-collapsed .admin-brand {
@@ -2603,11 +2604,45 @@ body.admin-sidebar-collapsed .admin-nav-item span {
 
 body.admin-sidebar-collapsed .admin-sidebar {
   position: fixed;
-  width: 72px;
+  width: var(--fs-workspace-sidebar-collapsed-width);
   min-height: 100vh;
   height: 100vh;
+  overflow: visible;
 }
 
 body.admin-sidebar-collapsed .admin-main {
-  margin-left: 72px;
+  margin-left: var(--fs-workspace-sidebar-collapsed-width);
+}
+
+body.admin-sidebar-collapsed .admin-nav {
+  overflow: visible;
+}
+
+body.admin-sidebar-collapsed .admin-nav-item span {
+  position: absolute;
+  left: calc(100% + 10px);
+  z-index: 60;
+  display: block;
+  width: max-content;
+  max-width: 220px;
+  border: 1px solid rgba(196, 160, 122, 0.22);
+  border-radius: 8px;
+  background: var(--fs-sidebar);
+  box-shadow: 0 14px 32px rgba(0, 0, 0, 0.22);
+  color: #ffffff;
+  opacity: 0;
+  overflow: hidden;
+  padding: 9px 12px;
+  pointer-events: none;
+  text-overflow: ellipsis;
+  transform: translateX(-6px) scale(0.96);
+  transform-origin: left center;
+  transition: opacity 0.16s ease, transform 0.16s ease;
+  white-space: nowrap;
+}
+
+body.admin-sidebar-collapsed .admin-nav-item:hover span,
+body.admin-sidebar-collapsed .admin-nav-item:focus-visible span {
+  opacity: 1;
+  transform: translateX(0) scale(1);
 }

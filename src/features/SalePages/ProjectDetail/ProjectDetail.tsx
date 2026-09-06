@@ -6,6 +6,7 @@ import { useLang } from '@/app/providers/useLang';
 import { ProjectStatusBadge, ProjectTimeline, SaleNavbar, SaleSidebar, saleCopy } from '@/features/SalePages/salecomponents';
 import { OperationalDelayPanel } from '@/features/operationalDelayReports/OperationalDelayPanel';
 import { ProductIssuePanel } from '@/features/productIssues/ProductIssuePanel';
+import { ProjectChatPanel } from '@/features/projectChat/ProjectChatPanel';
 import { ProjectShowcaseManager } from '@/features/showcases/ProjectShowcaseManager';
 import type { OrderListItemDto } from '@/services/api/orders';
 import type { ProjectDto, ProjectStatus } from '@/services/api/projects';
@@ -21,11 +22,11 @@ import {
 } from '@/services/queries/useProjects';
 import { useProductionRequests } from '@/services/queries/useProduction';
 
-import { FilesAttachmentsTab, OverviewTab, ProjectMemberTab } from './tabs';
+import { FilesAttachmentsTab, OverviewTab, ProjectMemberTab, SchedulesTab } from './tabs';
 import { ProjectStartFeePanel } from './components/ProjectStartFeePanel';
 import './ProjectDetail.css';
 
-type ProjectDetailTab = 'overview' | 'customer' | 'files' | 'delays' | 'issues' | 'showcase';
+type ProjectDetailTab = 'overview' | 'customer' | 'files' | 'schedules' | 'chat' | 'delays' | 'issues' | 'showcase';
 
 export type ProjectDetailProject = ProjectDto;
 
@@ -113,6 +114,8 @@ export function ProjectDetail() {
   ];
   const assignedProjectTabs: TabDef[] = [
     ...baseTabs,
+    { id: 'schedules', label: pd.tabSchedules },
+    { id: 'chat', label: pd.tabChat },
     { id: 'delays', label: pd.tabDelay },
     { id: 'issues', label: pd.tabIssues },
     { id: 'showcase', label: pd.tabShowcase },
@@ -121,14 +124,8 @@ export function ProjectDetail() {
   const backPath = isAssignedProjectRoute ? '/sales/assigned-projects' : '/sales/project-requests';
   const backLabel = isAssignedProjectRoute ? pd.backAssigned : pd.backQueue;
   const requestedTab = new URLSearchParams(location.search).get('tab');
+  const requestedProjectDetailTab = normalizeProjectDetailTab(requestedTab);
   const requestedChatId = new URLSearchParams(location.search).get('chatId');
-
-  useEffect(() => {
-    if (requestedTab === 'chat' && projectId) {
-      const chatQuery = requestedChatId ? `&chatId=${encodeURIComponent(requestedChatId)}` : '';
-      navigate(`/sales/chat?projectId=${encodeURIComponent(projectId)}${chatQuery}`, { replace: true });
-    }
-  }, [navigate, projectId, requestedChatId, requestedTab]);
 
   useEffect(() => {
     if (!visibleTabs.some((tab) => tab.id === activeTab)) {
@@ -137,10 +134,10 @@ export function ProjectDetail() {
   }, [activeTab, visibleTabs]);
 
   useEffect(() => {
-    if (requestedTab && visibleTabs.some((tab) => tab.id === requestedTab)) {
-      setActiveTab(requestedTab as ProjectDetailTab);
+    if (requestedProjectDetailTab && visibleTabs.some((tab) => tab.id === requestedProjectDetailTab)) {
+      setActiveTab(requestedProjectDetailTab);
     }
-  }, [requestedTab, visibleTabs]);
+  }, [requestedProjectDetailTab, visibleTabs]);
 
   async function handleConsultationDecision(status: Extract<ProjectStatus, 'NEED_BASIC_INFORMATION' | 'REJECTED'>) {
     setStatusMessage('');
@@ -241,6 +238,18 @@ export function ProjectDetail() {
     if (activeTab === 'overview') return <OverviewTab project={project} />;
     if (activeTab === 'customer') return <ProjectMemberTab project={project} canManageAssignment={isAssignedProjectRoute} />;
     if (activeTab === 'files') return <FilesAttachmentsTab projectId={project.projectId} />;
+    if (activeTab === 'schedules' && isAssignedProjectRoute) return <SchedulesTab project={project} />;
+    if (activeTab === 'chat' && isAssignedProjectRoute) {
+      return (
+        <ProjectChatPanel
+          allowedChatTypes={['SALES', 'DESIGNER']}
+          initialChatId={requestedChatId}
+          projectCode={project.projectCode}
+          projectId={project.projectId}
+          title={`${project.projectName} Chat`}
+        />
+      );
+    }
     if (activeTab === 'delays' && isAssignedProjectRoute) {
       return (
         <OperationalDelayPanel
@@ -460,6 +469,14 @@ function getTimelineDates(project: ProjectDto) {
   }
 
   return dates;
+}
+
+function normalizeProjectDetailTab(value: string | null): ProjectDetailTab | null {
+  if (value === 'schedule') return 'schedules';
+
+  const supportedTabs: ProjectDetailTab[] = ['overview', 'customer', 'files', 'schedules', 'chat', 'delays', 'issues', 'showcase'];
+
+  return supportedTabs.includes(value as ProjectDetailTab) ? value as ProjectDetailTab : null;
 }
 
 function getTimelineCurrentStep(status: ProjectStatus) {

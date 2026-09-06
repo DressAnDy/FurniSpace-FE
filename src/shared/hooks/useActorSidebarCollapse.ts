@@ -1,14 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useLayoutEffect, useState } from 'react';
 
 type ActorKey = 'admin' | 'customer' | 'designer' | 'production' | 'sale';
-
-const storageKeyByActor: Record<ActorKey, string> = {
-  admin: 'furnispace:admin-sidebar-collapsed',
-  customer: 'furnispace:customer-sidebar-collapsed',
-  designer: 'furnispace:designer-sidebar-collapsed',
-  production: 'furnispace:production-sidebar-collapsed',
-  sale: 'furnispace:sale-sidebar-collapsed',
-};
 
 const bodyClassByActor: Record<ActorKey, string> = {
   admin: 'admin-sidebar-collapsed',
@@ -19,17 +11,11 @@ const bodyClassByActor: Record<ActorKey, string> = {
 };
 
 export function useActorSidebarCollapse(actor: ActorKey) {
-  const [isCollapsed, setIsCollapsed] = useState(() => {
-    if (typeof window === 'undefined') return true;
-    const savedValue = window.localStorage.getItem(storageKeyByActor[actor]);
+  const [isCollapsed, setIsCollapsed] = useState(true);
 
-    return savedValue === null ? true : savedValue === 'true';
-  });
-
-  useEffect(() => {
+  useLayoutEffect(() => {
     const bodyClass = bodyClassByActor[actor];
     document.body.classList.toggle(bodyClass, isCollapsed);
-    window.localStorage.setItem(storageKeyByActor[actor], String(isCollapsed));
 
     return () => {
       document.body.classList.remove(bodyClass);
