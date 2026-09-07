@@ -27,11 +27,16 @@ export const productionQueryKeys = {
   unavailable: (params?: UnavailableProductionItemsParams) => ['production', 'unavailable', params] as const,
 };
 
-export function useProductionRequests(params?: ProductionRequestListParams, options?: { enabled?: boolean }) {
+export function useProductionRequests(
+  params?: ProductionRequestListParams,
+  options?: { enabled?: boolean; staleTime?: number; refetchOnWindowFocus?: boolean },
+) {
   return useQuery({
     queryKey: productionQueryKeys.requests(params),
     queryFn: () => getProductionRequests(params),
     enabled: options?.enabled ?? true,
+    staleTime: options?.staleTime,
+    refetchOnWindowFocus: options?.refetchOnWindowFocus,
   });
 }
 

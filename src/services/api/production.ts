@@ -47,6 +47,13 @@ export type ProductionRequestListParams = {
 
 export type ProductionRequestQueueItemDto = Omit<ProductionRequest, 'items'> & {
   productionItemCount?: number | null;
+  orderStatus?: string | null;
+  deliveryStatus?: string | null;
+  projectStatus?: string | null;
+  relatedProjectStatus?: string | null;
+  deliveredAt?: string | null;
+  deliveryCompletedAt?: string | null;
+  customerConfirmedDeliveryAt?: string | null;
 };
 
 export type ProductionRequestListResponseDto = {

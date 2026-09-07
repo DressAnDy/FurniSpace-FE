@@ -46,6 +46,7 @@ type AdminCopy = {
     periodLastMonth: string;
     periodThisQuarter: string;
     periodThisYear: string;
+    periodRangeNote: (from: string, to: string) => string;
     loadingData: string;
     loadError: string;
     kpiActive: string;
@@ -223,6 +224,7 @@ export const adminCopy: Record<Lang, AdminCopy> = {
       periodLastMonth: 'Last month',
       periodThisQuarter: 'This quarter',
       periodThisYear: 'This year',
+      periodRangeNote: (from, to) => `${from} → ${to}`,
       loadingData: 'Loading project and financial data...',
       loadError: 'Some live API data could not be loaded.',
       kpiActive: 'Active Projects',
@@ -398,6 +400,7 @@ export const adminCopy: Record<Lang, AdminCopy> = {
       periodLastMonth: 'Tháng trước',
       periodThisQuarter: 'Quý này',
       periodThisYear: 'Năm nay',
+      periodRangeNote: (from, to) => `${from} → ${to}`,
       loadingData: 'Đang tải dữ liệu dự án và tài chính...',
       loadError: 'Một phần dữ liệu API không tải được.',
       kpiActive: 'Dự án đang chạy',

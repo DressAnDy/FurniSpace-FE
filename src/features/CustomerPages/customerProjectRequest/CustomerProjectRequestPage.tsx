@@ -8,7 +8,8 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 import './CustomerProjectRequestPage.css';
-import { CustomerNavbar } from '@/features/CustomerPages/customercomponents';
+import { useLang } from '@/app/providers/useLang';
+import { CustomerNavbar, customerCopy } from '@/features/CustomerPages/customercomponents';
 import {
   getProjectServiceResultMessage,
   normalizeOptionalText,
@@ -32,6 +33,8 @@ import {
 
 export function CustomerProjectRequestPage() {
   const navigate = useNavigate();
+  const { lang } = useLang();
+  const t = customerCopy[lang];
   const createProjectMutation = useCreateProject();
   const uploadProjectFileMutation = useUploadProjectFile();
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
@@ -175,54 +178,54 @@ export function CustomerProjectRequestPage() {
 
   return (
     <main className="customer-project-request-page">
-      <CustomerNavbar activeLabel="My Projects" classPrefix="customer-project-request" />
+      <CustomerNavbar activeKey="myProjects" classPrefix="customer-project-request" />
 
       <div className="customer-project-request-shell">
         <div className="customer-project-request-main">
           <header className="customer-project-request-header">
-            <h1>Create New Project Request</h1>
+            <h1>{t.projectRequest.createTitle}</h1>
           </header>
 
           <form className="customer-project-request-form" noValidate onSubmit={handleSubmit}>
-            <FormSection title="Basic Information">
+            <FormSection title={t.projectRequest.basicInformation}>
               <div className="customer-project-request-grid">
-                <Field label="Project Name *">
+                <Field label={t.projectRequest.projectName}>
                   <input name="projectName" placeholder="e.g., Downtown Coffee Shop Interior" required type="text" />
                 </Field>
-                <Field label="Business Type *">
+                <Field label={t.projectRequest.businessType}>
                   <select defaultValue="" name="businessType" required>
                     <option value="" disabled>
                       Select business type
                     </option>
-                    <option value="Cafe">Cafe</option>
-                    <option value="Retail">Retail</option>
-                    <option value="Office">Office</option>
-                    <option value="Restaurant">Restaurant</option>
-                    <option value="Showroom">Showroom</option>
+                    <option value="Cafe">{t.projectRequest.cafe}</option>
+                    <option value="Retail">{t.projectRequest.retail}</option>
+                    <option value="Office">{t.projectRequest.office}</option>
+                    <option value="Restaurant">{t.projectRequest.restaurant}</option>
+                    <option value="Showroom">{t.projectRequest.showroom}</option>
                   </select>
                 </Field>
               </div>
 
-              <Field label="Business Purpose">
+              <Field label={t.projectRequest.businessPurpose}>
                 <input name="businessPurpose" placeholder="e.g., Specialty coffee shop with bakery section" type="text" />
               </Field>
 
-              <Field label="Project Address">
+              <Field label={t.projectRequest.address}>
                 <input name="projectAddress" placeholder="Full address of the project location" type="text" />
               </Field>
 
-              <Field label="Furniture Requirement *">
+              <Field label={t.projectRequest.furnitureRequirement}>
                 <textarea name="furnitureRequirement" placeholder="e.g., Counter seating, dining tables, lounge area, display cases" required rows={3} />
               </Field>
 
-              <Field label="Description">
+              <Field label={t.projectRequest.description}>
                 <textarea name="description" placeholder="Describe your vision, style preferences, or specific requirements..." rows={4} />
               </Field>
             </FormSection>
 
-            <FormSection title="Space Details">
+            <FormSection title={t.projectRequest.spaceDetails}>
               <div className="customer-project-request-grid">
-                <Field error={fieldErrors.totalAreaSqm} label="Total Area (sqm)">
+                <Field error={fieldErrors.totalAreaSqm} label={t.projectRequest.totalArea}>
                   <input
                     aria-invalid={Boolean(fieldErrors.totalAreaSqm)}
                     className={fieldErrors.totalAreaSqm ? 'customer-project-request-input-invalid' : undefined}
@@ -235,7 +238,7 @@ export function CustomerProjectRequestPage() {
                     onChange={handleDecimalInputChange}
                   />
                 </Field>
-                <Field error={fieldErrors.numberOfFloors} label="Number of Floors">
+                <Field error={fieldErrors.numberOfFloors} label={t.projectRequest.floors}>
                   <input
                     aria-invalid={Boolean(fieldErrors.numberOfFloors)}
                     className={fieldErrors.numberOfFloors ? 'customer-project-request-input-invalid' : undefined}
@@ -251,9 +254,9 @@ export function CustomerProjectRequestPage() {
               </div>
             </FormSection>
 
-            <FormSection title="Budget & Timeline">
+            <FormSection title={t.projectRequest.budgetTimeline}>
               <div className="customer-project-request-grid">
-                <Field error={fieldErrors.budgetMin} label="Minimum Budget">
+                <Field error={fieldErrors.budgetMin} label={t.projectRequest.minBudget}>
                   <div className="customer-project-request-input-with-suffix">
                     <input
                       aria-invalid={Boolean(fieldErrors.budgetMin)}
@@ -271,7 +274,7 @@ export function CustomerProjectRequestPage() {
                     </span>
                   </div>
                 </Field>
-                <Field error={fieldErrors.budgetMax} label="Maximum Budget">
+                <Field error={fieldErrors.budgetMax} label={t.projectRequest.maxBudget}>
                   <div className="customer-project-request-input-with-suffix">
                     <input
                       aria-invalid={Boolean(fieldErrors.budgetMax)}
@@ -291,7 +294,7 @@ export function CustomerProjectRequestPage() {
                 </Field>
               </div>
 
-              <Field error={fieldErrors.targetCompletionDate} label="Target Completion Date">
+              <Field error={fieldErrors.targetCompletionDate} label={t.projectRequest.targetCompletionDate}>
                 <input
                   aria-invalid={Boolean(fieldErrors.targetCompletionDate)}
                   className={fieldErrors.targetCompletionDate ? 'customer-project-request-input-invalid' : undefined}
@@ -303,11 +306,11 @@ export function CustomerProjectRequestPage() {
               </Field>
             </FormSection>
 
-            <FormSection title="Project Files">
+            <FormSection title={t.projectRequest.projectFiles}>
               <label className="customer-project-request-upload">
                 <IconUpload size={48} stroke={1.7} />
-                <strong>Click to upload or drag and drop</strong>
-                <span>Images, PDFs, 3D files, documents up to backend limit</span>
+                <strong>{t.projectRequest.uploadHint}</strong>
+                <span>{t.projectRequest.uploadTypes}</span>
                 <input
                   type="file"
                   multiple
@@ -319,7 +322,7 @@ export function CustomerProjectRequestPage() {
               </label>
               {selectedFiles.length > 0 ? (
                 <div className="customer-project-request-file-preview">
-                  <p className="customer-project-request-file-count">{selectedFiles.length} file(s) selected</p>
+                  <p className="customer-project-request-file-count">{t.projectRequest.filesReady(selectedFiles.length)}</p>
                   <div className="customer-project-request-file-grid-preview">
                     {selectedFiles.map((file) => (
                       <SelectedFilePreview
@@ -337,9 +340,9 @@ export function CustomerProjectRequestPage() {
 
             <div className="customer-project-request-actions">
               <button disabled={isSubmitting} type="submit">
-                {isSubmitting ? 'Submitting...' : 'Submit Project Request'}
+                {isSubmitting ? t.projectRequest.submitting : t.projectRequest.submitRequest}
               </button>
-              <a href="/customer/projects">Cancel</a>
+              <a href="/customer/projects">{t.common.cancel}</a>
             </div>
           </form>
         </div>

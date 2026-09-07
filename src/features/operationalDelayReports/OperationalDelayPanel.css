@@ -1,10 +1,11 @@
 .operational-delay-panel {
+  background: #ffffff;
+  border: 1px solid rgba(166, 124, 82, 0.18);
+  border-radius: 18px;
+  box-shadow: 0 18px 40px rgba(79, 55, 38, 0.08);
   display: grid;
   gap: 16px;
   padding: 20px;
-  border: 1px solid #e2e8f0;
-  border-radius: 16px;
-  background: #fff;
 }
 
 .operational-delay-header,
@@ -12,24 +13,28 @@
 .operational-delay-modal-title,
 .operational-delay-modal-title > div,
 .operational-delay-modal-actions {
-  display: flex;
   align-items: center;
+  display: flex;
 }
 
 .operational-delay-header {
-  justify-content: space-between;
   gap: 16px;
+  justify-content: space-between;
 }
 
 .operational-delay-header h3,
 .operational-delay-modal h3 {
+  color: #2f261f;
+  font-size: 18px;
+  font-weight: 900;
   margin: 0;
 }
 
 .operational-delay-header p,
 .operational-delay-modal > p {
+  color: #7a6d63;
+  font-size: 13px;
   margin: 4px 0 0;
-  color: #64748b;
 }
 
 .operational-delay-actions,
@@ -41,134 +46,207 @@
 .operational-delay-actions button,
 .operational-delay-tabs button,
 .operational-delay-modal button {
+  background: #ffffff;
+  border: 1px solid rgba(166, 124, 82, 0.28);
+  border-radius: 10px;
+  color: #5c4a3a;
+  cursor: pointer;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 6px;
+  font: inherit;
+  font-weight: 600;
   min-height: 36px;
   padding: 8px 12px;
-  border: 1px solid #cbd5e1;
-  border-radius: 9px;
-  background: #fff;
-  color: #334155;
-  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.operational-delay-actions button:hover,
+.operational-delay-tabs button:hover,
+.operational-delay-modal button:hover {
+  background: #f7efe4;
+  border-color: rgba(166, 124, 82, 0.45);
 }
 
 .operational-delay-primary {
-  border-color: #b45309 !important;
-  background: #b45309 !important;
-  color: #fff !important;
+  background: #8b6f47 !important;
+  border-color: #8b6f47 !important;
+  color: #ffffff !important;
+}
+
+.operational-delay-primary:hover {
+  background: #7a613d !important;
+  border-color: #7a613d !important;
 }
 
 .operational-delay-tabs {
   display: flex;
+  flex-wrap: wrap;
   gap: 6px;
 }
 
 .operational-delay-tabs .is-active {
-  border-color: #334155;
-  background: #334155;
-  color: #fff;
+  background: #312721;
+  border-color: #312721;
+  color: #ffffff;
 }
 
 .operational-delay-list {
   display: grid;
-  gap: 8px;
+  gap: 10px;
 }
 
 .operational-delay-row {
-  display: grid;
-  grid-template-columns: 110px minmax(180px, 1fr) minmax(180px, auto);
-  gap: 14px;
   align-items: center;
-  width: 100%;
-  padding: 13px;
-  border: 1px solid #e2e8f0;
-  border-radius: 10px;
-  background: #f8fafc;
-  text-align: left;
+  background: linear-gradient(180deg, #fffdfb 0%, #faf6f1 100%);
+  border: 1px solid rgba(166, 124, 82, 0.16);
+  border-radius: 12px;
   cursor: pointer;
+  display: grid;
+  gap: 14px;
+  grid-template-columns: auto minmax(180px, 1fr) minmax(180px, auto);
+  padding: 14px;
+  text-align: left;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+  width: 100%;
+}
+
+.operational-delay-row:hover {
+  border-color: rgba(166, 124, 82, 0.4);
+  box-shadow: 0 10px 24px rgba(79, 55, 38, 0.08);
+  transform: translateY(-1px);
 }
 
 .operational-delay-row > span:not(.operational-delay-badge) {
   display: grid;
-  gap: 3px;
+  gap: 4px;
+  min-width: 0;
+}
+
+.operational-delay-row strong {
+  color: #312721;
+  font-size: 14px;
 }
 
 .operational-delay-row small {
-  color: #64748b;
+  color: #7a6d63;
+  font-size: 12px;
+  line-height: 1.4;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.operational-delay-row > span:last-child {
+  justify-items: end;
+  text-align: right;
 }
 
 .operational-delay-badge {
-  justify-self: start;
-  padding: 5px 8px;
+  background: #fef3c7;
   border-radius: 999px;
+  color: #92400e;
+  font-size: 11px;
+  font-weight: 900;
+  justify-self: start;
+  letter-spacing: 0.02em;
+  padding: 5px 10px;
+  white-space: nowrap;
+}
+
+.operational-delay-badge.is-at_risk {
   background: #fef3c7;
   color: #92400e;
-  font-size: 12px;
-  font-weight: 700;
 }
 
 .operational-delay-badge.is-overdue {
-  background: #fee2e2;
-  color: #b91c1c;
+  background: #fff1f2;
+  color: #be123c;
 }
 
 .operational-delay-state {
+  background: #f7efe4;
+  border: 1px dashed rgba(166, 124, 82, 0.28);
+  border-radius: 12px;
+  color: #7a6d63;
   margin: 0;
-  padding: 16px;
-  border-radius: 10px;
-  background: #f8fafc;
-  color: #64748b;
+  padding: 18px;
   text-align: center;
 }
 
 .operational-delay-error {
-  color: #b91c1c !important;
+  color: #b42318 !important;
+  font-weight: 700;
+}
+
+.operational-delay-state.operational-delay-error {
+  background: #fff5f5;
+  border-color: rgba(180, 35, 24, 0.28);
 }
 
 .operational-delay-modal-backdrop {
+  background: rgba(47, 38, 31, 0.45);
+  display: grid;
+  inset: 0;
+  padding: 20px;
+  place-items: center;
   position: fixed;
   z-index: 1200;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  padding: 20px;
-  background: rgba(15, 23, 42, 0.55);
 }
 
 .operational-delay-modal {
+  background: #ffffff;
+  border: 1px solid rgba(166, 124, 82, 0.18);
+  border-radius: 18px;
+  box-shadow: 0 24px 60px rgba(79, 55, 38, 0.22);
   display: grid;
   gap: 16px;
-  width: min(560px, 100%);
   max-height: calc(100vh - 40px);
   overflow: auto;
   padding: 22px;
-  border-radius: 16px;
-  background: #fff;
-  box-shadow: 0 20px 50px rgba(15, 23, 42, 0.25);
+  width: min(560px, 100%);
 }
 
 .operational-delay-modal-title {
-  justify-content: space-between;
   gap: 12px;
+  justify-content: space-between;
+}
+
+.operational-delay-modal-title > div {
+  color: #8b6f47;
+}
+
+.operational-delay-modal-title > div h3 {
+  color: #2f261f;
 }
 
 .operational-delay-modal label {
+  color: #5c4a3a;
   display: grid;
+  font-weight: 700;
   gap: 7px;
-  color: #334155;
-  font-weight: 600;
 }
 
 .operational-delay-modal input,
+.operational-delay-modal select,
 .operational-delay-modal textarea {
-  width: 100%;
+  background: #fffdfb;
+  border: 1px solid rgba(166, 124, 82, 0.28);
+  border-radius: 10px;
   box-sizing: border-box;
-  padding: 10px 12px;
-  border: 1px solid #cbd5e1;
-  border-radius: 9px;
+  color: #312721;
   font: inherit;
+  outline: none;
+  padding: 10px 12px;
+  width: 100%;
+}
+
+.operational-delay-modal input:focus,
+.operational-delay-modal select:focus,
+.operational-delay-modal textarea:focus {
+  border-color: #8b6f47;
+  box-shadow: 0 0 0 3px rgba(139, 111, 71, 0.15);
 }
 
 .operational-delay-modal-actions {
@@ -177,25 +255,51 @@
 
 .operational-delay-detail-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
   gap: 12px;
+  grid-template-columns: 1fr 1fr;
 }
 
-.operational-delay-detail-grid > div {
+.operational-delay-detail-grid > div:not(.operational-delay-detail-wide),
+.operational-delay-detail-wide > div {
+  background: linear-gradient(180deg, #fffdfb 0%, #f7efe4 100%);
+  border: 1px solid rgba(166, 124, 82, 0.14);
+  border-radius: 12px;
   display: grid;
-  gap: 4px;
-  padding: 12px;
-  border-radius: 9px;
-  background: #f8fafc;
-}
-
-.operational-delay-detail-grid span {
-  color: #64748b;
-  font-size: 12px;
+  gap: 6px;
+  padding: 12px 14px;
 }
 
 .operational-delay-detail-wide {
+  background: transparent;
+  border: 0;
   grid-column: 1 / -1;
+  padding: 0;
+}
+
+.operational-delay-detail-grid span,
+.operational-delay-detail-wide span {
+  color: #7a6d63;
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.operational-delay-detail-grid strong,
+.operational-delay-detail-wide strong {
+  color: #312721;
+  display: block;
+  font-size: 14px;
+  font-weight: 800;
+  line-height: 1.35;
+  word-break: break-word;
+}
+
+.operational-delay-detail-state {
+  align-items: flex-start;
+}
+
+.operational-delay-detail-state .operational-delay-badge {
+  margin-top: 2px;
 }
 
 @media (max-width: 720px) {
@@ -207,6 +311,11 @@
   .operational-delay-row,
   .operational-delay-detail-grid {
     grid-template-columns: 1fr;
+  }
+
+  .operational-delay-row > span:last-child {
+    justify-items: start;
+    text-align: left;
   }
 
   .operational-delay-detail-wide {

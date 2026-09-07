@@ -7,7 +7,8 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useLocation } from 'react-router-dom';
 
-import { CustomerNavbar } from '@/features/CustomerPages/customercomponents';
+import { useLang } from '@/app/providers/useLang';
+import { CustomerNavbar, customerCopy } from '@/features/CustomerPages/customercomponents';
 import { formatChatTime, formatFileSize, formatUnreadBadge, getChatParticipant, getInitials, getMessageContent } from '@/features/projectChat/chatUi';
 import {
   getProjectChatServiceResultMessage,
@@ -29,6 +30,8 @@ import {
 import './CustomerChatPage.css';
 
 export function CustomerChatPage() {
+  const { lang } = useLang();
+  const t = customerCopy[lang];
   const queryClient = useQueryClient();
   const location = useLocation();
   const currentUserQuery = useCurrentUser();
@@ -189,18 +192,18 @@ export function CustomerChatPage() {
 
   return (
     <main className="customer-chat-page">
-      <CustomerNavbar activeLabel="Project Chat" classPrefix="customer-chat" />
+      <CustomerNavbar activeKey="projectChat" classPrefix="customer-chat" />
 
       <div className="customer-chat-body">
         <header className="customer-chat-page-header">
-          <h1>Project Chat</h1>
+          <h1>{t.chat.title}</h1>
         </header>
 
         <div className="customer-chat-layout">
           <aside className="customer-chat-sidebar">
             <div className="customer-chat-search-wrapper">
               <label className="customer-chat-project-select">
-                <span>Project</span>
+                <span>{t.common.project}</span>
                 <select
                   value={activeProject?.projectId ?? ''}
                   onChange={(event) => {
@@ -217,16 +220,16 @@ export function CustomerChatPage() {
               </label>
               <label className="customer-chat-search">
                 <IconSearch size={16} stroke={1.8} />
-                <input type="search" placeholder="Filter conversations..." value={searchKeyword} onChange={(event) => setSearchKeyword(event.target.value)} />
+                <input type="search" placeholder={t.chat.filterConversations} value={searchKeyword} onChange={(event) => setSearchKeyword(event.target.value)} />
               </label>
             </div>
 
             <ul className="customer-chat-list">
-              {projectsQuery.isLoading ? <li className="customer-chat-list-state">Loading projects...</li> : null}
-              {chatListQuery.isLoading ? <li className="customer-chat-list-state">Loading chats...</li> : null}
+              {projectsQuery.isLoading ? <li className="customer-chat-list-state">{t.chat.loadingProjects}</li> : null}
+              {chatListQuery.isLoading ? <li className="customer-chat-list-state">{t.chat.loadingChats}</li> : null}
               {chatListQuery.isError ? <li className="customer-chat-list-state">{getProjectChatServiceResultMessage(chatListQuery.error)}</li> : null}
               {!chatListQuery.isLoading && !chatListQuery.isError && filteredConversations.length === 0 ? (
-                <li className="customer-chat-list-state">No chat is available for this project.</li>
+                <li className="customer-chat-list-state">{t.chat.noChat}</li>
               ) : null}
               {filteredConversations.map((conversation) => (
                 <ConversationItem
@@ -253,12 +256,12 @@ export function CustomerChatPage() {
 
             <div className="customer-chat-messages" aria-live="polite" ref={messagesListRef}>
               {errorMessage ? <div className="customer-chat-message customer-chat-message-system">{errorMessage}</div> : null}
-              {messagesQuery.isLoading ? <div className="customer-chat-message customer-chat-message-system">Loading messages...</div> : null}
+              {messagesQuery.isLoading ? <div className="customer-chat-message customer-chat-message-system">{t.chat.loadingMessages}</div> : null}
               {messagesQuery.isError ? (
                 <div className="customer-chat-message customer-chat-message-system">{getProjectChatServiceResultMessage(messagesQuery.error)}</div>
               ) : null}
               {!messagesQuery.isLoading && !messagesQuery.isError && activeConversation && (messagesQuery.data?.items.length ?? 0) === 0 ? (
-                <div className="customer-chat-message customer-chat-message-system">No messages yet.</div>
+                <div className="customer-chat-message customer-chat-message-system">{t.chat.noMessages}</div>
               ) : null}
               {messagesQuery.data?.items.map((message) => (
                 <CustomerMessage currentUserId={currentUserQuery.data?.accountId} key={message.messageId} message={message} />
@@ -269,7 +272,7 @@ export function CustomerChatPage() {
                 <textarea
                   className="customer-chat-textarea"
                   disabled={!activeConversation || sendTextMutation.isPending}
-                  placeholder="Type your message..."
+                  placeholder={t.chat.typeMessage}
                   rows={2}
                   value={draft}
                   onChange={(event) => setDraft(event.target.value)}
@@ -281,7 +284,7 @@ export function CustomerChatPage() {
                   }}
                 />
               </div>
-              <button className="customer-chat-send" disabled={!activeConversation || !draft.trim() || sendTextMutation.isPending} type="button" aria-label="Send message" onClick={() => void handleSendText()}>
+              <button className="customer-chat-send" disabled={!activeConversation || !draft.trim() || sendTextMutation.isPending} type="button" aria-label={t.chat.sendMessage} onClick={() => void handleSendText()}>
                 <IconSend size={20} stroke={1.8} />
               </button>
             </div>
@@ -303,6 +306,8 @@ function ConversationItem({
   onSelect: () => void;
   unreadCount: number;
 }) {
+  const { lang } = useLang();
+  const t = customerCopy[lang];
   const participant = getChatParticipant(conversation, { viewerRole: 'CUSTOMER' });
   const unreadBadge = formatUnreadBadge(unreadCount);
 
@@ -324,7 +329,7 @@ function ConversationItem({
             <span className="customer-chat-role-label">{participant.role}</span>
           </div>
 
-          <p className="customer-chat-list-preview">{conversation.lastMessage?.contentPreview ?? 'No messages yet'}</p>
+          <p className="customer-chat-list-preview">{conversation.lastMessage?.contentPreview ?? t.chat.noMessages}</p>
           <time className="customer-chat-list-time">{formatChatTime(conversation.lastMessage?.createdAt ?? conversation.createdAt)}</time>
         </div>
       </button>
@@ -333,12 +338,14 @@ function ConversationItem({
 }
 
 function CustomerMessage({ currentUserId, message }: { currentUserId?: string; message: ProjectChatMessage }) {
+  const { lang } = useLang();
+  const t = customerCopy[lang];
   const isMine = Boolean(currentUserId && message.senderId === currentUserId);
   const senderClass = message.messageType === 'SYSTEM' ? 'system' : isMine ? 'self' : 'other';
 
   return (
     <article className={`customer-chat-message customer-chat-message-${senderClass}`}>
-      <p>{message.content ?? (message.attachment ? 'Attachment' : getMessageContent(message))}</p>
+      <p>{message.content ?? (message.attachment ? t.chat.attachment : getMessageContent(message))}</p>
       {message.attachment ? (
         <a className="customer-chat-attachment" href={message.attachment.fileUrl} rel="noreferrer" target="_blank">
           <IconFile size={15} />

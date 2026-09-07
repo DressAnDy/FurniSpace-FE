@@ -782,23 +782,84 @@
   min-height: 180px;
 }
 
+.production-ready-ops-stack {
+  display: grid;
+  gap: 16px;
+}
+
+.production-ready-schedule-panel {
+  background: #ffffff;
+  border: 1px solid rgba(166, 124, 82, 0.18);
+  border-radius: 18px;
+  box-shadow: 0 18px 40px rgba(79, 55, 38, 0.08);
+  display: grid;
+  gap: 16px;
+}
+
+.production-ready-schedule-panel header {
+  align-items: flex-start;
+  display: flex;
+  gap: 14px;
+  justify-content: space-between;
+  margin-bottom: 0;
+}
+
 .production-ready-schedule-panel header h3,
 .production-ready-plan-card header h3 {
-  display: inline-flex;
   align-items: center;
+  color: #2f261f;
+  display: inline-flex;
+  font-size: 18px;
+  font-weight: 900;
   gap: 8px;
+  margin: 0;
+}
+
+.production-ready-schedule-panel header p {
+  color: #7a6d63;
+  font-size: 13px;
+  margin: 4px 0 0;
+}
+
+.production-ready-summary-metrics {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.production-ready-summary-metrics .production-workspace-field:first-child {
+  grid-column: 1 / -1;
+}
+
+.production-ready-summary-metrics .production-workspace-field {
+  background: linear-gradient(180deg, #fffdfb 0%, #f7efe4 100%);
+  border: 1px solid rgba(166, 124, 82, 0.14);
+  border-radius: 12px;
+  min-width: 0;
+  padding: 12px 14px;
+}
+
+.production-ready-summary-metrics .production-workspace-field span {
+  color: #7a6d63;
+}
+
+.production-ready-summary-metrics .production-workspace-field strong {
+  color: #312721;
+  font-weight: 800;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .production-ready-compact-grid {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .production-ready-delivery-details {
+  background: linear-gradient(180deg, #fbf7f1 0%, #f7efe4 100%);
+  border: 1px solid rgba(166, 124, 82, 0.18);
+  border-radius: 14px;
   display: grid;
   gap: 12px;
-  border: 1px solid rgba(139, 111, 71, 0.14);
-  border-radius: 12px;
-  background: #fbfaf7;
   padding: 14px;
 }
 
@@ -808,17 +869,47 @@
 }
 
 .production-ready-delivery-details h4 {
-  margin: 0;
-  color: #2f2a24;
+  color: #2f261f;
   font-size: 14px;
-  font-weight: 800;
+  font-weight: 900;
+  margin: 0;
 }
 
 .production-ready-delivery-details p {
+  color: #7a6d63;
+  font-size: 12px;
+  line-height: 18px;
   margin: 0;
-  color: #756b61;
-  font-size: 13px;
-  line-height: 20px;
+}
+
+.production-ready-delivery-details-grid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.production-ready-delivery-details-grid .production-workspace-field {
+  background: rgba(255, 253, 251, 0.92);
+  border: 1px solid rgba(166, 124, 82, 0.14);
+  border-radius: 12px;
+  min-width: 0;
+  padding: 12px 14px;
+}
+
+.production-ready-delivery-details-grid .production-workspace-field span {
+  color: #7a6d63;
+}
+
+.production-ready-delivery-details-grid .production-workspace-field strong {
+  color: #312721;
+  font-weight: 800;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.production-ready-delivery-field-wide {
+  grid-column: 1 / -1;
 }
 
 .production-ready-schedule-list {
@@ -1227,8 +1318,15 @@
   .production-workspace-meta,
   .production-workspace-detail-grid,
   .production-workspace-form-grid,
-  .production-workspace-filter-controls {
+  .production-workspace-filter-controls,
+  .production-ready-summary-metrics,
+  .production-ready-delivery-details-grid {
     grid-template-columns: 1fr;
+  }
+
+  .production-ready-summary-metrics .production-workspace-field:first-child,
+  .production-ready-delivery-field-wide {
+    grid-column: auto;
   }
 
   .production-workspace-filter-search {
