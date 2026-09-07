@@ -10,7 +10,9 @@ import {
 } from '@tabler/icons-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 
-import { CustomerNavbar } from '@/features/CustomerPages/customercomponents';
+import { useLang } from '@/app/providers/useLang';
+import { CustomerNavbar, customerCopy } from '@/features/CustomerPages/customercomponents';
+import { formatCustomerDate } from '@/features/CustomerPages/utils';
 import { ProjectChatPanel } from '@/features/projectChat/ProjectChatPanel';
 import { RoomPreview3D, type PlacedProduct3D } from '@/features/ThreeD/components/RoomPreview3D';
 import type { RoomMaterialSelection } from '@/features/ThreeD/types/roomLayout.types';
@@ -83,6 +85,8 @@ function measurePreviewPerformance(name: string, startMark: string, endMark: str
 }
 
 export function Customer3dPreviewPage() {
+  const { lang } = useLang();
+  const t = customerCopy[lang];
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const projectIdFromUrl = searchParams.get('projectId') ?? '';
@@ -286,18 +290,18 @@ export function Customer3dPreviewPage() {
     const levels = hydratedBuildingScene.sceneData?.building.levels ?? [];
 
     if (levels.length === 0) {
-      return [{ label: 'All', value: 'all' }];
+      return [{ label: t.preview3d.all, value: 'all' }];
     }
 
     return [
-      { label: 'All', value: 'all' },
+      { label: t.preview3d.all, value: 'all' },
       ...levels.map((level) => ({ label: level.label, value: level.id })),
     ];
-  }, [hydratedBuildingScene.sceneData?.building.levels]);
+  }, [hydratedBuildingScene.sceneData?.building.levels, t.preview3d.all]);
   const sceneObjectCount = hydratedBuildingScene.sceneData
     ? renderableBuildingProducts.length
     : sceneProducts.length;
-  const activeLevelLabel = levelOptions.find((level) => level.value === activeLevel)?.label ?? 'All';
+  const activeLevelLabel = levelOptions.find((level) => level.value === activeLevel)?.label ?? t.preview3d.all;
   const handleProductsLoaded = useCallback((result: { complete: boolean; loaded: number; total: number }) => {
     const firstModelMark = `${PREVIEW_PERFORMANCE_PREFIX}:first-model-ready`;
 
@@ -507,12 +511,8 @@ export function Customer3dPreviewPage() {
     setDecisionMessage('');
 
     try {
-      const result = await selectFinalProposalMutation.mutateAsync({ proposalId: selectedProposal.proposalId });
-      setDecisionMessage(
-        result.quotationId
-          ? 'Proposal selected successfully. A draft quotation has been created for Sales review.'
-          : 'Proposal selected successfully. Sales can now review the quotation flow.',
-      );
+      await selectFinalProposalMutation.mutateAsync({ proposalId: selectedProposal.proposalId });
+      setDecisionMessage(t.preview3d.proposalSelectedToast);
     } catch (error) {
       setDecisionMessage(getProposalServiceResultMessage(error));
     }
@@ -530,7 +530,7 @@ export function Customer3dPreviewPage() {
     const trimmedRevisionNote = revisionNote.trim();
 
     if (!trimmedRevisionNote) {
-      setDecisionMessage('Please enter revision feedback before sending it to the designer.');
+      setDecisionMessage(t.preview3d.revisionRequiredToast);
       return;
     }
 
@@ -541,7 +541,7 @@ export function Customer3dPreviewPage() {
       });
       setRevisionNote('');
       setIsRevisionModalOpen(false);
-      setDecisionMessage('Revision request sent to the designer.');
+      setDecisionMessage(t.preview3d.revisionSentToast);
       void proposalsQuery.refetch();
     } catch (error) {
       setDecisionMessage(getProposalServiceResultMessage(error));
@@ -550,7 +550,7 @@ export function Customer3dPreviewPage() {
 
   return (
     <main className="customer-3d-preview-page">
-      <CustomerNavbar activeLabel="My Projects" classPrefix="customer-3d-preview" />
+      <CustomerNavbar activeKey="myProjects" classPrefix="customer-3d-preview" />
 
       <section className="customer-3d-preview-viewer" aria-label="Customer proposal scene review">
         <div className="customer-3d-preview-toolbar">
@@ -579,7 +579,7 @@ export function Customer3dPreviewPage() {
             </button>
             <span />
             <div>
-              <strong>{selectedProposal?.proposalName ?? 'No proposal selected'}</strong>
+              <strong>{selectedProposal?.proposalName ?? t.preview3d.noProposalSelected}</strong>
               <small>{selectedProject?.projectName ?? 'Customer review'} - read-only</small>
             </div>
           </div>
@@ -596,7 +596,7 @@ export function Customer3dPreviewPage() {
                   setIsProposalsMenuOpen(false);
                 }}
               >
-                <span>Scene Levels</span>
+                <span>{t.preview3d.sceneLevels}</span>
                 <small>{activeLevelLabel}</small>
                 <IconChevronDown size={16} stroke={1.8} />
               </button>
@@ -604,7 +604,7 @@ export function Customer3dPreviewPage() {
               {isSceneLevelsMenuOpen ? (
                 <div className="customer-3d-preview-levels-dropdown" role="menu">
                   <div className="customer-3d-preview-levels-heading">
-                    <strong>Scene Levels</strong>
+                    <strong>{t.preview3d.sceneLevels}</strong>
                     <span>{sceneObjectCount} object(s)</span>
                   </div>
                   <div className="customer-3d-preview-level-tabs">
@@ -634,7 +634,7 @@ export function Customer3dPreviewPage() {
                 aria-selected={isChatModalOpen}
                 onClick={() => setIsChatModalOpen(true)}
               >
-                <IconMessageDots size={16} stroke={1.8} /> Chat
+                <IconMessageDots size={16} stroke={1.8} /> {t.preview3d.chat}
               </button>
               <button
                 className={sidePanelMode === 'items' ? 'customer-3d-preview-view-active' : ''}
@@ -643,7 +643,7 @@ export function Customer3dPreviewPage() {
                 aria-selected={sidePanelMode === 'items'}
                 onClick={() => setSidePanelMode((currentMode) => (currentMode === 'items' ? null : 'items'))}
               >
-                <IconPackage size={16} stroke={1.8} /> Scene Items
+                <IconPackage size={16} stroke={1.8} /> {t.preview3d.sceneItems}
               </button>
             </div>
             <div className="customer-3d-preview-proposals-menu">
@@ -657,7 +657,7 @@ export function Customer3dPreviewPage() {
                   setIsSceneLevelsMenuOpen(false);
                 }}
               >
-                Proposals
+                {t.preview3d.proposals}
                 <IconChevronDown size={16} stroke={1.8} />
               </button>
 
@@ -665,10 +665,10 @@ export function Customer3dPreviewPage() {
                 <div className="customer-3d-preview-proposals-dropdown" role="menu">
                   <section>
                     <header>
-                      <h3>Proposals</h3>
+                      <h3>{t.preview3d.proposals}</h3>
                     </header>
                     <div className="customer-proposal-list">
-                      {projectsQuery.isLoading || proposalsQuery.isLoading ? <p>Loading proposals...</p> : null}
+                      {projectsQuery.isLoading || proposalsQuery.isLoading ? <p>{t.common.loading}</p> : null}
                       {proposalsQuery.isError ? <p>{getProposalServiceResultMessage(proposalsQuery.error)}</p> : null}
                       {!proposalsQuery.isLoading && !proposalsQuery.isError && proposals.length === 0 ? (
                         <p>No proposals returned for this project yet.</p>
@@ -707,13 +707,13 @@ export function Customer3dPreviewPage() {
                   setIsSceneLevelsMenuOpen(false);
                 }}
               >
-                Request Proposal Revision
+                {t.preview3d.requestRevision}
               </button>
             ) : null}
             <button
               className="customer-3d-preview-icon-button"
               type="button"
-              aria-label="Fullscreen preview"
+              aria-label={t.preview3d.fullscreen}
               onClick={() => void stageRef.current?.requestFullscreen?.()}
             >
               <IconMaximize size={20} stroke={1.8} />
@@ -725,15 +725,15 @@ export function Customer3dPreviewPage() {
           <div className="customer-3d-preview-stage" ref={stageRef}>
             <div className="customer-scene-renderer">
               {roomPlannerSceneQuery.isLoading ? (
-                <SceneState message="Loading saved Room Planner scene..." />
+                <SceneState message={t.preview3d.loadingScene} />
               ) : resolvedProductsQuery.isError ? (
                 <SceneState message={getProposalServiceResultMessage(resolvedProductsQuery.error)} />
               ) : roomPlannerSceneQuery.isError ? (
                 <SceneState message={`Unable to load this scene. ${getProposalServiceResultMessage(roomPlannerSceneQuery.error)}`} />
               ) : !activeSceneId ? (
-                <SceneState message="Select a proposal with a saved 3D scene." />
+                <SceneState message={t.preview3d.selectProposal} />
               ) : !hydratedScene.layout && !hydratedBuildingScene.sceneData ? (
-                <SceneState message="This scene has no saved room layout in MongoDB yet." />
+                <SceneState message={t.preview3d.noSavedLayout} />
               ) : hydratedBuildingScene.sceneData ? (
                 <BuildingSceneCanvas
                   activeLevel={activeLevel}
@@ -759,27 +759,27 @@ export function Customer3dPreviewPage() {
                   onProductSelect={setSelectedObjectId}
                 />
               ) : (
-                <SceneState message="This scene has no saved room layout in MongoDB yet." />
+                <SceneState message={t.preview3d.noSavedLayout} />
               )}
             </div>
 
-            <div className="customer-readonly-notice">Saved scene - editing disabled</div>
+            <div className="customer-readonly-notice">{t.preview3d.editingDisabled}</div>
           </div>
 
           {sidePanelMode === 'items' ? (
             <aside className="customer-3d-preview-right-panel" aria-label="Scene items">
-              <PanelHeader title="Scene Items" />
+              <PanelHeader title={t.preview3d.sceneItems} />
               <div className="customer-3d-preview-side-content">
                 {selectedObject && (
                   <div className="customer-selected-object">
-                    <span>Selected object</span>
+                    <span>{t.preview3d.selectedObject}</span>
                     <strong>{selectedObject.modelName}</strong>
                     <small>{selectedObject.productVersionId ?? selectedObject.productId ?? selectedObject.id}</small>
                   </div>
                 )}
                 <div className="customer-3d-preview-item-list">
                   {proposalItemsQuery.isLoading && proposalItems.length === 0 ? (
-                    <p className="customer-scene-state">Loading proposal items...</p>
+                    <p className="customer-scene-state">{t.common.loading}</p>
                   ) : null}
                   {proposalItemsQuery.isError && proposalItems.length === 0 ? (
                     <p className="customer-scene-state">{getProposalServiceResultMessage(proposalItemsQuery.error)}</p>
@@ -809,15 +809,15 @@ export function Customer3dPreviewPage() {
       </section>
 
       {isChatModalOpen ? (
-        <div className="customer-3d-preview-chat-modal" role="dialog" aria-modal="true" aria-label="Designer chat">
-          <button className="customer-3d-preview-chat-backdrop" type="button" aria-label="Close designer chat" onClick={() => setIsChatModalOpen(false)} />
+        <div className="customer-3d-preview-chat-modal" role="dialog" aria-modal="true" aria-label={t.preview3d.designerChat}>
+          <button className="customer-3d-preview-chat-backdrop" type="button" aria-label={t.common.close} onClick={() => setIsChatModalOpen(false)} />
           <section className="customer-3d-preview-chat-dialog">
             <header className="customer-3d-preview-chat-header">
               <div>
-                <strong>Designer Chat</strong>
+                <strong>{t.preview3d.designerChat}</strong>
                 <span>{selectedProject?.projectName ?? 'Select a project to start chatting'}</span>
               </div>
-              <button type="button" aria-label="Close designer chat" onClick={() => setIsChatModalOpen(false)}>
+              <button type="button" aria-label={t.common.close} onClick={() => setIsChatModalOpen(false)}>
                 <IconX size={18} stroke={1.8} />
               </button>
             </header>
@@ -827,7 +827,7 @@ export function Customer3dPreviewPage() {
                   preferredChatType="DESIGNER"
                   projectCode={selectedProject.projectCode}
                   projectId={selectedProject.projectId}
-                  title="Designer Chat"
+                  title={t.preview3d.designerChat}
                 />
               ) : (
                 <p className="customer-scene-state">Select a project to chat with the assigned designer.</p>
@@ -838,34 +838,34 @@ export function Customer3dPreviewPage() {
       ) : null}
 
       {isRevisionModalOpen && selectedProposal ? (
-        <div className="customer-3d-preview-revision-modal" role="dialog" aria-modal="true" aria-label="Request proposal revision">
-          <button className="customer-3d-preview-revision-backdrop" type="button" aria-label="Close revision request" onClick={() => setIsRevisionModalOpen(false)} />
+        <div className="customer-3d-preview-revision-modal" role="dialog" aria-modal="true" aria-label={t.preview3d.requestRevision}>
+          <button className="customer-3d-preview-revision-backdrop" type="button" aria-label={t.common.close} onClick={() => setIsRevisionModalOpen(false)} />
           <section className="customer-3d-preview-revision-dialog">
             <header className="customer-3d-preview-revision-header">
               <div>
-                <strong>Request Proposal Revision</strong>
+                <strong>{t.preview3d.requestRevision}</strong>
                 <span>{selectedProposal.proposalName}</span>
               </div>
-              <button type="button" aria-label="Close revision request" onClick={() => setIsRevisionModalOpen(false)}>
+              <button type="button" aria-label={t.common.close} onClick={() => setIsRevisionModalOpen(false)}>
                 <IconX size={18} stroke={1.8} />
               </button>
             </header>
             <form className="customer-3d-preview-revision-form" onSubmit={(event) => void requestProposalRevision(event)}>
               <label>
-                <span>Revision feedback</span>
+                <span>{t.preview3d.requestRevision}</span>
                 <textarea
                   required
                   rows={5}
                   value={revisionNote}
-                  placeholder="Describe what the designer should revise in this proposal."
+                  placeholder={t.proposalAccordion.revisionPlaceholder}
                   onChange={(event) => setRevisionNote(event.target.value)}
                 />
               </label>
               {decisionMessage ? <p className="customer-3d-preview-revision-message">{decisionMessage}</p> : null}
               <div>
-                <button type="button" onClick={() => setIsRevisionModalOpen(false)}>Cancel</button>
+                <button type="button" onClick={() => setIsRevisionModalOpen(false)}>{t.preview3d.cancel}</button>
                 <button disabled={requestRevisionMutation.isPending || !revisionNote.trim()} type="submit">
-                  {requestRevisionMutation.isPending ? 'Sending...' : 'Send Revision Request'}
+                  {requestRevisionMutation.isPending ? t.common.send : t.preview3d.sendRevisionRequest}
                 </button>
               </div>
             </form>
@@ -887,6 +887,8 @@ function ProposalStatusAction({
   onSelect: () => void;
   status?: ProposalDto['status'] | null;
 }) {
+  const { lang } = useLang();
+  const t = customerCopy[lang];
   const displayStatus = getCustomerProposalDisplayStatus(status);
 
   if (!displayStatus) {
@@ -901,7 +903,7 @@ function ProposalStatusAction({
   const isSelected = displayStatus === 'SELECTED';
   const isRejected = displayStatus === 'REJECTED';
   const isClickable = isPublished && canSelect && !isSelecting;
-  const actionLabel = isSelecting ? 'Selecting...' : isPublished && isClickable ? 'Select' : displayStatus;
+  const actionLabel = isSelecting ? t.preview3d.selecting : isPublished && isClickable ? t.preview3d.select : displayStatus;
 
   return (
     <button
@@ -948,6 +950,8 @@ function ProposalButton({
   onSelect: () => void;
   proposal: ProposalDto;
 }) {
+  const { lang } = useLang();
+  const t = customerCopy[lang];
   const displayStatus = getCustomerProposalDisplayStatus(proposal.status) ?? proposal.status;
 
   return (
@@ -962,7 +966,7 @@ function ProposalButton({
           {displayStatus}
         </span>
       </div>
-      <small>Version {proposal.versionNo} - Updated {formatDateTime(proposal.updatedAt)}</small>
+      <small>{t.common.version} {proposal.versionNo} - {formatCustomerDate(proposal.updatedAt, lang)}</small>
     </button>
   );
 }
@@ -985,6 +989,9 @@ function ProposalItemCard({ item }: { item: ProposalItemDto }) {
 type AggregatedSceneProduct = PlacedProduct3D & { quantity: number };
 
 function SceneProductCard({ product }: { product: AggregatedSceneProduct }) {
+  const { lang } = useLang();
+  const t = customerCopy[lang];
+
   return (
     <article className="customer-3d-preview-item-card">
       <div>
@@ -993,7 +1000,7 @@ function SceneProductCard({ product }: { product: AggregatedSceneProduct }) {
       </div>
       <div>
         <span>{product.quantity}x</span>
-        <strong>{product.productVersionId ? 'From scene' : 'Local object'}</strong>
+        <strong>{product.productVersionId ? t.preview3d.fromScene : t.preview3d.localObject}</strong>
       </div>
     </article>
   );
@@ -1125,14 +1132,6 @@ function getProposalSelectionCustomizationBlocker(
   }
 
   return null;
-}
-
-function formatDateTime(value: string) {
-  return new Intl.DateTimeFormat('en', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-  }).format(new Date(value));
 }
 
 function formatCurrency(value: number | null | undefined) {

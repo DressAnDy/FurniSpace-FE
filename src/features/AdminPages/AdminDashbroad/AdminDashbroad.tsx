@@ -85,6 +85,10 @@ export function AdminDashbroad() {
   const exceptionsQuery = useAdminFinancialExceptions({ page: 1, pageSize: 3 });
 
   const refreshTime = new Intl.DateTimeFormat(lang === 'vi' ? 'vi-VN' : 'en-US', { hour: '2-digit', minute: '2-digit' }).format(lastRefreshAt);
+  const periodRangeLabel = useMemo(
+    () => d.periodRangeNote(formatPeriodDate(lang, dateRange.from), formatPeriodDate(lang, dateRange.to)),
+    [d, dateRange.from, dateRange.to, lang],
+  );
   const statusBreakdown = useMemo(
     () => getBucketBreakdown(overviewQuery.data?.projects.byBucket, d),
     [overviewQuery.data?.projects.byBucket, d],
@@ -139,15 +143,21 @@ export function AdminDashbroad() {
                     {d.periodThisYear}
                   </button>
                 </div>
-                <button
-                  className="admin-dash-v2-refresh-button"
-                  disabled={isRefreshing}
-                  type="button"
-                  onClick={() => void handleRefresh()}
-                >
-                  <IconRefresh className={isRefreshing ? 'is-spinning' : undefined} size={14} />
-                  {isRefreshing ? t.common.refreshing : `${t.common.refresh} · ${refreshTime}`}
-                </button>
+                <div className="admin-dash-v2-refresh-block">
+                  <button
+                    className="admin-dash-v2-refresh-button"
+                    disabled={isRefreshing}
+                    type="button"
+                    onClick={() => void handleRefresh()}
+                  >
+                    <IconRefresh className={isRefreshing ? 'is-spinning' : undefined} size={14} />
+                    {isRefreshing ? t.common.refreshing : `${t.common.refresh} · ${refreshTime}`}
+                  </button>
+                  <p className="admin-dash-v2-period-note" title={periodRangeLabel}>
+                    <IconClock size={13} />
+                    <span>{periodRangeLabel}</span>
+                  </p>
+                </div>
               </div>
             </section>
 
@@ -552,6 +562,17 @@ function formatKpiMoney(value: number | null | undefined) {
     return `${(value / 1_000_000).toLocaleString('vi-VN', { maximumFractionDigits: 1 })} triệu ₫`;
   }
   return formatMoney(value);
+}
+
+function formatPeriodDate(lang: 'en' | 'vi', value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value.slice(0, 10);
+  return new Intl.DateTimeFormat(lang === 'vi' ? 'vi-VN' : 'en-GB', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    timeZone: 'Asia/Ho_Chi_Minh',
+  }).format(date);
 }
 
 function formatEnumLabel(value: string) {

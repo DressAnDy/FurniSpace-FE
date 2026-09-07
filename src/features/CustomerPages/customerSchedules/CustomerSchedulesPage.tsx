@@ -10,7 +10,9 @@ import {
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 
-import { CustomerNavbar } from '@/features/CustomerPages/customercomponents';
+import { useLang, type Lang } from '@/app/providers/useLang';
+import { CustomerNavbar, customerCopy } from '@/features/CustomerPages/customercomponents';
+import { formatCustomerDateTime } from '@/features/CustomerPages/utils';
 import {
   getProjectScheduleServiceResultMessage,
   type ProjectScheduleDto,
@@ -35,9 +37,10 @@ type CustomerScheduleItem = {
 
 const scheduleTypeOptions: Array<ProjectScheduleType | ''> = ['', 'MEASUREMENT', 'CONSULTATION', 'DESIGN_REVIEW', 'DELIVERY', 'HANDOVER', 'OTHER'];
 const scheduleStatusOptions: Array<ProjectScheduleStatus | ''> = ['', 'PENDING_CONFIRMATION', 'CONFIRMED', 'CANCELLED'];
-const weekDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 export function CustomerSchedulesPage() {
+  const { lang } = useLang();
+  const t = customerCopy[lang];
   const [searchParams, setSearchParams] = useSearchParams();
   const [keyword, setKeyword] = useState('');
   const [scheduleType, setScheduleType] = useState<ProjectScheduleType | ''>('');
@@ -173,7 +176,7 @@ export function CustomerSchedulesPage() {
         status: 'CONFIRMED',
         note: 'Confirmed by customer from schedule management.',
       });
-      setMessage('Schedule confirmed successfully.');
+      setMessage(t.schedules.confirmedToast);
     } catch (error) {
       setMessage(getProjectScheduleServiceResultMessage(error));
     } finally {
@@ -193,7 +196,7 @@ export function CustomerSchedulesPage() {
         note,
       });
       setRequestChangeNotes((current) => ({ ...current, [schedule.scheduleId]: '' }));
-      setMessage('Schedule change request sent successfully.');
+      setMessage(t.schedules.changeRequestSentToast);
     } catch (error) {
       setMessage(getProjectScheduleServiceResultMessage(error));
     } finally {
@@ -203,28 +206,28 @@ export function CustomerSchedulesPage() {
 
   return (
     <main className="customer-schedules-page">
-      <CustomerNavbar activeLabel="Schedules" classPrefix="customer-schedules" />
+      <CustomerNavbar activeKey="schedules" classPrefix="customer-schedules" />
 
       <div className="customer-schedules-main">
         <section className="customer-schedules-heading">
           <div>
-            <h1>Project Schedules</h1>
+            <h1>{t.schedules.title}</h1>
           </div>
         </section>
 
         <section className="customer-schedules-filters" aria-label="Schedule filters">
           <label>
             <IconSearch size={17} stroke={1.8} />
-            <input type="search" placeholder="Search schedules..." value={keyword} onChange={(event) => setKeyword(event.target.value)} />
+            <input type="search" placeholder={t.schedules.searchPlaceholder} value={keyword} onChange={(event) => setKeyword(event.target.value)} />
           </label>
           <select value={scheduleType} onChange={(event) => setScheduleType(event.target.value as ProjectScheduleType | '')}>
             {scheduleTypeOptions.map((option) => (
-              <option key={option || 'ALL'} value={option}>{option ? formatEnumLabel(option) : 'All types'}</option>
+              <option key={option || 'ALL'} value={option}>{option ? formatEnumLabel(option) : t.schedules.allTypes}</option>
             ))}
           </select>
           <select value={status} onChange={(event) => setStatus(event.target.value as ProjectScheduleStatus | '')}>
             {scheduleStatusOptions.map((option) => (
-              <option key={option || 'ALL'} value={option}>{option ? formatEnumLabel(option) : 'All statuses'}</option>
+              <option key={option || 'ALL'} value={option}>{option ? formatEnumLabel(option) : t.schedules.allStatuses}</option>
             ))}
           </select>
         </section>
@@ -232,7 +235,7 @@ export function CustomerSchedulesPage() {
         {message ? <p className={isActionError(message) ? 'customer-schedules-message customer-schedules-message-error' : 'customer-schedules-message'}>{message}</p> : null}
         {projectsQuery.isError ? <p className="customer-schedules-state customer-schedules-state-error">Could not load your projects.</p> : null}
         {scheduleError ? <p className="customer-schedules-state customer-schedules-state-error">{getProjectScheduleServiceResultMessage(scheduleError)}</p> : null}
-        {isLoading ? <p className="customer-schedules-state">Loading schedules...</p> : null}
+        {isLoading ? <p className="customer-schedules-state">{t.common.loading}</p> : null}
 
         <div className="customer-schedules-layout">
           <div className="customer-schedules-overview">
@@ -261,7 +264,7 @@ export function CustomerSchedulesPage() {
             ) : (
               <div className="customer-schedules-empty-detail">
                 <IconCalendarEvent size={28} stroke={1.8} />
-                <h2>No schedule selected</h2>
+                <h2>{t.schedules.noScheduleSelected}</h2>
               </div>
             )}
           </section>
@@ -290,6 +293,9 @@ function MonthlyScheduleCalendar({
   onSelectDay,
   onSelectSchedule,
 }: MonthlyScheduleCalendarProps) {
+  const { lang } = useLang();
+  const t = customerCopy[lang];
+  const weekDays = [t.schedules.sun, t.schedules.mon, t.schedules.tue, t.schedules.wed, t.schedules.thu, t.schedules.fri, t.schedules.sat];
   const [expandedDateKey, setExpandedDateKey] = useState<string | null>(null);
   const year = month.getFullYear();
   const monthIndex = month.getMonth();
@@ -317,14 +323,14 @@ function MonthlyScheduleCalendar({
     <section className="customer-schedules-calendar" aria-label="Monthly schedule calendar">
       <div className="customer-schedules-calendar-head">
         <div>
-          <span>Monthly overview</span>
-          <h2>{formatMonthYear(month)}</h2>
+          <span>{t.schedules.monthlyOverview}</span>
+          <h2>{formatMonthYear(month, lang)}</h2>
         </div>
         <div className="customer-schedules-calendar-controls">
-          <button type="button" aria-label="Previous month" onClick={() => onMoveMonth(-1)}>
+          <button type="button" aria-label={t.common.previous} onClick={() => onMoveMonth(-1)}>
             <IconChevronLeft size={18} stroke={1.8} />
           </button>
-          <button type="button" aria-label="Next month" onClick={() => onMoveMonth(1)}>
+          <button type="button" aria-label={t.common.next} onClick={() => onMoveMonth(1)}>
             <IconChevronRight size={18} stroke={1.8} />
           </button>
         </div>
@@ -369,7 +375,7 @@ function MonthlyScheduleCalendar({
               >
                 <span className="customer-schedules-calendar-day-number">{day}</span>
                 <span className="customer-schedules-calendar-day-meta">
-                  {daySchedules.length > 0 ? `${daySchedules.length} schedule${daySchedules.length > 1 ? 's' : ''}` : 'No schedule'}
+                  {daySchedules.length > 0 ? t.schedules.scheduleCount(daySchedules.length) : t.schedules.noSchedule}
                 </span>
               </button>
 
@@ -388,7 +394,7 @@ function MonthlyScheduleCalendar({
                         onSelectSchedule(schedule.scheduleId, dateKey);
                       }}
                     >
-                      <strong>{formatTime(schedule.scheduledStart)}</strong>
+                      <strong>{formatTime(schedule.scheduledStart, lang)}</strong>
                       <em>{schedule.title ?? formatEnumLabel(schedule.scheduleType)}</em>
                     </button>
                   ))}
@@ -402,7 +408,7 @@ function MonthlyScheduleCalendar({
                         setExpandedDateKey(isExpanded ? null : dateKey);
                       }}
                     >
-                      {isExpanded ? 'Show less' : `+${hiddenCount} more`}
+                      {isExpanded ? t.schedules.showLess : t.schedules.more(hiddenCount)}
                     </button>
                   ) : null}
                 </span>
@@ -434,6 +440,8 @@ function ScheduleDetail({
   onRequestChangeNoteChange,
   requestChangeNote,
 }: ScheduleDetailProps) {
+  const { lang } = useLang();
+  const t = customerCopy[lang];
   const { project, schedule } = item;
   const canConfirm = schedule.status === 'PENDING_CONFIRMATION';
   const canRequestDeliveryChange = schedule.scheduleType === 'DELIVERY'
@@ -453,37 +461,37 @@ function ScheduleDetail({
       <div className="customer-schedules-detail-grid">
         <div>
           <IconClock size={18} stroke={1.8} />
-          <span>Start</span>
-          <strong>{formatDateTime(schedule.scheduledStart)}</strong>
+          <span>{t.schedules.start}</span>
+          <strong>{formatCustomerDateTime(schedule.scheduledStart, lang)}</strong>
         </div>
         <div>
           <IconClock size={18} stroke={1.8} />
-          <span>End</span>
-          <strong>{schedule.scheduledEnd ? formatDateTime(schedule.scheduledEnd) : 'Not specified'}</strong>
+          <span>{t.schedules.end}</span>
+          <strong>{schedule.scheduledEnd ? formatCustomerDateTime(schedule.scheduledEnd, lang) : t.common.notSpecified}</strong>
         </div>
         <div>
           <IconMapPin size={18} stroke={1.8} />
-          <span>Location</span>
-          <strong>{schedule.location ?? 'Not specified'}</strong>
+          <span>{t.schedules.location}</span>
+          <strong>{schedule.location ?? t.common.notSpecified}</strong>
         </div>
         <div>
           <IconCalendarEvent size={18} stroke={1.8} />
-          <span>Project</span>
+          <span>{t.schedules.project}</span>
           <strong>{project.projectName}</strong>
         </div>
       </div>
 
       <div className="customer-schedules-notes">
-        <h3>Details</h3>
-        <p>{schedule.customerNote || schedule.description || 'No additional schedule details were provided.'}</p>
+        <h3>{t.schedules.details}</h3>
+        <p>{schedule.customerNote || schedule.description || t.schedules.noAdditionalDetails}</p>
       </div>
 
       {canRequestDeliveryChange ? (
         <label className="customer-schedules-change-note">
-          <span>Delivery change request</span>
+          <span>{t.schedules.deliveryChangeRequest}</span>
           <textarea
             disabled={isUpdating}
-            placeholder="Describe the preferred delivery time or location change"
+            placeholder={t.schedules.changePlaceholder}
             rows={3}
             value={requestChangeNote}
             onChange={(event) => onRequestChangeNoteChange(event.target.value)}
@@ -496,12 +504,12 @@ function ScheduleDetail({
           {canConfirm ? (
             <button disabled={isUpdating} type="button" onClick={onConfirm}>
               <IconCheck size={16} stroke={2} />
-              {activeActionId === schedule.scheduleId && isUpdating ? 'Confirming...' : 'Confirm'}
+              {activeActionId === schedule.scheduleId && isUpdating ? t.common.confirming : t.schedules.confirm}
             </button>
           ) : null}
           {canRequestDeliveryChange ? (
             <button className="is-secondary" disabled={isUpdating} type="button" onClick={onRequestChange}>
-              {activeActionId === schedule.scheduleId && isUpdating ? 'Sending...' : 'Request Change'}
+              {activeActionId === schedule.scheduleId && isUpdating ? t.common.send : t.schedules.requestChange}
             </button>
           ) : null}
         </div>
@@ -513,7 +521,7 @@ function ScheduleDetail({
 function isActionError(message: string) {
   const normalized = message.toLowerCase();
 
-  return !normalized.includes('success');
+  return !normalized.includes('success') && !normalized.includes('thành công');
 }
 
 function formatEnumLabel(value: string) {
@@ -524,25 +532,15 @@ function formatEnumLabel(value: string) {
     .join(' ');
 }
 
-function formatDateTime(value: string) {
-  return new Intl.DateTimeFormat('en', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  }).format(new Date(value));
-}
-
-function formatMonthYear(value: Date) {
-  return new Intl.DateTimeFormat('en', {
+function formatMonthYear(value: Date, lang: Lang) {
+  return new Intl.DateTimeFormat(lang === 'vi' ? 'vi-VN' : 'en', {
     month: 'long',
     year: 'numeric',
   }).format(value);
 }
 
-function formatTime(value: string) {
-  return new Intl.DateTimeFormat('en', {
+function formatTime(value: string, lang: Lang) {
+  return new Intl.DateTimeFormat(lang === 'vi' ? 'vi-VN' : 'en', {
     hour: '2-digit',
     minute: '2-digit',
   }).format(new Date(value));

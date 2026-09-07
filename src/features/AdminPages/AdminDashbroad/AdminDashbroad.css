@@ -1463,7 +1463,7 @@ body.admin-sidebar-collapsed .admin-nav-item span {
 }
 
 .admin-dash-v2-header-actions {
-  align-items: center;
+  align-items: flex-start;
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
@@ -2049,10 +2049,35 @@ body.admin-sidebar-collapsed .admin-nav-item span {
   width: 10px;
 }
 
+.admin-dash-v2-refresh-block {
+  align-items: flex-end;
+  display: inline-flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.admin-dash-v2-period-note {
+  align-items: center;
+  color: #8b7355;
+  display: inline-flex;
+  font-size: 12px;
+  font-weight: 600;
+  gap: 5px;
+  justify-content: flex-end;
+  line-height: 1;
+  margin: 0;
+  white-space: nowrap;
+}
+
+.admin-dash-v2-period-note svg {
+  color: #a16207;
+  flex-shrink: 0;
+}
+
 .admin-dash-v2-revenue-controls {
   display: inline-flex;
   gap: 8px;
-  margin: 0 0 16px;
+  margin: 0;
 }
 
 .admin-dash-v2-revenue-controls button {

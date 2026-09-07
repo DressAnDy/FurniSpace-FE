@@ -1,11 +1,11 @@
-import axios, { AxiosError } from 'axios';
+import axios, { AxiosError, type InternalAxiosRequestConfig } from 'axios';
 
 import { shouldRedirectUnauthorized } from '@/shared/config/authPreview';
 
 import { getStoredAccessToken } from './tokenStore';
 
 const productIssueApiClient = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL ?? import.meta.env.VITE_API_URL,
+  baseURL: getProductIssueApiBaseUrl(),
   withCredentials: true,
 });
 
@@ -16,8 +16,8 @@ productIssueApiClient.interceptors.request.use((config) => {
     config.headers.Authorization = `Bearer ${token}`;
   }
 
-  if (config.data instanceof FormData && typeof config.headers.set === 'function') {
-    config.headers.set('Content-Type', false);
+  if (config.data instanceof FormData) {
+    clearJsonContentType(config);
   }
 
   return config;
@@ -137,11 +137,17 @@ export async function createProductIssue(input: CreateProductIssueInput) {
   return response.data.data;
 }
 
-export function getProductIssueErrorMessage(error: unknown) {
-  if (!axios.isAxiosError(error)) return 'Unable to submit the product issue.';
+export function getProductIssueErrorMessage(error: unknown, fallback = 'Unable to load product issues.') {
+  if (!axios.isAxiosError(error)) return fallback;
 
   if (error.response?.status === 413) return 'One or more evidence files are too large.';
   if (error.response?.status === 415) return 'One or more evidence files use an unsupported format.';
+  if (error.response?.status === 403) {
+    return 'You do not have permission to access product issues for this order.';
+  }
+  if (error.response?.status === 404) {
+    return 'Product issues endpoint was not found for this order.';
+  }
 
   const payload = error.response?.data as
     | { errorCode?: string | null; message?: string | null; errors?: string[] | null }
@@ -159,6 +165,19 @@ export function getProductIssueErrorMessage(error: unknown) {
     (payload?.errorCode ? messages[payload.errorCode] : undefined) ??
     payload?.message ??
     payload?.errors?.[0] ??
-    'Unable to submit the product issue.'
+    fallback
   );
+}
+
+function clearJsonContentType(config: InternalAxiosRequestConfig) {
+  const headerBag = config.headers as { set?: (name: string, value: unknown) => void } | undefined;
+  if (typeof headerBag?.set === 'function') {
+    headerBag.set('Content-Type', false);
+  }
+}
+
+function getProductIssueApiBaseUrl() {
+  const configuredApiUrl = import.meta.env.VITE_API_BASE_URL ?? import.meta.env.VITE_API_URL;
+
+  return configuredApiUrl?.replace(/\/api\/?$/, '');
 }

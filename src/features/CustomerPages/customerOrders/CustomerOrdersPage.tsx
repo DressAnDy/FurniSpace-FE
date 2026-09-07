@@ -5,7 +5,13 @@ import {
 } from '@tabler/icons-react';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 
-import { CustomerNavbar } from '@/features/CustomerPages/customercomponents';
+import { useLang, type Lang } from '@/app/providers/useLang';
+import { CustomerNavbar, customerCopy, type CustomerCopy } from '@/features/CustomerPages/customercomponents';
+import {
+  formatCustomerDateTime,
+  formatCustomerMoney,
+  getPaymentTypeLabel,
+} from '@/features/CustomerPages/utils';
 import {
   getOrderServiceResultMessage,
   type OrderDetailDto,
@@ -50,16 +56,17 @@ type OrderDeliveryDetailsDraft = {
 
 const ORDER_PAGE_SIZE = 5;
 
-const statusOptions: Array<{ label: string; value: '' | OrderStatus }> = [
-  { label: 'All statuses', value: '' },
-  { label: 'Deposit pending', value: 'DEPOSIT_PENDING' },
-  { label: 'In production', value: 'IN_PRODUCTION' },
-  { label: 'Delivering', value: 'DELIVERING' },
-  { label: 'Final payment', value: 'FINAL_PAYMENT_PENDING' },
-  { label: 'Completed', value: 'COMPLETED' },
-];
-
 export function CustomerOrdersPage() {
+  const { lang } = useLang();
+  const t = customerCopy[lang];
+  const statusOptions: Array<{ label: string; value: '' | OrderStatus }> = [
+    { label: t.orders.allStatuses, value: '' },
+    { label: t.orders.depositPending, value: 'DEPOSIT_PENDING' },
+    { label: t.orders.inProduction, value: 'IN_PRODUCTION' },
+    { label: t.orders.delivering, value: 'DELIVERING' },
+    { label: t.orders.finalPayment, value: 'FINAL_PAYMENT_PENDING' },
+    { label: t.orders.completed, value: 'COMPLETED' },
+  ];
   const [selectedOrderId, setSelectedOrderId] = useState('');
   const [orderPage, setOrderPage] = useState(1);
   const [search, setSearch] = useState('');
@@ -114,12 +121,12 @@ export function CustomerOrdersPage() {
 
   return (
     <main className="customer-orders-page">
-      <CustomerNavbar activeLabel="Orders" classPrefix="customer-orders" />
+      <CustomerNavbar activeKey="orders" classPrefix="customer-orders" />
 
       <div className="customer-orders-main">
         <section className="customer-orders-heading">
           <div>
-            <h1>Orders</h1>
+            <h1>{t.orders.title}</h1>
           </div>
         </section>
 
@@ -132,14 +139,14 @@ export function CustomerOrdersPage() {
           <aside className="customer-orders-panel">
             <header>
               <div>
-                <h2>My Orders</h2>
-                <p>{ordersQuery.data?.totalCount ?? 0} order(s)</p>
+                <h2>{t.orders.myOrders}</h2>
+                <p>{t.orders.orderCount(ordersQuery.data?.totalCount ?? 0)}</p>
               </div>
             </header>
 
             <div className="customer-orders-filter-grid">
               <input
-                placeholder="Search order code"
+                placeholder={t.orders.searchOrderCode}
                 value={search}
                 onChange={(event) => {
                   setSearch(event.target.value);
@@ -159,12 +166,12 @@ export function CustomerOrdersPage() {
               </select>
             </div>
 
-            {ordersQuery.isLoading ? <p className="customer-orders-muted">Loading orders...</p> : null}
-            {!ordersQuery.isLoading && orders.length === 0 ? <p className="customer-orders-muted">No order is available yet.</p> : null}
+            {ordersQuery.isLoading ? <p className="customer-orders-muted">{t.common.loading}</p> : null}
+            {!ordersQuery.isLoading && orders.length === 0 ? <p className="customer-orders-muted">{t.orders.emptyOrders}</p> : null}
             <div className="customer-orders-order-list">
               {orders.map((item) => (
                 <button
-                  aria-label={`Open order ${item.orderCode}`}
+                  aria-label={`${t.common.open} ${item.orderCode}`}
                   className={item.orderId === selectedOrderId ? 'is-active' : ''}
                   key={item.orderId}
                   type="button"
@@ -174,8 +181,8 @@ export function CustomerOrdersPage() {
                     setMessage(null);
                   }}
                 >
-                  <strong>{getOrderProjectName(item, projectLookup.get(item.projectId))}</strong>
-                  <span>{getOrderProjectCode(item, projectLookup.get(item.projectId))}</span>
+                  <strong>{getOrderProjectName(item, projectLookup.get(item.projectId), t.common.project)}</strong>
+                  <span>{getOrderProjectCode(item, projectLookup.get(item.projectId), t.orders.projectDetails)}</span>
                   <em className={`customer-orders-status customer-orders-status-${statusClass(item.status)}`}>{formatEnumLabel(item.status ?? 'UNKNOWN')}</em>
                 </button>
               ))}
@@ -183,11 +190,11 @@ export function CustomerOrdersPage() {
             {(ordersQuery.data?.totalCount ?? 0) > ORDER_PAGE_SIZE ? (
               <footer className="customer-orders-panel-pagination">
                 <p>
-                  Page <strong>{orderPage}</strong> / {totalOrderPages}
+                  <strong>{orderPage}</strong> / {totalOrderPages}
                 </p>
                 <div>
                   <button
-                    aria-label="Previous orders page"
+                    aria-label={t.common.previous}
                     disabled={orderPage <= 1}
                     type="button"
                     onClick={() => setOrderPage((current) => Math.max(1, current - 1))}
@@ -195,7 +202,7 @@ export function CustomerOrdersPage() {
                     <IconChevronLeft size={16} stroke={1.8} />
                   </button>
                   <button
-                    aria-label="Next orders page"
+                    aria-label={t.common.next}
                     disabled={orderPage >= totalOrderPages}
                     type="button"
                     onClick={() => setOrderPage((current) => Math.min(totalOrderPages, current + 1))}
@@ -224,7 +231,7 @@ export function CustomerOrdersPage() {
 
                   try {
                     await confirmDeliveryMutation.mutateAsync(order.orderId);
-                    setMessage({ tone: 'success', text: 'Delivery confirmed.' });
+                    setMessage({ tone: 'success', text: t.orders.deliveryConfirmedToast });
                     void orderDetailQuery.refetch();
                     void paymentHistoryQuery.refetch();
                     void ordersQuery.refetch();
@@ -248,7 +255,7 @@ export function CustomerOrdersPage() {
                     });
 
                     setActivePayment(payment);
-                    setMessage({ tone: 'success', text: 'Deposit payment is ready.' });
+                    setMessage({ tone: 'success', text: t.orders.depositReadyToast });
                     void orderDetailQuery.refetch();
                     void paymentHistoryQuery.refetch();
                     void ordersQuery.refetch();
@@ -273,7 +280,7 @@ export function CustomerOrdersPage() {
                       ...current,
                       [order.orderId]: normalizedDetails,
                     }));
-                    setMessage({ tone: 'success', text: 'Delivery details saved.' });
+                    setMessage({ tone: 'success', text: t.orders.deliverySavedToast });
                     void orderDetailQuery.refetch();
                   } catch (error) {
                     setMessage({ tone: 'error', text: getOrderServiceResultMessage(error) });
@@ -289,15 +296,15 @@ export function CustomerOrdersPage() {
                 />
               </>
             ) : orderDetailQuery.isLoading ? (
-              <p className="customer-orders-muted">Loading order detail...</p>
+              <p className="customer-orders-muted">{t.common.loading}</p>
             ) : null}
 
             <PaymentCollectionModal
-              completionDescription="Your payment has been confirmed. The order status will be refreshed automatically."
-              completionTitle="Payment Successful"
-              continueLabel="Back to Orders"
+              completionDescription={t.orders.paymentSuccessful}
+              completionTitle={t.orders.paymentSuccessful}
+              continueLabel={t.orders.backToOrders}
               payment={activePayment}
-              title="Order Payment"
+              title={t.orders.orderPayment}
               onClose={() => setActivePayment(null)}
               onPaid={() => {
                 void orderDetailQuery.refetch();
@@ -342,6 +349,8 @@ function OrderDetailCard({
   paymentHistory: OrderPaymentHistoryDto | null;
   remainingPayment: PaymentDetailDto | null;
 }) {
+  const { lang } = useLang();
+  const t = customerCopy[lang];
   const orderItems = useMemo(() => aggregateOrderItems(order.items ?? []), [order.items]);
   const deliveryDetailsComplete = hasCompleteDeliveryDetails(order);
   const deliverySummary = order.deliverySummary;
@@ -356,25 +365,25 @@ function OrderDetailCard({
         <span className={`customer-orders-status customer-orders-status-${statusClass(order.status)}`}>{formatEnumLabel(order.status ?? 'UNKNOWN')}</span>
       </header>
 
-      <AccordionSection defaultOpen meta={formatMoney(order.totalAmount)} title="Order Summary">
+      <AccordionSection defaultOpen meta={formatCustomerMoney(order.totalAmount)} title={t.orders.orderSummary}>
         <div className="customer-orders-money-grid">
-          <MoneyValue label="Items Gross" value={formatMoney(order.itemsGrossAmount)} />
-          <MoneyValue label="Item Discount" value={formatMoney(order.totalItemDiscountAmount)} />
-          <MoneyValue label="Pre-VAT" value={formatMoney(order.preVatAmount)} />
-          <MoneyValue label={`VAT ${formatPercentRate(order.vatRate)}`} value={formatMoney(order.vatAmount)} />
-          <MoneyValue label="Total" value={formatMoney(order.totalAmount)} />
-          <MoneyValue label="Deposit" value={formatMoney(order.depositAmount)} />
-          <MoneyValue label="Paid" value={formatMoney(order.paidAmount)} />
-          <MoneyValue label="Remaining" value={formatMoney(order.remainingAmount)} />
+          <MoneyValue label={t.orders.itemsGross} value={formatCustomerMoney(order.itemsGrossAmount)} />
+          <MoneyValue label={t.orders.itemDiscount} value={formatCustomerMoney(order.totalItemDiscountAmount)} />
+          <MoneyValue label={t.orders.preVat} value={formatCustomerMoney(order.preVatAmount)} />
+          <MoneyValue label={`${t.orders.vat} ${formatPercentRate(order.vatRate)}`} value={formatCustomerMoney(order.vatAmount)} />
+          <MoneyValue label={t.orders.total} value={formatCustomerMoney(order.totalAmount)} />
+          <MoneyValue label={t.orders.deposit} value={formatCustomerMoney(order.depositAmount)} />
+          <MoneyValue label={t.orders.paid} value={formatCustomerMoney(order.paidAmount)} />
+          <MoneyValue label={t.orders.remaining} value={formatCustomerMoney(order.remainingAmount)} />
         </div>
       </AccordionSection>
 
       {canCreateDepositPayment(order.status) || order.status === 'DEPOSIT_PAID' ? (
-        <AccordionSection defaultOpen meta={formatMoney(order.depositAmount)} title="Deposit Payment">
+        <AccordionSection defaultOpen meta={formatCustomerMoney(order.depositAmount)} title={t.orders.depositPayment}>
           <section className="customer-orders-payment-panel">
             <div>
-              <span>Deposit Payment</span>
-              <strong>{getDepositPaymentLabel(order, deliveryDetailsComplete, Boolean(depositPayment))}</strong>
+              <span>{t.orders.depositPayment}</span>
+              <strong>{getDepositPaymentLabel(order, deliveryDetailsComplete, Boolean(depositPayment), t.orders)}</strong>
             </div>
             {canCreateDepositPayment(order.status) ? (
               depositPayment ? (
@@ -383,7 +392,7 @@ function OrderDetailCard({
                 </button>
               ) : (
                 <button disabled={depositPaymentPending || !deliveryDetailsComplete} type="button" onClick={() => void onCreateDepositPayment()}>
-                  {depositPaymentPending ? 'Preparing...' : 'Create Deposit Payment'}
+                  {depositPaymentPending ? t.common.loading : t.orders.createDepositPayment}
                 </button>
               )
             ) : null}
@@ -391,7 +400,7 @@ function OrderDetailCard({
         </AccordionSection>
       ) : null}
 
-      <AccordionSection defaultOpen meta={deliveryDetailsComplete ? 'Complete' : 'Required'} title="Delivery Details">
+      <AccordionSection defaultOpen meta={deliveryDetailsComplete ? t.orders.complete : t.orders.required} title={t.orders.deliveryDetails}>
         {!areDeliveryDetailsLocked(order.status) ? (
           <DeliveryDetailsPanel
             isPending={deliveryDetailsPending}
@@ -401,23 +410,23 @@ function OrderDetailCard({
         ) : order.deliveryDetails ? (
           <DeliveryDetailsSummary details={getOrderDeliveryDetailsDraft(order)} />
         ) : (
-          <p className="customer-orders-muted">No delivery details available.</p>
+          <p className="customer-orders-muted">{t.orders.noDeliveryDetails}</p>
         )}
       </AccordionSection>
 
       <DeliverySummaryPanel deliveries={deliveries} summary={deliverySummary} />
 
       {(order.status === 'FINAL_PAYMENT_PENDING' || canConfirmOrderDelivery(order)) ? (
-        <AccordionSection defaultOpen title="Actions">
+        <AccordionSection defaultOpen title={t.orders.actions}>
           <div className="customer-orders-actions">
             {order.status === 'FINAL_PAYMENT_PENDING' && remainingPayment ? (
               <button type="button" onClick={() => onOpenRemainingPayment(remainingPayment)}>
-                Pay Remaining
+                {t.orders.payRemaining}
               </button>
             ) : null}
             {canConfirmOrderDelivery(order) ? (
               <button disabled={confirmDeliveryPending} type="button" onClick={() => void onConfirmDelivery()}>
-                {confirmDeliveryPending ? 'Confirming...' : 'Confirm Delivery'}
+                {confirmDeliveryPending ? t.common.confirming : t.orders.confirmDelivery}
               </button>
             ) : null}
             {order.status === 'FINAL_PAYMENT_PENDING' && !remainingPayment && (order.remainingAmount ?? 0) > 0 ? (
@@ -429,19 +438,19 @@ function OrderDetailCard({
 
       <PaymentHistoryPanel history={paymentHistory} isLoading={isPaymentHistoryLoading} />
 
-      <AccordionSection meta={`${orderItems.length} line(s)`} title="Order Items">
+      <AccordionSection meta={`${orderItems.length}`} title={t.orders.orderItems}>
         <div className="customer-orders-table-wrap">
           <table>
             <thead>
               <tr>
-                <th>Item</th>
-                <th>Quantity</th>
-                <th>Unit</th>
-                <th>Gross</th>
-                <th>Discount</th>
-                <th>Pre-VAT</th>
-                <th>Delivery</th>
-                <th>Confirmation</th>
+                <th>{t.quotations.item}</th>
+                <th>{t.quotations.qty}</th>
+                <th>{t.quotations.unit}</th>
+                <th>{t.quotations.gross}</th>
+                <th>{t.quotations.discount}</th>
+                <th>{t.orders.preVat}</th>
+                <th>{t.orders.deliveryProgress}</th>
+                <th>{t.common.confirm}</th>
               </tr>
             </thead>
             <tbody>
@@ -449,12 +458,12 @@ function OrderDetailCard({
                 <tr key={item.sourceItems.map((sourceItem) => sourceItem.orderItemId).join('-')}>
                   <td>{getOrderItemName(item)}</td>
                   <td>{item.quantity ?? '-'}</td>
-                  <td>{formatMoney(item.unitPrice)}</td>
-                  <td>{formatMoney(getItemGrossAmount(item))}</td>
-                  <td>{formatMoney(item.discountAmount)}</td>
-                  <td>{formatMoney(getItemPreVatAmount(item))}</td>
-                  <td>{formatGroupedDeliveryState(item)}</td>
-                  <td>{confirmDeliveryPending ? 'Confirming...' : getOrderDeliveryConfirmationLabel(order)}</td>
+                  <td>{formatCustomerMoney(item.unitPrice)}</td>
+                  <td>{formatCustomerMoney(getItemGrossAmount(item))}</td>
+                  <td>{formatCustomerMoney(item.discountAmount)}</td>
+                  <td>{formatCustomerMoney(getItemPreVatAmount(item))}</td>
+                  <td>{formatGroupedDeliveryState(item, t.orders)}</td>
+                  <td>{confirmDeliveryPending ? t.common.confirming : getOrderDeliveryConfirmationLabel(order, lang, t.orders)}</td>
                 </tr>
               ))}
             </tbody>
@@ -493,13 +502,15 @@ function AccordionSection({
 }
 
 function PaymentHistoryPanel({ history, isLoading }: { history: OrderPaymentHistoryDto | null; isLoading: boolean }) {
+  const { lang } = useLang();
+  const t = customerCopy[lang];
   const payments = history?.payments ?? [];
 
   return (
-    <AccordionSection meta={`${payments.length} record(s)`} title="Payment History">
+    <AccordionSection meta={`${payments.length}`} title={t.orders.paymentHistory}>
       <section className="customer-orders-history-panel">
-      {isLoading ? <p className="customer-orders-muted">Loading payment history...</p> : null}
-      {!isLoading && payments.length === 0 ? <p className="customer-orders-muted">No payment history yet.</p> : null}
+      {isLoading ? <p className="customer-orders-muted">{t.common.loading}</p> : null}
+      {!isLoading && payments.length === 0 ? <p className="customer-orders-muted">{t.orders.noPaymentHistory}</p> : null}
       {payments.length > 0 ? (
         <div className="customer-orders-payment-history-list">
           {payments.map((payment) => (
@@ -509,13 +520,13 @@ function PaymentHistoryPanel({ history, isLoading }: { history: OrderPaymentHist
                 <PaymentStatusPill status={payment.status} />
               </div>
               <dl>
-                <div><dt>Type</dt><dd>{formatEnumLabel(payment.paymentType ?? 'PAYMENT')}</dd></div>
-                <div><dt>Amount</dt><dd>{formatMoney(payment.amount)}</dd></div>
-                <div><dt>Paid</dt><dd>{formatDateTime(payment.paidAt)}</dd></div>
-                <div><dt>Expired</dt><dd>{formatDateTime(payment.expiredAt)}</dd></div>
+                <div><dt>{t.orders.type}</dt><dd>{payment.paymentType ? getPaymentTypeLabel(payment.paymentType, lang) : formatEnumLabel('PAYMENT')}</dd></div>
+                <div><dt>{t.orders.total}</dt><dd>{formatCustomerMoney(payment.amount)}</dd></div>
+                <div><dt>{t.orders.paid}</dt><dd>{formatCustomerDateTime(payment.paidAt, lang)}</dd></div>
+                <div><dt>{t.orders.expired}</dt><dd>{formatCustomerDateTime(payment.expiredAt, lang)}</dd></div>
               </dl>
               {payment.transactions.length > 0 ? (
-                <small>{payment.transactions.length} transaction attempt(s)</small>
+                <small>{t.orders.transactionAttempts(payment.transactions.length)}</small>
               ) : null}
             </article>
           ))}
@@ -527,42 +538,49 @@ function PaymentHistoryPanel({ history, isLoading }: { history: OrderPaymentHist
 }
 
 function PaymentStatusPill({ status }: { status?: PaymentStatus | null }) {
-  return <span className={`customer-orders-payment-status customer-orders-payment-status-${(status ?? 'PENDING').toLowerCase()}`}>{formatEnumLabel(status ?? 'PENDING')}</span>;
+  const { lang } = useLang();
+  const resolved = status ?? 'PENDING';
+  const known = customerCopy[lang].paymentStatus[resolved as keyof typeof customerCopy.en.paymentStatus];
+  return <span className={`customer-orders-payment-status customer-orders-payment-status-${resolved.toLowerCase()}`}>{known ?? formatEnumLabel(resolved)}</span>;
 }
 
 function DeliveryDetailsSummary({ details }: { details: OrderDeliveryDetailsDraft }) {
+  const { lang } = useLang();
+  const t = customerCopy[lang];
   return (
     <section className="customer-orders-delivery-details">
       <header>
         <div>
-          <h2>Locked Delivery Details</h2>
+          <h2>{t.orders.deliveryDetails}</h2>
         </div>
-        <span className="is-complete">Locked</span>
+        <span className="is-complete">{t.orders.locked}</span>
       </header>
       <div className="customer-orders-delivery-summary-grid">
-        <MoneyValue label="Address" value={details.deliveryAddress || '-'} />
-        <MoneyValue label="Receiver" value={details.receiverName || '-'} />
-        <MoneyValue label="Phone" value={details.receiverPhone || '-'} />
-        <MoneyValue label="Note" value={details.deliveryNote || '-'} />
+        <MoneyValue label={t.orders.address} value={details.deliveryAddress || '-'} />
+        <MoneyValue label={t.orders.receiver} value={details.receiverName || '-'} />
+        <MoneyValue label={t.orders.phone} value={details.receiverPhone || '-'} />
+        <MoneyValue label={t.orders.note} value={details.deliveryNote || '-'} />
       </div>
     </section>
   );
 }
 
 function DeliverySummaryPanel({ deliveries, summary }: { deliveries: OrderEmbeddedDeliveryDto[]; summary?: OrderDetailDto['deliverySummary'] | null }) {
+  const { lang } = useLang();
+  const t = customerCopy[lang];
   if (!summary && deliveries.length === 0) {
     return null;
   }
 
   return (
-    <AccordionSection meta={summary ? `${summary.deliveryProgressPercent}%` : `${deliveries.length} batch(es)`} title="Delivery Progress">
+    <AccordionSection meta={summary ? `${summary.deliveryProgressPercent}%` : `${deliveries.length}`} title={t.orders.deliveryProgress}>
       <section className="customer-orders-delivery-embed">
       {summary ? (
         <div className="customer-orders-delivery-summary-grid">
           <MoneyValue label="Delivered" value={`${summary.totalDeliveredQuantity} / ${summary.totalOrderedQuantity}`} />
-          <MoneyValue label="Remaining" value={String(summary.remainingQuantity)} />
-          <MoneyValue label="Progress" value={`${summary.deliveryProgressPercent}%`} />
-          <MoneyValue label="Next Delivery" value={formatDateTime(summary.nextDeliveryAt)} />
+          <MoneyValue label={t.orders.remaining} value={String(summary.remainingQuantity)} />
+          <MoneyValue label={t.orders.deliveryProgress} value={`${summary.deliveryProgressPercent}%`} />
+          <MoneyValue label="Next Delivery" value={formatCustomerDateTime(summary.nextDeliveryAt, lang)} />
         </div>
       ) : null}
       {deliveries.length > 0 ? (
@@ -571,10 +589,10 @@ function DeliverySummaryPanel({ deliveries, summary }: { deliveries: OrderEmbedd
             <article key={delivery.deliveryId}>
               <div>
                 <strong>{formatEnumLabel(delivery.status)}</strong>
-                <span>{formatDateTime(delivery.scheduledStart)} - {formatDateTime(delivery.scheduledEnd)}</span>
+                <span>{formatCustomerDateTime(delivery.scheduledStart, lang)} - {formatCustomerDateTime(delivery.scheduledEnd, lang)}</span>
               </div>
-              <p>{delivery.location || 'No location'}</p>
-              <small>{delivery.items.map((item) => `${item.productName ?? item.orderItemId}: ${item.quantity}`).join(', ') || 'No items'}</small>
+              <p>{delivery.location || '-'}</p>
+              <small>{delivery.items.map((item) => `${item.productName ?? item.orderItemId}: ${item.quantity}`).join(', ') || '-'}</small>
             </article>
           ))}
         </div>
@@ -593,6 +611,8 @@ function DeliveryDetailsPanel({
   onSave: (details: OrderDeliveryDetailsDraft) => Promise<void>;
   order: OrderDetailDto;
 }) {
+  const { lang } = useLang();
+  const t = customerCopy[lang];
   const [draft, setDraft] = useState<OrderDeliveryDetailsDraft>(() => getOrderDeliveryDetailsDraft(order));
   const isComplete = hasCompleteDeliveryDetails(draft);
 
@@ -615,13 +635,13 @@ function DeliveryDetailsPanel({
     <section className="customer-orders-delivery-details">
       <header>
         <div>
-          <h2>Delivery Details</h2>
+          <h2>{t.orders.deliveryDetails}</h2>
         </div>
-        <span className={isComplete ? 'is-complete' : 'is-missing'}>{isComplete ? 'Complete' : 'Required'}</span>
+        <span className={isComplete ? 'is-complete' : 'is-missing'}>{isComplete ? t.orders.complete : t.orders.required}</span>
       </header>
       <div className="customer-orders-delivery-details-grid">
         <label>
-          <span>Delivery address</span>
+          <span>{t.orders.address}</span>
           <input
             disabled={isPending}
             value={draft.deliveryAddress}
@@ -629,7 +649,7 @@ function DeliveryDetailsPanel({
           />
         </label>
         <label>
-          <span>Receiver name</span>
+          <span>{t.orders.receiver}</span>
           <input
             disabled={isPending}
             value={draft.receiverName}
@@ -637,7 +657,7 @@ function DeliveryDetailsPanel({
           />
         </label>
         <label>
-          <span>Receiver phone</span>
+          <span>{t.orders.phone}</span>
           <input
             disabled={isPending}
             value={draft.receiverPhone}
@@ -645,7 +665,7 @@ function DeliveryDetailsPanel({
           />
         </label>
         <label className="customer-orders-delivery-details-note">
-          <span>Delivery note</span>
+          <span>{t.orders.note}</span>
           <textarea
             disabled={isPending}
             rows={3}
@@ -656,7 +676,7 @@ function DeliveryDetailsPanel({
       </div>
       <div className="customer-orders-actions">
         <button disabled={isPending || !isComplete} type="button" onClick={() => void onSave(normalizeDeliveryDetailsDraft(draft))}>
-          {isPending ? 'Saving...' : 'Save Delivery Details'}
+          {isPending ? t.common.loading : t.orders.saveDeliveryDetails}
         </button>
       </div>
     </section>
@@ -772,21 +792,26 @@ function canConfirmOrderDelivery(order: OrderDetailDto) {
   return Boolean(order.awaitingCustomerConfirmation ?? order.status === 'AWAITING_CUSTOMER_CONFIRMATION') && !order.customerConfirmedDeliveryAt;
 }
 
-function getDepositPaymentLabel(order: OrderDetailDto, deliveryDetailsComplete: boolean, hasDepositPayment: boolean) {
-  if (order.status === 'DEPOSIT_PAID') return 'Deposit paid';
-  if (!deliveryDetailsComplete) return 'Complete delivery details first';
-  if (hasDepositPayment) return 'Payment pending';
+function getDepositPaymentLabel(
+  order: OrderDetailDto,
+  deliveryDetailsComplete: boolean,
+  hasDepositPayment: boolean,
+  copy: CustomerCopy['orders'],
+) {
+  if (order.status === 'DEPOSIT_PAID') return copy.depositPaid;
+  if (!deliveryDetailsComplete) return copy.completeDeliveryFirst;
+  if (hasDepositPayment) return copy.paymentPending;
 
-  return 'Ready to create payment';
+  return copy.readyToCreatePayment;
 }
 
-function getOrderDeliveryConfirmationLabel(order: OrderDetailDto) {
-  if (order.customerConfirmedDeliveryAt) return `Confirmed ${formatDateTime(order.customerConfirmedDeliveryAt)}`;
-  if (order.awaitingCustomerConfirmation ?? order.status === 'AWAITING_CUSTOMER_CONFIRMATION') return 'Waiting for your final confirmation';
-  if (order.status === 'DELIVERING') return 'Physical delivery in progress';
-  if (order.status === 'DELIVERED' || order.status === 'FINAL_PAYMENT_PENDING' || order.status === 'COMPLETED') return 'Confirmed';
+function getOrderDeliveryConfirmationLabel(order: OrderDetailDto, lang: Lang, copy: CustomerCopy['orders']) {
+  if (order.customerConfirmedDeliveryAt) return copy.confirmedAt(formatCustomerDateTime(order.customerConfirmedDeliveryAt, lang));
+  if (order.awaitingCustomerConfirmation ?? order.status === 'AWAITING_CUSTOMER_CONFIRMATION') return copy.waitingFinalConfirmation;
+  if (order.status === 'DELIVERING') return copy.physicalDeliveryInProgress;
+  if (order.status === 'DELIVERED' || order.status === 'FINAL_PAYMENT_PENDING' || order.status === 'COMPLETED') return copy.confirmed;
 
-  return 'Pending delivery';
+  return copy.pendingDelivery;
 }
 
 function sortEmbeddedDeliveries(deliveries: OrderEmbeddedDeliveryDto[]) {
@@ -797,12 +822,12 @@ function sortEmbeddedDeliveries(deliveries: OrderEmbeddedDeliveryDto[]) {
   });
 }
 
-function getOrderProjectName(order: OrderListItemDto & OrderProjectSummary, project?: OrderProjectSummary) {
-  return order.projectName?.trim() || project?.projectName?.trim() || 'Project';
+function getOrderProjectName(order: OrderListItemDto & OrderProjectSummary, project?: OrderProjectSummary, fallback = 'Project') {
+  return order.projectName?.trim() || project?.projectName?.trim() || fallback;
 }
 
-function getOrderProjectCode(order: OrderListItemDto & OrderProjectSummary, project?: OrderProjectSummary) {
-  return order.projectCode?.trim() || project?.projectCode?.trim() || 'Project details';
+function getOrderProjectCode(order: OrderListItemDto & OrderProjectSummary, project?: OrderProjectSummary, fallback = 'Project details') {
+  return order.projectCode?.trim() || project?.projectCode?.trim() || fallback;
 }
 
 function getItemGrossAmount(item: OrderItemDto) {
@@ -834,35 +859,17 @@ function formatEnumLabel(value: string) {
     .join(' ');
 }
 
-function formatMoney(value?: number | null) {
-  if (typeof value !== 'number') return '-';
-
-  return `${new Intl.NumberFormat('vi-VN').format(value)} VND`;
-}
-
 function formatPercentRate(value?: number | null) {
   if (typeof value !== 'number') return '-';
 
   return `${new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 2 }).format(value * 100)}%`;
 }
 
-function formatGroupedDeliveryState(item: GroupedOrderItem) {
+function formatGroupedDeliveryState(item: GroupedOrderItem, copy: CustomerCopy['orders']) {
   const deliveredQuantity = item.sourceItems.reduce((total, sourceItem) => total + (sourceItem.deliveredQuantity ?? 0), 0);
   const quantity = item.quantity ?? 0;
   const statuses = Array.from(new Set(item.sourceItems.map((sourceItem) => sourceItem.status ?? 'PENDING')));
-  const status = statuses.length === 1 ? formatEnumLabel(statuses[0]) : 'Mixed';
+  const status = statuses.length === 1 ? formatEnumLabel(statuses[0]) : copy.mixed;
 
-  return `${deliveredQuantity} / ${quantity || '-'} item(s) - ${status}`;
-}
-
-function formatDateTime(value?: string | null) {
-  if (!value) return '-';
-
-  return new Intl.DateTimeFormat('vi-VN', {
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    month: 'short',
-    year: 'numeric',
-  }).format(new Date(value));
+  return copy.itemsProgress(deliveredQuantity, String(quantity || '-'), status);
 }
