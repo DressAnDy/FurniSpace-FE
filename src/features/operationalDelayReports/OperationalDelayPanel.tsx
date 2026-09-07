@@ -89,14 +89,22 @@ export function OperationalDelayPanel({
 
     try {
       if (phase === 'PRODUCTION') {
+        if (!productionRequestId || !productionReasonCode) {
+          return;
+        }
+
         await createProductionMutation.mutateAsync({
-          productionRequestId: productionRequestId!,
+          productionRequestId,
           productionReasonCode,
           projectId,
           reasonDetail: detail,
         });
         setProductionReasonCode('');
       } else {
+        if (!deliveryReasonCode) {
+          return;
+        }
+
         await createDeliveryMutation.mutateAsync({
           deliveryId: deliveryId || null,
           deliveryReasonCode,
