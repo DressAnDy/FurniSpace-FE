@@ -375,6 +375,15 @@
   line-height: 18px;
 }
 
+.sale-orders-action-note-error {
+  border: 1px solid rgba(220, 38, 38, 0.22);
+  border-radius: 8px;
+  background: rgba(220, 38, 38, 0.08);
+  color: #b91c1c;
+  margin: 0;
+  padding: 10px 12px;
+}
+
 .sale-orders-flow-panel {
   display: grid;
   gap: 12px;

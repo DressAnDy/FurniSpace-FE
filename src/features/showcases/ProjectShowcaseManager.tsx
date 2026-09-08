@@ -273,7 +273,7 @@ export function ProjectShowcaseManager({ projectId, projectName, projectStatus, 
   }
 
   return (
-    <section className="project-showcase-manager">
+    <section className={`project-showcase-manager project-showcase-manager-${role}`}>
       <div className="project-showcase-manager-header">
         <div>
           <span>Portfolio Showcase</span>

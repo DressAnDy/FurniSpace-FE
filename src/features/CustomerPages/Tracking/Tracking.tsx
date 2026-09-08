@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
+  IconChevronDown,
   IconCheck,
   IconMessageCircle,
   IconPackage,
   IconSearch,
   IconTruckDelivery,
 } from '@tabler/icons-react';
+import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 
 import { useLang, type Lang } from '@/app/providers/useLang';
@@ -17,7 +19,7 @@ import {
   type CustomerCopy,
 } from '@/features/CustomerPages/customercomponents';
 import { formatCustomerDateTime, getCustomerProjectStatusLabel } from '@/features/CustomerPages/utils';
-import { groupDeliveryBatchItems, groupDeliveryTrackingItems } from '@/features/deliveryTracking/deliveryItemGrouping';
+import { ProductIssuePanel } from '@/features/productIssues/ProductIssuePanel';
 import {
   getOrderServiceResultMessage,
   type DeliveryTrackingItemDto,
@@ -82,7 +84,7 @@ export function Tracking() {
   const deliveryTrackingQuery = useOrderDeliveryTracking(selectedOrderId, { enabled: Boolean(selectedOrderId) });
   const order = orderDetailQuery.data ?? null;
   const tracking = deliveryTrackingQuery.data ?? null;
-  const groupedTrackingItems = useMemo(() => groupDeliveryTrackingItems(tracking?.items ?? []), [tracking?.items]);
+  const trackingItems = useMemo(() => sortDeliveryTrackingItems(tracking?.items ?? []), [tracking?.items]);
   const confirmDeliveryMutation = useConfirmOrderDelivery();
   const canFinalConfirm = canConfirmFinalDelivery(tracking?.orderStatus ?? order?.status, tracking?.customerConfirmedDeliveryAt ?? order?.customerConfirmedDeliveryAt);
 
@@ -230,33 +232,36 @@ export function Tracking() {
               <CustomerSummaryCard icon={IconPackage} label={t.tracking.remainingQty} value={tracking?.summary.remainingQuantity ?? 0} />
             </section>
 
-            <article className="customer-workspace-card customer-tracking-items-panel">
-              <header>
-                <div>
-                  <h2>{t.tracking.deliveryItems}</h2>
-                </div>
-                <Link className="customer-workspace-link" to="/customer/chat"><IconMessageCircle size={16} /> {t.tracking.contactTeam}</Link>
-              </header>
+            <CollapsibleTrackingPanel
+              actions={<Link className="customer-workspace-link" to="/customer/chat"><IconMessageCircle size={16} /> {t.tracking.contactTeam}</Link>}
+              defaultOpen
+              title={t.tracking.deliveryItems}
+            >
               {deliveryTrackingQuery.isLoading ? <p className="customer-workspace-muted">{t.common.loading}</p> : null}
-              {!deliveryTrackingQuery.isLoading && groupedTrackingItems.length === 0 ? <p className="customer-workspace-muted">No delivery items are available yet.</p> : null}
+              {!deliveryTrackingQuery.isLoading && trackingItems.length === 0 ? <p className="customer-workspace-muted">No delivery items are available yet.</p> : null}
               <div className="customer-tracking-delivery-list">
-                {groupedTrackingItems.map((item) => <DeliveryItemRow item={item} key={item.orderItemIds.join('-')} />)}
+                {trackingItems.map((item) => <DeliveryItemRow item={item} key={item.orderItemId} />)}
               </div>
-            </article>
+            </CollapsibleTrackingPanel>
 
-            <article className="customer-workspace-card customer-tracking-items-panel">
-              <header>
-                <div>
-                  <h2>{t.tracking.deliveryTimeline}</h2>
-                </div>
-              </header>
+            <CollapsibleTrackingPanel title={t.tracking.deliveryTimeline}>
               <div className="customer-tracking-delivery-list">
                 {(tracking?.timeline ?? []).map((timelineItem, index) => (
                   <TimelineRow item={timelineItem} key={`${timelineItem.projectScheduleId ?? 'schedule'}-${timelineItem.deliveryId ?? index}`} />
                 ))}
               </div>
               {!deliveryTrackingQuery.isLoading && (tracking?.timeline.length ?? 0) === 0 ? <p className="customer-workspace-muted">No delivery timeline yet.</p> : null}
-            </article>
+            </CollapsibleTrackingPanel>
+
+            {order ? (
+              <ProductIssuePanel
+                allowCreate
+                orderId={order.orderId}
+                orderItems={order.items ?? []}
+                projectId={order.projectId}
+                title="My product issues"
+              />
+            ) : null}
           </section>
         </section>
       </div>
@@ -291,7 +296,7 @@ function TimelineRow({ item }: { item: DeliveryTrackingTimelineItemDto }) {
   const { lang } = useLang();
   const t = customerCopy[lang];
   const status = item.deliveryStatus ?? item.scheduleStatus ?? 'PENDING_CONFIRMATION';
-  const batchItems = groupDeliveryBatchItems(item.items ?? []);
+  const batchItems = item.items ?? [];
   const progressPercent = getTimelineProgressPercent(item);
 
   return (
@@ -315,9 +320,9 @@ function TimelineRow({ item }: { item: DeliveryTrackingTimelineItemDto }) {
         {batchItems.length > 0 ? (
           <ul>
             {batchItems.map((batchItem) => (
-              <li key={batchItem.groupId}>
-                <span>{batchItem.productName}</span>
-                <strong>{batchItem.quantity}</strong>
+              <li key={batchItem.deliveryItemId ?? `${batchItem.orderItemId}-${getDeliveryBatchItemQuantity(batchItem)}`}>
+                <span>{getDeliveryBatchItemName(batchItem)}</span>
+                <strong>{getDeliveryBatchItemQuantity(batchItem)}</strong>
               </li>
             ))}
           </ul>
@@ -360,13 +365,61 @@ function getItemStatusLabel(status: string, t: CustomerCopy) {
 
 function getTimelineSummary(item: DeliveryTrackingTimelineItemDto, t: CustomerCopy) {
   if (item.cancelReason) return formatEnumLabel(item.cancelReason);
-  const batchItems = groupDeliveryBatchItems(item.items ?? []);
+  const batchItems = item.items ?? [];
 
   if (batchItems.length === 0) return item.deliveryId ? t.tracking.batchCreated : t.tracking.batchNotCreated;
 
-  const totalQuantity = batchItems.reduce((total, batchItem) => total + batchItem.quantity, 0);
+  const totalQuantity = batchItems.reduce((total, batchItem) => total + getDeliveryBatchItemQuantity(batchItem), 0);
 
   return t.tracking.productsScheduled(batchItems.length, totalQuantity);
+}
+
+function sortDeliveryTrackingItems(items: DeliveryTrackingItemDto[]) {
+  return [...items].sort(
+    (first, second) =>
+      (first.productName ?? '').localeCompare(second.productName ?? '')
+      || first.orderItemId.localeCompare(second.orderItemId),
+  );
+}
+
+function CollapsibleTrackingPanel({
+  actions,
+  children,
+  defaultOpen = false,
+  title,
+}: {
+  actions?: ReactNode;
+  children: ReactNode;
+  defaultOpen?: boolean;
+  title: string;
+}) {
+  const [isOpen, setIsOpen] = useState(defaultOpen);
+
+  return (
+    <article className={`customer-workspace-card customer-tracking-items-panel${isOpen ? ' is-open' : ''}`}>
+      <header>
+        <button
+          aria-expanded={isOpen}
+          className="customer-tracking-panel-toggle"
+          type="button"
+          onClick={() => setIsOpen((current) => !current)}
+        >
+          <span>{title}</span>
+          <IconChevronDown size={18} />
+        </button>
+        {actions ? <div className="customer-tracking-panel-actions">{actions}</div> : null}
+      </header>
+      {isOpen ? <div className="customer-tracking-panel-body">{children}</div> : null}
+    </article>
+  );
+}
+
+function getDeliveryBatchItemName(item: NonNullable<DeliveryTrackingTimelineItemDto['items']>[number]) {
+  return item.productName ?? item.productNameSnapshot ?? item.itemName ?? item.orderItemId;
+}
+
+function getDeliveryBatchItemQuantity(item: NonNullable<DeliveryTrackingTimelineItemDto['items']>[number]) {
+  return item.batchQuantity ?? item.deliveredQuantity ?? item.quantity ?? 0;
 }
 
 function getTimelineScheduleMeta(item: DeliveryTrackingTimelineItemDto, lang: Lang, t: CustomerCopy) {

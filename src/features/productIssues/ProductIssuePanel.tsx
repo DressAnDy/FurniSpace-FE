@@ -1,5 +1,6 @@
-import { type FormEvent, useMemo, useState } from 'react';
-import { IconAlertCircle, IconPaperclip, IconPlus, IconX } from '@tabler/icons-react';
+import { type FormEvent, useEffect, useMemo, useState } from 'react';
+import { IconAlertCircle, IconChevronDown, IconPaperclip, IconPlus, IconX } from '@tabler/icons-react';
+import { useSearchParams } from 'react-router-dom';
 
 import type { OrderItemDto } from '@/services/api/orders';
 import {
@@ -13,7 +14,6 @@ import {
   useProductIssue,
   useProjectProductIssues,
 } from '@/services/queries';
-import { getItemAggregateKey } from '@/shared/utils/itemAggregation';
 
 import './ProductIssuePanel.css';
 
@@ -36,13 +36,6 @@ type ProductIssuePanelProps = {
   title?: string;
 };
 
-type EligibleProductGroup = {
-  key: string;
-  name: string;
-  lines: OrderItemDto[];
-  deliveredQuantity: number;
-};
-
 type CreateFormErrors = {
   product?: string;
   quantity?: string;
@@ -56,9 +49,11 @@ export function ProductIssuePanel({
   projectId,
   title = 'Product issues',
 }: Readonly<ProductIssuePanelProps>) {
+  const [searchParams] = useSearchParams();
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false);
   const [selectedIssueId, setSelectedIssueId] = useState('');
-  const [selectedGroupKey, setSelectedGroupKey] = useState('');
+  const [selectedOrderItemId, setSelectedOrderItemId] = useState('');
   const [issueType, setIssueType] = useState<DeliveryProductIssueType>('DAMAGED');
   const [description, setDescription] = useState('');
   const [affectedQuantity, setAffectedQuantity] = useState('');
@@ -75,13 +70,13 @@ export function ProductIssuePanel({
     () => orderQuery.data?.items ?? projectQuery.data?.items ?? [],
     [orderQuery.data?.items, projectQuery.data?.items],
   );
-  const eligibleGroups = useMemo(
-    () => groupEligibleProducts(orderItems.filter((item) => (item.deliveredQuantity ?? 0) > 0)),
+  const eligibleOrderItems = useMemo(
+    () => orderItems.filter((item) => (item.deliveredQuantity ?? 0) > 0),
     [orderItems],
   );
-  const selectedGroup = eligibleGroups.find((group) => group.key === selectedGroupKey) ?? null;
-  const hasEligibleProducts = eligibleGroups.length > 0;
-  const deliveredMax = selectedGroup?.deliveredQuantity ?? 0;
+  const selectedOrderItem = eligibleOrderItems.find((item) => item.orderItemId === selectedOrderItemId) ?? null;
+  const hasEligibleProducts = eligibleOrderItems.length > 0;
+  const deliveredMax = selectedOrderItem?.deliveredQuantity ?? 0;
   const productNameByOrderItemId = useMemo(() => {
     const names = new Map<string, string>();
     for (const item of orderItems) {
@@ -90,16 +85,24 @@ export function ProductIssuePanel({
     return names;
   }, [orderItems]);
 
+  useEffect(() => {
+    const issueId = searchParams.get('issueId');
+
+    if (issueId) {
+      setSelectedIssueId(issueId);
+    }
+  }, [searchParams]);
+
   function openCreate() {
-    setSelectedGroupKey('');
+    setSelectedOrderItemId('');
     setAffectedQuantity('');
     setFieldErrors({});
     setFormError('');
     setIsCreateOpen(true);
   }
 
-  function handleGroupChange(group: EligibleProductGroup) {
-    setSelectedGroupKey(group.key);
+  function handleOrderItemChange(item: OrderItemDto) {
+    setSelectedOrderItemId(item.orderItemId);
     setAffectedQuantity('');
     setFieldErrors((current) => ({ ...current, product: undefined, quantity: undefined }));
     setFormError('');
@@ -110,7 +113,7 @@ export function ProductIssuePanel({
 
     const nextErrors: CreateFormErrors = {};
 
-    if (!selectedGroup) {
+    if (!selectedOrderItem) {
       nextErrors.product = 'Please select a delivered product.';
     }
 
@@ -119,20 +122,15 @@ export function ProductIssuePanel({
       nextErrors.quantity = 'Enter how many units are affected.';
     } else if (!Number.isInteger(quantity) || quantity <= 0) {
       nextErrors.quantity = 'Affected quantity must be a positive whole number.';
-    } else if (selectedGroup && quantity > selectedGroup.deliveredQuantity) {
-      nextErrors.quantity = `Value must be less than or equal to ${selectedGroup.deliveredQuantity}.`;
+    } else if (selectedOrderItem && quantity > deliveredMax) {
+      nextErrors.quantity = `Value must be less than or equal to ${deliveredMax}.`;
     }
 
     if (!description.trim()) {
       nextErrors.description = 'Description is required.';
     }
 
-    const orderItemId = selectedGroup ? resolveOrderItemId(selectedGroup, quantity) : '';
-    if (selectedGroup && !orderItemId) {
-      nextErrors.product = 'No delivered order line is available for this product.';
-    }
-
-    if (Object.keys(nextErrors).length > 0 || !orderId || !selectedGroup || !orderItemId) {
+    if (Object.keys(nextErrors).length > 0 || !orderId || !selectedOrderItem) {
       setFieldErrors(nextErrors);
       setFormError('');
       return;
@@ -141,19 +139,18 @@ export function ProductIssuePanel({
     setFieldErrors({});
     setFormError('');
     try {
-      // One report only — never split quantity across multiple order lines.
       await createMutation.mutateAsync({
         affectedQuantity: quantity,
         description: description.trim(),
         files,
         issueType,
         orderId,
-        orderItemId,
+        orderItemId: selectedOrderItem.orderItemId,
       });
       setDescription('');
       setAffectedQuantity('');
       setFiles([]);
-      setSelectedGroupKey('');
+      setSelectedOrderItemId('');
       setIsCreateOpen(false);
     } catch (error) {
       setFormError(getProductIssueErrorMessage(error, 'Unable to submit the product issue.'));
@@ -163,13 +160,21 @@ export function ProductIssuePanel({
   const activeQuery = orderId ? orderQuery : projectQuery;
 
   return (
-    <section className="product-issue-panel">
+    <section className={`product-issue-panel${isExpanded ? ' is-open' : ''}`}>
       <div className="product-issue-header">
-        <div>
-          <h3>{title}</h3>
-          <p>Reported issues for physically delivered products.</p>
-        </div>
-        {allowCreate && hasEligibleProducts ? (
+        <button
+          aria-expanded={isExpanded}
+          className="product-issue-toggle"
+          type="button"
+          onClick={() => setIsExpanded((current) => !current)}
+        >
+          <span>
+            <strong>{title}</strong>
+            <small>Reported issues for physically delivered products.</small>
+          </span>
+          <IconChevronDown size={18} />
+        </button>
+        {isExpanded && allowCreate && hasEligibleProducts ? (
           <button className="product-issue-primary" type="button" onClick={openCreate}>
             <IconPlus size={16} />
             Report an issue
@@ -177,43 +182,42 @@ export function ProductIssuePanel({
         ) : null}
       </div>
 
-      {allowCreate && !hasEligibleProducts ? (
-        <p className="product-issue-state">Issues can be reported after at least one product is physically delivered.</p>
-      ) : null}
-      {activeQuery.isLoading ? <p className="product-issue-state">Loading product issues...</p> : null}
-      {activeQuery.isError ? (
-        <p className="product-issue-state product-issue-error">
-          {getProductIssueErrorMessage(activeQuery.error, 'Unable to load product issues.')}
-        </p>
-      ) : null}
-      {!activeQuery.isLoading && !activeQuery.isError && issues.length === 0 ? (
-        <p className="product-issue-state">No product issues reported.</p>
-      ) : null}
+      {isExpanded ? (
+        <div className="product-issue-body">
+          {allowCreate && !hasEligibleProducts ? (
+            <p className="product-issue-state">Issues can be reported after at least one product is physically delivered.</p>
+          ) : null}
+          {activeQuery.isLoading ? <p className="product-issue-state">Loading product issues...</p> : null}
+          {activeQuery.isError ? (
+            <p className="product-issue-state product-issue-error">
+              {getProductIssueErrorMessage(activeQuery.error, 'Unable to load product issues.')}
+            </p>
+          ) : null}
+          {!activeQuery.isLoading && !activeQuery.isError && issues.length === 0 ? (
+            <p className="product-issue-state">No product issues reported.</p>
+          ) : null}
 
-      <div className="product-issue-list">
-        {issues.map((issue) => (
-          <button
-            className="product-issue-row"
-            key={issue.deliveryProductIssueReportId}
-            type="button"
-            onClick={() => setSelectedIssueId(issue.deliveryProductIssueReportId)}
-          >
-            <IconAlertCircle size={20} />
-            <span>
-              <strong>{formatLabel(issue.issueType)}</strong>
-              <small>
-                {issue.productNameSnapshot
-                  ?? productNameByOrderItemId.get(issue.orderItemId)
-                  ?? issue.orderItemId}
-              </small>
-            </span>
-            <span>
-              <strong>{issue.affectedQuantity ? `${issue.affectedQuantity} affected` : 'Quantity not specified'}</strong>
-              <small>{formatDateTime(issue.reportedAt)}</small>
-            </span>
-          </button>
-        ))}
-      </div>
+          <div className="product-issue-list">
+            {issues.map((issue) => (
+              <button
+                className="product-issue-row"
+                key={issue.deliveryProductIssueReportId}
+                type="button"
+                onClick={() => setSelectedIssueId(issue.deliveryProductIssueReportId)}
+              >
+                <IconAlertCircle size={20} />
+                <span>
+                  <strong>{formatLabel(issue.issueType)}</strong>
+                </span>
+                <span>
+                  <strong>{issue.affectedQuantity ? `${issue.affectedQuantity} affected` : 'Quantity not specified'}</strong>
+                  <small>{formatDateTime(issue.reportedAt)}</small>
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : null}
 
       {isCreateOpen ? (
         <div className="product-issue-modal-backdrop">
@@ -226,23 +230,23 @@ export function ProductIssuePanel({
                 <span>Choose one product</span>
               </div>
               <div className="product-issue-product-options" role="radiogroup" aria-label="Delivered product">
-                {eligibleGroups.map((group) => {
-                  const isSelected = group.key === selectedGroupKey;
+                {eligibleOrderItems.map((item) => {
+                  const isSelected = item.orderItemId === selectedOrderItemId;
                   return (
                     <label
                       className={`product-issue-product-option${isSelected ? ' is-selected' : ''}`}
-                      key={group.key}
+                      key={item.orderItemId}
                     >
                       <input
                         checked={isSelected}
                         name="product-issue-product-group"
                         type="radio"
-                        value={group.key}
-                        onChange={() => handleGroupChange(group)}
+                        value={item.orderItemId}
+                        onChange={() => handleOrderItemChange(item)}
                       />
                       <span>
-                        <strong>{group.name}</strong>
-                        <em>{group.deliveredQuantity} delivered</em>
+                        <strong>{getItemName(item)}</strong>
+                        <em>{item.deliveredQuantity ?? 0} delivered</em>
                       </span>
                     </label>
                   );
@@ -254,12 +258,12 @@ export function ProductIssuePanel({
             <label className={`product-issue-field-block${fieldErrors.quantity ? ' has-error' : ''}`}>
               <div className="product-issue-field-heading">
                 <strong>Affected quantity</strong>
-                <span>{selectedGroup ? `Max ${deliveredMax}` : 'Select a product first'}</span>
+                <span>{selectedOrderItem ? `Max ${deliveredMax}` : 'Select a product first'}</span>
               </div>
               <input
                 aria-invalid={Boolean(fieldErrors.quantity)}
                 inputMode="numeric"
-                placeholder={selectedGroup ? `Enter 1 – ${deliveredMax}` : 'Select a product first'}
+                placeholder={selectedOrderItem ? `Enter 1 - ${deliveredMax}` : 'Select a product first'}
                 type="number"
                 value={affectedQuantity}
                 onChange={(event) => {
@@ -412,45 +416,6 @@ function Detail({ label, value }: Readonly<{ label: string; value: string }>) {
 
 function getItemName(item: OrderItemDto) {
   return item.productNameSnapshot ?? item.itemName ?? item.productVersionNameSnapshot ?? item.orderItemId;
-}
-
-function groupEligibleProducts(items: OrderItemDto[]): EligibleProductGroup[] {
-  const groups = new Map<string, EligibleProductGroup>();
-
-  for (const item of items) {
-    const key = getItemAggregateKey(item);
-    const existing = groups.get(key);
-
-    if (!existing) {
-      groups.set(key, {
-        key,
-        name: getItemName(item),
-        lines: [item],
-        deliveredQuantity: item.deliveredQuantity ?? 0,
-      });
-      continue;
-    }
-
-    if (!existing.lines.some((line) => line.orderItemId === item.orderItemId)) {
-      existing.lines.push(item);
-      existing.deliveredQuantity += item.deliveredQuantity ?? 0;
-    }
-  }
-
-  return Array.from(groups.values());
-}
-
-/** Pick one order line for a single product-issue report (never split quantity). */
-function resolveOrderItemId(group: EligibleProductGroup, quantity: number) {
-  const lines = group.lines.filter((line) => (line.deliveredQuantity ?? 0) > 0);
-  if (lines.length === 0) return '';
-
-  const fitting = lines.find((line) => (line.deliveredQuantity ?? 0) >= quantity);
-  if (fitting) return fitting.orderItemId;
-
-  return [...lines].sort(
-    (first, second) => (second.deliveredQuantity ?? 0) - (first.deliveredQuantity ?? 0),
-  )[0]?.orderItemId ?? '';
 }
 
 function formatLabel(value: string) {

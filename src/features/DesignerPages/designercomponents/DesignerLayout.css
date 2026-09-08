@@ -276,18 +276,17 @@ body.designer-sidebar-collapsed .designer-layout .designer-sidebar-item span {
 
 @media (max-width: 980px) {
   .designer-layout {
-    height: auto;
-    flex-direction: column;
-    overflow: visible;
+    height: 100vh;
+    overflow: hidden;
   }
 
   .designer-layout .designer-sidebar {
-    width: 100%;
-    max-width: none;
-    flex-basis: auto;
-    height: auto;
-    min-height: auto;
-    position: static;
+    width: var(--fs-workspace-sidebar-width);
+    max-width: var(--fs-workspace-sidebar-width);
+    flex-basis: var(--fs-workspace-sidebar-width);
+    height: 100vh;
+    min-height: 100vh;
+    position: sticky;
   }
 
   .designer-layout .designer-topbar-search { display: none; }

@@ -13,6 +13,7 @@ import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 
 import { useLang } from '@/app/providers/useLang';
 import { CustomerNavbar, customerCopy } from '@/features/CustomerPages/customercomponents';
+import { ProductIssuePanel } from '@/features/productIssues/ProductIssuePanel';
 import {
   formatCustomerDate,
   formatCustomerDateTime,
@@ -40,7 +41,7 @@ import { isScheduleVisible } from '@/shared/utils/scheduleVisibility';
 import { CustomerProjectProposalAccordionItem } from './CustomerProjectProposalAccordion';
 import '../customerProjectList/CustomerProjectListPage.css';
 
-type CustomerProjectDetailTab = 'overview' | 'schedules' | 'proposals';
+type CustomerProjectDetailTab = 'overview' | 'schedules' | 'proposals' | 'issues';
 
 export function CustomerProjectDetailPage() {
   const { lang } = useLang();
@@ -48,6 +49,7 @@ export function CustomerProjectDetailPage() {
   const { projectId } = useParams();
   const [searchParams] = useSearchParams();
   const proposalIdFromUrl = searchParams.get('proposalId');
+  const requestedTab = normalizeCustomerProjectDetailTab(searchParams.get('tab'));
   const navigate = useNavigate();
   const projectQuery = useProjectDetail(projectId);
   const project = projectQuery.data;
@@ -84,7 +86,7 @@ export function CustomerProjectDetailPage() {
   const requestScheduleChangeMutation = useRequestProjectScheduleChange();
   const updateScheduleStatusMutation = useUpdateProjectScheduleStatus();
   const [expandedProposalId, setExpandedProposalId] = useState<string | null>(proposalIdFromUrl);
-  const [activeTab, setActiveTab] = useState<CustomerProjectDetailTab>(proposalIdFromUrl ? 'proposals' : 'overview');
+  const [activeTab, setActiveTab] = useState<CustomerProjectDetailTab>(proposalIdFromUrl ? 'proposals' : requestedTab ?? 'overview');
   const [activeScheduleId, setActiveScheduleId] = useState<string | null>(null);
   const [scheduleActionNotes, setScheduleActionNotes] = useState<Record<string, string>>({});
   const [message, setMessage] = useState<{ tone: 'error' | 'success'; text: string } | null>(null);
@@ -106,6 +108,12 @@ export function CustomerProjectDetailPage() {
 
     return () => window.cancelAnimationFrame(frameId);
   }, [proposalIdFromUrl, proposals]);
+
+  useEffect(() => {
+    if (requestedTab) {
+      setActiveTab(requestedTab);
+    }
+  }, [requestedTab]);
 
   async function reopenProposalFlow() {
     if (!project) return;
@@ -227,6 +235,9 @@ export function CustomerProjectDetailPage() {
                 </button>
                 <button className={activeTab === 'proposals' ? 'is-active' : ''} type="button" onClick={() => setActiveTab('proposals')}>
                   {t.projectDetail.tabProposals}
+                </button>
+                <button className={activeTab === 'issues' ? 'is-active' : ''} type="button" onClick={() => setActiveTab('issues')}>
+                  {t.projectDetail.tabIssue}
                 </button>
               </nav>
 
@@ -371,12 +382,26 @@ export function CustomerProjectDetailPage() {
                 </div>
               </section>
               ) : null}
+
+              {activeTab === 'issues' ? (
+                <ProductIssuePanel
+                  allowCreate={false}
+                  projectId={project.projectId}
+                  title={t.projectDetail.tabIssue}
+                />
+              ) : null}
             </div>
           </section>
         ) : null}
       </div>
     </main>
   );
+}
+
+function normalizeCustomerProjectDetailTab(value: string | null): CustomerProjectDetailTab | null {
+  const supportedTabs: CustomerProjectDetailTab[] = ['overview', 'schedules', 'proposals', 'issues'];
+
+  return supportedTabs.includes(value as CustomerProjectDetailTab) ? value as CustomerProjectDetailTab : null;
 }
 
 function CustomerProjectSchedulesTab({

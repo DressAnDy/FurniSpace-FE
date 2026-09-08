@@ -1,5 +1,6 @@
-import { type FormEvent, useMemo, useState } from 'react';
+import { type FormEvent, useEffect, useMemo, useState } from 'react';
 import { IconAlertTriangle, IconPlus, IconRefresh, IconX } from '@tabler/icons-react';
+import { useSearchParams } from 'react-router-dom';
 
 import {
   DELIVERY_DELAY_REASON_CODES,
@@ -31,16 +32,19 @@ type OperationalDelayPanelProps = {
   title?: string;
 };
 
+const DEFAULT_ALLOWED_PHASES: OperationalDelayPhase[] = ['PRODUCTION', 'DELIVERY'];
+
 export function OperationalDelayPanel({
   allowCreate = true,
-  allowedPhases = ['PRODUCTION', 'DELIVERY'],
+  allowedPhases = DEFAULT_ALLOWED_PHASES,
   defaultPhase,
   deliveryId,
   orderId,
   productionRequestId,
   projectId,
-  title = 'Delay history',
+  title = 'ISSUES',
 }: Readonly<OperationalDelayPanelProps>) {
+  const [searchParams] = useSearchParams();
   const initialPhase = defaultPhase && allowedPhases.includes(defaultPhase) ? defaultPhase : allowedPhases[0];
   const [phase, setPhase] = useState<OperationalDelayPhase>(initialPhase ?? 'PRODUCTION');
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -55,6 +59,21 @@ export function OperationalDelayPanel({
   const createDeliveryMutation = useCreateDeliveryDelayReport();
   const reports = useMemo(() => listQuery.data?.items ?? [], [listQuery.data?.items]);
   const isSubmitting = createProductionMutation.isPending || createDeliveryMutation.isPending;
+  const allowedPhaseKey = allowedPhases.join('|');
+
+  useEffect(() => {
+    const reportId = searchParams.get('delayReportId');
+    const requestedPhase = normalizeDelayPhase(searchParams.get('reportPhase'));
+    const allowedPhaseList = allowedPhaseKey.split('|') as OperationalDelayPhase[];
+
+    if (requestedPhase && allowedPhaseList.includes(requestedPhase)) {
+      setPhase(requestedPhase);
+    }
+
+    if (reportId) {
+      setSelectedReportId(reportId);
+    }
+  }, [allowedPhaseKey, searchParams]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -127,7 +146,6 @@ export function OperationalDelayPanel({
       <div className="operational-delay-header">
         <div>
           <h3>{title}</h3>
-          <p>Immutable records of production or delivery schedule risk.</p>
         </div>
         <div className="operational-delay-actions">
           <button
@@ -329,6 +347,14 @@ function Detail({ label, value }: Readonly<{ label: string; value: string }>) {
 
 function formatLabel(value: string) {
   return value.toLowerCase().split('_').map((part) => part.charAt(0).toUpperCase() + part.slice(1)).join(' ');
+}
+
+function normalizeDelayPhase(value: string | null): OperationalDelayPhase | null {
+  if (value === 'PRODUCTION' || value === 'DELIVERY') {
+    return value;
+  }
+
+  return null;
 }
 
 function formatDate(value: string) {

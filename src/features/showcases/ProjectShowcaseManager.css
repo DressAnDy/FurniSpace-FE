@@ -609,3 +609,265 @@
     flex-direction: column;
   }
 }
+
+.project-showcase-manager-sales {
+  gap: 10px;
+}
+
+.project-showcase-manager-sales .project-showcase-manager-header,
+.project-showcase-manager-sales .project-showcase-card {
+  padding: 12px;
+}
+
+.project-showcase-manager-sales .project-showcase-manager-header {
+  align-items: center;
+  gap: 12px;
+}
+
+.project-showcase-manager-sales .project-showcase-manager-header > div:first-child {
+  min-width: 0;
+}
+
+.project-showcase-manager-sales .project-showcase-manager-header h3 {
+  font-size: 18px;
+  line-height: 24px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.project-showcase-manager-sales .project-showcase-manager-header p {
+  display: none;
+}
+
+.project-showcase-manager-sales .project-showcase-status-stack strong {
+  font-size: 11px;
+  padding: 5px 8px;
+}
+
+.project-showcase-manager-sales .project-showcase-grid {
+  grid-template-columns: minmax(0, 1.1fr) minmax(240px, 0.9fr);
+  gap: 10px;
+}
+
+.project-showcase-manager-sales .project-showcase-overview {
+  grid-template-columns: 180px minmax(0, 1fr);
+}
+
+.project-showcase-manager-sales .project-showcase-cover-stage,
+.project-showcase-manager-sales .project-showcase-cover-stage img,
+.project-showcase-manager-sales .project-showcase-cover-empty {
+  min-height: 132px;
+}
+
+.project-showcase-manager-sales .project-showcase-live-facts {
+  gap: 8px;
+}
+
+.project-showcase-manager-sales .project-showcase-live-facts div {
+  gap: 2px 7px;
+  padding: 8px;
+}
+
+.project-showcase-manager-sales .project-showcase-live-facts span,
+.project-showcase-manager-sales .project-showcase-form label > span,
+.project-showcase-manager-sales .project-showcase-media-form label > span {
+  font-size: 10px;
+  line-height: 14px;
+}
+
+.project-showcase-manager-sales .project-showcase-live-facts strong {
+  font-size: 12px;
+  line-height: 16px;
+}
+
+.project-showcase-manager-sales .project-showcase-readiness {
+  align-content: start;
+}
+
+.project-showcase-manager-sales .project-showcase-readiness ul {
+  gap: 6px;
+}
+
+.project-showcase-manager-sales .project-showcase-readiness li {
+  font-size: 12px;
+  gap: 6px;
+}
+
+.project-showcase-manager-sales .project-showcase-readiness li span {
+  font-size: 10px;
+  padding: 5px 7px;
+}
+
+.project-showcase-manager-sales .project-showcase-section-title {
+  align-items: baseline;
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+}
+
+.project-showcase-manager-sales .project-showcase-section-title h4 {
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.project-showcase-manager-sales .project-showcase-section-title p {
+  font-size: 12px;
+  line-height: 16px;
+}
+
+.project-showcase-manager-sales .project-showcase-form {
+  gap: 10px;
+}
+
+.project-showcase-manager-sales .project-showcase-form textarea {
+  min-height: 58px;
+  padding: 8px 10px;
+}
+
+.project-showcase-manager-sales .project-showcase-actions {
+  gap: 6px;
+}
+
+.project-showcase-manager-sales .project-showcase-actions button,
+.project-showcase-manager-sales .project-showcase-actions a,
+.project-showcase-manager-sales .project-showcase-media-form button,
+.project-showcase-manager-sales .project-showcase-media-actions button {
+  min-height: 30px;
+  border-radius: 7px;
+  font-size: 12px;
+  padding: 0 10px;
+}
+
+.project-showcase-manager-sales .project-showcase-media-card {
+  gap: 10px;
+}
+
+.project-showcase-manager-sales .project-showcase-media-form {
+  grid-template-columns: minmax(0, 1fr) 168px;
+  gap: 8px;
+}
+
+.project-showcase-manager-sales .project-showcase-upload-dropzone {
+  grid-column: auto;
+}
+
+.project-showcase-manager-sales .project-showcase-media-form .project-showcase-upload-dropzone-body {
+  min-height: 48px;
+  grid-template-columns: auto minmax(0, auto);
+  justify-content: center;
+  gap: 8px 10px;
+  padding: 10px 12px;
+}
+
+.project-showcase-manager-sales .project-showcase-media-form .project-showcase-upload-dropzone-body svg {
+  grid-row: span 2;
+}
+
+.project-showcase-manager-sales .project-showcase-media-form .project-showcase-upload-dropzone-body strong {
+  font-size: 13px;
+  line-height: 16px;
+}
+
+.project-showcase-manager-sales .project-showcase-media-form .project-showcase-upload-dropzone-body small {
+  display: none;
+}
+
+.project-showcase-manager-sales .project-showcase-media-form label {
+  grid-column: 1 / -1;
+}
+
+.project-showcase-manager-sales .project-showcase-media-form input {
+  min-height: 34px;
+  padding: 7px 10px;
+}
+
+.project-showcase-manager-sales .project-showcase-selected-files {
+  gap: 8px;
+}
+
+.project-showcase-manager-sales .project-showcase-selected-file-grid {
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 8px;
+}
+
+.project-showcase-manager-sales .project-showcase-selected-file-card {
+  grid-template-columns: 54px minmax(0, 1fr) 30px;
+  gap: 8px;
+  padding: 8px;
+}
+
+.project-showcase-manager-sales .project-showcase-selected-file-thumb {
+  width: 54px;
+  height: 54px;
+}
+
+.project-showcase-manager-sales .project-showcase-media-grid {
+  grid-template-columns: repeat(auto-fill, minmax(138px, 1fr));
+  gap: 8px;
+}
+
+.project-showcase-manager-sales .project-showcase-media-grid img,
+.project-showcase-manager-sales .project-showcase-media-placeholder {
+  aspect-ratio: 5 / 3;
+}
+
+.project-showcase-manager-sales .project-showcase-media-thumb > span {
+  top: 6px;
+  right: 6px;
+  font-size: 10px;
+  padding: 5px 7px;
+}
+
+.project-showcase-manager-sales .project-showcase-media-grid article > div {
+  padding: 8px 9px;
+}
+
+.project-showcase-manager-sales .project-showcase-media-grid strong {
+  font-size: 12px;
+  line-height: 16px;
+}
+
+.project-showcase-manager-sales .project-showcase-media-grid span {
+  font-size: 11px;
+  line-height: 15px;
+}
+
+.project-showcase-manager-sales .project-showcase-media-actions {
+  display: grid;
+  grid-template-columns: 30px 30px minmax(0, 1fr);
+  gap: 6px;
+  padding: 8px;
+}
+
+.project-showcase-manager-sales .project-showcase-media-actions button[aria-label^="Move media"] {
+  width: 30px;
+}
+
+.project-showcase-manager-sales .project-showcase-media-actions button:last-child {
+  grid-column: 1 / -1;
+}
+
+@media (max-width: 1080px) {
+  .project-showcase-manager-sales .project-showcase-grid,
+  .project-showcase-manager-sales .project-showcase-overview,
+  .project-showcase-manager-sales .project-showcase-media-form {
+    grid-template-columns: 1fr;
+  }
+
+  .project-showcase-manager-sales .project-showcase-upload-dropzone {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 720px) {
+  .project-showcase-manager-sales .project-showcase-manager-header {
+    align-items: flex-start;
+  }
+
+  .project-showcase-manager-sales .project-showcase-section-title {
+    align-items: flex-start;
+    display: grid;
+    gap: 2px;
+  }
+}
