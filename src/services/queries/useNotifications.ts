@@ -15,7 +15,9 @@ import {
 } from '@/services/api/notifications';
 import { getStoredAccessToken } from '@/services/api/tokenStore';
 import { orderQueryKeys } from './useOrders';
+import { operationalDelayQueryKeys } from './useOperationalDelayReports';
 import { paymentQueryKeys } from './usePayments';
+import { productIssueQueryKeys } from './useProductIssues';
 import { productionQueryKeys } from './useProduction';
 import { projectChatQueryKeys } from './useProjectChats';
 import { projectQueryKeys } from './useProjects';
@@ -58,6 +60,9 @@ const inAppNotificationEvents = [
   'production.request.created',
   'production.request.assigned',
   'production.request.completed',
+  'production.delay.reported',
+  'delivery.delay.reported',
+  'product_issue.reported',
   'project_chat.message_sent',
 ] as const;
 
@@ -272,6 +277,11 @@ function invalidateBusinessQueries(queryClient: ReturnType<typeof useQueryClient
     paymentId: asId(referenceType === 'PAYMENT' ? payload.referenceId : null),
     productionRequestId:
       asId(metadata.productionRequestId) ?? asId(referenceType === 'PRODUCTION_REQUEST' ? payload.referenceId : null),
+    operationalDelayReportId:
+      asId(metadata.operationalDelayReportId) ?? asId(referenceType === 'OPERATIONAL_DELAY_REPORT' ? payload.referenceId : null),
+    productIssueId:
+      asId(metadata.deliveryProductIssueReportId)
+      ?? asId(referenceType === 'DELIVERY_PRODUCT_ISSUE_REPORT' ? payload.referenceId : null),
     chatId: asId(metadata.chatId),
   };
 
@@ -299,6 +309,8 @@ function invalidateByReference(
     scheduleId: string | null;
     paymentId: string | null;
     productionRequestId: string | null;
+    operationalDelayReportId: string | null;
+    productIssueId: string | null;
     chatId: string | null;
   },
 ) {
@@ -368,6 +380,30 @@ function invalidateByReference(
 
     if (ids.productionRequestId) {
       void queryClient.invalidateQueries({ queryKey: productionQueryKeys.detail(ids.productionRequestId) });
+    }
+  }
+
+  if (referenceType === 'OPERATIONAL_DELAY_REPORT' || notificationType.includes('DelayReported')) {
+    void queryClient.invalidateQueries({ queryKey: operationalDelayQueryKeys.all });
+
+    if (ids.operationalDelayReportId) {
+      void queryClient.invalidateQueries({ queryKey: operationalDelayQueryKeys.detail(ids.operationalDelayReportId) });
+    }
+  }
+
+  if (referenceType === 'DELIVERY_PRODUCT_ISSUE_REPORT' || notificationType === 'ProductIssueReported') {
+    void queryClient.invalidateQueries({ queryKey: productIssueQueryKeys.all });
+
+    if (ids.productIssueId) {
+      void queryClient.invalidateQueries({ queryKey: productIssueQueryKeys.detail(ids.productIssueId) });
+    }
+
+    if (ids.orderId) {
+      void queryClient.invalidateQueries({ queryKey: productIssueQueryKeys.order(ids.orderId) });
+    }
+
+    if (projectId) {
+      void queryClient.invalidateQueries({ queryKey: productIssueQueryKeys.project(projectId) });
     }
   }
 

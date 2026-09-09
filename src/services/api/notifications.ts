@@ -12,6 +12,8 @@ export type NotificationReferenceType =
   | 'PAYMENT'
   | 'ORDER'
   | 'PRODUCTION_REQUEST'
+  | 'OPERATIONAL_DELAY_REPORT'
+  | 'DELIVERY_PRODUCT_ISSUE_REPORT'
   | string;
 
 export type NotificationType =
@@ -29,6 +31,9 @@ export type NotificationType =
   | 'ProposalPublished'
   | 'ProjectChatMessageSent'
   | 'OrderCompleted'
+  | 'ProductionDelayReported'
+  | 'DeliveryDelayReported'
+  | 'ProductIssueReported'
   | string;
 
 export type ServiceResult<T> = {
@@ -83,6 +88,14 @@ export type RealtimeMetadata = {
   proposalId?: string;
   scheduleId?: string;
   productionRequestId?: string;
+  operationalDelayReportId?: string;
+  deliveryProductIssueReportId?: string;
+  orderItemId?: string;
+  reportPhase?: 'PRODUCTION' | 'DELIVERY' | string;
+  delayState?: 'AT_RISK' | 'OVERDUE' | string;
+  deliveryReasonCode?: string;
+  issueType?: string;
+  affectedQuantity?: number | string;
   chatId?: string;
   chatType?: string;
   messageId?: string;

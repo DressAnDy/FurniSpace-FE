@@ -3,6 +3,9 @@ import { useQueryClient } from '@tanstack/react-query';
 import { FormEvent, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
+import { useLang } from '@/app/providers/useLang';
+import { customerCopy } from '@/features/CustomerPages/customercomponents';
+import { formatCustomerDate } from '@/features/CustomerPages/utils';
 import { ModelViewer } from '@/features/ThreeD/components';
 import {
   getCustomizationRequestServiceResultMessage,
@@ -30,8 +33,6 @@ import { aggregateDuplicateItems } from '@/shared/utils/itemAggregation';
 
 import '../customerProposalDetail/CustomerProposalDetailPage.css';
 
-const tableHeaders = ['Item Name', 'Version', 'Dimensions', 'Material', 'Qty', 'Unit Price', 'Total', 'Actions'];
-
 type CustomerProjectProposalAccordionItemProps = {
   expanded: boolean;
   onToggle: () => void;
@@ -45,6 +46,8 @@ export function CustomerProjectProposalAccordionItem({
   projectId,
   proposal,
 }: CustomerProjectProposalAccordionItemProps) {
+  const { lang } = useLang();
+  const t = customerCopy[lang];
   const navigate = useNavigate();
 
   return (
@@ -58,8 +61,8 @@ export function CustomerProjectProposalAccordionItem({
         <div className="customer-project-detail-proposal-copy">
           <strong>{proposal.proposalName}</strong>
           <span>
-            Version {proposal.versionNo}
-            {proposal.publishedAt ? ` · Published ${formatDate(proposal.publishedAt)}` : ''}
+            {t.common.version} {proposal.versionNo}
+            {proposal.publishedAt ? ` · ${t.common.published} ${formatCustomerDate(proposal.publishedAt, lang)}` : ''}
           </span>
         </div>
         <div className="customer-project-detail-proposal-meta">
@@ -90,6 +93,8 @@ function CustomerProjectProposalPanel({
   projectId: string;
   proposal: ProposalDto;
 }) {
+  const { lang } = useLang();
+  const t = customerCopy[lang];
   const [customizationMessage, setCustomizationMessage] = useState('');
   const [customizingItemId, setCustomizingItemId] = useState<string | null>(null);
   const [customizationTitle, setCustomizationTitle] = useState('');
@@ -186,6 +191,16 @@ function CustomerProjectProposalPanel({
   const customizationRequestsError = customizationRequestsQuery.isError
     ? getCustomizationRequestServiceResultMessage(customizationRequestsQuery.error)
     : null;
+  const tableHeaders = [
+    t.proposalAccordion.itemName,
+    t.proposalAccordion.version,
+    t.proposalAccordion.dimensions,
+    t.proposalAccordion.material,
+    t.proposalAccordion.qty,
+    t.proposalAccordion.unitPrice,
+    t.proposalAccordion.total,
+    t.proposalAccordion.actions,
+  ];
 
   function openScene(scene: ProposalSceneDto) {
     prefetchScene(scene);
@@ -233,7 +248,7 @@ function CustomerProjectProposalPanel({
     );
 
     if (!customizationTitle.trim() || !hasCustomizationField) {
-      setCustomizationMessage('Title and at least one customization field are required.');
+      setCustomizationMessage(t.proposalAccordion.titleRequiredToast);
       return;
     }
 
@@ -280,7 +295,7 @@ function CustomerProjectProposalPanel({
     const trimmedRevisionNote = revisionNote.trim();
 
     if (!trimmedRevisionNote) {
-      setCustomizationMessage('Please enter revision feedback before sending it to the designer.');
+      setCustomizationMessage(t.proposalAccordion.revisionRequiredToast);
       return;
     }
 
@@ -309,13 +324,13 @@ function CustomerProjectProposalPanel({
       <section className="customer-proposal-detail-card customer-proposal-detail-scenes">
         <div className="customer-proposal-detail-section-heading">
           <div>
-            <h2>Proposal Scenes ({scenes.length})</h2>
+            <h2>{t.proposalAccordion.proposalScenes} ({scenes.length})</h2>
             <p>Open a saved scene to inspect the design before making a decision.</p>
           </div>
         </div>
-        {isLoadingScenes ? <p>Loading scenes...</p> : null}
+        {isLoadingScenes ? <p>{t.proposalAccordion.loadingScenes}</p> : null}
         {scenesError ? <p className="customer-proposal-detail-message">{scenesError}</p> : null}
-        {!isLoadingScenes && !scenesError && scenes.length === 0 ? <p>No active scene is available for this proposal.</p> : null}
+        {!isLoadingScenes && !scenesError && scenes.length === 0 ? <p>{t.proposalAccordion.noScenes}</p> : null}
         <div className="customer-proposal-detail-scene-grid">
           {scenes.map((scene) => (
             <article key={scene.sceneId}>
@@ -328,7 +343,7 @@ function CustomerProjectProposalPanel({
                   onPointerEnter={() => prefetchScene(scene)}
                   onClick={() => openScene(scene)}
                 >
-                  Open Scene
+                  {t.proposalAccordion.openScene}
                 </button>
               </div>
             </article>
@@ -339,11 +354,11 @@ function CustomerProjectProposalPanel({
       <section className="customer-proposal-detail-card customer-proposal-detail-items">
         <div>
           <h2>Furniture &amp; Items</h2>
-          <p>Total Estimated: {formatMoney(estimatedTotal)}</p>
+          <p>{t.proposalAccordion.totalEstimated}: {formatMoney(estimatedTotal)}</p>
         </div>
         {customizationMessage ? <p className="customer-proposal-detail-message">{customizationMessage}</p> : null}
         {itemsError ? <p className="customer-proposal-detail-message">{itemsError}</p> : null}
-        {isLoadingItems ? <p>Loading proposal items...</p> : null}
+        {isLoadingItems ? <p>{t.common.loading}</p> : null}
         {!isLoadingItems ? (
           <>
             <div className="customer-proposal-detail-table-wrap">
@@ -377,20 +392,20 @@ function CustomerProjectProposalPanel({
             </div>
             {customizingItemId ? (
               <form className="customer-proposal-detail-customization-form" onSubmit={submitCustomization}>
-                <h3>Request Item Customization</h3>
-                <input required value={customizationTitle} placeholder="Request title" onChange={(event) => setCustomizationTitle(event.target.value)} />
+                <h3>{t.proposalAccordion.requestCustomization}</h3>
+                <input required value={customizationTitle} placeholder={t.proposalAccordion.titlePlaceholder} onChange={(event) => setCustomizationTitle(event.target.value)} />
                 <textarea rows={3} value={customizationDescription} placeholder="Describe the change" onChange={(event) => setCustomizationDescription(event.target.value)} />
                 <div>
-                  <input value={customizationMaterial} placeholder="Material" onChange={(event) => setCustomizationMaterial(event.target.value)} />
-                  <input value={customizationColor} placeholder="Color" onChange={(event) => setCustomizationColor(event.target.value)} />
-                  <input value={customizationWidth} placeholder="Width" type="number" onChange={(event) => setCustomizationWidth(event.target.value)} />
-                  <input value={customizationHeight} placeholder="Height" type="number" onChange={(event) => setCustomizationHeight(event.target.value)} />
-                  <input value={customizationDepth} placeholder="Depth" type="number" onChange={(event) => setCustomizationDepth(event.target.value)} />
+                  <input value={customizationMaterial} placeholder={t.proposalAccordion.materialPlaceholder} onChange={(event) => setCustomizationMaterial(event.target.value)} />
+                  <input value={customizationColor} placeholder={t.proposalAccordion.colorPlaceholder} onChange={(event) => setCustomizationColor(event.target.value)} />
+                  <input value={customizationWidth} placeholder={t.proposalAccordion.widthPlaceholder} type="number" onChange={(event) => setCustomizationWidth(event.target.value)} />
+                  <input value={customizationHeight} placeholder={t.proposalAccordion.heightPlaceholder} type="number" onChange={(event) => setCustomizationHeight(event.target.value)} />
+                  <input value={customizationDepth} placeholder={t.proposalAccordion.depthPlaceholder} type="number" onChange={(event) => setCustomizationDepth(event.target.value)} />
                 </div>
                 <div>
-                  <button type="button" onClick={resetCustomizationForm}>Cancel</button>
+                  <button type="button" onClick={resetCustomizationForm}>{t.common.cancel}</button>
                   <button disabled={submitCustomizationMutation.isPending} type="submit">
-                    {submitCustomizationMutation.isPending ? 'Submitting...' : 'Submit Request'}
+                    {submitCustomizationMutation.isPending ? t.common.loading : t.proposalAccordion.submitRequest}
                   </button>
                 </div>
               </form>
@@ -403,7 +418,7 @@ function CustomerProjectProposalPanel({
         <section className="customer-proposal-detail-card customer-proposal-detail-revision-form">
           <div className="customer-proposal-detail-section-heading">
             <div>
-              <h2>Request Proposal Revision</h2>
+              <h2>{t.proposalAccordion.requestRevision}</h2>
               <p>Send design feedback to the designer before selecting the final proposal.</p>
             </div>
           </div>
@@ -412,12 +427,12 @@ function CustomerProjectProposalPanel({
               required
               rows={3}
               value={revisionNote}
-              placeholder="Describe what the designer should revise in this proposal."
+              placeholder={t.proposalAccordion.revisionPlaceholder}
               onChange={(event) => setRevisionNote(event.target.value)}
             />
             <div>
               <button disabled={requestRevisionMutation.isPending || !revisionNote.trim()} type="submit">
-                {requestRevisionMutation.isPending ? 'Sending...' : 'Send Revision Request'}
+                {requestRevisionMutation.isPending ? t.common.loading : t.proposalAccordion.sendRevisionRequest}
               </button>
             </div>
           </form>
@@ -428,11 +443,11 @@ function CustomerProjectProposalPanel({
         <section className="customer-proposal-detail-card customer-proposal-detail-custom-version-review">
           <div className="customer-proposal-detail-section-heading">
             <div>
-              <h2>Custom Versions for Review</h2>
+              <h2>{t.proposalAccordion.customVersions}</h2>
               <p>Review designer custom versions while production checks feasibility. Accept becomes available after production marks a version feasible.</p>
             </div>
           </div>
-          {customizationRequestsQuery.isLoading ? <p>Loading custom versions...</p> : null}
+          {customizationRequestsQuery.isLoading ? <p>{t.common.loading}</p> : null}
           {customizationRequestsError ? <p className="customer-proposal-detail-message">{customizationRequestsError}</p> : null}
           {!customizationRequestsQuery.isLoading && !customizationRequestsError && customVersionReviewItems.length === 0 && acceptedCustomVersionItems.length === 0 ? (
             <p className="customer-proposal-detail-custom-version-empty">No custom version is ready for customer review yet.</p>
@@ -447,9 +462,9 @@ function CustomerProjectProposalPanel({
                   actionLabel={
                     version.feasibilityStatus === 'FEASIBLE'
                       ? acceptCustomizationMutation.isPending
-                        ? 'Accepting...'
-                        : 'Accept Custom Version'
-                      : 'Feasibility Pending'
+                        ? t.common.loading
+                        : t.proposalAccordion.acceptCustomVersion
+                      : t.proposalAccordion.feasibilityPending
                   }
                   disabled={acceptCustomizationMutation.isPending || version.feasibilityStatus !== 'FEASIBLE'}
                   onPreviewModel={() => setModelPreviewVersion(version)}
@@ -485,18 +500,21 @@ function CustomerProjectProposalPanel({
 }
 
 function ProposalItemRow({ item, onCustomize, proposalStatus }: { item: ProposalItemDto; onCustomize: () => void; proposalStatus: string }) {
+  const { lang } = useLang();
+  const t = customerCopy[lang];
+
   return (
     <tr>
-      <td data-label="Item Name">{item.productNameSnapshot}</td>
-      <td data-label="Version">{item.versionNameSnapshot}</td>
-      <td data-label="Dimensions">{formatDimensions(item.widthSnapshot, item.heightSnapshot, item.depthSnapshot, item.dimensionUnit)}</td>
-      <td data-label="Material">{item.materialSnapshot ?? '-'}</td>
-      <td data-label="Qty">{item.quantity}</td>
-      <td data-label="Unit Price">{formatMoney(item.unitPriceSnapshot)}</td>
-      <td data-label="Total">{formatMoney(item.subtotalAmount)}</td>
-      <td data-label="Actions">
+      <td data-label={t.proposalAccordion.itemName}>{item.productNameSnapshot}</td>
+      <td data-label={t.proposalAccordion.version}>{item.versionNameSnapshot}</td>
+      <td data-label={t.proposalAccordion.dimensions}>{formatDimensions(item.widthSnapshot, item.heightSnapshot, item.depthSnapshot, item.dimensionUnit)}</td>
+      <td data-label={t.proposalAccordion.material}>{item.materialSnapshot ?? '-'}</td>
+      <td data-label={t.proposalAccordion.qty}>{item.quantity}</td>
+      <td data-label={t.proposalAccordion.unitPrice}>{formatMoney(item.unitPriceSnapshot)}</td>
+      <td data-label={t.proposalAccordion.total}>{formatMoney(item.subtotalAmount)}</td>
+      <td data-label={t.proposalAccordion.actions}>
         <button disabled={proposalStatus !== 'PUBLISHED'} type="button" onClick={onCustomize}>
-          Customize
+          {t.proposalAccordion.customize}
         </button>
       </td>
     </tr>
@@ -520,6 +538,8 @@ function CustomVersionReviewCard({
   request: CustomizationRequestDto;
   version: CustomizationRequestVersionDto;
 }) {
+  const { lang } = useLang();
+  const t = customerCopy[lang];
   const productVersion = version.productVersion;
   const previewUrl = getCustomVersionPreviewUrl(version);
   const modelUrl = getCustomVersionModelUrl(version);
@@ -529,7 +549,7 @@ function CustomVersionReviewCard({
       {previewUrl ? (
         <img alt={productVersion.versionName ?? version.versionTitle ?? request.requestTitle} src={previewUrl} />
       ) : (
-        <div className="customer-proposal-detail-custom-version-placeholder">No preview</div>
+        <div className="customer-proposal-detail-custom-version-placeholder">{t.proposalAccordion.noPreview}</div>
       )}
       <div>
         <div className="customer-proposal-detail-custom-version-title">
@@ -538,25 +558,25 @@ function CustomVersionReviewCard({
             <span>{request.requestTitle}</span>
           </div>
           <span className={getCustomVersionBadgeClassName(isAccepted, version)}>
-            {getCustomVersionBadgeLabel(isAccepted, version)}
+            {getCustomVersionBadgeLabel(isAccepted, version, t)}
           </span>
         </div>
         {version.designerNote ? <p>{version.designerNote}</p> : null}
         <dl>
           <div>
-            <dt>Version</dt>
+            <dt>{t.proposalAccordion.version}</dt>
             <dd>{productVersion.versionName || `v${version.versionNo}`}</dd>
           </div>
           <div>
-            <dt>Material</dt>
+            <dt>{t.proposalAccordion.material}</dt>
             <dd>{productVersion.material || request.requestedMaterial || '-'}</dd>
           </div>
           <div>
-            <dt>Color</dt>
+            <dt>{t.proposalAccordion.colorPlaceholder}</dt>
             <dd>{productVersion.color || request.requestedColor || '-'}</dd>
           </div>
           <div>
-            <dt>Dimensions</dt>
+            <dt>{t.proposalAccordion.dimensions}</dt>
             <dd>{formatDimensions(productVersion.width, productVersion.height, productVersion.depth, productVersion.dimensionUnit)}</dd>
           </div>
           <div>
@@ -571,11 +591,11 @@ function CustomVersionReviewCard({
         {version.feasibilityNote ? <p>{version.feasibilityNote}</p> : null}
         <div className="customer-proposal-detail-custom-version-actions">
           <button disabled={!modelUrl} type="button" onClick={onPreviewModel}>
-            View 3D
+            {t.proposalAccordion.previewModel}
           </button>
           {!isAccepted && onAccept ? (
             <button disabled={disabled} type="button" onClick={onAccept}>
-              {actionLabel ?? 'Accept Custom Version'}
+              {actionLabel ?? t.proposalAccordion.acceptCustomVersion}
             </button>
           ) : null}
         </div>
@@ -592,23 +612,25 @@ function CustomVersionModelModal({
   onClose: () => void;
   version: CustomizationRequestVersionDto;
 }) {
+  const { lang } = useLang();
+  const t = customerCopy[lang];
   const previewUrl = getCustomVersionPreviewUrl(version) ?? undefined;
   const modelUrl = getCustomVersionModelUrl(version) ?? undefined;
 
   return (
     <div className="customer-proposal-detail-model-modal-backdrop" role="presentation" onClick={onClose}>
       <section
-        aria-label="Custom version 3D model preview"
+        aria-label={t.proposalAccordion.previewModel}
         className="customer-proposal-detail-model-modal"
         role="dialog"
         onClick={(event) => event.stopPropagation()}
       >
         <header>
           <div>
-            <h3>{version.versionTitle || version.productVersion.versionName || `Version ${version.versionNo}`}</h3>
+            <h3>{version.versionTitle || version.productVersion.versionName || `${t.common.version} ${version.versionNo}`}</h3>
             <p>{modelUrl ? 'Inspect the custom product MODEL_3D file.' : 'No MODEL_3D file is available.'}</p>
           </div>
-          <button aria-label="Close 3D preview" type="button" onClick={onClose}>X</button>
+          <button aria-label={t.common.close} type="button" onClick={onClose}>X</button>
         </header>
         <div className="customer-proposal-detail-model-modal-body">
           <ModelViewer
@@ -662,12 +684,16 @@ function getCustomVersionPreviewUrl(version: CustomizationRequestVersionDto) {
   return getCustomVersionFileUrl(previewFile);
 }
 
-function getCustomVersionBadgeLabel(isAccepted: boolean, version: CustomizationRequestVersionDto) {
-  if (isAccepted) return 'Accepted';
-  if (version.feasibilityStatus === 'FEASIBLE') return 'Feasible';
-  if (version.feasibilityStatus === 'NOT_FEASIBLE') return 'Not Feasible';
+function getCustomVersionBadgeLabel(
+  isAccepted: boolean,
+  version: CustomizationRequestVersionDto,
+  t: (typeof customerCopy)['en'],
+) {
+  if (isAccepted) return t.proposalAccordion.accepted;
+  if (version.feasibilityStatus === 'FEASIBLE') return t.proposalAccordion.feasible;
+  if (version.feasibilityStatus === 'NOT_FEASIBLE') return t.proposalAccordion.notFeasible;
 
-  return 'Production Review';
+  return t.proposalAccordion.productionReview;
 }
 
 function getCustomVersionBadgeClassName(isAccepted: boolean, version: CustomizationRequestVersionDto) {
@@ -691,14 +717,6 @@ function formatStatusLabel(value: string) {
     .split('_')
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(' ');
-}
-
-function formatDate(value: string) {
-  return new Intl.DateTimeFormat('en', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-  }).format(new Date(value));
 }
 
 function normalizeNumber(value: string) {

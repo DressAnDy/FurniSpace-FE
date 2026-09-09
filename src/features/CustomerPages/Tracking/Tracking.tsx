@@ -1,20 +1,25 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
+  IconChevronDown,
   IconCheck,
   IconMessageCircle,
   IconPackage,
   IconSearch,
   IconTruckDelivery,
 } from '@tabler/icons-react';
+import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 
+import { useLang, type Lang } from '@/app/providers/useLang';
 import {
   CustomerNavbar,
   CustomerStatusBadge,
   CustomerSummaryCard,
+  customerCopy,
+  type CustomerCopy,
 } from '@/features/CustomerPages/customercomponents';
-import { getProjectStatusLabel } from '@/features/CustomerPages/utils';
-import { groupDeliveryBatchItems, groupDeliveryTrackingItems } from '@/features/deliveryTracking/deliveryItemGrouping';
+import { formatCustomerDateTime, getCustomerProjectStatusLabel } from '@/features/CustomerPages/utils';
+import { ProductIssuePanel } from '@/features/productIssues/ProductIssuePanel';
 import {
   getOrderServiceResultMessage,
   type DeliveryTrackingItemDto,
@@ -42,18 +47,11 @@ const trackableProjectStatuses = new Set<ProjectStatus>([
   'COMPLETED',
 ]);
 
-const itemStatusLabels: Record<string, string> = {
-  PENDING: 'Waiting',
-  PARTIALLY_DELIVERED: 'Partial',
-  PHYSICALLY_DELIVERED: 'Delivered',
-  DELIVERED: 'Delivered',
-  UNAVAILABLE: 'Unavailable',
-  CANCELLED: 'Cancelled',
-};
-
 const PROJECTS_PER_PAGE = 6;
 
 export function Tracking() {
+  const { lang } = useLang();
+  const t = customerCopy[lang];
   const [selectedProjectId, setSelectedProjectId] = useState('');
   const [selectedOrderId, setSelectedOrderId] = useState('');
   const [projectSearch, setProjectSearch] = useState('');
@@ -86,7 +84,7 @@ export function Tracking() {
   const deliveryTrackingQuery = useOrderDeliveryTracking(selectedOrderId, { enabled: Boolean(selectedOrderId) });
   const order = orderDetailQuery.data ?? null;
   const tracking = deliveryTrackingQuery.data ?? null;
-  const groupedTrackingItems = useMemo(() => groupDeliveryTrackingItems(tracking?.items ?? []), [tracking?.items]);
+  const trackingItems = useMemo(() => sortDeliveryTrackingItems(tracking?.items ?? []), [tracking?.items]);
   const confirmDeliveryMutation = useConfirmOrderDelivery();
   const canFinalConfirm = canConfirmFinalDelivery(tracking?.orderStatus ?? order?.status, tracking?.customerConfirmedDeliveryAt ?? order?.customerConfirmedDeliveryAt);
 
@@ -125,7 +123,7 @@ export function Tracking() {
 
     try {
       await confirmDeliveryMutation.mutateAsync(selectedOrderId);
-      setMessage({ tone: 'success', text: 'Delivery confirmed. Final payment will be prepared if needed.' });
+      setMessage({ tone: 'success', text: t.orders.deliveryConfirmedToast });
       void orderDetailQuery.refetch();
       void deliveryTrackingQuery.refetch();
     } catch (error) {
@@ -135,11 +133,11 @@ export function Tracking() {
 
   return (
     <main className="customer-workspace-page customer-tracking-page">
-      <CustomerNavbar activeLabel="Tracking" classPrefix="customer-tracking" />
+      <CustomerNavbar activeKey="tracking" classPrefix="customer-tracking" />
       <div className="customer-workspace-main">
         <section className="customer-workspace-heading">
           <div>
-            <h1>Delivery Tracking</h1>
+            <h1>{t.tracking.title}</h1>
           </div>
         </section>
 
@@ -152,13 +150,13 @@ export function Tracking() {
         <section className="customer-tracking-layout">
           <aside className="customer-workspace-card customer-tracking-project-sidebar">
             <header>
-              <h2>Projects</h2>
-              <span>{filteredProjects.length} found</span>
+              <h2>{t.tracking.projects}</h2>
+              <span>{t.tracking.found(filteredProjects.length)}</span>
             </header>
             <label className="customer-tracking-search">
               <IconSearch size={16} />
               <input
-                placeholder="Search project"
+                placeholder={t.tracking.searchProject}
                 value={projectSearch}
                 onChange={(event) => {
                   setProjectSearch(event.target.value);
@@ -167,7 +165,7 @@ export function Tracking() {
               />
             </label>
             <div className="customer-tracking-project-list">
-              {projectsQuery.isLoading ? <p className="customer-workspace-muted">Loading projects...</p> : null}
+              {projectsQuery.isLoading ? <p className="customer-workspace-muted">{t.common.loading}</p> : null}
               {!projectsQuery.isLoading && filteredProjects.length === 0 ? <p className="customer-workspace-muted">No projects found.</p> : null}
               {pagedProjects.map((project) => (
                 <button
@@ -181,18 +179,18 @@ export function Tracking() {
                 >
                   <strong>{project.projectName}</strong>
                   <span>{project.projectCode}</span>
-                  <CustomerStatusBadge label={getCustomerTrackingStatusLabel(project.status)} status={project.status} />
+                  <CustomerStatusBadge label={getCustomerTrackingStatusLabel(project.status, lang, t)} status={project.status} />
                 </button>
               ))}
             </div>
             {projectTotalPages > 1 ? (
               <div className="customer-tracking-project-pagination">
                 <button disabled={projectPage <= 1} type="button" onClick={() => setProjectPage((current) => Math.max(1, current - 1))}>
-                  Previous
+                  {t.common.previous}
                 </button>
                 <span>{projectPage} / {projectTotalPages}</span>
                 <button disabled={projectPage >= projectTotalPages} type="button" onClick={() => setProjectPage((current) => Math.min(projectTotalPages, current + 1))}>
-                  Next
+                  {t.common.next}
                 </button>
               </div>
             ) : null}
@@ -202,18 +200,18 @@ export function Tracking() {
             <article className="customer-workspace-card customer-tracking-control-panel">
               <header>
                 <div>
-                  <h2>{order?.orderCode ?? selectedOrder?.orderCode ?? 'No active order'}</h2>
-                  <p>{selectedProject?.projectName ?? 'No project selected'}</p>
+                  <h2>{order?.orderCode ?? selectedOrder?.orderCode ?? t.tracking.noActiveOrder}</h2>
+                  <p>{selectedProject?.projectName ?? t.tracking.noProjectSelected}</p>
                 </div>
                 <div className="customer-tracking-controls">
-                  <CustomerStatusBadge label={getCustomerTrackingStatusLabel(tracking?.orderStatus ?? order?.status ?? selectedProject?.status ?? 'ORDER_CONFIRMED')} status={tracking?.orderStatus ?? order?.status ?? selectedProject?.status ?? 'ORDER_CONFIRMED'} />
+                  <CustomerStatusBadge label={getCustomerTrackingStatusLabel(tracking?.orderStatus ?? order?.status ?? selectedProject?.status ?? 'ORDER_CONFIRMED', lang, t)} status={tracking?.orderStatus ?? order?.status ?? selectedProject?.status ?? 'ORDER_CONFIRMED'} />
                 </div>
               </header>
-              <p className="customer-tracking-current-message">{getTrackingMessage(tracking?.orderStatus ?? order?.status ?? selectedProject?.status)}</p>
+              <p className="customer-tracking-current-message">{getTrackingMessage(tracking?.orderStatus ?? order?.status ?? selectedProject?.status, t)}</p>
               <div className="customer-tracking-meta-row">
-                <Field label="Project code" value={selectedProject?.projectCode ?? '-'} />
-                <Field label="Progress" value={`${tracking?.summary.deliveryProgressPercent ?? 0}%`} />
-                <Field label="Next delivery" value={tracking?.summary.nextDeliveryAt ? formatDateTime(tracking.summary.nextDeliveryAt) : 'Not scheduled'} />
+                <Field label={t.tracking.projectCode} value={selectedProject?.projectCode ?? '-'} />
+                <Field label={t.tracking.progress} value={`${tracking?.summary.deliveryProgressPercent ?? 0}%`} />
+                <Field label={t.tracking.nextDelivery} value={tracking?.summary.nextDeliveryAt ? formatCustomerDateTime(tracking.summary.nextDeliveryAt, lang) : t.tracking.notScheduled} />
               </div>
               {canFinalConfirm ? (
                 <button
@@ -222,45 +220,48 @@ export function Tracking() {
                   type="button"
                   onClick={() => void confirmDelivery()}
                 >
-                  {confirmDeliveryMutation.isPending ? 'Confirming...' : 'Confirm Final Delivery'}
+                  {confirmDeliveryMutation.isPending ? t.common.confirming : t.tracking.confirmFinalDelivery}
                 </button>
               ) : null}
             </article>
 
             <section className="customer-workspace-summary-grid">
-              <CustomerSummaryCard icon={IconPackage} label="Ordered Qty" value={tracking?.summary.totalOrderedQuantity ?? 0} />
-              <CustomerSummaryCard icon={IconTruckDelivery} label="Delivered Qty" value={tracking?.summary.totalDeliveredQuantity ?? 0} />
-              <CustomerSummaryCard icon={IconCheck} label="Completed Trips" value={tracking?.summary.completedDeliveryCount ?? 0} />
-              <CustomerSummaryCard icon={IconPackage} label="Remaining Qty" value={tracking?.summary.remainingQuantity ?? 0} />
+              <CustomerSummaryCard icon={IconPackage} label={t.tracking.orderedQty} value={tracking?.summary.totalOrderedQuantity ?? 0} />
+              <CustomerSummaryCard icon={IconTruckDelivery} label={t.tracking.deliveredQty} value={tracking?.summary.totalDeliveredQuantity ?? 0} />
+              <CustomerSummaryCard icon={IconCheck} label={t.tracking.completedTrips} value={tracking?.summary.completedDeliveryCount ?? 0} />
+              <CustomerSummaryCard icon={IconPackage} label={t.tracking.remainingQty} value={tracking?.summary.remainingQuantity ?? 0} />
             </section>
 
-            <article className="customer-workspace-card customer-tracking-items-panel">
-              <header>
-                <div>
-                  <h2>Delivery Items</h2>
-                </div>
-                <Link className="customer-workspace-link" to="/customer/chat"><IconMessageCircle size={16} /> Contact team</Link>
-              </header>
-              {deliveryTrackingQuery.isLoading ? <p className="customer-workspace-muted">Loading delivery tracking...</p> : null}
-              {!deliveryTrackingQuery.isLoading && groupedTrackingItems.length === 0 ? <p className="customer-workspace-muted">No delivery items are available yet.</p> : null}
+            <CollapsibleTrackingPanel
+              actions={<Link className="customer-workspace-link" to="/customer/chat"><IconMessageCircle size={16} /> {t.tracking.contactTeam}</Link>}
+              defaultOpen
+              title={t.tracking.deliveryItems}
+            >
+              {deliveryTrackingQuery.isLoading ? <p className="customer-workspace-muted">{t.common.loading}</p> : null}
+              {!deliveryTrackingQuery.isLoading && trackingItems.length === 0 ? <p className="customer-workspace-muted">No delivery items are available yet.</p> : null}
               <div className="customer-tracking-delivery-list">
-                {groupedTrackingItems.map((item) => <DeliveryItemRow item={item} key={item.orderItemIds.join('-')} />)}
+                {trackingItems.map((item) => <DeliveryItemRow item={item} key={item.orderItemId} />)}
               </div>
-            </article>
+            </CollapsibleTrackingPanel>
 
-            <article className="customer-workspace-card customer-tracking-items-panel">
-              <header>
-                <div>
-                  <h2>Delivery Timeline</h2>
-                </div>
-              </header>
+            <CollapsibleTrackingPanel title={t.tracking.deliveryTimeline}>
               <div className="customer-tracking-delivery-list">
                 {(tracking?.timeline ?? []).map((timelineItem, index) => (
                   <TimelineRow item={timelineItem} key={`${timelineItem.projectScheduleId ?? 'schedule'}-${timelineItem.deliveryId ?? index}`} />
                 ))}
               </div>
               {!deliveryTrackingQuery.isLoading && (tracking?.timeline.length ?? 0) === 0 ? <p className="customer-workspace-muted">No delivery timeline yet.</p> : null}
-            </article>
+            </CollapsibleTrackingPanel>
+
+            {order ? (
+              <ProductIssuePanel
+                allowCreate
+                orderId={order.orderId}
+                orderItems={order.items ?? []}
+                projectId={order.projectId}
+                title="My product issues"
+              />
+            ) : null}
           </section>
         </section>
       </div>
@@ -269,6 +270,8 @@ export function Tracking() {
 }
 
 function DeliveryItemRow({ item }: { item: DeliveryTrackingItemDto }) {
+  const { lang } = useLang();
+  const t = customerCopy[lang];
   const status = item.status ?? (item.remainingQuantity > 0 ? 'PARTIALLY_DELIVERED' : 'READY');
   const deliveredPercent = item.orderedQuantity > 0
     ? Math.min(100, Math.round((item.deliveredQuantity / item.orderedQuantity) * 100))
@@ -278,51 +281,53 @@ function DeliveryItemRow({ item }: { item: DeliveryTrackingItemDto }) {
     <article className={`customer-tracking-delivery-row customer-tracking-delivery-row-${status.toLowerCase()}`}>
       <div className="customer-tracking-delivery-main">
         <strong>{item.productName ?? '-'}</strong>
-        <span>{item.orderedQuantity} ordered</span>
+        <span>{item.orderedQuantity} {t.tracking.ordered}</span>
       </div>
       <div className="customer-tracking-progress">
-        <span>{item.deliveredQuantity} delivered / {item.remainingQuantity} remaining</span>
+        <span>{item.deliveredQuantity} {t.tracking.deliveredLabel} / {item.remainingQuantity} {t.tracking.remaining}</span>
         <div aria-hidden="true"><i style={{ width: `${deliveredPercent}%` }} /></div>
       </div>
-      <CustomerStatusBadge label={itemStatusLabels[status] ?? formatEnumLabel(status)} status={status} />
+      <CustomerStatusBadge label={getItemStatusLabel(status, t)} status={status} />
     </article>
   );
 }
 
 function TimelineRow({ item }: { item: DeliveryTrackingTimelineItemDto }) {
+  const { lang } = useLang();
+  const t = customerCopy[lang];
   const status = item.deliveryStatus ?? item.scheduleStatus ?? 'PENDING_CONFIRMATION';
-  const batchItems = groupDeliveryBatchItems(item.items ?? []);
+  const batchItems = item.items ?? [];
   const progressPercent = getTimelineProgressPercent(item);
 
   return (
     <article className={`customer-tracking-timeline-row customer-tracking-delivery-row-${status.toLowerCase()}`}>
       <div className="customer-tracking-timeline-header">
         <div className="customer-tracking-delivery-main">
-          <strong>{item.scheduledStart ? formatDateTime(item.scheduledStart) : 'Delivery schedule'}</strong>
-          <span>{getTimelineScheduleMeta(item)}</span>
+          <strong>{item.scheduledStart ? formatCustomerDateTime(item.scheduledStart, lang) : t.tracking.deliverySchedule}</strong>
+          <span>{getTimelineScheduleMeta(item, lang, t)}</span>
         </div>
         <CustomerStatusBadge label={formatEnumLabel(status)} status={status} />
       </div>
       <div className="customer-tracking-progress">
-        <span>{getTimelineSummary(item)}</span>
+        <span>{getTimelineSummary(item, t)}</span>
         <div aria-hidden="true"><i style={{ width: `${progressPercent}%` }} /></div>
       </div>
-      {item.location ? <p className="customer-tracking-row-note">Location: {item.location}</p> : null}
-      {item.customerNote ? <p className="customer-tracking-row-note">Note: {item.customerNote}</p> : null}
-      {item.cancelReason ? <p className="customer-tracking-row-note">Cancelled: {formatEnumLabel(item.cancelReason)}</p> : null}
+      {item.location ? <p className="customer-tracking-row-note">{t.tracking.location}: {item.location}</p> : null}
+      {item.customerNote ? <p className="customer-tracking-row-note">{t.tracking.note}: {item.customerNote}</p> : null}
+      {item.cancelReason ? <p className="customer-tracking-row-note">{t.tracking.cancelled}: {formatEnumLabel(item.cancelReason)}</p> : null}
       <div className="customer-tracking-timeline-items">
-        <span className="customer-tracking-timeline-items-title">Products in this delivery</span>
+        <span className="customer-tracking-timeline-items-title">{t.tracking.productsInDelivery}</span>
         {batchItems.length > 0 ? (
           <ul>
             {batchItems.map((batchItem) => (
-              <li key={batchItem.groupId}>
-                <span>{batchItem.productName}</span>
-                <strong>{batchItem.quantity}</strong>
+              <li key={batchItem.deliveryItemId ?? `${batchItem.orderItemId}-${getDeliveryBatchItemQuantity(batchItem)}`}>
+                <span>{getDeliveryBatchItemName(batchItem)}</span>
+                <strong>{getDeliveryBatchItemQuantity(batchItem)}</strong>
               </li>
             ))}
           </ul>
         ) : (
-          <p className="customer-workspace-muted">No delivery products added to this schedule yet.</p>
+          <p className="customer-workspace-muted">{t.tracking.noProductsInSchedule}</p>
         )}
       </div>
     </article>
@@ -345,23 +350,84 @@ function canConfirmFinalDelivery(
   return orderStatus === 'AWAITING_CUSTOMER_CONFIRMATION' && !customerConfirmedDeliveryAt;
 }
 
-function getTimelineSummary(item: DeliveryTrackingTimelineItemDto) {
-  if (item.cancelReason) return formatEnumLabel(item.cancelReason);
-  const batchItems = groupDeliveryBatchItems(item.items ?? []);
+function getItemStatusLabel(status: string, t: CustomerCopy) {
+  const labels: Record<string, string> = {
+    PENDING: t.tracking.waiting,
+    PARTIALLY_DELIVERED: t.tracking.partial,
+    PHYSICALLY_DELIVERED: t.tracking.delivered,
+    DELIVERED: t.tracking.delivered,
+    UNAVAILABLE: t.tracking.unavailable,
+    CANCELLED: t.tracking.cancelled,
+  };
 
-  if (batchItems.length === 0) return item.deliveryId ? 'Delivery batch created' : 'Delivery batch has not been created yet';
-
-  const totalQuantity = batchItems.reduce((total, batchItem) => total + batchItem.quantity, 0);
-
-  return `${batchItems.length} product${batchItems.length === 1 ? '' : 's'} / ${totalQuantity} item${totalQuantity === 1 ? '' : 's'} scheduled for delivery`;
+  return labels[status] ?? formatEnumLabel(status);
 }
 
-function getTimelineScheduleMeta(item: DeliveryTrackingTimelineItemDto) {
-  if (item.completedAt) return `Completed ${formatDateTime(item.completedAt)}`;
-  if (item.scheduledEnd) return `Ends ${formatDateTime(item.scheduledEnd)}`;
-  if (item.deliveryId) return 'Delivery batch is in progress';
+function getTimelineSummary(item: DeliveryTrackingTimelineItemDto, t: CustomerCopy) {
+  if (item.cancelReason) return formatEnumLabel(item.cancelReason);
+  const batchItems = item.items ?? [];
 
-  return 'Awaiting delivery batch';
+  if (batchItems.length === 0) return item.deliveryId ? t.tracking.batchCreated : t.tracking.batchNotCreated;
+
+  const totalQuantity = batchItems.reduce((total, batchItem) => total + getDeliveryBatchItemQuantity(batchItem), 0);
+
+  return t.tracking.productsScheduled(batchItems.length, totalQuantity);
+}
+
+function sortDeliveryTrackingItems(items: DeliveryTrackingItemDto[]) {
+  return [...items].sort(
+    (first, second) =>
+      (first.productName ?? '').localeCompare(second.productName ?? '')
+      || first.orderItemId.localeCompare(second.orderItemId),
+  );
+}
+
+function CollapsibleTrackingPanel({
+  actions,
+  children,
+  defaultOpen = false,
+  title,
+}: {
+  actions?: ReactNode;
+  children: ReactNode;
+  defaultOpen?: boolean;
+  title: string;
+}) {
+  const [isOpen, setIsOpen] = useState(defaultOpen);
+
+  return (
+    <article className={`customer-workspace-card customer-tracking-items-panel${isOpen ? ' is-open' : ''}`}>
+      <header>
+        <button
+          aria-expanded={isOpen}
+          className="customer-tracking-panel-toggle"
+          type="button"
+          onClick={() => setIsOpen((current) => !current)}
+        >
+          <span>{title}</span>
+          <IconChevronDown size={18} />
+        </button>
+        {actions ? <div className="customer-tracking-panel-actions">{actions}</div> : null}
+      </header>
+      {isOpen ? <div className="customer-tracking-panel-body">{children}</div> : null}
+    </article>
+  );
+}
+
+function getDeliveryBatchItemName(item: NonNullable<DeliveryTrackingTimelineItemDto['items']>[number]) {
+  return item.productName ?? item.productNameSnapshot ?? item.itemName ?? item.orderItemId;
+}
+
+function getDeliveryBatchItemQuantity(item: NonNullable<DeliveryTrackingTimelineItemDto['items']>[number]) {
+  return item.batchQuantity ?? item.deliveredQuantity ?? item.quantity ?? 0;
+}
+
+function getTimelineScheduleMeta(item: DeliveryTrackingTimelineItemDto, lang: Lang, t: CustomerCopy) {
+  if (item.completedAt) return `${t.tracking.completed} ${formatCustomerDateTime(item.completedAt, lang)}`;
+  if (item.scheduledEnd) return `${t.tracking.ends} ${formatCustomerDateTime(item.scheduledEnd, lang)}`;
+  if (item.deliveryId) return t.tracking.batchInProgress;
+
+  return t.tracking.awaiting;
 }
 
 function getTimelineProgressPercent(item: DeliveryTrackingTimelineItemDto) {
@@ -374,33 +440,23 @@ function getTimelineProgressPercent(item: DeliveryTrackingTimelineItemDto) {
   return 15;
 }
 
-function getTrackingMessage(status?: string | null) {
-  if (status === 'IN_PRODUCTION') return 'Your order is currently in production. Delivery schedules appear after production is completed.';
-  if (status === 'READY_FOR_DELIVERY') return 'Production is complete. The team is planning one or more delivery schedules.';
-  if (status === 'DELIVERING') return 'Delivery is in progress across one or more confirmed schedules.';
-  if (status === 'AWAITING_CUSTOMER_CONFIRMATION') return 'Every item has been physically delivered. Please confirm final receipt.';
-  if (status === 'DELIVERED') return 'Delivery has been confirmed and final payment or completion may be pending.';
-  if (status === 'COMPLETED') return 'This project has been completed.';
+function getTrackingMessage(status: string | null | undefined, t: CustomerCopy) {
+  if (status === 'IN_PRODUCTION') return t.tracking.statusInProduction;
+  if (status === 'READY_FOR_DELIVERY') return t.tracking.statusReadyForDelivery;
+  if (status === 'DELIVERING') return t.tracking.statusDelivering;
+  if (status === 'AWAITING_CUSTOMER_CONFIRMATION') return t.tracking.statusAwaitingConfirmation;
+  if (status === 'DELIVERED') return t.tracking.statusDelivered;
+  if (status === 'COMPLETED') return t.tracking.statusCompleted;
 
-  return 'Production tracking will appear after your order enters the production flow.';
+  return t.tracking.statusDefault;
 }
 
-function getCustomerTrackingStatusLabel(status: string) {
+function getCustomerTrackingStatusLabel(status: string, lang: Lang, t: CustomerCopy) {
   if (status === 'AWAITING_CUSTOMER_CONFIRMATION' || status === 'PHYSICALLY_DELIVERED') {
-    return 'Delivered';
+    return t.tracking.delivered;
   }
 
-  return getProjectStatusLabel(status);
-}
-
-function formatDateTime(value: string) {
-  return new Intl.DateTimeFormat('vi-VN', {
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    month: 'short',
-    year: 'numeric',
-  }).format(new Date(value));
+  return getCustomerProjectStatusLabel(status, lang);
 }
 
 function formatEnumLabel(value: string) {

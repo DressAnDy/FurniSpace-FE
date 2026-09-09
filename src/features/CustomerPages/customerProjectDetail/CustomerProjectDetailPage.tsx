@@ -11,7 +11,14 @@ import {
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 
-import { CustomerNavbar } from '@/features/CustomerPages/customercomponents';
+import { useLang } from '@/app/providers/useLang';
+import { CustomerNavbar, customerCopy } from '@/features/CustomerPages/customercomponents';
+import { ProductIssuePanel } from '@/features/productIssues/ProductIssuePanel';
+import {
+  formatCustomerDate,
+  formatCustomerDateTime,
+  getCustomerProjectStatusLabel,
+} from '@/features/CustomerPages/utils';
 import { ProjectPhaseTimelineCard } from '@/features/projectPhaseDeadlines/ProjectPhaseTimelineCard';
 import { getMeasurementImageServiceResultMessage } from '@/services/api/measurementImages';
 import { getProjectServiceResultMessage, type ProjectStatus } from '@/services/api/projects';
@@ -34,12 +41,15 @@ import { isScheduleVisible } from '@/shared/utils/scheduleVisibility';
 import { CustomerProjectProposalAccordionItem } from './CustomerProjectProposalAccordion';
 import '../customerProjectList/CustomerProjectListPage.css';
 
-type CustomerProjectDetailTab = 'overview' | 'schedules' | 'proposals';
+type CustomerProjectDetailTab = 'overview' | 'schedules' | 'proposals' | 'issues';
 
 export function CustomerProjectDetailPage() {
+  const { lang } = useLang();
+  const t = customerCopy[lang];
   const { projectId } = useParams();
   const [searchParams] = useSearchParams();
   const proposalIdFromUrl = searchParams.get('proposalId');
+  const requestedTab = normalizeCustomerProjectDetailTab(searchParams.get('tab'));
   const navigate = useNavigate();
   const projectQuery = useProjectDetail(projectId);
   const project = projectQuery.data;
@@ -76,7 +86,7 @@ export function CustomerProjectDetailPage() {
   const requestScheduleChangeMutation = useRequestProjectScheduleChange();
   const updateScheduleStatusMutation = useUpdateProjectScheduleStatus();
   const [expandedProposalId, setExpandedProposalId] = useState<string | null>(proposalIdFromUrl);
-  const [activeTab, setActiveTab] = useState<CustomerProjectDetailTab>(proposalIdFromUrl ? 'proposals' : 'overview');
+  const [activeTab, setActiveTab] = useState<CustomerProjectDetailTab>(proposalIdFromUrl ? 'proposals' : requestedTab ?? 'overview');
   const [activeScheduleId, setActiveScheduleId] = useState<string | null>(null);
   const [scheduleActionNotes, setScheduleActionNotes] = useState<Record<string, string>>({});
   const [message, setMessage] = useState<{ tone: 'error' | 'success'; text: string } | null>(null);
@@ -99,6 +109,12 @@ export function CustomerProjectDetailPage() {
     return () => window.cancelAnimationFrame(frameId);
   }, [proposalIdFromUrl, proposals]);
 
+  useEffect(() => {
+    if (requestedTab) {
+      setActiveTab(requestedTab);
+    }
+  }, [requestedTab]);
+
   async function reopenProposalFlow() {
     if (!project) return;
 
@@ -106,7 +122,7 @@ export function CustomerProjectDetailPage() {
 
     try {
       await reopenProposalMutation.mutateAsync(project.projectId);
-      setMessage({ tone: 'success', text: 'Project was reopened to proposal consulting.' });
+      setMessage({ tone: 'success', text: t.projectDetail.reopenedToast });
       setExpandedProposalId(null);
       void projectQuery.refetch();
       void proposalsQuery.refetch();
@@ -125,7 +141,7 @@ export function CustomerProjectDetailPage() {
         status: 'CONFIRMED',
         note: 'Confirmed by customer from project detail.',
       });
-      setMessage({ tone: 'success', text: 'Schedule confirmed successfully.' });
+      setMessage({ tone: 'success', text: t.projectDetail.scheduleConfirmedToast });
       void schedulesQuery.refetch();
     } catch (error) {
       setMessage({ tone: 'error', text: getProjectScheduleServiceResultMessage(error) });
@@ -147,7 +163,7 @@ export function CustomerProjectDetailPage() {
         note: note || 'Cancelled by customer from project detail.',
       });
       setScheduleActionNotes((current) => ({ ...current, [schedule.scheduleId]: '' }));
-      setMessage({ tone: 'success', text: 'Schedule cancelled.' });
+      setMessage({ tone: 'success', text: t.projectDetail.scheduleCancelledToast });
       void schedulesQuery.refetch();
     } catch (error) {
       setMessage({ tone: 'error', text: getProjectScheduleServiceResultMessage(error) });
@@ -168,7 +184,7 @@ export function CustomerProjectDetailPage() {
         note,
       });
       setScheduleActionNotes((current) => ({ ...current, [schedule.scheduleId]: '' }));
-      setMessage({ tone: 'success', text: 'Schedule change request sent.' });
+      setMessage({ tone: 'success', text: t.projectDetail.changeRequestSentToast });
       void schedulesQuery.refetch();
     } catch (error) {
       setMessage({ tone: 'error', text: getProjectScheduleServiceResultMessage(error) });
@@ -179,10 +195,10 @@ export function CustomerProjectDetailPage() {
 
   return (
     <main className="customer-project-list-page">
-      <CustomerNavbar activeLabel="My Projects" classPrefix="customer-project-list" />
+      <CustomerNavbar activeKey="myProjects" classPrefix="customer-project-list" />
 
       <div className="customer-project-list-main">
-        {projectQuery.isLoading ? <section className="customer-project-list-state">Loading project detail...</section> : null}
+        {projectQuery.isLoading ? <section className="customer-project-list-state">{t.common.loading}</section> : null}
         {projectQuery.isError ? <section className="customer-project-list-state is-error">{getProjectServiceResultMessage(projectQuery.error)}</section> : null}
         {message ? <section className={`customer-project-detail-message customer-project-detail-message-${message.tone}`}>{message.text}</section> : null}
 
@@ -190,10 +206,10 @@ export function CustomerProjectDetailPage() {
           <section className="customer-project-detail-card">
             <div className="customer-project-detail-hero">
               <span className={`customer-project-list-status customer-project-list-status-${getStageTone(project.status)}`}>
-                {formatStatusLabel(project.status)}
+                {getCustomerProjectStatusLabel(project.status, lang)}
               </span>
               <div className="customer-project-detail-hero-copy">
-                <span className="customer-project-detail-kicker">Project Overview</span>
+                <span className="customer-project-detail-kicker">{t.projectDetail.overview}</span>
                 <h1>{project.projectName}</h1>
                 <span className="customer-project-detail-code">{project.projectCode}</span>
               </div>
@@ -204,7 +220,7 @@ export function CustomerProjectDetailPage() {
                 <div className="customer-project-detail-actions">
                   {project.status === 'NEED_BASIC_INFORMATION' || project.status === 'SUBMITTED' ? (
                     <button type="button" onClick={() => navigate(`/customer/projects/${project.projectId}/edit`)}>
-                      Update Information
+                      {t.projectDetail.updateInformation}
                     </button>
                   ) : null}
                 </div>
@@ -212,31 +228,34 @@ export function CustomerProjectDetailPage() {
 
               <nav className="customer-project-detail-tabs" aria-label="Project detail sections">
                 <button className={activeTab === 'overview' ? 'is-active' : ''} type="button" onClick={() => setActiveTab('overview')}>
-                  Overview
+                  {t.projectDetail.tabOverview}
                 </button>
                 <button className={activeTab === 'schedules' ? 'is-active' : ''} type="button" onClick={() => setActiveTab('schedules')}>
-                  Schedules
+                  {t.projectDetail.tabSchedules}
                 </button>
                 <button className={activeTab === 'proposals' ? 'is-active' : ''} type="button" onClick={() => setActiveTab('proposals')}>
-                  Proposals
+                  {t.projectDetail.tabProposals}
+                </button>
+                <button className={activeTab === 'issues' ? 'is-active' : ''} type="button" onClick={() => setActiveTab('issues')}>
+                  {t.projectDetail.tabIssue}
                 </button>
               </nav>
 
               {activeTab === 'overview' ? (
                 <>
                   <div className="customer-project-detail-grid">
-                    <DetailBlock icon={IconCalendar} label="Submitted" value={formatDate(project.submittedAt)} />
-                    <DetailBlock icon={IconMapPin} label="Address" value={project.projectAddress ?? 'Not provided'} />
-                    <DetailBlock label="Business Type" value={project.businessType} />
-                    <DetailBlock label="Current Stage" value={getStageLabel(project.status)} />
-                    <DetailBlock label="Area" value={project.totalAreaSqm ? `${project.totalAreaSqm} sqm` : '-'} />
-                    <DetailBlock label="Floors" value={project.numberOfFloors ? String(project.numberOfFloors) : '-'} />
-                    <DetailBlock label="Minimum Budget" value={formatBudgetAmount(project.budgetMin)} />
-                    <DetailBlock label="Maximum Budget" value={formatBudgetAmount(project.budgetMax)} />
+                    <DetailBlock icon={IconCalendar} label={t.projectDetail.submitted} value={formatCustomerDate(project.submittedAt, lang)} />
+                    <DetailBlock icon={IconMapPin} label={t.projectDetail.address} value={project.projectAddress ?? t.common.notSpecified} />
+                    <DetailBlock label={t.common.businessType} value={project.businessType} />
+                    <DetailBlock label={t.projectDetail.currentStage} value={getCustomerProjectStatusLabel(project.status, lang)} />
+                    <DetailBlock label={t.projectDetail.area} value={project.totalAreaSqm ? `${project.totalAreaSqm} sqm` : '-'} />
+                    <DetailBlock label={t.projectDetail.floors} value={project.numberOfFloors ? String(project.numberOfFloors) : '-'} />
+                    <DetailBlock label={t.projectDetail.minBudget} value={formatBudgetAmount(project.budgetMin)} />
+                    <DetailBlock label={t.projectDetail.maxBudget} value={formatBudgetAmount(project.budgetMax)} />
                   </div>
 
                   <section className="customer-project-detail-section">
-                    <h2>Requirements</h2>
+                    <h2>{t.projectDetail.requirements}</h2>
                     <p>{project.furnitureRequirement}</p>
                     {project.description ? <p>{project.description}</p> : null}
                   </section>
@@ -244,12 +263,12 @@ export function CustomerProjectDetailPage() {
                   <ProjectPhaseTimelineCard
                     description=""
                     projectId={project.projectId}
-                    title="Project Timeline"
+                    title={t.projectDetail.projectTimeline}
                   />
 
                   <section className="customer-project-detail-section customer-project-measurement-section">
-                    <h2>Measurement Images</h2>
-                    {measurementImagesQuery.isLoading ? <p className="customer-project-detail-proposals-state">Loading measurement images...</p> : null}
+                    <h2>{t.projectDetail.measurementImages}</h2>
+                    {measurementImagesQuery.isLoading ? <p className="customer-project-detail-proposals-state">{t.common.loading}</p> : null}
                     {measurementImagesQuery.isError ? (
                       <p className="customer-project-detail-proposals-state is-error">
                         {getMeasurementImageServiceResultMessage(measurementImagesQuery.error)}
@@ -267,14 +286,14 @@ export function CustomerProjectDetailPage() {
                             <article className="customer-project-measurement-card" key={image.fileId}>
                               {imageUrl ? (
                                 <button type="button" onClick={() => window.open(imageUrl, '_blank', 'noopener,noreferrer')}>
-                                  <img alt={image.originalFileName ?? 'Measurement'} src={imageUrl} />
+                                  <img alt={image.originalFileName ?? t.projectDetail.measurementImages} src={imageUrl} />
                                 </button>
                               ) : (
                                 <span><IconPhoto size={24} /></span>
                               )}
                               <div>
                                 <strong>{image.originalFileName ?? image.fileId}</strong>
-                                <small>{image.areas?.length ? image.areas.map((area) => area.areaName ?? area.projectAreaId).join(', ') : 'Unassigned'}</small>
+                                <small>{image.areas?.length ? image.areas.map((area) => area.areaName ?? area.projectAreaId).join(', ') : t.common.notSpecified}</small>
                               </div>
                             </article>
                           );
@@ -284,8 +303,8 @@ export function CustomerProjectDetailPage() {
                   </section>
 
                   <section className="customer-project-detail-links">
-                    <Link to="/customer/orders">Orders</Link>
-                    <Link to="/customer/tracking">Delivery Tracking</Link>
+                    <Link to="/customer/orders">{t.projectDetail.orders}</Link>
+                    <Link to="/customer/tracking">{t.projectDetail.deliveryTracking}</Link>
                   </section>
                 </>
               ) : null}
@@ -313,7 +332,7 @@ export function CustomerProjectDetailPage() {
                       <IconPalette size={18} stroke={1.8} />
                     </span>
                     <div>
-                      <h2>Design Proposals</h2>
+                      <h2>{t.projectDetail.designProposals}</h2>
                     </div>
                   </div>
                   <div className="customer-project-detail-proposals-tools">
@@ -328,13 +347,13 @@ export function CustomerProjectDetailPage() {
                         onClick={() => void reopenProposalFlow()}
                       >
                         <IconRefresh size={16} stroke={1.8} />
-                        {reopenProposalMutation.isPending ? 'Reopening...' : 'Reopen Proposal'}
+                        {reopenProposalMutation.isPending ? t.common.loading : t.projectDetail.reopenProposal}
                       </button>
                     ) : null}
                   </div>
                 </header>
 
-                {proposalsQuery.isLoading ? <p className="customer-project-detail-proposals-state">Loading proposals...</p> : null}
+                {proposalsQuery.isLoading ? <p className="customer-project-detail-proposals-state">{t.projectDetail.loadingProposals}</p> : null}
                 {proposalsQuery.isError ? (
                   <p className="customer-project-detail-proposals-state is-error">
                     {getProposalServiceResultMessage(proposalsQuery.error)}
@@ -342,7 +361,7 @@ export function CustomerProjectDetailPage() {
                 ) : null}
                 {!proposalsQuery.isLoading && !proposalsQuery.isError && proposals.length === 0 ? (
                   <p className="customer-project-detail-proposals-state">
-                    No design proposal has been published for this project yet.
+                    {t.projectDetail.noProposals}
                   </p>
                 ) : null}
 
@@ -363,12 +382,26 @@ export function CustomerProjectDetailPage() {
                 </div>
               </section>
               ) : null}
+
+              {activeTab === 'issues' ? (
+                <ProductIssuePanel
+                  allowCreate={false}
+                  projectId={project.projectId}
+                  title={t.projectDetail.tabIssue}
+                />
+              ) : null}
             </div>
           </section>
         ) : null}
       </div>
     </main>
   );
+}
+
+function normalizeCustomerProjectDetailTab(value: string | null): CustomerProjectDetailTab | null {
+  const supportedTabs: CustomerProjectDetailTab[] = ['overview', 'schedules', 'proposals', 'issues'];
+
+  return supportedTabs.includes(value as CustomerProjectDetailTab) ? value as CustomerProjectDetailTab : null;
 }
 
 function CustomerProjectSchedulesTab({
@@ -394,6 +427,8 @@ function CustomerProjectSchedulesTab({
   schedules: ProjectScheduleDto[];
   scheduleError: unknown;
 }) {
+  const { lang } = useLang();
+  const t = customerCopy[lang];
   const pendingCount = schedules.filter((schedule) => schedule.status === 'PENDING_CONFIRMATION').length;
   const upcomingCount = schedules.filter((schedule) => new Date(schedule.scheduledStart).getTime() >= Date.now() && schedule.status !== 'CANCELLED').length;
 
@@ -405,16 +440,15 @@ function CustomerProjectSchedulesTab({
             <IconCalendar size={18} stroke={1.8} />
           </span>
           <div>
-            <h2>Project Schedules</h2>
+            <h2>{t.projectDetail.projectSchedules}</h2>
           </div>
         </div>
         <div className="customer-project-detail-schedule-summary">
-          <span>{pendingCount} pending</span>
-          <span>{upcomingCount} upcoming</span>
+          <span>{t.projectDetail.pendingUpcoming(pendingCount + upcomingCount)}</span>
         </div>
       </header>
 
-      {isLoading ? <p className="customer-project-detail-proposals-state">Loading schedules...</p> : null}
+      {isLoading ? <p className="customer-project-detail-proposals-state">{t.common.loading}</p> : null}
       {scheduleError ? (
         <p className="customer-project-detail-proposals-state is-error">
           {getProjectScheduleServiceResultMessage(scheduleError)}
@@ -429,30 +463,30 @@ function CustomerProjectSchedulesTab({
           <article className="customer-project-detail-schedule-card" key={schedule.scheduleId}>
             <div className="customer-project-detail-schedule-date">
               <IconClock size={18} stroke={1.8} />
-              <strong>{formatDateTime(schedule.scheduledStart)}</strong>
-              <span>{schedule.scheduledEnd ? `Ends ${formatDateTime(schedule.scheduledEnd)}` : 'End time not specified'}</span>
+              <strong>{formatCustomerDateTime(schedule.scheduledStart, lang)}</strong>
+              <span>{schedule.scheduledEnd ? formatCustomerDateTime(schedule.scheduledEnd, lang) : t.common.notSpecified}</span>
             </div>
             <div className="customer-project-detail-schedule-main">
               <div>
-                <h3>{schedule.title ?? formatStatusLabel(schedule.scheduleType)}</h3>
-                <p>{schedule.description ?? schedule.customerNote ?? 'No additional details were provided.'}</p>
+                <h3>{schedule.title ?? getCustomerProjectStatusLabel(schedule.scheduleType, lang)}</h3>
+                <p>{schedule.description ?? schedule.customerNote ?? t.common.notSpecified}</p>
               </div>
               <div className="customer-project-detail-schedule-meta">
-                <span>{formatStatusLabel(schedule.scheduleType)}</span>
+                <span>{getCustomerProjectStatusLabel(schedule.scheduleType, lang)}</span>
                 <strong className={`customer-project-detail-schedule-status customer-project-detail-schedule-status-${schedule.status.toLowerCase().replace(/_/g, '-')}`}>
-                  {formatStatusLabel(schedule.status)}
+                  {getCustomerProjectStatusLabel(schedule.status, lang)}
                 </strong>
               </div>
             </div>
             <div className="customer-project-detail-schedule-footer">
               <span>
                 <IconMapPin size={16} stroke={1.8} />
-                {schedule.location ?? 'Location not specified'}
+                {schedule.location ?? t.common.notSpecified}
               </span>
               {schedule.scheduleType === 'DELIVERY' ? (
                 <Link to="/customer/tracking">
                   <IconTruckDelivery size={16} stroke={1.8} />
-                  Tracking
+                  {t.projectDetail.trackingLink}
                 </Link>
               ) : null}
             </div>
@@ -462,7 +496,7 @@ function CustomerProjectSchedulesTab({
                   <span>Response note</span>
                   <textarea
                     disabled={isUpdating}
-                    placeholder="Add a note for cancellation or schedule change request"
+                    placeholder={t.projectDetail.responseNotePlaceholder}
                     rows={2}
                     value={scheduleActionNotes[schedule.scheduleId] ?? ''}
                     onChange={(event) => onScheduleActionNoteChange(schedule.scheduleId, event.target.value)}
@@ -472,17 +506,17 @@ function CustomerProjectSchedulesTab({
                   {schedule.status === 'PENDING_CONFIRMATION' ? (
                     <button disabled={isUpdating} type="button" onClick={() => onConfirmSchedule(schedule)}>
                       <IconCheck size={16} stroke={2} />
-                      {activeScheduleId === schedule.scheduleId && isUpdating ? 'Confirming...' : 'Confirm'}
+                      {activeScheduleId === schedule.scheduleId && isUpdating ? t.common.confirming : t.common.confirm}
                     </button>
                   ) : null}
                   {schedule.scheduleType === 'DELIVERY' ? (
                     <button className="is-secondary" disabled={isUpdating} type="button" onClick={() => onRequestScheduleChange(schedule)}>
-                      Request Change
+                      {t.projectDetail.requestChange}
                     </button>
                   ) : null}
                   {schedule.status === 'PENDING_CONFIRMATION' ? (
                     <button className="is-danger" disabled={isUpdating} type="button" onClick={() => onCancelSchedule(schedule)}>
-                      Cancel
+                      {t.common.cancel}
                     </button>
                   ) : null}
                 </div>
@@ -519,25 +553,6 @@ function isCustomerVisibleProposal(status: ProposalDto['status']) {
   return ['PUBLISHED', 'REVISION_REQUESTED', 'SELECTED', 'REJECTED'].includes(status);
 }
 
-function getStageLabel(status: ProjectStatus) {
-  const labels: Partial<Record<ProjectStatus, string>> = {
-    SUBMITTED: 'Submitted',
-    NEED_BASIC_INFORMATION: 'Need Info',
-    IN_CONSULTATION: 'In Consultation',
-    PROPOSAL_CONSULTING: 'Proposal Review',
-    PROPOSAL_SELECTED: 'Proposal Selected',
-    QUOTATION_SENT: 'Quotation Sent',
-    ORDER_CONFIRMED: 'Order Confirmed',
-    IN_PRODUCTION: 'In Production',
-    DELIVERING: 'Delivering',
-    AWAITING_CUSTOMER_CONFIRMATION: 'Confirm Delivery',
-    DELIVERED: 'Awaiting Sales Completion',
-    COMPLETED: 'Completed',
-  };
-
-  return labels[status] ?? formatStatusLabel(status);
-}
-
 function getStageTone(status: ProjectStatus) {
   if (status === 'COMPLETED' || status === 'DELIVERED') return 'green';
   if (status === 'AWAITING_CUSTOMER_CONFIRMATION') return 'gold';
@@ -549,32 +564,6 @@ function canReopenProjectProposal(status: ProjectStatus) {
   return status === 'PROPOSAL_SELECTED'
     || status === 'QUOTATION_SENT'
     || status === 'ORDER_CONFIRMED';
-}
-
-function formatStatusLabel(value: string) {
-  return value
-    .toLowerCase()
-    .split('_')
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(' ');
-}
-
-function formatDate(value: string) {
-  return new Intl.DateTimeFormat('en', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-  }).format(new Date(value));
-}
-
-function formatDateTime(value: string) {
-  return new Intl.DateTimeFormat('en', {
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    month: 'short',
-    year: 'numeric',
-  }).format(new Date(value));
 }
 
 function formatBudgetAmount(value: number | null | undefined) {

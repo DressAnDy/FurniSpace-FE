@@ -1,21 +1,24 @@
 import { IconCheck } from '@tabler/icons-react';
 
-import { journeySteps, projectStatusStepMap } from '../utils';
+import { useLang } from '@/app/providers/useLang';
+import { getJourneySteps, projectStatusStepKeys, journeyStepKeys } from '../utils';
 import type { ProjectStatus } from '../types';
 
 import './CustomerWorkspace.css';
 
 export function CustomerTimeline({ status }: { status: ProjectStatus }) {
-  const currentStep = projectStatusStepMap[status];
-  const currentIndex = journeySteps.indexOf(currentStep);
+  const { lang } = useLang();
+  const steps = getJourneySteps(lang);
+  const currentKey = projectStatusStepKeys[status];
+  const currentIndex = journeyStepKeys.indexOf(currentKey);
 
   return (
     <ol className="customer-workspace-timeline">
-      {journeySteps.map((step, index) => {
+      {steps.map((step, index) => {
         const state = index < currentIndex ? 'is-complete' : index === currentIndex ? 'is-current' : '';
 
         return (
-          <li className={state} key={step}>
+          <li className={state} key={journeyStepKeys[index]}>
             <span>{state === 'is-complete' ? <IconCheck size={15} stroke={2.4} /> : index + 1}</span>
             <p>{step}</p>
           </li>

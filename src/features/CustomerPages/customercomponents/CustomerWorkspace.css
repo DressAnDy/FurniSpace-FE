@@ -29,7 +29,7 @@
   margin-bottom: 22px;
   background: linear-gradient(174deg, #2d2d2d 0%, #1e1e1e 100%);
   color: #ffffff;
-  padding: 32px;
+  padding: 18px;
 }
 
 .customer-workspace-eyebrow {
@@ -394,10 +394,8 @@
     padding: 24px var(--fs-workspace-gutter-mobile) 36px;
   }
 
-  .customer-workspace-heading,
-  .customer-workspace-card {
-    padding: 20px;
-  }
+  .customer-workspace-heading { padding: 18px; }
+  .customer-workspace-card { padding: 20px; }
 
   .customer-workspace-heading,
   .customer-workspace-card header,

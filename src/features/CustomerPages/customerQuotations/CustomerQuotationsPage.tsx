@@ -5,7 +5,9 @@ import {
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 
-import { CustomerNavbar } from '@/features/CustomerPages/customercomponents';
+import { useLang } from '@/app/providers/useLang';
+import { CustomerNavbar, customerCopy } from '@/features/CustomerPages/customercomponents';
+import { formatCustomerMoney, getCustomerProjectStatusLabel } from '@/features/CustomerPages/utils';
 import { type OrderListItemDto } from '@/services/api/orders';
 import { getQuotationServiceResultMessage, type QuotationDto, type QuotationItemDto, type QuotationStatus } from '@/services/api/quotations';
 import type { ProjectListItemDto } from '@/services/api/projects';
@@ -19,7 +21,6 @@ import {
   useQuotationDetail,
   useRequestQuotationRevision,
 } from '@/services/queries';
-import { aggregateDuplicateItems } from '@/shared/utils/itemAggregation';
 
 import './CustomerQuotationsPage.css';
 
@@ -37,6 +38,8 @@ const quotationProjectStatuses = new Set([
 const QUOTATION_PROJECT_PAGE_SIZE = 5;
 
 export function CustomerQuotationsPage() {
+  const { lang } = useLang();
+  const t = customerCopy[lang];
   const [selectedProjectId, setSelectedProjectId] = useState('');
   const [selectedQuotationId, setSelectedQuotationId] = useState('');
   const [projectPage, setProjectPage] = useState(1);
@@ -101,7 +104,7 @@ export function CustomerQuotationsPage() {
 
     try {
       await acceptMutation.mutateAsync(selectedQuotation.quotationId);
-      setMessage({ tone: 'success', text: 'Quotation accepted. Your order is being created from this quotation.' });
+      setMessage({ tone: 'success', text: t.quotations.acceptedToast });
       void ordersQuery.refetch();
     } catch (error) {
       setMessage({ tone: 'error', text: getQuotationServiceResultMessage(error) });
@@ -114,7 +117,7 @@ export function CustomerQuotationsPage() {
     if (!selectedQuotation) return;
 
     if (!revisionReason.trim()) {
-      setMessage({ tone: 'error', text: 'Please tell us what needs to be revised.' });
+      setMessage({ tone: 'error', text: t.quotations.revisionRequiredToast });
       return;
     }
 
@@ -126,7 +129,7 @@ export function CustomerQuotationsPage() {
         revisionReason,
       });
       setRevisionReason('');
-      setMessage({ tone: 'success', text: 'Revision request sent to Sales.' });
+      setMessage({ tone: 'success', text: t.quotations.revisionSentToast });
     } catch (error) {
       setMessage({ tone: 'error', text: getQuotationServiceResultMessage(error) });
     }
@@ -134,15 +137,15 @@ export function CustomerQuotationsPage() {
 
   return (
     <main className="customer-quotations-page">
-      <CustomerNavbar activeLabel="Quotations" classPrefix="customer-quotations" />
+      <CustomerNavbar activeKey="quotations" classPrefix="customer-quotations" />
 
       <div className="customer-quotations-main">
         <section className="customer-quotations-heading">
           <div>
-            <h1>Quotations</h1>
+            <h1>{t.quotations.title}</h1>
           </div>
           <Link to="/customer/projects">
-            My Projects
+            {t.quotations.myProjects}
             <IconArrowRight size={16} stroke={1.8} />
           </Link>
         </section>
@@ -156,11 +159,11 @@ export function CustomerQuotationsPage() {
         <section className="customer-quotations-grid">
           <aside className="customer-quotations-project-panel">
             <header>
-              <h2>Project</h2>
+              <h2>{t.quotations.project}</h2>
             </header>
-            {projectsQuery.isLoading ? <p className="customer-quotations-muted">Loading projects...</p> : null}
+            {projectsQuery.isLoading ? <p className="customer-quotations-muted">{t.common.loading}</p> : null}
             {!projectsQuery.isLoading && quotationProjects.length === 0 ? (
-              <p className="customer-quotations-muted">No quotation is available yet. Once Sales sends a quotation, it will appear here.</p>
+              <p className="customer-quotations-muted">{t.quotations.empty}</p>
             ) : null}
             <div className="customer-quotations-project-list">
               {pagedQuotationProjects.map((project) => (
@@ -176,18 +179,18 @@ export function CustomerQuotationsPage() {
                 >
                   <strong>{project.projectName}</strong>
                   <span>{project.projectCode}</span>
-                  <em>{formatEnumLabel(project.status)}</em>
+                  <em>{getCustomerProjectStatusLabel(project.status, lang)}</em>
                 </button>
               ))}
             </div>
             {quotationProjects.length > QUOTATION_PROJECT_PAGE_SIZE ? (
               <footer className="customer-quotations-project-pagination">
                 <button disabled={projectPage === 1} type="button" onClick={() => setProjectPage((page) => Math.max(page - 1, 1))}>
-                  Previous
+                  {t.common.previous}
                 </button>
                 <span>{projectPage} / {projectPageCount}</span>
                 <button disabled={projectPage === projectPageCount} type="button" onClick={() => setProjectPage((page) => Math.min(page + 1, projectPageCount))}>
-                  Next
+                  {t.common.next}
                 </button>
               </footer>
             ) : null}
@@ -236,16 +239,16 @@ function QuotationDetail({
   revisionPending: boolean;
   revisionReason: string;
 }) {
+  const { lang } = useLang();
+  const t = customerCopy[lang];
   const canDecide = quotation.status === 'SENT' || quotation.status === 'REVISED';
   const quotationItems = useMemo(
     () => {
-      const sortedItems = [...(quotation.items ?? [])].sort(
+      return [...(quotation.items ?? [])].sort(
         (first, second) =>
           (first.displayOrder ?? Number.MAX_SAFE_INTEGER) - (second.displayOrder ?? Number.MAX_SAFE_INTEGER)
           || first.quotationItemId.localeCompare(second.quotationItemId),
       );
-
-      return aggregateDuplicateItems(sortedItems);
     },
     [quotation.items],
   );
@@ -256,7 +259,7 @@ function QuotationDetail({
       <header>
         <div>
           <h2>{formatQuotationCode(quotation.quotationCode)}</h2>
-          <p title={proposalName}>{proposalName} - Version {quotation.versionNo ?? 1} - Valid until {quotation.validUntil ?? '-'}</p>
+          <p title={proposalName}>{proposalName} - {t.common.version} {quotation.versionNo ?? 1} - Valid until {quotation.validUntil ?? '-'}</p>
         </div>
         <span className={`customer-quotations-status customer-quotations-status-${statusClass(quotation.status)}`}>
           {formatEnumLabel(quotation.status ?? 'UNKNOWN')}
@@ -265,28 +268,28 @@ function QuotationDetail({
 
       <div className="customer-quotations-total-strip">
         <div>
-          <span>Subtotal</span>
-          <strong>{formatMoney(quotation.subtotalAmount)}</strong>
+          <span>{t.quotations.subtotal}</span>
+          <strong>{formatCustomerMoney(quotation.subtotalAmount)}</strong>
         </div>
         <div>
-          <span>Discount</span>
-          <strong>-{formatMoney(quotation.totalDiscountAmount)}</strong>
+          <span>{t.quotations.discount}</span>
+          <strong>-{formatCustomerMoney(quotation.totalDiscountAmount)}</strong>
         </div>
         <div>
-          <span>Before VAT</span>
-          <strong>{formatMoney(quotation.preVatAmount)}</strong>
+          <span>{t.quotations.beforeVat}</span>
+          <strong>{formatCustomerMoney(quotation.preVatAmount)}</strong>
         </div>
         <div>
-          <span>VAT {formatPercentRate(quotation.vatRate)}</span>
-          <strong>{formatMoney(quotation.vatAmount)}</strong>
+          <span>{t.quotations.vat} {formatPercentRate(quotation.vatRate)}</span>
+          <strong>{formatCustomerMoney(quotation.vatAmount)}</strong>
         </div>
         <div>
-          <span>Deposit</span>
-          <strong>{formatMoney(depositAmount)}</strong>
+          <span>{t.quotations.deposit}</span>
+          <strong>{formatCustomerMoney(depositAmount)}</strong>
         </div>
         <div>
-          <span>Total</span>
-          <strong>{formatMoney(quotation.totalAmount)}</strong>
+          <span>{t.quotations.total}</span>
+          <strong>{formatCustomerMoney(quotation.totalAmount)}</strong>
         </div>
       </div>
 
@@ -296,12 +299,12 @@ function QuotationDetail({
         <table>
           <thead>
             <tr>
-              <th>Item</th>
-              <th>Qty</th>
-              <th>Unit</th>
-              <th>Gross</th>
-              <th>Discount</th>
-              <th>Line Total (before VAT)</th>
+              <th>{t.quotations.item}</th>
+              <th>{t.quotations.qty}</th>
+              <th>{t.quotations.unit}</th>
+              <th>{t.quotations.gross}</th>
+              <th>{t.quotations.discount}</th>
+              <th>{t.quotations.lineTotal}</th>
             </tr>
           </thead>
           <tbody>
@@ -312,10 +315,10 @@ function QuotationDetail({
                   {item.note || item.customizationNote ? <span>{item.note ?? item.customizationNote}</span> : null}
                 </td>
                 <td>{item.quantity ?? '-'}</td>
-                <td>{formatMoney(item.unitPrice)}</td>
-                <td>{formatMoney(item.grossAmount)}</td>
-                <td>{formatMoney(item.discountAmount)}</td>
-                <td>{formatMoney(item.totalAmount)}</td>
+                <td>{formatCustomerMoney(item.unitPrice)}</td>
+                <td>{formatCustomerMoney(item.grossAmount)}</td>
+                <td>{formatCustomerMoney(item.discountAmount)}</td>
+                <td>{formatCustomerMoney(item.totalAmount)}</td>
               </tr>
             ))}
           </tbody>
@@ -324,28 +327,28 @@ function QuotationDetail({
 
       {quotation.salesNote || quotation.customerNote || quotation.revisionReason ? (
         <div className="customer-quotations-note-grid">
-          <NoteBlock label="Sales Note" value={quotation.salesNote} />
-          <NoteBlock label="Customer Note" value={quotation.customerNote} />
-          <NoteBlock label="Revision Reason" value={quotation.revisionReason} />
+          <NoteBlock label={t.quotations.salesNote} value={quotation.salesNote} />
+          <NoteBlock label={t.quotations.customerNote} value={quotation.customerNote} />
+          <NoteBlock label={t.quotations.revisionReason} value={quotation.revisionReason} />
         </div>
       ) : null}
 
       {canDecide ? (
         <section className="customer-quotations-decision">
           <button disabled={acceptPending} type="button" onClick={onAccept}>
-            {acceptPending ? 'Accepting...' : 'Accept Quotation'}
+            {acceptPending ? t.common.confirming : t.quotations.acceptQuotation}
           </button>
           <form onSubmit={onRequestRevision}>
-            <strong>Request Revision</strong>
-            <textarea value={revisionReason} rows={2} placeholder="What should Sales revise?" onChange={(event) => onRevisionReasonChange(event.target.value)} />
+            <strong>{t.quotations.requestRevision}</strong>
+            <textarea value={revisionReason} rows={2} placeholder={t.quotations.revisionPlaceholder} onChange={(event) => onRevisionReasonChange(event.target.value)} />
             <button disabled={revisionPending} type="submit">
               <IconRefresh size={15} stroke={1.8} />
-              {revisionPending ? 'Sending...' : 'Request Revision'}
+              {revisionPending ? t.common.loading : t.quotations.requestRevision}
             </button>
           </form>
         </section>
       ) : (
-        <p className="customer-quotations-muted">This quotation is read-only at its current status.</p>
+        <p className="customer-quotations-muted">{t.quotations.readOnlyNote}</p>
       )}
     </section>
   );
@@ -395,12 +398,6 @@ function formatEnumLabel(value: string) {
     .split('_')
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(' ');
-}
-
-function formatMoney(value?: number | null) {
-  if (typeof value !== 'number') return '-';
-
-  return `${new Intl.NumberFormat('vi-VN').format(value)} VND`;
 }
 
 function getQuotationDepositAmount(quotation: Pick<QuotationDto, 'depositAmount' | 'totalAmount'>) {

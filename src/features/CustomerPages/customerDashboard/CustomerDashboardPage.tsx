@@ -8,7 +8,9 @@ import {
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
-import { CustomerNavbar } from '@/features/CustomerPages/customercomponents';
+import { useLang, type Lang } from '@/app/providers/useLang';
+import { CustomerNavbar, customerCopy, type CustomerCopy } from '@/features/CustomerPages/customercomponents';
+import { formatCustomerDate, formatCustomerDateTime, getCustomerProjectStatusLabel } from '@/features/CustomerPages/utils';
 import { getProjectServiceResultMessage, type ProjectListItemDto, type ProjectStatus } from '@/services/api/projects';
 import { getProjectScheduleServiceResultMessage, type ProjectScheduleDto } from '@/services/api/schedules';
 import { useCurrentUser } from '@/services/queries/useAuth';
@@ -36,15 +38,6 @@ const journeyStatusOrder: JourneyStatus[] = [
   'ORDER_CONFIRMED',
 ];
 
-const journeyLabels: Record<JourneyStatus, string> = {
-  SUBMITTED: 'Request Submitted',
-  IN_CONSULTATION: 'Consultation',
-  SPACE_VERIFIED: 'Space Verified',
-  PROPOSAL_CONSULTING: 'Proposal Consulting',
-  QUOTATION_SENT: 'Quotation',
-  ORDER_CONFIRMED: 'Order Confirmed',
-};
-
 const activeProjectStatuses: ProjectStatus[] = [
   'SUBMITTED',
   'IN_CONSULTATION',
@@ -66,11 +59,13 @@ const activeProjectStatuses: ProjectStatus[] = [
 
 export function CustomerDashboardPage() {
   const navigate = useNavigate();
+  const { lang } = useLang();
+  const t = customerCopy[lang];
   const todayIso = useMemo(() => new Date().toISOString(), []);
   const [scheduleActionMessage, setScheduleActionMessage] = useState('');
   const [activeScheduleActionId, setActiveScheduleActionId] = useState<string | null>(null);
   const currentUserQuery = useCurrentUser();
-  const customerName = getCustomerGreetingName(currentUserQuery.data?.fullName);
+  const customerName = getCustomerGreetingName(currentUserQuery.data?.fullName, t.common.customer);
   const projectsQuery = useProjectList({ page: 1, limit: 50 });
   const activeProject = useMemo(() => getFirstActiveProject(projectsQuery.data?.items ?? []), [projectsQuery.data?.items]);
   const projectDetailQuery = useProjectDetail(activeProject?.projectId);
@@ -101,7 +96,8 @@ export function CustomerDashboardPage() {
     },
   );
   const updateScheduleStatusMutation = useUpdateProjectScheduleStatus();
-  const journeySteps = getJourneySteps(project?.status);
+  const journeyLabels = getJourneyLabels(t);
+  const journeySteps = getJourneySteps(project?.status, journeyLabels);
   const hasActiveProject = Boolean(project);
   const pendingReviewProposals = proposalsQuery.data?.items ?? [];
   const upcomingSchedules = useMemo(
@@ -111,7 +107,7 @@ export function CustomerDashboardPage() {
         .sort((left, right) => new Date(left.scheduledStart).getTime() - new Date(right.scheduledStart).getTime()),
     [schedulesQuery.data?.items, todayIso],
   );
-  const actionConfig = project ? getActionConfig(project.status, project.projectId) : null;
+  const actionConfig = project ? getActionConfig(project.status, t.dashboard, project.projectId) : null;
 
   async function handleScheduleConfirm(schedule: ProjectScheduleDto) {
     setScheduleActionMessage('');
@@ -123,7 +119,7 @@ export function CustomerDashboardPage() {
         status: 'CONFIRMED',
         note: 'Confirmed by customer.',
       });
-      setScheduleActionMessage('Schedule confirmed successfully.');
+      setScheduleActionMessage(t.dashboard.scheduleConfirmed);
     } catch (error) {
       setScheduleActionMessage(getProjectScheduleServiceResultMessage(error));
     } finally {
@@ -133,19 +129,19 @@ export function CustomerDashboardPage() {
 
   return (
     <main className="customer-dashboard-page">
-      <CustomerNavbar activeLabel="Home" classPrefix="customer-dashboard" />
+      <CustomerNavbar activeKey="home" classPrefix="customer-dashboard" />
 
       <div className="customer-dashboard-main">
         <div className="customer-dashboard-layout">
           <div className="customer-dashboard-primary">
             <section className="customer-dashboard-welcome">
-              <h1>Welcome back, {customerName}!</h1>
-              <p>{hasActiveProject ? 'Your interior design journey is in progress. Let us continue transforming your space.' : 'Start a project request so your team can guide the next steps.'}</p>
+              <h1>{t.dashboard.welcomeBack(customerName)}</h1>
+              <p>{hasActiveProject ? t.dashboard.journeyInProgress : t.dashboard.startRequestHint}</p>
             </section>
 
             {projectsQuery.isLoading ? (
               <section className="customer-dashboard-project-card">
-                <p className="customer-dashboard-state">Loading your active project...</p>
+                <p className="customer-dashboard-state">{t.dashboard.loadingActiveProject}</p>
               </section>
             ) : !hasActiveProject ? (
               <section className="customer-dashboard-empty-project">
@@ -153,11 +149,11 @@ export function CustomerDashboardPage() {
                   <IconPlus size={26} stroke={1.8} />
                 </div>
                 <div>
-                  <h2>No active project yet</h2>
-                  <p>Create your first project request so you can follow its progress, schedules, proposals, and team updates from this dashboard.</p>
+                  <h2>{t.dashboard.noActiveProjectTitle}</h2>
+                  <p>{t.dashboard.noActiveProjectDesc}</p>
                 </div>
                 <button type="button" onClick={() => navigate('/customer/project-request')}>
-                  Create Project
+                  {t.dashboard.createProject}
                   <IconArrowRight size={16} stroke={1.8} />
                 </button>
                 {projectsQuery.isError ? <p className="customer-dashboard-api-note">{getProjectServiceResultMessage(projectsQuery.error)}</p> : null}
@@ -167,18 +163,18 @@ export function CustomerDashboardPage() {
                 <div className="customer-dashboard-project-head">
                   <div>
                     <div className="customer-dashboard-title-row">
-                      <h2>Your Active Project</h2>
-                      <span className="customer-dashboard-status">{formatEnumLabel(project.status)}</span>
+                      <h2>{t.dashboard.yourActiveProject}</h2>
+                      <span className="customer-dashboard-status">{getCustomerProjectStatusLabel(project.status, lang)}</span>
                     </div>
-                    <p>Track progress and take next steps</p>
+                    <p>{t.dashboard.trackProgress}</p>
                   </div>
                   <div className="customer-dashboard-project-head-actions">
                     <button type="button" onClick={() => navigate('/customer/tracking')}>
-                      Track Project
+                      {t.dashboard.trackProject}
                       <IconArrowRight size={16} stroke={1.8} />
                     </button>
                     <button type="button" onClick={() => navigate('/customer/projects')}>
-                      Open Project
+                      {t.dashboard.openProject}
                       <IconArrowRight size={16} stroke={1.8} />
                     </button>
                   </div>
@@ -186,21 +182,25 @@ export function CustomerDashboardPage() {
 
                 <div className="customer-dashboard-project-meta">
                   <div>
-                    <span>Project Name</span>
+                    <span>{t.common.projectName}</span>
                     <strong>{project.projectName}</strong>
                   </div>
                   <div>
-                    <span>Business Type</span>
+                    <span>{t.common.businessType}</span>
                     <strong>{project.businessType}</strong>
                   </div>
                   <div>
-                    <span>Budget Range</span>
-                    <strong>{projectDetailQuery.data ? formatBudgetRange(projectDetailQuery.data.budgetMin, projectDetailQuery.data.budgetMax) : 'Available in detail'}</strong>
+                    <span>{t.dashboard.budgetRange}</span>
+                    <strong>
+                      {projectDetailQuery.data
+                        ? formatBudgetRange(projectDetailQuery.data.budgetMin, projectDetailQuery.data.budgetMax, t.common, lang)
+                        : t.dashboard.availableInDetail}
+                    </strong>
                   </div>
                 </div>
 
                 <div className="customer-dashboard-journey">
-                  <h3>Project Journey</h3>
+                  <h3>{t.dashboard.projectJourney}</h3>
                   <ol>
                     {journeySteps.map((step, index) => (
                       <li className={`customer-dashboard-step customer-dashboard-step-${step.status}`} key={step.label}>
@@ -227,20 +227,27 @@ export function CustomerDashboardPage() {
 
           <aside className="customer-dashboard-sidebar">
             {hasActiveProject ? (
-              <DashboardPanel projectId={activeProject?.projectId} title="Pending Your Review">
+              <DashboardPanel
+                projectId={activeProject?.projectId}
+                title={t.dashboard.pendingYourReview}
+                viewAllLabel={t.dashboard.viewAll}
+              >
                 <div className="customer-dashboard-review-list">
-                  {proposalsQuery.isLoading ? <p className="customer-dashboard-state">Loading published proposals...</p> : null}
-                  {proposalsQuery.isError ? <p className="customer-dashboard-api-note">Cannot load published proposals.</p> : null}
+                  {proposalsQuery.isLoading ? <p className="customer-dashboard-state">{t.dashboard.loadingProposals}</p> : null}
+                  {proposalsQuery.isError ? <p className="customer-dashboard-api-note">{t.dashboard.cannotLoadProposals}</p> : null}
                   {!proposalsQuery.isLoading && !proposalsQuery.isError && pendingReviewProposals.length === 0 ? (
-                    <p className="customer-dashboard-state">No published proposals are pending review.</p>
+                    <p className="customer-dashboard-state">{t.dashboard.noPendingProposals}</p>
                   ) : null}
                   {pendingReviewProposals.map((proposal) => (
                     <article key={proposal.proposalId}>
                       <div>
                         <h3>{proposal.proposalName}</h3>
-                        <p>Version {proposal.versionNo} - {proposal.publishedAt ? formatDate(proposal.publishedAt) : 'Published'}</p>
+                        <p>
+                          {t.common.version} {proposal.versionNo} -{' '}
+                          {proposal.publishedAt ? formatCustomerDate(proposal.publishedAt, lang) : t.common.published}
+                        </p>
                         <button type="button" onClick={() => navigate(`/customer/projects/${proposal.projectId}?proposalId=${proposal.proposalId}`)}>
-                          Review
+                          {t.dashboard.review}
                         </button>
                       </div>
                     </article>
@@ -251,26 +258,26 @@ export function CustomerDashboardPage() {
 
             <section className="customer-dashboard-panel customer-dashboard-milestones">
               <div className="customer-dashboard-panel-head">
-                <h2>Project Schedule</h2>
+                <h2>{t.dashboard.projectSchedule}</h2>
               </div>
-              <p className="customer-dashboard-schedule-intro">Schedules created for the project team are shown here for your confirmation and tracking.</p>
+              <p className="customer-dashboard-schedule-intro">{t.dashboard.scheduleIntro}</p>
               {scheduleActionMessage ? (
-                <p className={isScheduleActionError(scheduleActionMessage) ? 'customer-dashboard-schedule-message customer-dashboard-schedule-message-error' : 'customer-dashboard-schedule-message'}>
+                <p className={isScheduleActionError(scheduleActionMessage, t.dashboard.scheduleConfirmed) ? 'customer-dashboard-schedule-message customer-dashboard-schedule-message-error' : 'customer-dashboard-schedule-message'}>
                   {scheduleActionMessage}
                 </p>
               ) : null}
               <div className="customer-dashboard-milestone-list">
-                {!hasActiveProject ? <p className="customer-dashboard-state">Create a project to receive schedules from your team.</p> : null}
-                {hasActiveProject && schedulesQuery.isLoading ? <p className="customer-dashboard-state">Loading project schedules...</p> : null}
+                {!hasActiveProject ? <p className="customer-dashboard-state">{t.dashboard.createProjectForSchedules}</p> : null}
+                {hasActiveProject && schedulesQuery.isLoading ? <p className="customer-dashboard-state">{t.dashboard.loadingSchedules}</p> : null}
                 {hasActiveProject && schedulesQuery.isError ? <p className="customer-dashboard-api-note">{getProjectScheduleServiceResultMessage(schedulesQuery.error)}</p> : null}
                 {hasActiveProject && !schedulesQuery.isLoading && !schedulesQuery.isError && upcomingSchedules.length === 0 ? (
-                  <p className="customer-dashboard-state">No upcoming schedules have been sent for this project.</p>
+                  <p className="customer-dashboard-state">{t.dashboard.noUpcomingSchedules}</p>
                 ) : null}
                 {upcomingSchedules.map((item) => (
                   <article key={item.scheduleId}>
-                    <strong>{formatDateTimeRange(item.scheduledStart, item.scheduledEnd)}</strong>
+                    <strong>{formatDateTimeRange(item.scheduledStart, item.scheduledEnd, lang)}</strong>
                     <h3>{item.title ?? formatEnumLabel(item.scheduleType)}</h3>
-                    <p>{item.description || 'Schedule shared with the project roles and customer.'}</p>
+                    <p>{item.description || t.dashboard.scheduleShared}</p>
                     <span>{formatEnumLabel(item.status)}</span>
                     {item.status === 'PENDING_CONFIRMATION' ? (
                       <div className="customer-dashboard-schedule-actions">
@@ -279,7 +286,7 @@ export function CustomerDashboardPage() {
                           type="button"
                           onClick={() => void handleScheduleConfirm(item)}
                         >
-                          {activeScheduleActionId === item.scheduleId && updateScheduleStatusMutation.isPending ? 'Confirming...' : 'Confirm'}
+                          {activeScheduleActionId === item.scheduleId && updateScheduleStatusMutation.isPending ? t.common.confirming : t.common.confirm}
                         </button>
                       </div>
                     ) : null}
@@ -293,11 +300,11 @@ export function CustomerDashboardPage() {
                 <IconMessageCircle size={28} stroke={1.8} />
               </div>
               <div>
-                <h2>Need Help?</h2>
-                <p>Our team is here to assist you throughout your interior design journey.</p>
+                <h2>{t.dashboard.needHelp}</h2>
+                <p>{t.dashboard.needHelpDesc}</p>
                 <div>
-                  <button type="button" onClick={() => navigate('/customer/projects')}>Contact Your Team</button>
-                  <button type="button" onClick={() => navigate('/customer/dashboard')}>View Help Center</button>
+                  <button type="button" onClick={() => navigate('/customer/projects')}>{t.dashboard.contactYourTeam}</button>
+                  <button type="button" onClick={() => navigate('/customer/dashboard')}>{t.dashboard.viewHelpCenter}</button>
                 </div>
               </div>
             </section>
@@ -312,18 +319,17 @@ type DashboardPanelProps = {
   children: React.ReactNode;
   projectId?: string;
   title: string;
+  viewAllLabel: string;
 };
 
-function DashboardPanel({ children, projectId, title }: DashboardPanelProps) {
-  const href = title === 'Pending Your Review'
-    ? (projectId ? `/customer/projects/${projectId}` : '/customer/projects')
-    : '/customer/projects';
+function DashboardPanel({ children, projectId, title, viewAllLabel }: DashboardPanelProps) {
+  const href = projectId ? `/customer/projects/${projectId}` : '/customer/projects';
 
   return (
     <section className="customer-dashboard-panel">
       <div className="customer-dashboard-panel-head">
         <h2>{title}</h2>
-        <a href={href}>View All</a>
+        <a href={href}>{viewAllLabel}</a>
       </div>
       {children}
     </section>
@@ -336,7 +342,18 @@ function getFirstActiveProject(projects: ProjectListItemDto[]) {
     .sort((left, right) => new Date(right.submittedAt).getTime() - new Date(left.submittedAt).getTime())[0];
 }
 
-function getJourneySteps(status: ProjectStatus | undefined) {
+function getJourneyLabels(t: CustomerCopy): Record<JourneyStatus, string> {
+  return {
+    SUBMITTED: t.journey.requestSubmitted,
+    IN_CONSULTATION: t.journey.consultation,
+    SPACE_VERIFIED: t.journey.spaceVerified,
+    PROPOSAL_CONSULTING: t.journey.proposalConsulting,
+    QUOTATION_SENT: t.journey.quotation,
+    ORDER_CONFIRMED: t.journey.orderConfirmed,
+  };
+}
+
+function getJourneySteps(status: ProjectStatus | undefined, journeyLabels: Record<JourneyStatus, string>) {
   const currentIndex = status ? getJourneyIndex(status) : 0;
 
   return journeyStatusOrder.map((stepStatus, index) => ({
@@ -371,48 +388,48 @@ function getJourneyIndex(status: ProjectStatus) {
   return directIndex >= 0 ? directIndex : 0;
 }
 
-function getActionConfig(status: ProjectStatus, projectId?: string) {
+function getActionConfig(status: ProjectStatus, copy: CustomerCopy['dashboard'], projectId?: string) {
   if (status === 'NEED_BASIC_INFORMATION') {
     return {
-      title: 'Action Required: Add Project Information',
-      description: 'Your sales team needs more details before the project can continue.',
-      label: 'Update Info',
+      title: copy.actionAddInfoTitle,
+      description: copy.actionAddInfoDesc,
+      label: copy.updateInfo,
       path: projectId ? `/customer/projects/${projectId}/edit` : '/customer/projects',
     };
   }
 
   if (status === 'PROPOSAL_CONSULTING') {
     return {
-      title: 'Action Required: Review Design Proposals',
-      description: 'Your designer has published design proposals. Please review and provide feedback.',
-      label: 'Review Now',
+      title: copy.actionReviewProposalsTitle,
+      description: copy.actionReviewProposalsDesc,
+      label: copy.reviewNow,
       path: projectId ? `/customer/projects/${projectId}` : '/customer/projects',
     };
   }
 
   if (status === 'QUOTATION_SENT' || status === 'QUOTATION_REVISION_REQUESTED') {
     return {
-      title: 'Action Required: Review Quotation',
-      description: 'A quotation is ready for review before the next project stage.',
-      label: 'View Quotation',
+      title: copy.actionReviewQuotationTitle,
+      description: copy.actionReviewQuotationDesc,
+      label: copy.viewQuotation,
       path: '/customer/quotations',
     };
   }
 
   if (status === 'AWAITING_CUSTOMER_CONFIRMATION') {
     return {
-      title: 'Action Required: Confirm Delivery',
-      description: 'Every item has been physically delivered. Please confirm final receipt so payment or completion can continue.',
-      label: 'Confirm Delivery',
+      title: copy.actionConfirmDeliveryTitle,
+      description: copy.actionConfirmDeliveryDesc,
+      label: copy.confirmDelivery,
       path: '/customer/tracking',
     };
   }
 
   if (status === 'COMPLETED') {
     return {
-      title: 'Project Completed',
-      description: 'Your project is complete. You can still review the project information anytime.',
-      label: 'Open Project',
+      title: copy.projectCompletedTitle,
+      description: copy.projectCompletedDesc,
+      label: copy.openProject,
       path: `/customer/projects/${projectId}`,
     };
   }
@@ -420,26 +437,35 @@ function getActionConfig(status: ProjectStatus, projectId?: string) {
   return null;
 }
 
-function isScheduleActionError(message: string) {
+function isScheduleActionError(message: string, successMessage: string) {
+  if (message === successMessage) {
+    return false;
+  }
+
   const normalizedMessage = message.toLowerCase();
 
   return !normalizedMessage.includes('success');
 }
 
-function formatBudgetRange(min: number | null | undefined, max: number | null | undefined) {
+function formatBudgetRange(
+  min: number | null | undefined,
+  max: number | null | undefined,
+  common: CustomerCopy['common'],
+  lang: Lang,
+) {
   if (min == null && max == null) {
-    return 'Not specified';
+    return common.notSpecified;
   }
 
   if (min != null && max != null) {
-    return `${formatCurrency(min)} - ${formatCurrency(max)}`;
+    return `${formatCurrency(min, lang)} - ${formatCurrency(max, lang)}`;
   }
 
-  return min != null ? `From ${formatCurrency(min)}` : `Up to ${formatCurrency(max ?? 0)}`;
+  return min != null ? common.from(formatCurrency(min, lang)) : common.upTo(formatCurrency(max ?? 0, lang));
 }
 
-function formatCurrency(value: number) {
-  return new Intl.NumberFormat('en-US', {
+function formatCurrency(value: number, lang: Lang) {
+  return new Intl.NumberFormat(lang === 'vi' ? 'vi-VN' : 'en-US', {
     maximumFractionDigits: 0,
     style: 'currency',
     currency: 'USD',
@@ -454,32 +480,15 @@ function formatEnumLabel(value: string) {
     .join(' ');
 }
 
-function formatDateTimeRange(start: string, end: string | null) {
-  const startText = formatDateTime(start);
-  const endText = end ? formatDateTime(end) : null;
+function formatDateTimeRange(start: string, end: string | null, lang: Lang) {
+  const startText = formatCustomerDateTime(start, lang);
+  const endText = end ? formatCustomerDateTime(end, lang) : null;
 
   return endText ? `${startText} - ${endText}` : startText;
 }
 
-function formatDateTime(value: string) {
-  return new Intl.DateTimeFormat('en', {
-    day: '2-digit',
-    month: 'short',
-    hour: '2-digit',
-    minute: '2-digit',
-  }).format(new Date(value));
-}
-
-function formatDate(value: string) {
-  return new Intl.DateTimeFormat('en', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-  }).format(new Date(value));
-}
-
-function getCustomerGreetingName(fullName?: string | null) {
+function getCustomerGreetingName(fullName?: string | null, fallback = 'Customer') {
   const nameParts = fullName?.trim().split(/\s+/).filter(Boolean) ?? [];
 
-  return nameParts[nameParts.length - 1] ?? 'Customer';
+  return nameParts[nameParts.length - 1] ?? fallback;
 }

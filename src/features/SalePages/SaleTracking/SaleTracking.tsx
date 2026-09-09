@@ -10,7 +10,6 @@ import {
 } from '@tabler/icons-react';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 
-import { groupDeliveryBatchItems, groupDeliveryTrackingItems } from '@/features/deliveryTracking/deliveryItemGrouping';
 import { useLang } from '@/app/providers/useLang';
 import { SaleNavbar, SaleSidebar, saleCopy } from '@/features/SalePages/salecomponents';
 import { getOrderServiceResultMessage, type DeliveryTrackingItemDto, type DeliveryTrackingTimelineItemDto } from '@/services/api/orders';
@@ -97,7 +96,7 @@ export function SaleTracking() {
   );
   const order = orderDetailQuery.data ?? null;
   const tracking = deliveryTrackingQuery.data ?? null;
-  const groupedTrackingItems = useMemo(() => groupDeliveryTrackingItems(tracking?.items ?? []), [tracking?.items]);
+  const trackingItems = useMemo(() => sortDeliveryTrackingItems(tracking?.items ?? []), [tracking?.items]);
   const deliverySchedules = deliverySchedulesQuery.data?.items ?? [];
 
   useEffect(() => {
@@ -298,7 +297,7 @@ export function SaleTracking() {
                   <article className="sale-tracking-card">
                     <header>
                       <h3>{tr.itemFulfillment}</h3>
-                      <p>Quantities are aggregated from delivery batches.</p>
+                      <p>Quantities come from delivery batches.</p>
                     </header>
                     <div className="sale-tracking-table-wrap sale-tracking-items-wrap">
                       <table className="sale-tracking-items-table">
@@ -314,8 +313,8 @@ export function SaleTracking() {
                           {deliveryTrackingQuery.isLoading ? (
                             <tr><td colSpan={4}>{t.common.loading}</td></tr>
                           ) : null}
-                          {groupedTrackingItems.map((item) => <ItemRow item={item} key={item.orderItemIds.join('-')} />)}
-                          {!deliveryTrackingQuery.isLoading && groupedTrackingItems.length === 0 ? (
+                          {trackingItems.map((item) => <ItemRow item={item} key={item.orderItemId} />)}
+                          {!deliveryTrackingQuery.isLoading && trackingItems.length === 0 ? (
                             <tr><td colSpan={4}>{tr.emptyTimeline}</td></tr>
                           ) : null}
                         </tbody>
@@ -427,9 +426,25 @@ function getStatusTone(kind: 'item' | 'order' | 'project' | 'schedule', value: s
 function getTimelineItemsText(item: DeliveryTrackingTimelineItemDto) {
   if (!item.items?.length) return 'Waiting for Production execution';
 
-  return groupDeliveryBatchItems(item.items)
-    .map((batchItem) => `${batchItem.productName}: ${batchItem.quantity}`)
+  return item.items
+    .map((batchItem) => `${getDeliveryBatchItemName(batchItem)}: ${getDeliveryBatchItemQuantity(batchItem)}`)
     .join(', ');
+}
+
+function sortDeliveryTrackingItems(items: DeliveryTrackingItemDto[]) {
+  return [...items].sort(
+    (first, second) =>
+      (first.productName ?? '').localeCompare(second.productName ?? '')
+      || first.orderItemId.localeCompare(second.orderItemId),
+  );
+}
+
+function getDeliveryBatchItemName(item: NonNullable<DeliveryTrackingTimelineItemDto['items']>[number]) {
+  return item.productName ?? item.productNameSnapshot ?? item.itemName ?? item.orderItemId;
+}
+
+function getDeliveryBatchItemQuantity(item: NonNullable<DeliveryTrackingTimelineItemDto['items']>[number]) {
+  return item.batchQuantity ?? item.deliveredQuantity ?? item.quantity ?? 0;
 }
 
 function formatDateTime(value: string) {

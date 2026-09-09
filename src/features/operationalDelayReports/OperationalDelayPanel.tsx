@@ -1,10 +1,16 @@
-import { type FormEvent, useMemo, useState } from 'react';
+import { type FormEvent, useEffect, useMemo, useState } from 'react';
 import { IconAlertTriangle, IconPlus, IconRefresh, IconX } from '@tabler/icons-react';
+import { useSearchParams } from 'react-router-dom';
 
 import {
+  DELIVERY_DELAY_REASON_CODES,
   getOperationalDelayErrorMessage,
+  getReportReasonCode,
+  PRODUCTION_DELAY_REASON_CODES,
+  type DeliveryDelayReasonCode,
   type OperationalDelayPhase,
   type OperationalDelayReportDto,
+  type ProductionDelayReasonCode,
 } from '@/services/api/operationalDelayReports';
 import {
   useCreateDeliveryDelayReport,
@@ -26,21 +32,25 @@ type OperationalDelayPanelProps = {
   title?: string;
 };
 
+const DEFAULT_ALLOWED_PHASES: OperationalDelayPhase[] = ['PRODUCTION', 'DELIVERY'];
+
 export function OperationalDelayPanel({
   allowCreate = true,
-  allowedPhases = ['PRODUCTION', 'DELIVERY'],
+  allowedPhases = DEFAULT_ALLOWED_PHASES,
   defaultPhase,
   deliveryId,
   orderId,
   productionRequestId,
   projectId,
-  title = 'Delay history',
+  title = 'ISSUES',
 }: Readonly<OperationalDelayPanelProps>) {
+  const [searchParams] = useSearchParams();
   const initialPhase = defaultPhase && allowedPhases.includes(defaultPhase) ? defaultPhase : allowedPhases[0];
   const [phase, setPhase] = useState<OperationalDelayPhase>(initialPhase ?? 'PRODUCTION');
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [selectedReportId, setSelectedReportId] = useState('');
-  const [reasonCode, setReasonCode] = useState('');
+  const [productionReasonCode, setProductionReasonCode] = useState<ProductionDelayReasonCode | ''>('');
+  const [deliveryReasonCode, setDeliveryReasonCode] = useState<DeliveryDelayReasonCode | ''>('');
   const [reasonDetail, setReasonDetail] = useState('');
   const [message, setMessage] = useState('');
   const listQuery = useProjectOperationalDelayReports(projectId, phase);
@@ -49,6 +59,21 @@ export function OperationalDelayPanel({
   const createDeliveryMutation = useCreateDeliveryDelayReport();
   const reports = useMemo(() => listQuery.data?.items ?? [], [listQuery.data?.items]);
   const isSubmitting = createProductionMutation.isPending || createDeliveryMutation.isPending;
+  const allowedPhaseKey = allowedPhases.join('|');
+
+  useEffect(() => {
+    const reportId = searchParams.get('delayReportId');
+    const requestedPhase = normalizeDelayPhase(searchParams.get('reportPhase'));
+    const allowedPhaseList = allowedPhaseKey.split('|') as OperationalDelayPhase[];
+
+    if (requestedPhase && allowedPhaseList.includes(requestedPhase)) {
+      setPhase(requestedPhase);
+    }
+
+    if (reportId) {
+      setSelectedReportId(reportId);
+    }
+  }, [allowedPhaseKey, searchParams]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -59,8 +84,23 @@ export function OperationalDelayPanel({
       return;
     }
 
-    if (phase === 'PRODUCTION' && !productionRequestId) {
-      setMessage('A production request is required to record a production delay.');
+    if (detail.length > 4000) {
+      setMessage('Reason detail must be at most 4000 characters.');
+      return;
+    }
+
+    if (phase === 'PRODUCTION') {
+      if (!productionRequestId) {
+        setMessage('A production request is required to record a production delay.');
+        return;
+      }
+
+      if (!productionReasonCode) {
+        setMessage('Production reason code is required.');
+        return;
+      }
+    } else if (!deliveryReasonCode) {
+      setMessage('Delivery reason code is required.');
       return;
     }
 
@@ -68,23 +108,32 @@ export function OperationalDelayPanel({
 
     try {
       if (phase === 'PRODUCTION') {
+        if (!productionRequestId || !productionReasonCode) {
+          return;
+        }
+
         await createProductionMutation.mutateAsync({
-          productionRequestId: productionRequestId!,
+          productionRequestId,
+          productionReasonCode,
           projectId,
-          reasonCode: reasonCode.trim() || null,
           reasonDetail: detail,
         });
+        setProductionReasonCode('');
       } else {
+        if (!deliveryReasonCode) {
+          return;
+        }
+
         await createDeliveryMutation.mutateAsync({
-          deliveryId,
-          orderId,
+          deliveryId: deliveryId || null,
+          deliveryReasonCode,
+          orderId: orderId || null,
           projectId,
-          reasonCode: reasonCode.trim() || null,
           reasonDetail: detail,
         });
+        setDeliveryReasonCode('');
       }
 
-      setReasonCode('');
       setReasonDetail('');
       setIsCreateOpen(false);
     } catch (error) {
@@ -97,7 +146,6 @@ export function OperationalDelayPanel({
       <div className="operational-delay-header">
         <div>
           <h3>{title}</h3>
-          <p>Immutable records of production or delivery schedule risk.</p>
         </div>
         <div className="operational-delay-actions">
           <button
@@ -144,26 +192,30 @@ export function OperationalDelayPanel({
       ) : null}
 
       <div className="operational-delay-list">
-        {reports.map((report) => (
-          <button
-            className="operational-delay-row"
-            key={report.operationalDelayReportId}
-            type="button"
-            onClick={() => setSelectedReportId(report.operationalDelayReportId)}
-          >
-            <span className={`operational-delay-badge is-${report.delayState.toLowerCase()}`}>
-              {formatLabel(report.delayState)}
-            </span>
-            <span>
-              <strong>{report.reasonCode ? formatLabel(report.reasonCode) : 'Schedule risk'}</strong>
-              <small>{report.reasonDetail}</small>
-            </span>
-            <span>
-              <strong>Deadline {formatDate(report.deadlineSnapshot)}</strong>
-              <small>{report.reporterName ?? 'Staff'} · {formatDateTime(report.reportedAt)}</small>
-            </span>
-          </button>
-        ))}
+        {reports.map((report) => {
+          const reasonCode = getReportReasonCode(report);
+
+          return (
+            <button
+              className="operational-delay-row"
+              key={report.operationalDelayReportId}
+              type="button"
+              onClick={() => setSelectedReportId(report.operationalDelayReportId)}
+            >
+              <span className={`operational-delay-badge is-${report.delayState.toLowerCase()}`}>
+                {formatLabel(report.delayState)}
+              </span>
+              <span>
+                <strong>{reasonCode ? formatLabel(reasonCode) : 'Schedule risk'}</strong>
+                <small>{report.reasonDetail}</small>
+              </span>
+              <span>
+                <strong>Deadline {formatDate(report.deadlineSnapshot)}</strong>
+                <small>{report.reporterName ?? 'Staff'} · {formatDateTime(report.reportedAt)}</small>
+              </span>
+            </button>
+          );
+        })}
       </div>
 
       {isCreateOpen ? (
@@ -179,15 +231,43 @@ export function OperationalDelayPanel({
               </button>
             </div>
             <p>This report is permanent and does not create a resolution workflow.</p>
-            <label>
-              <span>Reason code (optional)</span>
-              <input
-                maxLength={100}
-                placeholder={phase === 'PRODUCTION' ? 'e.g. MATERIAL_DELAY' : 'e.g. SITE_NOT_READY'}
-                value={reasonCode}
-                onChange={(event) => setReasonCode(event.target.value.toUpperCase().replace(/\s+/g, '_'))}
-              />
-            </label>
+            {phase === 'PRODUCTION' ? (
+              <label>
+                <span>Production reason code</span>
+                <select
+                  required
+                  value={productionReasonCode}
+                  onChange={(event) =>
+                    setProductionReasonCode(event.target.value as ProductionDelayReasonCode | '')
+                  }
+                >
+                  <option value="">Select a reason</option>
+                  {PRODUCTION_DELAY_REASON_CODES.map((code) => (
+                    <option key={code} value={code}>
+                      {formatLabel(code)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : (
+              <label>
+                <span>Delivery reason code</span>
+                <select
+                  required
+                  value={deliveryReasonCode}
+                  onChange={(event) =>
+                    setDeliveryReasonCode(event.target.value as DeliveryDelayReasonCode | '')
+                  }
+                >
+                  <option value="">Select a reason</option>
+                  {DELIVERY_DELAY_REASON_CODES.map((code) => (
+                    <option key={code} value={code}>
+                      {formatLabel(code)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
             <label>
               <span>Reason detail</span>
               <textarea
@@ -229,6 +309,8 @@ function DelayReportDetail({
   onClose: () => void;
   report?: OperationalDelayReportDto;
 }>) {
+  const reasonCode = report ? getReportReasonCode(report) : null;
+
   return (
     <div className="operational-delay-modal-backdrop">
       <dialog className="operational-delay-modal" open>
@@ -236,12 +318,17 @@ function DelayReportDetail({
           <h3>Delay report detail</h3>
           <button aria-label="Close" type="button" onClick={onClose}><IconX size={18} /></button>
         </div>
-        {isLoading || !report ? <p>Loading report...</p> : (
+        {isLoading || !report ? <p className="operational-delay-state">Loading report...</p> : (
           <div className="operational-delay-detail-grid">
             <Detail label="Phase" value={formatLabel(report.reportPhase)} />
-            <Detail label="State" value={formatLabel(report.delayState)} />
+            <div className="operational-delay-detail-state">
+              <span>State</span>
+              <span className={`operational-delay-badge is-${report.delayState.toLowerCase()}`}>
+                {formatLabel(report.delayState)}
+              </span>
+            </div>
             <Detail label="Deadline snapshot" value={formatDate(report.deadlineSnapshot)} />
-            <Detail label="Reason code" value={report.reasonCode ? formatLabel(report.reasonCode) : '-'} />
+            <Detail label="Reason code" value={reasonCode ? formatLabel(reasonCode) : '-'} />
             <Detail label="Reporter" value={report.reporterName ?? report.reportedBy} />
             <Detail label="Reported at" value={formatDateTime(report.reportedAt)} />
             <div className="operational-delay-detail-wide">
@@ -260,6 +347,14 @@ function Detail({ label, value }: Readonly<{ label: string; value: string }>) {
 
 function formatLabel(value: string) {
   return value.toLowerCase().split('_').map((part) => part.charAt(0).toUpperCase() + part.slice(1)).join(' ');
+}
+
+function normalizeDelayPhase(value: string | null): OperationalDelayPhase | null {
+  if (value === 'PRODUCTION' || value === 'DELIVERY') {
+    return value;
+  }
+
+  return null;
 }
 
 function formatDate(value: string) {

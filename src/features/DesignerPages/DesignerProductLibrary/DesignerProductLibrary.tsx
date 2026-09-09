@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useQueries } from '@tanstack/react-query';
 import { IconArrowLeft, IconBox, IconChevronRight, IconCube, IconLayersIntersect, IconSearch, IconX } from '@tabler/icons-react';
 
@@ -20,6 +20,7 @@ type VersionFilter = 'All Types' | 'Default' | 'Public' | 'Project Specific' | '
 
 const versionFilters: VersionFilter[] = ['All Types', 'Default', 'Public', 'Project Specific', 'Planner Ready'];
 const EMPTY_PRODUCTS: ProductListItemDto[] = [];
+const PRODUCTS_PER_PAGE = 9;
 
 export function DesignerProductLibrary() {
   const [search, setSearch] = useState('');
@@ -74,9 +75,16 @@ export function DesignerProductLibrary() {
       return matchesFilter && matchesSearch;
     });
   }, [activeFilter, cards, search]);
-  const totalPages = Math.max(Math.ceil(visibleCards.length / 6), 1);
-  const pagedCards = visibleCards.slice((page - 1) * 6, page * 6);
+  const totalPages = Math.max(Math.ceil(visibleCards.length / PRODUCTS_PER_PAGE), 1);
+  const currentPage = Math.min(page, totalPages);
+  const pagedCards = visibleCards.slice((currentPage - 1) * PRODUCTS_PER_PAGE, currentPage * PRODUCTS_PER_PAGE);
   const selectedCard = cards.find((card) => card.product.productId === selectedProductId) ?? null;
+
+  useEffect(() => {
+    if (page > totalPages) {
+      setPage(totalPages);
+    }
+  }, [page, totalPages]);
 
   function updateSearch(value: string) {
     setSearch(value);
@@ -92,12 +100,8 @@ export function DesignerProductLibrary() {
     setSelectedProductId(productId);
   }
 
-  function toggleBusinessTypeFilter(businessTypeId: number) {
-    setBusinessTypeFilterIds((currentIds) =>
-      currentIds.includes(businessTypeId)
-        ? currentIds.filter((id) => id !== businessTypeId)
-        : [...currentIds, businessTypeId],
-    );
+  function updateBusinessTypeFilter(value: string) {
+    setBusinessTypeFilterIds(value ? [Number(value)] : []);
     setPage(1);
   }
 
@@ -137,56 +141,35 @@ export function DesignerProductLibrary() {
                 onChange={(event) => updateSearch(event.target.value)}
               />
             </label>
+            <label className="designer-products-select-field">
+              <span>Version type</span>
+              <select value={activeFilter} onChange={(event) => updateFilter(event.target.value as VersionFilter)}>
+                {versionFilters.map((filter) => (
+                  <option key={filter} value={filter}>
+                    {filter}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="designer-products-select-field">
+              <span>Business type</span>
+              <select
+                disabled={businessTypeOptions.length === 0}
+                value={businessTypeFilterIds.length > 0 ? String(businessTypeFilterIds[0]) : ''}
+                onChange={(event) => updateBusinessTypeFilter(event.target.value)}
+              >
+                <option value="">All business types</option>
+                {businessTypeOptions.map((businessType) => (
+                  <option key={businessType.id} value={businessType.id}>
+                    {getBusinessTypeLabel(businessType.name)}
+                  </option>
+                ))}
+              </select>
+            </label>
             <span className="designer-products-filter-count">
               {visibleCards.reduce((total, card) => total + card.versions.length, 0)} versions
             </span>
           </div>
-
-          <div className="designer-products-filter-row">
-            <span className="designer-products-filter-label" id="designer-products-version-filter-label">
-              Version type
-            </span>
-            <fieldset className="designer-products-filter-options" aria-labelledby="designer-products-version-filter-label">
-              {versionFilters.map((filter) => (
-                <button
-                  aria-pressed={activeFilter === filter}
-                  className={activeFilter === filter ? 'is-active' : ''}
-                  key={filter}
-                  type="button"
-                  onClick={() => updateFilter(filter)}
-                >
-                  {filter}
-                </button>
-              ))}
-            </fieldset>
-          </div>
-
-          {businessTypeOptions.length > 0 ? (
-            <div className="designer-products-filter-row">
-              <span className="designer-products-filter-label" id="designer-products-business-filter-label">
-                Business type
-              </span>
-              <fieldset className="designer-products-filter-options" aria-labelledby="designer-products-business-filter-label">
-                {businessTypeOptions.map((businessType) => (
-                  <button
-                    aria-pressed={businessTypeFilterIds.includes(businessType.id)}
-                    className={businessTypeFilterIds.includes(businessType.id) ? 'is-active' : ''}
-                    key={businessType.id}
-                    type="button"
-                    onClick={() => toggleBusinessTypeFilter(businessType.id)}
-                  >
-                    {getBusinessTypeLabel(businessType.name)}
-                  </button>
-                ))}
-                {businessTypeFilterIds.length > 0 ? (
-                  <button className="designer-products-filter-clear" type="button" onClick={() => setBusinessTypeFilterIds([])}>
-                    <IconX size={13} />
-                    Clear
-                  </button>
-                ) : null}
-              </fieldset>
-            </div>
-          ) : null}
         </form>
       ) : null}
 
@@ -229,12 +212,12 @@ export function DesignerProductLibrary() {
 
       {!selectedCard && !productListQuery.isLoading && visibleCards.length > 0 ? (
         <nav className="designer-products-pagination" aria-label="Product library pagination">
-          <span>Page {page} of {totalPages}</span>
+          <span>Page {currentPage} of {totalPages}</span>
           <div>
-            <button disabled={page === 1} type="button" onClick={() => setPage((current) => Math.max(current - 1, 1))}>
+            <button disabled={currentPage === 1} type="button" onClick={() => setPage((current) => Math.max(current - 1, 1))}>
               Previous
             </button>
-            <button disabled={page === totalPages} type="button" onClick={() => setPage((current) => Math.min(current + 1, totalPages))}>
+            <button disabled={currentPage === totalPages} type="button" onClick={() => setPage((current) => Math.min(current + 1, totalPages))}>
               Next
             </button>
           </div>
@@ -289,10 +272,9 @@ function ProductCard({ card, onOpen }: { card: ProductLibraryCardData; onOpen: (
         </div>
         <h3>{product.productName}</h3>
         <p className="designer-product-name">{product.description || 'No description yet.'}</p>
-        <p className="designer-product-code">{product.productCode || product.productId}</p>
         <div className="designer-product-summary">
+          <span>{product.productCode || product.productId}</span>
           <span>{versions.length} version{versions.length === 1 ? '' : 's'}</span>
-          <span>{card.hasModel3d ? 'Has MODEL_3D' : 'No model yet'}</span>
         </div>
         <button className="designer-product-open-button" type="button" onClick={() => onOpen(product.productId)}>
           View versions

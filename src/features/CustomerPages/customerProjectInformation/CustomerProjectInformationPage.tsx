@@ -2,7 +2,8 @@ import { IconFileText, IconPhoto, IconUpload, IconX } from '@tabler/icons-react'
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 
-import { CustomerNavbar } from '@/features/CustomerPages/customercomponents';
+import { useLang } from '@/app/providers/useLang';
+import { CustomerNavbar, customerCopy } from '@/features/CustomerPages/customercomponents';
 import {
   getProjectServiceResultMessage,
   normalizeOptionalText,
@@ -27,6 +28,8 @@ import '../customerProjectRequest/CustomerProjectRequestPage.css';
 export function CustomerProjectInformationPage() {
   const { projectId } = useParams();
   const navigate = useNavigate();
+  const { lang } = useLang();
+  const t = customerCopy[lang];
   const projectQuery = useProjectDetail(projectId);
   const updateProjectMutation = useUpdateProjectBasicInformation();
   const uploadProjectFileMutation = useUploadProjectFile();
@@ -103,7 +106,7 @@ export function CustomerProjectInformationPage() {
     setFormMessage(null);
 
     if (!projectId) {
-      setFormMessage('Project id is missing.');
+      setFormMessage(t.projectRequest.missingProjectId);
       return;
     }
 
@@ -177,58 +180,58 @@ export function CustomerProjectInformationPage() {
 
   return (
     <main className="customer-project-request-page">
-      <CustomerNavbar activeLabel="My Projects" classPrefix="customer-project-request" />
+      <CustomerNavbar activeKey="myProjects" classPrefix="customer-project-request" />
 
       <div className="customer-project-request-shell">
         <div className="customer-project-request-main">
           <header className="customer-project-request-header">
-            <h1>Update Project Information</h1>
+            <h1>{t.projectRequest.updateTitle}</h1>
           </header>
 
-          {projectQuery.isLoading ? <p className="customer-project-request-message">Loading project information...</p> : null}
+          {projectQuery.isLoading ? <p className="customer-project-request-message">{t.projectRequest.loading}</p> : null}
           {projectQuery.isError ? <p className="customer-project-request-message">{getProjectServiceResultMessage(projectQuery.error)}</p> : null}
           {project && !canEdit ? (
-            <p className="customer-project-request-message">This project is not editable in its current status.</p>
+            <p className="customer-project-request-message">{t.projectRequest.notEditable}</p>
           ) : null}
 
           {project ? (
             <form className="customer-project-request-form" noValidate onSubmit={handleSubmit}>
-              <FormSection title="Basic Information">
+              <FormSection title={t.projectRequest.basicInformation}>
                 <div className="customer-project-request-grid">
-                  <Field label="Project Name *">
+                  <Field label={t.projectRequest.projectName}>
                     <input defaultValue={project.projectName} disabled={!canEdit || isSubmitting} name="projectName" required type="text" />
                   </Field>
-                  <Field label="Business Type *">
+                  <Field label={t.projectRequest.businessType}>
                     <select defaultValue={project.businessType} disabled={!canEdit || isSubmitting} name="businessType" required>
-                      <option value="Cafe">Cafe</option>
-                      <option value="Retail">Retail</option>
-                      <option value="Office">Office</option>
-                      <option value="Restaurant">Restaurant</option>
-                      <option value="Showroom">Showroom</option>
+                      <option value="Cafe">{t.projectRequest.cafe}</option>
+                      <option value="Retail">{t.projectRequest.retail}</option>
+                      <option value="Office">{t.projectRequest.office}</option>
+                      <option value="Restaurant">{t.projectRequest.restaurant}</option>
+                      <option value="Showroom">{t.projectRequest.showroom}</option>
                     </select>
                   </Field>
                 </div>
 
-                <Field label="Business Purpose">
+                <Field label={t.projectRequest.businessPurpose}>
                   <input defaultValue={project.businessPurpose ?? ''} disabled={!canEdit || isSubmitting} name="businessPurpose" type="text" />
                 </Field>
 
-                <Field label="Project Address">
+                <Field label={t.projectRequest.address}>
                   <input defaultValue={project.projectAddress ?? ''} disabled={!canEdit || isSubmitting} name="projectAddress" type="text" />
                 </Field>
 
-                <Field label="Furniture Requirement *">
+                <Field label={t.projectRequest.furnitureRequirement}>
                   <textarea defaultValue={project.furnitureRequirement} disabled={!canEdit || isSubmitting} name="furnitureRequirement" required rows={3} />
                 </Field>
 
-                <Field label="Description">
+                <Field label={t.projectRequest.description}>
                   <textarea defaultValue={project.description ?? ''} disabled={!canEdit || isSubmitting} name="description" rows={4} />
                 </Field>
               </FormSection>
 
-              <FormSection title="Space Details">
+              <FormSection title={t.projectRequest.spaceDetails}>
                 <div className="customer-project-request-grid">
-                  <Field error={fieldErrors.totalAreaSqm} label="Total Area (sqm)">
+                  <Field error={fieldErrors.totalAreaSqm} label={t.projectRequest.totalArea}>
                     <input
                       aria-invalid={Boolean(fieldErrors.totalAreaSqm)}
                       className={fieldErrors.totalAreaSqm ? 'customer-project-request-input-invalid' : undefined}
@@ -242,7 +245,7 @@ export function CustomerProjectInformationPage() {
                       onChange={(event) => syncSpaceAndBudgetFieldErrors(event.currentTarget.form)}
                     />
                   </Field>
-                  <Field error={fieldErrors.numberOfFloors} label="Number of Floors">
+                  <Field error={fieldErrors.numberOfFloors} label={t.projectRequest.floors}>
                     <input
                       aria-invalid={Boolean(fieldErrors.numberOfFloors)}
                       className={fieldErrors.numberOfFloors ? 'customer-project-request-input-invalid' : undefined}
@@ -259,9 +262,9 @@ export function CustomerProjectInformationPage() {
                 </div>
               </FormSection>
 
-              <FormSection title="Budget & Timeline">
+              <FormSection title={t.projectRequest.budgetTimeline}>
                 <div className="customer-project-request-grid">
-                  <Field error={fieldErrors.budgetMin} label="Minimum Budget">
+                  <Field error={fieldErrors.budgetMin} label={t.projectRequest.minBudget}>
                     <div className="customer-project-request-input-with-suffix">
                       <input
                         aria-invalid={Boolean(fieldErrors.budgetMin)}
@@ -283,7 +286,7 @@ export function CustomerProjectInformationPage() {
                       </span>
                     </div>
                   </Field>
-                  <Field error={fieldErrors.budgetMax} label="Maximum Budget">
+                  <Field error={fieldErrors.budgetMax} label={t.projectRequest.maxBudget}>
                     <div className="customer-project-request-input-with-suffix">
                       <input
                         aria-invalid={Boolean(fieldErrors.budgetMax)}
@@ -307,7 +310,7 @@ export function CustomerProjectInformationPage() {
                   </Field>
                 </div>
 
-                <Field error={fieldErrors.targetCompletionDate} label="Target Completion Date">
+                <Field error={fieldErrors.targetCompletionDate} label={t.projectRequest.targetCompletionDate}>
                   <input
                     aria-invalid={Boolean(fieldErrors.targetCompletionDate)}
                     className={fieldErrors.targetCompletionDate ? 'customer-project-request-input-invalid' : undefined}
@@ -321,7 +324,7 @@ export function CustomerProjectInformationPage() {
                 </Field>
               </FormSection>
 
-              <FormSection title="Additional Files">
+              <FormSection title={t.projectRequest.projectFiles}>
                 <div
                   className={`customer-project-request-upload ${isDraggingFiles ? 'customer-project-request-upload-active' : ''}`}
                   role="button"
@@ -343,8 +346,10 @@ export function CustomerProjectInformationPage() {
                   }}
                 >
                   <IconUpload size={48} stroke={1.7} />
-                  <strong>{selectedFiles.length > 0 ? `${selectedFiles.length} file(s) ready to upload` : 'Click to upload or drag and drop'}</strong>
-                  <span>{isDraggingFiles ? 'Drop files here' : 'Images, PDFs, 3D files, documents up to backend limit'}</span>
+                  <strong>
+                    {selectedFiles.length > 0 ? t.projectRequest.filesReady(selectedFiles.length) : t.projectRequest.uploadHint}
+                  </strong>
+                  <span>{isDraggingFiles ? t.projectRequest.dropFiles : t.projectRequest.uploadTypes}</span>
                   <input
                     ref={fileInputRef}
                     disabled={!canEdit || isSubmitting}
@@ -358,7 +363,7 @@ export function CustomerProjectInformationPage() {
                 </div>
                 {selectedFiles.length > 0 ? (
                   <div className="customer-project-request-file-preview">
-                    <p className="customer-project-request-file-count">{selectedFiles.length} file(s) selected</p>
+                    <p className="customer-project-request-file-count">{t.projectRequest.filesReady(selectedFiles.length)}</p>
                     <div className="customer-project-request-file-grid-preview">
                       {selectedFiles.map((file) => (
                         <SelectedFilePreview
@@ -376,9 +381,9 @@ export function CustomerProjectInformationPage() {
 
               <div className="customer-project-request-actions">
                 <button disabled={!canEdit || isSubmitting} type="submit">
-                  {isSubmitting ? 'Submitting...' : 'Submit Updated Information'}
+                  {isSubmitting ? t.projectRequest.submitting : t.projectRequest.submitUpdated}
                 </button>
-                <a href="/customer/projects">Cancel</a>
+                <a href="/customer/projects">{t.common.cancel}</a>
               </div>
             </form>
           ) : null}
