@@ -219,6 +219,14 @@ function getNotificationTargetPath(notification: NotificationDto, role?: string)
     typeof notification.metadata?.productionRequestId === 'string'
       ? notification.metadata.productionRequestId
       : null;
+  const orderId = asNotificationString(notification.metadata?.orderId);
+  const reportPhase = asNotificationString(notification.metadata?.reportPhase)?.toUpperCase();
+  const operationalDelayReportId =
+    asNotificationString(notification.metadata?.operationalDelayReportId)
+    ?? (notification.referenceType === 'OPERATIONAL_DELAY_REPORT' ? notification.referenceId : null);
+  const productIssueId =
+    asNotificationString(notification.metadata?.deliveryProductIssueReportId)
+    ?? (notification.referenceType === 'DELIVERY_PRODUCT_ISSUE_REPORT' ? notification.referenceId : null);
 
   if (notification.referenceType === 'PROJECT_CHAT_MESSAGE' || notification.notificationType === 'ProjectChatMessageSent') {
     const chatQuery = chatId ? `&chatId=${encodeURIComponent(chatId)}` : '';
@@ -244,6 +252,70 @@ function getNotificationTargetPath(notification: NotificationDto, role?: string)
     if (chatId) customerParams.set('chatId', chatId);
 
     return `/customer/chat${customerParams.size > 0 ? `?${customerParams.toString()}` : ''}`;
+  }
+
+  if (notification.referenceType === 'OPERATIONAL_DELAY_REPORT' || notification.notificationType === 'ProductionDelayReported' || notification.notificationType === 'DeliveryDelayReported') {
+    const delayParams = new URLSearchParams();
+    delayParams.set('tab', 'delays');
+    if (operationalDelayReportId) delayParams.set('delayReportId', operationalDelayReportId);
+    if (reportPhase) delayParams.set('reportPhase', reportPhase);
+
+    if (normalizedRole === 'ADMIN') {
+      if (notification.projectId) delayParams.set('projectId', notification.projectId);
+      return `/admin/projects?${delayParams.toString()}`;
+    }
+
+    if (normalizedRole === 'SALES') {
+      return notification.projectId
+        ? `/sales/assigned-projects/${notification.projectId}?${delayParams.toString()}`
+        : '/sales/assigned-projects';
+    }
+
+    if (normalizedRole === 'PRODUCTION') {
+      if (reportPhase === 'PRODUCTION' && productionRequestId) {
+        if (operationalDelayReportId) {
+          return `/production/requests/${encodeURIComponent(productionRequestId)}?delayReportId=${encodeURIComponent(operationalDelayReportId)}`;
+        }
+
+        return `/production/requests/${encodeURIComponent(productionRequestId)}`;
+      }
+
+      const deliveryParams = new URLSearchParams();
+      if (orderId) deliveryParams.set('orderId', orderId);
+      if (operationalDelayReportId) deliveryParams.set('delayReportId', operationalDelayReportId);
+      if (reportPhase) deliveryParams.set('reportPhase', reportPhase);
+
+      return `/production/ready-for-delivery${deliveryParams.size > 0 ? `?${deliveryParams.toString()}` : ''}`;
+    }
+
+    return notification.projectId ? `/customer/projects/${notification.projectId}` : '/customer/projects';
+  }
+
+  if (notification.referenceType === 'DELIVERY_PRODUCT_ISSUE_REPORT' || notification.notificationType === 'ProductIssueReported') {
+    const issueParams = new URLSearchParams();
+    issueParams.set('tab', 'issues');
+    if (productIssueId) issueParams.set('issueId', productIssueId);
+
+    if (normalizedRole === 'ADMIN') {
+      if (notification.projectId) issueParams.set('projectId', notification.projectId);
+      return `/admin/projects?${issueParams.toString()}`;
+    }
+
+    if (normalizedRole === 'SALES') {
+      return '/sales/orders';
+    }
+
+    if (normalizedRole === 'PRODUCTION') {
+      const deliveryParams = new URLSearchParams();
+      if (orderId) deliveryParams.set('orderId', orderId);
+      if (productIssueId) deliveryParams.set('issueId', productIssueId);
+
+      return `/production/ready-for-delivery${deliveryParams.size > 0 ? `?${deliveryParams.toString()}` : ''}`;
+    }
+
+    return notification.projectId
+      ? `/customer/projects/${notification.projectId}?${issueParams.toString()}`
+      : '/customer/orders';
   }
 
   if (notification.referenceType === 'PROJECT_SCHEDULE') {
@@ -343,6 +415,10 @@ function getNotificationTargetPath(notification: NotificationDto, role?: string)
   }
 
   return '/customer/projects';
+}
+
+function asNotificationString(value: unknown) {
+  return typeof value === 'string' && value.length > 0 ? value : null;
 }
 
 function normalizeRole(role?: string) {

@@ -161,6 +161,7 @@ type CustomerCopy = {
     tabOverview: string;
     tabSchedules: string;
     tabProposals: string;
+    tabIssue: string;
     submitted: string;
     address: string;
     currentStage: string;
@@ -628,6 +629,7 @@ const en: CustomerCopy = {
     tabOverview: 'Overview',
     tabSchedules: 'Schedules',
     tabProposals: 'Proposals',
+    tabIssue: 'Issue',
     submitted: 'Submitted',
     address: 'Address',
     currentStage: 'Current Stage',
@@ -1096,6 +1098,7 @@ const vi: CustomerCopy = {
     tabOverview: 'Tổng quan',
     tabSchedules: 'Lịch trình',
     tabProposals: 'Đề xuất',
+    tabIssue: 'Sự cố',
     submitted: 'Ngày gửi',
     address: 'Địa chỉ',
     currentStage: 'Giai đoạn hiện tại',

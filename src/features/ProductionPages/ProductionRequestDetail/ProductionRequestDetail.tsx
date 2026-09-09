@@ -7,7 +7,7 @@ import {
   ProductionLayout,
   ProductionStatusBadge,
 } from '@/features/ProductionPages/productioncomponents';
-import type { ProductionItem, ProductionItemStatus, ProductionRequestStatus } from '@/features/ProductionPages/types';
+import type { ProductionItem, ProductionRequestStatus } from '@/features/ProductionPages/types';
 import { OperationalDelayPanel } from '@/features/operationalDelayReports/OperationalDelayPanel';
 import { formatDate, getProductionItemStatusLabel, getProductionRequestStatusLabel } from '@/features/ProductionPages/utils';
 import { ProjectPhaseTimelineCard } from '@/features/projectPhaseDeadlines/ProjectPhaseTimelineCard';
@@ -31,7 +31,7 @@ export function ProductionRequestDetail() {
   const completeMutation = useCompleteProductionRequest();
   const itemStatusMutation = useUpdateProductionItemStatus();
   const request = requestQuery.data ?? null;
-  const groupedItems = useMemo(() => groupProductionItems(request?.items ?? []), [request?.items]);
+  const productionItems = useMemo(() => sortProductionItems(request?.items ?? []), [request?.items]);
   const canUpdateProductionItems = canUpdateProductionItemsForRequest(request?.status);
 
   if (requestQuery.isLoading) {
@@ -68,66 +68,58 @@ export function ProductionRequestDetail() {
     }
   }
 
-  async function startItemGroup(group: ProductionItemGroup) {
+  async function startProductionItem(item: ProductionItem) {
     if (!canUpdateProductionItems) {
       setMessage({ tone: 'error', text: 'Start this production request before updating production items.' });
       return;
     }
 
-    if (group.status !== 'PENDING') {
+    if (item.status !== 'PENDING') {
       return;
     }
 
     setMessage(null);
 
     try {
-      for (const item of group.items) {
-        await itemStatusMutation.mutateAsync({
-          cancellationReason: null,
-          productionItemId: item.productionItemId,
-          productionNote: null,
-          status: 'IN_PRODUCTION',
-        });
-      }
+      await itemStatusMutation.mutateAsync({
+        cancellationReason: null,
+        productionItemId: item.productionItemId,
+        productionNote: null,
+        status: 'IN_PRODUCTION',
+      });
 
       setMessage({
         tone: 'success',
-        text: `${group.totalQuantity} production item quantity started.`,
+        text: `${item.quantity} production item quantity started.`,
       });
     } catch (error) {
       setMessage({ tone: 'error', text: getProductionServiceResultMessage(error) });
     }
   }
 
-  async function completeItemGroup(group: ProductionItemGroup) {
+  async function completeProductionItem(item: ProductionItem) {
     if (!canUpdateProductionItems) {
       setMessage({ tone: 'error', text: 'Start this production request before updating production items.' });
       return;
     }
 
-    const inProductionItems = group.items.filter((item) => item.status === 'IN_PRODUCTION');
-
-    if (inProductionItems.length === 0) {
+    if (item.status !== 'IN_PRODUCTION') {
       return;
     }
 
     setMessage(null);
 
     try {
-      for (const item of inProductionItems) {
-        await itemStatusMutation.mutateAsync({
-          cancellationReason: null,
-          productionItemId: item.productionItemId,
-          productionNote: null,
-          status: 'COMPLETED',
-        });
-      }
-
-      const completedQuantity = inProductionItems.reduce((total, item) => total + item.quantity, 0);
+      await itemStatusMutation.mutateAsync({
+        cancellationReason: null,
+        productionItemId: item.productionItemId,
+        productionNote: null,
+        status: 'COMPLETED',
+      });
 
       setMessage({
         tone: 'success',
-        text: `${completedQuantity} production item quantity completed.`,
+        text: `${item.quantity} production item quantity completed.`,
       });
     } catch (error) {
       setMessage({ tone: 'error', text: getProductionServiceResultMessage(error) });
@@ -210,7 +202,7 @@ export function ProductionRequestDetail() {
           {activeTab === 'Overview' ? (
             <section className="production-workspace-detail-grid">
               <Field label="Project Information" value={`${request.projectCode} - ${request.projectName}`} />
-              <Field label="Order Summary" value={`${request.orderCode}, ${request.items.length} production item(s)`} />
+              <Field label="Order Summary" value={`${request.orderCode}, ${request.items.length} production line(s)`} />
               <Field label="Assigned Production Staff" value={request.assignedToName ?? '-'} />
               <Field label="Request Note" value={request.note ?? '-'} />
               <Field label="Production Deadline" value={formatDate(request.productionDeadline)} />
@@ -237,23 +229,22 @@ export function ProductionRequestDetail() {
                   </tr>
                 </thead>
                 <tbody>
-                  {groupedItems.map((group) => (
-                    <tr key={group.key}>
+                  {productionItems.map((item) => (
+                    <tr key={item.productionItemId}>
                       <td>
-                        <strong>{group.productName}</strong>
-                        {group.items.length > 1 ? <small>{group.items.length} matching record(s)</small> : null}
+                        <strong>{item.productNameSnapshot}</strong>
                       </td>
-                      <td>{group.productVersionName}</td>
-                      <td>{group.totalQuantity}</td>
-                      <td><ProductionStatusBadge label={getProductionItemStatusLabel(group.status)} status={group.status} /></td>
-                      <td>{formatDate(group.startAt)}</td>
-                      <td>{formatDate(group.completedAt)}</td>
+                      <td>{item.productVersionNameSnapshot ?? '-'}</td>
+                      <td>{item.quantity}</td>
+                      <td><ProductionStatusBadge label={getProductionItemStatusLabel(item.status)} status={item.status} /></td>
+                      <td>{formatDate(getProductionItemStartAt(item))}</td>
+                      <td>{formatDate(item.completedAt)}</td>
                       <td>
                         <div className="production-workspace-row-actions">
-                          {group.status === 'PENDING' ? (
-                            <button disabled={itemStatusMutation.isPending || !canUpdateProductionItems} type="button" onClick={() => void startItemGroup(group)}>Start Items</button>
-                          ) : group.status === 'IN_PRODUCTION' ? (
-                            <button disabled={itemStatusMutation.isPending || !canUpdateProductionItems} type="button" onClick={() => void completeItemGroup(group)}>Complete Items</button>
+                          {item.status === 'PENDING' ? (
+                            <button disabled={itemStatusMutation.isPending || !canUpdateProductionItems} type="button" onClick={() => void startProductionItem(item)}>Start Item</button>
+                          ) : item.status === 'IN_PRODUCTION' ? (
+                            <button disabled={itemStatusMutation.isPending || !canUpdateProductionItems} type="button" onClick={() => void completeProductionItem(item)}>Complete Item</button>
                           ) : (
                             <span className="production-workspace-muted">-</span>
                           )}
@@ -289,65 +280,16 @@ function Field({ label, value }: { label: string; value: string }) {
   );
 }
 
-type ProductionItemGroup = {
-  completedAt?: string;
-  items: ProductionItem[];
-  key: string;
-  productName: string;
-  productVersionName: string;
-  startAt?: string;
-  status: ProductionItemStatus;
-  totalQuantity: number;
-};
-
-function groupProductionItems(items: ProductionItem[]): ProductionItemGroup[] {
-  const groupsByKey = new Map<string, ProductionItemGroup>();
-
-  for (const item of items) {
-    const key = [
-      item.productVersionId ?? item.productVersionNameSnapshot ?? item.productNameSnapshot,
-      item.productNameSnapshot,
-      item.productVersionNameSnapshot ?? '-',
-    ].join('|');
-    const existingGroup = groupsByKey.get(key);
-
-    if (existingGroup) {
-      existingGroup.items.push(item);
-      existingGroup.totalQuantity += item.quantity;
-      existingGroup.startAt = getEarliestDateValue(existingGroup.startAt, getProductionItemStartAt(item));
-      continue;
-    }
-
-    groupsByKey.set(key, {
-      completedAt: item.completedAt,
-      items: [item],
-      key,
-      productName: item.productNameSnapshot,
-      productVersionName: item.productVersionNameSnapshot ?? '-',
-      startAt: getProductionItemStartAt(item),
-      status: item.status,
-      totalQuantity: item.quantity,
-    });
-  }
-
-  return Array.from(groupsByKey.values());
+function sortProductionItems(items: ProductionItem[]) {
+  return [...items].sort(
+    (first, second) =>
+      first.productNameSnapshot.localeCompare(second.productNameSnapshot)
+      || first.productionItemId.localeCompare(second.productionItemId),
+  );
 }
 
 function getProductionItemStartAt(item: ProductionItem) {
   return item.startAt ?? item.startedAt;
-}
-
-function getEarliestDateValue(current?: string, next?: string) {
-  if (!current) return next;
-  if (!next) return current;
-
-  const currentTime = new Date(current).getTime();
-  const nextTime = new Date(next).getTime();
-
-  if (Number.isNaN(currentTime)) return current;
-  if (Number.isNaN(nextTime)) return current;
-
-  return nextTime < currentTime ? next : current;
 }
 
 function canUpdateProductionItemsForRequest(status?: ProductionRequestStatus | null) {

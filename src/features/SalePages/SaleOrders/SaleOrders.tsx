@@ -20,7 +20,6 @@ import {
   useUpdateProductionDeadline,
 } from '@/services/queries';
 import { getDefaultPaymentExpiredAt } from '@/shared/utils/dateValidation';
-import { aggregateDuplicateItems } from '@/shared/utils/itemAggregation';
 
 import './SaleOrders.css';
 
@@ -239,8 +238,9 @@ export function SaleOrders() {
                       } catch (error) {
                         const projectErrorMessage = getProjectServiceResultMessage(error);
                         const productionErrorMessage = getProductionServiceResultMessage(error);
+                        const actionMessage = projectErrorMessage || productionErrorMessage;
 
-                        setMessage({ tone: 'error', text: projectErrorMessage || productionErrorMessage });
+                        throw new Error(actionMessage);
                       }
                     }}
                   />
@@ -281,7 +281,7 @@ function OrderDetailPanel({
   isSavingProductionDeadline: boolean;
   onCompleteOrder: () => void;
   onCreateDepositPayment: () => void;
-  onCreateProduction: (input: { assignedTo: string; priority: 'LOW' | 'MEDIUM' | 'NORMAL' | 'HIGH' | 'URGENT'; productionDeadline: string; note?: string | null }) => void;
+  onCreateProduction: (input: { assignedTo: string; priority: 'LOW' | 'MEDIUM' | 'NORMAL' | 'HIGH' | 'URGENT'; productionDeadline: string; note?: string | null }) => Promise<void>;
   order: OrderDetailDto;
   projectTargetCompletionDate?: string | null;
   productionDeadline?: string | null;
@@ -292,7 +292,7 @@ function OrderDetailPanel({
   const [productionDeadlineDraft, setProductionDeadlineDraft] = useState(productionDeadline?.slice(0, 10) ?? '');
   const [productionActionMessage, setProductionActionMessage] = useState('');
   const orderItems = useMemo(
-    () => aggregateDuplicateItems([...order.items].sort((first, second) => getOrderItemName(first).localeCompare(getOrderItemName(second)))),
+    () => [...order.items].sort((first, second) => getOrderItemName(first).localeCompare(getOrderItemName(second))),
     [order.items],
   );
   const canCompleteOrder = order.status === 'FINAL_PAYMENT_PENDING'
@@ -347,7 +347,7 @@ function OrderDetailPanel({
       {order.status === 'DEPOSIT_PAID' ? (
         <form
           className="sale-orders-flow-panel sale-orders-flow-panel-production"
-          onSubmit={(event) => {
+          onSubmit={async (event) => {
             event.preventDefault();
             setProductionActionMessage('');
 
@@ -361,14 +361,19 @@ function OrderDetailPanel({
               return;
             }
 
-            onCreateProduction({
-              assignedTo,
-              note: 'Created from Sales order flow.',
-              priority,
-              productionDeadline: productionDeadlineDraft,
-            });
+            try {
+              await onCreateProduction({
+                assignedTo,
+                note: 'Created from Sales order flow.',
+                priority,
+                productionDeadline: productionDeadlineDraft,
+              });
+            } catch (error) {
+              setProductionActionMessage(error instanceof Error ? error.message : 'Could not create production request.');
+            }
           }}
         >
+          {productionActionMessage ? <p className="sale-orders-action-note sale-orders-action-note-error">{productionActionMessage}</p> : null}
           <header>
             <div>
               <h3>{copy.productionAssignment}</h3>
@@ -437,7 +442,6 @@ function OrderDetailPanel({
               {isSavingProductionDeadline || isCreatingProduction ? 'Assigning...' : copy.createProduction}
             </button>
           </div>
-          {productionActionMessage ? <p className="sale-orders-action-note">{productionActionMessage}</p> : null}
         </form>
       ) : null}
       {showFinalPaymentPanel ? (

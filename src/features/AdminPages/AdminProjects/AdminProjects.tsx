@@ -560,34 +560,35 @@ function ProjectDetailDrawer({
               <p>{getProjectStageDescription(project.status)}</p>
             </section>
 
-            <section className="admin-projects-detail-grid">
-              <DetailItem label="Customer" value={customer?.fullName ?? shortId(project.customerId)} note={customer?.email ?? project.customerId} />
-              <DetailItem label="Sales Owner" value={sales?.fullName ?? 'Unassigned'} note={project.assignedSalesId ?? 'Waiting for sales/admin acceptance'} />
-              <DetailItem label="Designer" value={designer?.fullName ?? 'Unassigned'} note={project.assignedDesignerId ?? 'Not assigned yet'} />
-              <DetailItem label="Business Type" value={project.businessType} note={project.businessPurpose ?? 'No business purpose'} />
-              <DetailItem label="Address" value={project.projectAddress ?? '-'} note={`${project.totalAreaSqm ?? '-'} sqm, ${project.numberOfFloors ?? '-'} floor(s)`} />
-              <DetailItem label="Budget" value={formatBudget(project)} note={`Target ${formatDate(project.targetCompletionDate)}`} />
-            </section>
+            <CollapsibleDetailSection defaultOpen title="Project Information">
+              <section className="admin-projects-detail-grid">
+                <DetailItem label="Customer" value={customer?.fullName ?? shortId(project.customerId)} note={customer?.email ?? project.customerId} />
+                <DetailItem label="Sales Owner" value={sales?.fullName ?? 'Unassigned'} note={project.assignedSalesId ?? 'Waiting for sales/admin acceptance'} />
+                <DetailItem label="Designer" value={designer?.fullName ?? 'Unassigned'} note={project.assignedDesignerId ?? 'Not assigned yet'} />
+                <DetailItem label="Business Type" value={project.businessType} note={project.businessPurpose ?? 'No business purpose'} />
+                <DetailItem label="Address" value={project.projectAddress ?? '-'} note={`${project.totalAreaSqm ?? '-'} sqm, ${project.numberOfFloors ?? '-'} floor(s)`} />
+                <DetailItem label="Budget" value={formatBudget(project)} note={`Target ${formatDate(project.targetCompletionDate)}`} />
+              </section>
+            </CollapsibleDetailSection>
 
-            <section className="admin-projects-detail-section">
-              <h3>Project Requirements</h3>
+            <CollapsibleDetailSection title="Project Requirements">
               <p>{project.furnitureRequirement}</p>
               {project.description ? <p>{project.description}</p> : null}
-            </section>
+            </CollapsibleDetailSection>
 
-            <section className="admin-projects-detail-section">
+            <CollapsibleDetailSection title="Delay Reports">
               <OperationalDelayPanel
                 orderId={relatedOrder?.orderId}
                 productionRequestId={relatedProductionRequest?.productionRequestId}
                 projectId={project.projectId}
               />
-            </section>
+            </CollapsibleDetailSection>
 
-            <section className="admin-projects-detail-section">
+            <CollapsibleDetailSection title="Product Issues">
               <ProductIssuePanel projectId={project.projectId} />
-            </section>
+            </CollapsibleDetailSection>
 
-            <section className="admin-projects-detail-section">
+            <CollapsibleDetailSection title="Phase Deadlines">
               <ProjectPhaseTimelineCard
                 projectId={project.projectId}
                 phases={['PROPOSAL', 'PRODUCTION']}
@@ -616,11 +617,11 @@ function ProjectDetailDrawer({
                   Production deadline can be set after the project has an active order (ORDER_CONFIRMED or later).
                 </p>
               )}
-            </section>
+            </CollapsibleDetailSection>
 
-            <section className="admin-projects-detail-section">
+            <CollapsibleDetailSection title="Workflow Tracker">
               <div className="admin-projects-section-title">
-                <h3>Workflow Tracker</h3>
+                <span>Stage overview</span>
                 <button
                   className="admin-button admin-button-secondary"
                   type="button"
@@ -677,10 +678,9 @@ function ProjectDetailDrawer({
                   {selectedStage ? <WorkflowStagePanel stage={selectedStage} /> : null}
                 </>
               ) : null}
-            </section>
+            </CollapsibleDetailSection>
 
-            <section className="admin-projects-detail-section">
-              <h3>Admin Actions</h3>
+            <CollapsibleDetailSection title="Admin Actions">
               <div className="admin-projects-action-panel">
                 {project.status === 'SUBMITTED' || project.status === 'NEED_BASIC_INFORMATION' ? (
                   <button className="admin-button admin-button-primary" type="button" disabled={isMutating} onClick={handleAcceptProject}>
@@ -721,14 +721,13 @@ function ProjectDetailDrawer({
                 ) : null}
               </div>
               {actionMessage ? <div className="admin-projects-action-message">{actionMessage}</div> : null}
-            </section>
+            </CollapsibleDetailSection>
 
-            <section className="admin-projects-detail-section">
+            <CollapsibleDetailSection title="Project Showcase">
               <ProjectShowcaseManager projectId={project.projectId} projectName={project.projectName} projectStatus={project.status} role="admin" />
-            </section>
+            </CollapsibleDetailSection>
 
-            <section className="admin-projects-detail-section">
-              <h3>Project Files</h3>
+            <CollapsibleDetailSection title="Project Files">
               {filesQuery.isLoading ? <p>Loading files...</p> : null}
               {filesQuery.isError ? <p>{getProjectServiceResultMessage(filesQuery.error)}</p> : null}
               {!filesQuery.isLoading && !filesQuery.isError && (filesQuery.data?.items.length ?? 0) === 0 ? <p>No files uploaded yet.</p> : null}
@@ -740,11 +739,33 @@ function ProjectDetailDrawer({
                   </a>
                 ))}
               </div>
-            </section>
+            </CollapsibleDetailSection>
           </>
         ) : null}
       </aside>
     </div>
+  );
+}
+
+function CollapsibleDetailSection({
+  children,
+  defaultOpen = false,
+  title,
+}: {
+  children: ReactNode;
+  defaultOpen?: boolean;
+  title: string;
+}) {
+  return (
+    <details className="admin-projects-detail-section admin-projects-detail-accordion" open={defaultOpen}>
+      <summary>
+        <h3>{title}</h3>
+        <IconChevronDown size={18} />
+      </summary>
+      <div className="admin-projects-detail-accordion-body">
+        {children}
+      </div>
+    </details>
   );
 }
 

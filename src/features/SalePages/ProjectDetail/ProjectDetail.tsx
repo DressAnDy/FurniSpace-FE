@@ -26,7 +26,8 @@ import { FilesAttachmentsTab, OverviewTab, ProjectMemberTab, SchedulesTab } from
 import { ProjectStartFeePanel } from './components/ProjectStartFeePanel';
 import './ProjectDetail.css';
 
-type ProjectDetailTab = 'overview' | 'customer' | 'files' | 'schedules' | 'chat' | 'delays' | 'issues' | 'showcase';
+type ProjectDetailTab = 'overview' | 'customer' | 'files' | 'schedules' | 'chat' | 'delays' | 'showcase';
+type ProjectIssueScope = 'PRODUCTION' | 'DELIVERY' | 'CUSTOMER';
 
 export type ProjectDetailProject = ProjectDto;
 
@@ -83,6 +84,7 @@ export function ProjectDetail() {
   const location = useLocation();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<ProjectDetailTab>('overview');
+  const [activeIssueScope, setActiveIssueScope] = useState<ProjectIssueScope>('PRODUCTION');
   const [statusMessage, setStatusMessage] = useState('');
   const [isRequestInfoModalOpen, setIsRequestInfoModalOpen] = useState(false);
   const [requestInfoMessage, setRequestInfoMessage] = useState('');
@@ -117,7 +119,6 @@ export function ProjectDetail() {
     { id: 'schedules', label: pd.tabSchedules },
     { id: 'chat', label: pd.tabChat },
     { id: 'delays', label: pd.tabDelay },
-    { id: 'issues', label: pd.tabIssues },
     { id: 'showcase', label: pd.tabShowcase },
   ];
   const visibleTabs = hasConsultationAccess ? (isAssignedProjectRoute ? assignedProjectTabs : baseTabs) : reviewTabs;
@@ -252,15 +253,40 @@ export function ProjectDetail() {
     }
     if (activeTab === 'delays' && isAssignedProjectRoute) {
       return (
-        <OperationalDelayPanel
-          orderId={relatedOrder?.orderId}
-          productionRequestId={relatedProductionRequest?.productionRequestId}
-          projectId={project.projectId}
-        />
+        <section className="project-detail-issue-tab">
+          <div className="project-detail-issue-scope-tabs" role="tablist" aria-label="Issue type">
+            {(['PRODUCTION', 'DELIVERY', 'CUSTOMER'] as const).map((scope) => (
+              <button
+                aria-selected={activeIssueScope === scope}
+                className={activeIssueScope === scope ? 'is-active' : ''}
+                key={scope}
+                role="tab"
+                type="button"
+                onClick={() => setActiveIssueScope(scope)}
+              >
+                {formatStatusLabel(scope)}
+              </button>
+            ))}
+          </div>
+          {activeIssueScope === 'CUSTOMER' ? (
+            <ProductIssuePanel
+              allowCreate={false}
+              projectId={project.projectId}
+              title="Customer product issues"
+            />
+          ) : (
+            <OperationalDelayPanel
+              allowedPhases={[activeIssueScope]}
+              allowCreate={activeIssueScope === 'PRODUCTION' ? Boolean(relatedProductionRequest?.productionRequestId) : true}
+              defaultPhase={activeIssueScope}
+              orderId={relatedOrder?.orderId}
+              productionRequestId={relatedProductionRequest?.productionRequestId}
+              projectId={project.projectId}
+              title={`${formatStatusLabel(activeIssueScope)} issues`}
+            />
+          )}
+        </section>
       );
-    }
-    if (activeTab === 'issues' && isAssignedProjectRoute) {
-      return <ProductIssuePanel projectId={project.projectId} />;
     }
     if (activeTab === 'showcase' && isAssignedProjectRoute) {
       return <ProjectShowcaseManager projectId={project.projectId} projectName={project.projectName} projectStatus={project.status} role="sales" />;
@@ -474,7 +500,7 @@ function getTimelineDates(project: ProjectDto) {
 function normalizeProjectDetailTab(value: string | null): ProjectDetailTab | null {
   if (value === 'schedule') return 'schedules';
 
-  const supportedTabs: ProjectDetailTab[] = ['overview', 'customer', 'files', 'schedules', 'chat', 'delays', 'issues', 'showcase'];
+  const supportedTabs: ProjectDetailTab[] = ['overview', 'customer', 'files', 'schedules', 'chat', 'delays', 'showcase'];
 
   return supportedTabs.includes(value as ProjectDetailTab) ? value as ProjectDetailTab : null;
 }

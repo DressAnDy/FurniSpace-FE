@@ -625,6 +625,44 @@
   overflow: visible;
 }
 
+.project-detail-issue-tab {
+  display: grid;
+  gap: 14px;
+}
+
+.project-detail-issue-scope-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  border: 1px solid rgba(139, 111, 71, 0.16);
+  border-radius: 12px;
+  background: #ffffff;
+  padding: 6px;
+}
+
+.project-detail-issue-scope-tabs button {
+  display: inline-flex;
+  min-height: 34px;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #6b6b6b;
+  cursor: pointer;
+  flex: 1 1 140px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 800;
+  padding: 8px 12px;
+}
+
+.project-detail-issue-scope-tabs button:hover,
+.project-detail-issue-scope-tabs button.is-active {
+  background: #2d241d;
+  color: #ffffff;
+}
+
 .project-detail-card header {
   margin-bottom: 18px;
 }

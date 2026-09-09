@@ -61,6 +61,7 @@ export function LayoutAssetManagementPage() {
   const [isCreateAssetModalOpen, setIsCreateAssetModalOpen] = useState(false);
   const [createAssetType, setCreateAssetType] = useState<LayoutAssetType>('DECORATIVE_OBJECT');
   const [message, setMessage] = useState<{ tone: 'error' | 'success'; text: string } | null>(null);
+  const [createAssetMessage, setCreateAssetMessage] = useState<{ tone: 'error'; text: string } | null>(null);
   const assetsQuery = useLayoutAssets({ keyword: query, layoutAssetType: null, page: 1, pageSize: 100 });
   const createAssetMutation = useCreateLayoutAsset();
   const updateStatusMutation = useUpdateLayoutAssetStatus();
@@ -71,10 +72,11 @@ export function LayoutAssetManagementPage() {
     return items.filter((asset) => getAssetType(asset) === typeFilter);
   }, [assetsQuery.data?.items, typeFilter]);
   const allAssets = useMemo(() => assetsQuery.data?.items ?? [], [assetsQuery.data?.items]);
-  const selectedAsset = assets.find((asset) => asset.layoutAssetId === selectedAssetId)
-    ?? allAssets.find((asset) => asset.layoutAssetId === selectedAssetId)
-    ?? assets[0]
-    ?? null;
+  const selectedAsset = selectedAssetId
+    ? assets.find((asset) => asset.layoutAssetId === selectedAssetId)
+      ?? allAssets.find((asset) => asset.layoutAssetId === selectedAssetId)
+      ?? null
+    : null;
   const selectedAssetFilesQuery = useLayoutAssetFiles(selectedAsset?.layoutAssetId);
   const setPrimaryFileMutation = useSetLayoutAssetPrimaryFile();
   const deleteFileMutation = useDeleteLayoutAssetFile();
@@ -107,11 +109,12 @@ export function LayoutAssetManagementPage() {
     const layoutAssetType = String(formData.get('layoutAssetType') ?? createAssetType) as LayoutAssetType;
 
     if (!name) {
-      setMessage({ tone: 'error', text: 'Asset name is required.' });
+      setCreateAssetMessage({ tone: 'error', text: 'Asset name is required.' });
       return;
     }
 
     try {
+      setCreateAssetMessage(null);
       const asset = await createAssetMutation.mutateAsync({
         assetCode: String(formData.get('code') ?? ''),
         assetName: name,
@@ -145,19 +148,29 @@ export function LayoutAssetManagementPage() {
 
       event.currentTarget.reset();
       setSelectedAssetId(asset.layoutAssetId);
+      if (uploadErrors.length > 0) {
+        setCreateAssetMessage({ tone: 'error', text: `Layout asset created, but file upload failed: ${uploadErrors.join(' ')}` });
+        setMessage(null);
+        return;
+      }
+
       setIsCreateAssetModalOpen(false);
       setCreateAssetType('DECORATIVE_OBJECT');
-      setMessage(uploadErrors.length > 0
-        ? { tone: 'error', text: `Layout asset created, but file upload failed: ${uploadErrors.join(' ')}` }
-        : { tone: 'success', text: uploadedCount > 0 ? `Layout asset created with ${uploadedCount} file(s).` : 'Layout asset created.' });
+      setCreateAssetMessage(null);
+      setMessage({ tone: 'success', text: uploadedCount > 0 ? `Layout asset created with ${uploadedCount} file(s).` : 'Layout asset created.' });
     } catch (error) {
-      setMessage({ tone: 'error', text: getLayoutAssetServiceResultMessage(error) });
+      setCreateAssetMessage({ tone: 'error', text: getLayoutAssetServiceResultMessage(error) });
     }
   }
 
   function closeCreateAssetModal() {
     setIsCreateAssetModalOpen(false);
     setCreateAssetType('DECORATIVE_OBJECT');
+    setCreateAssetMessage(null);
+  }
+
+  function closeAssetInspector() {
+    setSelectedAssetId('');
   }
 
   async function updateStatus(asset: LayoutAssetDto, status: LayoutAssetStatus) {
@@ -367,6 +380,13 @@ export function LayoutAssetManagementPage() {
                               <div className="catalog-layout-asset-actions">
                                 <button
                                   className="catalog-layout-action-btn"
+                                  type="button"
+                                  onClick={() => setSelectedAssetId(asset.layoutAssetId)}
+                                >
+                                  Details
+                                </button>
+                                <button
+                                  className="catalog-layout-action-btn"
                                   disabled={asset.status === 'ACTIVE' || updateStatusMutation.isPending}
                                   type="button"
                                   onClick={() => void updateStatus(asset, 'ACTIVE')}
@@ -391,7 +411,23 @@ export function LayoutAssetManagementPage() {
                 </div>
               </div>
 
-              <aside className="catalog-layout-asset-inspector">
+              {selectedAsset ? (
+              <div className="catalog-layout-asset-inspector-backdrop" role="presentation" onClick={closeAssetInspector}>
+              <section
+                aria-label={`${selectedAsset.name} layout asset details`}
+                className="catalog-layout-asset-inspector"
+                role="dialog"
+                onClick={(event) => event.stopPropagation()}
+              >
+                <header className="catalog-layout-inspector-modal-head">
+                  <div>
+                    <strong>Layout Asset Details</strong>
+                    <span>{formatEnumLabel(getAssetType(selectedAsset))}</span>
+                  </div>
+                  <button aria-label="Close layout asset details" type="button" onClick={closeAssetInspector}>
+                    <IconX size={18} />
+                  </button>
+                </header>
                 <section className="catalog-layout-inspector-card catalog-layout-asset-selected">
                   <div className="catalog-layout-asset-selected-media">
                     {selectedAsset && getAssetPreviewUrl(selectedAsset)
@@ -481,7 +517,9 @@ export function LayoutAssetManagementPage() {
                     ))}
                   </div>
                 </section>
-              </aside>
+              </section>
+              </div>
+              ) : null}
             </section>
           </div>
         </section>
@@ -503,6 +541,12 @@ export function LayoutAssetManagementPage() {
                 <IconX size={18} />
               </button>
             </header>
+
+            {createAssetMessage ? (
+              <p className={`catalog-model-message catalog-model-message-${createAssetMessage.tone} catalog-model-modal-message`}>
+                {createAssetMessage.text}
+              </p>
+            ) : null}
 
             <div className="catalog-model-form">
               <div className="catalog-layout-create-grid">

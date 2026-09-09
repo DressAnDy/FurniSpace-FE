@@ -21,7 +21,6 @@ import {
   useQuotationDetail,
   useRequestQuotationRevision,
 } from '@/services/queries';
-import { aggregateDuplicateItems } from '@/shared/utils/itemAggregation';
 
 import './CustomerQuotationsPage.css';
 
@@ -245,13 +244,11 @@ function QuotationDetail({
   const canDecide = quotation.status === 'SENT' || quotation.status === 'REVISED';
   const quotationItems = useMemo(
     () => {
-      const sortedItems = [...(quotation.items ?? [])].sort(
+      return [...(quotation.items ?? [])].sort(
         (first, second) =>
           (first.displayOrder ?? Number.MAX_SAFE_INTEGER) - (second.displayOrder ?? Number.MAX_SAFE_INTEGER)
           || first.quotationItemId.localeCompare(second.quotationItemId),
       );
-
-      return aggregateDuplicateItems(sortedItems);
     },
     [quotation.items],
   );

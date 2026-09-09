@@ -246,7 +246,9 @@
 
 .customer-tracking-items-panel {
   display: grid;
-  gap: 16px;
+  gap: 0;
+  padding: 0;
+  overflow: hidden;
 }
 
 .customer-tracking-items-panel .customer-workspace-link {
@@ -254,6 +256,57 @@
   display: inline-flex;
   gap: 6px;
   white-space: nowrap;
+}
+
+.customer-tracking-items-panel > header {
+  align-items: center;
+  padding: 16px 18px;
+}
+
+.customer-tracking-panel-toggle {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  color: #2d2d2d;
+  cursor: pointer;
+  display: inline-flex;
+  flex: 1 1 auto;
+  font: inherit;
+  font-size: 18px;
+  font-weight: 800;
+  gap: 10px;
+  justify-content: space-between;
+  min-height: 34px;
+  min-width: 0;
+  padding: 0;
+  text-align: left;
+}
+
+.customer-tracking-panel-toggle span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.customer-tracking-panel-toggle svg {
+  color: #8b6f47;
+  flex: 0 0 auto;
+  transition: transform 0.18s ease;
+}
+
+.customer-tracking-items-panel.is-open .customer-tracking-panel-toggle svg {
+  transform: rotate(180deg);
+}
+
+.customer-tracking-panel-actions {
+  flex: 0 0 auto;
+}
+
+.customer-tracking-panel-body {
+  border-top: 1px solid rgba(139, 111, 71, 0.12);
+  display: grid;
+  gap: 16px;
+  padding: 16px 18px 18px;
 }
 
 .customer-tracking-delivery-list {
@@ -425,6 +478,11 @@
   .customer-tracking-control-panel > header,
   .customer-tracking-items-panel > header {
     flex-direction: column;
+  }
+
+  .customer-tracking-panel-toggle,
+  .customer-tracking-panel-actions {
+    width: 100%;
   }
 
   .customer-tracking-controls {

@@ -4,8 +4,9 @@
   border-radius: 18px;
   box-shadow: 0 18px 40px rgba(79, 55, 38, 0.08);
   display: grid;
-  gap: 16px;
-  padding: 20px;
+  gap: 0;
+  overflow: hidden;
+  padding: 0;
 }
 
 .product-issue-header,
@@ -15,6 +16,67 @@
   display: flex;
   gap: 12px;
   justify-content: space-between;
+}
+
+.product-issue-header {
+  padding: 16px 18px;
+}
+
+.product-issue-toggle {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  color: #2f261f;
+  cursor: pointer;
+  display: inline-flex;
+  flex: 1 1 auto;
+  font: inherit;
+  gap: 12px;
+  justify-content: space-between;
+  min-height: 36px;
+  min-width: 0;
+  padding: 0;
+  text-align: left;
+}
+
+.product-issue-toggle > span {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.product-issue-toggle strong {
+  color: #2f261f;
+  font-size: 18px;
+  font-weight: 900;
+  line-height: 1.25;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.product-issue-toggle small {
+  color: #7a6d63;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.35;
+}
+
+.product-issue-toggle svg {
+  color: #8b6f47;
+  flex: 0 0 auto;
+  transition: transform 0.18s ease;
+}
+
+.product-issue-panel.is-open .product-issue-toggle svg {
+  transform: rotate(180deg);
+}
+
+.product-issue-body {
+  border-top: 1px solid rgba(166, 124, 82, 0.12);
+  display: grid;
+  gap: 16px;
+  padding: 16px 18px 18px;
 }
 
 .product-issue-modal-title {
@@ -527,6 +589,10 @@
   .product-issue-header {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .product-issue-toggle {
+    width: 100%;
   }
 
   .product-issue-row {

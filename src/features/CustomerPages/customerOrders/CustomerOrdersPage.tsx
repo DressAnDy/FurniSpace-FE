@@ -32,15 +32,9 @@ import {
 } from '@/services/queries';
 import { useProjectList } from '@/services/queries/useProjects';
 import { PaymentCollectionModal } from '@/features/payments/PaymentCollectionModal';
-import { ProductIssuePanel } from '@/features/productIssues/ProductIssuePanel';
 import { getDefaultPaymentExpiredAt } from '@/shared/utils/dateValidation';
-import { aggregateDuplicateItems, getItemAggregateKey } from '@/shared/utils/itemAggregation';
 
 import './CustomerOrdersPage.css';
-
-type GroupedOrderItem = OrderItemDto & {
-  sourceItems: OrderItemDto[];
-};
 
 type OrderProjectSummary = {
   projectCode?: string | null;
@@ -287,13 +281,6 @@ export function CustomerOrdersPage() {
                   }
                 }}
                 />
-                <ProductIssuePanel
-                  allowCreate
-                  orderId={order.orderId}
-                  orderItems={order.items ?? []}
-                  projectId={order.projectId}
-                  title="My product issues"
-                />
               </>
             ) : orderDetailQuery.isLoading ? (
               <p className="customer-orders-muted">{t.common.loading}</p>
@@ -351,7 +338,10 @@ function OrderDetailCard({
 }) {
   const { lang } = useLang();
   const t = customerCopy[lang];
-  const orderItems = useMemo(() => aggregateOrderItems(order.items ?? []), [order.items]);
+  const orderItems = useMemo(
+    () => [...(order.items ?? [])].sort((first, second) => getOrderItemName(first).localeCompare(getOrderItemName(second))),
+    [order.items],
+  );
   const deliveryDetailsComplete = hasCompleteDeliveryDetails(order);
   const deliverySummary = order.deliverySummary;
   const deliveries = useMemo(() => sortEmbeddedDeliveries(order.deliveries ?? []), [order.deliveries]);
@@ -455,14 +445,14 @@ function OrderDetailCard({
             </thead>
             <tbody>
               {orderItems.map((item) => (
-                <tr key={item.sourceItems.map((sourceItem) => sourceItem.orderItemId).join('-')}>
+                <tr key={item.orderItemId}>
                   <td>{getOrderItemName(item)}</td>
                   <td>{item.quantity ?? '-'}</td>
                   <td>{formatCustomerMoney(item.unitPrice)}</td>
                   <td>{formatCustomerMoney(getItemGrossAmount(item))}</td>
                   <td>{formatCustomerMoney(item.discountAmount)}</td>
                   <td>{formatCustomerMoney(getItemPreVatAmount(item))}</td>
-                  <td>{formatGroupedDeliveryState(item, t.orders)}</td>
+                  <td>{formatOrderItemDeliveryState(item, t.orders)}</td>
                   <td>{confirmDeliveryPending ? t.common.confirming : getOrderDeliveryConfirmationLabel(order, lang, t.orders)}</td>
                 </tr>
               ))}
@@ -723,21 +713,6 @@ function getOrderItemName(item: Pick<OrderItemDto, 'itemName' | 'productNameSnap
   return item.itemName ?? item.productNameSnapshot ?? '-';
 }
 
-function aggregateOrderItems(items: OrderItemDto[]): GroupedOrderItem[] {
-  const groupedItems = new Map<string, GroupedOrderItem>();
-  const aggregateItems = aggregateDuplicateItems(items);
-
-  for (const item of aggregateItems) {
-    groupedItems.set(getItemAggregateKey(item), { ...item, sourceItems: [] });
-  }
-
-  for (const item of items) {
-    groupedItems.get(getItemAggregateKey(item))?.sourceItems.push(item);
-  }
-
-  return Array.from(groupedItems.values());
-}
-
 function getOrderDeliveryDetailsDraft(order: Pick<OrderDetailDto | OrderListItemDto, 'deliveryAddress' | 'deliveryDetails' | 'deliveryNote' | 'receiverName' | 'receiverPhone'>): OrderDeliveryDetailsDraft {
   return {
     deliveryAddress: order.deliveryAddress ?? order.deliveryDetails?.deliveryAddress ?? '',
@@ -865,11 +840,10 @@ function formatPercentRate(value?: number | null) {
   return `${new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 2 }).format(value * 100)}%`;
 }
 
-function formatGroupedDeliveryState(item: GroupedOrderItem, copy: CustomerCopy['orders']) {
-  const deliveredQuantity = item.sourceItems.reduce((total, sourceItem) => total + (sourceItem.deliveredQuantity ?? 0), 0);
+function formatOrderItemDeliveryState(item: OrderItemDto, copy: CustomerCopy['orders']) {
+  const deliveredQuantity = item.deliveredQuantity ?? 0;
   const quantity = item.quantity ?? 0;
-  const statuses = Array.from(new Set(item.sourceItems.map((sourceItem) => sourceItem.status ?? 'PENDING')));
-  const status = statuses.length === 1 ? formatEnumLabel(statuses[0]) : copy.mixed;
+  const status = formatEnumLabel(item.status ?? 'PENDING');
 
   return copy.itemsProgress(deliveredQuantity, String(quantity || '-'), status);
 }

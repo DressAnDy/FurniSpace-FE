@@ -1674,35 +1674,26 @@ body.sale-sidebar-collapsed .sale-sidebar-item span {
   .sale-tracking-shell,
   .project-detail-shell,
   .sale-project-chat-shell {
-    height: auto;
-    overflow: visible;
-    flex-direction: column;
+    height: 100vh;
+    overflow: hidden;
   }
 
   .sale-sidebar {
-    width: 100%;
-    max-width: none;
-    flex-basis: auto;
-    min-height: auto;
-    height: auto;
-    position: static;
-  }
-
-  body.sale-sidebar-collapsed .sale-sidebar {
-    width: 0 !important;
-    max-width: 0 !important;
-    flex-basis: 0 !important;
-    min-height: 0;
-    height: 0;
+    width: var(--fs-workspace-sidebar-width);
+    max-width: var(--fs-workspace-sidebar-width);
+    flex-basis: var(--fs-workspace-sidebar-width);
+    min-height: 100vh;
+    height: 100vh;
+    position: sticky;
   }
 
   .sale-topbar {
-    align-items: stretch;
-    flex-direction: column;
+    align-items: center;
     gap: 12px;
   }
 
   .sale-topbar-search {
+    flex: 1;
     width: 100%;
   }
 

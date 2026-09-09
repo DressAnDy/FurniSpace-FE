@@ -628,13 +628,15 @@
 
 .customer-orders-delivery-details-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: start;
+  grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr));
   gap: 12px;
 }
 
 .customer-orders-delivery-details-grid label {
   display: grid;
   gap: 7px;
+  min-width: 0;
 }
 
 .customer-orders-delivery-details-grid label > span {
@@ -646,6 +648,9 @@
 
 .customer-orders-delivery-details-grid input,
 .customer-orders-delivery-details-grid textarea {
+  box-sizing: border-box;
+  display: block;
+  min-width: 0;
   width: 100%;
   border: 1px solid rgba(139, 111, 71, 0.18);
   border-radius: 10px;
@@ -654,8 +659,13 @@
   font: inherit;
   font-size: 13px;
   font-weight: 700;
+  line-height: 1.4;
   outline: 0;
   padding: 10px 12px;
+}
+
+.customer-orders-delivery-details-grid input {
+  min-height: 42px;
 }
 
 .customer-orders-delivery-details-grid input:disabled,

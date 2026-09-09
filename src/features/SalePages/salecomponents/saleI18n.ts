@@ -214,7 +214,6 @@ type SaleCopy = {
     tabMembers: string;
     tabFiles: string;
     tabDelay: string;
-    tabIssues: string;
     tabShowcase: string;
     tabSchedules: string;
     tabChat: string;
@@ -443,8 +442,7 @@ const en: SaleCopy = {
     tabOverview: 'Overview',
     tabMembers: 'Project Member',
     tabFiles: 'Files & Attachments',
-    tabDelay: 'Delay History',
-    tabIssues: 'Product Issues',
+    tabDelay: 'Issue',
     tabShowcase: 'Showcase',
     tabSchedules: 'Schedules',
     tabChat: 'Chat',
@@ -673,8 +671,7 @@ const vi: SaleCopy = {
     tabOverview: 'Tổng quan',
     tabMembers: 'Thành viên dự án',
     tabFiles: 'Tệp & đính kèm',
-    tabDelay: 'Lịch sử delay',
-    tabIssues: 'Sự cố sản phẩm',
+    tabDelay: 'Sự cố',
     tabShowcase: 'Showcase',
     tabSchedules: 'Lịch hẹn',
     tabChat: 'Chat',
