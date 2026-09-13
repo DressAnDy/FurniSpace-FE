@@ -425,6 +425,27 @@
   gap: 12px;
 }
 
+.customer-project-request-upload-progress {
+  display: grid;
+  gap: 6px;
+  color: #6b6b6b;
+  font-size: 13px;
+}
+
+.customer-project-request-upload-progress > div {
+  height: 6px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #efe8df;
+}
+
+.customer-project-request-upload-progress > div > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: #8b6f47;
+}
+
 .customer-project-request-file-grid-preview {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
