@@ -252,6 +252,7 @@ type CustomerCopy = {
     loading: string;
     notEditable: string;
     filesReady: (count: number) => string;
+    uploadingFiles: (percent: number) => string;
     dropFiles: string;
     missingProjectId: string;
     cafe: string;
@@ -720,6 +721,7 @@ const en: CustomerCopy = {
     loading: 'Loading...',
     notEditable: 'This project cannot be edited in its current status.',
     filesReady: (count) => `${count} file(s) ready`,
+    uploadingFiles: (percent) => `Uploading files... ${percent}%`,
     dropFiles: 'Drop files here',
     missingProjectId: 'Project id is missing.',
     cafe: 'Cafe',
@@ -1189,6 +1191,7 @@ const vi: CustomerCopy = {
     loading: 'Đang tải...',
     notEditable: 'Dự án không thể chỉnh sửa ở trạng thái hiện tại.',
     filesReady: (count) => `${count} tệp sẵn sàng`,
+    uploadingFiles: (percent) => `Đang tải tệp lên... ${percent}%`,
     dropFiles: 'Thả tệp vào đây',
     missingProjectId: 'Thiếu mã dự án.',
     cafe: 'Cafe',

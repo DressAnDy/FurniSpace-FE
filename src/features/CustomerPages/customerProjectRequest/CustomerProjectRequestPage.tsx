@@ -11,6 +11,7 @@ import './CustomerProjectRequestPage.css';
 import { useLang } from '@/app/providers/useLang';
 import { CustomerNavbar, customerCopy } from '@/features/CustomerPages/customercomponents';
 import {
+  createProjectFileUploadProgressReporter,
   getProjectServiceResultMessage,
   normalizeOptionalText,
   normalizeRequiredText,
@@ -39,6 +40,7 @@ export function CustomerProjectRequestPage() {
   const uploadProjectFileMutation = useUploadProjectFile();
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [formMessage, setFormMessage] = useState<string | null>(null);
+  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
   const [fieldErrors, setFieldErrors] = useState<ProjectRequestFieldErrors>({});
   const [showFieldErrors, setShowFieldErrors] = useState(false);
   const isSubmitting = createProjectMutation.isPending || uploadProjectFileMutation.isPending;
@@ -155,12 +157,20 @@ export function CustomerProjectRequestPage() {
         targetCompletionDate: targetDate.value,
       });
 
+      const reportUploadProgress =
+        selectedFiles.length > 0 ? createProjectFileUploadProgressReporter(selectedFiles.length, setUploadProgress) : null;
+
+      if (reportUploadProgress) {
+        setUploadProgress(0);
+      }
+
       const uploads = await Promise.allSettled(
-        selectedFiles.map((file) =>
+        selectedFiles.map((file, index) =>
           uploadProjectFileMutation.mutateAsync({
             projectId: project.projectId,
             file,
             note: 'Customer project request attachment',
+            onUploadProgress: (percent) => reportUploadProgress?.(index, percent),
           }),
         ),
       );
@@ -173,6 +183,8 @@ export function CustomerProjectRequestPage() {
       navigate('/customer/projects');
     } catch (error) {
       setFormMessage(getProjectServiceResultMessage(error));
+    } finally {
+      setUploadProgress(null);
     }
   }
 
@@ -323,6 +335,20 @@ export function CustomerProjectRequestPage() {
               {selectedFiles.length > 0 ? (
                 <div className="customer-project-request-file-preview">
                   <p className="customer-project-request-file-count">{t.projectRequest.filesReady(selectedFiles.length)}</p>
+                  {uploadProgress !== null ? (
+                    <div
+                      aria-valuemax={100}
+                      aria-valuemin={0}
+                      aria-valuenow={uploadProgress}
+                      className="customer-project-request-upload-progress"
+                      role="progressbar"
+                    >
+                      <span>{t.projectRequest.uploadingFiles(uploadProgress)}</span>
+                      <div>
+                        <span style={{ width: `${uploadProgress}%` }} />
+                      </div>
+                    </div>
+                  ) : null}
                   <div className="customer-project-request-file-grid-preview">
                     {selectedFiles.map((file) => (
                       <SelectedFilePreview
@@ -340,7 +366,11 @@ export function CustomerProjectRequestPage() {
 
             <div className="customer-project-request-actions">
               <button disabled={isSubmitting} type="submit">
-                {isSubmitting ? t.projectRequest.submitting : t.projectRequest.submitRequest}
+                {uploadProgress !== null
+                  ? t.projectRequest.uploadingFiles(uploadProgress)
+                  : isSubmitting
+                    ? t.projectRequest.submitting
+                    : t.projectRequest.submitRequest}
               </button>
               <a href="/customer/projects">{t.common.cancel}</a>
             </div>

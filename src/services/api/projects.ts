@@ -207,6 +207,31 @@ export type ProjectFileListParams = {
   limit?: number;
 };
 
+export type ProjectFileUploadOptions = {
+  fileType?: FileType;
+  visibility?: FileVisibility;
+  note?: string | null;
+  onUploadProgress?: (progressPercent: number) => void;
+};
+
+/** JSON body for POST /projects/{projectId}/files/upload-url */
+export type ProjectFileUploadUrlRequest = {
+  originalFileName: string;
+  contentType: string;
+  fileSizeBytes: number;
+  fileType: FileType;
+  visibility?: FileVisibility;
+  note?: string;
+};
+
+export type ProjectFileUploadUrlResponse = {
+  fileId: string;
+  projectId: string;
+  uploadUrl: string;
+  contentType: string;
+  expiresAt: string;
+};
+
 export type AssignSalesData = {
   projectId: string;
   assignedSalesId: string;
@@ -368,7 +393,18 @@ export type UpdateProductionDeadlineInput = {
   productionDeadline: string;
 };
 
+export class ProjectFileStorageUploadError extends Error {
+  constructor(message = 'Cannot upload file to storage. Please try again.') {
+    super(message);
+    this.name = 'ProjectFileStorageUploadError';
+  }
+}
+
 export function getProjectServiceResultMessage(error: unknown) {
+  if (error instanceof ProjectFileStorageUploadError) {
+    return error.message;
+  }
+
   const result = getProjectServiceResultFromError(error);
 
   if (!result) {
@@ -572,27 +608,258 @@ export async function getProjectFiles(params: ProjectFileListParams) {
   return response.data.data;
 }
 
-export async function uploadProjectFile(
+const PROJECT_FILE_UPLOAD_RETRY_CODES = new Set([
+  'PROJECT_FILE_UPLOAD_OBJECT_MISSING',
+  'PROJECT_FILE_UPLOAD_SIZE_MISMATCH',
+  'PROJECT_FILE_UPLOAD_CONTENT_TYPE_MISMATCH',
+]);
+
+const PROJECT_FILE_UPLOAD_TERMINAL_CODES = new Set([
+  'PROJECT_FILE_UPLOAD_NOT_PENDING',
+  'PROJECT_FILE_UPLOAD_FORBIDDEN',
+  'PROJECT_FILE_UPLOAD_NOT_FOUND',
+]);
+
+const PROJECT_FILE_EXTENSION_CONTENT_TYPES: Record<string, string> = {
+  bmp: 'image/bmp',
+  gif: 'image/gif',
+  heic: 'image/heic',
+  heif: 'image/heif',
+  jpeg: 'image/jpeg',
+  jpg: 'image/jpeg',
+  png: 'image/png',
+  svg: 'image/svg+xml',
+  webp: 'image/webp',
+  pdf: 'application/pdf',
+  zip: 'application/zip',
+  glb: 'model/gltf-binary',
+  gltf: 'model/gltf+json',
+};
+
+export function resolveProjectFileContentType(file: Pick<File, 'name' | 'type'>) {
+  const pickedContentType = file.type.trim();
+
+  if (pickedContentType) {
+    return pickedContentType;
+  }
+
+  const extension = file.name.split('.').pop()?.toLowerCase() ?? '';
+
+  return PROJECT_FILE_EXTENSION_CONTENT_TYPES[extension] ?? 'application/octet-stream';
+}
+
+export function buildProjectFileUploadUrlBody(file: File, options: ProjectFileUploadOptions = {}): ProjectFileUploadUrlRequest {
+  const contentType = resolveProjectFileContentType(file);
+  const body: ProjectFileUploadUrlRequest = {
+    originalFileName: file.name,
+    contentType,
+    fileSizeBytes: file.size,
+    fileType: options.fileType ?? inferProjectFileType(file, contentType),
+  };
+
+  if (options.visibility) {
+    body.visibility = options.visibility;
+  }
+
+  const note = options.note?.trim();
+
+  if (note) {
+    body.note = note;
+  }
+
+  return body;
+}
+
+export function createProjectFileUploadProgressReporter(fileCount: number, onChange: (progressPercent: number) => void) {
+  const progress = Array.from({ length: Math.max(fileCount, 1) }, () => 0);
+
+  return (fileIndex: number, progressPercent: number) => {
+    if (fileIndex < 0 || fileIndex >= progress.length) {
+      return;
+    }
+
+    progress[fileIndex] = Math.min(100, Math.max(0, progressPercent));
+    const average = progress.reduce((sum, value) => sum + value, 0) / progress.length;
+    onChange(Math.round(average));
+  };
+}
+
+export async function uploadProjectFile(projectId: string, file: File, options: ProjectFileUploadOptions = {}) {
+  let prepared: ProjectFileUploadUrlResponse;
+
+  try {
+    prepared = await prepareProjectFileUpload(projectId, file, options);
+  } catch (error) {
+    if (!isLegacyProjectFileUploadFallback(error)) {
+      throw error;
+    }
+
+    return uploadProjectFileMultipart(projectId, file, options);
+  }
+
+  return finalizePreparedProjectFileUpload(projectId, file, prepared, options);
+}
+
+async function prepareProjectFileUpload(projectId: string, file: File, options: ProjectFileUploadOptions) {
+  const response = await projectApiClient.post<ServiceResult<ProjectFileUploadUrlResponse>>(
+    `/projects/${projectId}/files/upload-url`,
+    buildProjectFileUploadUrlBody(file, options),
+  );
+
+  return response.data.data;
+}
+
+async function completeProjectFileUpload(projectId: string, fileId: string) {
+  const response = await projectApiClient.post<ServiceResult<ProjectFileUploadResponseDto>>(`/projects/${projectId}/files/complete`, {
+    fileId,
+  });
+
+  return response.data.data;
+}
+
+async function finalizePreparedProjectFileUpload(
   projectId: string,
   file: File,
-  options: {
-    fileType?: FileType;
-    visibility?: FileVisibility;
-    note?: string | null;
-  } = {},
+  prepared: ProjectFileUploadUrlResponse,
+  options: ProjectFileUploadOptions,
+  canRestart = true,
+): Promise<ProjectFileUploadResponseDto> {
+  try {
+    return await uploadPreparedProjectFile(projectId, file, prepared, options);
+  } catch (error) {
+    if (!canRestart || !isRetryableProjectFileUploadConflict(error)) {
+      throw error;
+    }
+  }
+
+  // Ignore the stale pending fileId. Orphan cleanup is a backend concern.
+  const restarted = await prepareProjectFileUpload(projectId, file, options);
+
+  return finalizePreparedProjectFileUpload(projectId, file, restarted, options, false);
+}
+
+async function uploadPreparedProjectFile(
+  projectId: string,
+  file: File,
+  prepared: ProjectFileUploadUrlResponse,
+  options: ProjectFileUploadOptions,
 ) {
+  const contentType = prepared.contentType || resolveProjectFileContentType(file);
+
+  await putProjectFileToSignedUrl(prepared.uploadUrl, file, contentType, options.onUploadProgress);
+
+  try {
+    return await finishProjectFileUpload(projectId, prepared.fileId, options);
+  } catch (error) {
+    if (!isRetryableProjectFileUploadConflict(error)) {
+      throw error;
+    }
+  }
+
+  await putProjectFileToSignedUrl(prepared.uploadUrl, file, contentType, options.onUploadProgress);
+
+  return finishProjectFileUpload(projectId, prepared.fileId, options);
+}
+
+async function finishProjectFileUpload(projectId: string, fileId: string, options: ProjectFileUploadOptions) {
+  const completed = await completeProjectFileUpload(projectId, fileId);
+  options.onUploadProgress?.(100);
+
+  return completed;
+}
+
+function putProjectFileToSignedUrl(
+  uploadUrl: string,
+  file: File,
+  contentType: string,
+  onUploadProgress?: (progressPercent: number) => void,
+) {
+  return new Promise<void>((resolve, reject) => {
+    const request = new XMLHttpRequest();
+    request.open('PUT', uploadUrl);
+    request.setRequestHeader('Content-Type', contentType);
+
+    request.upload.onprogress = (event) => {
+      if (!onUploadProgress || !event.lengthComputable || event.total <= 0) {
+        return;
+      }
+
+      onUploadProgress(Math.min(95, Math.round((event.loaded / event.total) * 95)));
+    };
+
+    request.onload = () => {
+      if (request.status >= 200 && request.status < 300) {
+        resolve();
+        return;
+      }
+
+      reject(new ProjectFileStorageUploadError(`Storage upload failed (${request.status}).`));
+    };
+
+    request.onerror = () => {
+      reject(new ProjectFileStorageUploadError());
+    };
+
+    request.send(file);
+  });
+}
+
+async function uploadProjectFileMultipart(projectId: string, file: File, options: ProjectFileUploadOptions) {
+  const contentType = resolveProjectFileContentType(file);
   const formData = new FormData();
   formData.append('file', file);
-  formData.append('fileType', options.fileType ?? inferProjectFileType(file));
-  formData.append('visibility', options.visibility ?? 'CUSTOMER_VISIBLE');
+  formData.append('fileType', options.fileType ?? inferProjectFileType(file, contentType));
+
+  if (options.visibility) {
+    formData.append('visibility', options.visibility);
+  }
 
   if (options.note?.trim()) {
     formData.append('note', options.note.trim());
   }
 
-  const response = await projectApiClient.post<ServiceResult<ProjectFileUploadResponseDto>>(`/projects/${projectId}/files`, formData);
+  const response = await projectApiClient.post<ServiceResult<ProjectFileUploadResponseDto>>(`/projects/${projectId}/files`, formData, {
+    onUploadProgress: (event) => {
+      if (!options.onUploadProgress || !event.total) {
+        return;
+      }
+
+      options.onUploadProgress(Math.min(95, Math.round((event.loaded / event.total) * 95)));
+    },
+  });
+
+  options.onUploadProgress?.(100);
 
   return response.data.data;
+}
+
+function isLegacyProjectFileUploadFallback(error: unknown) {
+  if (!(error instanceof AxiosError)) {
+    return false;
+  }
+
+  const status = error.response?.status;
+
+  return status === 404 || status === 405;
+}
+
+function isRetryableProjectFileUploadConflict(error: unknown) {
+  if (!(error instanceof AxiosError)) {
+    return false;
+  }
+
+  const result = getProjectServiceResultFromError(error);
+  const errorCode = result ? getFirstProjectErrorCode(result) : undefined;
+
+  if (errorCode && PROJECT_FILE_UPLOAD_TERMINAL_CODES.has(errorCode)) {
+    return false;
+  }
+
+  if (errorCode && PROJECT_FILE_UPLOAD_RETRY_CODES.has(errorCode)) {
+    return true;
+  }
+
+  return error.response?.status === 409;
 }
 
 export async function assignSalesToProject(projectId: string, note?: string | null) {
@@ -627,12 +894,12 @@ export function normalizeOptionalNumber(value: FormDataEntryValue | string | nul
   return Number.isFinite(numberValue) ? numberValue : null;
 }
 
-function inferProjectFileType(file: File): FileType {
-  if (file.type === 'application/pdf') {
+function inferProjectFileType(file: File, contentType = resolveProjectFileContentType(file)): FileType {
+  if (contentType === 'application/pdf') {
     return 'FLOOR_PLAN';
   }
 
-  if (file.type.startsWith('image/')) {
+  if (contentType.startsWith('image/')) {
     return 'REFERENCE_IMAGE';
   }
 
@@ -713,6 +980,12 @@ function getProjectErrorCodeMessage(errorCode: string) {
     RELATED_ORDER_NOT_COMPLETED: 'Đơn hàng liên quan chưa hoàn tất. Vui lòng chờ thanh toán cuối được xác nhận hoặc hoàn tất đơn hàng zero-remaining.',
     RELATED_ORDER_NOT_FOUND: 'Không tìm thấy đơn hàng liên quan đến dự án.',
     DELIVERY_NOT_CONFIRMED: 'Khách hàng chưa xác nhận nhận hàng hoặc vẫn còn hạng mục chưa giao.',
+    PROJECT_FILE_UPLOAD_OBJECT_MISSING: 'The file was not found in storage. Please retry the upload.',
+    PROJECT_FILE_UPLOAD_SIZE_MISMATCH: 'Uploaded file size does not match the selected file. Please retry the upload.',
+    PROJECT_FILE_UPLOAD_CONTENT_TYPE_MISMATCH: 'Uploaded file type does not match the selected file. Please retry the upload.',
+    PROJECT_FILE_UPLOAD_NOT_PENDING: 'This file upload can no longer be completed. Please start the upload again.',
+    PROJECT_FILE_UPLOAD_FORBIDDEN: 'You do not have permission to complete this file upload.',
+    PROJECT_FILE_UPLOAD_NOT_FOUND: 'This file upload was not found for the project.',
   };
 
   return messages[errorCode] ?? 'Request failed. Please try again.';
