@@ -1080,7 +1080,7 @@ export function BuildingThreeDTestPage() {
 
     setPlacedProducts((currentProducts) => [...currentProducts, nextProduct]);
     setSelectedProductId(nextProduct.sceneObjectId);
-    setMessage(`${model.name} added to ${levelOptions.find((level) => level.value === levelId)?.label ?? levelId}.`);
+    setMessage(`${model.name} added to ${levelOptions.find((level) => level.value === levelId)?.label ?? 'selected level'}.`);
   }
 
   function toggleBusinessTypeFilter(businessTypeId: number) {
@@ -1903,7 +1903,7 @@ export function BuildingThreeDTestPage() {
             selectedProductId={selectedProductId}
             surfaceAssets={surfaceAssetVisuals}
             onProductDrop={addProductToScene}
-            onProductLoadError={(productId, errorMessage) => setMessage(`${productId}: ${errorMessage}`)}
+            onProductLoadError={(productId, errorMessage) => setMessage(`${modelsById.get(productId)?.name ?? 'Selected model'}: ${errorMessage}`)}
             onProductMove={moveProduct}
             onProductSelect={selectProduct}
           />
@@ -1933,7 +1933,7 @@ export function BuildingThreeDTestPage() {
 
               {showProductInfo ? (
                 <SelectedProductInfoBox
-                  levelLabel={levelOptions.find((level) => level.value === selectedProduct.levelId)?.label ?? selectedProduct.levelId}
+                  levelLabel={levelOptions.find((level) => level.value === selectedProduct.levelId)?.label ?? 'Selected level'}
                   product={selectedProduct}
                   rotationDegrees={selectedProductRotationDegrees}
                 />

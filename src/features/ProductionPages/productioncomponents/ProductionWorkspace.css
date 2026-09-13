@@ -454,6 +454,36 @@
   padding-top: 12px;
 }
 
+.production-ready-reschedule-panel {
+  display: grid;
+  gap: 14px;
+}
+
+.production-ready-reschedule-panel header {
+  align-items: flex-start;
+  display: flex;
+  gap: 14px;
+  justify-content: space-between;
+  margin-bottom: 0;
+}
+
+.production-ready-reschedule-panel header h3 {
+  color: #2f261f;
+  font-size: 18px;
+  font-weight: 900;
+  margin: 0;
+}
+
+.production-ready-reschedule-panel header p {
+  color: #7a6d63;
+  font-size: 13px;
+  margin: 4px 0 0;
+}
+
+.production-ready-reschedule-panel .production-ready-reschedule-form {
+  margin-top: 0;
+}
+
 .production-ready-reschedule-form label {
   display: grid;
   gap: 6px;
@@ -778,6 +808,22 @@
   white-space: nowrap;
 }
 
+.production-ready-schedule-note {
+  display: block;
+  border: 1px solid rgba(180, 83, 9, 0.18);
+  border-radius: 8px;
+  background: rgba(255, 247, 237, 0.92);
+  color: #92400e;
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 800;
+  line-height: 18px;
+  margin-top: 6px;
+  overflow-wrap: anywhere;
+  padding: 7px 9px;
+  white-space: normal;
+}
+
 .production-ready-empty-state {
   min-height: 180px;
 }
@@ -1046,6 +1092,15 @@
 
 .production-ready-batch-actions {
   margin-top: 16px;
+}
+
+.production-ready-inline-batch {
+  display: grid;
+  gap: 12px;
+}
+
+.production-ready-inline-batch .production-ready-batch-detail-list {
+  margin-top: 0;
 }
 
 .production-ready-items-wrap {

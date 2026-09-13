@@ -26,7 +26,7 @@
 
 .sale-orders-heading h2 {
   margin: 0;
-  font-size: 24px;
+  font-size: 22px;
   font-weight: 500;
   line-height: 32px;
 }
@@ -35,7 +35,7 @@
 .sale-orders-muted {
   margin: 4px 0 0;
   color: #6b6b6b;
-  font-size: 14px;
+  font-size: 12px;
   line-height: 20px;
 }
 
@@ -66,14 +66,14 @@
 .sale-orders-money-grid span,
 .sale-orders-metrics span {
   color: #6b6b6b;
-  font-size: 12px;
+  font-size: 10px;
   font-weight: 600;
   line-height: 16px;
 }
 
 .sale-orders-toolbar strong {
   color: #2d2d2d;
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 500;
   line-height: 36px;
 }
@@ -92,7 +92,7 @@
 .sale-orders-message {
   margin-bottom: 18px;
   padding: 12px 14px;
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 500;
 }
 
@@ -127,14 +127,14 @@
   display: block;
   margin-top: 4px;
   color: #2d2d2d;
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 800;
   line-height: 24px;
 }
 
 .sale-orders-money-grid strong {
   margin-top: 8px;
-  font-size: 20px;
+  font-size: 18px;
   line-height: 26px;
   white-space: nowrap;
 }
@@ -169,14 +169,14 @@
 .sale-orders-order-group > div strong {
   margin: 0;
   color: #2d2d2d;
-  font-size: 15px;
+  font-size: 13px;
   font-weight: 700;
 }
 
 .sale-orders-project-panel header p {
   margin: 5px 0 0;
   color: #6b6b6b;
-  font-size: 12px;
+  font-size: 10px;
   line-height: 18px;
 }
 
@@ -204,7 +204,7 @@
 }
 
 .sale-orders-project-list strong {
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 700;
   line-height: 1.5;
   overflow-wrap: anywhere;
@@ -213,7 +213,7 @@
 .sale-orders-project-list span,
 .sale-orders-project-list em {
   color: #6b6b6b;
-  font-size: 12px;
+  font-size: 10px;
   font-style: normal;
   line-height: 1.45;
 }
@@ -231,7 +231,7 @@
 .sale-orders-project-pagination span {
   color: #6b6b6b;
   flex: 1;
-  font-size: 12px;
+  font-size: 10px;
   font-weight: 600;
   text-align: center;
 }
@@ -243,7 +243,7 @@
   color: #6f5636;
   cursor: pointer;
   font: inherit;
-  font-size: 12px;
+  font-size: 10px;
   font-weight: 700;
   min-height: 32px;
   padding: 0 10px;
@@ -347,7 +347,7 @@
   color: #ffffff;
   cursor: pointer;
   font: inherit;
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 700;
   padding: 0 14px;
 }
@@ -370,7 +370,7 @@
 .sale-orders-action-note {
   margin: -2px 0 0;
   color: #8a6b3d;
-  font-size: 12px;
+  font-size: 10px;
   font-weight: 700;
   line-height: 18px;
 }
@@ -400,14 +400,14 @@
 .sale-orders-flow-panel h3 {
   margin: 0;
   color: #2d2d2d;
-  font-size: 15px;
+  font-size: 13px;
   font-weight: 800;
 }
 
 .sale-orders-flow-panel header p {
   margin: 4px 0 0;
   color: #6b6b6b;
-  font-size: 12px;
+  font-size: 10px;
   line-height: 18px;
 }
 
@@ -424,7 +424,7 @@
   color: #ffffff;
   cursor: pointer;
   font: inherit;
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 800;
   padding: 0 12px;
 }
@@ -482,7 +482,7 @@
 }
 
 .sale-orders-flow-panel-production h3 {
-  font-size: 15px;
+  font-size: 13px;
 }
 
 .sale-orders-flow-panel-production header p {
@@ -544,7 +544,7 @@
 
 .sale-orders-deadline-strip strong {
   color: #2d2d2d;
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 800;
   line-height: 20px;
 }
@@ -559,7 +559,7 @@
   display: inline-flex;
   flex: 0 0 auto;
   font: inherit;
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 800;
   gap: 8px;
   min-height: 38px;
@@ -635,7 +635,7 @@
   color: #ffffff;
   cursor: pointer;
   font: inherit;
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 700;
   margin-top: 21px;
   padding: 0 12px;
@@ -706,7 +706,7 @@
 .sale-orders-deadline-modal header p,
 .sale-orders-modal-note {
   color: #6b6b6b;
-  font-size: 12px;
+  font-size: 10px;
   line-height: 18px;
   margin-top: 4px;
 }
@@ -749,7 +749,7 @@
   background: rgba(220, 38, 38, 0.08);
   border-radius: 8px;
   color: #b91c1c;
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 700;
   line-height: 18px;
   padding: 10px 12px;
@@ -766,7 +766,7 @@
   color: #ffffff;
   cursor: pointer;
   font: inherit;
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 800;
   min-height: 38px;
   padding: 0 14px;
@@ -801,7 +801,7 @@
 .sale-orders-table-scroll td {
   border-top: 1px solid rgba(139, 111, 71, 0.12);
   color: #525252;
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 600;
   padding: 15px 14px;
 }

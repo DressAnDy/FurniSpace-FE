@@ -43,9 +43,17 @@ type ProjectShowcaseManagerRole = 'sales' | 'admin';
 
 type ProjectShowcaseManagerProps = {
   projectId: string;
+  projectMeta?: ProjectShowcaseProjectMeta;
   projectName?: string | null;
   projectStatus?: ProjectStatus | string | null;
   role: ProjectShowcaseManagerRole;
+};
+
+type ProjectShowcaseProjectMeta = {
+  businessType?: string | null;
+  completedDate?: string | null;
+  projectAddress?: string | null;
+  totalAreaSqm?: number | null;
 };
 
 type ShowcaseDraft = {
@@ -55,7 +63,7 @@ type ShowcaseDraft = {
 const allowedImageMimeTypes = new Set(['image/jpeg', 'image/png', 'image/webp']);
 const allowedImageExtensions = new Set(['jpg', 'jpeg', 'png', 'webp']);
 
-export function ProjectShowcaseManager({ projectId, projectName, projectStatus, role }: ProjectShowcaseManagerProps) {
+export function ProjectShowcaseManager({ projectId, projectMeta, projectName, projectStatus, role }: ProjectShowcaseManagerProps) {
   const showcaseQuery = useProjectShowcase(projectId);
   const showcase = showcaseQuery.data ?? null;
   const [draft, setDraft] = useState<ShowcaseDraft>(() => createEmptyDraft(projectName));
@@ -87,6 +95,12 @@ export function ProjectShowcaseManager({ projectId, projectName, projectStatus, 
   const canReject = Boolean(isAdmin && showcase && normalizedShowcaseStatus === 'PENDING_REVIEW');
   const canArchive = Boolean(isAdmin && showcase && !isArchived);
   const coverMedia = showcase?.coverMedia ?? showcase?.media?.find((item) => item.isCover) ?? null;
+  const liveFacts = {
+    businessType: showcase?.businessType ?? projectMeta?.businessType,
+    completedDate: showcase?.completedDate ?? projectMeta?.completedDate,
+    projectAddress: showcase?.projectAddress ?? projectMeta?.projectAddress,
+    totalAreaSqm: typeof showcase?.totalAreaSqm === 'number' ? showcase.totalAreaSqm : projectMeta?.totalAreaSqm,
+  };
   const sortedMedia = useMemo(
     () => [...(showcase?.media ?? [])].sort((first, second) =>
       (first.displayOrder ?? Number.MAX_SAFE_INTEGER) - (second.displayOrder ?? Number.MAX_SAFE_INTEGER)
@@ -373,10 +387,10 @@ export function ProjectShowcaseManager({ projectId, projectName, projectStatus, 
             <span>{coverMedia ? 'Current Primary' : 'Primary Required'}</span>
           </div>
           <div className="project-showcase-live-facts">
-            <ShowcaseFact icon={<IconBuildingSkyscraper size={17} />} label="Business" value={showcase?.businessType} />
-            <ShowcaseFact icon={<IconCalendar size={17} />} label="Completed" value={showcase?.completedDate ? formatDate(showcase.completedDate) : null} />
-            <ShowcaseFact icon={<IconRulerMeasure size={17} />} label="Area" value={typeof showcase?.totalAreaSqm === 'number' ? `${formatNumber(showcase.totalAreaSqm)} m2` : null} />
-            <ShowcaseFact icon={<IconMapPin size={17} />} label="Address" value={showcase?.projectAddress} />
+            <ShowcaseFact icon={<IconBuildingSkyscraper size={17} />} label="Business" value={liveFacts.businessType} />
+            <ShowcaseFact icon={<IconCalendar size={17} />} label="Completed" value={liveFacts.completedDate ? formatDate(liveFacts.completedDate) : null} />
+            <ShowcaseFact icon={<IconRulerMeasure size={17} />} label="Area" value={typeof liveFacts.totalAreaSqm === 'number' ? `${formatNumber(liveFacts.totalAreaSqm)} m2` : null} />
+            <ShowcaseFact icon={<IconMapPin size={17} />} label="Address" value={liveFacts.projectAddress} />
           </div>
         </section>
 

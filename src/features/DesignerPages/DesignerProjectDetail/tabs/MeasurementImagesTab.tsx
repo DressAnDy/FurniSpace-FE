@@ -322,25 +322,30 @@ function MeasurementUploadTile({ item, onRemove }: { item: MeasurementUploadItem
 
 function MeasurementImageCard({ image }: { image: MeasurementImageDto }) {
   const imageUrl = image.url ?? image.publicUrl;
+  const imageName = getDisplayFileName(image.originalFileName, 'Measurement image');
+  const areaNames = image.areas
+    ?.map((area) => getDisplayText(area.areaName, 'Unnamed area'))
+    .filter(Boolean)
+    .join(', ');
 
   return (
     <article className="designer-project-file-card">
       {imageUrl ? (
         <a href={imageUrl} rel="noreferrer" target="_blank">
-          <img alt={image.originalFileName ?? 'Measurement'} className="designer-project-measurement-image" src={imageUrl} />
+          <img alt={imageName} className="designer-project-measurement-image" src={imageUrl} />
         </a>
       ) : (
         <div className="designer-project-measurement-placeholder"><IconPhoto size={28} /></div>
       )}
       <div className="designer-project-file-content">
         <div className="designer-project-file-name">
-          <h4>{image.originalFileName ?? image.fileId}</h4>
+          <h4>{imageName}</h4>
           <p>{image.uploadedAt ? formatDateTime(image.uploadedAt) : 'No upload time'}</p>
         </div>
         <p className="designer-project-file-meta">
           Schedule: {image.measurementSchedule?.scheduledStart ? formatDateTime(image.measurementSchedule.scheduledStart) : '-'}
           <br />
-          <IconLink size={13} /> Areas: {image.areas?.length ? image.areas.map((area) => area.areaName ?? area.projectAreaId).join(', ') : '-'}
+          <IconLink size={13} /> Areas: {areaNames || '-'}
         </p>
       </div>
     </article>
@@ -384,4 +389,21 @@ function formatDateTime(value: string) {
     month: 'short',
     year: 'numeric',
   }).format(new Date(value));
+}
+
+function getDisplayFileName(value: string | null | undefined, fallback: string) {
+  const displayText = getDisplayText(value, fallback);
+
+  return isTechnicalId(displayText) ? fallback : displayText;
+}
+
+function getDisplayText(value: string | null | undefined, fallback: string) {
+  const normalizedValue = value?.trim();
+
+  return normalizedValue || fallback;
+}
+
+function isTechnicalId(value: string) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)
+    || /^[0-9a-f]{24}$/i.test(value);
 }

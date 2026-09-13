@@ -91,6 +91,7 @@ export function ProjectAreasTab({ project }: Readonly<ProjectAreasTabProps>) {
   const calculatedAreaSqm = getDraftAreaSqm(areaDraft);
   const assignedFloorNumber = getAssignedFloorNumber(areaDraft, areas, editingAreaId, project);
   const floorAssignmentError = assignedFloorNumber === null ? getFloorAssignmentError(areas, editingAreaId, project) ?? 'No available floor for this project.' : null;
+  const isAreaCreationLocked = !isEditingArea && Boolean(floorAssignmentError);
   const areaLimitError = useMemo(
     () => getAreaLimitError(areaDraft, areas, editingAreaId, project),
     [areaDraft, areas, editingAreaId, project],
@@ -207,21 +208,19 @@ export function ProjectAreasTab({ project }: Readonly<ProjectAreasTabProps>) {
 
       <div className="designer-project-area-layout">
         <section className="designer-project-area-form-card">
-          {fieldErrors.floorNumber || floorAssignmentError ? (
-            <p className="designer-project-area-assignment-error">{fieldErrors.floorNumber ?? floorAssignmentError}</p>
-          ) : null}
           <div className="designer-project-area-heading">
             <IconRulerMeasure size={22} />
             <div>
               <h4>{isEditingArea ? 'Update Project Area' : 'Add Project Area'}</h4>
             </div>
           </div>
-          <div className="designer-project-area-form">
+          <div className={`designer-project-area-form${isAreaCreationLocked ? ' designer-project-area-form-locked' : ''}`}>
             <label>
               <span>Area Name</span>
               <input
                 aria-invalid={Boolean(fieldErrors.areaName)}
                 className={fieldErrors.areaName ? 'designer-project-area-input-invalid' : undefined}
+                disabled={isAreaCreationLocked}
                 title={fieldErrors.areaName}
                 value={areaDraft.areaName}
               onChange={(event) => updateDraft('areaName', event.target.value)}
@@ -230,6 +229,7 @@ export function ProjectAreasTab({ project }: Readonly<ProjectAreasTabProps>) {
             <label>
               <span>Layout Mode</span>
               <select
+                disabled={isAreaCreationLocked}
                 value={areaDraft.isSpecialLayout ? 'special' : 'standard'}
                 onChange={(event) => updateDraft('isSpecialLayout', event.target.value === 'special')}
               >
@@ -242,6 +242,7 @@ export function ProjectAreasTab({ project }: Readonly<ProjectAreasTabProps>) {
               inputMode="decimal"
               label={areaDraft.isSpecialLayout ? 'Width (m, optional)' : 'Width (m)'}
               value={areaDraft.width}
+              disabled={isAreaCreationLocked}
               onChange={(value) => updateNumericDraft('width', value)}
             />
             <NumericAreaInput
@@ -249,6 +250,7 @@ export function ProjectAreasTab({ project }: Readonly<ProjectAreasTabProps>) {
               inputMode="decimal"
               label={areaDraft.isSpecialLayout ? 'Length (m, optional)' : 'Length (m)'}
               value={areaDraft.length}
+              disabled={isAreaCreationLocked}
               onChange={(value) => updateNumericDraft('length', value)}
             />
             <NumericAreaInput
@@ -256,6 +258,7 @@ export function ProjectAreasTab({ project }: Readonly<ProjectAreasTabProps>) {
               inputMode="decimal"
               label="Height (m)"
               value={areaDraft.height}
+              disabled={isAreaCreationLocked}
               onChange={(value) => updateNumericDraft('height', value)}
             />
             {areaDraft.isSpecialLayout ? (
@@ -264,6 +267,7 @@ export function ProjectAreasTab({ project }: Readonly<ProjectAreasTabProps>) {
                 inputMode="decimal"
                 label="Area (m2, optional)"
                 value={areaDraft.areaSqm}
+                disabled={isAreaCreationLocked}
                 onChange={(value) => updateNumericDraft('areaSqm', value)}
               />
             ) : (
@@ -275,17 +279,17 @@ export function ProjectAreasTab({ project }: Readonly<ProjectAreasTabProps>) {
             )}
             <label className="designer-project-area-note">
               <span>Description</span>
-              <textarea value={areaDraft.description} onChange={(event) => updateDraft('description', event.target.value)} />
+              <textarea disabled={isAreaCreationLocked} value={areaDraft.description} onChange={(event) => updateDraft('description', event.target.value)} />
             </label>
             <label className="designer-project-area-note">
               <span>Current Condition</span>
-              <textarea value={areaDraft.currentCondition} onChange={(event) => updateDraft('currentCondition', event.target.value)} />
+              <textarea disabled={isAreaCreationLocked} value={areaDraft.currentCondition} onChange={(event) => updateDraft('currentCondition', event.target.value)} />
             </label>
             <label className="designer-project-area-note">
               <span>Requirement Note</span>
-              <textarea value={areaDraft.requirementNote} onChange={(event) => updateDraft('requirementNote', event.target.value)} />
+              <textarea disabled={isAreaCreationLocked} value={areaDraft.requirementNote} onChange={(event) => updateDraft('requirementNote', event.target.value)} />
             </label>
-            {areaDraft.isSpecialLayout ? <SpecialAreaBlueprintUpload projectAreaId={editingAreaId} /> : null}
+            {areaDraft.isSpecialLayout && !isAreaCreationLocked ? <SpecialAreaBlueprintUpload projectAreaId={editingAreaId} /> : null}
             <div className="designer-project-area-form-actions">
               {isEditingArea ? (
                 <button className="designer-project-area-cancel-button" disabled={isSavingArea} type="button" onClick={resetAreaForm}>
@@ -553,12 +557,14 @@ function SpecialAreaUploadTile({
 }
 
 function NumericAreaInput({
+  disabled = false,
   error,
   inputMode,
   label,
   onChange,
   value,
 }: Readonly<{
+  disabled?: boolean;
   error?: string;
   inputMode: 'decimal' | 'numeric';
   label: string;
@@ -572,6 +578,7 @@ function NumericAreaInput({
         aria-invalid={Boolean(error)}
         autoComplete="off"
         className={error ? 'designer-project-area-input-invalid' : undefined}
+        disabled={disabled}
         inputMode={inputMode}
         title={error}
         type="text"

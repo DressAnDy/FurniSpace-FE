@@ -377,7 +377,6 @@ function OrderDetailPanel({
           <header>
             <div>
               <h3>{copy.productionAssignment}</h3>
-              <p>Choose staff, priority, and deadline before creating the request.</p>
             </div>
             {isProductionDeadlineMissing ? (
               <span className="sale-orders-production-note">Deadline required</span>

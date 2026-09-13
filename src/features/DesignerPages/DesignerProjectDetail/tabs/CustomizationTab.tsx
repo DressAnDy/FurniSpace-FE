@@ -947,7 +947,7 @@ function VersionForm({
               ) : (
                 <IconUpload size={42} />
               )}
-              <strong>{previewFile?.name ?? currentPreviewFile?.fileId ?? 'Select PRODUCT_PREVIEW image'}</strong>
+              <strong>{previewFile?.name ?? getDisplayFileName(currentPreviewFile?.originalFileName, currentPreviewFile ? 'Current preview image' : 'Select PRODUCT_PREVIEW image')}</strong>
               <small>Visible in customization review and customer approval.</small>
             </div>
           </div>
@@ -968,7 +968,7 @@ function VersionForm({
             />
             <div className="designer-project-custom-upload-main designer-project-custom-upload-model">
               <IconCube size={42} />
-              <strong>{(modelFile?.name ?? form.modelFileId) || 'Select GLB/glTF model'}</strong>
+              <strong>{modelFile?.name ?? (form.modelFileId ? 'Current 3D model attached' : 'Select GLB/glTF model')}</strong>
               <small>Uploaded as MODEL_3D after this custom ProductVersion is saved.</small>
             </div>
           </div>
@@ -1152,6 +1152,21 @@ function getPreviewFileIds(value: string) {
     .split(',')
     .map((fileId) => fileId.trim())
     .filter(Boolean);
+}
+
+function getDisplayFileName(value: string | null | undefined, fallback: string) {
+  const normalizedValue = value?.trim();
+
+  if (!normalizedValue || isTechnicalId(normalizedValue)) {
+    return fallback;
+  }
+
+  return normalizedValue;
+}
+
+function isTechnicalId(value: string) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)
+    || /^[0-9a-f]{24}$/i.test(value);
 }
 
 function isDimensionUnit(value?: string | null): value is 'cm' | 'm' | 'mm' {

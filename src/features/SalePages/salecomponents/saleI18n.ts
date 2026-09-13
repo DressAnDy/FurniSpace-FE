@@ -374,7 +374,7 @@ const en: SaleCopy = {
     productionAssignment: 'Production Assignment',
     finalPayment: 'Final Payment',
     createDeposit: 'Create / Reuse Deposit Payment',
-    createProduction: 'Create Production',
+    createProduction: 'Assign Production',
     emptyProjects: 'No order projects found.',
     emptyOrder: 'No order found for this project.',
     staff: 'Staff',

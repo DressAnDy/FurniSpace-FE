@@ -41,31 +41,35 @@ export function SpaceFilesTab({ project }: SpaceFilesTabProps) {
 
       {files.length > 0 ? (
         <div className="designer-project-file-grid">
-          {files.map((file) => (
-            <article className="designer-project-file-card" key={file.fileLinkId}>
-              <div className="designer-project-file-icon">
-                <IconFileText size={22} stroke={1.8} />
-              </div>
-              <div className="designer-project-file-content">
-                <div className="designer-project-file-heading">
-                  <div className="designer-project-file-name">
-                    <h4>{file.originalFileName}</h4>
-                    <p>{formatEnumLabel(file.fileType)}</p>
+          {files.map((file) => {
+            const fileName = getDisplayFileName(file.originalFileName, 'Project file');
+
+            return (
+              <article className="designer-project-file-card" key={file.fileLinkId}>
+                <div className="designer-project-file-icon">
+                  <IconFileText size={22} stroke={1.8} />
+                </div>
+                <div className="designer-project-file-content">
+                  <div className="designer-project-file-heading">
+                    <div className="designer-project-file-name">
+                      <h4>{fileName}</h4>
+                      <p>{formatEnumLabel(file.fileType)}</p>
+                    </div>
+                    <span className="designer-project-status designer-project-status-new">{formatEnumLabel(file.visibility)}</span>
                   </div>
-                  <span className="designer-project-status designer-project-status-new">{formatEnumLabel(file.visibility)}</span>
+                  <p className="designer-project-file-meta">{formatFileSize(file.fileSize)} - {formatDate(file.uploadedAt)}</p>
+                  <div className="designer-project-file-actions">
+                    <button className="designer-project-icon-button" type="button" aria-label={`Preview ${fileName}`} onClick={() => window.open(file.publicUrl, '_blank', 'noopener,noreferrer')}>
+                      <IconEye size={17} />
+                    </button>
+                    <button className="designer-project-icon-button" type="button" aria-label={`Download ${fileName}`} onClick={() => window.open(file.publicUrl, '_blank', 'noopener,noreferrer')}>
+                      <IconDownload size={17} />
+                    </button>
+                  </div>
                 </div>
-                <p className="designer-project-file-meta">{formatFileSize(file.fileSize)} - {formatDate(file.uploadedAt)}</p>
-                <div className="designer-project-file-actions">
-                  <button className="designer-project-icon-button" type="button" aria-label={`Preview ${file.originalFileName}`} onClick={() => window.open(file.publicUrl, '_blank', 'noopener,noreferrer')}>
-                    <IconEye size={17} />
-                  </button>
-                  <button className="designer-project-icon-button" type="button" aria-label={`Download ${file.originalFileName}`} onClick={() => window.open(file.publicUrl, '_blank', 'noopener,noreferrer')}>
-                    <IconDownload size={17} />
-                  </button>
-                </div>
-              </div>
-            </article>
-          ))}
+              </article>
+            );
+          })}
         </div>
       ) : null}
     </section>
@@ -92,4 +96,19 @@ function formatDate(value: string) {
     month: 'short',
     year: 'numeric',
   }).format(new Date(value));
+}
+
+function getDisplayFileName(value: string | null | undefined, fallback: string) {
+  const normalizedValue = value?.trim();
+
+  if (!normalizedValue || isTechnicalId(normalizedValue)) {
+    return fallback;
+  }
+
+  return normalizedValue;
+}
+
+function isTechnicalId(value: string) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)
+    || /^[0-9a-f]{24}$/i.test(value);
 }

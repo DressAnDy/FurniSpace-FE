@@ -53,7 +53,6 @@ export function ReadyForDelivery() {
   const [requestPageSize, setRequestPageSize] = useState(DEFAULT_REQUEST_PAGE_SIZE);
   const [requestTab, setRequestTab] = useState<ReadyRequestTab>('pending');
   const [isDeliveryDetailOpen, setIsDeliveryDetailOpen] = useState(false);
-  const [isScheduleBatchModalOpen, setIsScheduleBatchModalOpen] = useState(false);
   const [scheduleStartInput, setScheduleStartInput] = useState(getNowDateTimeLocalInputValue());
   const [scheduleEndInput, setScheduleEndInput] = useState('');
   const [scheduleLocationInput, setScheduleLocationInput] = useState('');
@@ -245,8 +244,6 @@ export function ReadyForDelivery() {
     setHasEditedScheduleLocation(false);
     setReschedulingScheduleId('');
     setRescheduleDraft({ customerNote: '', end: '', location: '', start: '' });
-    setIsDeliveryDetailOpen(false);
-    setIsScheduleBatchModalOpen(false);
   }, [selectedRequest?.productionRequestId]);
 
   useEffect(() => {
@@ -260,7 +257,6 @@ export function ReadyForDelivery() {
   useEffect(() => {
     if (selectedScheduleId && !deliverySchedules.some((schedule) => getScheduleKey(schedule) === selectedScheduleId)) {
       setSelectedScheduleId('');
-      setIsScheduleBatchModalOpen(false);
     }
   }, [deliverySchedules, selectedScheduleId]);
 
@@ -305,7 +301,6 @@ export function ReadyForDelivery() {
     try {
       const schedule = await createScheduleMutation.mutateAsync({
         assignedStaffId,
-        customerNote: 'Please confirm this delivery schedule.',
         description: `Delivery schedule for ${order.orderCode}.`,
         internalNote: 'Created by Production after production request completion.',
         location: scheduleLocation,
@@ -491,9 +486,10 @@ export function ReadyForDelivery() {
     const linkedBatch = linkedBatches[0] ?? null;
     const canSelect = canUseScheduleForBatch(schedule, usedScheduleIds);
     const isRescheduling = reschedulingScheduleId === scheduleKey;
-    const isCustomerConfirmedSchedule = isConfirmedDeliverySchedule(schedule);
-    const canReschedule = canManageDelivery && !isCustomerConfirmedSchedule && !linkedBatch && !isCompletedSchedule(schedule) && !isCancelledSchedule(schedule);
-    const canDelete = canManageDelivery && !isCustomerConfirmedSchedule && !linkedBatch && !isCompletedSchedule(schedule);
+    const customerNote = schedule.customerNote?.trim() ?? '';
+    const hasPendingCustomerNote = isPendingConfirmationSchedule(schedule) && customerNote.length > 0;
+    const canReschedule = canManageDelivery && hasPendingCustomerNote && !linkedBatch;
+    const canDelete = canManageDelivery && !isConfirmedDeliverySchedule(schedule) && !linkedBatch && !isCompletedSchedule(schedule) && !isCancelledSchedule(schedule);
 
     return (
       <article
@@ -505,7 +501,6 @@ export function ReadyForDelivery() {
           type="button"
           onClick={() => {
             setSelectedScheduleId(scheduleKey);
-            setIsScheduleBatchModalOpen(true);
           }}
         >
           <strong>
@@ -513,6 +508,7 @@ export function ReadyForDelivery() {
             <span>{formatEnumLabel(schedule.status)}</span>
           </strong>
           <p>{formatDateTime(schedule.scheduledStart)}{schedule.scheduledEnd ? ` -> ${formatDateTime(schedule.scheduledEnd)}` : ''}</p>
+          {hasPendingCustomerNote ? <em className="production-ready-schedule-note">{customerNote}</em> : null}
           <small>{linkedBatches.length > 0 ? `${linkedBatches.length} batch(es) - ${formatEnumLabel(linkedBatch?.status ?? 'COMPLETED')}` : canSelect ? 'Ready for batch' : 'Waiting for confirmation or already used'}</small>
         </button>
         <div className="production-ready-schedule-actions">
@@ -543,60 +539,83 @@ export function ReadyForDelivery() {
             </button>
           ) : null}
         </div>
-        {isRescheduling && canReschedule ? (
-          <form className="production-ready-reschedule-form" onSubmit={(event) => void rescheduleDeliverySchedule(event, schedule)}>
-            <div className="production-workspace-form-grid">
-              <label>
-                <span>New start</span>
-                <input
-                  className="production-workspace-input"
-                  type="datetime-local"
-                  value={rescheduleDraft.start}
-                  onChange={(event) => setRescheduleDraft((current) => ({ ...current, start: event.target.value }))}
-                />
-              </label>
-              <label>
-                <span>New end</span>
-                <input
-                  className="production-workspace-input"
-                  type="datetime-local"
-                  value={rescheduleDraft.end}
-                  onChange={(event) => setRescheduleDraft((current) => ({ ...current, end: event.target.value }))}
-                />
-              </label>
-            </div>
-            <label>
-              <span>Location</span>
-              <input
-                className="production-workspace-input"
-                value={rescheduleDraft.location}
-                onChange={(event) => setRescheduleDraft((current) => ({ ...current, location: event.target.value }))}
-              />
-            </label>
-            <label>
-              <span>Customer note</span>
-              <textarea
-                className="production-workspace-textarea"
-                value={rescheduleDraft.customerNote}
-                onChange={(event) => setRescheduleDraft((current) => ({ ...current, customerNote: event.target.value }))}
-              />
-            </label>
-            <div className="production-workspace-row-actions">
-              <button disabled={updateScheduleMutation.isPending} type="submit">
-                {updateScheduleMutation.isPending ? 'Saving...' : 'Save Reschedule'}
-              </button>
-              <button className="is-secondary" disabled={updateScheduleMutation.isPending} type="button" onClick={() => setReschedulingScheduleId('')}>
-                Cancel
-              </button>
-            </div>
-          </form>
-        ) : null}
       </article>
     );
   }
 
-  function closeScheduleBatchModal() {
-    setIsScheduleBatchModalOpen(false);
+  function renderReschedulePanel() {
+    const schedule = deliverySchedules.find((item) => getScheduleKey(item) === reschedulingScheduleId) ?? null;
+
+    if (!schedule) {
+      return null;
+    }
+
+    const scheduleKey = getScheduleKey(schedule);
+    const linkedBatch = deliveriesByScheduleId.get(scheduleKey)?.[0] ?? null;
+    const customerNote = schedule.customerNote?.trim() ?? '';
+    const canReschedule = canManageDelivery && isPendingConfirmationSchedule(schedule) && customerNote.length > 0 && !linkedBatch;
+
+    if (!canReschedule) {
+      return null;
+    }
+
+    return (
+      <article className="production-workspace-card production-ready-reschedule-panel">
+        <header>
+          <div>
+            <h3>Reschedule Delivery</h3>
+            <p>{schedule.title ?? 'Delivery schedule'}</p>
+          </div>
+          <ProductionStatusBadge label={formatEnumLabel(schedule.status)} status={schedule.status} />
+        </header>
+        <form className="production-ready-reschedule-form" onSubmit={(event) => void rescheduleDeliverySchedule(event, schedule)}>
+          <div className="production-workspace-form-grid">
+            <label>
+              <span>New start</span>
+              <input
+                className="production-workspace-input"
+                type="datetime-local"
+                value={rescheduleDraft.start}
+                onChange={(event) => setRescheduleDraft((current) => ({ ...current, start: event.target.value }))}
+              />
+            </label>
+            <label>
+              <span>New end</span>
+              <input
+                className="production-workspace-input"
+                type="datetime-local"
+                value={rescheduleDraft.end}
+                onChange={(event) => setRescheduleDraft((current) => ({ ...current, end: event.target.value }))}
+              />
+            </label>
+          </div>
+          <label>
+            <span>Location</span>
+            <input
+              className="production-workspace-input"
+              value={rescheduleDraft.location}
+              onChange={(event) => setRescheduleDraft((current) => ({ ...current, location: event.target.value }))}
+            />
+          </label>
+          <label>
+            <span>Customer note</span>
+            <textarea
+              className="production-workspace-textarea"
+              value={rescheduleDraft.customerNote}
+              onChange={(event) => setRescheduleDraft((current) => ({ ...current, customerNote: event.target.value }))}
+            />
+          </label>
+          <div className="production-workspace-row-actions">
+            <button disabled={updateScheduleMutation.isPending} type="submit">
+              {updateScheduleMutation.isPending ? 'Saving...' : 'Save Reschedule'}
+            </button>
+            <button className="is-secondary" disabled={updateScheduleMutation.isPending} type="button" onClick={() => setReschedulingScheduleId('')}>
+              Cancel
+            </button>
+          </div>
+        </form>
+      </article>
+    );
   }
 
   function renderBatchCreateForm() {
@@ -733,7 +752,10 @@ export function ReadyForDelivery() {
                   <button
                     className="production-ready-request-select"
                     type="button"
-                    onClick={() => setSelectedProductionRequestId(request.productionRequestId)}
+                    onClick={() => {
+                      setSelectedProductionRequestId(request.productionRequestId);
+                      setIsDeliveryDetailOpen(true);
+                    }}
                   >
                     <strong>
                       {request.projectName}
@@ -873,84 +895,41 @@ export function ReadyForDelivery() {
                   </div>
                 </article>
 
+                {renderReschedulePanel()}
+
                 {canManageDelivery ? (
                   <article className="production-workspace-card">
-              <header>
-                <div>
-                  <h3>Execute Batch</h3>
-                  <p>Enter only the quantities delivered in this schedule.</p>
-                </div>
-                <div className="production-ready-plan-actions">
-                  {selectedSchedule ? <ProductionStatusBadge label={formatEnumLabel(selectedSchedule.status)} status={selectedSchedule.status} /> : null}
-                </div>
-              </header>
-              {selectedScheduleBatch ? (
-                <div className="production-workspace-row-actions">
-                  <Field label="Linked batch" value={formatEnumLabel(selectedScheduleBatch.status)} />
-                  {isInProgressDeliveryBatch(selectedScheduleBatch) ? (
-                    <button disabled={completeBatchMutation.isPending} type="button" onClick={() => void completeDeliveryBatch(selectedScheduleBatch)}>
-                      {completeBatchMutation.isPending ? 'Completing...' : 'Complete Batch'}
-                    </button>
-                  ) : null}
-                </div>
-              ) : null}
-              {!selectedSchedule ? <p className="production-workspace-muted">Select a confirmed unused delivery schedule first.</p> : null}
-              {selectedSchedule && !canUseScheduleForBatch(selectedSchedule, usedScheduleIds) && !selectedScheduleBatch ? (
-                <p className="production-workspace-muted">This schedule cannot start a batch yet.</p>
-              ) : null}
-              {selectedSchedule && canUseScheduleForBatch(selectedSchedule, usedScheduleIds) ? (
-                renderBatchCreateForm()
-              ) : null}
+                    <header>
+                      <div>
+                        <h3>Execute Batch</h3>
+                      </div>
+                      <div className="production-ready-plan-actions">
+                        {selectedSchedule ? <ProductionStatusBadge label={formatEnumLabel(selectedSchedule.status)} status={selectedSchedule.status} /> : null}
+                      </div>
+                    </header>
+                    {selectedScheduleBatch ? (
+                      <section className="production-ready-inline-batch">
+                        <DeliveryBatchDetailList deliveries={selectedScheduleBatches} />
+                        {isInProgressDeliveryBatch(selectedScheduleBatch) ? (
+                          <div className="production-workspace-row-actions production-ready-batch-actions">
+                            <button disabled={completeBatchMutation.isPending} type="button" onClick={() => void completeDeliveryBatch(selectedScheduleBatch)}>
+                              {completeBatchMutation.isPending ? 'Completing...' : 'Complete Batch'}
+                            </button>
+                          </div>
+                        ) : null}
+                      </section>
+                    ) : null}
+                    {!selectedSchedule ? <p className="production-workspace-muted">Select a confirmed unused delivery schedule first.</p> : null}
+                    {selectedSchedule && !canUseScheduleForBatch(selectedSchedule, usedScheduleIds) && !selectedScheduleBatch ? (
+                      <p className="production-workspace-muted">This schedule cannot start a batch yet.</p>
+                    ) : null}
+                    {selectedSchedule && canUseScheduleForBatch(selectedSchedule, usedScheduleIds) ? renderBatchCreateForm() : null}
                   </article>
                 ) : null}
               </>
             )}
           </div>
         </section>
-        {isScheduleBatchModalOpen && selectedSchedule ? (
-          <div className="production-ready-modal-backdrop">
-            <dialog className="production-ready-modal" open>
-              <header>
-                <div>
-                  <span>{formatEnumLabel(selectedSchedule.status)}</span>
-                  <h3>{selectedSchedule.title ?? 'Delivery schedule'}</h3>
-                  <p>
-                    {formatDateTime(selectedSchedule.scheduledStart)}
-                    {selectedSchedule.scheduledEnd ? ` -> ${formatDateTime(selectedSchedule.scheduledEnd)}` : ''}
-                  </p>
-                </div>
-                <button aria-label="Close schedule batch detail" type="button" onClick={closeScheduleBatchModal}>
-                  <IconArrowLeft size={16} />
-                  Back
-                </button>
-              </header>
-
-              {selectedScheduleBatches.length > 0 ? (
-                <section className="production-ready-modal-section">
-                  <div className="production-ready-modal-section-title">
-                    <h4>Batch Status</h4>
-                  </div>
-                  <DeliveryBatchDetailList deliveries={selectedScheduleBatches} />
-                  {selectedScheduleBatch && isInProgressDeliveryBatch(selectedScheduleBatch) ? (
-                    <div className="production-workspace-row-actions production-ready-batch-actions">
-                      <button disabled={completeBatchMutation.isPending} type="button" onClick={() => void completeDeliveryBatch(selectedScheduleBatch)}>
-                        {completeBatchMutation.isPending ? 'Completing...' : 'Complete Batch'}
-                      </button>
-                    </div>
-                  ) : null}
-                </section>
-              ) : (
-                <section className="production-ready-modal-section">
-                  <div className="production-ready-modal-section-title">
-                    <h4>Add Items</h4>
-                    <span>No batch yet</span>
-                  </div>
-                  {renderBatchCreateForm()}
-                </section>
-              )}
-            </dialog>
-          </div>
-        ) : null}
         {selectedRequest ? (
           <div className="production-ready-ops-stack">
             <OperationalDelayPanel
@@ -1069,6 +1048,12 @@ function isConfirmedDeliverySchedule(schedule: ProjectScheduleDto) {
   const status = normalizeWorkflowStatus(schedule.status);
 
   return status === 'CONFIRMED' || status === 'DELIVERY_CONFIRMED' || status === 'CUSTOMER_CONFIRMED' || status === 'CONFIRMED_DELIVERY';
+}
+
+function isPendingConfirmationSchedule(schedule: ProjectScheduleDto) {
+  const status = normalizeWorkflowStatus(schedule.status);
+
+  return status === 'PENDING_CONFIRMATION' || status === 'DELIVERY_PENDING_CONFIRMATION' || status === 'AWAITING_CUSTOMER_CONFIRMATION';
 }
 
 function blockInvalidBatchQuantityKey(event: KeyboardEvent<HTMLInputElement>) {

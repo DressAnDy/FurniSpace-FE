@@ -68,7 +68,26 @@ function getSceneAreaIds(scene: ProposalSceneDto) {
 }
 
 function getSceneDisplayName(scene: ProposalSceneDto) {
-  return scene.sceneName?.trim() || 'Untitled Room Planner Scene';
+  return getDisplayText(scene.sceneName, 'Untitled Room Planner Scene');
+}
+
+function getAreaDisplayName(areaName: string | null | undefined) {
+  return getDisplayText(areaName, 'Unnamed area');
+}
+
+function getDisplayText(value: string | null | undefined, fallback: string) {
+  const normalizedValue = value?.trim();
+
+  if (!normalizedValue || isTechnicalId(normalizedValue)) {
+    return fallback;
+  }
+
+  return normalizedValue;
+}
+
+function isTechnicalId(value: string) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)
+    || /^[0-9a-f]{24}$/i.test(value);
 }
 
 export function DesignerProposalWorkspace() {
@@ -232,7 +251,7 @@ export function DesignerProposalWorkspace() {
       });
 
       setProposalDraft(DEFAULT_PROPOSAL_DRAFT);
-      setMessage(`Created ${createdProposal.proposalName} with one room planner scene.`);
+      setMessage(`Created ${getDisplayText(createdProposal.proposalName, 'proposal')} with one room planner scene.`);
       navigate(`/designer/projects/${projectId}/proposals/${createdProposal.proposalId}`, {
         state: {
           createdSceneId: createdScene.sceneId,
@@ -398,7 +417,7 @@ export function DesignerProposalWorkspace() {
       <header className="designer-proposal-heading">
         <div className="designer-proposal-heading-copy">
           <span>{projectQuery.isLoading ? 'LOADING PROJECT' : project?.projectCode ?? 'PROJECT NOT FOUND'}</span>
-          <h1>{isProposalSetupMode ? 'Set Up Project Areas & Proposal' : proposalQuery.isLoading ? 'Loading proposal...' : proposal?.proposalName ?? 'Proposal not found'}</h1>
+          <h1>{isProposalSetupMode ? 'Set Up Project Areas & Proposal' : proposalQuery.isLoading ? 'Loading proposal...' : getDisplayText(proposal?.proposalName, 'Proposal not found')}</h1>
           <p>
             {project?.projectName ?? 'No project data from backend'}
             {proposal ? ` · Version ${proposal.versionNo}` : ''}
@@ -656,7 +675,7 @@ function ProjectAreasSection({
             type="button"
             onClick={() => onSelectArea(area.projectAreaId)}
           >
-            <strong>{area.areaName}</strong>
+              <strong>{getAreaDisplayName(area.areaName)}</strong>
             <span>{formatEnumLabel(area.areaType)}{area.areaSqm ? ` - ${area.areaSqm} m2` : ''}</span>
           </button>
         ))}
@@ -666,7 +685,7 @@ function ProjectAreasSection({
         <div className="designer-selected-area-panel">
           <header>
             <div>
-              <strong>{selectedArea.areaName}</strong>
+              <strong>{getAreaDisplayName(selectedArea.areaName)}</strong>
             </div>
           </header>
           <dl>
@@ -807,7 +826,7 @@ function SceneUpdateModal({
             <select value={draft.projectAreaId} onChange={(event) => updateDraft('projectAreaId', event.target.value)}>
               <option value="">No area linked</option>
               {areas.map((area) => (
-                <option key={area.projectAreaId} value={area.projectAreaId}>{area.areaName}</option>
+                <option key={area.projectAreaId} value={area.projectAreaId}>{getAreaDisplayName(area.areaName)}</option>
               ))}
             </select>
           </label>
@@ -897,7 +916,7 @@ function SceneRow({
 }) {
   const sceneAreaIds = getSceneAreaIds(scene);
   const sceneAreaNames = sceneAreaIds
-    .map((areaId) => areas.find((area) => area.projectAreaId === areaId)?.areaName ?? scene.areas?.find((area) => area.projectAreaId === areaId)?.areaName ?? areaId)
+    .map((areaId) => getAreaDisplayName(areas.find((area) => area.projectAreaId === areaId)?.areaName ?? scene.areas?.find((area) => area.projectAreaId === areaId)?.areaName))
     .filter(Boolean);
   const areaLabel = sceneAreaNames.length > 0 ? `Floors: ${sceneAreaNames.join(', ')}` : 'No floors linked';
 
@@ -927,7 +946,7 @@ function ItemsTable({ items, total }: { items: ProposalItemDto[]; total: number 
         <tbody>
           {items.map((item) => (
             <tr key={item.proposalItemId}>
-              <td><strong>{item.productNameSnapshot}</strong></td>
+              <td><strong>{getDisplayText(item.productNameSnapshot, 'Proposal item')}</strong></td>
               <td>{item.materialSnapshot ?? '-'}</td>
               <td>{item.colorSnapshot ?? '-'}</td>
               <td>{item.quantity}</td>
