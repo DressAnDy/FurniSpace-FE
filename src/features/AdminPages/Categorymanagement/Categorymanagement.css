@@ -177,11 +177,27 @@
 
 .category-management-table {
   width: 100%;
-  min-width: 960px;
+  min-width: 1040px;
   border-collapse: collapse;
+  table-layout: fixed;
   text-align: left;
   font-size: 14px;
   line-height: 20px;
+}
+
+.category-management-table th:nth-child(1),
+.category-management-table td:nth-child(1) {
+  width: 260px;
+}
+
+.category-management-table th:nth-child(3),
+.category-management-table td:nth-child(3) {
+  width: 120px;
+}
+
+.category-management-table th:nth-child(4),
+.category-management-table td:nth-child(4) {
+  width: 132px;
 }
 
 .category-management-table th {
@@ -194,7 +210,7 @@
 .category-management-table td {
   border-bottom: 1px solid #e5e7eb;
   color: #6b7280;
-  padding: 16px;
+  padding: 14px 16px;
   vertical-align: middle;
 }
 
@@ -206,7 +222,7 @@
   display: flex;
   align-items: center;
   gap: 12px;
-  min-width: 220px;
+  min-width: 0;
 }
 
 .category-management-name > span {
@@ -223,8 +239,12 @@
 
 .category-management-name strong {
   color: #1a1d29;
+  display: block;
   font-weight: 500;
   line-height: 20px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .category-management-id {
@@ -233,18 +253,31 @@
 }
 
 .category-management-description {
-  min-width: 280px;
+  color: #6b7280;
+  line-height: 22px;
   white-space: normal;
+}
+
+.category-management-description span {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
 .category-management-status {
   display: inline-flex;
+  min-width: 78px;
+  align-items: center;
+  justify-content: center;
   border-radius: 999px;
   color: #ffffff;
   padding: 4px 12px;
   font-size: 12px;
   font-weight: 500;
   line-height: 16px;
+  text-align: center;
+  white-space: nowrap;
 }
 
 .category-management-status-active {
@@ -262,8 +295,10 @@
 .category-management-actions {
   display: flex;
   align-items: center;
-  gap: 8px;
+  justify-content: flex-start;
+  gap: 6px;
   color: #1a1d29;
+  white-space: nowrap;
 }
 
 .category-management-actions button {

@@ -1,4 +1,4 @@
-import { type DragEvent, type FormEvent, useEffect, useState } from 'react';
+import { type DragEvent, type FormEvent, type KeyboardEvent, useCallback, useEffect, useRef, useState } from 'react';
 import { IconArrowLeft, IconPackage, IconPhoto, IconRefresh, IconUpload, IconX } from '@tabler/icons-react';
 import { useNavigate } from 'react-router-dom';
 
@@ -18,6 +18,15 @@ import { adminCopy } from '../admincomponents/adminI18n';
 import './Productmanagement.css';
 
 const MAX_PREVIEW_IMAGES = 5;
+const MAX_PRODUCT_IMAGE_SIZE_BYTES = 5 * 1024 * 1024;
+const PRODUCT_CODE_PATTERN = /^[A-Z0-9_-]+$/;
+const ALLOWED_PRODUCT_IMAGE_TYPES = new Set([
+  'image/gif',
+  'image/jpeg',
+  'image/png',
+  'image/svg+xml',
+  'image/webp',
+]);
 
 type PreviewUploadStatus = 'pending' | 'uploading' | 'uploaded' | 'failed';
 
@@ -45,6 +54,8 @@ export function CreateProductPage() {
   const [createdProductId, setCreatedProductId] = useState<string | null>(null);
   const [imageMessage, setImageMessage] = useState<string | null>(null);
   const [formMessage, setFormMessage] = useState<string | null>(null);
+  const [isProductFormReady, setIsProductFormReady] = useState(false);
+  const formRef = useRef<HTMLFormElement>(null);
   const categoryOptions = categoryListQuery.data?.items ?? [];
   const businessTypeOptions = businessTypeListQuery.data?.items.filter((businessType) => businessType.status) ?? [];
   const isSaving =
@@ -52,6 +63,16 @@ export function CreateProductPage() {
     uploadProductPreviewMutation.isPending ||
     reorderProductPreviewMutation.isPending ||
     deleteProductPreviewMutation.isPending;
+
+  const refreshProductFormReady = useCallback(() => {
+    const currentForm = formRef.current;
+
+    setIsProductFormReady(currentForm ? !getProductFormValidationMessage(currentForm, categoryOptions.length) : false);
+  }, [categoryOptions.length]);
+
+  useEffect(() => {
+    refreshProductFormReady();
+  }, [refreshProductFormReady]);
 
   const syncPreviewOrderOnServer = async (productId: string, items: PreviewUploadItem[]) => {
     const fileIds = items.map((item) => item.fileId).filter((fileId): fileId is string => Boolean(fileId));
@@ -100,7 +121,20 @@ export function CreateProductPage() {
         return currentItems;
       }
 
-      const acceptedFiles = incomingFiles.slice(0, remainingSlots);
+      const validFiles = incomingFiles.filter((file) => {
+        if (!ALLOWED_PRODUCT_IMAGE_TYPES.has(file.type)) {
+          nextMessage = 'Only JPEG, PNG, WebP, GIF, or SVG images are allowed.';
+          return false;
+        }
+
+        if (file.size > MAX_PRODUCT_IMAGE_SIZE_BYTES) {
+          nextMessage = 'Each product image must be 5MB or smaller.';
+          return false;
+        }
+
+        return true;
+      });
+      const acceptedFiles = validFiles.slice(0, remainingSlots);
       const nextItems = [
         ...currentItems,
         ...acceptedFiles.map((file) => ({
@@ -111,7 +145,7 @@ export function CreateProductPage() {
         })),
       ];
 
-      if (incomingFiles.length > remainingSlots) {
+      if (validFiles.length > remainingSlots) {
         nextMessage = `Only ${MAX_PREVIEW_IMAGES} images are allowed. Extra files were skipped.`;
       }
 
@@ -220,12 +254,33 @@ export function CreateProductPage() {
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setFormMessage(null);
+
+    const validationMessage = getProductFormValidationMessage(event.currentTarget, categoryOptions.length);
+
+    if (validationMessage) {
+      setFormMessage(validationMessage);
+      refreshProductFormReady();
+      return;
+    }
+
     const formData = new FormData(event.currentTarget);
 
     const productName = normalizeRequiredText(formData.get('product_name'));
     const categoryId = normalizeRequiredText(formData.get('category_id'));
+    const productCode = normalizeProductCode(formData.get('product_code'));
 
     if (!productName || !categoryId) {
+      setFormMessage('Product name and category are required.');
+      return;
+    }
+
+    if (productName.length < 2) {
+      setFormMessage('Product name must be at least 2 characters.');
+      return;
+    }
+
+    if (productCode && !PRODUCT_CODE_PATTERN.test(productCode)) {
+      setFormMessage('Product code can only contain letters, numbers, underscores, and hyphens.');
       return;
     }
 
@@ -236,7 +291,7 @@ export function CreateProductPage() {
           await createProductMutation.mutateAsync({
             categoryId,
             businessTypeIds: normalizeBusinessTypeIds(formData.getAll('business_type_ids').map((value) => Number(value))),
-            productCode: normalizeOptionalText(formData.get('product_code')),
+            productCode,
             productName,
             description: normalizeOptionalText(formData.get('description')),
           })
@@ -288,6 +343,26 @@ export function CreateProductPage() {
     }
   };
 
+  const handleFormKeyDown = (event: KeyboardEvent<HTMLFormElement>) => {
+    if (event.key !== 'Enter') {
+      return;
+    }
+
+    const target = event.target as HTMLElement;
+
+    if (target.tagName === 'TEXTAREA') {
+      return;
+    }
+
+    const validationMessage = getProductFormValidationMessage(event.currentTarget, categoryOptions.length);
+
+    if (validationMessage) {
+      event.preventDefault();
+      setFormMessage(validationMessage);
+      refreshProductFormReady();
+    }
+  };
+
   return (
     <main className="admin-dashboard-page">
       <div className="admin-dashboard-shell">
@@ -305,7 +380,14 @@ export function CreateProductPage() {
               <p>Add a new product to the catalog</p>
             </div>
 
-            <form className="product-form-shell" onSubmit={handleSubmit}>
+            <form
+              className="product-form-shell"
+              ref={formRef}
+              onChange={refreshProductFormReady}
+              onInput={refreshProductFormReady}
+              onKeyDown={handleFormKeyDown}
+              onSubmit={handleSubmit}
+            >
               <input name="status" type="hidden" value="ACTIVE" />
               <section className="product-form-card">
                 <div className="product-form-note">
@@ -322,13 +404,23 @@ export function CreateProductPage() {
 
                       <label className="product-form-field product-form-field-full">
                         <span>Product Name *</span>
-                        <input className="admin-form-input" name="product_name" placeholder="Enter product name" required type="text" />
+                        <input className="admin-form-input" maxLength={150} minLength={2} name="product_name" placeholder="Enter product name" required type="text" />
                       </label>
 
                       <div className="product-form-grid">
                         <label className="product-form-field">
                           <span>Product Code</span>
-                          <input className="admin-form-input" maxLength={50} name="product_code" placeholder="e.g., SOFA-LUX-001" type="text" />
+                          <input
+                            className="admin-form-input"
+                            maxLength={50}
+                            name="product_code"
+                            pattern="[A-Z0-9_-]*"
+                            placeholder="e.g., SOFA-LUX-001"
+                            type="text"
+                            onInput={(event) => {
+                              event.currentTarget.value = normalizeProductCodeText(event.currentTarget.value);
+                            }}
+                          />
                         </label>
 
                         <label className="product-form-field">
@@ -349,7 +441,7 @@ export function CreateProductPage() {
 
                       <label className="product-form-field product-form-field-full">
                         <span>Description</span>
-                        <textarea className="admin-form-textarea" name="description" placeholder="Describe product purpose, use cases, and catalog notes" />
+                        <textarea className="admin-form-textarea" maxLength={1000} name="description" placeholder="Describe product purpose, use cases, and catalog notes" />
                       </label>
 
                       <div className="product-form-field product-form-field-full">
@@ -460,7 +552,7 @@ export function CreateProductPage() {
                 </button>
                 <button
                   className="product-form-button product-form-button-primary"
-                  disabled={isSaving || categoryListQuery.isLoading || categoryOptions.length === 0}
+                  disabled={isSaving || categoryListQuery.isLoading || categoryOptions.length === 0 || !isProductFormReady}
                   type="submit"
                 >
                   {isSaving ? 'Saving...' : 'Save & Create Version'}
@@ -551,4 +643,37 @@ function ProductImagePreviewTile({
 
 function getLocalPreviewId(file: File) {
   return `${file.name}-${file.size}-${file.lastModified}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function normalizeProductCode(value: FormDataEntryValue | string | null | undefined) {
+  return typeof value === 'string' ? normalizeProductCodeText(value) || null : null;
+}
+
+function normalizeProductCodeText(value: string) {
+  return value.trim().toUpperCase().replace(/[^A-Z0-9_-]/g, '');
+}
+
+function getProductFormValidationMessage(form: HTMLFormElement, categoryCount: number) {
+  const formData = new FormData(form);
+  const productName = normalizeRequiredText(formData.get('product_name'));
+  const categoryId = normalizeRequiredText(formData.get('category_id'));
+  const productCode = normalizeProductCode(formData.get('product_code'));
+
+  if (!productName || !categoryId) {
+    return 'Product name and category are required.';
+  }
+
+  if (productName.length < 2) {
+    return 'Product name must be at least 2 characters.';
+  }
+
+  if (categoryCount === 0) {
+    return 'Please create an active category before creating a product.';
+  }
+
+  if (productCode && !PRODUCT_CODE_PATTERN.test(productCode)) {
+    return 'Product code can only contain letters, numbers, underscores, and hyphens.';
+  }
+
+  return null;
 }

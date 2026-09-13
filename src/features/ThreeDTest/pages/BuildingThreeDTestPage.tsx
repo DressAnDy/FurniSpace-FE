@@ -94,7 +94,6 @@ type BuildingRoomPlannerRouteState = {
   transientSelectedProductId?: string | null;
 };
 type BuildingDesignPanel = 'products' | 'assets' | 'decorate';
-type BuildingProductFilterTab = 'catalog' | 'businessType';
 type BuildingProductSourceTab = 'catalog' | 'custom';
 const placementModes: Array<{ label: string; value: ProductPlacementMode }> = [
   { label: 'Floor', value: 'FLOOR' },
@@ -404,6 +403,16 @@ function toBuildingProjectFloorAreaSource(area: BuildingProjectFloorAreaSource):
   };
 }
 
+function formatLevelOptionLabel(label: string, floorNumber: number | null | undefined) {
+  const normalizedLabel = label.trim();
+
+  if (!normalizedLabel || /^\d+$/.test(normalizedLabel)) {
+    return floorNumber ? `Area Floor ${floorNumber}` : 'Project Area';
+  }
+
+  return normalizedLabel;
+}
+
 function getSceneProjectAreaIds(
   routeState: BuildingRoomPlannerRouteState | null,
   roomPlannerScene: ReturnType<typeof useRoomPlannerScene>['data'],
@@ -468,6 +477,7 @@ export function BuildingThreeDTestPage() {
   const [search, setSearch] = useState('');
   const [productSourceTab, setProductSourceTab] = useState<BuildingProductSourceTab>('catalog');
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
+  const [selectedCatalogProductId, setSelectedCatalogProductId] = useState<string | null>(null);
   const projectCatalogVersions = useMemo(() => {
     const keyword = search.trim().toLowerCase();
 
@@ -515,7 +525,6 @@ export function BuildingThreeDTestPage() {
   });
   const [activeLevel, setActiveLevel] = useState<BuildingLevelVisibility>('all');
   const [designPanel, setDesignPanel] = useState<BuildingDesignPanel>('products');
-  const [activeProductFilterTab, setActiveProductFilterTab] = useState<BuildingProductFilterTab>('catalog');
   const [isCatalogPanelCollapsed, setIsCatalogPanelCollapsed] = useState(false);
   const [placedProducts, setPlacedProducts] = useState<PlacedBuildingProduct[]>(() => placedProductsDraft?.placedProducts ?? []);
   const [selectedProductId, setSelectedProductId] = useState<string | null>(() => placedProductsDraft?.selectedProductId ?? null);
@@ -847,18 +856,28 @@ export function BuildingThreeDTestPage() {
   }, [persistPlacedProductsDraft, placedProducts, selectedProductId]);
 
   const levelOptions = useMemo<Array<{ label: string; value: BuildingLevelVisibility }>>(
-    () => [
-      { label: 'All', value: 'all' },
-      ...sceneData.building.levels.map((level) => ({
-        label: level.label,
-        value: level.id,
-      })),
-    ],
-    [sceneData.building.levels],
+    () => {
+      const areasById = new Map(templateAreas.map((area) => [area.projectAreaId, area]));
+
+      return [
+        { label: 'All Areas', value: 'all' },
+        ...sceneData.building.levels.map((level, index) => {
+          const area = level.projectAreaId ? areasById.get(level.projectAreaId) : null;
+
+          return {
+            label: formatLevelOptionLabel(area?.areaName ?? level.label, area?.floorNumber ?? index + 1),
+            value: level.id,
+          };
+        }),
+      ];
+    },
+    [sceneData.building.levels, templateAreas],
   );
+  const activeLevelLabel = levelOptions.find((level) => level.value === activeLevel)?.label ?? 'All Areas';
 
   useEffect(() => {
     setDetailLimit(DETAIL_BATCH_SIZE);
+    setSelectedCatalogProductId(null);
   }, [search, selectedBusinessTypeIds, selectedCategoryId]);
 
   useEffect(() => {
@@ -892,6 +911,55 @@ export function BuildingThreeDTestPage() {
         )
       : businessTypeFilteredModels;
   }, [catalogModels, customModels, productSourceTab, search, selectedBusinessTypeIds, selectedCategoryId]);
+
+  const catalogModelCountByProductId = useMemo(() => {
+    const counts = new Map<string, number>();
+
+    catalogModels.forEach((model) => {
+      if (model.productId) {
+        counts.set(model.productId, (counts.get(model.productId) ?? 0) + 1);
+      }
+    });
+
+    return counts;
+  }, [catalogModels]);
+
+  const catalogProductCards = useMemo(() => {
+    const keyword = search.trim().toLowerCase();
+    const products = currentProjectId
+      ? (projectCatalogQuery.data?.items ?? [])
+      : (productListQuery.data?.items ?? []);
+
+    return products
+      .filter((product) => catalogModelCountByProductId.has(product.productId))
+      .filter((product) => !selectedCategoryId || product.categoryId === selectedCategoryId)
+      .filter((product) => matchesBusinessTypes(product.businessTypeIds, selectedBusinessTypeIds))
+      .filter((product) => !keyword || product.productName.toLowerCase().includes(keyword))
+      .map((product) => ({
+        categoryName: product.categoryName ?? 'Catalog',
+        count: catalogModelCountByProductId.get(product.productId) ?? 0,
+        product,
+        thumbnailUrl: product.thumbnail?.fileUrl ?? EMPTY_THUMBNAIL,
+      }));
+  }, [
+    catalogModelCountByProductId,
+    currentProjectId,
+    productListQuery.data?.items,
+    projectCatalogQuery.data?.items,
+    search,
+    selectedBusinessTypeIds,
+    selectedCategoryId,
+  ]);
+
+  const selectedCatalogProduct = useMemo(
+    () => catalogProductCards.find((item) => item.product.productId === selectedCatalogProductId)?.product ?? null,
+    [catalogProductCards, selectedCatalogProductId],
+  );
+
+  const selectedCatalogProductModels = useMemo(
+    () => filteredModels.filter((model) => model.productId === selectedCatalogProductId),
+    [filteredModels, selectedCatalogProductId],
+  );
 
   const floorLayoutAssets = useMemo(
     () => (layoutAssetsQuery.data?.items ?? []).filter((asset) => asset.layoutAssetType === 'FLOOR_MATERIAL'),
@@ -1398,6 +1466,23 @@ export function BuildingThreeDTestPage() {
           </div>
         </div>
         <nav>
+          <label className="building-level-select">
+            <IconBuilding size={16} />
+            <span>Scene Level</span>
+            <strong>{activeLevelLabel}</strong>
+            <select
+              aria-label="Scene level"
+              value={activeLevel}
+              onChange={(event) => setActiveLevel(event.target.value as BuildingLevelVisibility)}
+            >
+              {levelOptions.map((level) => (
+                <option key={level.value} value={level.value}>
+                  {level.label}
+                </option>
+              ))}
+            </select>
+            <small>{placedProducts.length} object(s)</small>
+          </label>
           <RouterLink
             className="building-test-blueprint-link"
             state={{
@@ -1441,72 +1526,25 @@ export function BuildingThreeDTestPage() {
       <section className={isCatalogPanelCollapsed ? 'building-test-shell is-catalog-collapsed' : 'building-test-shell'}>
         <aside className={isCatalogPanelCollapsed ? 'building-test-sidebar is-catalog-collapsed' : 'building-test-sidebar'}>
           <div className="building-sidebar-rail">
-            <section className="building-test-panel building-scene-levels-panel">
-              <div className="building-test-panel-heading">
-                <strong>Scene Levels</strong>
-                <span>{placedProducts.length} object(s)</span>
-              </div>
-              <div className="building-level-tabs">
-                {levelOptions.map((level) => (
-                  <button
-                    className={activeLevel === level.value ? 'is-active' : ''}
-                    key={level.value}
-                    type="button"
-                    onClick={() => setActiveLevel(level.value)}
-                  >
-                    {level.label}
-                  </button>
-                ))}
-              </div>
-            </section>
+            <div className="building-content-tabs">
+              <button className={designPanel === 'products' ? 'is-active' : ''} type="button" onClick={() => setDesignPanel('products')}>
+                <IconCategory size={15} /> Products
+              </button>
+              <button className={designPanel === 'assets' ? 'is-active' : ''} type="button" onClick={() => setDesignPanel('assets')}>
+                <IconPalette size={15} /> Assets
+              </button>
+              <button className={designPanel === 'decorate' ? 'is-active' : ''} type="button" onClick={() => setDesignPanel('decorate')}>
+                <IconCube size={15} /> Decorate
+              </button>
+            </div>
             {designPanel === 'products' && productSourceTab === 'catalog' ? (
               <section className="building-test-panel building-product-filter-panel">
-                <div className="building-product-filter-tabs" role="tablist" aria-label="Product filters">
-                  <button
-                    className={activeProductFilterTab === 'catalog' ? 'is-selected' : ''}
-                    role="tab"
-                    type="button"
-                    onClick={() => setActiveProductFilterTab('catalog')}
-                  >
-                    Cat
-                    <span>{selectedCategoryId ? 1 : categoryCards.length}</span>
-                  </button>
-                  <button
-                    className={activeProductFilterTab === 'businessType' ? 'is-selected' : ''}
-                    role="tab"
-                    type="button"
-                    onClick={() => setActiveProductFilterTab('businessType')}
-                  >
-                    Biz
-                    <span>{selectedBusinessTypeIds.length || businessTypeCards.length}</span>
-                  </button>
+                <div className="building-test-panel-heading">
+                  <strong>Business Type</strong>
+                  <span>{selectedBusinessTypeIds.length || businessTypeCards.length}</span>
                 </div>
 
-                {activeProductFilterTab === 'catalog' ? (
-                  <div className="building-product-filter-content">
-                  <div className="building-category-list">
-                    <button
-                      className={!selectedCategoryId ? 'is-selected' : ''}
-                      type="button"
-                      onClick={() => setSelectedCategoryId(null)}
-                    >
-                      All Categories
-                    </button>
-                    {categoryCards.map((item) => (
-                      <button
-                        className={selectedCategoryId === item.category.categoryId ? 'is-selected' : ''}
-                        key={item.category.categoryId}
-                        type="button"
-                        onClick={() => setSelectedCategoryId(item.category.categoryId)}
-                      >
-                        {item.category.categoryName}
-                        <span>{item.count}</span>
-                      </button>
-                    ))}
-                  </div>
-                  </div>
-                ) : (
-                  <div className="building-product-filter-content">
+                <div className="building-product-filter-content">
                   <div className="building-category-list building-business-type-list">
                     <button
                       className={selectedBusinessTypeIds.length === 0 ? 'is-selected' : ''}
@@ -1530,8 +1568,7 @@ export function BuildingThreeDTestPage() {
                       </button>
                     ))}
                   </div>
-                  </div>
-                )}
+                </div>
               </section>
             ) : null}
           </div>
@@ -1547,18 +1584,6 @@ export function BuildingThreeDTestPage() {
           </button>
 
           <div className="building-design-column">
-            <div className="building-content-tabs">
-              <button className={designPanel === 'products' ? 'is-active' : ''} type="button" onClick={() => setDesignPanel('products')}>
-                <IconCategory size={15} /> Products
-              </button>
-              <button className={designPanel === 'assets' ? 'is-active' : ''} type="button" onClick={() => setDesignPanel('assets')}>
-                <IconPalette size={15} /> Assets
-              </button>
-              <button className={designPanel === 'decorate' ? 'is-active' : ''} type="button" onClick={() => setDesignPanel('decorate')}>
-                <IconCube size={15} /> Decorate
-              </button>
-            </div>
-
             {designPanel === 'products' && (
             <section className="building-test-panel building-design-panel">
             <div className="building-test-panel-heading">
@@ -1588,6 +1613,7 @@ export function BuildingThreeDTestPage() {
                 onClick={() => {
                   setProductSourceTab('catalog');
                   setSelectedCategoryId(null);
+                  setSelectedCatalogProductId(null);
                   setSearch('');
                   setDetailLimit(DETAIL_BATCH_SIZE);
                 }}
@@ -1601,6 +1627,7 @@ export function BuildingThreeDTestPage() {
                 onClick={() => {
                   setProductSourceTab('custom');
                   setSelectedCategoryId(null);
+                  setSelectedCatalogProductId(null);
                   setSearch('');
                 }}
               >
@@ -1625,36 +1652,140 @@ export function BuildingThreeDTestPage() {
               </div>
             ) : null}
 
-            <div className="building-product-list">
-              {filteredModels.map((model) => (
-                <article
-                  className="building-product-card"
-                  draggable
-                  key={model.id}
-                  title={`Drag ${model.name} into a yard or floor surface`}
-                  onDragStart={(event) => {
-                    event.dataTransfer.effectAllowed = 'copy';
-                    event.dataTransfer.setData(PRODUCT_DRAG_TYPE, model.id);
-                  }}
-                >
-                  <div className="building-product-media">
-                    {model.thumbnailUrl ? <img alt="" src={model.thumbnailUrl} /> : <IconBox size={30} />}
-                  </div>
-                  <div className="building-product-info">
-                    <strong>{model.name}</strong>
-                    <span>{model.categoryName ?? 'Catalog'}{model.material ? ` / ${model.material}` : ''}</span>
-                  </div>
-                </article>
-              ))}
-              {productSourceTab === 'catalog' && !isCatalogLoading && filteredModels.length === 0 ? (
-                <div className="building-test-status">No ready 3D product models found.</div>
-              ) : null}
-              {productSourceTab === 'custom' && !customizationRequestsQuery.isLoading && !customizationRequestsQuery.isError && filteredModels.length === 0 ? (
-                <div className="building-test-status">
-                  {search.trim() ? 'No custom versions match your search.' : 'No custom product versions with ready MODEL_3D files are available for this project.'}
+            {productSourceTab === 'catalog' ? (
+              <div className="building-catalog-browser">
+                <div className="building-catalog-path">
+                  {selectedCategoryId ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedCategoryId(null);
+                        setSelectedCatalogProductId(null);
+                      }}
+                    >
+                      Catalogs
+                    </button>
+                  ) : (
+                    <span>Catalogs</span>
+                  )}
+                  {selectedCategoryId ? <IconChevronRight size={13} /> : null}
+                  {selectedCategoryId && !selectedCatalogProductId ? (
+                    <span>{categoryCards.find((item) => item.category.categoryId === selectedCategoryId)?.category.categoryName ?? 'Catalog'}</span>
+                  ) : null}
+                  {selectedCatalogProduct ? (
+                    <>
+                      <button type="button" onClick={() => setSelectedCatalogProductId(null)}>
+                        {selectedCatalogProduct.categoryName ?? 'Catalog'}
+                      </button>
+                      <IconChevronRight size={13} />
+                      <span>{selectedCatalogProduct.productName}</span>
+                    </>
+                  ) : null}
                 </div>
-              ) : null}
-            </div>
+
+                {!selectedCategoryId ? (
+                  <div className="building-product-list">
+                    {categoryCards.map((item) => (
+                      <button
+                        className="building-catalog-card"
+                        key={item.category.categoryId}
+                        type="button"
+                        onClick={() => {
+                          setSelectedCategoryId(item.category.categoryId);
+                          setSelectedCatalogProductId(null);
+                        }}
+                      >
+                        <strong>{item.category.categoryName}</strong>
+                        <span>{item.count} ready version(s)</span>
+                      </button>
+                    ))}
+                    {!isCatalogLoading && categoryCards.length === 0 ? (
+                      <div className="building-test-status">No catalogs with ready 3D product versions found.</div>
+                    ) : null}
+                  </div>
+                ) : null}
+
+                {selectedCategoryId && !selectedCatalogProductId ? (
+                  <div className="building-product-list">
+                    {catalogProductCards.map((item) => (
+                      <button
+                        className="building-product-card building-product-button-card"
+                        key={item.product.productId}
+                        type="button"
+                        onClick={() => setSelectedCatalogProductId(item.product.productId)}
+                      >
+                        <div className="building-product-media">
+                          {item.thumbnailUrl ? <img alt="" src={item.thumbnailUrl} /> : <IconBox size={30} />}
+                        </div>
+                        <div className="building-product-info">
+                          <strong>{item.product.productName}</strong>
+                          <span>{item.categoryName} / {item.count} version(s)</span>
+                        </div>
+                      </button>
+                    ))}
+                    {!isCatalogLoading && catalogProductCards.length === 0 ? (
+                      <div className="building-test-status">No products match this catalog and filter.</div>
+                    ) : null}
+                  </div>
+                ) : null}
+
+                {selectedCatalogProductId ? (
+                  <div className="building-product-list">
+                    {selectedCatalogProductModels.map((model) => (
+                      <article
+                        className="building-product-card"
+                        draggable
+                        key={model.id}
+                        title={`Drag ${model.name} into a yard or floor surface`}
+                        onDragStart={(event) => {
+                          event.dataTransfer.effectAllowed = 'copy';
+                          event.dataTransfer.setData(PRODUCT_DRAG_TYPE, model.id);
+                        }}
+                      >
+                        <div className="building-product-media">
+                          {model.thumbnailUrl ? <img alt="" src={model.thumbnailUrl} /> : <IconBox size={30} />}
+                        </div>
+                        <div className="building-product-info">
+                          <strong>{model.name}</strong>
+                          <span>{model.categoryName ?? 'Catalog'}{model.material ? ` / ${model.material}` : ''}</span>
+                        </div>
+                      </article>
+                    ))}
+                    {!isCatalogLoading && selectedCatalogProductModels.length === 0 ? (
+                      <div className="building-test-status">No ready product versions found for this product.</div>
+                    ) : null}
+                  </div>
+                ) : null}
+              </div>
+            ) : (
+              <div className="building-product-list">
+                {filteredModels.map((model) => (
+                  <article
+                    className="building-product-card"
+                    draggable
+                    key={model.id}
+                    title={`Drag ${model.name} into a yard or floor surface`}
+                    onDragStart={(event) => {
+                      event.dataTransfer.effectAllowed = 'copy';
+                      event.dataTransfer.setData(PRODUCT_DRAG_TYPE, model.id);
+                    }}
+                  >
+                    <div className="building-product-media">
+                      {model.thumbnailUrl ? <img alt="" src={model.thumbnailUrl} /> : <IconBox size={30} />}
+                    </div>
+                    <div className="building-product-info">
+                      <strong>{model.name}</strong>
+                      <span>{model.categoryName ?? 'Catalog'}{model.material ? ` / ${model.material}` : ''}</span>
+                    </div>
+                  </article>
+                ))}
+                {!customizationRequestsQuery.isLoading && !customizationRequestsQuery.isError && filteredModels.length === 0 ? (
+                  <div className="building-test-status">
+                    {search.trim() ? 'No custom versions match your search.' : 'No custom product versions with ready MODEL_3D files are available for this project.'}
+                  </div>
+                ) : null}
+              </div>
+            )}
             {productSourceTab === 'catalog' && hasMoreCatalogModels ? (
               <button
                 className="building-load-more-button"

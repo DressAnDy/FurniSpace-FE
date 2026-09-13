@@ -1,5 +1,5 @@
 import { type FormEvent } from 'react';
-import { IconCategory, IconX } from '@tabler/icons-react';
+import { IconX } from '@tabler/icons-react';
 
 type CreateCategoryModalProps = {
   isOpen: boolean;
@@ -73,14 +73,6 @@ export function CreateCategoryModal({
                 defaultValue={initialValues?.description ?? ''}
               />
             </label>
-
-            <div className="category-modal-field">
-              <span>Icon</span>
-              <div className="category-modal-icon-preview">
-                <IconCategory size={18} />
-                Category icon
-              </div>
-            </div>
           </div>
 
           {errorMessage ? <p className="category-modal-error">{errorMessage}</p> : null}
