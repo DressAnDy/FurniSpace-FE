@@ -73,6 +73,7 @@ const realtimeOnlyNotificationEvents = [
   'project_schedule.updated',
   'project_schedule.confirmed',
   'project_schedule.completed',
+  'project_schedule.cancelled',
   'order.delivery.completed',
   'order.delivery.confirmed',
 ] as const;

@@ -11,12 +11,15 @@ import {
   type OperationalDelayPhase,
   type OperationalDelayReportDto,
   type ProductionDelayReasonCode,
+  type OperationalDelayReportResolutionStatus,
 } from '@/services/api/operationalDelayReports';
 import {
+  useCurrentUser,
   useCreateDeliveryDelayReport,
   useCreateProductionDelayReport,
   useOperationalDelayReport,
   useProjectOperationalDelayReports,
+  useResolveOperationalDelayReport,
 } from '@/services/queries';
 
 import './OperationalDelayPanel.css';
@@ -33,6 +36,7 @@ type OperationalDelayPanelProps = {
 };
 
 const DEFAULT_ALLOWED_PHASES: OperationalDelayPhase[] = ['PRODUCTION', 'DELIVERY'];
+const REPORT_STATUS_FILTERS: Array<'ALL' | OperationalDelayReportResolutionStatus> = ['ALL', 'OPEN', 'RESOLVED'];
 
 export function OperationalDelayPanel({
   allowCreate = true,
@@ -49,17 +53,27 @@ export function OperationalDelayPanel({
   const [phase, setPhase] = useState<OperationalDelayPhase>(initialPhase ?? 'PRODUCTION');
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [selectedReportId, setSelectedReportId] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'ALL' | OperationalDelayReportResolutionStatus>('OPEN');
   const [productionReasonCode, setProductionReasonCode] = useState<ProductionDelayReasonCode | ''>('');
   const [deliveryReasonCode, setDeliveryReasonCode] = useState<DeliveryDelayReasonCode | ''>('');
   const [reasonDetail, setReasonDetail] = useState('');
   const [message, setMessage] = useState('');
   const listQuery = useProjectOperationalDelayReports(projectId, phase);
   const detailQuery = useOperationalDelayReport(selectedReportId);
+  const currentUserQuery = useCurrentUser();
   const createProductionMutation = useCreateProductionDelayReport();
   const createDeliveryMutation = useCreateDeliveryDelayReport();
   const reports = useMemo(() => listQuery.data?.items ?? [], [listQuery.data?.items]);
+  const filteredReports = useMemo(
+    () =>
+      statusFilter === 'ALL'
+        ? reports
+        : reports.filter((report) => getReportResolutionStatus(report) === statusFilter),
+    [reports, statusFilter],
+  );
   const isSubmitting = createProductionMutation.isPending || createDeliveryMutation.isPending;
   const allowedPhaseKey = allowedPhases.join('|');
+  const canResolve = canResolveReports(currentUserQuery.data?.role);
 
   useEffect(() => {
     const reportId = searchParams.get('delayReportId');
@@ -181,19 +195,34 @@ export function OperationalDelayPanel({
         </div>
       ) : null}
 
+      <div className="operational-delay-tabs operational-delay-status-tabs" role="tablist" aria-label="Delay report status">
+        {REPORT_STATUS_FILTERS.map((item) => (
+          <button
+            className={statusFilter === item ? 'is-active' : ''}
+            key={item}
+            role="tab"
+            type="button"
+            onClick={() => setStatusFilter(item)}
+          >
+            {item === 'ALL' ? 'All' : formatLabel(item)}
+          </button>
+        ))}
+      </div>
+
       {listQuery.isLoading ? <p className="operational-delay-state">Loading delay reports...</p> : null}
       {listQuery.isError ? (
         <p className="operational-delay-state operational-delay-error">
           {getOperationalDelayErrorMessage(listQuery.error)}
         </p>
       ) : null}
-      {!listQuery.isLoading && !listQuery.isError && reports.length === 0 ? (
-        <p className="operational-delay-state">No {formatLabel(phase).toLowerCase()} delay reports.</p>
+      {!listQuery.isLoading && !listQuery.isError && filteredReports.length === 0 ? (
+        <p className="operational-delay-state">No {formatLabel(statusFilter).toLowerCase()} {formatLabel(phase).toLowerCase()} delay reports.</p>
       ) : null}
 
       <div className="operational-delay-list">
-        {reports.map((report) => {
+        {filteredReports.map((report) => {
           const reasonCode = getReportReasonCode(report);
+          const resolutionStatus = getReportResolutionStatus(report);
 
           return (
             <button
@@ -213,6 +242,9 @@ export function OperationalDelayPanel({
                 <strong>Deadline {formatDate(report.deadlineSnapshot)}</strong>
                 <small>{report.reporterName ?? 'Staff'} · {formatDateTime(report.reportedAt)}</small>
               </span>
+              <span className={`operational-delay-resolution is-${resolutionStatus.toLowerCase()}`}>
+                {formatLabel(resolutionStatus)}
+              </span>
             </button>
           );
         })}
@@ -230,7 +262,7 @@ export function OperationalDelayPanel({
                 <IconX size={18} />
               </button>
             </div>
-            <p>This report is permanent and does not create a resolution workflow.</p>
+            <p>This report will stay in the queue until a staff member marks it resolved.</p>
             {phase === 'PRODUCTION' ? (
               <label>
                 <span>Production reason code</span>
@@ -291,6 +323,7 @@ export function OperationalDelayPanel({
 
       {selectedReportId ? (
         <DelayReportDetail
+          canResolve={canResolve}
           report={detailQuery.data}
           isLoading={detailQuery.isLoading}
           onClose={() => setSelectedReportId('')}
@@ -301,15 +334,18 @@ export function OperationalDelayPanel({
 }
 
 function DelayReportDetail({
+  canResolve,
   isLoading,
   onClose,
   report,
 }: Readonly<{
+  canResolve: boolean;
   isLoading: boolean;
   onClose: () => void;
   report?: OperationalDelayReportDto;
 }>) {
   const reasonCode = report ? getReportReasonCode(report) : null;
+  const [isResolveOpen, setIsResolveOpen] = useState(false);
 
   return (
     <div className="operational-delay-modal-backdrop">
@@ -327,16 +363,100 @@ function DelayReportDetail({
                 {formatLabel(report.delayState)}
               </span>
             </div>
+            <div className="operational-delay-detail-state">
+              <span>Status</span>
+              <span className={`operational-delay-resolution is-${getReportResolutionStatus(report).toLowerCase()}`}>
+                {formatLabel(getReportResolutionStatus(report))}
+              </span>
+            </div>
             <Detail label="Deadline snapshot" value={formatDate(report.deadlineSnapshot)} />
             <Detail label="Reason code" value={reasonCode ? formatLabel(reasonCode) : '-'} />
             <Detail label="Reporter" value={report.reporterName ?? report.reportedBy} />
             <Detail label="Reported at" value={formatDateTime(report.reportedAt)} />
+            {report.resolvedAt ? <Detail label="Resolved at" value={formatDateTime(report.resolvedAt)} /> : null}
             <div className="operational-delay-detail-wide">
               <Detail label="Reason detail" value={report.reasonDetail} />
             </div>
+            {report.resolutionNote ? (
+              <div className="operational-delay-detail-wide">
+                <Detail label="Resolution note" value={report.resolutionNote} />
+              </div>
+            ) : null}
           </div>
         )}
+        {!isLoading && report && canResolve && getReportResolutionStatus(report) === 'OPEN' ? (
+          <div className="operational-delay-modal-actions">
+            <button className="operational-delay-primary" type="button" onClick={() => setIsResolveOpen(true)}>
+              Mark resolved
+            </button>
+          </div>
+        ) : null}
       </dialog>
+      {isResolveOpen && report ? (
+        <ResolveDelayReportModal reportId={report.operationalDelayReportId} onClose={() => setIsResolveOpen(false)} />
+      ) : null}
+    </div>
+  );
+}
+
+function ResolveDelayReportModal({
+  onClose,
+  reportId,
+}: Readonly<{
+  onClose: () => void;
+  reportId: string;
+}>) {
+  const [resolutionNote, setResolutionNote] = useState('');
+  const [error, setError] = useState('');
+  const resolveMutation = useResolveOperationalDelayReport();
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (resolutionNote.length > 4000) {
+      setError('Resolution note must be at most 4000 characters.');
+      return;
+    }
+
+    try {
+      setError('');
+      await resolveMutation.mutateAsync({
+        reportId,
+        resolutionNote,
+      });
+      onClose();
+    } catch (mutationError) {
+      setError(getOperationalDelayErrorMessage(mutationError));
+    }
+  }
+
+  return (
+    <div className="operational-delay-modal-backdrop operational-delay-nested-backdrop">
+      <form className="operational-delay-modal" onSubmit={handleSubmit}>
+        <div className="operational-delay-modal-title">
+          <h3>Resolve delay report</h3>
+          <button aria-label="Close" type="button" onClick={onClose}><IconX size={18} /></button>
+        </div>
+        <label>
+          <span>Resolution note</span>
+          <textarea
+            maxLength={4000}
+            rows={5}
+            value={resolutionNote}
+            onChange={(event) => {
+              setResolutionNote(event.target.value);
+              setError('');
+            }}
+          />
+        </label>
+        {error ? <p className="operational-delay-error">{error}</p> : null}
+        <div className="operational-delay-modal-actions">
+          <button type="button" onClick={onClose}>Cancel</button>
+          <button className="operational-delay-primary" disabled={resolveMutation.isPending} type="submit">
+            {resolveMutation.isPending ? 'Resolving...' : 'Mark resolved'}
+          </button>
+        </div>
+      </form>
     </div>
   );
 }
@@ -355,6 +475,16 @@ function normalizeDelayPhase(value: string | null): OperationalDelayPhase | null
   }
 
   return null;
+}
+
+function getReportResolutionStatus(report: OperationalDelayReportDto): OperationalDelayReportResolutionStatus {
+  return report.status ?? 'OPEN';
+}
+
+function canResolveReports(role?: string | null) {
+  const normalizedRole = (role ?? '').trim().replace(/[\s-]+/g, '_').toUpperCase();
+
+  return normalizedRole === 'ADMIN' || normalizedRole === 'SALES' || normalizedRole === 'SALE' || normalizedRole === 'PRODUCTION';
 }
 
 function formatDate(value: string) {

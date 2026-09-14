@@ -45,6 +45,8 @@ export type DeliveryProductIssueType =
   | 'QUANTITY_MISMATCH'
   | 'OTHER';
 
+export type ProductIssueReportResolutionStatus = 'OPEN' | 'RESOLVED';
+
 export type ProductIssueEvidenceFileDto = {
   fileId: string;
   fileLinkId: string;
@@ -69,6 +71,9 @@ export type ProductIssueReportDto = {
   reporterName: string | null;
   reportedAt: string;
   createdAt: string;
+  status?: ProductIssueReportResolutionStatus;
+  resolvedAt?: string | null;
+  resolutionNote?: string | null;
   evidenceFiles?: ProductIssueEvidenceFileDto[];
 };
 
@@ -84,6 +89,11 @@ export type CreateProductIssueInput = {
   description: string;
   affectedQuantity?: number | null;
   files?: File[];
+};
+
+export type ResolveProductIssueInput = {
+  issueId: string;
+  resolutionNote?: string | null;
 };
 
 type ProductIssueEvidenceUploadResponse = ProductIssueEvidenceFileDto & {
@@ -144,6 +154,17 @@ export async function createProductIssue(input: CreateProductIssueInput) {
   return response.data.data;
 }
 
+export async function resolveProductIssue(input: ResolveProductIssueInput) {
+  const response = await productIssueApiClient.patch<ServiceResult<ProductIssueReportDto>>(
+    `/product-issues/${input.issueId}/resolve`,
+    {
+      resolutionNote: input.resolutionNote?.trim() || null,
+    },
+  );
+
+  return response.data.data;
+}
+
 async function uploadProductIssueEvidenceFile(orderId: string, file: File) {
   return directUploadFile<ProductIssueEvidenceUploadResponse>({
     apiClient: productIssueApiClient,
@@ -179,6 +200,8 @@ export function getProductIssueErrorMessage(error: unknown, fallback = 'Unable t
     PRODUCT_ISSUE_DELIVERY_ITEM_ORDER_ITEM_MISMATCH:
       'The selected delivery item does not match this order item.',
     PRODUCT_ISSUE_FORBIDDEN: 'You do not have permission to report an issue for this order.',
+    REPORT_RESOLUTION_NOTE_TOO_LONG: 'Resolution note must be at most 4000 characters.',
+    PRODUCT_ISSUE_RESOLUTION_NOTE_TOO_LONG: 'Resolution note must be at most 4000 characters.',
   };
 
   return (

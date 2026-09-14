@@ -69,7 +69,6 @@ export function ProjectShowcaseManager({ projectId, projectMeta, projectName, pr
   const [draft, setDraft] = useState<ShowcaseDraft>(() => createEmptyDraft(projectName));
   const [message, setMessage] = useState<{ tone: 'error' | 'success'; text: string } | null>(null);
   const [mediaFiles, setMediaFiles] = useState<File[]>([]);
-  const [mediaCaption, setMediaCaption] = useState('');
   const mediaInputRef = useRef<HTMLInputElement | null>(null);
 
   const createMutation = useCreateProjectShowcase();
@@ -170,11 +169,9 @@ export function ProjectShowcaseManager({ projectId, projectMeta, projectName, pr
     }
 
     try {
-      const normalizedCaption = mediaCaption.trim() || null;
-
       for (const [index, file] of mediaFiles.entries()) {
         await uploadShowcaseMediaMutation.mutateAsync({
-          caption: normalizedCaption,
+          caption: null,
           file,
           mediaType: 'FINAL',
           setAsCover: index === 0,
@@ -184,7 +181,6 @@ export function ProjectShowcaseManager({ projectId, projectMeta, projectName, pr
       }
 
       setMediaFiles([]);
-      setMediaCaption('');
       setMessage({ tone: 'success', text: `${mediaFiles.length} showcase media file(s) added.` });
       void showcaseQuery.refetch();
     } catch (error) {
@@ -490,10 +486,6 @@ export function ProjectShowcaseManager({ projectId, projectMeta, projectName, pr
                     <small>{mediaFiles.length > 0 ? 'Click to add more images.' : 'You can choose multiple images at once. The first image becomes primary.'}</small>
                   </button>
                 </div>
-                <label>
-                  <span>Caption</span>
-                  <input value={mediaCaption} onChange={(event) => setMediaCaption(event.target.value)} />
-                </label>
                 <button disabled={mediaFiles.length === 0 || isMutating} type="submit">
                   <IconUpload size={16} />
                   Upload {mediaFiles.length > 0 ? `${mediaFiles.length} File(s)` : 'Media'}
@@ -535,10 +527,6 @@ export function ProjectShowcaseManager({ projectId, projectMeta, projectName, pr
                     {mediaUrl ? <img alt={media.caption ?? media.mediaType} src={mediaUrl} /> : <div className="project-showcase-media-placeholder" />}
                     {media.isCover ? <span>Primary</span> : null}
                   </div>
-                  <div>
-                    <strong>{formatEnumLabel(media.mediaType)}</strong>
-                    {media.caption ? <span>{media.caption}</span> : null}
-                  </div>
                   <div className="project-showcase-media-actions">
                     <button disabled={!canEditDraft || isMutating || index === 0} type="button" aria-label="Move media up" onClick={() => void moveMedia(media.showcaseMediaId, -1)}>
                       <IconArrowUp size={15} />
@@ -548,7 +536,7 @@ export function ProjectShowcaseManager({ projectId, projectMeta, projectName, pr
                     </button>
                     <button className={media.isCover ? 'is-active' : ''} disabled={!canEditDraft || isMutating || Boolean(media.isCover)} type="button" onClick={() => void setCover(media.showcaseMediaId)}>
                       <IconStar size={15} />
-                      {media.isCover ? 'Primary' : 'Set Primary'}
+                      {media.isCover ? 'Primary' : 'Set'}
                     </button>
                     <button disabled={!canEditDraft || isMutating} type="button" onClick={() => void deleteMedia(media.showcaseMediaId)}>
                       <IconTrash size={15} />

@@ -743,15 +743,17 @@ function createRectangularPanelMeshes({
 
   const cells = holes.length || polygon.length >= 3 ? createPanelCells(bounds, holes, polygon) : [bounds];
 
-  if (meshKind === 'floor' && (holes.length || polygon.length >= 3)) {
-    createCombinedFloorPanelMesh({
+  if (polygon.length >= 3 && (meshKind === 'floor' || holes.length)) {
+    createCombinedPanelMesh({
       bounds,
       cells,
       levelId,
       material: panelMaterial,
+      meshKind,
       polygon,
       scene,
       y,
+      height,
     });
     return;
   }
@@ -786,19 +788,23 @@ function createRectangularPanelMeshes({
   });
 }
 
-function createCombinedFloorPanelMesh({
+function createCombinedPanelMesh({
   bounds,
   cells,
+  height,
   levelId,
   material: panelMaterial,
+  meshKind,
   polygon,
   scene,
   y,
 }: {
   bounds: RectBounds;
   cells: RectBounds[];
+  height?: number;
   levelId: string;
   material: StandardMaterial;
+  meshKind: 'floor' | 'slab';
   polygon: Array<{ x: number; y: number }>;
   scene: Scene;
   y: number;
@@ -811,45 +817,96 @@ function createCombinedFloorPanelMesh({
     return;
   }
 
-  const mesh = new Mesh(`building-test-${levelId}-floor-panel-combined`, scene);
+  const mesh = new Mesh(`building-test-${levelId}-${meshKind}-panel-combined`, scene);
   const positions: number[] = [];
   const indices: number[] = [];
   const normals: number[] = [];
   const uvs: number[] = [];
   const width = Math.max(bounds.maxX - bounds.minX, 1);
   const depth = Math.max(bounds.maxZ - bounds.minZ, 1);
+  const slabHeight = height ?? 0.05;
 
   clippedCells.forEach((cellPolygon) => {
     const baseIndex = positions.length / 3;
     const cellIndices = triangulateFloorBoundary(cellPolygon.map((point) => ({ x: point.x, y: point.z })));
 
-    positions.push(...cellPolygon.flatMap((point) => [point.x, y, point.z]));
-    normals.push(...cellPolygon.flatMap(() => [0, 1, 0]));
-    uvs.push(...cellPolygon.flatMap((point) => [
-      (point.x - bounds.minX) / width,
-      (point.z - bounds.minZ) / depth,
-    ]));
-    indices.push(...cellIndices.map((index) => baseIndex + index));
+    if (meshKind === 'floor') {
+      positions.push(...cellPolygon.flatMap((point) => [point.x, y, point.z]));
+      normals.push(...cellPolygon.flatMap(() => [0, 1, 0]));
+      uvs.push(...cellPolygon.flatMap((point) => [
+        (point.x - bounds.minX) / width,
+        (point.z - bounds.minZ) / depth,
+      ]));
+      indices.push(...cellIndices.map((index) => baseIndex + index));
+      return;
+    }
+
+    const topY = y + slabHeight / 2;
+    const bottomY = y - slabHeight / 2;
+    const bottomOffset = cellPolygon.length;
+    const sideIndices = cellPolygon.flatMap((_point, index) => {
+      const nextIndex = (index + 1) % cellPolygon.length;
+
+      return [
+        index,
+        nextIndex,
+        bottomOffset + nextIndex,
+        index,
+        bottomOffset + nextIndex,
+        bottomOffset + index,
+      ];
+    });
+
+    positions.push(
+      ...cellPolygon.flatMap((point) => [point.x, topY, point.z]),
+      ...cellPolygon.flatMap((point) => [point.x, bottomY, point.z]),
+    );
+    uvs.push(
+      ...cellPolygon.flatMap((point) => [
+        (point.x - bounds.minX) / width,
+        (point.z - bounds.minZ) / depth,
+      ]),
+      ...cellPolygon.flatMap((point) => [
+        (point.x - bounds.minX) / width,
+        (point.z - bounds.minZ) / depth,
+      ]),
+    );
+    indices.push(
+      ...cellIndices.map((index) => baseIndex + index),
+      ...cellIndices.slice().reverse().map((index) => baseIndex + bottomOffset + index),
+      ...sideIndices.map((index) => baseIndex + index),
+    );
   });
 
   const vertexData = new VertexData();
 
   vertexData.positions = positions;
   vertexData.indices = indices;
-  vertexData.normals = normals;
   vertexData.uvs = uvs;
+  if (meshKind === 'floor') {
+    vertexData.normals = normals;
+  } else {
+    VertexData.ComputeNormals(positions, indices, normals);
+    vertexData.normals = normals;
+  }
   vertexData.applyToMesh(mesh);
   mesh.material = panelMaterial;
-  mesh.isPickable = true;
-  mesh.metadata = {
-    elevation: y,
-    kind: 'placement-surface',
-    levelId,
-    source: 'building-test-environment',
-    surfaceId: `${levelId}-layout-floor`,
-    surfaceLabel: `${levelId} Layout Floor`,
-    surfaceType: 'FLOOR',
-  };
+  mesh.isPickable = meshKind === 'floor';
+  mesh.metadata = meshKind === 'floor'
+    ? {
+        elevation: y,
+        kind: 'placement-surface',
+        levelId,
+        source: 'building-test-environment',
+        surfaceId: `${levelId}-layout-floor`,
+        surfaceLabel: `${levelId} Layout Floor`,
+        surfaceType: 'FLOOR',
+      }
+    : {
+        kind: 'level-slab',
+        levelId,
+        source: 'building-test-environment',
+      };
 }
 
 function clipRectCellToPolygon(cell: RectBounds, polygon: Array<{ x: number; y: number }>) {
