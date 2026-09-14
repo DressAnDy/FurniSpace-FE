@@ -1,6 +1,7 @@
 import axios, { AxiosError } from 'axios';
 
 import { shouldRedirectUnauthorized } from '@/shared/config/authPreview';
+import { DirectUploadStorageError, directUploadFile } from './directUpload';
 import { getStoredAccessToken } from './tokenStore';
 
 const showcaseApiClient = axios.create({
@@ -181,6 +182,10 @@ const SHOWCASE_ERROR_MESSAGES: Record<string, string> = {
 };
 
 export function getShowcaseServiceResultMessage(error: unknown) {
+  if (error instanceof DirectUploadStorageError) {
+    return error.message;
+  }
+
   const result = getShowcaseServiceResultFromError(error);
 
   if (!result) {
@@ -299,27 +304,22 @@ export async function createProjectShowcaseMedia(input: CreateProjectShowcaseMed
 }
 
 export async function uploadProjectShowcaseMedia(input: UploadProjectShowcaseMediaInput) {
-  const formData = new FormData();
-  formData.append('file', input.file);
-
-  if (input.mediaType) {
-    formData.append('mediaType', input.mediaType);
-  }
-
   const caption = normalizeOptionalText(input.caption);
 
-  if (caption !== null) {
-    formData.append('caption', caption);
-  }
+  const media = await directUploadFile<ProjectShowcaseMediaDto>({
+    apiClient: showcaseApiClient,
+    completeEndpoint: `/project-showcases/${input.showcaseId}/media/complete`,
+    file: input.file,
+    prepareBody: {
+      caption: caption ?? undefined,
+      mediaType: input.mediaType ?? 'FINAL',
+      setAsCover: Boolean(input.setAsCover),
+      title: normalizeOptionalText(input.title) ?? undefined,
+    },
+    prepareEndpoint: `/project-showcases/${input.showcaseId}/media/upload-url`,
+  });
 
-  formData.append('setAsCover', String(Boolean(input.setAsCover)));
-
-  const response = await showcaseApiClient.post<ServiceResult<ProjectShowcaseMediaDto>>(
-    `/project-showcases/${input.showcaseId}/media`,
-    formData,
-  );
-
-  return normalizeProjectShowcaseMedia(response.data.data);
+  return normalizeProjectShowcaseMedia(media);
 }
 
 export async function reorderProjectShowcaseMedia(input: ReorderProjectShowcaseMediaInput) {

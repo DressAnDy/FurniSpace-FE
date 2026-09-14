@@ -92,7 +92,7 @@ export function ProductVersionManagement() {
                   Back to Products
                 </button>
                 <h2>{t.products.versionsTitle}</h2>
-                <p>Product ID: {product?.productCode ?? productId ?? 'Loading...'}</p>
+                <p>Product Code: {product?.productCode ?? 'Loading product details...'}</p>
               </div>
               <button className="admin-button admin-button-primary" type="button" onClick={() => navigate(`/admin/products/${productId}/versions/create`)} disabled={!productId}>
                 <IconPlus size={16} />
@@ -101,7 +101,7 @@ export function ProductVersionManagement() {
             </div>
 
             {productQuery.isLoading ? (
-              <section className="product-management-state">Loading product versions from API...</section>
+              <section className="product-management-state">Loading product versions...</section>
             ) : null}
 
             {productQuery.isError ? (

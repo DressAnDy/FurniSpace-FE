@@ -3,6 +3,7 @@ import axios, { AxiosError } from 'axios';
 import { shouldRedirectUnauthorized } from '@/shared/config/authPreview';
 
 import { getStoredAccessToken } from './tokenStore';
+import { DirectUploadStorageError, directUploadFile } from './directUpload';
 import type { FileType, FileVisibility } from './projects';
 
 const projectChatApiClient = axios.create({
@@ -183,27 +184,23 @@ export async function sendProjectChatFileMessage(
     visibility?: FileVisibility;
   },
 ) {
-  const formData = new FormData();
-  formData.append('file', input.file);
+  const fileType = input.fileType ?? 'OTHER';
 
-  if (input.content?.trim()) {
-    formData.append('content', input.content.trim());
-  }
-
-  if (input.fileType) {
-    formData.append('fileType', input.fileType);
-  }
-
-  if (input.visibility) {
-    formData.append('visibility', input.visibility);
-  }
-
-  const response = await projectChatApiClient.post<ProjectChatServiceResult<ProjectChatMessage>>(
-    `/project-chats/${chatId}/messages/files`,
-    formData,
-  );
-
-  return response.data.data;
+  return directUploadFile<ProjectChatMessage>({
+    apiClient: projectChatApiClient,
+    completeBody: {
+      content: input.content?.trim() || undefined,
+      fileType,
+      visibility: input.visibility,
+    },
+    completeEndpoint: `/project-chats/${chatId}/messages/files/complete`,
+    file: input.file,
+    prepareBody: {
+      fileType,
+      visibility: input.visibility,
+    },
+    prepareEndpoint: `/project-chats/${chatId}/messages/files/upload-url`,
+  });
 }
 
 export async function closeProjectChat(chatId: string) {
@@ -219,6 +216,10 @@ export function getProjectChatHubUrl() {
 }
 
 export function getProjectChatServiceResultMessage(error: unknown) {
+  if (error instanceof DirectUploadStorageError) {
+    return error.message;
+  }
+
   const result = getProjectChatServiceResultFromError(error);
   const status = error instanceof AxiosError ? error.response?.status : undefined;
 

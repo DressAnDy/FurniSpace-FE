@@ -1,4 +1,4 @@
-import { type FormEvent, useState } from 'react';
+import { type FormEvent, type KeyboardEvent, useCallback, useEffect, useRef, useState } from 'react';
 import { IconArrowLeft, IconBox, IconCube, IconUpload, IconX } from '@tabler/icons-react';
 import { useNavigate, useParams } from 'react-router-dom';
 
@@ -6,7 +6,6 @@ import { ModelViewer, type ModelViewerStatus } from '@/features/ThreeD/component
 import {
   type CatalogFileDto,
   getProductServiceResultMessage,
-  normalizeOptionalNumber,
   normalizeOptionalText,
   normalizeRequiredText,
   type ProductVersionDto,
@@ -18,6 +17,19 @@ import { useLang } from '@/app/providers/useLang';
 import { adminCopy } from '../admincomponents/adminI18n';
 import './Productmanagement.css';
 import { SelectedImagePreview } from './SelectedImagePreview';
+
+const VERSION_CODE_PATTERN = /^[A-Z0-9_-]+$/;
+const MAX_VERSION_IMAGE_SIZE_BYTES = 5 * 1024 * 1024;
+const MAX_VERSION_MODEL_SIZE_BYTES = 50 * 1024 * 1024;
+const ALLOWED_VERSION_IMAGE_TYPES = new Set([
+  'image/gif',
+  'image/jpeg',
+  'image/png',
+  'image/svg+xml',
+  'image/webp',
+]);
+const ALLOWED_MODEL_EXTENSIONS = new Set(['glb', 'gltf']);
+const ALLOWED_MODEL_TYPES = new Set(['model/gltf-binary', 'model/gltf+json']);
 
 export function CreateProductVersionPage() {
   const { lang } = useLang();
@@ -37,12 +49,31 @@ export function CreateProductVersionPage() {
   const [isModelPreviewOpen, setIsModelPreviewOpen] = useState(false);
   const [viewerStatus, setViewerStatus] = useState<ModelViewerStatus>('idle');
   const [viewerError, setViewerError] = useState<string | null>(null);
+  const [isVersionFormReady, setIsVersionFormReady] = useState(false);
+  const formRef = useRef<HTMLFormElement>(null);
   const product = productQuery.data;
   const versionToEdit = product?.versions.find((version) => version.productVersionId === productVersionId) ?? null;
   const currentPreviewFile = getVersionPreviewFile(versionToEdit);
   const currentModelFile = getVersionModelFile(versionToEdit);
   const isSaving = createVersionMutation.isPending || updateVersionMutation.isPending || uploadVersionFileMutation.isPending;
   const shouldRenderForm = !isEditMode || Boolean(versionToEdit);
+
+  const refreshVersionFormReady = useCallback(() => {
+    const currentForm = formRef.current;
+
+    setIsVersionFormReady(
+      currentForm
+        ? !getVersionFormValidationMessage(currentForm, {
+          isEditMode,
+          productReady: Boolean(product),
+        })
+        : false,
+    );
+  }, [isEditMode, product]);
+
+  useEffect(() => {
+    refreshVersionFormReady();
+  }, [refreshVersionFormReady, versionToEdit]);
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -52,10 +83,59 @@ export function CreateProductVersionPage() {
       return;
     }
 
+    const validationMessage = getVersionFormValidationMessage(event.currentTarget, {
+      isEditMode,
+      productReady: Boolean(product),
+    });
+
+    if (validationMessage) {
+      setFileUploadError(validationMessage);
+      refreshVersionFormReady();
+      return;
+    }
+
     const formData = new FormData(event.currentTarget);
     const versionName = normalizeRequiredText(formData.get('version_name'));
+    const versionCode = normalizeVersionCode(formData.get('version_code'));
+    const width = normalizeDimensionValue(formData.get('width'));
+    const height = normalizeDimensionValue(formData.get('height'));
+    const depth = normalizeDimensionValue(formData.get('depth'));
+    const estimatedPrice = normalizeEstimatedPrice(formData.get('estimated_price'));
 
     if (!versionName) {
+      setFileUploadError('Version name is required.');
+      return;
+    }
+
+    if (versionName.length < 2) {
+      setFileUploadError('Version name must be at least 2 characters.');
+      return;
+    }
+
+    if (!isEditMode && !versionCode) {
+      setFileUploadError('Version code is required.');
+      return;
+    }
+
+    if (versionCode && !VERSION_CODE_PATTERN.test(versionCode)) {
+      setFileUploadError('Version code can only contain letters, numbers, underscores, and hyphens.');
+      return;
+    }
+
+    if ([width, height, depth].some((value) => value !== null && value <= 0)) {
+      setFileUploadError('Dimensions must be greater than 0 when provided.');
+      return;
+    }
+
+    if (estimatedPrice !== null && estimatedPrice <= 0) {
+      setFileUploadError('Estimated price must be greater than 0 when provided.');
+      return;
+    }
+
+    const fileValidationMessage = getVersionFileValidationMessage(previewFile, modelFile);
+
+    if (fileValidationMessage) {
+      setFileUploadError(fileValidationMessage);
       return;
     }
 
@@ -68,10 +148,10 @@ export function CreateProductVersionPage() {
               versionType: 'STANDARD',
               material: normalizeOptionalText(formData.get('material')),
               color: normalizeOptionalText(formData.get('color')),
-              width: normalizeOptionalNumber(formData.get('width')),
-              height: normalizeOptionalNumber(formData.get('height')),
-              depth: normalizeOptionalNumber(formData.get('depth')),
-              estimatedPrice: normalizeOptionalNumber(formData.get('estimated_price')),
+              width,
+              height,
+              depth,
+              estimatedPrice,
               isDefault: formData.get('is_default') === 'on',
               isPublic: formData.get('is_public') === 'on',
               isProjectSpecific: false,
@@ -81,15 +161,15 @@ export function CreateProductVersionPage() {
           (
             await createVersionMutation.mutateAsync({
               productId: effectiveProductId,
-              versionCode: normalizeRequiredText(formData.get('version_code')),
+              versionCode: versionCode ?? '',
               versionName,
               versionType: 'STANDARD',
               material: normalizeOptionalText(formData.get('material')),
               color: normalizeOptionalText(formData.get('color')),
-              width: normalizeOptionalNumber(formData.get('width')),
-              height: normalizeOptionalNumber(formData.get('height')),
-              depth: normalizeOptionalNumber(formData.get('depth')),
-              estimatedPrice: normalizeOptionalNumber(formData.get('estimated_price')),
+              width,
+              height,
+              depth,
+              estimatedPrice,
               isDefault: formData.get('is_default') === 'on',
               isPublic: formData.get('is_public') === 'on',
               isProjectSpecific: false,
@@ -140,6 +220,29 @@ export function CreateProductVersionPage() {
     }
   };
 
+  const handleFormKeyDown = (event: KeyboardEvent<HTMLFormElement>) => {
+    if (event.key !== 'Enter') {
+      return;
+    }
+
+    const target = event.target as HTMLElement;
+
+    if (target.tagName === 'TEXTAREA') {
+      return;
+    }
+
+    const validationMessage = getVersionFormValidationMessage(event.currentTarget, {
+      isEditMode,
+      productReady: Boolean(product),
+    });
+
+    if (validationMessage) {
+      event.preventDefault();
+      setFileUploadError(validationMessage);
+      refreshVersionFormReady();
+    }
+  };
+
   return (
     <main className="admin-dashboard-page">
       <div className="admin-dashboard-shell">
@@ -162,7 +265,7 @@ export function CreateProductVersionPage() {
             </div>
 
             {productQuery.isLoading ? (
-              <section className="product-management-state">Loading parent product from API...</section>
+              <section className="product-management-state">Loading parent product...</section>
             ) : null}
 
             {productQuery.isError ? (
@@ -174,7 +277,15 @@ export function CreateProductVersionPage() {
             ) : null}
 
             {shouldRenderForm ? (
-            <form className="product-form-shell" key={versionToEdit?.productVersionId ?? 'create-version'} onSubmit={handleSubmit}>
+            <form
+              className="product-form-shell"
+              key={versionToEdit?.productVersionId ?? 'create-version'}
+              ref={formRef}
+              onChange={refreshVersionFormReady}
+              onInput={refreshVersionFormReady}
+              onKeyDown={handleFormKeyDown}
+              onSubmit={handleSubmit}
+            >
               <section className="product-form-card">
                 <div className="product-form-note">
                   <strong>Note:</strong>{' '}
@@ -216,9 +327,13 @@ export function CreateProductVersionPage() {
                         disabled={isEditMode}
                         maxLength={50}
                         name="version_code"
+                        pattern="[A-Z0-9_-]*"
                         placeholder="e.g., SOFA-LUX-001-A"
                         required={!isEditMode}
                         type="text"
+                        onInput={(event) => {
+                          event.currentTarget.value = normalizeVersionCodeText(event.currentTarget.value);
+                        }}
                       />
                     </label>
 
@@ -228,6 +343,7 @@ export function CreateProductVersionPage() {
                         className="admin-form-input"
                         defaultValue={versionToEdit?.versionName ?? ''}
                         maxLength={150}
+                        minLength={2}
                         name="version_name"
                         placeholder="e.g., Premium Oak, Standard Black"
                         required
@@ -237,12 +353,12 @@ export function CreateProductVersionPage() {
 
                     <label className="product-form-field">
                       <span>Material</span>
-                      <input className="admin-form-input" defaultValue={versionToEdit?.material ?? ''} name="material" placeholder="e.g., Oak Wood, Leather" type="text" />
+                      <input className="admin-form-input" defaultValue={versionToEdit?.material ?? ''} maxLength={80} name="material" placeholder="e.g., Oak Wood, Leather" type="text" />
                     </label>
 
                     <label className="product-form-field">
                       <span>Color</span>
-                      <input className="admin-form-input" defaultValue={versionToEdit?.color ?? ''} name="color" placeholder="e.g., Natural, Black, White" type="text" />
+                      <input className="admin-form-input" defaultValue={versionToEdit?.color ?? ''} maxLength={80} name="color" placeholder="e.g., Natural, Black, White" type="text" />
                     </label>
                   </div>
                 </div>
@@ -252,17 +368,50 @@ export function CreateProductVersionPage() {
                   <div className="product-form-grid product-form-grid-three">
                     <label className="product-form-field">
                       <span>Width</span>
-                      <input className="admin-form-input" defaultValue={versionToEdit?.width ?? ''} name="width" placeholder="0" type="number" />
+                      <input
+                        className="admin-form-input"
+                        defaultValue={versionToEdit?.width ?? ''}
+                        inputMode="decimal"
+                        name="width"
+                        pattern="[0-9]*[.]?[0-9]*"
+                        placeholder="0"
+                        type="text"
+                        onInput={(event) => {
+                          event.currentTarget.value = normalizeDecimalText(event.currentTarget.value);
+                        }}
+                      />
                     </label>
 
                     <label className="product-form-field">
                       <span>Height</span>
-                      <input className="admin-form-input" defaultValue={versionToEdit?.height ?? ''} name="height" placeholder="0" type="number" />
+                      <input
+                        className="admin-form-input"
+                        defaultValue={versionToEdit?.height ?? ''}
+                        inputMode="decimal"
+                        name="height"
+                        pattern="[0-9]*[.]?[0-9]*"
+                        placeholder="0"
+                        type="text"
+                        onInput={(event) => {
+                          event.currentTarget.value = normalizeDecimalText(event.currentTarget.value);
+                        }}
+                      />
                     </label>
 
                     <label className="product-form-field">
                       <span>Depth</span>
-                      <input className="admin-form-input" defaultValue={versionToEdit?.depth ?? ''} name="depth" placeholder="0" type="number" />
+                      <input
+                        className="admin-form-input"
+                        defaultValue={versionToEdit?.depth ?? ''}
+                        inputMode="decimal"
+                        name="depth"
+                        pattern="[0-9]*[.]?[0-9]*"
+                        placeholder="0"
+                        type="text"
+                        onInput={(event) => {
+                          event.currentTarget.value = normalizeDecimalText(event.currentTarget.value);
+                        }}
+                      />
                     </label>
                   </div>
                 </div>
@@ -272,10 +421,20 @@ export function CreateProductVersionPage() {
                   <div className="product-form-grid">
                     <label className="product-form-field">
                       <span>Estimated Price</span>
-                      <input className="admin-form-input" defaultValue={versionToEdit?.estimatedPrice ?? ''} min="0" name="estimated_price" placeholder="0.00" type="number" />
+                      <input
+                        className="admin-form-input"
+                        defaultValue={versionToEdit?.estimatedPrice ?? ''}
+                        inputMode="numeric"
+                        name="estimated_price"
+                        pattern="[0-9]*"
+                        placeholder="0"
+                        type="text"
+                        onInput={(event) => {
+                          event.currentTarget.value = normalizeEstimatedPriceText(event.currentTarget.value);
+                        }}
+                      />
                     </label>
                   </div>
-                  <p className="product-form-helper">VAT is calculated from the quotation header, not from product versions.</p>
                 </div>
 
                 <div className="product-form-section">
@@ -323,7 +482,20 @@ export function CreateProductVersionPage() {
                       accept="image/jpeg,image/png,image/webp,image/gif,image/svg+xml"
                       className="product-upload-input"
                       type="file"
-                      onChange={(event) => setPreviewFile(event.target.files?.[0] ?? null)}
+                      onChange={(event) => {
+                        const file = event.target.files?.[0] ?? null;
+                        const validationMessage = getPreviewFileValidationMessage(file);
+
+                        if (validationMessage) {
+                          setFileUploadError(validationMessage);
+                          setPreviewFile(null);
+                          event.currentTarget.value = '';
+                          return;
+                        }
+
+                        setFileUploadError('');
+                        setPreviewFile(file);
+                      }}
                     />
                     <div className="product-upload-main">
                       {previewFile ? (
@@ -344,18 +516,30 @@ export function CreateProductVersionPage() {
                       accept=".glb,.gltf,model/gltf-binary,model/gltf+json"
                       className="product-upload-input"
                       type="file"
-                      onChange={(event) => setModelFile(event.target.files?.[0] ?? null)}
+                      onChange={(event) => {
+                        const file = event.target.files?.[0] ?? null;
+                        const validationMessage = getModelFileValidationMessage(file);
+
+                        if (validationMessage) {
+                          setFileUploadError(validationMessage);
+                          setModelFile(null);
+                          event.currentTarget.value = '';
+                          return;
+                        }
+
+                        setFileUploadError('');
+                        setModelFile(file);
+                      }}
                     />
                     <div className="product-upload-main product-upload-model-main">
                       <IconCube size={46} />
                       <strong>{modelFile ? modelFile.name : currentModelFile?.originalFileName ?? 'Click to select GLB/glTF model'}</strong>
                       <small>
-                        Uploaded as MODEL_3D after this Product Version is saved. No Product Version ID input is needed.
+                        Uploaded as MODEL_3D after this product version is saved.
                       </small>
                     </div>
                   </label>
 
-                  <p className="product-form-helper">Product versions accept one PRODUCT_PREVIEW image and one MODEL_3D GLB/glTF file.</p>
                 </div>
 
                 {createVersionMutation.isError ? (
@@ -375,7 +559,7 @@ export function CreateProductVersionPage() {
                 <button className="product-form-button product-form-button-secondary" type="button" onClick={() => navigate(`/admin/products/${effectiveProductId}/versions`)}>
                   Cancel
                 </button>
-                <button className="product-form-button product-form-button-primary" disabled={!product || isSaving} type="submit">
+                <button className="product-form-button product-form-button-primary" disabled={!product || isSaving || !isVersionFormReady} type="submit">
                   {isSaving ? 'Saving...' : isEditMode ? 'Update Version' : 'Save Version'}
                 </button>
               </div>
@@ -448,6 +632,142 @@ function getCatalogFileUrl(file: CatalogFileDto | null | undefined) {
   const fileLike = file as (CatalogFileDto & { publicUrl?: string | null; url?: string | null }) | null | undefined;
 
   return fileLike?.fileUrl ?? fileLike?.publicUrl ?? fileLike?.url ?? null;
+}
+
+function normalizeVersionCode(value: FormDataEntryValue | string | null | undefined) {
+  return typeof value === 'string' ? normalizeVersionCodeText(value) || null : null;
+}
+
+function normalizeVersionCodeText(value: string) {
+  return value.trim().toUpperCase().replace(/[^A-Z0-9_-]/g, '');
+}
+
+function normalizeDimensionValue(value: FormDataEntryValue | string | null | undefined) {
+  if (typeof value !== 'string') {
+    return null;
+  }
+
+  const normalizedValue = normalizeDecimalText(value);
+
+  if (!normalizedValue || normalizedValue === '.') {
+    return null;
+  }
+
+  const parsedValue = Number(normalizedValue);
+
+  return Number.isFinite(parsedValue) ? parsedValue : null;
+}
+
+function normalizeDecimalText(value: string) {
+  const normalizedValue = value.replace(/,/g, '.').replace(/[^\d.]/g, '');
+  const [integerPart, ...fractionParts] = normalizedValue.split('.');
+  const fractionPart = fractionParts.join('');
+
+  return fractionParts.length > 0 ? `${integerPart}.${fractionPart}` : integerPart;
+}
+
+function normalizeEstimatedPrice(value: FormDataEntryValue | string | null | undefined) {
+  if (typeof value !== 'string') {
+    return null;
+  }
+
+  const normalizedValue = normalizeEstimatedPriceText(value);
+
+  if (!normalizedValue) {
+    return null;
+  }
+
+  const parsedValue = Number(normalizedValue);
+
+  return Number.isSafeInteger(parsedValue) ? parsedValue : null;
+}
+
+function normalizeEstimatedPriceText(value: string) {
+  return value.replace(/\D/g, '');
+}
+
+function getVersionFileValidationMessage(previewFile: File | null, modelFile: File | null) {
+  return getPreviewFileValidationMessage(previewFile) ?? getModelFileValidationMessage(modelFile);
+}
+
+function getVersionFormValidationMessage(
+  form: HTMLFormElement,
+  options: {
+    isEditMode: boolean;
+    productReady: boolean;
+  },
+) {
+  const formData = new FormData(form);
+  const versionName = normalizeRequiredText(formData.get('version_name'));
+  const versionCode = normalizeVersionCode(formData.get('version_code'));
+  const width = normalizeDimensionValue(formData.get('width'));
+  const height = normalizeDimensionValue(formData.get('height'));
+  const depth = normalizeDimensionValue(formData.get('depth'));
+  const estimatedPrice = normalizeEstimatedPrice(formData.get('estimated_price'));
+
+  if (!options.productReady) {
+    return 'Parent product is required before saving a version.';
+  }
+
+  if (!versionName) {
+    return 'Version name is required.';
+  }
+
+  if (versionName.length < 2) {
+    return 'Version name must be at least 2 characters.';
+  }
+
+  if (!options.isEditMode && !versionCode) {
+    return 'Version code is required.';
+  }
+
+  if (versionCode && !VERSION_CODE_PATTERN.test(versionCode)) {
+    return 'Version code can only contain letters, numbers, underscores, and hyphens.';
+  }
+
+  if ([width, height, depth].some((value) => value !== null && value <= 0)) {
+    return 'Dimensions must be greater than 0 when provided.';
+  }
+
+  if (estimatedPrice !== null && estimatedPrice <= 0) {
+    return 'Estimated price must be greater than 0 when provided.';
+  }
+
+  return null;
+}
+
+function getPreviewFileValidationMessage(file: File | null) {
+  if (!file) {
+    return null;
+  }
+
+  if (!ALLOWED_VERSION_IMAGE_TYPES.has(file.type)) {
+    return 'Version image must be JPEG, PNG, WebP, GIF, or SVG.';
+  }
+
+  if (file.size > MAX_VERSION_IMAGE_SIZE_BYTES) {
+    return 'Version image must be 5MB or smaller.';
+  }
+
+  return null;
+}
+
+function getModelFileValidationMessage(file: File | null) {
+  if (!file) {
+    return null;
+  }
+
+  const extension = file.name.split('.').pop()?.toLowerCase() ?? '';
+
+  if (!ALLOWED_MODEL_EXTENSIONS.has(extension) && !ALLOWED_MODEL_TYPES.has(file.type)) {
+    return '3D model must be a GLB or glTF file.';
+  }
+
+  if (file.size > MAX_VERSION_MODEL_SIZE_BYTES) {
+    return '3D model must be 50MB or smaller.';
+  }
+
+  return null;
 }
 
 export default CreateProductVersionPage;

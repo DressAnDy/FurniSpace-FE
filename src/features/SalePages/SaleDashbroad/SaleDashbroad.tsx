@@ -8,7 +8,6 @@ import {
   IconProgressCheck,
   IconRefresh,
   IconShieldExclamation,
-  IconUserCheck,
   type Icon,
 } from '@tabler/icons-react';
 import { Link } from 'react-router-dom';
@@ -269,15 +268,6 @@ function mapSalesKpis(
       path: '/sales/assigned-projects',
       tone: 'blue',
       value: String(data?.activeProjects ?? 0),
-    },
-    {
-      change: rangeLabel,
-      description: d.kpiWaitingCustomer,
-      icon: IconUserCheck,
-      label: d.kpiWaitingCustomer,
-      path: '/sales/assigned-projects',
-      tone: 'neutral',
-      value: String(data?.waitingCustomer ?? 0),
     },
     {
       change: rangeLabel,

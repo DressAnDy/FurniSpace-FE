@@ -1,6 +1,7 @@
 import axios, { AxiosError } from 'axios';
 
 import { shouldRedirectUnauthorized } from '@/shared/config/authPreview';
+import { DirectUploadStorageError, directUploadFile } from './directUpload';
 import { getStoredAccessToken } from './tokenStore';
 import type { FileVisibility, ProjectFileUploadResponseDto } from './projects';
 
@@ -114,6 +115,10 @@ const MEASUREMENT_IMAGE_ERROR_MESSAGES: Record<string, string> = {
 };
 
 export function getMeasurementImageServiceResultMessage(error: unknown) {
+  if (error instanceof DirectUploadStorageError) {
+    return error.message;
+  }
+
   const result = getMeasurementImageServiceResultFromError(error);
 
   if (!result) {
@@ -172,19 +177,17 @@ export function getMeasurementImageServiceResultFromError(error: unknown) {
 }
 
 export async function uploadMeasurementImage(input: MeasurementImageUploadInput) {
-  const formData = new FormData();
-
-  formData.append('file', input.file);
-  if (input.visibility) formData.append('visibility', input.visibility);
-  if (input.note?.trim()) formData.append('note', input.note.trim());
-  if (input.projectAreaId) formData.append('projectAreaId', input.projectAreaId);
-
-  const response = await measurementImageApiClient.post<ServiceResult<MeasurementImageUploadResponse> | MeasurementImageUploadResponse>(
-    `/project-schedules/${input.scheduleId}/measurement-images`,
-    formData,
-  );
-
-  return unwrapMeasurementImageResponse(response.data);
+  return directUploadFile<MeasurementImageUploadResponse>({
+    apiClient: measurementImageApiClient,
+    completeEndpoint: `/project-schedules/${input.scheduleId}/measurement-images/complete`,
+    file: input.file,
+    prepareBody: {
+      note: input.note?.trim() || undefined,
+      projectAreaId: input.projectAreaId || undefined,
+      visibility: input.visibility || undefined,
+    },
+    prepareEndpoint: `/project-schedules/${input.scheduleId}/measurement-images/upload-url`,
+  });
 }
 
 export async function getScheduleMeasurementImages(scheduleId: string, query: MeasurementImageGalleryQuery = {}) {
@@ -243,14 +246,6 @@ function getGalleryParams(query: MeasurementImageGalleryQuery) {
     page: query.page ?? undefined,
     projectAreaId: query.projectAreaId ?? undefined,
   };
-}
-
-function unwrapMeasurementImageResponse<T>(response: ServiceResult<T> | T) {
-  if (response && typeof response === 'object' && 'data' in response) {
-    return (response as ServiceResult<T>).data;
-  }
-
-  return response as T;
 }
 
 function getFirstMeasurementImageErrorCode(result: ServiceResult<unknown>) {

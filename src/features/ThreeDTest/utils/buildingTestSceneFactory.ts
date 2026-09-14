@@ -649,28 +649,6 @@ type RectBounds = {
   minZ: number;
 };
 
-function isPointInsidePolygon(point: { x: number; z: number }, polygon: Array<{ x: number; y: number }>) {
-  if (polygon.length < 3) {
-    return true;
-  }
-
-  let inside = false;
-
-  for (let index = 0, previousIndex = polygon.length - 1; index < polygon.length; previousIndex = index, index += 1) {
-    const current = polygon[index];
-    const previous = polygon[previousIndex];
-    const intersects =
-      current.y > point.z !== previous.y > point.z &&
-      point.x < ((previous.x - current.x) * (point.z - current.y)) / (previous.y - current.y || Number.EPSILON) + current.x;
-
-    if (intersects) {
-      inside = !inside;
-    }
-  }
-
-  return inside;
-}
-
 function getHoleBounds(opening: NonNullable<BuildingLevel['floorOpenings']>[number], outerBounds: RectBounds) {
   return {
     maxX: Math.min(opening.position.x + opening.width / 2, outerBounds.maxX),
@@ -716,7 +694,7 @@ function createPanelCells(
         center.x > hole.minX && center.x < hole.maxX && center.z > hole.minZ && center.z < hole.maxZ,
       );
 
-      if (insideHole || !isPointInsidePolygon(center, polygon)) {
+      if (insideHole) {
         continue;
       }
 
@@ -765,6 +743,21 @@ function createRectangularPanelMeshes({
 
   const cells = holes.length || polygon.length >= 3 ? createPanelCells(bounds, holes, polygon) : [bounds];
 
+  if (polygon.length >= 3 && (meshKind === 'floor' || holes.length)) {
+    createCombinedPanelMesh({
+      bounds,
+      cells,
+      levelId,
+      material: panelMaterial,
+      meshKind,
+      polygon,
+      scene,
+      y,
+      height,
+    });
+    return;
+  }
+
   cells.forEach((cell, index) => {
     const width = cell.maxX - cell.minX;
     const depth = cell.maxZ - cell.minZ;
@@ -792,6 +785,231 @@ function createRectangularPanelMeshes({
           levelId,
           source: 'building-test-environment',
         };
+  });
+}
+
+function createCombinedPanelMesh({
+  bounds,
+  cells,
+  height,
+  levelId,
+  material: panelMaterial,
+  meshKind,
+  polygon,
+  scene,
+  y,
+}: {
+  bounds: RectBounds;
+  cells: RectBounds[];
+  height?: number;
+  levelId: string;
+  material: StandardMaterial;
+  meshKind: 'floor' | 'slab';
+  polygon: Array<{ x: number; y: number }>;
+  scene: Scene;
+  y: number;
+}) {
+  const clippedCells = cells
+    .map((cell) => clipRectCellToPolygon(cell, polygon))
+    .filter((cellPolygon) => cellPolygon.length >= 3);
+
+  if (!clippedCells.length) {
+    return;
+  }
+
+  const mesh = new Mesh(`building-test-${levelId}-${meshKind}-panel-combined`, scene);
+  const positions: number[] = [];
+  const indices: number[] = [];
+  const normals: number[] = [];
+  const uvs: number[] = [];
+  const width = Math.max(bounds.maxX - bounds.minX, 1);
+  const depth = Math.max(bounds.maxZ - bounds.minZ, 1);
+  const slabHeight = height ?? 0.05;
+
+  clippedCells.forEach((cellPolygon) => {
+    const baseIndex = positions.length / 3;
+    const cellIndices = triangulateFloorBoundary(cellPolygon.map((point) => ({ x: point.x, y: point.z })));
+
+    if (meshKind === 'floor') {
+      positions.push(...cellPolygon.flatMap((point) => [point.x, y, point.z]));
+      normals.push(...cellPolygon.flatMap(() => [0, 1, 0]));
+      uvs.push(...cellPolygon.flatMap((point) => [
+        (point.x - bounds.minX) / width,
+        (point.z - bounds.minZ) / depth,
+      ]));
+      indices.push(...cellIndices.map((index) => baseIndex + index));
+      return;
+    }
+
+    const topY = y + slabHeight / 2;
+    const bottomY = y - slabHeight / 2;
+    const bottomOffset = cellPolygon.length;
+    const sideIndices = cellPolygon.flatMap((_point, index) => {
+      const nextIndex = (index + 1) % cellPolygon.length;
+
+      return [
+        index,
+        nextIndex,
+        bottomOffset + nextIndex,
+        index,
+        bottomOffset + nextIndex,
+        bottomOffset + index,
+      ];
+    });
+
+    positions.push(
+      ...cellPolygon.flatMap((point) => [point.x, topY, point.z]),
+      ...cellPolygon.flatMap((point) => [point.x, bottomY, point.z]),
+    );
+    uvs.push(
+      ...cellPolygon.flatMap((point) => [
+        (point.x - bounds.minX) / width,
+        (point.z - bounds.minZ) / depth,
+      ]),
+      ...cellPolygon.flatMap((point) => [
+        (point.x - bounds.minX) / width,
+        (point.z - bounds.minZ) / depth,
+      ]),
+    );
+    indices.push(
+      ...cellIndices.map((index) => baseIndex + index),
+      ...cellIndices.slice().reverse().map((index) => baseIndex + bottomOffset + index),
+      ...sideIndices.map((index) => baseIndex + index),
+    );
+  });
+
+  const vertexData = new VertexData();
+
+  vertexData.positions = positions;
+  vertexData.indices = indices;
+  vertexData.uvs = uvs;
+  if (meshKind === 'floor') {
+    vertexData.normals = normals;
+  } else {
+    VertexData.ComputeNormals(positions, indices, normals);
+    vertexData.normals = normals;
+  }
+  vertexData.applyToMesh(mesh);
+  mesh.material = panelMaterial;
+  mesh.isPickable = meshKind === 'floor';
+  mesh.metadata = meshKind === 'floor'
+    ? {
+        elevation: y,
+        kind: 'placement-surface',
+        levelId,
+        source: 'building-test-environment',
+        surfaceId: `${levelId}-layout-floor`,
+        surfaceLabel: `${levelId} Layout Floor`,
+        surfaceType: 'FLOOR',
+      }
+    : {
+        kind: 'level-slab',
+        levelId,
+        source: 'building-test-environment',
+      };
+}
+
+function clipRectCellToPolygon(cell: RectBounds, polygon: Array<{ x: number; y: number }>) {
+  const rectPolygon = [
+    { x: cell.minX, z: cell.minZ },
+    { x: cell.maxX, z: cell.minZ },
+    { x: cell.maxX, z: cell.maxZ },
+    { x: cell.minX, z: cell.maxZ },
+  ];
+
+  if (polygon.length < 3) {
+    return rectPolygon;
+  }
+
+  return clipPolygonToRect(polygon.map((point) => ({ x: point.x, z: point.y })), cell);
+}
+
+function clipPolygonToRect(polygon: Array<{ x: number; z: number }>, cell: RectBounds) {
+  return [
+    {
+      inside: (point: { x: number; z: number }) => point.x >= cell.minX - 0.001,
+      intersect: (start: { x: number; z: number }, end: { x: number; z: number }) => intersectAtX(start, end, cell.minX),
+    },
+    {
+      inside: (point: { x: number; z: number }) => point.x <= cell.maxX + 0.001,
+      intersect: (start: { x: number; z: number }, end: { x: number; z: number }) => intersectAtX(start, end, cell.maxX),
+    },
+    {
+      inside: (point: { x: number; z: number }) => point.z >= cell.minZ - 0.001,
+      intersect: (start: { x: number; z: number }, end: { x: number; z: number }) => intersectAtZ(start, end, cell.minZ),
+    },
+    {
+      inside: (point: { x: number; z: number }) => point.z <= cell.maxZ + 0.001,
+      intersect: (start: { x: number; z: number }, end: { x: number; z: number }) => intersectAtZ(start, end, cell.maxZ),
+    },
+  ].reduce((subjectPolygon, clipEdge) => clipPolygonByRectEdge(subjectPolygon, clipEdge), polygon);
+}
+
+function clipPolygonByRectEdge(
+  subjectPolygon: Array<{ x: number; z: number }>,
+  clipEdge: {
+    inside: (point: { x: number; z: number }) => boolean;
+    intersect: (start: { x: number; z: number }, end: { x: number; z: number }) => { x: number; z: number };
+  },
+) {
+  if (!subjectPolygon.length) {
+    return [];
+  }
+
+  const clippedPolygon: Array<{ x: number; z: number }> = [];
+
+  subjectPolygon.forEach((currentPoint, index) => {
+    const previousPoint = subjectPolygon[(index + subjectPolygon.length - 1) % subjectPolygon.length];
+    const currentInside = clipEdge.inside(currentPoint);
+    const previousInside = clipEdge.inside(previousPoint);
+
+    if (currentInside !== previousInside) {
+      clippedPolygon.push(clipEdge.intersect(previousPoint, currentPoint));
+    }
+
+    if (currentInside) {
+      clippedPolygon.push(currentPoint);
+    }
+  });
+
+  return removeDuplicatePolygonPoints(clippedPolygon);
+}
+
+function intersectAtX(start: { x: number; z: number }, end: { x: number; z: number }, x: number) {
+  const deltaX = end.x - start.x;
+
+  if (Math.abs(deltaX) < 0.000001) {
+    return end;
+  }
+
+  const t = (x - start.x) / deltaX;
+
+  return {
+    x,
+    z: start.z + (end.z - start.z) * t,
+  };
+}
+
+function intersectAtZ(start: { x: number; z: number }, end: { x: number; z: number }, z: number) {
+  const deltaZ = end.z - start.z;
+
+  if (Math.abs(deltaZ) < 0.000001) {
+    return end;
+  }
+
+  const t = (z - start.z) / deltaZ;
+
+  return {
+    x: start.x + (end.x - start.x) * t,
+    z,
+  };
+}
+
+function removeDuplicatePolygonPoints(polygon: Array<{ x: number; z: number }>) {
+  return polygon.filter((point, index, points) => {
+    const previousPoint = points[(index + points.length - 1) % points.length];
+
+    return Math.abs(point.x - previousPoint.x) > 0.001 || Math.abs(point.z - previousPoint.z) > 0.001;
   });
 }
 

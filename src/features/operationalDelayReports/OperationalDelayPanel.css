@@ -86,6 +86,10 @@
   gap: 6px;
 }
 
+.operational-delay-status-tabs {
+  margin-top: -6px;
+}
+
 .operational-delay-tabs .is-active {
   background: #312721;
   border-color: #312721;
@@ -105,7 +109,7 @@
   cursor: pointer;
   display: grid;
   gap: 14px;
-  grid-template-columns: auto minmax(180px, 1fr) minmax(180px, auto);
+  grid-template-columns: auto minmax(180px, 1fr) minmax(180px, auto) auto;
   padding: 14px;
   text-align: left;
   transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
@@ -165,6 +169,27 @@
   color: #be123c;
 }
 
+.operational-delay-resolution {
+  background: #ecfdf5;
+  border-radius: 999px;
+  color: #047857;
+  font-size: 11px;
+  font-weight: 900;
+  justify-self: end;
+  padding: 5px 10px;
+  white-space: nowrap;
+}
+
+.operational-delay-resolution.is-open {
+  background: #fff7ed;
+  color: #c2410c;
+}
+
+.operational-delay-resolution.is-resolved {
+  background: #ecfdf5;
+  color: #047857;
+}
+
 .operational-delay-state {
   background: #f7efe4;
   border: 1px dashed rgba(166, 124, 82, 0.28);
@@ -193,6 +218,11 @@
   place-items: center;
   position: fixed;
   z-index: 1200;
+}
+
+.operational-delay-nested-backdrop {
+  background: rgba(47, 38, 31, 0.28);
+  z-index: 1210;
 }
 
 .operational-delay-modal {
@@ -302,6 +332,11 @@
   margin-top: 2px;
 }
 
+.operational-delay-detail-state .operational-delay-resolution {
+  justify-self: start;
+  margin-top: 2px;
+}
+
 @media (max-width: 720px) {
   .operational-delay-header {
     align-items: flex-start;
@@ -316,6 +351,10 @@
   .operational-delay-row > span:last-child {
     justify-items: start;
     text-align: left;
+  }
+
+  .operational-delay-resolution {
+    justify-self: start;
   }
 
   .operational-delay-detail-wide {

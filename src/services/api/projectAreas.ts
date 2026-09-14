@@ -1,6 +1,7 @@
 import axios, { AxiosError } from 'axios';
 
 import { shouldRedirectUnauthorized } from '@/shared/config/authPreview';
+import { DirectUploadStorageError, directUploadFile } from './directUpload';
 import { getStoredAccessToken } from './tokenStore';
 
 const projectAreaApiClient = axios.create({
@@ -150,6 +151,10 @@ const PROJECT_AREA_ERROR_MESSAGES: Record<string, string> = {
 };
 
 export function getProjectAreaServiceResultMessage(error: unknown) {
+  if (error instanceof DirectUploadStorageError) {
+    return error.message;
+  }
+
   const result = getProjectAreaServiceResultFromError(error);
 
   if (!result) {
@@ -231,21 +236,18 @@ export async function getProjectAreaFiles(params: ProjectAreaFileListParams) {
 }
 
 export async function uploadProjectAreaFile(input: UploadProjectAreaFileInput) {
-  const formData = new FormData();
-
-  formData.append('file', input.file);
-  formData.append('fileType', input.fileType ?? 'REFERENCE_IMAGE');
-
-  if (input.visibility) formData.append('visibility', input.visibility);
-  if (typeof input.displayOrder === 'number') formData.append('displayOrder', String(input.displayOrder));
-  if (input.note?.trim()) formData.append('note', input.note.trim());
-
-  const response = await projectAreaApiClient.post<ServiceResult<ProjectAreaFileDto>>(
-    `/project-areas/${input.projectAreaId}/files`,
-    formData,
-  );
-
-  return response.data.data;
+  return directUploadFile<ProjectAreaFileDto>({
+    apiClient: projectAreaApiClient,
+    completeEndpoint: `/project-areas/${input.projectAreaId}/files/complete`,
+    file: input.file,
+    prepareBody: {
+      displayOrder: input.displayOrder,
+      fileType: input.fileType ?? 'REFERENCE_IMAGE',
+      note: input.note?.trim() || undefined,
+      visibility: input.visibility,
+    },
+    prepareEndpoint: `/project-areas/${input.projectAreaId}/files/upload-url`,
+  });
 }
 
 function toProjectAreaPayload(input: ProjectAreaWriteInput) {

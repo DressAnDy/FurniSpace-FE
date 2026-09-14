@@ -47,7 +47,6 @@ const pageContent = {
     toolbarLabel: 'Product filters',
     searchLabel: 'Search products',
     allFilters: 'All filters',
-    filters: ['Colour', 'Material', 'Collection', 'Price'],
     itemCount: (count: number) => `${count} items`,
     sortLabel: 'Relevance',
     noProducts: 'No public standard products are available yet.',
@@ -96,15 +95,6 @@ export function ProductListPreviewPage() {
           <p>{t.collectionLabel}</p>
           <h1>{t.heroTitle}</h1>
         </div>
-
-        <div className="product-list-preview-categories" aria-label={t.categoriesLabel}>
-          {t.categories.map((category) => (
-            <button className="product-list-preview-category" key={category.title} type="button">
-              <span>{category.title}</span>
-              {category.imageUrl ? <img src={category.imageUrl} alt="" /> : null}
-            </button>
-          ))}
-        </div>
       </section>
 
       <section className="product-list-preview-toolbar" aria-label={t.toolbarLabel}>
@@ -113,12 +103,6 @@ export function ProductListPreviewPage() {
             <IconAdjustmentsHorizontal size={18} stroke={1.7} />
             <span>{t.allFilters}</span>
           </button>
-          {t.filters.map((filter) => (
-            <button className="product-list-preview-filter" key={filter} type="button">
-              <span>{filter}</span>
-              <IconChevronDown size={17} stroke={1.7} />
-            </button>
-          ))}
           {businessTypeOptions.map((businessType) => (
             <button
               className={`product-list-preview-filter product-list-preview-filter-toggle${businessTypeFilterIds.includes(businessType.id) ? ' is-active' : ''}`}

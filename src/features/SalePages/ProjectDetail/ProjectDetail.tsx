@@ -289,7 +289,20 @@ export function ProjectDetail() {
       );
     }
     if (activeTab === 'showcase' && isAssignedProjectRoute) {
-      return <ProjectShowcaseManager projectId={project.projectId} projectName={project.projectName} projectStatus={project.status} role="sales" />;
+      return (
+        <ProjectShowcaseManager
+          projectId={project.projectId}
+          projectMeta={{
+            businessType: project.businessType,
+            completedDate: getProjectCompletedDate(project),
+            projectAddress: project.projectAddress,
+            totalAreaSqm: project.totalAreaSqm,
+          }}
+          projectName={project.projectName}
+          projectStatus={project.status}
+          role="sales"
+        />
+      );
     }
     return <OverviewTab project={project} />;
   };
@@ -547,6 +560,19 @@ function formatStatusLabel(value: string) {
 
 function getPrimaryRelatedOrder(orders: OrderListItemDto[]) {
   return [...orders].sort((left, right) => new Date(right.createdAt ?? '').getTime() - new Date(left.createdAt ?? '').getTime())[0] ?? null;
+}
+
+function getProjectCompletedDate(project: ProjectDetailProject) {
+  const completedPhaseDate = [...(project.phaseDeadlines ?? [])]
+    .map((deadline) => deadline.completedAt)
+    .filter((value): value is string => Boolean(value))
+    .sort((left, right) => new Date(right).getTime() - new Date(left).getTime())[0];
+
+  if (completedPhaseDate) {
+    return completedPhaseDate;
+  }
+
+  return project.status === 'COMPLETED' ? project.targetCompletionDate : null;
 }
 
 function isPostDeliveryProject(status: ProjectStatus) {

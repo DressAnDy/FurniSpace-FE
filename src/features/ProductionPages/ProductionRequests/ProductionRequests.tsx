@@ -33,6 +33,13 @@ const priorityRank: Record<Priority, number> = {
   LOW: 1,
 };
 
+const statusRank: Record<ProductionRequestStatus, number> = {
+  PENDING: 1,
+  IN_PRODUCTION: 2,
+  COMPLETED: 3,
+  CANCELLED: 4,
+};
+
 const filters: Array<{ label: string; value: RequestFilter }> = [
   { label: 'All', value: 'ALL' },
   { label: 'Pending', value: 'PENDING' },
@@ -76,6 +83,10 @@ export function ProductionRequests() {
           return matchesSearch;
         })
         .sort((first, second) => {
+          const statusDiff = statusRank[first.status] - statusRank[second.status];
+
+          if (statusDiff !== 0) return statusDiff;
+
           const priorityDiff = priorityRank[second.priority] - priorityRank[first.priority];
 
           if (priorityDiff !== 0) return priorityDiff;
@@ -220,7 +231,11 @@ export function ProductionRequests() {
                       </code>
                     </td>
                     <td>{request.assignedToName ?? '-'}</td>
-                    <td>{request.priority}</td>
+                    <td>
+                      <span className={`production-requests-priority production-requests-priority-${request.priority.toLowerCase()}`}>
+                        {request.priority}
+                      </span>
+                    </td>
                     <td><ProductionStatusBadge label={getProductionRequestStatusLabel(request.status)} status={request.status} /></td>
                     <td>{formatDate(request.productionDeadline)}</td>
                     <td>{formatDate(request.actualCompletionDate)}</td>

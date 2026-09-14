@@ -430,7 +430,9 @@ export function Categorymanagement() {
                               </div>
                             </div>
                           </td>
-                          <td className="category-management-description">{category.description ?? 'No description.'}</td>
+                          <td className="category-management-description">
+                            <span>{category.description ?? 'No description.'}</span>
+                          </td>
                           <td>
                             <span className={`category-management-status ${statusClassName[category.status] ?? 'category-management-status-archived'}`}>
                               {category.status}

@@ -551,9 +551,11 @@
 .product-business-type-tags {
   display: flex;
   flex-wrap: wrap;
+  align-content: flex-start;
   gap: 6px;
-  min-height: 24px;
+  height: 58px;
   margin-top: 8px;
+  overflow: hidden;
 }
 
 .product-business-type-tags span {

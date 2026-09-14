@@ -5,7 +5,9 @@ import {
   getOrderProductIssues,
   getProductIssue,
   getProjectProductIssues,
+  resolveProductIssue,
   type CreateProductIssueInput,
+  type ResolveProductIssueInput,
 } from '@/services/api/productIssues';
 
 export const productIssueQueryKeys = {
@@ -46,6 +48,22 @@ export function useCreateProductIssue() {
     mutationFn: (input: CreateProductIssueInput) => createProductIssue(input),
     onSuccess: (issue, input) => {
       void queryClient.invalidateQueries({ queryKey: productIssueQueryKeys.order(input.orderId) });
+      void queryClient.invalidateQueries({ queryKey: productIssueQueryKeys.project(issue.projectId) });
+      void queryClient.invalidateQueries({
+        queryKey: productIssueQueryKeys.detail(issue.deliveryProductIssueReportId),
+      });
+    },
+  });
+}
+
+export function useResolveProductIssue() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (input: ResolveProductIssueInput) => resolveProductIssue(input),
+    onSuccess: (issue) => {
+      void queryClient.invalidateQueries({ queryKey: productIssueQueryKeys.all });
+      void queryClient.invalidateQueries({ queryKey: productIssueQueryKeys.order(issue.orderId) });
       void queryClient.invalidateQueries({ queryKey: productIssueQueryKeys.project(issue.projectId) });
       void queryClient.invalidateQueries({
         queryKey: productIssueQueryKeys.detail(issue.deliveryProductIssueReportId),

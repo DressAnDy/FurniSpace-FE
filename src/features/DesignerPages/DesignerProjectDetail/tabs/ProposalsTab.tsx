@@ -91,7 +91,7 @@ export function ProposalsTab({ project }: Readonly<ProposalsTabProps>) {
       setIsCreateModalOpen(false);
       setProposalDraft({ description: '', proposalName: '' });
       setMessageTone('success');
-      setMessage(`Created ${createdProposal.proposalName} with a room planner scene across ${projectAreaIds.length} floor${projectAreaIds.length === 1 ? '' : 's'}.`);
+      setMessage(`Created ${getDisplayText(createdProposal.proposalName, 'proposal')} with a room planner scene across ${projectAreaIds.length} floor${projectAreaIds.length === 1 ? '' : 's'}.`);
       navigate(`/designer/projects/${project.projectId}/proposals/${createdProposal.proposalId}`, {
         state: { createdSceneId: createdScene.sceneId },
       });
@@ -112,7 +112,7 @@ export function ProposalsTab({ project }: Readonly<ProposalsTabProps>) {
         note: 'Published by designer from assigned project proposal list.',
       });
       setMessageTone('success');
-      setMessage(`${proposal.proposalName} is now visible to the customer.`);
+      setMessage(`${getDisplayText(proposal.proposalName, 'Proposal')} is now visible to the customer.`);
     } catch (error) {
       setMessageTone('error');
       setMessage(getProposalServiceResultMessage(error));
@@ -250,16 +250,13 @@ function ProposalRow({ proposal, onOpenDetail, onPublish, publishDisabled }: Rea
   return (
     <tr>
       <td>
-        <strong>{proposal.proposalName}</strong>
+        <strong>{getDisplayText(proposal.proposalName, 'Untitled proposal')}</strong>
         {proposal.status === 'REVISION_REQUESTED' && proposal.revisionNote ? (
           <div className="designer-proposal-revision-note-inline">
             <span>Customer revision note</span>
             <p>{proposal.revisionNote}</p>
           </div>
         ) : null}
-        <span className="designer-proposal-id" title={proposal.proposalId}>
-          {proposal.proposalId}
-        </span>
       </td>
       <td>
         <span className="designer-proposal-version">v{proposal.versionNo}</span>
@@ -442,6 +439,21 @@ function formatEnumLabel(value: string) {
 
 function pluralize(count: number, noun: string) {
   return `${count} ${noun}${count === 1 ? '' : 's'}`;
+}
+
+function getDisplayText(value: string | null | undefined, fallback: string) {
+  const normalizedValue = value?.trim();
+
+  if (!normalizedValue || isTechnicalId(normalizedValue)) {
+    return fallback;
+  }
+
+  return normalizedValue;
+}
+
+function isTechnicalId(value: string) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)
+    || /^[0-9a-f]{24}$/i.test(value);
 }
 
 function formatDatePart(value: string) {

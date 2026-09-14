@@ -43,9 +43,17 @@ type ProjectShowcaseManagerRole = 'sales' | 'admin';
 
 type ProjectShowcaseManagerProps = {
   projectId: string;
+  projectMeta?: ProjectShowcaseProjectMeta;
   projectName?: string | null;
   projectStatus?: ProjectStatus | string | null;
   role: ProjectShowcaseManagerRole;
+};
+
+type ProjectShowcaseProjectMeta = {
+  businessType?: string | null;
+  completedDate?: string | null;
+  projectAddress?: string | null;
+  totalAreaSqm?: number | null;
 };
 
 type ShowcaseDraft = {
@@ -55,13 +63,12 @@ type ShowcaseDraft = {
 const allowedImageMimeTypes = new Set(['image/jpeg', 'image/png', 'image/webp']);
 const allowedImageExtensions = new Set(['jpg', 'jpeg', 'png', 'webp']);
 
-export function ProjectShowcaseManager({ projectId, projectName, projectStatus, role }: ProjectShowcaseManagerProps) {
+export function ProjectShowcaseManager({ projectId, projectMeta, projectName, projectStatus, role }: ProjectShowcaseManagerProps) {
   const showcaseQuery = useProjectShowcase(projectId);
   const showcase = showcaseQuery.data ?? null;
   const [draft, setDraft] = useState<ShowcaseDraft>(() => createEmptyDraft(projectName));
   const [message, setMessage] = useState<{ tone: 'error' | 'success'; text: string } | null>(null);
   const [mediaFiles, setMediaFiles] = useState<File[]>([]);
-  const [mediaCaption, setMediaCaption] = useState('');
   const mediaInputRef = useRef<HTMLInputElement | null>(null);
 
   const createMutation = useCreateProjectShowcase();
@@ -87,6 +94,12 @@ export function ProjectShowcaseManager({ projectId, projectName, projectStatus, 
   const canReject = Boolean(isAdmin && showcase && normalizedShowcaseStatus === 'PENDING_REVIEW');
   const canArchive = Boolean(isAdmin && showcase && !isArchived);
   const coverMedia = showcase?.coverMedia ?? showcase?.media?.find((item) => item.isCover) ?? null;
+  const liveFacts = {
+    businessType: showcase?.businessType ?? projectMeta?.businessType,
+    completedDate: showcase?.completedDate ?? projectMeta?.completedDate,
+    projectAddress: showcase?.projectAddress ?? projectMeta?.projectAddress,
+    totalAreaSqm: typeof showcase?.totalAreaSqm === 'number' ? showcase.totalAreaSqm : projectMeta?.totalAreaSqm,
+  };
   const sortedMedia = useMemo(
     () => [...(showcase?.media ?? [])].sort((first, second) =>
       (first.displayOrder ?? Number.MAX_SAFE_INTEGER) - (second.displayOrder ?? Number.MAX_SAFE_INTEGER)
@@ -156,11 +169,9 @@ export function ProjectShowcaseManager({ projectId, projectName, projectStatus, 
     }
 
     try {
-      const normalizedCaption = mediaCaption.trim() || null;
-
       for (const [index, file] of mediaFiles.entries()) {
         await uploadShowcaseMediaMutation.mutateAsync({
-          caption: normalizedCaption,
+          caption: null,
           file,
           mediaType: 'FINAL',
           setAsCover: index === 0,
@@ -170,7 +181,6 @@ export function ProjectShowcaseManager({ projectId, projectName, projectStatus, 
       }
 
       setMediaFiles([]);
-      setMediaCaption('');
       setMessage({ tone: 'success', text: `${mediaFiles.length} showcase media file(s) added.` });
       void showcaseQuery.refetch();
     } catch (error) {
@@ -373,10 +383,10 @@ export function ProjectShowcaseManager({ projectId, projectName, projectStatus, 
             <span>{coverMedia ? 'Current Primary' : 'Primary Required'}</span>
           </div>
           <div className="project-showcase-live-facts">
-            <ShowcaseFact icon={<IconBuildingSkyscraper size={17} />} label="Business" value={showcase?.businessType} />
-            <ShowcaseFact icon={<IconCalendar size={17} />} label="Completed" value={showcase?.completedDate ? formatDate(showcase.completedDate) : null} />
-            <ShowcaseFact icon={<IconRulerMeasure size={17} />} label="Area" value={typeof showcase?.totalAreaSqm === 'number' ? `${formatNumber(showcase.totalAreaSqm)} m2` : null} />
-            <ShowcaseFact icon={<IconMapPin size={17} />} label="Address" value={showcase?.projectAddress} />
+            <ShowcaseFact icon={<IconBuildingSkyscraper size={17} />} label="Business" value={liveFacts.businessType} />
+            <ShowcaseFact icon={<IconCalendar size={17} />} label="Completed" value={liveFacts.completedDate ? formatDate(liveFacts.completedDate) : null} />
+            <ShowcaseFact icon={<IconRulerMeasure size={17} />} label="Area" value={typeof liveFacts.totalAreaSqm === 'number' ? `${formatNumber(liveFacts.totalAreaSqm)} m2` : null} />
+            <ShowcaseFact icon={<IconMapPin size={17} />} label="Address" value={liveFacts.projectAddress} />
           </div>
         </section>
 
@@ -476,10 +486,6 @@ export function ProjectShowcaseManager({ projectId, projectName, projectStatus, 
                     <small>{mediaFiles.length > 0 ? 'Click to add more images.' : 'You can choose multiple images at once. The first image becomes primary.'}</small>
                   </button>
                 </div>
-                <label>
-                  <span>Caption</span>
-                  <input value={mediaCaption} onChange={(event) => setMediaCaption(event.target.value)} />
-                </label>
                 <button disabled={mediaFiles.length === 0 || isMutating} type="submit">
                   <IconUpload size={16} />
                   Upload {mediaFiles.length > 0 ? `${mediaFiles.length} File(s)` : 'Media'}
@@ -521,10 +527,6 @@ export function ProjectShowcaseManager({ projectId, projectName, projectStatus, 
                     {mediaUrl ? <img alt={media.caption ?? media.mediaType} src={mediaUrl} /> : <div className="project-showcase-media-placeholder" />}
                     {media.isCover ? <span>Primary</span> : null}
                   </div>
-                  <div>
-                    <strong>{formatEnumLabel(media.mediaType)}</strong>
-                    {media.caption ? <span>{media.caption}</span> : null}
-                  </div>
                   <div className="project-showcase-media-actions">
                     <button disabled={!canEditDraft || isMutating || index === 0} type="button" aria-label="Move media up" onClick={() => void moveMedia(media.showcaseMediaId, -1)}>
                       <IconArrowUp size={15} />
@@ -534,7 +536,7 @@ export function ProjectShowcaseManager({ projectId, projectName, projectStatus, 
                     </button>
                     <button className={media.isCover ? 'is-active' : ''} disabled={!canEditDraft || isMutating || Boolean(media.isCover)} type="button" onClick={() => void setCover(media.showcaseMediaId)}>
                       <IconStar size={15} />
-                      {media.isCover ? 'Primary' : 'Set Primary'}
+                      {media.isCover ? 'Primary' : 'Set'}
                     </button>
                     <button disabled={!canEditDraft || isMutating} type="button" onClick={() => void deleteMedia(media.showcaseMediaId)}>
                       <IconTrash size={15} />
