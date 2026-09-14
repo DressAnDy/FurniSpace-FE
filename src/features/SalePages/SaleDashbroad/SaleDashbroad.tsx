@@ -23,6 +23,8 @@ import type {
   DashboardQueueItemDto,
   DashboardScope,
   SalesDashboardKpisDto,
+  SalesOverdueTaskItemDto,
+  SalesUnpaidRemainingItemDto,
 } from '@/services/api/dashboard';
 import type { ProjectListItemDto } from '@/services/api/projects';
 import { getAccountById, type AccountDto } from '@/services/api/accounts';
@@ -31,6 +33,8 @@ import {
   useCurrentUser,
   useSalesActionQueue,
   useSalesDashboardKpis,
+  useSalesOverdueTasksList,
+  useSalesUnpaidRemainingList,
   useStaffProjectQueue,
 } from '@/services/queries';
 import { useProjectList } from '@/services/queries/useProjects';
@@ -42,6 +46,7 @@ type QueueDateRangeKey = 'all' | DateRangeKey;
 type ScopeKey = 'my-projects' | 'team';
 type QueuePriorityFilter = '' | DashboardPriority;
 type QueueDueFilter = '' | DashboardDueBucket;
+type DetailPanel = 'queue' | 'accepted' | 'unpaid-remaining' | 'overdue';
 
 type KpiItem = {
   change: string;
@@ -74,9 +79,13 @@ export function SaleDashbroad() {
   const [queueDue, setQueueDue] = useState<QueueDueFilter>('');
   const [queuePage, setQueuePage] = useState(1);
   const [queuePageSize, setQueuePageSize] = useState(5);
-  const [showAcceptedProjects, setShowAcceptedProjects] = useState(false);
+  const [detailPanel, setDetailPanel] = useState<DetailPanel>('queue');
   const [acceptedPage, setAcceptedPage] = useState(1);
   const [acceptedPageSize, setAcceptedPageSize] = useState(5);
+  const [unpaidPage, setUnpaidPage] = useState(1);
+  const [unpaidPageSize, setUnpaidPageSize] = useState(5);
+  const [overduePage, setOverduePage] = useState(1);
+  const [overduePageSize, setOverduePageSize] = useState(5);
   const [isQueueFilterOpen, setIsQueueFilterOpen] = useState(false);
   const [lastRefreshAt, setLastRefreshAt] = useState(() => new Date());
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -100,6 +109,10 @@ export function SaleDashbroad() {
   // New requests are unassigned SUBMITTED projects — same source as Project Request Queue.
   // Dashboard KPI `newRequests` with scope=mine stays 0 because those projects are not assigned yet.
   const currentUserQuery = useCurrentUser();
+  const showAcceptedProjects = detailPanel === 'accepted';
+  const showUnpaidRemaining = detailPanel === 'unpaid-remaining';
+  const showOverdueTasks = detailPanel === 'overdue';
+  const showDetailPanel = detailPanel !== 'queue';
   const acceptedProjectsQuery = useProjectList(
     {
       assignedSalesId: scope === 'my-projects' ? currentUserQuery.data?.accountId : undefined,
@@ -110,10 +123,33 @@ export function SaleDashbroad() {
       enabled: showAcceptedProjects && (scope === 'team' || Boolean(currentUserQuery.data?.accountId)),
     },
   );
+  const unpaidRemainingQuery = useSalesUnpaidRemainingList(
+    {
+      scope: apiScope,
+      page: unpaidPage,
+      limit: unpaidPageSize,
+    },
+    showUnpaidRemaining,
+  );
+  const overdueTasksQuery = useSalesOverdueTasksList(
+    {
+      scope: apiScope,
+      page: overduePage,
+      limit: overduePageSize,
+    },
+    showOverdueTasks,
+  );
   const newRequestsQuery = useStaffProjectQueue({
     page: 1,
     limit: 50,
   });
+
+  function openDetailPanel(panel: Exclude<DetailPanel, 'queue'>) {
+    setDetailPanel((current) => (current === panel ? 'queue' : panel));
+    if (panel === 'accepted') setAcceptedPage(1);
+    if (panel === 'unpaid-remaining') setUnpaidPage(1);
+    if (panel === 'overdue') setOverduePage(1);
+  }
 
   const queueItems = queueQuery.data?.items ?? [];
   const queueTotal = queueQuery.data?.total ?? 0;
@@ -127,11 +163,9 @@ export function SaleDashbroad() {
     ? Math.max(newRequestsQuery.data.total, newRequestsQuery.data.items.length)
     : undefined;
   const kpis = useMemo(
-    () => mapSalesKpis(kpisQuery.data, d, newRequestCount, newRequestsQuery.isLoading, showAcceptedProjects, () => {
-      setShowAcceptedProjects((current) => !current);
-      setAcceptedPage(1);
-    }),
-    [d, kpisQuery.data, newRequestCount, newRequestsQuery.isLoading, showAcceptedProjects],
+    () =>
+      mapSalesKpis(kpisQuery.data, d, newRequestCount, newRequestsQuery.isLoading, detailPanel, openDetailPanel),
+    [d, detailPanel, kpisQuery.data, newRequestCount, newRequestsQuery.isLoading],
   );
   const refreshTime = new Intl.DateTimeFormat(lang === 'vi' ? 'vi-VN' : 'en-US', { hour: '2-digit', minute: '2-digit' }).format(lastRefreshAt);
   const isLoading = queueQuery.isLoading || kpisQuery.isLoading;
@@ -193,7 +227,14 @@ export function SaleDashbroad() {
 
     setIsRefreshing(true);
     try {
-      await Promise.all([queueQuery.refetch(), kpisQuery.refetch(), newRequestsQuery.refetch()]);
+      await Promise.all([
+        queueQuery.refetch(),
+        kpisQuery.refetch(),
+        newRequestsQuery.refetch(),
+        ...(showAcceptedProjects ? [acceptedProjectsQuery.refetch()] : []),
+        ...(showUnpaidRemaining ? [unpaidRemainingQuery.refetch()] : []),
+        ...(showOverdueTasks ? [overdueTasksQuery.refetch()] : []),
+      ]);
       setLastRefreshAt(new Date());
     } finally {
       setIsRefreshing(false);
@@ -235,6 +276,9 @@ export function SaleDashbroad() {
                 onChange={(event) => {
                   setScope(event.target.value as ScopeKey);
                   setQueuePage(1);
+                  setAcceptedPage(1);
+                  setUnpaidPage(1);
+                  setOverduePage(1);
                 }}
               >
                 <option value="my-projects">{d.myProjects}</option>
@@ -287,10 +331,26 @@ export function SaleDashbroad() {
             <article className="sale-card sales-ops-action-queue">
               <header className="sales-ops-section-header">
                 <div>
-                  <h3>{showAcceptedProjects ? d.acceptedListTitle : d.mainActionQueue}</h3>
-                  <p>{showAcceptedProjects ? d.acceptedListNote : d.subtitle}</p>
+                  <h3>
+                    {detailPanel === 'accepted'
+                      ? d.acceptedListTitle
+                      : detailPanel === 'unpaid-remaining'
+                        ? d.unpaidListTitle
+                        : detailPanel === 'overdue'
+                          ? d.overdueListTitle
+                          : d.mainActionQueue}
+                  </h3>
+                  <p>
+                    {detailPanel === 'accepted'
+                      ? d.acceptedListNote
+                      : detailPanel === 'unpaid-remaining'
+                        ? d.unpaidListNote
+                        : detailPanel === 'overdue'
+                          ? d.overdueListNote
+                          : d.subtitle}
+                  </p>
                 </div>
-                <div className="sales-ops-queue-filter" ref={queueFilterRef} hidden={showAcceptedProjects}>
+                <div className="sales-ops-queue-filter" ref={queueFilterRef} hidden={showDetailPanel}>
                   <button
                     aria-expanded={isQueueFilterOpen}
                     aria-haspopup="dialog"
@@ -373,6 +433,7 @@ export function SaleDashbroad() {
                 <AcceptedProjectsList
                   chipLabel={d.acceptedListTitle}
                   customerLabel={d.colCustomer}
+                  emptyLabel={d.acceptedListEmpty}
                   isLoading={acceptedProjectsQuery.isLoading || currentUserQuery.isLoading}
                   items={(acceptedProjectsQuery.data?.items ?? []).filter((project) => Boolean(project.assignedSalesId))}
                   lang={lang}
@@ -385,6 +446,52 @@ export function SaleDashbroad() {
                   onPageSizeChange={(nextSize) => {
                     setAcceptedPageSize(nextSize);
                     setAcceptedPage(1);
+                  }}
+                />
+              ) : showUnpaidRemaining ? (
+                <UnpaidRemainingList
+                  chipLabel={d.unpaidListTitle}
+                  customerLabel={d.colCustomer}
+                  emptyLabel={d.unpaidListEmpty}
+                  isLoading={unpaidRemainingQuery.isLoading}
+                  items={unpaidRemainingQuery.data?.items ?? []}
+                  lang={lang}
+                  loadingLabel={d.loadingData}
+                  page={unpaidPage}
+                  pageSize={unpaidPageSize}
+                  phaseLabel={d.colPhase}
+                  projectLabel={d.colProject}
+                  remainingLabel={d.colRemaining}
+                  totalItems={unpaidRemainingQuery.data?.total ?? 0}
+                  updatedLabel={d.colUpdated}
+                  viewLabel={t.common.view}
+                  onPageChange={setUnpaidPage}
+                  onPageSizeChange={(nextSize) => {
+                    setUnpaidPageSize(nextSize);
+                    setUnpaidPage(1);
+                  }}
+                />
+              ) : showOverdueTasks ? (
+                <OverdueTasksList
+                  chipLabel={d.overdueListTitle}
+                  customerLabel={d.colCustomer}
+                  emptyLabel={d.overdueListEmpty}
+                  formatOverdueDays={d.overdueDaysValue}
+                  isLoading={overdueTasksQuery.isLoading}
+                  items={overdueTasksQuery.data?.items ?? []}
+                  loadingLabel={d.loadingData}
+                  overdueLabel={d.colOverdueDays}
+                  page={overduePage}
+                  pageSize={overduePageSize}
+                  phaseLabel={d.colPhase}
+                  projectLabel={d.colProject}
+                  targetLabel={d.colTarget}
+                  totalItems={overdueTasksQuery.data?.total ?? 0}
+                  viewLabel={t.common.view}
+                  onPageChange={setOverduePage}
+                  onPageSizeChange={(nextSize) => {
+                    setOverduePageSize(nextSize);
+                    setOverduePage(1);
                   }}
                 />
               ) : (
@@ -565,6 +672,186 @@ function AcceptedProjectsList({
   );
 }
 
+function UnpaidRemainingList({
+  chipLabel,
+  customerLabel,
+  emptyLabel,
+  isLoading,
+  items,
+  lang,
+  loadingLabel,
+  page,
+  pageSize,
+  phaseLabel,
+  projectLabel,
+  remainingLabel,
+  totalItems,
+  updatedLabel,
+  viewLabel,
+  onPageChange,
+  onPageSizeChange,
+}: {
+  chipLabel: string;
+  customerLabel: string;
+  emptyLabel: string;
+  isLoading: boolean;
+  items: SalesUnpaidRemainingItemDto[];
+  lang: 'en' | 'vi';
+  loadingLabel: string;
+  page: number;
+  pageSize: number;
+  phaseLabel: string;
+  projectLabel: string;
+  remainingLabel: string;
+  totalItems: number;
+  updatedLabel: string;
+  viewLabel: string;
+  onPageChange: (page: number) => void;
+  onPageSizeChange: (pageSize: number) => void;
+}) {
+  const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+
+  return (
+    <>
+      <div className="sales-ops-tabs" role="tablist" aria-label={emptyLabel}>
+        <button aria-selected="true" type="button">
+          {chipLabel}
+          <em>{totalItems}</em>
+        </button>
+      </div>
+      <div className="sales-ops-queue-table">
+        <div className="sales-ops-queue-head sales-ops-unpaid-head">
+          <span>{projectLabel}</span>
+          <span>{customerLabel}</span>
+          <span>{remainingLabel}</span>
+          <span>{phaseLabel}</span>
+          <span>{updatedLabel}</span>
+          <span />
+        </div>
+        {isLoading ? <div className="sales-ops-queue-empty">{loadingLabel}</div> : null}
+        {!isLoading && items.length === 0 ? <div className="sales-ops-queue-empty">{emptyLabel}</div> : null}
+        {items.map((item) => (
+          <div className="sales-ops-queue-row sales-ops-unpaid-row" key={item.orderId}>
+            <strong title={item.orderCode ?? undefined}>
+              {`${item.projectCode} ${item.projectName}`.trim()}
+            </strong>
+            <span title={item.customerName || undefined}>{item.customerName || '-'}</span>
+            <span className="sales-ops-money">{formatMoneyAmount(item.remainingAmount, item.currency)}</span>
+            <span className="sales-ops-phase">{formatStatusLabel(item.status)}</span>
+            <span className="sales-ops-updated">{formatLastUpdatedAt(item.updatedAt, lang)}</span>
+            <Link
+              aria-label={`Open ${item.projectCode}`}
+              className="sales-ops-queue-open"
+              title={viewLabel}
+              to={`/sales/assigned-projects/${item.projectId}`}
+            >
+              <IconChevronRight size={18} stroke={2} />
+            </Link>
+          </div>
+        ))}
+      </div>
+      <QueuePager
+        disabled={isLoading}
+        page={Math.min(page, totalPages)}
+        pageSize={pageSize}
+        totalItems={totalItems}
+        totalPages={totalPages}
+        onPageChange={onPageChange}
+        onPageSizeChange={onPageSizeChange}
+      />
+    </>
+  );
+}
+
+function OverdueTasksList({
+  chipLabel,
+  customerLabel,
+  emptyLabel,
+  formatOverdueDays,
+  isLoading,
+  items,
+  loadingLabel,
+  overdueLabel,
+  page,
+  pageSize,
+  phaseLabel,
+  projectLabel,
+  targetLabel,
+  totalItems,
+  viewLabel,
+  onPageChange,
+  onPageSizeChange,
+}: {
+  chipLabel: string;
+  customerLabel: string;
+  emptyLabel: string;
+  formatOverdueDays: (days: number) => string;
+  isLoading: boolean;
+  items: SalesOverdueTaskItemDto[];
+  loadingLabel: string;
+  overdueLabel: string;
+  page: number;
+  pageSize: number;
+  phaseLabel: string;
+  projectLabel: string;
+  targetLabel: string;
+  totalItems: number;
+  viewLabel: string;
+  onPageChange: (page: number) => void;
+  onPageSizeChange: (pageSize: number) => void;
+}) {
+  const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+
+  return (
+    <>
+      <div className="sales-ops-tabs" role="tablist" aria-label={emptyLabel}>
+        <button aria-selected="true" type="button">
+          {chipLabel}
+          <em>{totalItems}</em>
+        </button>
+      </div>
+      <div className="sales-ops-queue-table">
+        <div className="sales-ops-queue-head sales-ops-overdue-head">
+          <span>{projectLabel}</span>
+          <span>{customerLabel}</span>
+          <span>{phaseLabel}</span>
+          <span>{targetLabel}</span>
+          <span>{overdueLabel}</span>
+          <span />
+        </div>
+        {isLoading ? <div className="sales-ops-queue-empty">{loadingLabel}</div> : null}
+        {!isLoading && items.length === 0 ? <div className="sales-ops-queue-empty">{emptyLabel}</div> : null}
+        {items.map((item) => (
+          <div className="sales-ops-queue-row sales-ops-overdue-row" key={item.projectId}>
+            <strong>{`${item.projectCode} ${item.projectName}`.trim()}</strong>
+            <span title={item.customerName || undefined}>{item.customerName || '-'}</span>
+            <span className="sales-ops-phase">{formatStatusLabel(item.status)}</span>
+            <span className="sales-ops-updated">{formatShortDate(item.targetCompletionDate)}</span>
+            <span className="sales-ops-due is-overdue">{formatOverdueDays(item.overdueDays)}</span>
+            <Link
+              aria-label={`Open ${item.projectCode}`}
+              className="sales-ops-queue-open"
+              title={viewLabel}
+              to={`/sales/assigned-projects/${item.projectId}`}
+            >
+              <IconChevronRight size={18} stroke={2} />
+            </Link>
+          </div>
+        ))}
+      </div>
+      <QueuePager
+        disabled={isLoading}
+        page={Math.min(page, totalPages)}
+        pageSize={pageSize}
+        totalItems={totalItems}
+        totalPages={totalPages}
+        onPageChange={onPageChange}
+        onPageSizeChange={onPageSizeChange}
+      />
+    </>
+  );
+}
+
 function QueuePager({
   disabled,
   page,
@@ -666,8 +953,8 @@ function mapSalesKpis(
   d: (typeof saleCopy)['en']['dashboard'],
   newRequestCount: number | undefined,
   isNewRequestsLoading: boolean,
-  acceptedSelected: boolean,
-  onToggleAccepted: () => void,
+  detailPanel: DetailPanel,
+  onOpenDetailPanel: (panel: Exclude<DetailPanel, 'queue'>) => void,
 ): KpiItem[] {
   return [
     {
@@ -686,8 +973,8 @@ function mapSalesKpis(
       icon: IconProgressCheck,
       id: 'accepted',
       label: d.kpiAcceptedProjects,
-      onSelect: onToggleAccepted,
-      selected: acceptedSelected,
+      onSelect: () => onOpenDetailPanel('accepted'),
+      selected: detailPanel === 'accepted',
       tone: 'blue',
       value: String(data?.acceptedProjects ?? 0),
     },
@@ -697,7 +984,8 @@ function mapSalesKpis(
       icon: IconCreditCard,
       id: 'unpaid-remaining',
       label: d.kpiUnpaidRemaining,
-      path: '/sales/orders',
+      onSelect: () => onOpenDetailPanel('unpaid-remaining'),
+      selected: detailPanel === 'unpaid-remaining',
       tone: 'red',
       value: String(data?.unpaidRemaining ?? 0),
     },
@@ -707,7 +995,8 @@ function mapSalesKpis(
       icon: IconShieldExclamation,
       id: 'overdue',
       label: d.kpiOverdueTasks,
-      path: '/sales/assigned-projects',
+      onSelect: () => onOpenDetailPanel('overdue'),
+      selected: detailPanel === 'overdue',
       tone: 'red',
       value: String(data?.overdueTasks ?? 0),
     },
@@ -751,6 +1040,11 @@ function formatDueLabel(
 
 function formatShortDate(value: string) {
   return new Intl.DateTimeFormat('en-US', { month: 'short', day: '2-digit' }).format(new Date(value));
+}
+
+function formatMoneyAmount(value: number, currency: string | null) {
+  const amount = new Intl.NumberFormat('vi-VN').format(value);
+  return `${amount} ${currency?.trim() || 'VND'}`;
 }
 
 function formatLastUpdatedAt(value: string | null | undefined, lang: 'en' | 'vi') {

@@ -89,6 +89,9 @@ type SaleCopy = {
     colPriority: string;
     colDue: string;
     colUpdated: string;
+    colRemaining: string;
+    colTarget: string;
+    colOverdueDays: string;
     kpiNewRequests: string;
     kpiNewRequestsHint: string;
     kpiAcceptedProjects: string;
@@ -96,6 +99,13 @@ type SaleCopy = {
     acceptedListTitle: string;
     acceptedListEmpty: string;
     acceptedListNote: string;
+    unpaidListTitle: string;
+    unpaidListEmpty: string;
+    unpaidListNote: string;
+    overdueListTitle: string;
+    overdueListEmpty: string;
+    overdueListNote: string;
+    overdueDaysValue: (days: number) => string;
     kpiUnpaidRemaining: string;
     kpiUnpaidRemainingHint: string;
     kpiOverdueTasks: string;
@@ -337,6 +347,9 @@ const en: SaleCopy = {
     colPriority: 'Priority',
     colDue: 'Due',
     colUpdated: 'Updated',
+    colRemaining: 'Remaining',
+    colTarget: 'Target',
+    colOverdueDays: 'Overdue',
     kpiNewRequests: 'New Project Requests',
     kpiNewRequestsHint: 'Waiting to accept',
     kpiAcceptedProjects: 'Accepted Projects',
@@ -344,6 +357,13 @@ const en: SaleCopy = {
     acceptedListTitle: 'Accepted projects',
     acceptedListEmpty: 'No accepted projects to show.',
     acceptedListNote: 'Projects assigned to you, including completed and rejected.',
+    unpaidListTitle: 'Unpaid remaining',
+    unpaidListEmpty: 'No unpaid remaining payments to show.',
+    unpaidListNote: 'Remaining payment created and not yet collected.',
+    overdueListTitle: 'Overdue tasks',
+    overdueListEmpty: 'No overdue projects to show.',
+    overdueListNote: 'Projects whose target completion date is before today.',
+    overdueDaysValue: (days) => `${days}d`,
     kpiUnpaidRemaining: 'Unpaid Remaining',
     kpiUnpaidRemainingHint: 'Remaining payment not collected',
     kpiOverdueTasks: 'Overdue Tasks',
@@ -585,6 +605,9 @@ const vi: SaleCopy = {
     colPriority: 'Ưu tiên',
     colDue: 'Hạn',
     colUpdated: 'Cập nhật',
+    colRemaining: 'Còn lại',
+    colTarget: 'Mục tiêu',
+    colOverdueDays: 'Quá hạn',
     kpiNewRequests: 'Yêu cầu dự án mới',
     kpiNewRequestsHint: 'Chờ nhận tư vấn',
     kpiAcceptedProjects: 'Dự án đã nhận',
@@ -592,6 +615,13 @@ const vi: SaleCopy = {
     acceptedListTitle: 'Dự án đã nhận',
     acceptedListEmpty: 'Không có dự án đã nhận để hiện.',
     acceptedListNote: 'Dự án đang gán cho bạn, kể cả đã hoàn thành và đã từ chối.',
+    unpaidListTitle: 'Chưa thu phần còn lại',
+    unpaidListEmpty: 'Không có khoản còn lại chưa thu.',
+    unpaidListNote: 'Đã phát sinh remaining và chưa thanh toán.',
+    overdueListTitle: 'Công việc quá hạn',
+    overdueListEmpty: 'Không có dự án quá hạn để hiện.',
+    overdueListNote: 'Dự án có ngày hoàn thành mục tiêu trước hôm nay.',
+    overdueDaysValue: (days) => `${days} ngày`,
     kpiUnpaidRemaining: 'Chưa thu phần còn lại',
     kpiUnpaidRemainingHint: 'Đã phát sinh, chưa thanh toán',
     kpiOverdueTasks: 'Công việc quá hạn',

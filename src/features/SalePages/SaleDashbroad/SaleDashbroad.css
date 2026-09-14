@@ -1550,13 +1550,46 @@ body.sale-sidebar-collapsed .sale-sidebar-item span {
   min-width: 860px;
 }
 
+.sales-ops-queue-head.sales-ops-unpaid-head,
+.sales-ops-queue-row.sales-ops-unpaid-row {
+  grid-template-columns: minmax(220px, 1.4fr) minmax(130px, 1fr) 150px 200px 160px 44px;
+  min-width: 960px;
+}
+
+.sales-ops-queue-head.sales-ops-overdue-head,
+.sales-ops-queue-row.sales-ops-overdue-row {
+  grid-template-columns: minmax(220px, 1.4fr) minmax(130px, 1fr) 200px 120px 110px 44px;
+  min-width: 940px;
+}
+
 .sales-ops-accepted-head > span,
 .sales-ops-accepted-row > span,
 .sales-ops-accepted-row .sales-ops-phase,
-.sales-ops-accepted-row .sales-ops-updated {
+.sales-ops-accepted-row .sales-ops-updated,
+.sales-ops-unpaid-head > span,
+.sales-ops-unpaid-row > span,
+.sales-ops-unpaid-row .sales-ops-phase,
+.sales-ops-unpaid-row .sales-ops-updated,
+.sales-ops-unpaid-row .sales-ops-money,
+.sales-ops-overdue-head > span,
+.sales-ops-overdue-row > span,
+.sales-ops-overdue-row .sales-ops-phase,
+.sales-ops-overdue-row .sales-ops-updated,
+.sales-ops-overdue-row .sales-ops-due {
   justify-self: start;
   text-align: left;
   width: auto;
+}
+
+.sales-ops-money {
+  color: #8a4b2d;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.sales-ops-due.is-overdue {
+  color: #b42318;
+  font-weight: 700;
 }
 
 .sales-ops-queue-head {

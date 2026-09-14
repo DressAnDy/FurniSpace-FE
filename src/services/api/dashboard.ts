@@ -152,6 +152,53 @@ export type DashboardKpiQueryDto = {
   search?: string | null;
 };
 
+/** Stock list under Unpaid Remaining KPI. dateRange/search accepted by BE but ignored. */
+export type SalesKpiListQueryDto = {
+  scope?: DashboardScope;
+  page?: number;
+  limit?: number;
+};
+
+export type SalesUnpaidRemainingItemDto = {
+  orderId: string;
+  orderCode: string | null;
+  projectId: string;
+  projectCode: string;
+  projectName: string;
+  customerId: string;
+  customerName: string;
+  assignedSalesId: string | null;
+  assignedSalesName: string | null;
+  status: string;
+  remainingAmount: number;
+  currency: string | null;
+  paymentId: string | null;
+  paymentStatus: string | null;
+  updatedAt: string;
+};
+
+export type SalesOverdueTaskItemDto = {
+  projectId: string;
+  projectCode: string;
+  projectName: string;
+  customerId: string;
+  customerName: string;
+  assignedSalesId: string | null;
+  assignedSalesName: string | null;
+  status: string;
+  targetCompletionDate: string;
+  overdueDays: number;
+  submittedAt: string | null;
+  updatedAt: string | null;
+};
+
+export type SalesKpiListResponseDto<T> = {
+  items: T[];
+  page: number;
+  limit: number;
+  total: number;
+};
+
 export type ProjectPhaseDeadlineRiskPhase = 'PROPOSAL' | 'PRODUCTION';
 export type ProjectPhaseDeadlineRiskStatus =
   | 'OVERDUE'
@@ -211,6 +258,24 @@ export async function getSalesDashboardKpis(params?: DashboardKpiQueryDto) {
   const response = await dashboardApiClient.get<ServiceResult<SalesDashboardKpisDto>>('/api/dashboard/sales/kpis', {
     params: getDashboardSearchParams(params),
   });
+
+  return response.data.data;
+}
+
+export async function getSalesUnpaidRemainingList(params?: SalesKpiListQueryDto) {
+  const response = await dashboardApiClient.get<ServiceResult<SalesKpiListResponseDto<SalesUnpaidRemainingItemDto>>>(
+    '/api/dashboard/sales/kpis/unpaid-remaining',
+    { params: getSalesKpiListSearchParams(params) },
+  );
+
+  return response.data.data;
+}
+
+export async function getSalesOverdueTasksList(params?: SalesKpiListQueryDto) {
+  const response = await dashboardApiClient.get<ServiceResult<SalesKpiListResponseDto<SalesOverdueTaskItemDto>>>(
+    '/api/dashboard/sales/kpis/overdue-tasks',
+    { params: getSalesKpiListSearchParams(params) },
+  );
 
   return response.data.data;
 }
@@ -298,6 +363,18 @@ function getDashboardSearchParams(params?: DashboardQueueQueryDto | DashboardKpi
     ...('dueBucket' in params ? { dueBucket: params.dueBucket ?? undefined } : {}),
     ...('page' in params ? { page: params.page } : {}),
     ...('limit' in params ? { limit: params.limit } : {}),
+  };
+}
+
+function getSalesKpiListSearchParams(params?: SalesKpiListQueryDto) {
+  if (!params) {
+    return undefined;
+  }
+
+  return {
+    scope: params.scope,
+    page: params.page,
+    limit: params.limit,
   };
 }
 
