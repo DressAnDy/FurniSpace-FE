@@ -649,28 +649,6 @@ type RectBounds = {
   minZ: number;
 };
 
-function isPointInsidePolygon(point: { x: number; z: number }, polygon: Array<{ x: number; y: number }>) {
-  if (polygon.length < 3) {
-    return true;
-  }
-
-  let inside = false;
-
-  for (let index = 0, previousIndex = polygon.length - 1; index < polygon.length; previousIndex = index, index += 1) {
-    const current = polygon[index];
-    const previous = polygon[previousIndex];
-    const intersects =
-      current.y > point.z !== previous.y > point.z &&
-      point.x < ((previous.x - current.x) * (point.z - current.y)) / (previous.y - current.y || Number.EPSILON) + current.x;
-
-    if (intersects) {
-      inside = !inside;
-    }
-  }
-
-  return inside;
-}
-
 function getHoleBounds(opening: NonNullable<BuildingLevel['floorOpenings']>[number], outerBounds: RectBounds) {
   return {
     maxX: Math.min(opening.position.x + opening.width / 2, outerBounds.maxX),

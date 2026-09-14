@@ -116,7 +116,7 @@ export function ProjectAreasTab({ project }: Readonly<ProjectAreasTabProps>) {
 
       return next;
     });
-  }, [areaLimitError]);
+  }, [areaDraft.isSpecialLayout, areaLimitError]);
 
   function updateDraft<K extends keyof AreaDraft>(field: K, value: AreaDraft[K]) {
     setAreaDraft((current) => ({ ...current, [field]: value }));
