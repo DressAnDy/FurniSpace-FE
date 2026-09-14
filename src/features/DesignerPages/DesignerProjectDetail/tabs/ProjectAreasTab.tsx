@@ -103,10 +103,15 @@ export function ProjectAreasTab({ project }: Readonly<ProjectAreasTabProps>) {
 
       if (isAreaLimitErrorMessage(next.width)) delete next.width;
       if (isAreaLimitErrorMessage(next.length)) delete next.length;
+      if (isAreaLimitErrorMessage(next.areaSqm)) delete next.areaSqm;
 
       if (areaLimitError) {
-        next.width = areaLimitError;
-        next.length = areaLimitError;
+        if (areaDraft.isSpecialLayout) {
+          next.areaSqm = areaLimitError;
+        } else {
+          next.width = areaLimitError;
+          next.length = areaLimitError;
+        }
       }
 
       return next;
@@ -720,6 +725,11 @@ function getAreaFieldErrors(
         if (!result.ok) fieldErrors[field] = result.message;
       }
     });
+
+    const areaLimitError = getAreaLimitError(draft, areas, editingAreaId, project);
+    if (areaLimitError) {
+      fieldErrors.areaSqm = areaLimitError;
+    }
   } else {
     (['width', 'length'] as const).forEach((field) => {
       const result = validateOptionalPositiveNumber(parseOptionalNumber(draft[field]), NUMERIC_FIELD_LABELS[field]);
@@ -754,25 +764,29 @@ function getAreaLimitError(
   project: ProjectDto,
 ) {
   const totalAreaSqm = project.totalAreaSqm;
-  const draftAreaSqm = getDraftAreaSqm(draft);
+  const draftAreaSqm = draft.isSpecialLayout ? parseOptionalNumber(draft.areaSqm) : getDraftAreaSqm(draft);
+
+  if (draftAreaSqm === null) {
+    return null;
+  }
+
+  if (typeof totalAreaSqm === 'number' && draftAreaSqm > totalAreaSqm) {
+    return `${draft.isSpecialLayout ? 'Area' : 'Calculated area'} cannot be greater than project area (${formatMetric(totalAreaSqm, 'm2')}).`;
+  }
 
   if (draft.isSpecialLayout) {
-    return null;
-  }
+    const maxAreaByDimensions = getDraftAreaSqm(draft);
 
-  if (typeof totalAreaSqm !== 'number' || draftAreaSqm === null) {
-    return null;
-  }
-
-  if (draftAreaSqm > totalAreaSqm) {
-    return `Calculated area cannot be greater than project area (${formatMetric(totalAreaSqm, 'm2')}).`;
+    if (maxAreaByDimensions !== null && draftAreaSqm > maxAreaByDimensions) {
+      return `Area cannot be greater than width x length (${formatMetric(maxAreaByDimensions, 'm2')}).`;
+    }
   }
 
   return null;
 }
 
 function isAreaLimitErrorMessage(message?: string) {
-  return message?.startsWith('Calculated area cannot be greater') || false;
+  return message?.includes('cannot be greater') || false;
 }
 
 function getAssignedFloorNumber(

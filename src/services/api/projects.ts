@@ -1,6 +1,11 @@
 import axios, { AxiosError } from 'axios';
 
 import { shouldRedirectUnauthorized } from '@/shared/config/authPreview';
+import {
+  DirectUploadStorageError,
+  directUploadFile,
+  resolveDirectUploadContentType,
+} from './directUpload';
 import { getStoredAccessToken } from './tokenStore';
 
 const projectApiClient = axios.create({
@@ -401,7 +406,7 @@ export class ProjectFileStorageUploadError extends Error {
 }
 
 export function getProjectServiceResultMessage(error: unknown) {
-  if (error instanceof ProjectFileStorageUploadError) {
+  if (error instanceof ProjectFileStorageUploadError || error instanceof DirectUploadStorageError) {
     return error.message;
   }
 
@@ -608,44 +613,8 @@ export async function getProjectFiles(params: ProjectFileListParams) {
   return response.data.data;
 }
 
-const PROJECT_FILE_UPLOAD_RETRY_CODES = new Set([
-  'PROJECT_FILE_UPLOAD_OBJECT_MISSING',
-  'PROJECT_FILE_UPLOAD_SIZE_MISMATCH',
-  'PROJECT_FILE_UPLOAD_CONTENT_TYPE_MISMATCH',
-]);
-
-const PROJECT_FILE_UPLOAD_TERMINAL_CODES = new Set([
-  'PROJECT_FILE_UPLOAD_NOT_PENDING',
-  'PROJECT_FILE_UPLOAD_FORBIDDEN',
-  'PROJECT_FILE_UPLOAD_NOT_FOUND',
-]);
-
-const PROJECT_FILE_EXTENSION_CONTENT_TYPES: Record<string, string> = {
-  bmp: 'image/bmp',
-  gif: 'image/gif',
-  heic: 'image/heic',
-  heif: 'image/heif',
-  jpeg: 'image/jpeg',
-  jpg: 'image/jpeg',
-  png: 'image/png',
-  svg: 'image/svg+xml',
-  webp: 'image/webp',
-  pdf: 'application/pdf',
-  zip: 'application/zip',
-  glb: 'model/gltf-binary',
-  gltf: 'model/gltf+json',
-};
-
 export function resolveProjectFileContentType(file: Pick<File, 'name' | 'type'>) {
-  const pickedContentType = file.type.trim();
-
-  if (pickedContentType) {
-    return pickedContentType;
-  }
-
-  const extension = file.name.split('.').pop()?.toLowerCase() ?? '';
-
-  return PROJECT_FILE_EXTENSION_CONTENT_TYPES[extension] ?? 'application/octet-stream';
+  return resolveDirectUploadContentType(file);
 }
 
 export function buildProjectFileUploadUrlBody(file: File, options: ProjectFileUploadOptions = {}): ProjectFileUploadUrlRequest {
@@ -685,10 +654,15 @@ export function createProjectFileUploadProgressReporter(fileCount: number, onCha
 }
 
 export async function uploadProjectFile(projectId: string, file: File, options: ProjectFileUploadOptions = {}) {
-  let prepared: ProjectFileUploadUrlResponse;
-
   try {
-    prepared = await prepareProjectFileUpload(projectId, file, options);
+    return await directUploadFile<ProjectFileUploadResponseDto, Omit<ProjectFileUploadUrlRequest, 'originalFileName' | 'contentType' | 'fileSizeBytes'>>({
+      apiClient: projectApiClient,
+      completeEndpoint: `/projects/${projectId}/files/complete`,
+      file,
+      onUploadProgress: options.onUploadProgress,
+      prepareBody: getProjectFileUploadMetadata(file, options),
+      prepareEndpoint: `/projects/${projectId}/files/upload-url`,
+    });
   } catch (error) {
     if (!isLegacyProjectFileUploadFallback(error)) {
       throw error;
@@ -696,112 +670,28 @@ export async function uploadProjectFile(projectId: string, file: File, options: 
 
     return uploadProjectFileMultipart(projectId, file, options);
   }
-
-  return finalizePreparedProjectFileUpload(projectId, file, prepared, options);
 }
 
-async function prepareProjectFileUpload(projectId: string, file: File, options: ProjectFileUploadOptions) {
-  const response = await projectApiClient.post<ServiceResult<ProjectFileUploadUrlResponse>>(
-    `/projects/${projectId}/files/upload-url`,
-    buildProjectFileUploadUrlBody(file, options),
-  );
-
-  return response.data.data;
-}
-
-async function completeProjectFileUpload(projectId: string, fileId: string) {
-  const response = await projectApiClient.post<ServiceResult<ProjectFileUploadResponseDto>>(`/projects/${projectId}/files/complete`, {
-    fileId,
-  });
-
-  return response.data.data;
-}
-
-async function finalizePreparedProjectFileUpload(
-  projectId: string,
+function getProjectFileUploadMetadata(
   file: File,
-  prepared: ProjectFileUploadUrlResponse,
-  options: ProjectFileUploadOptions,
-  canRestart = true,
-): Promise<ProjectFileUploadResponseDto> {
-  try {
-    return await uploadPreparedProjectFile(projectId, file, prepared, options);
-  } catch (error) {
-    if (!canRestart || !isRetryableProjectFileUploadConflict(error)) {
-      throw error;
-    }
+  options: ProjectFileUploadOptions = {},
+): Omit<ProjectFileUploadUrlRequest, 'originalFileName' | 'contentType' | 'fileSizeBytes'> {
+  const contentType = resolveProjectFileContentType(file);
+  const body: Omit<ProjectFileUploadUrlRequest, 'originalFileName' | 'contentType' | 'fileSizeBytes'> = {
+    fileType: options.fileType ?? inferProjectFileType(file, contentType),
+  };
+
+  if (options.visibility) {
+    body.visibility = options.visibility;
   }
 
-  // Ignore the stale pending fileId. Orphan cleanup is a backend concern.
-  const restarted = await prepareProjectFileUpload(projectId, file, options);
+  const note = options.note?.trim();
 
-  return finalizePreparedProjectFileUpload(projectId, file, restarted, options, false);
-}
-
-async function uploadPreparedProjectFile(
-  projectId: string,
-  file: File,
-  prepared: ProjectFileUploadUrlResponse,
-  options: ProjectFileUploadOptions,
-) {
-  const contentType = prepared.contentType || resolveProjectFileContentType(file);
-
-  await putProjectFileToSignedUrl(prepared.uploadUrl, file, contentType, options.onUploadProgress);
-
-  try {
-    return await finishProjectFileUpload(projectId, prepared.fileId, options);
-  } catch (error) {
-    if (!isRetryableProjectFileUploadConflict(error)) {
-      throw error;
-    }
+  if (note) {
+    body.note = note;
   }
 
-  await putProjectFileToSignedUrl(prepared.uploadUrl, file, contentType, options.onUploadProgress);
-
-  return finishProjectFileUpload(projectId, prepared.fileId, options);
-}
-
-async function finishProjectFileUpload(projectId: string, fileId: string, options: ProjectFileUploadOptions) {
-  const completed = await completeProjectFileUpload(projectId, fileId);
-  options.onUploadProgress?.(100);
-
-  return completed;
-}
-
-function putProjectFileToSignedUrl(
-  uploadUrl: string,
-  file: File,
-  contentType: string,
-  onUploadProgress?: (progressPercent: number) => void,
-) {
-  return new Promise<void>((resolve, reject) => {
-    const request = new XMLHttpRequest();
-    request.open('PUT', uploadUrl);
-    request.setRequestHeader('Content-Type', contentType);
-
-    request.upload.onprogress = (event) => {
-      if (!onUploadProgress || !event.lengthComputable || event.total <= 0) {
-        return;
-      }
-
-      onUploadProgress(Math.min(95, Math.round((event.loaded / event.total) * 95)));
-    };
-
-    request.onload = () => {
-      if (request.status >= 200 && request.status < 300) {
-        resolve();
-        return;
-      }
-
-      reject(new ProjectFileStorageUploadError(`Storage upload failed (${request.status}).`));
-    };
-
-    request.onerror = () => {
-      reject(new ProjectFileStorageUploadError());
-    };
-
-    request.send(file);
-  });
+  return body;
 }
 
 async function uploadProjectFileMultipart(projectId: string, file: File, options: ProjectFileUploadOptions) {
@@ -841,25 +731,6 @@ function isLegacyProjectFileUploadFallback(error: unknown) {
   const status = error.response?.status;
 
   return status === 404 || status === 405;
-}
-
-function isRetryableProjectFileUploadConflict(error: unknown) {
-  if (!(error instanceof AxiosError)) {
-    return false;
-  }
-
-  const result = getProjectServiceResultFromError(error);
-  const errorCode = result ? getFirstProjectErrorCode(result) : undefined;
-
-  if (errorCode && PROJECT_FILE_UPLOAD_TERMINAL_CODES.has(errorCode)) {
-    return false;
-  }
-
-  if (errorCode && PROJECT_FILE_UPLOAD_RETRY_CODES.has(errorCode)) {
-    return true;
-  }
-
-  return error.response?.status === 409;
 }
 
 export async function assignSalesToProject(projectId: string, note?: string | null) {
