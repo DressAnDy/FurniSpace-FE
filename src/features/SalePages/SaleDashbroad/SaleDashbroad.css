@@ -1025,7 +1025,7 @@ body.sale-sidebar-collapsed .sale-sidebar-item span {
   border-radius: 8px;
   display: grid;
   gap: 12px;
-  grid-template-columns: repeat(2, minmax(180px, 240px)) minmax(180px, 1fr);
+  grid-template-columns: minmax(180px, 240px) minmax(180px, 1fr);
   margin-bottom: 16px;
   padding: 14px;
 }
@@ -1133,12 +1133,16 @@ body.sale-sidebar-collapsed .sale-sidebar-item span {
   border: 1px solid rgba(139, 111, 71, 0.15);
   border-radius: 8px;
   color: #2d2d2d;
+  cursor: pointer;
   display: grid;
+  font: inherit;
   gap: 12px;
   grid-template-columns: 38px minmax(0, 1fr);
   min-height: 116px;
   padding: 14px;
+  text-align: left;
   text-decoration: none;
+  width: 100%;
 }
 
 .sales-ops-kpi > span {
@@ -1207,6 +1211,139 @@ body.sale-sidebar-collapsed .sale-sidebar-item span {
   gap: 14px;
   justify-content: space-between;
   margin-bottom: 14px;
+  position: relative;
+}
+
+.sales-ops-queue-filter {
+  flex: 0 0 auto;
+  position: relative;
+}
+
+.sales-ops-queue-filter[hidden] {
+  display: none;
+}
+
+.sales-ops-queue-filter-toggle {
+  align-items: center;
+  background: #faf9f7;
+  border: 1px solid rgba(139, 111, 71, 0.18);
+  border-radius: 8px;
+  color: #6d502f;
+  cursor: pointer;
+  display: inline-flex;
+  gap: 6px;
+  min-height: 36px;
+  padding: 0 10px;
+}
+
+.sales-ops-queue-filter-toggle.is-active {
+  background: #17110a;
+  border-color: #17110a;
+  color: #ffffff;
+}
+
+.sales-ops-queue-filter-toggle span {
+  background: rgba(255, 255, 255, 0.18);
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 800;
+  min-width: 18px;
+  padding: 1px 5px;
+  text-align: center;
+}
+
+.sales-ops-queue-filter-panel {
+  background: #ffffff;
+  border: 1px solid rgba(139, 111, 71, 0.18);
+  border-radius: 12px;
+  box-shadow: 0 16px 36px rgba(66, 47, 29, 0.14);
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  position: absolute;
+  right: 0;
+  top: calc(100% + 8px);
+  width: min(280px, calc(100vw - 48px));
+  z-index: 20;
+}
+
+.sales-ops-queue-filter-panel-header {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+}
+
+.sales-ops-queue-filter-panel-header strong {
+  color: #2d2d2d;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.sales-ops-queue-filter-panel-header button {
+  align-items: center;
+  background: #faf9f7;
+  border: 0;
+  border-radius: 8px;
+  color: #6b6b6b;
+  cursor: pointer;
+  display: grid;
+  height: 28px;
+  justify-content: center;
+  width: 28px;
+}
+
+.sales-ops-queue-filter-panel label {
+  display: grid;
+  gap: 6px;
+}
+
+.sales-ops-queue-filter-panel label span {
+  color: #6b6b6b;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.sales-ops-queue-filter-panel select {
+  background: #faf9f7;
+  border: 1px solid rgba(139, 111, 71, 0.2);
+  border-radius: 8px;
+  color: #2d2d2d;
+  font: inherit;
+  font-size: 13px;
+  min-height: 38px;
+  padding: 0 10px;
+}
+
+.sales-ops-queue-filter-panel-actions {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: 1fr 1fr;
+}
+
+.sales-ops-queue-filter-panel-actions button {
+  background: #ffffff;
+  border: 1px solid rgba(139, 111, 71, 0.2);
+  border-radius: 8px;
+  color: #6d502f;
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 800;
+  min-height: 36px;
+}
+
+.sales-ops-queue-filter-panel-actions button:last-child {
+  background: #0f766e;
+  border-color: #0f766e;
+  color: #ffffff;
+}
+
+.sales-ops-queue-filter-panel-actions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
 }
 
 .sales-ops-section-header h3 {
@@ -1265,6 +1402,93 @@ body.sale-sidebar-collapsed .sale-sidebar-item span {
   color: #ffffff;
 }
 
+.sales-ops-queue-pager {
+  align-items: center;
+  color: #6b7280;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: space-between;
+  margin-top: 16px;
+}
+
+.sales-ops-queue-pager-meta {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.sales-ops-queue-pager-field {
+  align-items: center;
+  display: inline-flex;
+  font-size: 13px;
+  font-weight: 600;
+  gap: 6px;
+}
+
+.sales-ops-queue-pager-field input {
+  appearance: textfield;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  color: #1a1d29;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  height: 34px;
+  padding: 0 8px;
+  text-align: center;
+  width: 64px;
+}
+
+.sales-ops-queue-pager-field input::-webkit-outer-spin-button,
+.sales-ops-queue-pager-field input::-webkit-inner-spin-button {
+  appearance: none;
+  margin: 0;
+}
+
+.sales-ops-queue-pager-field input:focus {
+  border-color: rgba(139, 111, 71, 0.45);
+  outline: none;
+}
+
+.sales-ops-queue-pager-field input:disabled {
+  cursor: wait;
+  opacity: 0.7;
+}
+
+.sales-ops-queue-pager-of,
+.sales-ops-queue-pager-total {
+  color: #6b7280;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.sales-ops-queue-pager-nav {
+  display: inline-flex;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.sales-ops-queue-pager-nav button {
+  background: #ffffff;
+  border: 1px solid rgba(139, 111, 71, 0.28);
+  border-radius: 8px;
+  color: #6d502f;
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  height: 34px;
+  padding: 0 12px;
+}
+
+.sales-ops-queue-pager-nav button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
 .sales-ops-queue-empty {
   color: #6b6b6b;
   font-size: 13px;
@@ -1306,7 +1530,7 @@ body.sale-sidebar-collapsed .sale-sidebar-item span {
   align-items: center;
   box-sizing: border-box;
   display: grid;
-  gap: 12px;
+  gap: 16px;
   grid-template-columns:
     minmax(150px, 1.5fr)
     minmax(110px, 1fr)
@@ -1318,6 +1542,54 @@ body.sale-sidebar-collapsed .sale-sidebar-item span {
   min-width: 820px;
   padding-left: 12px;
   padding-right: 12px;
+}
+
+.sales-ops-queue-head.sales-ops-accepted-head,
+.sales-ops-queue-row.sales-ops-accepted-row {
+  grid-template-columns: minmax(220px, 1.4fr) minmax(140px, 1fr) 230px 180px 44px;
+  min-width: 860px;
+}
+
+.sales-ops-queue-head.sales-ops-unpaid-head,
+.sales-ops-queue-row.sales-ops-unpaid-row {
+  grid-template-columns: minmax(220px, 1.4fr) minmax(130px, 1fr) 150px 200px 160px 44px;
+  min-width: 960px;
+}
+
+.sales-ops-queue-head.sales-ops-overdue-head,
+.sales-ops-queue-row.sales-ops-overdue-row {
+  grid-template-columns: minmax(220px, 1.4fr) minmax(130px, 1fr) 200px 120px 110px 44px;
+  min-width: 940px;
+}
+
+.sales-ops-accepted-head > span,
+.sales-ops-accepted-row > span,
+.sales-ops-accepted-row .sales-ops-phase,
+.sales-ops-accepted-row .sales-ops-updated,
+.sales-ops-unpaid-head > span,
+.sales-ops-unpaid-row > span,
+.sales-ops-unpaid-row .sales-ops-phase,
+.sales-ops-unpaid-row .sales-ops-updated,
+.sales-ops-unpaid-row .sales-ops-money,
+.sales-ops-overdue-head > span,
+.sales-ops-overdue-row > span,
+.sales-ops-overdue-row .sales-ops-phase,
+.sales-ops-overdue-row .sales-ops-updated,
+.sales-ops-overdue-row .sales-ops-due {
+  justify-self: start;
+  text-align: left;
+  width: auto;
+}
+
+.sales-ops-money {
+  color: #8a4b2d;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.sales-ops-due.is-overdue {
+  color: #b42318;
+  font-weight: 700;
 }
 
 .sales-ops-queue-head {
@@ -1379,6 +1651,12 @@ body.sale-sidebar-collapsed .sale-sidebar-item span {
   text-align: center;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.sales-ops-accepted-row .sales-ops-phase {
+  justify-self: start;
+  max-width: 250px;
+  width: max-content;
 }
 
 .sales-ops-due {

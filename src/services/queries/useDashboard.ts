@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
 
 import {
   getDashboardServiceResultMessage,
@@ -9,9 +9,12 @@ import {
   getProjectPhaseDeadlineRisks,
   getSalesActionQueue,
   getSalesDashboardKpis,
+  getSalesOverdueTasksList,
+  getSalesUnpaidRemainingList,
   type DashboardKpiQueryDto,
   type DashboardQueueQueryDto,
   type ProjectPhaseDeadlineRiskParams,
+  type SalesKpiListQueryDto,
 } from '@/services/api/dashboard';
 
 export { getDashboardServiceResultMessage };
@@ -20,6 +23,10 @@ export const dashboardQueryKeys = {
   all: ['dashboard'] as const,
   salesQueue: (params?: DashboardQueueQueryDto) => ['dashboard', 'sales', 'action-queue', params] as const,
   salesKpis: (params?: DashboardKpiQueryDto) => ['dashboard', 'sales', 'kpis', params] as const,
+  salesUnpaidRemaining: (params?: SalesKpiListQueryDto) =>
+    ['dashboard', 'sales', 'kpis', 'unpaid-remaining', params] as const,
+  salesOverdueTasks: (params?: SalesKpiListQueryDto) =>
+    ['dashboard', 'sales', 'kpis', 'overdue-tasks', params] as const,
   designerQueue: (params?: DashboardQueueQueryDto) => ['dashboard', 'designer', 'work-queue', params] as const,
   designerKpis: (params?: DashboardKpiQueryDto) => ['dashboard', 'designer', 'kpis', params] as const,
   productionQueue: (params?: DashboardQueueQueryDto) => ['dashboard', 'production', 'queue', params] as const,
@@ -33,6 +40,7 @@ export function useSalesActionQueue(params?: DashboardQueueQueryDto, enabled = t
     queryKey: dashboardQueryKeys.salesQueue(params),
     queryFn: () => getSalesActionQueue(params),
     enabled,
+    placeholderData: keepPreviousData,
   });
 }
 
@@ -41,6 +49,24 @@ export function useSalesDashboardKpis(params?: DashboardKpiQueryDto, enabled = t
     queryKey: dashboardQueryKeys.salesKpis(params),
     queryFn: () => getSalesDashboardKpis(params),
     enabled,
+  });
+}
+
+export function useSalesUnpaidRemainingList(params?: SalesKpiListQueryDto, enabled = true) {
+  return useQuery({
+    queryKey: dashboardQueryKeys.salesUnpaidRemaining(params),
+    queryFn: () => getSalesUnpaidRemainingList(params),
+    enabled,
+    placeholderData: keepPreviousData,
+  });
+}
+
+export function useSalesOverdueTasksList(params?: SalesKpiListQueryDto, enabled = true) {
+  return useQuery({
+    queryKey: dashboardQueryKeys.salesOverdueTasks(params),
+    queryFn: () => getSalesOverdueTasksList(params),
+    enabled,
+    placeholderData: keepPreviousData,
   });
 }
 

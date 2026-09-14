@@ -30,6 +30,7 @@ type SaleCopy = {
     previous: string;
     next: string;
     page: string;
+    rows: string;
     all: string;
     loading: string;
     view: string;
@@ -66,6 +67,18 @@ type SaleCopy = {
     myProjects: string;
     teamOverview: string;
     mainActionQueue: string;
+    queueFilter: string;
+    queueFilterAria: string;
+    closeFilters: string;
+    allDates: string;
+    allPriorities: string;
+    allDue: string;
+    priority: string;
+    due: string;
+    overdue: string;
+    later: string;
+    clear: string;
+    done: string;
     loadingData: string;
     loadError: string;
     emptyPhase: string;
@@ -76,11 +89,27 @@ type SaleCopy = {
     colPriority: string;
     colDue: string;
     colUpdated: string;
+    colRemaining: string;
+    colTarget: string;
+    colOverdueDays: string;
     kpiNewRequests: string;
-    kpiActiveProjects: string;
-    kpiWaitingCustomer: string;
-    kpiPaymentsFollowUp: string;
+    kpiNewRequestsHint: string;
+    kpiAcceptedProjects: string;
+    kpiAcceptedProjectsHint: string;
+    acceptedListTitle: string;
+    acceptedListEmpty: string;
+    acceptedListNote: string;
+    unpaidListTitle: string;
+    unpaidListEmpty: string;
+    unpaidListNote: string;
+    overdueListTitle: string;
+    overdueListEmpty: string;
+    overdueListNote: string;
+    overdueDaysValue: (days: number) => string;
+    kpiUnpaidRemaining: string;
+    kpiUnpaidRemainingHint: string;
     kpiOverdueTasks: string;
+    kpiOverdueTasksHint: string;
   };
   projectRequestQueue: {
     title: string;
@@ -259,6 +288,7 @@ const en: SaleCopy = {
     previous: 'Previous',
     next: 'Next',
     page: 'Page',
+    rows: 'Rows',
     all: 'All',
     loading: 'Loading...',
     view: 'View',
@@ -295,6 +325,18 @@ const en: SaleCopy = {
     myProjects: 'My assigned projects',
     teamOverview: 'Team overview',
     mainActionQueue: 'Main Action Queue',
+    queueFilter: 'Filter queue',
+    queueFilterAria: 'Main action queue filters',
+    closeFilters: 'Close filters',
+    allDates: 'All dates',
+    allPriorities: 'All priorities',
+    allDue: 'All due dates',
+    priority: 'Priority',
+    due: 'Due',
+    overdue: 'Overdue',
+    later: 'Later',
+    clear: 'Clear',
+    done: 'Done',
     loadingData: 'Loading dashboard data...',
     loadError: 'Unable to load dashboard data.',
     emptyPhase: 'No actions in this phase for the selected filters.',
@@ -305,11 +347,27 @@ const en: SaleCopy = {
     colPriority: 'Priority',
     colDue: 'Due',
     colUpdated: 'Updated',
+    colRemaining: 'Remaining',
+    colTarget: 'Target',
+    colOverdueDays: 'Overdue',
     kpiNewRequests: 'New Project Requests',
-    kpiActiveProjects: 'Active Projects',
-    kpiWaitingCustomer: 'Waiting for Customer',
-    kpiPaymentsFollowUp: 'Payments Requiring Follow-up',
+    kpiNewRequestsHint: 'Waiting to accept',
+    kpiAcceptedProjects: 'Accepted Projects',
+    kpiAcceptedProjectsHint: 'Assigned, including completed',
+    acceptedListTitle: 'Accepted projects',
+    acceptedListEmpty: 'No accepted projects to show.',
+    acceptedListNote: 'Projects assigned to you, including completed and rejected.',
+    unpaidListTitle: 'Unpaid remaining',
+    unpaidListEmpty: 'No unpaid remaining payments to show.',
+    unpaidListNote: 'Remaining payment created and not yet collected.',
+    overdueListTitle: 'Overdue tasks',
+    overdueListEmpty: 'No overdue projects to show.',
+    overdueListNote: 'Projects whose target completion date is before today.',
+    overdueDaysValue: (days) => `${days}d`,
+    kpiUnpaidRemaining: 'Unpaid Remaining',
+    kpiUnpaidRemainingHint: 'Remaining payment not collected',
     kpiOverdueTasks: 'Overdue Tasks',
+    kpiOverdueTasksHint: 'Target date before today',
   },
   projectRequestQueue: {
     title: 'Project Request Queue',
@@ -488,6 +546,7 @@ const vi: SaleCopy = {
     previous: 'Trước',
     next: 'Sau',
     page: 'Trang',
+    rows: 'Dòng',
     all: 'Tất cả',
     loading: 'Đang tải...',
     view: 'Xem',
@@ -524,6 +583,18 @@ const vi: SaleCopy = {
     myProjects: 'Dự án của tôi',
     teamOverview: 'Tổng quan nhóm',
     mainActionQueue: 'Hàng đợi hành động chính',
+    queueFilter: 'Lọc hàng đợi',
+    queueFilterAria: 'Bộ lọc hàng đợi hành động',
+    closeFilters: 'Đóng bộ lọc',
+    allDates: 'Mọi ngày',
+    allPriorities: 'Mọi mức ưu tiên',
+    allDue: 'Mọi hạn',
+    priority: 'Ưu tiên',
+    due: 'Hạn',
+    overdue: 'Quá hạn',
+    later: 'Sau này',
+    clear: 'Xóa',
+    done: 'Xong',
     loadingData: 'Đang tải dữ liệu bảng điều khiển...',
     loadError: 'Không thể tải dữ liệu bảng điều khiển.',
     emptyPhase: 'Không có hành động nào trong giai đoạn này với bộ lọc đã chọn.',
@@ -534,11 +605,27 @@ const vi: SaleCopy = {
     colPriority: 'Ưu tiên',
     colDue: 'Hạn',
     colUpdated: 'Cập nhật',
+    colRemaining: 'Còn lại',
+    colTarget: 'Mục tiêu',
+    colOverdueDays: 'Quá hạn',
     kpiNewRequests: 'Yêu cầu dự án mới',
-    kpiActiveProjects: 'Dự án đang chạy',
-    kpiWaitingCustomer: 'Đang chờ khách hàng',
-    kpiPaymentsFollowUp: 'Thanh toán cần theo dõi',
+    kpiNewRequestsHint: 'Chờ nhận tư vấn',
+    kpiAcceptedProjects: 'Dự án đã nhận',
+    kpiAcceptedProjectsHint: 'Đã gán, kể cả đã xong',
+    acceptedListTitle: 'Dự án đã nhận',
+    acceptedListEmpty: 'Không có dự án đã nhận để hiện.',
+    acceptedListNote: 'Dự án đang gán cho bạn, kể cả đã hoàn thành và đã từ chối.',
+    unpaidListTitle: 'Chưa thu phần còn lại',
+    unpaidListEmpty: 'Không có khoản còn lại chưa thu.',
+    unpaidListNote: 'Đã phát sinh remaining và chưa thanh toán.',
+    overdueListTitle: 'Công việc quá hạn',
+    overdueListEmpty: 'Không có dự án quá hạn để hiện.',
+    overdueListNote: 'Dự án có ngày hoàn thành mục tiêu trước hôm nay.',
+    overdueDaysValue: (days) => `${days} ngày`,
+    kpiUnpaidRemaining: 'Chưa thu phần còn lại',
+    kpiUnpaidRemainingHint: 'Đã phát sinh, chưa thanh toán',
     kpiOverdueTasks: 'Công việc quá hạn',
+    kpiOverdueTasksHint: 'Ngày hoàn thành mục tiêu đã qua',
   },
   projectRequestQueue: {
     title: 'Hàng chờ yêu cầu dự án',
