@@ -93,6 +93,9 @@ type SaleCopy = {
     kpiNewRequestsHint: string;
     kpiAcceptedProjects: string;
     kpiAcceptedProjectsHint: string;
+    acceptedListTitle: string;
+    acceptedListEmpty: string;
+    acceptedListNote: string;
     kpiUnpaidRemaining: string;
     kpiUnpaidRemainingHint: string;
     kpiOverdueTasks: string;
@@ -338,6 +341,9 @@ const en: SaleCopy = {
     kpiNewRequestsHint: 'Waiting to accept',
     kpiAcceptedProjects: 'Accepted Projects',
     kpiAcceptedProjectsHint: 'Assigned, including completed',
+    acceptedListTitle: 'Accepted projects',
+    acceptedListEmpty: 'No accepted projects to show.',
+    acceptedListNote: 'Projects assigned to you, including completed and rejected.',
     kpiUnpaidRemaining: 'Unpaid Remaining',
     kpiUnpaidRemainingHint: 'Remaining payment not collected',
     kpiOverdueTasks: 'Overdue Tasks',
@@ -583,6 +589,9 @@ const vi: SaleCopy = {
     kpiNewRequestsHint: 'Chờ nhận tư vấn',
     kpiAcceptedProjects: 'Dự án đã nhận',
     kpiAcceptedProjectsHint: 'Đã gán, kể cả đã xong',
+    acceptedListTitle: 'Dự án đã nhận',
+    acceptedListEmpty: 'Không có dự án đã nhận để hiện.',
+    acceptedListNote: 'Dự án đang gán cho bạn, kể cả đã hoàn thành và đã từ chối.',
     kpiUnpaidRemaining: 'Chưa thu phần còn lại',
     kpiUnpaidRemainingHint: 'Đã phát sinh, chưa thanh toán',
     kpiOverdueTasks: 'Công việc quá hạn',

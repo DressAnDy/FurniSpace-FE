@@ -1133,12 +1133,16 @@ body.sale-sidebar-collapsed .sale-sidebar-item span {
   border: 1px solid rgba(139, 111, 71, 0.15);
   border-radius: 8px;
   color: #2d2d2d;
+  cursor: pointer;
   display: grid;
+  font: inherit;
   gap: 12px;
   grid-template-columns: 38px minmax(0, 1fr);
   min-height: 116px;
   padding: 14px;
+  text-align: left;
   text-decoration: none;
+  width: 100%;
 }
 
 .sales-ops-kpi > span {
@@ -1213,6 +1217,10 @@ body.sale-sidebar-collapsed .sale-sidebar-item span {
 .sales-ops-queue-filter {
   flex: 0 0 auto;
   position: relative;
+}
+
+.sales-ops-queue-filter[hidden] {
+  display: none;
 }
 
 .sales-ops-queue-filter-toggle {
@@ -1522,7 +1530,7 @@ body.sale-sidebar-collapsed .sale-sidebar-item span {
   align-items: center;
   box-sizing: border-box;
   display: grid;
-  gap: 12px;
+  gap: 16px;
   grid-template-columns:
     minmax(150px, 1.5fr)
     minmax(110px, 1fr)
@@ -1534,6 +1542,21 @@ body.sale-sidebar-collapsed .sale-sidebar-item span {
   min-width: 820px;
   padding-left: 12px;
   padding-right: 12px;
+}
+
+.sales-ops-queue-head.sales-ops-accepted-head,
+.sales-ops-queue-row.sales-ops-accepted-row {
+  grid-template-columns: minmax(220px, 1.4fr) minmax(140px, 1fr) 230px 180px 44px;
+  min-width: 860px;
+}
+
+.sales-ops-accepted-head > span,
+.sales-ops-accepted-row > span,
+.sales-ops-accepted-row .sales-ops-phase,
+.sales-ops-accepted-row .sales-ops-updated {
+  justify-self: start;
+  text-align: left;
+  width: auto;
 }
 
 .sales-ops-queue-head {
@@ -1595,6 +1618,12 @@ body.sale-sidebar-collapsed .sale-sidebar-item span {
   text-align: center;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.sales-ops-accepted-row .sales-ops-phase {
+  justify-self: start;
+  max-width: 250px;
+  width: max-content;
 }
 
 .sales-ops-due {
