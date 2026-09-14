@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   IconArrowRight,
   IconChevronRight,
@@ -8,9 +8,11 @@ import {
   IconProgressCheck,
   IconRefresh,
   IconShieldExclamation,
+  IconX,
   type Icon,
 } from '@tabler/icons-react';
 import { Link } from 'react-router-dom';
+import { useQueries } from '@tanstack/react-query';
 
 import { useLang } from '@/app/providers/useLang';
 import { SaleNavbar, SaleSidebar, saleCopy } from '@/features/SalePages/salecomponents';
@@ -21,24 +23,40 @@ import type {
   DashboardQueueItemDto,
   DashboardScope,
   SalesDashboardKpisDto,
+  SalesOverdueTaskItemDto,
+  SalesUnpaidRemainingItemDto,
 } from '@/services/api/dashboard';
+import type { ProjectListItemDto } from '@/services/api/projects';
+import { getAccountById, type AccountDto } from '@/services/api/accounts';
 import {
   getDashboardServiceResultMessage,
+  useCurrentUser,
   useSalesActionQueue,
   useSalesDashboardKpis,
+  useSalesOverdueTasksList,
+  useSalesUnpaidRemainingList,
+  useStaffProjectQueue,
 } from '@/services/queries';
+import { useProjectList } from '@/services/queries/useProjects';
 
 import './SaleDashbroad.css';
 
 type DateRangeKey = 'today' | 'this-week' | 'this-month';
+type QueueDateRangeKey = 'all' | DateRangeKey;
 type ScopeKey = 'my-projects' | 'team';
+type QueuePriorityFilter = '' | DashboardPriority;
+type QueueDueFilter = '' | DashboardDueBucket;
+type DetailPanel = 'queue' | 'accepted' | 'unpaid-remaining' | 'overdue';
 
 type KpiItem = {
   change: string;
   description: string;
   icon: Icon;
+  id: 'new-requests' | 'accepted' | 'unpaid-remaining' | 'overdue';
   label: string;
-  path: string;
+  onSelect?: () => void;
+  path?: string;
+  selected?: boolean;
   tone: 'amber' | 'blue' | 'green' | 'red' | 'neutral';
   value: string;
 };
@@ -55,42 +73,99 @@ export function SaleDashbroad() {
   const t = saleCopy[lang];
   const d = t.dashboard;
   const [activeGroup, setActiveGroup] = useState<string>('Intake');
-  const [dateRange, setDateRange] = useState<DateRangeKey>('this-week');
   const [scope, setScope] = useState<ScopeKey>('my-projects');
+  const [queueDateRange, setQueueDateRange] = useState<QueueDateRangeKey>('all');
+  const [queuePriority, setQueuePriority] = useState<QueuePriorityFilter>('');
+  const [queueDue, setQueueDue] = useState<QueueDueFilter>('');
+  const [queuePage, setQueuePage] = useState(1);
+  const [queuePageSize, setQueuePageSize] = useState(5);
+  const [detailPanel, setDetailPanel] = useState<DetailPanel>('queue');
+  const [acceptedPage, setAcceptedPage] = useState(1);
+  const [acceptedPageSize, setAcceptedPageSize] = useState(5);
+  const [unpaidPage, setUnpaidPage] = useState(1);
+  const [unpaidPageSize, setUnpaidPageSize] = useState(5);
+  const [overduePage, setOverduePage] = useState(1);
+  const [overduePageSize, setOverduePageSize] = useState(5);
+  const [isQueueFilterOpen, setIsQueueFilterOpen] = useState(false);
   const [lastRefreshAt, setLastRefreshAt] = useState(() => new Date());
   const [isRefreshing, setIsRefreshing] = useState(false);
-
-  const dateRangeLabel: Record<DateRangeKey, string> = {
-    today: d.today,
-    'this-week': d.thisWeek,
-    'this-month': d.thisMonth,
-  };
+  const queueFilterRef = useRef<HTMLDivElement | null>(null);
 
   const apiScope: DashboardScope = scope === 'my-projects' ? 'mine' : 'team';
-  const apiDateRange = toApiDateRange(dateRange);
+  const queueDateRangeFilter = queueDateRange === 'all' ? null : toApiDateRange(queueDateRange);
+  const activeQueueFilterCount = Number(queueDateRange !== 'all') + Number(Boolean(queuePriority)) + Number(Boolean(queueDue));
   const queueQuery = useSalesActionQueue({
     scope: apiScope,
     group: activeGroup,
-    dateRange: apiDateRange,
-    page: 1,
-    limit: 20,
+    dateRange: queueDateRangeFilter,
+    priority: queuePriority || null,
+    dueBucket: queueDue || null,
+    page: queuePage,
+    limit: queuePageSize,
   });
   const kpisQuery = useSalesDashboardKpis({
     scope: apiScope,
-    dateRange: apiDateRange,
+  });
+  // New requests are unassigned SUBMITTED projects — same source as Project Request Queue.
+  // Dashboard KPI `newRequests` with scope=mine stays 0 because those projects are not assigned yet.
+  const currentUserQuery = useCurrentUser();
+  const showAcceptedProjects = detailPanel === 'accepted';
+  const showUnpaidRemaining = detailPanel === 'unpaid-remaining';
+  const showOverdueTasks = detailPanel === 'overdue';
+  const showDetailPanel = detailPanel !== 'queue';
+  const acceptedProjectsQuery = useProjectList(
+    {
+      assignedSalesId: scope === 'my-projects' ? currentUserQuery.data?.accountId : undefined,
+      page: acceptedPage,
+      limit: acceptedPageSize,
+    },
+    {
+      enabled: showAcceptedProjects && (scope === 'team' || Boolean(currentUserQuery.data?.accountId)),
+    },
+  );
+  const unpaidRemainingQuery = useSalesUnpaidRemainingList(
+    {
+      scope: apiScope,
+      page: unpaidPage,
+      limit: unpaidPageSize,
+    },
+    showUnpaidRemaining,
+  );
+  const overdueTasksQuery = useSalesOverdueTasksList(
+    {
+      scope: apiScope,
+      page: overduePage,
+      limit: overduePageSize,
+    },
+    showOverdueTasks,
+  );
+  const newRequestsQuery = useStaffProjectQueue({
+    page: 1,
+    limit: 50,
   });
 
+  function openDetailPanel(panel: Exclude<DetailPanel, 'queue'>) {
+    setDetailPanel((current) => (current === panel ? 'queue' : panel));
+    if (panel === 'accepted') setAcceptedPage(1);
+    if (panel === 'unpaid-remaining') setUnpaidPage(1);
+    if (panel === 'overdue') setOverduePage(1);
+  }
+
   const queueItems = queueQuery.data?.items ?? [];
+  const queueTotal = queueQuery.data?.total ?? 0;
+  const queueTotalPages = Math.max(1, Math.ceil(queueTotal / queuePageSize));
   const countsByGroup = useMemo(() => queueQuery.data?.countsByGroup ?? {}, [queueQuery.data?.countsByGroup]);
   const queueGroups = useMemo(() => {
     const fromApi = Object.keys(countsByGroup);
     return fromApi.length > 0 ? fromApi : DEFAULT_SALES_GROUPS;
   }, [countsByGroup]);
+  const newRequestCount = newRequestsQuery.data
+    ? Math.max(newRequestsQuery.data.total, newRequestsQuery.data.items.length)
+    : undefined;
   const kpis = useMemo(
-    () => mapSalesKpis(kpisQuery.data, dateRangeLabel[dateRange], d),
-    // dateRangeLabel is derived from d each render; d + dateRange are the stable inputs
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [d, dateRange, kpisQuery.data],
+    () =>
+      mapSalesKpis(kpisQuery.data, d, newRequestCount, newRequestsQuery.isLoading, detailPanel, openDetailPanel),
+    [d, detailPanel, kpisQuery.data, newRequestCount, newRequestsQuery.isLoading],
   );
   const refreshTime = new Intl.DateTimeFormat(lang === 'vi' ? 'vi-VN' : 'en-US', { hour: '2-digit', minute: '2-digit' }).format(lastRefreshAt);
   const isLoading = queueQuery.isLoading || kpisQuery.isLoading;
@@ -100,12 +175,66 @@ export function SaleDashbroad() {
       ? getDashboardServiceResultMessage(kpisQuery.error)
       : null;
 
+  useEffect(() => {
+    if (!isQueueFilterOpen) {
+      return undefined;
+    }
+
+    function handlePointerDown(event: MouseEvent) {
+      if (!queueFilterRef.current?.contains(event.target as Node)) {
+        setIsQueueFilterOpen(false);
+      }
+    }
+
+    function handleEscape(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        setIsQueueFilterOpen(false);
+      }
+    }
+
+    document.addEventListener('mousedown', handlePointerDown);
+    document.addEventListener('keydown', handleEscape);
+
+    return () => {
+      document.removeEventListener('mousedown', handlePointerDown);
+      document.removeEventListener('keydown', handleEscape);
+    };
+  }, [isQueueFilterOpen]);
+
+  useEffect(() => {
+    // While the next page is loading, data is the previous page. Do not treat that
+    // gap (or a missing total) as "only 1 page" and snap back.
+    if (queueQuery.isPlaceholderData || queueQuery.isFetching || !queueQuery.isSuccess) return;
+    if (queueTotal > 0 && queuePage > queueTotalPages) {
+      setQueuePage(queueTotalPages);
+    }
+  }, [queuePage, queueQuery.isFetching, queueQuery.isPlaceholderData, queueQuery.isSuccess, queueTotal, queueTotalPages]);
+
+  function clearQueueFilters() {
+    setQueueDateRange('all');
+    setQueuePriority('');
+    setQueueDue('');
+    setQueuePage(1);
+  }
+
+  function handleQueuePageSizeChange(nextSize: number) {
+    setQueuePageSize(nextSize);
+    setQueuePage(1);
+  }
+
   async function handleRefresh() {
     if (isRefreshing) return;
 
     setIsRefreshing(true);
     try {
-      await Promise.all([queueQuery.refetch(), kpisQuery.refetch()]);
+      await Promise.all([
+        queueQuery.refetch(),
+        kpisQuery.refetch(),
+        newRequestsQuery.refetch(),
+        ...(showAcceptedProjects ? [acceptedProjectsQuery.refetch()] : []),
+        ...(showUnpaidRemaining ? [unpaidRemainingQuery.refetch()] : []),
+        ...(showOverdueTasks ? [overdueTasksQuery.refetch()] : []),
+      ]);
       setLastRefreshAt(new Date());
     } finally {
       setIsRefreshing(false);
@@ -141,16 +270,17 @@ export function SaleDashbroad() {
 
           <section className="sales-ops-filter-bar" aria-label={d.filtersAria}>
             <label>
-              <span>{d.dateRange}</span>
-              <select value={dateRange} onChange={(event) => setDateRange(event.target.value as DateRangeKey)}>
-                <option value="today">{d.today}</option>
-                <option value="this-week">{d.thisWeek}</option>
-                <option value="this-month">{d.thisMonth}</option>
-              </select>
-            </label>
-            <label>
               <span>{d.scope}</span>
-              <select value={scope} onChange={(event) => setScope(event.target.value as ScopeKey)}>
+              <select
+                value={scope}
+                onChange={(event) => {
+                  setScope(event.target.value as ScopeKey);
+                  setQueuePage(1);
+                  setAcceptedPage(1);
+                  setUnpaidPage(1);
+                  setOverduePage(1);
+                }}
+              >
                 <option value="my-projects">{d.myProjects}</option>
                 <option value="team">{d.teamOverview}</option>
               </select>
@@ -162,27 +292,210 @@ export function SaleDashbroad() {
           </section>
 
           <section className="sales-ops-kpi-grid">
-            {kpis.map(({ change, description, icon: KpiIcon, label, path, tone, value }) => (
-              <Link className={`sales-ops-kpi sales-ops-kpi-${tone}`} key={label} title={description} to={path}>
-                <span><KpiIcon size={19} /></span>
-                <div>
-                  <small>{label}</small>
-                  <strong>{value}</strong>
-                  <p>{change}</p>
-                </div>
-              </Link>
-            ))}
+            {kpis.map((kpi) => {
+              const content = (
+                <>
+                  <span><kpi.icon size={19} /></span>
+                  <div>
+                    <small>{kpi.label}</small>
+                    <strong>{kpi.value}</strong>
+                    <p>{kpi.change}</p>
+                  </div>
+                </>
+              );
+
+              if (kpi.onSelect) {
+                return (
+                  <button
+                    aria-pressed={kpi.selected}
+                    className={`sales-ops-kpi sales-ops-kpi-${kpi.tone}${kpi.selected ? ' is-selected' : ''}`}
+                    key={kpi.id}
+                    title={kpi.description}
+                    type="button"
+                    onClick={kpi.onSelect}
+                  >
+                    {content}
+                  </button>
+                );
+              }
+
+              return (
+                <Link className={`sales-ops-kpi sales-ops-kpi-${kpi.tone}`} key={kpi.id} title={kpi.description} to={kpi.path ?? '/sales'}>
+                  {content}
+                </Link>
+              );
+            })}
           </section>
 
           <section className="sales-ops-main-grid sales-ops-main-grid-single">
             <article className="sale-card sales-ops-action-queue">
               <header className="sales-ops-section-header">
                 <div>
-                  <h3>{d.mainActionQueue}</h3>
-                  <p>{d.subtitle}</p>
+                  <h3>
+                    {detailPanel === 'accepted'
+                      ? d.acceptedListTitle
+                      : detailPanel === 'unpaid-remaining'
+                        ? d.unpaidListTitle
+                        : detailPanel === 'overdue'
+                          ? d.overdueListTitle
+                          : d.mainActionQueue}
+                  </h3>
+                  <p>
+                    {detailPanel === 'accepted'
+                      ? d.acceptedListNote
+                      : detailPanel === 'unpaid-remaining'
+                        ? d.unpaidListNote
+                        : detailPanel === 'overdue'
+                          ? d.overdueListNote
+                          : d.subtitle}
+                  </p>
                 </div>
-                <IconFilter size={20} />
+                <div className="sales-ops-queue-filter" ref={queueFilterRef} hidden={showDetailPanel}>
+                  <button
+                    aria-expanded={isQueueFilterOpen}
+                    aria-haspopup="dialog"
+                    aria-label={d.queueFilterAria}
+                    className={activeQueueFilterCount > 0 || isQueueFilterOpen ? 'sales-ops-queue-filter-toggle is-active' : 'sales-ops-queue-filter-toggle'}
+                    type="button"
+                    onClick={() => setIsQueueFilterOpen((open) => !open)}
+                  >
+                    <IconFilter size={18} />
+                    {activeQueueFilterCount > 0 ? <span>{activeQueueFilterCount}</span> : null}
+                  </button>
+                  {isQueueFilterOpen ? (
+                    <div className="sales-ops-queue-filter-panel" role="dialog" aria-label={d.queueFilterAria}>
+                      <div className="sales-ops-queue-filter-panel-header">
+                        <strong>{d.queueFilter}</strong>
+                        <button aria-label={d.closeFilters} type="button" onClick={() => setIsQueueFilterOpen(false)}>
+                          <IconX size={16} />
+                        </button>
+                      </div>
+                      <label>
+                        <span>{d.dateRange}</span>
+                        <select
+                          value={queueDateRange}
+                          onChange={(event) => {
+                            setQueueDateRange(event.target.value as QueueDateRangeKey);
+                            setQueuePage(1);
+                          }}
+                        >
+                          <option value="all">{d.allDates}</option>
+                          <option value="today">{d.today}</option>
+                          <option value="this-week">{d.thisWeek}</option>
+                          <option value="this-month">{d.thisMonth}</option>
+                        </select>
+                      </label>
+                      <label>
+                        <span>{d.priority}</span>
+                        <select
+                          value={queuePriority}
+                          onChange={(event) => {
+                            setQueuePriority(event.target.value as QueuePriorityFilter);
+                            setQueuePage(1);
+                          }}
+                        >
+                          <option value="">{d.allPriorities}</option>
+                          <option value="URGENT">{formatPriorityLabel('URGENT')}</option>
+                          <option value="HIGH">{formatPriorityLabel('HIGH')}</option>
+                          <option value="MEDIUM">{formatPriorityLabel('MEDIUM')}</option>
+                          <option value="LOW">{formatPriorityLabel('LOW')}</option>
+                        </select>
+                      </label>
+                      <label>
+                        <span>{d.due}</span>
+                        <select
+                          value={queueDue}
+                          onChange={(event) => {
+                            setQueueDue(event.target.value as QueueDueFilter);
+                            setQueuePage(1);
+                          }}
+                        >
+                          <option value="">{d.allDue}</option>
+                          <option value="OVERDUE">{d.overdue}</option>
+                          <option value="TODAY">{d.today}</option>
+                          <option value="THIS_WEEK">{d.thisWeek}</option>
+                          <option value="LATER">{d.later}</option>
+                        </select>
+                      </label>
+                      <div className="sales-ops-queue-filter-panel-actions">
+                        <button disabled={activeQueueFilterCount === 0} type="button" onClick={clearQueueFilters}>
+                          {d.clear}
+                        </button>
+                        <button type="button" onClick={() => setIsQueueFilterOpen(false)}>
+                          {d.done}
+                        </button>
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
               </header>
+              {showAcceptedProjects ? (
+                <AcceptedProjectsList
+                  chipLabel={d.acceptedListTitle}
+                  customerLabel={d.colCustomer}
+                  emptyLabel={d.acceptedListEmpty}
+                  isLoading={acceptedProjectsQuery.isLoading || currentUserQuery.isLoading}
+                  items={(acceptedProjectsQuery.data?.items ?? []).filter((project) => Boolean(project.assignedSalesId))}
+                  lang={lang}
+                  loadingLabel={d.loadingData}
+                  page={acceptedPage}
+                  pageSize={acceptedPageSize}
+                  totalItems={acceptedProjectsQuery.data?.total ?? 0}
+                  viewLabel={t.common.view}
+                  onPageChange={setAcceptedPage}
+                  onPageSizeChange={(nextSize) => {
+                    setAcceptedPageSize(nextSize);
+                    setAcceptedPage(1);
+                  }}
+                />
+              ) : showUnpaidRemaining ? (
+                <UnpaidRemainingList
+                  chipLabel={d.unpaidListTitle}
+                  customerLabel={d.colCustomer}
+                  emptyLabel={d.unpaidListEmpty}
+                  isLoading={unpaidRemainingQuery.isLoading}
+                  items={unpaidRemainingQuery.data?.items ?? []}
+                  lang={lang}
+                  loadingLabel={d.loadingData}
+                  page={unpaidPage}
+                  pageSize={unpaidPageSize}
+                  phaseLabel={d.colPhase}
+                  projectLabel={d.colProject}
+                  remainingLabel={d.colRemaining}
+                  totalItems={unpaidRemainingQuery.data?.total ?? 0}
+                  updatedLabel={d.colUpdated}
+                  viewLabel={t.common.view}
+                  onPageChange={setUnpaidPage}
+                  onPageSizeChange={(nextSize) => {
+                    setUnpaidPageSize(nextSize);
+                    setUnpaidPage(1);
+                  }}
+                />
+              ) : showOverdueTasks ? (
+                <OverdueTasksList
+                  chipLabel={d.overdueListTitle}
+                  customerLabel={d.colCustomer}
+                  emptyLabel={d.overdueListEmpty}
+                  formatOverdueDays={d.overdueDaysValue}
+                  isLoading={overdueTasksQuery.isLoading}
+                  items={overdueTasksQuery.data?.items ?? []}
+                  loadingLabel={d.loadingData}
+                  overdueLabel={d.colOverdueDays}
+                  page={overduePage}
+                  pageSize={overduePageSize}
+                  phaseLabel={d.colPhase}
+                  projectLabel={d.colProject}
+                  targetLabel={d.colTarget}
+                  totalItems={overdueTasksQuery.data?.total ?? 0}
+                  viewLabel={t.common.view}
+                  onPageChange={setOverduePage}
+                  onPageSizeChange={(nextSize) => {
+                    setOverduePageSize(nextSize);
+                    setOverduePage(1);
+                  }}
+                />
+              ) : (
+              <>
               <div className="sales-ops-tabs" role="tablist" aria-label={d.mainActionQueue}>
                 {queueGroups.map((group) => (
                   <button
@@ -190,7 +503,10 @@ export function SaleDashbroad() {
                     key={group}
                     role="tab"
                     type="button"
-                    onClick={() => setActiveGroup(group)}
+                    onClick={() => {
+                      setActiveGroup(group);
+                      setQueuePage(1);
+                    }}
                   >
                     {group}
                     <em>{countsByGroup[group] ?? 0}</em>
@@ -237,6 +553,17 @@ export function SaleDashbroad() {
                   </div>
                 ))}
               </div>
+              <QueuePager
+                disabled={queueQuery.isFetching}
+                page={Math.min(queuePage, queueTotalPages)}
+                pageSize={queuePageSize}
+                totalItems={queueTotal}
+                totalPages={queueTotalPages}
+                onPageChange={setQueuePage}
+                onPageSizeChange={handleQueuePageSizeChange}
+              />
+              </>
+              )}
             </article>
           </section>
         </main>
@@ -245,45 +572,431 @@ export function SaleDashbroad() {
   );
 }
 
+function AcceptedProjectsList({
+  chipLabel,
+  customerLabel,
+  emptyLabel,
+  isLoading,
+  items,
+  lang,
+  loadingLabel,
+  page,
+  pageSize,
+  totalItems,
+  viewLabel,
+  onPageChange,
+  onPageSizeChange,
+}: {
+  chipLabel: string;
+  customerLabel: string;
+  emptyLabel: string;
+  isLoading: boolean;
+  items: ProjectListItemDto[];
+  lang: 'en' | 'vi';
+  loadingLabel: string;
+  page: number;
+  pageSize: number;
+  totalItems: number;
+  viewLabel: string;
+  onPageChange: (page: number) => void;
+  onPageSizeChange: (pageSize: number) => void;
+}) {
+  const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+  const customerIds = useMemo(
+    () => Array.from(new Set(items.map((project) => project.customerId).filter(Boolean))),
+    [items],
+  );
+  const customerQueries = useQueries({
+    queries: customerIds.map((customerId) => ({
+      queryKey: ['accounts', 'detail', customerId],
+      queryFn: () => getAccountById(customerId),
+      enabled: Boolean(customerId),
+      staleTime: 5 * 60 * 1000,
+    })),
+  });
+  const customerById = useMemo(() => {
+    return customerQueries.reduce<Record<string, AccountDto>>((lookup, query, index) => {
+      const customer = query.data;
+      if (customer) lookup[customerIds[index]] = customer;
+      return lookup;
+    }, {});
+  }, [customerIds, customerQueries]);
+
+  return (
+    <>
+      <div className="sales-ops-tabs" role="tablist" aria-label={emptyLabel}>
+        <button aria-selected="true" type="button">
+          {chipLabel}
+          <em>{totalItems}</em>
+        </button>
+      </div>
+      <div className="sales-ops-queue-table">
+        <div className="sales-ops-queue-head sales-ops-accepted-head">
+          <span>Project</span>
+          <span>{customerLabel}</span>
+          <span>Phase</span>
+          <span>Submitted</span>
+          <span />
+        </div>
+        {isLoading ? <div className="sales-ops-queue-empty">{loadingLabel}</div> : null}
+        {!isLoading && items.length === 0 ? <div className="sales-ops-queue-empty">{emptyLabel}</div> : null}
+        {items.map((project) => (
+          <div className="sales-ops-queue-row sales-ops-accepted-row" key={project.projectId}>
+            <strong>{`${project.projectCode} ${project.projectName}`.trim()}</strong>
+            <span title={customerById[project.customerId]?.fullName || undefined}>
+              {customerById[project.customerId]?.fullName || '-'}
+            </span>
+            <span className="sales-ops-phase">{formatStatusLabel(project.status)}</span>
+            <span className="sales-ops-updated">{formatLastUpdatedAt(project.submittedAt, lang)}</span>
+            <Link
+              aria-label={`Open ${project.projectCode}`}
+              className="sales-ops-queue-open"
+              title={viewLabel}
+              to={`/sales/assigned-projects/${project.projectId}`}
+            >
+              <IconChevronRight size={18} stroke={2} />
+            </Link>
+          </div>
+        ))}
+      </div>
+      <QueuePager
+        disabled={isLoading}
+        page={Math.min(page, totalPages)}
+        pageSize={pageSize}
+        totalItems={totalItems}
+        totalPages={totalPages}
+        onPageChange={onPageChange}
+        onPageSizeChange={onPageSizeChange}
+      />
+    </>
+  );
+}
+
+function UnpaidRemainingList({
+  chipLabel,
+  customerLabel,
+  emptyLabel,
+  isLoading,
+  items,
+  lang,
+  loadingLabel,
+  page,
+  pageSize,
+  phaseLabel,
+  projectLabel,
+  remainingLabel,
+  totalItems,
+  updatedLabel,
+  viewLabel,
+  onPageChange,
+  onPageSizeChange,
+}: {
+  chipLabel: string;
+  customerLabel: string;
+  emptyLabel: string;
+  isLoading: boolean;
+  items: SalesUnpaidRemainingItemDto[];
+  lang: 'en' | 'vi';
+  loadingLabel: string;
+  page: number;
+  pageSize: number;
+  phaseLabel: string;
+  projectLabel: string;
+  remainingLabel: string;
+  totalItems: number;
+  updatedLabel: string;
+  viewLabel: string;
+  onPageChange: (page: number) => void;
+  onPageSizeChange: (pageSize: number) => void;
+}) {
+  const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+
+  return (
+    <>
+      <div className="sales-ops-tabs" role="tablist" aria-label={emptyLabel}>
+        <button aria-selected="true" type="button">
+          {chipLabel}
+          <em>{totalItems}</em>
+        </button>
+      </div>
+      <div className="sales-ops-queue-table">
+        <div className="sales-ops-queue-head sales-ops-unpaid-head">
+          <span>{projectLabel}</span>
+          <span>{customerLabel}</span>
+          <span>{remainingLabel}</span>
+          <span>{phaseLabel}</span>
+          <span>{updatedLabel}</span>
+          <span />
+        </div>
+        {isLoading ? <div className="sales-ops-queue-empty">{loadingLabel}</div> : null}
+        {!isLoading && items.length === 0 ? <div className="sales-ops-queue-empty">{emptyLabel}</div> : null}
+        {items.map((item) => (
+          <div className="sales-ops-queue-row sales-ops-unpaid-row" key={item.orderId}>
+            <strong title={item.orderCode ?? undefined}>
+              {`${item.projectCode} ${item.projectName}`.trim()}
+            </strong>
+            <span title={item.customerName || undefined}>{item.customerName || '-'}</span>
+            <span className="sales-ops-money">{formatMoneyAmount(item.remainingAmount, item.currency)}</span>
+            <span className="sales-ops-phase">{formatStatusLabel(item.status)}</span>
+            <span className="sales-ops-updated">{formatLastUpdatedAt(item.updatedAt, lang)}</span>
+            <Link
+              aria-label={`Open ${item.projectCode}`}
+              className="sales-ops-queue-open"
+              title={viewLabel}
+              to={`/sales/assigned-projects/${item.projectId}`}
+            >
+              <IconChevronRight size={18} stroke={2} />
+            </Link>
+          </div>
+        ))}
+      </div>
+      <QueuePager
+        disabled={isLoading}
+        page={Math.min(page, totalPages)}
+        pageSize={pageSize}
+        totalItems={totalItems}
+        totalPages={totalPages}
+        onPageChange={onPageChange}
+        onPageSizeChange={onPageSizeChange}
+      />
+    </>
+  );
+}
+
+function OverdueTasksList({
+  chipLabel,
+  customerLabel,
+  emptyLabel,
+  formatOverdueDays,
+  isLoading,
+  items,
+  loadingLabel,
+  overdueLabel,
+  page,
+  pageSize,
+  phaseLabel,
+  projectLabel,
+  targetLabel,
+  totalItems,
+  viewLabel,
+  onPageChange,
+  onPageSizeChange,
+}: {
+  chipLabel: string;
+  customerLabel: string;
+  emptyLabel: string;
+  formatOverdueDays: (days: number) => string;
+  isLoading: boolean;
+  items: SalesOverdueTaskItemDto[];
+  loadingLabel: string;
+  overdueLabel: string;
+  page: number;
+  pageSize: number;
+  phaseLabel: string;
+  projectLabel: string;
+  targetLabel: string;
+  totalItems: number;
+  viewLabel: string;
+  onPageChange: (page: number) => void;
+  onPageSizeChange: (pageSize: number) => void;
+}) {
+  const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+
+  return (
+    <>
+      <div className="sales-ops-tabs" role="tablist" aria-label={emptyLabel}>
+        <button aria-selected="true" type="button">
+          {chipLabel}
+          <em>{totalItems}</em>
+        </button>
+      </div>
+      <div className="sales-ops-queue-table">
+        <div className="sales-ops-queue-head sales-ops-overdue-head">
+          <span>{projectLabel}</span>
+          <span>{customerLabel}</span>
+          <span>{phaseLabel}</span>
+          <span>{targetLabel}</span>
+          <span>{overdueLabel}</span>
+          <span />
+        </div>
+        {isLoading ? <div className="sales-ops-queue-empty">{loadingLabel}</div> : null}
+        {!isLoading && items.length === 0 ? <div className="sales-ops-queue-empty">{emptyLabel}</div> : null}
+        {items.map((item) => (
+          <div className="sales-ops-queue-row sales-ops-overdue-row" key={item.projectId}>
+            <strong>{`${item.projectCode} ${item.projectName}`.trim()}</strong>
+            <span title={item.customerName || undefined}>{item.customerName || '-'}</span>
+            <span className="sales-ops-phase">{formatStatusLabel(item.status)}</span>
+            <span className="sales-ops-updated">{formatShortDate(item.targetCompletionDate)}</span>
+            <span className="sales-ops-due is-overdue">{formatOverdueDays(item.overdueDays)}</span>
+            <Link
+              aria-label={`Open ${item.projectCode}`}
+              className="sales-ops-queue-open"
+              title={viewLabel}
+              to={`/sales/assigned-projects/${item.projectId}`}
+            >
+              <IconChevronRight size={18} stroke={2} />
+            </Link>
+          </div>
+        ))}
+      </div>
+      <QueuePager
+        disabled={isLoading}
+        page={Math.min(page, totalPages)}
+        pageSize={pageSize}
+        totalItems={totalItems}
+        totalPages={totalPages}
+        onPageChange={onPageChange}
+        onPageSizeChange={onPageSizeChange}
+      />
+    </>
+  );
+}
+
+function QueuePager({
+  disabled,
+  page,
+  pageSize,
+  totalItems,
+  totalPages,
+  onPageChange,
+  onPageSizeChange,
+}: {
+  disabled?: boolean;
+  page: number;
+  pageSize: number;
+  totalItems: number;
+  totalPages: number;
+  onPageChange: (page: number) => void;
+  onPageSizeChange: (pageSize: number) => void;
+}) {
+  const { lang } = useLang();
+  const t = saleCopy[lang].common;
+  const [pageDraft, setPageDraft] = useState(String(page));
+  const [sizeDraft, setSizeDraft] = useState(String(pageSize));
+
+  useEffect(() => {
+    setPageDraft(String(page));
+  }, [page]);
+
+  useEffect(() => {
+    setSizeDraft(String(pageSize));
+  }, [pageSize]);
+
+  function commitPage() {
+    const parsed = Number.parseInt(pageDraft, 10);
+    const next = Number.isFinite(parsed) ? Math.min(Math.max(parsed, 1), totalPages) : page;
+    setPageDraft(String(next));
+    if (next !== page) onPageChange(next);
+  }
+
+  function commitPageSize() {
+    const parsed = Number.parseInt(sizeDraft, 10);
+    const next = Number.isFinite(parsed) ? Math.min(Math.max(parsed, 1), 100) : pageSize;
+    setSizeDraft(String(next));
+    if (next !== pageSize) onPageSizeChange(next);
+  }
+
+  return (
+    <div className="sales-ops-queue-pager">
+      <div className="sales-ops-queue-pager-meta">
+      <label className="sales-ops-queue-pager-field">
+        <span>{t.rows}</span>
+        <input
+          aria-label={t.rows}
+          disabled={disabled}
+          max={100}
+          min={1}
+          type="number"
+          value={sizeDraft}
+          onBlur={commitPageSize}
+          onChange={(event) => setSizeDraft(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter') event.currentTarget.blur();
+          }}
+        />
+      </label>
+      <label className="sales-ops-queue-pager-field">
+        <span>{t.page}</span>
+        <input
+          aria-label={t.page}
+          disabled={disabled}
+          max={totalPages}
+          min={1}
+          type="number"
+          value={pageDraft}
+          onBlur={commitPage}
+          onChange={(event) => setPageDraft(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter') event.currentTarget.blur();
+          }}
+        />
+        <span className="sales-ops-queue-pager-of">/ {totalPages}</span>
+      </label>
+      <span className="sales-ops-queue-pager-total">
+        {totalItems} {lang === 'vi' ? 'dòng' : 'rows'}
+      </span>
+      </div>
+      <div className="sales-ops-queue-pager-nav">
+        <button disabled={disabled || page <= 1} type="button" onClick={() => onPageChange(page - 1)}>
+          {t.previous}
+        </button>
+        <button disabled={disabled || page >= totalPages} type="button" onClick={() => onPageChange(page + 1)}>
+          {t.next}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function mapSalesKpis(
   data: SalesDashboardKpisDto | undefined,
-  rangeLabel: string,
   d: (typeof saleCopy)['en']['dashboard'],
+  newRequestCount: number | undefined,
+  isNewRequestsLoading: boolean,
+  detailPanel: DetailPanel,
+  onOpenDetailPanel: (panel: Exclude<DetailPanel, 'queue'>) => void,
 ): KpiItem[] {
   return [
     {
-      change: rangeLabel,
-      description: d.kpiNewRequests,
+      change: d.kpiNewRequestsHint,
+      description: d.kpiNewRequestsHint,
       icon: IconFolderOpen,
+      id: 'new-requests',
       label: d.kpiNewRequests,
       path: '/sales/project-requests',
       tone: 'amber',
-      value: String(data?.newRequests ?? 0),
+      value: isNewRequestsLoading && newRequestCount === undefined ? '—' : String(newRequestCount ?? data?.newRequests ?? 0),
     },
     {
-      change: rangeLabel,
-      description: d.kpiActiveProjects,
+      change: d.kpiAcceptedProjectsHint,
+      description: d.kpiAcceptedProjectsHint,
       icon: IconProgressCheck,
-      label: d.kpiActiveProjects,
-      path: '/sales/assigned-projects',
+      id: 'accepted',
+      label: d.kpiAcceptedProjects,
+      onSelect: () => onOpenDetailPanel('accepted'),
+      selected: detailPanel === 'accepted',
       tone: 'blue',
-      value: String(data?.activeProjects ?? 0),
+      value: String(data?.acceptedProjects ?? 0),
     },
     {
-      change: rangeLabel,
-      description: d.kpiPaymentsFollowUp,
+      change: d.kpiUnpaidRemainingHint,
+      description: d.kpiUnpaidRemainingHint,
       icon: IconCreditCard,
-      label: d.kpiPaymentsFollowUp,
-      path: '/sales/orders',
+      id: 'unpaid-remaining',
+      label: d.kpiUnpaidRemaining,
+      onSelect: () => onOpenDetailPanel('unpaid-remaining'),
+      selected: detailPanel === 'unpaid-remaining',
       tone: 'red',
-      value: String(data?.paymentFollowUp ?? 0),
+      value: String(data?.unpaidRemaining ?? 0),
     },
     {
-      change: rangeLabel,
-      description: d.kpiOverdueTasks,
+      change: d.kpiOverdueTasksHint,
+      description: d.kpiOverdueTasksHint,
       icon: IconShieldExclamation,
+      id: 'overdue',
       label: d.kpiOverdueTasks,
-      path: '/sales/assigned-projects',
+      onSelect: () => onOpenDetailPanel('overdue'),
+      selected: detailPanel === 'overdue',
       tone: 'red',
       value: String(data?.overdueTasks ?? 0),
     },
@@ -317,16 +1030,21 @@ function formatDueLabel(
   dueBucket: DashboardDueBucket | null,
   d: (typeof saleCopy)['en']['dashboard'],
 ) {
-  if (dueBucket === 'OVERDUE') return 'Overdue';
+  if (dueBucket === 'OVERDUE') return d.overdue;
   if (dueBucket === 'TODAY') return d.today;
   if (dueBucket === 'THIS_WEEK') return d.thisWeek;
-  if (dueBucket === 'LATER') return dueAt ? formatShortDate(dueAt) : 'Later';
+  if (dueBucket === 'LATER') return dueAt ? formatShortDate(dueAt) : d.later;
   if (dueAt) return formatShortDate(dueAt);
   return '-';
 }
 
 function formatShortDate(value: string) {
   return new Intl.DateTimeFormat('en-US', { month: 'short', day: '2-digit' }).format(new Date(value));
+}
+
+function formatMoneyAmount(value: number, currency: string | null) {
+  const amount = new Intl.NumberFormat('vi-VN').format(value);
+  return `${amount} ${currency?.trim() || 'VND'}`;
 }
 
 function formatLastUpdatedAt(value: string | null | undefined, lang: 'en' | 'vi') {
