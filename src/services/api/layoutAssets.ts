@@ -1,6 +1,7 @@
 import axios, { AxiosError } from 'axios';
 
 import { shouldRedirectUnauthorized } from '@/shared/config/authPreview';
+import { DirectUploadStorageError, directUploadFile } from './directUpload';
 import { getStoredAccessToken } from './tokenStore';
 
 const layoutAssetApiClient = axios.create({
@@ -141,6 +142,10 @@ const LAYOUT_ASSET_ERROR_MESSAGES: Record<string, string> = {
 };
 
 export function getLayoutAssetServiceResultMessage(error: unknown) {
+  if (error instanceof DirectUploadStorageError) {
+    return error.message;
+  }
+
   const result = getLayoutAssetServiceResultFromError(error);
 
   if (!result) {
@@ -249,16 +254,15 @@ export async function uploadLayoutAssetFile(input: {
   fileType: LayoutAssetFileType;
   layoutAssetId: string;
 }) {
-  const formData = new FormData();
-  formData.append('file', input.file);
-  formData.append('fileType', input.fileType);
-
-  const response = await layoutAssetApiClient.post<ServiceResult<LayoutAssetFileDto>>(
-    `/layout-assets/${input.layoutAssetId}/files`,
-    formData,
-  );
-
-  return response.data.data;
+  return directUploadFile<LayoutAssetFileDto>({
+    apiClient: layoutAssetApiClient,
+    completeEndpoint: `/layout-assets/${input.layoutAssetId}/files/complete`,
+    file: input.file,
+    prepareBody: {
+      fileType: input.fileType,
+    },
+    prepareEndpoint: `/layout-assets/${input.layoutAssetId}/files/upload-url`,
+  });
 }
 
 export async function getLayoutAssetFiles(layoutAssetId: string) {

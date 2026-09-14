@@ -104,7 +104,8 @@ export function LayoutAssetManagementPage() {
 
   async function createAsset(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const formData = new FormData(event.currentTarget);
+    const form = event.currentTarget;
+    const formData = new FormData(form);
     const name = String(formData.get('name') ?? '').trim();
     const layoutAssetType = String(formData.get('layoutAssetType') ?? createAssetType) as LayoutAssetType;
 
@@ -146,7 +147,7 @@ export function LayoutAssetManagementPage() {
         }
       }
 
-      event.currentTarget.reset();
+      form.reset();
       setSelectedAssetId(asset.layoutAssetId);
       if (uploadErrors.length > 0) {
         setCreateAssetMessage({ tone: 'error', text: `Layout asset created, but file upload failed: ${uploadErrors.join(' ')}` });

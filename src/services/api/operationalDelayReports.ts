@@ -32,6 +32,7 @@ operationalDelayApiClient.interceptors.response.use(
 
 export type OperationalDelayPhase = 'PRODUCTION' | 'DELIVERY';
 export type OperationalDelayState = 'AT_RISK' | 'OVERDUE';
+export type OperationalDelayReportResolutionStatus = 'OPEN' | 'RESOLVED';
 
 export type ProductionDelayReasonCode =
   | 'MATERIAL_DELAY'
@@ -90,6 +91,9 @@ export type OperationalDelayReportDto = {
   reporterName: string | null;
   reportedAt: string;
   createdAt: string;
+  status?: OperationalDelayReportResolutionStatus;
+  resolvedAt?: string | null;
+  resolutionNote?: string | null;
 };
 
 export type OperationalDelayReportListDto = {
@@ -109,6 +113,11 @@ export type CreateDeliveryDelayReportInput = {
   deliveryId?: string | null;
   deliveryReasonCode: DeliveryDelayReasonCode;
   reasonDetail: string;
+};
+
+export type ResolveOperationalDelayReportInput = {
+  reportId: string;
+  resolutionNote?: string | null;
 };
 
 type ServiceResult<T> = {
@@ -168,6 +177,17 @@ export async function createDeliveryDelayReport(input: CreateDeliveryDelayReport
   return response.data.data;
 }
 
+export async function resolveOperationalDelayReport(input: ResolveOperationalDelayReportInput) {
+  const response = await operationalDelayApiClient.patch<ServiceResult<OperationalDelayReportDto>>(
+    `/delay-reports/${input.reportId}/resolve`,
+    {
+      resolutionNote: input.resolutionNote?.trim() || null,
+    },
+  );
+
+  return response.data.data;
+}
+
 export function getReportReasonCode(report: OperationalDelayReportDto) {
   return report.reportPhase === 'PRODUCTION'
     ? report.productionReasonCode
@@ -194,6 +214,8 @@ export function getOperationalDelayErrorMessage(error: unknown) {
     OPERATIONAL_DELAY_PROJECT_NOT_FOUND: 'Project was not found.',
     OPERATIONAL_DELAY_PRODUCTION_REQUEST_NOT_FOUND: 'Production request was not found.',
     OPERATIONAL_DELAY_REPORT_NOT_FOUND: 'Delay report was not found.',
+    REPORT_RESOLUTION_NOTE_TOO_LONG: 'Resolution note must be at most 4000 characters.',
+    OPERATIONAL_DELAY_RESOLUTION_NOTE_TOO_LONG: 'Resolution note must be at most 4000 characters.',
   };
 
   return (

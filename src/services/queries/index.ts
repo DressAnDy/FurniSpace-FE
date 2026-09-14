@@ -178,6 +178,7 @@ export {
   useCreateProductionDelayReport,
   useOperationalDelayReport,
   useProjectOperationalDelayReports,
+  useResolveOperationalDelayReport,
 } from './useOperationalDelayReports';
 export {
   orderQueryKeys,
@@ -205,6 +206,7 @@ export {
   useOrderProductIssues,
   useProductIssue,
   useProjectProductIssues,
+  useResolveProductIssue,
 } from './useProductIssues';
 export {
   paymentQueryKeys,

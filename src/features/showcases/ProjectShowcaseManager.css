@@ -744,7 +744,7 @@
 }
 
 .project-showcase-manager-sales .project-showcase-media-form {
-  grid-template-columns: minmax(0, 1fr) 168px;
+  grid-template-columns: minmax(0, 1fr) auto;
   gap: 8px;
 }
 
@@ -803,8 +803,8 @@
 }
 
 .project-showcase-manager-sales .project-showcase-media-grid {
-  grid-template-columns: repeat(auto-fill, minmax(138px, 1fr));
-  gap: 8px;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10px;
 }
 
 .project-showcase-manager-sales .project-showcase-media-grid img,
@@ -835,7 +835,7 @@
 
 .project-showcase-manager-sales .project-showcase-media-actions {
   display: grid;
-  grid-template-columns: 30px 30px minmax(0, 1fr);
+  grid-template-columns: 30px 30px minmax(58px, auto) minmax(92px, auto);
   gap: 6px;
   padding: 8px;
 }
@@ -844,8 +844,10 @@
   width: 30px;
 }
 
-.project-showcase-manager-sales .project-showcase-media-actions button:last-child {
-  grid-column: 1 / -1;
+.project-showcase-manager-sales .project-showcase-media-actions button {
+  min-width: 0;
+  padding: 0 8px;
+  white-space: nowrap;
 }
 
 @media (max-width: 1080px) {

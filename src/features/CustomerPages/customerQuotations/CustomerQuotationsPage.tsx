@@ -224,7 +224,6 @@ function QuotationDetail({
   onRequestRevision,
   onRevisionReasonChange,
   quotation,
-  order,
   proposalName,
   revisionPending,
   revisionReason,
@@ -293,7 +292,6 @@ function QuotationDetail({
         </div>
       </div>
 
-      {order ? <p className="customer-quotations-muted">Deposit payment and delivery details are managed from Orders.</p> : null}
 
       <div className="customer-quotations-table-wrap">
         <table>

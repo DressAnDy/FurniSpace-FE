@@ -31,7 +31,7 @@
 .sale-quotations-heading h2 {
   margin: 0;
   color: #2d2d2d;
-  font-size: 24px;
+  font-size: 22px;
   font-weight: 500;
   line-height: 32px;
 }
@@ -39,7 +39,7 @@
 .sale-quotations-heading p {
   margin: 4px 0 0;
   color: #6b6b6b;
-  font-size: 14px;
+  font-size: 12px;
   line-height: 20px;
 }
 
@@ -54,7 +54,7 @@
   background: #8b6f47;
   padding: 0 16px;
   color: #ffffff;
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 500;
 }
 
@@ -85,14 +85,14 @@
 .sale-quotations-toolbar span,
 .sale-quotations-edit-form span {
   color: #6b6b6b;
-  font-size: 12px;
+  font-size: 10px;
   font-weight: 600;
   line-height: 16px;
 }
 
 .sale-quotations-toolbar strong {
   color: #2d2d2d;
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 500;
   line-height: 36px;
 }
@@ -113,7 +113,7 @@
   border-radius: 8px;
   margin-bottom: 18px;
   padding: 12px 14px;
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 500;
 }
 
@@ -170,7 +170,7 @@
   color: #6b6b6b;
   cursor: pointer;
   font: inherit;
-  font-size: 12px;
+  font-size: 10px;
   font-weight: 800;
 }
 
@@ -196,7 +196,7 @@
 .sale-quotations-project-group > div strong {
   margin: 0;
   color: #2d2d2d;
-  font-size: 15px;
+  font-size: 13px;
   font-weight: 700;
 }
 
@@ -204,7 +204,7 @@
 .sale-quotations-project-group p {
   margin: 5px 0 0;
   color: #6b6b6b;
-  font-size: 12px;
+  font-size: 10px;
   line-height: 18px;
 }
 
@@ -228,7 +228,7 @@
   border-radius: 999px;
   background: #f5f1ec;
   color: #8b6f47;
-  font-size: 12px;
+  font-size: 10px;
   font-weight: 800;
 }
 
@@ -257,14 +257,14 @@
 }
 
 .sale-quotations-project-group button strong {
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 800;
 }
 
 .sale-quotations-project-group button span,
 .sale-quotations-project-group button em {
   color: #6b6b6b;
-  font-size: 12px;
+  font-size: 10px;
   font-style: normal;
 }
 
@@ -284,7 +284,7 @@
   color: #8b6f47;
   cursor: pointer;
   font: inherit;
-  font-size: 12px;
+  font-size: 10px;
   font-weight: 800;
   padding: 0 10px;
 }
@@ -296,7 +296,7 @@
 
 .sale-quotations-project-pagination span {
   color: #6b6b6b;
-  font-size: 12px;
+  font-size: 10px;
   font-weight: 800;
 }
 
@@ -340,7 +340,7 @@
   display: block;
   margin-top: 4px;
   color: #2d2d2d;
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 800;
   line-height: 24px;
 }
@@ -366,7 +366,7 @@
 .sale-quotations-detail h4 {
   margin: 0;
   color: #2d2d2d;
-  font-size: 16px;
+  font-size: 14px;
   font-weight: 500;
   line-height: 24px;
 }
@@ -374,7 +374,7 @@
 .sale-quotations-card header p {
   margin: 4px 0 0;
   color: #6b6b6b;
-  font-size: 14px;
+  font-size: 12px;
   line-height: 20px;
 }
 
@@ -409,13 +409,13 @@
   border-bottom: 1px solid rgba(139, 111, 71, 0.15);
   padding: 12px 8px;
   color: #2d2d2d;
-  font-size: 14px;
+  font-size: 12px;
   line-height: 20px;
   vertical-align: middle;
 }
 
 .sale-quotations-card th {
-  font-size: 12px;
+  font-size: 10px;
   font-weight: 500;
 }
 
@@ -425,14 +425,14 @@
 
 .sale-quotations-card td strong {
   display: block;
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 400;
 }
 
 .sale-quotations-card td span {
   display: block;
   color: #6b6b6b;
-  font-size: 12px;
+  font-size: 10px;
   line-height: 16px;
 }
 
@@ -479,7 +479,7 @@
   align-items: center;
   border-radius: 6px;
   padding: 2px 8px;
-  font-size: 12px !important;
+  font-size: 10px !important;
   font-weight: 500;
   line-height: 16px !important;
 }
@@ -513,7 +513,7 @@
   border: 0;
   background: transparent;
   color: #2d2d2d;
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 500;
 }
 
@@ -534,7 +534,7 @@
 .sale-quotations-detail-grid span {
   display: block;
   color: #6b6b6b;
-  font-size: 12px;
+  font-size: 10px;
   line-height: 16px;
 }
 
@@ -542,7 +542,7 @@
   display: block;
   margin-top: 6px;
   color: #2d2d2d;
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 400;
 }
 
@@ -563,7 +563,7 @@
   border-radius: 6px;
   background: #8b6f47;
   color: #ffffff;
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 500;
   padding: 0 16px;
 }
@@ -591,7 +591,7 @@
 
 .sale-quotations-item-toolbar span {
   color: #6b6b6b;
-  font-size: 12px;
+  font-size: 10px;
   font-weight: 700;
   line-height: 18px;
 }
@@ -604,7 +604,7 @@
   color: #ffffff;
   cursor: pointer;
   font: inherit;
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 700;
   padding: 0 12px;
   white-space: nowrap;
@@ -623,7 +623,7 @@
   background: #fdf4f3;
   color: #a8322a;
   display: flex;
-  font-size: 12.5px;
+  font-size: 10.5px;
   font-weight: 600;
   gap: 8px;
   line-height: 18px;
@@ -652,7 +652,7 @@
   background: #ffffff;
   color: #2d2d2d;
   font: inherit;
-  font-size: 13px;
+  font-size: 11px;
   padding: 0 8px;
 }
 
@@ -692,7 +692,7 @@
 .sale-quotations-total-list span,
 .sale-quotations-total-list strong {
   color: #2d2d2d;
-  font-size: 16px;
+  font-size: 14px;
   font-weight: 400;
   line-height: 24px;
 }
@@ -714,7 +714,7 @@
 .sale-quotations-total span,
 .sale-quotations-total strong {
   color: #2d2d2d;
-  font-size: 18px;
+  font-size: 16px;
   line-height: 28px;
 }
 
@@ -732,7 +732,7 @@
   background: #faf9f7;
   padding: 0 16px;
   color: #2d2d2d;
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 500;
 }
 
@@ -741,7 +741,7 @@
   border-radius: 8px;
   background: #faf9f7;
   color: #8b6f47;
-  font-size: 12px;
+  font-size: 10px;
   font-weight: 700;
   line-height: 18px;
   padding: 9px 11px;

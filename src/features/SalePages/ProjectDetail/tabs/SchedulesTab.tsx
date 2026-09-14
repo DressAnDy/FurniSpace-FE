@@ -16,7 +16,7 @@ type SchedulesTabProps = {
   project: ProjectDetailProject;
 };
 
-const scheduleTypeOptions: ProjectScheduleType[] = ['MEASUREMENT', 'CONSULTATION'];
+const scheduleTypeOptions: ProjectScheduleType[] = ['MEASUREMENT'];
 const scheduleStatusOptions: ProjectScheduleStatus[] = ['PENDING_CONFIRMATION', 'CONFIRMED', 'CANCELLED'];
 
 export function SchedulesTab({ project }: SchedulesTabProps) {
@@ -154,12 +154,6 @@ export function SchedulesTab({ project }: SchedulesTabProps) {
       <div className="project-detail-schedule-workspace">
         <form className="project-detail-schedule-form" onSubmit={handleCreateSchedule}>
           <h4>Create Schedule</h4>
-
-          <p className={project.assignedDesignerId ? 'project-detail-muted' : 'project-detail-form-message project-detail-form-message-error'}>
-            {project.assignedDesignerId
-              ? 'This schedule will be assigned to the project designer.'
-              : 'No designer is assigned to this project yet.'}
-          </p>
 
           <div className="project-detail-schedule-form-grid">
             <label>

@@ -159,6 +159,36 @@
   border-color: rgba(180, 35, 24, 0.28);
 }
 
+.product-issue-status-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.product-issue-status-tabs button {
+  background: #ffffff;
+  border: 1px solid rgba(166, 124, 82, 0.28);
+  border-radius: 10px;
+  color: #5c4a3a;
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 800;
+  min-height: 34px;
+  padding: 7px 11px;
+}
+
+.product-issue-status-tabs button:hover {
+  background: #f7efe4;
+  border-color: rgba(166, 124, 82, 0.45);
+}
+
+.product-issue-status-tabs .is-active {
+  background: #312721;
+  border-color: #312721;
+  color: #ffffff;
+}
+
 .product-issue-list {
   display: grid;
   gap: 10px;
@@ -173,7 +203,7 @@
   cursor: pointer;
   display: grid;
   gap: 12px;
-  grid-template-columns: auto minmax(180px, 1fr) minmax(160px, auto);
+  grid-template-columns: auto minmax(180px, 1fr) minmax(160px, auto) auto;
   padding: 14px;
   text-align: left;
   transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
@@ -216,6 +246,30 @@
   text-align: right;
 }
 
+.product-issue-resolution {
+  background: #ecfdf5;
+  border-radius: 999px;
+  color: #047857;
+  display: inline-flex;
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 900;
+  justify-self: end;
+  line-height: 1;
+  padding: 7px 10px;
+  white-space: nowrap;
+}
+
+.product-issue-resolution.is-open {
+  background: #fff7ed;
+  color: #c2410c;
+}
+
+.product-issue-resolution.is-resolved {
+  background: #ecfdf5;
+  color: #047857;
+}
+
 .product-issue-modal-backdrop {
   background: rgba(47, 38, 31, 0.45);
   display: grid;
@@ -224,6 +278,11 @@
   place-items: center;
   position: fixed;
   z-index: 1200;
+}
+
+.product-issue-nested-backdrop {
+  background: rgba(47, 38, 31, 0.28);
+  z-index: 1210;
 }
 
 .product-issue-modal {
@@ -432,6 +491,10 @@
   width: min(480px, 100%);
 }
 
+.product-issue-resolve-modal {
+  width: min(480px, 100%);
+}
+
 .product-issue-detail-loading {
   color: #7a6d63;
   font-size: 13px;
@@ -513,6 +576,10 @@
   font-weight: 800;
   line-height: 1.35;
   word-break: break-word;
+}
+
+.product-issue-detail-meta .product-issue-resolution {
+  justify-self: start;
 }
 
 .product-issue-detail-section {
@@ -602,6 +669,10 @@
   .product-issue-row > span:last-child {
     justify-items: start;
     text-align: left;
+  }
+
+  .product-issue-resolution {
+    justify-self: start;
   }
 
   .product-issue-modal {

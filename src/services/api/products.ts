@@ -1,5 +1,6 @@
 import axios, { AxiosError } from 'axios';
 
+import { DirectUploadStorageError, directUploadFile } from './directUpload';
 import { getStoredAccessToken } from './tokenStore';
 
 declare module 'axios' {
@@ -448,6 +449,10 @@ const PRODUCT_PREVIEW_ERROR_MESSAGES: Record<string, string> = {
 };
 
 export function getProductServiceResultMessage(error: unknown) {
+  if (error instanceof DirectUploadStorageError) {
+    return error.message;
+  }
+
   const result = getProductServiceResultFromError(error);
 
   if (!result) {
@@ -764,29 +769,21 @@ export async function uploadProductPreviewFile(
     onUploadProgress?: (progressPercent: number) => void;
   },
 ) {
-  const formData = new FormData();
-  formData.append('file', file);
-
-  if (options?.description?.trim()) {
-    formData.append('description', options.description.trim());
-  }
-
-  if (options?.displayOrder != null) {
-    formData.append('displayOrder', String(options.displayOrder));
-  }
-
-  const response = await productApiClient.post<ServiceResult<ProductPreviewImageUploadDto>>(`/products/${productId}/preview-files`, formData, {
-    onUploadProgress: (event) => {
-      if (!options?.onUploadProgress || !event.total) {
-        return;
-      }
-
-      const progressPercent = Math.min(100, Math.round((event.loaded / event.total) * 100));
-      options.onUploadProgress(progressPercent);
+  return directUploadFile<ProductPreviewImageUploadDto>({
+    apiClient: productApiClient,
+    completeBody: {
+      description: options?.description?.trim() || undefined,
+      displayOrder: options?.displayOrder,
+      fileType: 'PRODUCT_PREVIEW',
     },
+    completeEndpoint: `/products/${productId}/preview-files/complete`,
+    file,
+    onUploadProgress: options?.onUploadProgress,
+    prepareBody: {
+      fileType: 'PRODUCT_PREVIEW',
+    },
+    prepareEndpoint: `/products/${productId}/preview-files/upload-url`,
   });
-
-  return response.data.data;
 }
 
 export async function reorderProductPreviewImages(productId: string, fileIds: string[]) {
@@ -810,26 +807,22 @@ export async function uploadProductVersionFile(
   description?: string | null,
   options: RequestBehaviorOptions = {},
 ) {
-  const formData = new FormData();
   const uploadFile = normalizeProductVersionUploadFile(file, fileType);
 
-  formData.append('file', uploadFile);
-  formData.append('fileType', fileType);
-  formData.append('visibility', 'CUSTOMER_VISIBLE');
-
-  if (description?.trim()) {
-    formData.append('description', description.trim());
-  }
-
-  const response = await productApiClient.post<ServiceResult<CatalogFileUploadResponseDto>>(
-    `/api/ProductVersions/product-versions/${productVersionId}/files`,
-    formData,
-    {
+  return directUploadFile<CatalogFileUploadResponseDto>({
+    apiClient: productApiClient,
+    completeEndpoint: `/api/ProductVersions/product-versions/${productVersionId}/files/complete`,
+    file: uploadFile,
+    prepareBody: {
+      description: description?.trim() || undefined,
+      fileType,
+      visibility: 'CUSTOMER_VISIBLE',
+    },
+    prepareEndpoint: `/api/ProductVersions/product-versions/${productVersionId}/files/upload-url`,
+    requestConfig: {
       skipAuthRedirect: options.skipAuthRedirect,
     },
-  );
-
-  return response.data.data;
+  });
 }
 
 function normalizeProductVersionUploadFile(file: File, fileType: ProductVersionFileType) {

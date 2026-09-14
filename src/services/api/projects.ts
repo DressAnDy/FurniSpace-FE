@@ -1,6 +1,11 @@
 import axios, { AxiosError } from 'axios';
 
 import { shouldRedirectUnauthorized } from '@/shared/config/authPreview';
+import {
+  DirectUploadStorageError,
+  directUploadFile,
+  resolveDirectUploadContentType,
+} from './directUpload';
 import { getStoredAccessToken } from './tokenStore';
 
 const projectApiClient = axios.create({
@@ -207,6 +212,31 @@ export type ProjectFileListParams = {
   limit?: number;
 };
 
+export type ProjectFileUploadOptions = {
+  fileType?: FileType;
+  visibility?: FileVisibility;
+  note?: string | null;
+  onUploadProgress?: (progressPercent: number) => void;
+};
+
+/** JSON body for POST /projects/{projectId}/files/upload-url */
+export type ProjectFileUploadUrlRequest = {
+  originalFileName: string;
+  contentType: string;
+  fileSizeBytes: number;
+  fileType: FileType;
+  visibility?: FileVisibility;
+  note?: string;
+};
+
+export type ProjectFileUploadUrlResponse = {
+  fileId: string;
+  projectId: string;
+  uploadUrl: string;
+  contentType: string;
+  expiresAt: string;
+};
+
 export type AssignSalesData = {
   projectId: string;
   assignedSalesId: string;
@@ -368,7 +398,18 @@ export type UpdateProductionDeadlineInput = {
   productionDeadline: string;
 };
 
+export class ProjectFileStorageUploadError extends Error {
+  constructor(message = 'Cannot upload file to storage. Please try again.') {
+    super(message);
+    this.name = 'ProjectFileStorageUploadError';
+  }
+}
+
 export function getProjectServiceResultMessage(error: unknown) {
+  if (error instanceof ProjectFileStorageUploadError || error instanceof DirectUploadStorageError) {
+    return error.message;
+  }
+
   const result = getProjectServiceResultFromError(error);
 
   if (!result) {
@@ -572,27 +613,124 @@ export async function getProjectFiles(params: ProjectFileListParams) {
   return response.data.data;
 }
 
-export async function uploadProjectFile(
-  projectId: string,
+export function resolveProjectFileContentType(file: Pick<File, 'name' | 'type'>) {
+  return resolveDirectUploadContentType(file);
+}
+
+export function buildProjectFileUploadUrlBody(file: File, options: ProjectFileUploadOptions = {}): ProjectFileUploadUrlRequest {
+  const contentType = resolveProjectFileContentType(file);
+  const body: ProjectFileUploadUrlRequest = {
+    originalFileName: file.name,
+    contentType,
+    fileSizeBytes: file.size,
+    fileType: options.fileType ?? inferProjectFileType(file, contentType),
+  };
+
+  if (options.visibility) {
+    body.visibility = options.visibility;
+  }
+
+  const note = options.note?.trim();
+
+  if (note) {
+    body.note = note;
+  }
+
+  return body;
+}
+
+export function createProjectFileUploadProgressReporter(fileCount: number, onChange: (progressPercent: number) => void) {
+  const progress = Array.from({ length: Math.max(fileCount, 1) }, () => 0);
+
+  return (fileIndex: number, progressPercent: number) => {
+    if (fileIndex < 0 || fileIndex >= progress.length) {
+      return;
+    }
+
+    progress[fileIndex] = Math.min(100, Math.max(0, progressPercent));
+    const average = progress.reduce((sum, value) => sum + value, 0) / progress.length;
+    onChange(Math.round(average));
+  };
+}
+
+export async function uploadProjectFile(projectId: string, file: File, options: ProjectFileUploadOptions = {}) {
+  try {
+    return await directUploadFile<ProjectFileUploadResponseDto, Omit<ProjectFileUploadUrlRequest, 'originalFileName' | 'contentType' | 'fileSizeBytes'>>({
+      apiClient: projectApiClient,
+      completeEndpoint: `/projects/${projectId}/files/complete`,
+      file,
+      onUploadProgress: options.onUploadProgress,
+      prepareBody: getProjectFileUploadMetadata(file, options),
+      prepareEndpoint: `/projects/${projectId}/files/upload-url`,
+    });
+  } catch (error) {
+    if (!isLegacyProjectFileUploadFallback(error)) {
+      throw error;
+    }
+
+    return uploadProjectFileMultipart(projectId, file, options);
+  }
+}
+
+function getProjectFileUploadMetadata(
   file: File,
-  options: {
-    fileType?: FileType;
-    visibility?: FileVisibility;
-    note?: string | null;
-  } = {},
-) {
+  options: ProjectFileUploadOptions = {},
+): Omit<ProjectFileUploadUrlRequest, 'originalFileName' | 'contentType' | 'fileSizeBytes'> {
+  const contentType = resolveProjectFileContentType(file);
+  const body: Omit<ProjectFileUploadUrlRequest, 'originalFileName' | 'contentType' | 'fileSizeBytes'> = {
+    fileType: options.fileType ?? inferProjectFileType(file, contentType),
+  };
+
+  if (options.visibility) {
+    body.visibility = options.visibility;
+  }
+
+  const note = options.note?.trim();
+
+  if (note) {
+    body.note = note;
+  }
+
+  return body;
+}
+
+async function uploadProjectFileMultipart(projectId: string, file: File, options: ProjectFileUploadOptions) {
+  const contentType = resolveProjectFileContentType(file);
   const formData = new FormData();
   formData.append('file', file);
-  formData.append('fileType', options.fileType ?? inferProjectFileType(file));
-  formData.append('visibility', options.visibility ?? 'CUSTOMER_VISIBLE');
+  formData.append('fileType', options.fileType ?? inferProjectFileType(file, contentType));
+
+  if (options.visibility) {
+    formData.append('visibility', options.visibility);
+  }
 
   if (options.note?.trim()) {
     formData.append('note', options.note.trim());
   }
 
-  const response = await projectApiClient.post<ServiceResult<ProjectFileUploadResponseDto>>(`/projects/${projectId}/files`, formData);
+  const response = await projectApiClient.post<ServiceResult<ProjectFileUploadResponseDto>>(`/projects/${projectId}/files`, formData, {
+    onUploadProgress: (event) => {
+      if (!options.onUploadProgress || !event.total) {
+        return;
+      }
+
+      options.onUploadProgress(Math.min(95, Math.round((event.loaded / event.total) * 95)));
+    },
+  });
+
+  options.onUploadProgress?.(100);
 
   return response.data.data;
+}
+
+function isLegacyProjectFileUploadFallback(error: unknown) {
+  if (!(error instanceof AxiosError)) {
+    return false;
+  }
+
+  const status = error.response?.status;
+
+  return status === 404 || status === 405;
 }
 
 export async function assignSalesToProject(projectId: string, note?: string | null) {
@@ -627,12 +765,12 @@ export function normalizeOptionalNumber(value: FormDataEntryValue | string | nul
   return Number.isFinite(numberValue) ? numberValue : null;
 }
 
-function inferProjectFileType(file: File): FileType {
-  if (file.type === 'application/pdf') {
+function inferProjectFileType(file: File, contentType = resolveProjectFileContentType(file)): FileType {
+  if (contentType === 'application/pdf') {
     return 'FLOOR_PLAN';
   }
 
-  if (file.type.startsWith('image/')) {
+  if (contentType.startsWith('image/')) {
     return 'REFERENCE_IMAGE';
   }
 
@@ -713,6 +851,12 @@ function getProjectErrorCodeMessage(errorCode: string) {
     RELATED_ORDER_NOT_COMPLETED: 'Đơn hàng liên quan chưa hoàn tất. Vui lòng chờ thanh toán cuối được xác nhận hoặc hoàn tất đơn hàng zero-remaining.',
     RELATED_ORDER_NOT_FOUND: 'Không tìm thấy đơn hàng liên quan đến dự án.',
     DELIVERY_NOT_CONFIRMED: 'Khách hàng chưa xác nhận nhận hàng hoặc vẫn còn hạng mục chưa giao.',
+    PROJECT_FILE_UPLOAD_OBJECT_MISSING: 'The file was not found in storage. Please retry the upload.',
+    PROJECT_FILE_UPLOAD_SIZE_MISMATCH: 'Uploaded file size does not match the selected file. Please retry the upload.',
+    PROJECT_FILE_UPLOAD_CONTENT_TYPE_MISMATCH: 'Uploaded file type does not match the selected file. Please retry the upload.',
+    PROJECT_FILE_UPLOAD_NOT_PENDING: 'This file upload can no longer be completed. Please start the upload again.',
+    PROJECT_FILE_UPLOAD_FORBIDDEN: 'You do not have permission to complete this file upload.',
+    PROJECT_FILE_UPLOAD_NOT_FOUND: 'This file upload was not found for the project.',
   };
 
   return messages[errorCode] ?? 'Request failed. Please try again.';

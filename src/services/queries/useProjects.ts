@@ -31,6 +31,7 @@ import {
   type UpdateProjectStatusInput,
 } from '@/services/api/projects';
 import { projectChatQueryKeys } from './useProjectChats';
+import { projectScheduleQueryKeys } from './useSchedules';
 
 export const projectQueryKeys = {
   all: ['projects'] as const,
@@ -107,11 +108,13 @@ export function useUploadProjectFile() {
       fileType?: FileType;
       visibility?: FileVisibility;
       note?: string | null;
+      onUploadProgress?: (progressPercent: number) => void;
     }) =>
       uploadProjectFile(input.projectId, input.file, {
         fileType: input.fileType,
         visibility: input.visibility,
         note: input.note,
+        onUploadProgress: input.onUploadProgress,
       }),
     onSuccess: (_data, input) => {
       void queryClient.invalidateQueries({
@@ -194,6 +197,7 @@ export function useAssignSalesToProject() {
       void queryClient.invalidateQueries({ queryKey: projectQueryKeys.detail(data.projectId) });
       void queryClient.invalidateQueries({ queryKey: projectQueryKeys.workflow(data.projectId) });
       void queryClient.invalidateQueries({ queryKey: projectChatQueryKeys.all });
+      void queryClient.invalidateQueries({ queryKey: projectScheduleQueryKeys.all });
     },
   });
 }
@@ -208,6 +212,7 @@ export function useAssignDesignerToProject() {
       void queryClient.invalidateQueries({ queryKey: projectQueryKeys.detail(data.projectId) });
       void queryClient.invalidateQueries({ queryKey: projectQueryKeys.workflow(data.projectId) });
       void queryClient.invalidateQueries({ queryKey: projectChatQueryKeys.all });
+      void queryClient.invalidateQueries({ queryKey: projectScheduleQueryKeys.all });
     },
   });
 }
@@ -324,4 +329,5 @@ function invalidateProjectCaches(queryClient: ReturnType<typeof useQueryClient>,
   void queryClient.invalidateQueries({ queryKey: projectQueryKeys.all });
   void queryClient.invalidateQueries({ queryKey: projectQueryKeys.detail(projectId) });
   void queryClient.invalidateQueries({ queryKey: projectChatQueryKeys.all });
+  void queryClient.invalidateQueries({ queryKey: projectScheduleQueryKeys.all });
 }

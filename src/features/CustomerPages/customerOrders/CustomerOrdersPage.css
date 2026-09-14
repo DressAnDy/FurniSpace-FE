@@ -17,7 +17,7 @@
 .customer-orders-heading h1 {
   margin: 0;
   color: #2f2a24;
-  font-size: 34px;
+  font-size: 32px;
   font-weight: 700;
 }
 
@@ -25,7 +25,7 @@
 .customer-orders-muted {
   margin: 8px 0 0;
   color: #756b61;
-  font-size: 15px;
+  font-size: 13px;
   line-height: 24px;
 }
 
@@ -41,7 +41,7 @@
 .customer-orders-message {
   margin-bottom: 16px;
   padding: 13px 15px;
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 700;
 }
 
@@ -78,7 +78,7 @@
 .customer-orders-card h2 {
   margin: 0;
   color: #2f2a24;
-  font-size: 19px;
+  font-size: 17px;
   font-weight: 700;
 }
 
@@ -86,7 +86,7 @@
 .customer-orders-card header p {
   margin: 6px 0 0;
   color: #756b61;
-  font-size: 14px;
+  font-size: 12px;
   line-height: 22px;
 }
 
@@ -111,7 +111,7 @@
 .customer-orders-panel-pagination p {
   margin: 0;
   color: #756b61;
-  font-size: 12px;
+  font-size: 10px;
   line-height: 1.2;
 }
 
@@ -183,7 +183,7 @@
   background: #fbfaf7;
   color: #2f2a24;
   font: inherit;
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 700;
   outline: 0;
   padding: 0 12px;
@@ -201,14 +201,14 @@
 }
 
 .customer-orders-project-list strong {
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 800;
 }
 
 .customer-orders-project-list span,
 .customer-orders-project-list em {
   color: #7f7368;
-  font-size: 12px;
+  font-size: 10px;
   font-style: normal;
   font-weight: 700;
 }
@@ -240,7 +240,7 @@
 .customer-orders-metrics span,
 .customer-orders-money-grid span {
   color: #8d8174;
-  font-size: 12px;
+  font-size: 10px;
   font-weight: 800;
   text-transform: uppercase;
 }
@@ -250,7 +250,7 @@
   display: block;
   margin-top: 8px;
   color: #2f2a24;
-  font-size: 22px;
+  font-size: 20px;
   font-weight: 800;
   line-height: 30px;
 }
@@ -270,7 +270,7 @@
 
 .customer-orders-order-list strong {
   color: #2f2a24;
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 800;
   line-height: 18px;
   overflow: hidden;
@@ -330,7 +330,7 @@
 
 .customer-orders-accordion summary > span {
   color: #2f2a24;
-  font-size: 15px;
+  font-size: 13px;
   font-weight: 900;
 }
 
@@ -343,7 +343,7 @@
 
 .customer-orders-accordion summary em {
   color: #756b61;
-  font-size: 12px;
+  font-size: 10px;
   font-style: normal;
   font-weight: 800;
   white-space: nowrap;
@@ -398,7 +398,7 @@
   color: #ffffff;
   cursor: pointer;
   font: inherit;
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 900;
   padding: 0 14px;
 }
@@ -439,7 +439,7 @@
 
 .customer-orders-payment-panel strong {
   color: #2f2a24;
-  font-size: 15px;
+  font-size: 13px;
 }
 
 .customer-orders-payment-panel button {
@@ -450,7 +450,7 @@
   color: #ffffff;
   cursor: pointer;
   font: inherit;
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 900;
   padding: 0 14px;
 }
@@ -543,7 +543,7 @@
 .customer-orders-delivery-summary-grid strong {
   margin: 4px 0 0;
   color: #2f2a24;
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 800;
   line-height: 20px;
   overflow-wrap: anywhere;
@@ -555,7 +555,7 @@
 .customer-orders-delivery-batches p {
   margin: 0;
   color: #756b61;
-  font-size: 12px;
+  font-size: 10px;
   font-weight: 700;
   line-height: 18px;
 }
@@ -657,7 +657,7 @@
   background: #ffffff;
   color: #2f2a24;
   font: inherit;
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 700;
   line-height: 1.4;
   outline: 0;
@@ -701,7 +701,7 @@
 .customer-orders-table-wrap td {
   border-top: 1px solid rgba(139, 111, 71, 0.12);
   color: #5f5244;
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 700;
   padding: 15px 14px;
 }
@@ -714,7 +714,7 @@
   color: #ffffff;
   cursor: pointer;
   font: inherit;
-  font-size: 12px;
+  font-size: 10px;
   font-weight: 900;
   padding: 0 12px;
 }
@@ -738,7 +738,7 @@
   border-radius: 10px;
   background: #fbfaf7;
   color: #5f5244;
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 800;
   padding: 12px;
 }

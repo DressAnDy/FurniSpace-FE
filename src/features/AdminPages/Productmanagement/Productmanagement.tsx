@@ -1,5 +1,5 @@
 import { type FormEvent, useEffect, useMemo, useState } from 'react';
-import { IconArchive, IconCheck, IconClock, IconEdit, IconPackage, IconPlus, IconSearch, IconX } from '@tabler/icons-react';
+import { IconArchive, IconCheck, IconEdit, IconPackage, IconPlus, IconSearch, IconX } from '@tabler/icons-react';
 import { useNavigate } from 'react-router-dom';
 
 import { getBusinessTypeServiceResultMessage, getProductServiceResultMessage, normalizeBusinessTypeIds, normalizeOptionalText, normalizeRequiredText } from '@/services/api';
@@ -87,10 +87,9 @@ export function Productmanagement() {
     const customerSpecificCount = products.filter(isCustomerSpecificProduct).length;
 
     return [
-      { label: 'Published', value: countStatus(['ACTIVE']), helper: 'Visible catalog items', icon: IconCheck, tone: 'green' },
-      { label: 'Pending', value: countStatus(['PENDING', 'PENDING_APPROVAL']), helper: 'Waiting approval', icon: IconClock, tone: 'gold' },
-      { label: 'Archived', value: countStatus(['ARCHIVED']), helper: 'Stored product records', icon: IconArchive, tone: 'dark' },
-      { label: 'Customer Specific', value: customerSpecificCount, helper: 'Project/customer-specific products', icon: IconPackage, tone: 'blue' },
+      { label: 'Published', value: countStatus(['ACTIVE']), icon: IconCheck, tone: 'green' },
+      { label: 'Archived', value: countStatus(['ARCHIVED']), icon: IconArchive, tone: 'dark' },
+      { label: 'Customer Specific', value: customerSpecificCount, icon: IconPackage, tone: 'blue' },
     ];
   }, [productListQuery.data?.items]);
 
@@ -112,6 +111,10 @@ export function Productmanagement() {
     const businessTypeIds = normalizeBusinessTypeIds(formData.getAll('business_type_ids').map((value) => Number(value)));
 
     if (!productName || !categoryId) {
+      return;
+    }
+
+    if (productName.length < 2) {
       return;
     }
 
@@ -157,12 +160,11 @@ export function Productmanagement() {
             </div>
 
             <section className="product-stat-grid" aria-label="Product status overview">
-              {productStats.map(({ label, value, helper, icon: Icon, tone }) => (
+              {productStats.map(({ label, value, icon: Icon, tone }) => (
                 <article className="product-stat-card" key={label}>
                   <div className="product-stat-copy">
                     <span>{label}</span>
                     <strong>{value}</strong>
-                    <p>{helper}</p>
                   </div>
                   <div className={`product-stat-icon product-stat-icon-${tone}`}>
                     <Icon size={22} />
@@ -257,7 +259,7 @@ export function Productmanagement() {
                 </aside>
 
                 <div className="product-management-results-panel">
-                  {productListQuery.isLoading ? <div className="product-management-state">Loading products from API...</div> : null}
+                  {productListQuery.isLoading ? <div className="product-management-state">Loading products...</div> : null}
 
                   {productListQuery.isError ? (
                     <div className="product-management-state product-management-state-error">
@@ -284,9 +286,11 @@ export function Productmanagement() {
                     return (
                       <article key={product.productId} className="product-card">
                         <div className="product-card-media">
-                          <span className={`product-card-status ${statusClassName[product.status] ?? 'product-management-status-archived'}`}>
-                            {product.status}
-                          </span>
+                          {!isPendingProductStatus(product.status) ? (
+                            <span className={`product-card-status ${statusClassName[product.status] ?? 'product-management-status-archived'}`}>
+                              {product.status}
+                            </span>
+                          ) : null}
                           {isCustomerSpecificProduct(product) ? (
                             <span className="product-card-specific-badge">Customer Specific</span>
                           ) : null}
@@ -358,6 +362,7 @@ export function Productmanagement() {
                                   className="admin-form-input"
                                   defaultValue={product.productName}
                                   maxLength={150}
+                                  minLength={2}
                                   name="product_name"
                                   required
                                   type="text"
@@ -406,13 +411,10 @@ export function Productmanagement() {
                                 <textarea
                                   className="admin-form-textarea"
                                   defaultValue={product.description ?? ''}
+                                  maxLength={1000}
                                   name="description"
                                 />
                               </label>
-
-                              <div className="product-form-note product-card-edit-note">
-                                Product code cannot be updated from this endpoint.
-                              </div>
 
                               {updateProductMutation.isError ? (
                                 <p className="product-form-error">{getProductServiceResultMessage(updateProductMutation.error)}</p>
@@ -464,6 +466,10 @@ export function Productmanagement() {
 }
 
 export default Productmanagement;
+
+function isPendingProductStatus(status: string | null | undefined) {
+  return status === 'PENDING' || status === 'PENDING_APPROVAL';
+}
 
 function isCustomerSpecificProduct(product: {
   defaultVersion?: {

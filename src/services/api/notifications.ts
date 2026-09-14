@@ -31,6 +31,7 @@ export type NotificationType =
   | 'ProposalPublished'
   | 'ProjectChatMessageSent'
   | 'OrderCompleted'
+  | 'ProductionRequestAssigned'
   | 'ProductionDelayReported'
   | 'DeliveryDelayReported'
   | 'ProductIssueReported'

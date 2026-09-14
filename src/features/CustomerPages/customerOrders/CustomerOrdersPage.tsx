@@ -623,12 +623,6 @@ function DeliveryDetailsPanel({
 
   return (
     <section className="customer-orders-delivery-details">
-      <header>
-        <div>
-          <h2>{t.orders.deliveryDetails}</h2>
-        </div>
-        <span className={isComplete ? 'is-complete' : 'is-missing'}>{isComplete ? t.orders.complete : t.orders.required}</span>
-      </header>
       <div className="customer-orders-delivery-details-grid">
         <label>
           <span>{t.orders.address}</span>

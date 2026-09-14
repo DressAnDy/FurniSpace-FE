@@ -341,6 +341,13 @@ function syncBuildingShell(scene: BuildingTestScene, update: Partial<BuildingTes
     ...nextBuilding,
     levels: nextBuilding.levels.map((level) => ({
       ...level,
+      floorOpenings: (level.floorOpenings ?? []).map((opening) => ({
+        ...opening,
+        position: {
+          x: roundMetric(opening.position.x + deltaX),
+          z: roundMetric(opening.position.z + deltaZ),
+        },
+      })),
       layout: translateLayout(level.layout, deltaX, deltaZ) ?? level.layout,
     })),
   };
@@ -438,6 +445,15 @@ function updateLevel(
 
     return {
       ...updatedLevel,
+      floorOpenings: centerDeltaX || centerDeltaZ
+        ? (updatedLevel.floorOpenings ?? []).map((opening) => ({
+            ...opening,
+            position: {
+              x: roundMetric(opening.position.x + centerDeltaX),
+              z: roundMetric(opening.position.z + centerDeltaZ),
+            },
+          }))
+        : updatedLevel.floorOpenings,
       layout: updatedLevel.layout === level.layout
         ? translateLayout(updatedLevel.layout, centerDeltaX, centerDeltaZ) ?? updatedLevel.layout
         : updatedLevel.layout,

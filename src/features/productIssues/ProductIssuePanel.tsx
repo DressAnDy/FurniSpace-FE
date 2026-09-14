@@ -7,12 +7,15 @@ import {
   getProductIssueErrorMessage,
   type DeliveryProductIssueType,
   type ProductIssueReportDto,
+  type ProductIssueReportResolutionStatus,
 } from '@/services/api/productIssues';
 import {
+  useCurrentUser,
   useCreateProductIssue,
   useOrderProductIssues,
   useProductIssue,
   useProjectProductIssues,
+  useResolveProductIssue,
 } from '@/services/queries';
 
 import './ProductIssuePanel.css';
@@ -27,6 +30,8 @@ const issueTypes: DeliveryProductIssueType[] = [
   'QUANTITY_MISMATCH',
   'OTHER',
 ];
+
+const REPORT_STATUS_FILTERS: Array<'ALL' | ProductIssueReportResolutionStatus> = ['ALL', 'OPEN', 'RESOLVED'];
 
 type ProductIssuePanelProps = {
   orderId?: string;
@@ -53,6 +58,7 @@ export function ProductIssuePanel({
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
   const [selectedIssueId, setSelectedIssueId] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'ALL' | ProductIssueReportResolutionStatus>('OPEN');
   const [selectedOrderItemId, setSelectedOrderItemId] = useState('');
   const [issueType, setIssueType] = useState<DeliveryProductIssueType>('DAMAGED');
   const [description, setDescription] = useState('');
@@ -65,10 +71,18 @@ export function ProductIssuePanel({
     enabled: !orderId && Boolean(projectId),
   });
   const detailQuery = useProductIssue(selectedIssueId);
+  const currentUserQuery = useCurrentUser();
   const createMutation = useCreateProductIssue();
   const issues = useMemo(
     () => orderQuery.data?.items ?? projectQuery.data?.items ?? [],
     [orderQuery.data?.items, projectQuery.data?.items],
+  );
+  const filteredIssues = useMemo(
+    () =>
+      statusFilter === 'ALL'
+        ? issues
+        : issues.filter((issue) => getIssueResolutionStatus(issue) === statusFilter),
+    [issues, statusFilter],
   );
   const eligibleOrderItems = useMemo(
     () => orderItems.filter((item) => (item.deliveredQuantity ?? 0) > 0),
@@ -84,6 +98,7 @@ export function ProductIssuePanel({
     }
     return names;
   }, [orderItems]);
+  const canResolve = canResolveReports(currentUserQuery.data?.role);
 
   useEffect(() => {
     const issueId = searchParams.get('issueId');
@@ -193,28 +208,49 @@ export function ProductIssuePanel({
               {getProductIssueErrorMessage(activeQuery.error, 'Unable to load product issues.')}
             </p>
           ) : null}
-          {!activeQuery.isLoading && !activeQuery.isError && issues.length === 0 ? (
-            <p className="product-issue-state">No product issues reported.</p>
+          <div className="product-issue-status-tabs" role="tablist" aria-label="Product issue status">
+            {REPORT_STATUS_FILTERS.map((item) => (
+              <button
+                className={statusFilter === item ? 'is-active' : ''}
+                key={item}
+                role="tab"
+                type="button"
+                onClick={() => setStatusFilter(item)}
+              >
+                {item === 'ALL' ? 'All' : formatLabel(item)}
+              </button>
+            ))}
+          </div>
+          {!activeQuery.isLoading && !activeQuery.isError && filteredIssues.length === 0 ? (
+            <p className="product-issue-state">No {formatLabel(statusFilter).toLowerCase()} product issues reported.</p>
           ) : null}
 
           <div className="product-issue-list">
-            {issues.map((issue) => (
-              <button
-                className="product-issue-row"
-                key={issue.deliveryProductIssueReportId}
-                type="button"
-                onClick={() => setSelectedIssueId(issue.deliveryProductIssueReportId)}
-              >
-                <IconAlertCircle size={20} />
-                <span>
-                  <strong>{formatLabel(issue.issueType)}</strong>
-                </span>
-                <span>
-                  <strong>{issue.affectedQuantity ? `${issue.affectedQuantity} affected` : 'Quantity not specified'}</strong>
-                  <small>{formatDateTime(issue.reportedAt)}</small>
-                </span>
-              </button>
-            ))}
+            {filteredIssues.map((issue) => {
+              const resolutionStatus = getIssueResolutionStatus(issue);
+
+              return (
+                <button
+                  className="product-issue-row"
+                  key={issue.deliveryProductIssueReportId}
+                  type="button"
+                  onClick={() => setSelectedIssueId(issue.deliveryProductIssueReportId)}
+                >
+                  <IconAlertCircle size={20} />
+                  <span>
+                    <strong>{formatLabel(issue.issueType)}</strong>
+                    <small>{issue.productNameSnapshot ?? productNameByOrderItemId.get(issue.orderItemId) ?? issue.orderItemId}</small>
+                  </span>
+                  <span>
+                    <strong>{issue.affectedQuantity ? `${issue.affectedQuantity} affected` : 'Quantity not specified'}</strong>
+                    <small>{formatDateTime(issue.reportedAt)}</small>
+                  </span>
+                  <span className={`product-issue-resolution is-${resolutionStatus.toLowerCase()}`}>
+                    {formatLabel(resolutionStatus)}
+                  </span>
+                </button>
+              );
+            })}
           </div>
         </div>
       ) : null}
@@ -328,6 +364,7 @@ export function ProductIssuePanel({
 
       {selectedIssueId ? (
         <ProductIssueDetail
+          canResolve={canResolve}
           isLoading={detailQuery.isLoading}
           issue={detailQuery.data}
           productNameFallback={
@@ -343,16 +380,20 @@ export function ProductIssuePanel({
 }
 
 function ProductIssueDetail({
+  canResolve,
   isLoading,
   issue,
   onClose,
   productNameFallback,
 }: Readonly<{
+  canResolve: boolean;
   isLoading: boolean;
   issue?: ProductIssueReportDto;
   onClose: () => void;
   productNameFallback?: string;
 }>) {
+  const [isResolveOpen, setIsResolveOpen] = useState(false);
+
   return (
     <div className="product-issue-modal-backdrop">
       <dialog className="product-issue-modal product-issue-detail-modal" open>
@@ -373,6 +414,15 @@ function ProductIssueDetail({
               <Detail label="Affected quantity" value={issue.affectedQuantity?.toString() ?? '—'} />
               <Detail label="Reporter" value={issue.reporterName ?? issue.reportedBy} />
               <Detail label="Reported at" value={formatDateTime(issue.reportedAt)} />
+              <div>
+                <span>Status</span>
+                <strong>
+                  <em className={`product-issue-resolution is-${getIssueResolutionStatus(issue).toLowerCase()}`}>
+                    {formatLabel(getIssueResolutionStatus(issue))}
+                  </em>
+                </strong>
+              </div>
+              {issue.resolvedAt ? <Detail label="Resolved at" value={formatDateTime(issue.resolvedAt)} /> : null}
             </div>
 
             <section className="product-issue-detail-section">
@@ -399,9 +449,88 @@ function ProductIssueDetail({
                 <p className="product-issue-detail-empty">No evidence files.</p>
               )}
             </section>
+            {issue.resolutionNote ? (
+              <section className="product-issue-detail-section">
+                <span>Resolution note</span>
+                <p>{issue.resolutionNote}</p>
+              </section>
+            ) : null}
+
+            {canResolve && getIssueResolutionStatus(issue) === 'OPEN' ? (
+              <div className="product-issue-modal-actions">
+                <button className="product-issue-primary" type="button" onClick={() => setIsResolveOpen(true)}>
+                  Mark resolved
+                </button>
+              </div>
+            ) : null}
           </div>
         )}
       </dialog>
+      {isResolveOpen && issue ? (
+        <ResolveProductIssueModal issueId={issue.deliveryProductIssueReportId} onClose={() => setIsResolveOpen(false)} />
+      ) : null}
+    </div>
+  );
+}
+
+function ResolveProductIssueModal({
+  issueId,
+  onClose,
+}: Readonly<{
+  issueId: string;
+  onClose: () => void;
+}>) {
+  const [resolutionNote, setResolutionNote] = useState('');
+  const [error, setError] = useState('');
+  const resolveMutation = useResolveProductIssue();
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (resolutionNote.length > 4000) {
+      setError('Resolution note must be at most 4000 characters.');
+      return;
+    }
+
+    try {
+      setError('');
+      await resolveMutation.mutateAsync({
+        issueId,
+        resolutionNote,
+      });
+      onClose();
+    } catch (mutationError) {
+      setError(getProductIssueErrorMessage(mutationError, 'Unable to resolve the product issue.'));
+    }
+  }
+
+  return (
+    <div className="product-issue-modal-backdrop product-issue-nested-backdrop">
+      <form className="product-issue-modal product-issue-resolve-modal" onSubmit={handleSubmit}>
+        <ModalTitle title="Resolve product issue" onClose={onClose} />
+        <label className="product-issue-field-block product-issue-desc-block">
+          <div className="product-issue-field-heading">
+            <strong>Resolution note</strong>
+            <span>Optional</span>
+          </div>
+          <textarea
+            maxLength={4000}
+            rows={4}
+            value={resolutionNote}
+            onChange={(event) => {
+              setResolutionNote(event.target.value);
+              setError('');
+            }}
+          />
+        </label>
+        {error ? <p className="product-issue-form-error">{error}</p> : null}
+        <div className="product-issue-modal-actions">
+          <button type="button" onClick={onClose}>Cancel</button>
+          <button className="product-issue-primary" disabled={resolveMutation.isPending} type="submit">
+            {resolveMutation.isPending ? 'Resolving...' : 'Mark resolved'}
+          </button>
+        </div>
+      </form>
     </div>
   );
 }
@@ -416,6 +545,16 @@ function Detail({ label, value }: Readonly<{ label: string; value: string }>) {
 
 function getItemName(item: OrderItemDto) {
   return item.productNameSnapshot ?? item.itemName ?? item.productVersionNameSnapshot ?? item.orderItemId;
+}
+
+function getIssueResolutionStatus(issue: ProductIssueReportDto): ProductIssueReportResolutionStatus {
+  return issue.status ?? 'OPEN';
+}
+
+function canResolveReports(role?: string | null) {
+  const normalizedRole = (role ?? '').trim().replace(/[\s-]+/g, '_').toUpperCase();
+
+  return normalizedRole === 'ADMIN' || normalizedRole === 'SALES' || normalizedRole === 'SALE' || normalizedRole === 'PRODUCTION';
 }
 
 function formatLabel(value: string) {

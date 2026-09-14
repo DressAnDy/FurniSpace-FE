@@ -2,6 +2,7 @@ import axios, { AxiosError, type InternalAxiosRequestConfig } from 'axios';
 
 import { shouldRedirectUnauthorized } from '@/shared/config/authPreview';
 
+import { DirectUploadStorageError, directUploadFile } from './directUpload';
 import { getStoredAccessToken } from './tokenStore';
 
 const productIssueApiClient = axios.create({
@@ -44,6 +45,8 @@ export type DeliveryProductIssueType =
   | 'QUANTITY_MISMATCH'
   | 'OTHER';
 
+export type ProductIssueReportResolutionStatus = 'OPEN' | 'RESOLVED';
+
 export type ProductIssueEvidenceFileDto = {
   fileId: string;
   fileLinkId: string;
@@ -68,6 +71,9 @@ export type ProductIssueReportDto = {
   reporterName: string | null;
   reportedAt: string;
   createdAt: string;
+  status?: ProductIssueReportResolutionStatus;
+  resolvedAt?: string | null;
+  resolutionNote?: string | null;
   evidenceFiles?: ProductIssueEvidenceFileDto[];
 };
 
@@ -83,6 +89,17 @@ export type CreateProductIssueInput = {
   description: string;
   affectedQuantity?: number | null;
   files?: File[];
+};
+
+export type ResolveProductIssueInput = {
+  issueId: string;
+  resolutionNote?: string | null;
+};
+
+type ProductIssueEvidenceUploadResponse = ProductIssueEvidenceFileDto & {
+  fileUrl?: string;
+  publicUrl?: string;
+  url?: string;
 };
 
 type ServiceResult<T> = {
@@ -118,26 +135,50 @@ export async function getProductIssue(issueId: string) {
 }
 
 export async function createProductIssue(input: CreateProductIssueInput) {
-  const formData = new FormData();
-  formData.append('orderItemId', input.orderItemId);
-  formData.append('issueType', input.issueType);
-  formData.append('description', input.description);
-
-  if (input.deliveryItemId) formData.append('deliveryItemId', input.deliveryItemId);
-  if (input.affectedQuantity != null) {
-    formData.append('affectedQuantity', String(input.affectedQuantity));
-  }
-  input.files?.forEach((file) => formData.append('files', file));
+  const evidenceFiles = await Promise.all(
+    (input.files ?? []).map((file) => uploadProductIssueEvidenceFile(input.orderId, file)),
+  );
 
   const response = await productIssueApiClient.post<ServiceResult<ProductIssueReportDto>>(
     `/orders/${input.orderId}/product-issues`,
-    formData,
+    {
+      affectedQuantity: input.affectedQuantity ?? null,
+      deliveryItemId: input.deliveryItemId ?? null,
+      description: input.description,
+      evidenceFileIds: evidenceFiles.map((file) => file.fileId),
+      issueType: input.issueType,
+      orderItemId: input.orderItemId,
+    },
   );
 
   return response.data.data;
 }
 
+export async function resolveProductIssue(input: ResolveProductIssueInput) {
+  const response = await productIssueApiClient.patch<ServiceResult<ProductIssueReportDto>>(
+    `/product-issues/${input.issueId}/resolve`,
+    {
+      resolutionNote: input.resolutionNote?.trim() || null,
+    },
+  );
+
+  return response.data.data;
+}
+
+async function uploadProductIssueEvidenceFile(orderId: string, file: File) {
+  return directUploadFile<ProductIssueEvidenceUploadResponse>({
+    apiClient: productIssueApiClient,
+    completeEndpoint: `/orders/${orderId}/product-issues/evidence/complete`,
+    file,
+    prepareEndpoint: `/orders/${orderId}/product-issues/evidence/upload-url`,
+  });
+}
+
 export function getProductIssueErrorMessage(error: unknown, fallback = 'Unable to load product issues.') {
+  if (error instanceof DirectUploadStorageError) {
+    return error.message;
+  }
+
   if (!axios.isAxiosError(error)) return fallback;
 
   if (error.response?.status === 413) return 'One or more evidence files are too large.';
@@ -159,6 +200,8 @@ export function getProductIssueErrorMessage(error: unknown, fallback = 'Unable t
     PRODUCT_ISSUE_DELIVERY_ITEM_ORDER_ITEM_MISMATCH:
       'The selected delivery item does not match this order item.',
     PRODUCT_ISSUE_FORBIDDEN: 'You do not have permission to report an issue for this order.',
+    REPORT_RESOLUTION_NOTE_TOO_LONG: 'Resolution note must be at most 4000 characters.',
+    PRODUCT_ISSUE_RESOLUTION_NOTE_TOO_LONG: 'Resolution note must be at most 4000 characters.',
   };
 
   return (
