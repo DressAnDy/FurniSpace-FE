@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
 
 import {
   getDashboardServiceResultMessage,
@@ -33,6 +33,7 @@ export function useSalesActionQueue(params?: DashboardQueueQueryDto, enabled = t
     queryKey: dashboardQueryKeys.salesQueue(params),
     queryFn: () => getSalesActionQueue(params),
     enabled,
+    placeholderData: keepPreviousData,
   });
 }
 

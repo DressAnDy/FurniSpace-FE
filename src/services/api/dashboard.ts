@@ -109,11 +109,20 @@ export type DashboardQueueQueryDto = {
 };
 
 export type SalesDashboardKpisDto = {
-  newRequests: number;
-  waitingCustomer: number;
-  paymentFollowUp: number;
+  /** Projects currently assigned to the sales user, including COMPLETED and REJECTED. */
+  acceptedProjects?: number;
+  /** Orders with remaining payment created and not yet collected. Stock count, ignores dateRange. */
+  unpaidRemaining?: number;
+  /** Projects whose targetCompletionDate is before today (UTC). No status exclusion. */
   overdueTasks: number;
-  activeProjects: number;
+  /** Legacy. scope=mine stays 0 for unassigned SUBMITTED requests. FE counts those separately. */
+  newRequests?: number;
+  /** Legacy. Not used by the sales dashboard cards. */
+  waitingCustomer?: number;
+  /** Legacy. Broader than unpaidRemaining. Do not use for the remaining-payment card. */
+  paymentFollowUp?: number;
+  /** Legacy. Non-terminal projects. Do not use for the accepted-projects card. */
+  activeProjects?: number;
 };
 
 export type DesignerDashboardKpisDto = {
