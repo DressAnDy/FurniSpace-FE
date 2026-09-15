@@ -1,10 +1,11 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   IconArrowRight,
+  IconCalendarEvent,
   IconChecklist,
+  IconChevronLeft,
   IconChevronRight,
   IconEditCircle,
-  IconFileUpload,
   IconFilter,
   IconFlag,
   IconRefresh,
@@ -19,22 +20,33 @@ import type {
   DashboardDueBucket,
   DashboardPriority,
   DashboardQueueItemDto,
+  DesignerConfirmedMeasurementItemDto,
   DesignerDashboardKpisDto,
+  DesignerProposalConsultingItemDto,
+  DesignerRevisionRequestedItemDto,
 } from '@/services/api/dashboard';
 import {
   getDashboardServiceResultMessage,
+  useDesignerConfirmedMeasurementsList,
   useDesignerDashboardKpis,
+  useDesignerProposalConsultingList,
+  useDesignerRevisionRequestedList,
   useDesignerWorkQueue,
 } from '@/services/queries';
 
 import './DesignerDashbroad.css';
 
+type DetailPanel = 'queue' | 'confirmed-measurements' | 'proposal-consulting' | 'revision-requested';
+
 type KpiItem = {
   description: string;
   icon: Icon;
+  id: 'confirmed-measurements' | 'proposals' | 'revisions' | 'overdue';
   label: string;
   note: string;
-  path: string;
+  onSelect?: () => void;
+  path?: string;
+  selected?: boolean;
   tone: 'amber' | 'blue' | 'green' | 'red' | 'neutral';
   value: string;
 };
@@ -57,6 +69,7 @@ const PROJECT_FILTER_LABEL: Record<ProjectFilterKey, string> = {
 const ALL_PRIORITIES = 'All priorities';
 const priorityOptions = [ALL_PRIORITIES, 'HIGH', 'MEDIUM', 'LOW'];
 const DEFAULT_DESIGNER_GROUPS: string[] = ['Design'];
+const LIST_PAGE_SIZES = [5, 10, 20];
 
 export function DesignerDashbroad() {
   const [activeGroup, setActiveGroup] = useState<string>('Design');
@@ -64,12 +77,24 @@ export function DesignerDashbroad() {
   const [projectFilter, setProjectFilter] = useState<ProjectFilterKey>('assigned');
   const [priorityFilter, setPriorityFilter] = useState(ALL_PRIORITIES);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [detailPanel, setDetailPanel] = useState<DetailPanel>('queue');
+  const [measurementsPage, setMeasurementsPage] = useState(1);
+  const [measurementsPageSize, setMeasurementsPageSize] = useState(5);
+  const [consultingPage, setConsultingPage] = useState(1);
+  const [consultingPageSize, setConsultingPageSize] = useState(5);
+  const [revisionsPage, setRevisionsPage] = useState(1);
+  const [revisionsPageSize, setRevisionsPageSize] = useState(5);
   const [lastRefreshAt, setLastRefreshAt] = useState(() => new Date());
   const [isRefreshing, setIsRefreshing] = useState(false);
   const filterMenuRef = useRef<HTMLDivElement | null>(null);
 
   const apiDateRange = toApiDateRange(dateRange);
   const apiPriority = priorityFilter === ALL_PRIORITIES ? null : (priorityFilter as DashboardPriority);
+  const showConfirmedMeasurements = detailPanel === 'confirmed-measurements';
+  const showProposalConsulting = detailPanel === 'proposal-consulting';
+  const showRevisionRequested = detailPanel === 'revision-requested';
+  const showDetailPanel = showConfirmedMeasurements || showProposalConsulting || showRevisionRequested;
+
   const queueQuery = useDesignerWorkQueue({
     scope: 'mine',
     group: activeGroup,
@@ -82,6 +107,33 @@ export function DesignerDashbroad() {
     scope: 'mine',
     dateRange: apiDateRange,
   });
+  const confirmedMeasurementsQuery = useDesignerConfirmedMeasurementsList(
+    {
+      scope: 'mine',
+      dateRange: apiDateRange,
+      page: measurementsPage,
+      limit: measurementsPageSize,
+    },
+    showConfirmedMeasurements,
+  );
+  const proposalConsultingQuery = useDesignerProposalConsultingList(
+    {
+      scope: 'mine',
+      dateRange: apiDateRange,
+      page: consultingPage,
+      limit: consultingPageSize,
+    },
+    showProposalConsulting,
+  );
+  const revisionRequestedQuery = useDesignerRevisionRequestedList(
+    {
+      scope: 'mine',
+      dateRange: apiDateRange,
+      page: revisionsPage,
+      limit: revisionsPageSize,
+    },
+    showRevisionRequested,
+  );
 
   const queueItems = useMemo(() => {
     const items = queueQuery.data?.items ?? [];
@@ -99,10 +151,19 @@ export function DesignerDashbroad() {
     const fromApi = Object.keys(countsByGroup);
     return fromApi.length > 0 ? fromApi : DEFAULT_DESIGNER_GROUPS;
   }, [countsByGroup]);
+
+  const openDetailPanel = useCallback((panel: Exclude<DetailPanel, 'queue'>) => {
+    setDetailPanel((current) => (current === panel ? 'queue' : panel));
+    if (panel === 'confirmed-measurements') setMeasurementsPage(1);
+    if (panel === 'proposal-consulting') setConsultingPage(1);
+    if (panel === 'revision-requested') setRevisionsPage(1);
+  }, []);
+
   const visibleKpis = useMemo(
-    () => mapDesignerKpis(kpisQuery.data, DATE_RANGE_LABEL[dateRange]),
-    [dateRange, kpisQuery.data],
+    () => mapDesignerKpis(kpisQuery.data, DATE_RANGE_LABEL[dateRange], detailPanel, openDetailPanel),
+    [dateRange, detailPanel, kpisQuery.data, openDetailPanel],
   );
+
   const refreshTime = new Intl.DateTimeFormat('en-US', { hour: '2-digit', minute: '2-digit' }).format(lastRefreshAt);
   const isLoading = queueQuery.isLoading || kpisQuery.isLoading;
   const loadError = queueQuery.error
@@ -110,6 +171,15 @@ export function DesignerDashbroad() {
     : kpisQuery.error
       ? getDashboardServiceResultMessage(kpisQuery.error)
       : null;
+  const measurementsError = confirmedMeasurementsQuery.error
+    ? getDashboardServiceResultMessage(confirmedMeasurementsQuery.error)
+    : null;
+  const consultingError = proposalConsultingQuery.error
+    ? getDashboardServiceResultMessage(proposalConsultingQuery.error)
+    : null;
+  const revisionsError = revisionRequestedQuery.error
+    ? getDashboardServiceResultMessage(revisionRequestedQuery.error)
+    : null;
   const activeFilterCount = Number(priorityFilter !== ALL_PRIORITIES);
   const hasActiveFilters = activeFilterCount > 0;
   const primaryActionLabel =
@@ -118,6 +188,26 @@ export function DesignerDashbroad() {
       : projectFilter === 'overdue'
         ? 'Open At-Risk Projects'
         : 'Open Assigned Projects';
+  const measurementsTotal = confirmedMeasurementsQuery.data?.total ?? 0;
+  const measurementsTotalPages = Math.max(1, Math.ceil(measurementsTotal / measurementsPageSize));
+  const consultingTotal = proposalConsultingQuery.data?.total ?? 0;
+  const consultingTotalPages = Math.max(1, Math.ceil(consultingTotal / consultingPageSize));
+  const revisionsTotal = revisionRequestedQuery.data?.total ?? 0;
+  const revisionsTotalPages = Math.max(1, Math.ceil(revisionsTotal / revisionsPageSize));
+  const detailTitle = showConfirmedMeasurements
+    ? 'Confirmed Measurements'
+    : showProposalConsulting
+      ? 'Proposal Consulting'
+      : showRevisionRequested
+        ? 'Revision Requests'
+        : 'Main Design Work Queue';
+  const detailSubtitle = showConfirmedMeasurements
+    ? `Confirmed measurement schedules for ${DATE_RANGE_LABEL[dateRange].toLowerCase()}.`
+    : showProposalConsulting
+      ? `Projects in Proposal Consulting for ${DATE_RANGE_LABEL[dateRange].toLowerCase()}.`
+      : showRevisionRequested
+        ? `Proposals with customer revision requests for ${DATE_RANGE_LABEL[dateRange].toLowerCase()}.`
+        : `Prioritized work for ${DATE_RANGE_LABEL[dateRange].toLowerCase()} · ${PROJECT_FILTER_LABEL[projectFilter]}.`;
 
   useEffect(() => {
     setActiveGroup((current) => {
@@ -128,6 +218,12 @@ export function DesignerDashbroad() {
       return workGroups[0] ?? current;
     });
   }, [workGroups]);
+
+  useEffect(() => {
+    setMeasurementsPage(1);
+    setConsultingPage(1);
+    setRevisionsPage(1);
+  }, [dateRange]);
 
   useEffect(() => {
     if (!isFilterOpen) {
@@ -164,7 +260,13 @@ export function DesignerDashbroad() {
 
     setIsRefreshing(true);
     try {
-      await Promise.all([queueQuery.refetch(), kpisQuery.refetch()]);
+      await Promise.all([
+        queueQuery.refetch(),
+        kpisQuery.refetch(),
+        showConfirmedMeasurements ? confirmedMeasurementsQuery.refetch() : Promise.resolve(),
+        showProposalConsulting ? proposalConsultingQuery.refetch() : Promise.resolve(),
+        showRevisionRequested ? revisionRequestedQuery.refetch() : Promise.resolve(),
+      ]);
       setLastRefreshAt(new Date());
     } finally {
       setIsRefreshing(false);
@@ -196,7 +298,15 @@ export function DesignerDashbroad() {
         <section className="designer-ops-filter-bar" aria-label="Designer dashboard filters">
           <label>
             <span>Date range</span>
-            <select value={dateRange} onChange={(event) => setDateRange(event.target.value as DateRangeKey)}>
+            <select
+              value={dateRange}
+              onChange={(event) => {
+                setDateRange(event.target.value as DateRangeKey);
+                setMeasurementsPage(1);
+                setConsultingPage(1);
+                setRevisionsPage(1);
+              }}
+            >
               <option value="today">Today</option>
               <option value="this-week">This week</option>
               <option value="this-month">This month</option>
@@ -216,135 +326,226 @@ export function DesignerDashbroad() {
         </section>
 
         <section className="designer-ops-kpi-grid">
-          {visibleKpis.map(({ description, icon: KpiIcon, label, note, path, tone, value }) => (
-            <Link className={`designer-ops-kpi designer-ops-kpi-${tone}`} key={label} title={description} to={path}>
-              <span><KpiIcon size={19} /></span>
-              <div>
-                <small>{label}</small>
-                <strong>{value}</strong>
-                <p>{note}</p>
-              </div>
-            </Link>
-          ))}
+          {visibleKpis.map((kpi) => {
+            const content = (
+              <>
+                <span><kpi.icon size={19} /></span>
+                <div>
+                  <small>{kpi.label}</small>
+                  <strong>{kpi.value}</strong>
+                  <p>{kpi.note}</p>
+                </div>
+              </>
+            );
+
+            if (kpi.onSelect) {
+              return (
+                <button
+                  aria-pressed={kpi.selected}
+                  className={`designer-ops-kpi designer-ops-kpi-${kpi.tone}${kpi.selected ? ' is-selected' : ''}`}
+                  key={kpi.id}
+                  title={kpi.description}
+                  type="button"
+                  onClick={kpi.onSelect}
+                >
+                  {content}
+                </button>
+              );
+            }
+
+            return (
+              <Link
+                className={`designer-ops-kpi designer-ops-kpi-${kpi.tone}`}
+                key={kpi.id}
+                title={kpi.description}
+                to={kpi.path ?? '/designer'}
+              >
+                {content}
+              </Link>
+            );
+          })}
         </section>
 
         <section className="designer-ops-main-grid designer-ops-main-grid-single">
           <article className="designer-card designer-ops-work-queue">
             <header className="designer-ops-section-header">
               <div>
-                <h3>Main Design Work Queue</h3>
-                <p>
-                  Prioritized work for {DATE_RANGE_LABEL[dateRange].toLowerCase()}
-                  {` · ${PROJECT_FILTER_LABEL[projectFilter]}`}.
-                </p>
+                <h3>{detailTitle}</h3>
+                <p>{detailSubtitle}</p>
               </div>
-              <div className="designer-ops-filter-menu" ref={filterMenuRef}>
-                <button
-                  aria-expanded={isFilterOpen}
-                  aria-haspopup="dialog"
-                  aria-label="Filter work queue"
-                  className={hasActiveFilters || isFilterOpen ? 'designer-ops-filter-toggle is-active' : 'designer-ops-filter-toggle'}
-                  type="button"
-                  onClick={() => setIsFilterOpen((open) => !open)}
-                >
-                  <IconFilter size={18} />
-                  {hasActiveFilters ? <span>{activeFilterCount}</span> : null}
-                </button>
+              {showDetailPanel ? (
+                <div className="designer-ops-panel-actions">
+                  <Link
+                    className="designer-ops-panel-link"
+                    to={showConfirmedMeasurements ? '/designer/schedules' : '/designer/assigned-projects'}
+                  >
+                    {showConfirmedMeasurements ? 'Open schedules' : 'Open projects'}
+                  </Link>
+                  <button type="button" onClick={() => setDetailPanel('queue')}>
+                    Back to queue
+                  </button>
+                </div>
+              ) : (
+                <div className="designer-ops-filter-menu" ref={filterMenuRef}>
+                  <button
+                    aria-expanded={isFilterOpen}
+                    aria-haspopup="dialog"
+                    aria-label="Filter work queue"
+                    className={hasActiveFilters || isFilterOpen ? 'designer-ops-filter-toggle is-active' : 'designer-ops-filter-toggle'}
+                    type="button"
+                    onClick={() => setIsFilterOpen((open) => !open)}
+                  >
+                    <IconFilter size={18} />
+                    {hasActiveFilters ? <span>{activeFilterCount}</span> : null}
+                  </button>
 
-                {isFilterOpen ? (
-                  <div className="designer-ops-filter-panel" role="dialog" aria-label="Work queue filters">
-                    <div className="designer-ops-filter-panel-header">
-                      <strong>Filter work queue</strong>
-                      <button aria-label="Close filters" type="button" onClick={() => setIsFilterOpen(false)}>
-                        <IconX size={16} />
-                      </button>
+                  {isFilterOpen ? (
+                    <div className="designer-ops-filter-panel" role="dialog" aria-label="Work queue filters">
+                      <div className="designer-ops-filter-panel-header">
+                        <strong>Filter work queue</strong>
+                        <button aria-label="Close filters" type="button" onClick={() => setIsFilterOpen(false)}>
+                          <IconX size={16} />
+                        </button>
+                      </div>
+
+                      <label>
+                        <span>Priority</span>
+                        <select value={priorityFilter} onChange={(event) => setPriorityFilter(event.target.value)}>
+                          {priorityOptions.map((option) => (
+                            <option key={option} value={option}>{option === ALL_PRIORITIES ? option : formatPriorityLabel(option as DashboardPriority)}</option>
+                          ))}
+                        </select>
+                      </label>
+
+                      <div className="designer-ops-filter-panel-actions">
+                        <button disabled={!hasActiveFilters} type="button" onClick={clearWorkFilters}>
+                          Clear
+                        </button>
+                        <button type="button" onClick={() => setIsFilterOpen(false)}>
+                          Done
+                        </button>
+                      </div>
                     </div>
-
-                    <label>
-                      <span>Priority</span>
-                      <select value={priorityFilter} onChange={(event) => setPriorityFilter(event.target.value)}>
-                        {priorityOptions.map((option) => (
-                          <option key={option} value={option}>{option === ALL_PRIORITIES ? option : formatPriorityLabel(option as DashboardPriority)}</option>
-                        ))}
-                      </select>
-                    </label>
-
-                    <div className="designer-ops-filter-panel-actions">
-                      <button disabled={!hasActiveFilters} type="button" onClick={clearWorkFilters}>
-                        Clear
-                      </button>
-                      <button type="button" onClick={() => setIsFilterOpen(false)}>
-                        Done
-                      </button>
-                    </div>
-                  </div>
-                ) : null}
-              </div>
+                  ) : null}
+                </div>
+              )}
             </header>
 
-            {hasActiveFilters ? (
-              <div className="designer-ops-active-filters">
-                {priorityFilter !== ALL_PRIORITIES ? (
-                  <button type="button" onClick={() => setPriorityFilter(ALL_PRIORITIES)}>
-                    Priority: {formatPriorityLabel(priorityFilter as DashboardPriority)}
-                    <IconX size={14} />
-                  </button>
+            {showConfirmedMeasurements ? (
+              <ConfirmedMeasurementsList
+                emptyLabel={`No confirmed measurement schedules for ${DATE_RANGE_LABEL[dateRange].toLowerCase()}.`}
+                errorLabel={measurementsError}
+                isLoading={confirmedMeasurementsQuery.isLoading}
+                items={confirmedMeasurementsQuery.data?.items ?? []}
+                page={Math.min(measurementsPage, measurementsTotalPages)}
+                pageSize={measurementsPageSize}
+                totalItems={measurementsTotal}
+                totalPages={measurementsTotalPages}
+                onPageChange={setMeasurementsPage}
+                onPageSizeChange={(nextSize) => {
+                  setMeasurementsPageSize(nextSize);
+                  setMeasurementsPage(1);
+                }}
+              />
+            ) : showProposalConsulting ? (
+              <ProposalConsultingList
+                emptyLabel={`No Proposal Consulting projects for ${DATE_RANGE_LABEL[dateRange].toLowerCase()}.`}
+                errorLabel={consultingError}
+                isLoading={proposalConsultingQuery.isLoading}
+                items={proposalConsultingQuery.data?.items ?? []}
+                page={Math.min(consultingPage, consultingTotalPages)}
+                pageSize={consultingPageSize}
+                totalItems={consultingTotal}
+                totalPages={consultingTotalPages}
+                onPageChange={setConsultingPage}
+                onPageSizeChange={(nextSize) => {
+                  setConsultingPageSize(nextSize);
+                  setConsultingPage(1);
+                }}
+              />
+            ) : showRevisionRequested ? (
+              <RevisionRequestedList
+                emptyLabel={`No revision requests for ${DATE_RANGE_LABEL[dateRange].toLowerCase()}.`}
+                errorLabel={revisionsError}
+                isLoading={revisionRequestedQuery.isLoading}
+                items={revisionRequestedQuery.data?.items ?? []}
+                page={Math.min(revisionsPage, revisionsTotalPages)}
+                pageSize={revisionsPageSize}
+                totalItems={revisionsTotal}
+                totalPages={revisionsTotalPages}
+                onPageChange={setRevisionsPage}
+                onPageSizeChange={(nextSize) => {
+                  setRevisionsPageSize(nextSize);
+                  setRevisionsPage(1);
+                }}
+              />
+            ) : (
+              <>
+                {hasActiveFilters ? (
+                  <div className="designer-ops-active-filters">
+                    {priorityFilter !== ALL_PRIORITIES ? (
+                      <button type="button" onClick={() => setPriorityFilter(ALL_PRIORITIES)}>
+                        Priority: {formatPriorityLabel(priorityFilter as DashboardPriority)}
+                        <IconX size={14} />
+                      </button>
+                    ) : null}
+                    <button className="designer-ops-clear-all" type="button" onClick={clearWorkFilters}>
+                      Clear all
+                    </button>
+                  </div>
                 ) : null}
-                <button className="designer-ops-clear-all" type="button" onClick={clearWorkFilters}>
-                  Clear all
-                </button>
-              </div>
-            ) : null}
 
-            <div className="designer-ops-tabs" role="tablist" aria-label="Design work groups">
-              {workGroups.map((group) => (
-                <button aria-selected={activeGroup === group} key={group} role="tab" type="button" onClick={() => setActiveGroup(group)}>
-                  {group}
-                  <em>{countsByGroup[group] ?? 0}</em>
-                </button>
-              ))}
-            </div>
+                <div className="designer-ops-tabs" role="tablist" aria-label="Design work groups">
+                  {workGroups.map((group) => (
+                    <button aria-selected={activeGroup === group} key={group} role="tab" type="button" onClick={() => setActiveGroup(group)}>
+                      {group}
+                      <em>{countsByGroup[group] ?? 0}</em>
+                    </button>
+                  ))}
+                </div>
 
-            <div className="designer-ops-queue-table">
-              <div className="designer-ops-queue-head">
-                <span>Project</span>
-                <span>Phase</span>
-                <span>Warning</span>
-                <span className="designer-ops-queue-col-center">Priority</span>
-                <span>Action</span>
-                <span>Due</span>
-                <span className="designer-ops-queue-col-center">Status</span>
-                <span />
-              </div>
-              {isLoading ? <div className="designer-ops-queue-empty">Loading design work queue...</div> : null}
-              {loadError ? <div className="designer-ops-queue-empty">{loadError}</div> : null}
-              {!isLoading && !loadError && queueItems.length === 0 ? (
-                <div className="designer-ops-queue-empty">
-                  {hasActiveFilters || dateRange !== 'this-month' || projectFilter !== 'assigned'
-                    ? `No work items match ${DATE_RANGE_LABEL[dateRange].toLowerCase()} · ${PROJECT_FILTER_LABEL[projectFilter]}.`
-                    : 'No work items in this phase.'}
+                <div className="designer-ops-queue-table">
+                  <div className="designer-ops-queue-head">
+                    <span>Project</span>
+                    <span>Phase</span>
+                    <span>Warning</span>
+                    <span className="designer-ops-queue-col-center">Priority</span>
+                    <span>Action</span>
+                    <span>Due</span>
+                    <span className="designer-ops-queue-col-center">Status</span>
+                    <span />
+                  </div>
+                  {isLoading ? <div className="designer-ops-queue-empty">Loading design work queue...</div> : null}
+                  {loadError ? <div className="designer-ops-queue-empty">{loadError}</div> : null}
+                  {!isLoading && !loadError && queueItems.length === 0 ? (
+                    <div className="designer-ops-queue-empty">
+                      {hasActiveFilters || dateRange !== 'this-month' || projectFilter !== 'assigned'
+                        ? `No work items match ${DATE_RANGE_LABEL[dateRange].toLowerCase()} · ${PROJECT_FILTER_LABEL[projectFilter]}.`
+                        : 'No work items in this phase.'}
+                    </div>
+                  ) : null}
+                  {queueItems.map((item) => (
+                    <div className="designer-ops-queue-row" key={item.id}>
+                      <strong>{formatProjectLabel(item)}</strong>
+                      <span>{item.phase || '-'}</span>
+                      <span>{item.warning || '-'}</span>
+                      <span className={priorityClass(item.priority)}>{formatPriorityLabel(item.priority)}</span>
+                      <span>{item.action}</span>
+                      <span>{formatDueLabel(item.dueAt, item.dueBucket)}</span>
+                      <em title={item.status}>{formatStatusLabel(item.status)}</em>
+                      <Link
+                        aria-label={`Open ${item.projectCode}`}
+                        className="designer-ops-queue-open"
+                        title="Open"
+                        to={resolveDesignerActionPath(item)}
+                      >
+                        <IconChevronRight size={18} stroke={2} />
+                      </Link>
+                    </div>
+                  ))}
                 </div>
-              ) : null}
-              {queueItems.map((item) => (
-                <div className="designer-ops-queue-row" key={item.id}>
-                  <strong>{formatProjectLabel(item)}</strong>
-                  <span>{item.phase || '-'}</span>
-                  <span>{item.warning || '-'}</span>
-                  <span className={priorityClass(item.priority)}>{formatPriorityLabel(item.priority)}</span>
-                  <span>{item.action}</span>
-                  <span>{formatDueLabel(item.dueAt, item.dueBucket)}</span>
-                  <em title={item.status}>{formatStatusLabel(item.status)}</em>
-                  <Link
-                    aria-label={`Open ${item.projectCode}`}
-                    className="designer-ops-queue-open"
-                    title="Open"
-                    to={resolveDesignerActionPath(item)}
-                  >
-                    <IconChevronRight size={18} stroke={2} />
-                  </Link>
-                </div>
-              ))}
-            </div>
+              </>
+            )}
           </article>
         </section>
       </div>
@@ -352,38 +553,356 @@ export function DesignerDashbroad() {
   );
 }
 
-function mapDesignerKpis(data: DesignerDashboardKpisDto | undefined, rangeLabel: string): KpiItem[] {
+function ConfirmedMeasurementsList({
+  emptyLabel,
+  errorLabel,
+  isLoading,
+  items,
+  page,
+  pageSize,
+  totalItems,
+  totalPages,
+  onPageChange,
+  onPageSizeChange,
+}: {
+  emptyLabel: string;
+  errorLabel: string | null;
+  isLoading: boolean;
+  items: DesignerConfirmedMeasurementItemDto[];
+  page: number;
+  pageSize: number;
+  totalItems: number;
+  totalPages: number;
+  onPageChange: (page: number) => void;
+  onPageSizeChange: (pageSize: number) => void;
+}) {
+  return (
+    <>
+      <div className="designer-ops-tabs" role="tablist" aria-label="Confirmed measurements">
+        <button aria-selected="true" type="button">
+          Confirmed
+          <em>{totalItems}</em>
+        </button>
+      </div>
+
+      <div className="designer-ops-queue-table designer-ops-measurements-table">
+        <div className="designer-ops-queue-head designer-ops-measurements-head">
+          <span>Project</span>
+          <span>Title</span>
+          <span>Start</span>
+          <span>Location</span>
+          <span>Assignee</span>
+          <span>Status</span>
+          <span />
+        </div>
+        {isLoading ? <div className="designer-ops-queue-empty">Loading confirmed measurements...</div> : null}
+        {errorLabel ? <div className="designer-ops-queue-empty">{errorLabel}</div> : null}
+        {!isLoading && !errorLabel && items.length === 0 ? (
+          <div className="designer-ops-queue-empty">{emptyLabel}</div>
+        ) : null}
+        {items.map((item) => (
+          <div className="designer-ops-queue-row designer-ops-measurements-row" key={item.scheduleId}>
+            <strong title={`${item.projectCode} ${item.projectName}`.trim()}>
+              {`${item.projectCode} ${item.projectName}`.trim()}
+            </strong>
+            <span title={item.title ?? undefined}>{item.title || '-'}</span>
+            <span>{formatScheduleDateTime(item.scheduledStart)}</span>
+            <span title={item.location ?? undefined}>{item.location || '-'}</span>
+            <span title={item.assignedStaffName ?? undefined}>{item.assignedStaffName || '-'}</span>
+            <em title={formatStatusLabel(item.status)}>{formatStatusLabel(item.status)}</em>
+            <Link
+              aria-label={`Open ${item.projectCode}`}
+              className="designer-ops-queue-open"
+              title="Open project"
+              to={`/designer/assigned-projects/${item.projectId}`}
+            >
+              <IconChevronRight size={18} stroke={2} />
+            </Link>
+          </div>
+        ))}
+      </div>
+
+      <KpiListPager
+        isLoading={isLoading}
+        page={page}
+        pageSize={pageSize}
+        totalItems={totalItems}
+        totalPages={totalPages}
+        onPageChange={onPageChange}
+        onPageSizeChange={onPageSizeChange}
+      />
+    </>
+  );
+}
+
+function ProposalConsultingList({
+  emptyLabel,
+  errorLabel,
+  isLoading,
+  items,
+  page,
+  pageSize,
+  totalItems,
+  totalPages,
+  onPageChange,
+  onPageSizeChange,
+}: {
+  emptyLabel: string;
+  errorLabel: string | null;
+  isLoading: boolean;
+  items: DesignerProposalConsultingItemDto[];
+  page: number;
+  pageSize: number;
+  totalItems: number;
+  totalPages: number;
+  onPageChange: (page: number) => void;
+  onPageSizeChange: (pageSize: number) => void;
+}) {
+  return (
+    <>
+      <div className="designer-ops-tabs" role="tablist" aria-label="Proposal consulting projects">
+        <button aria-selected="true" type="button">
+          Proposal Consulting
+          <em>{totalItems}</em>
+        </button>
+      </div>
+
+      <div className="designer-ops-queue-table designer-ops-consulting-table">
+        <div className="designer-ops-queue-head designer-ops-consulting-head">
+          <span>Project</span>
+          <span>Customer</span>
+          <span>Designer</span>
+          <span>Assigned</span>
+          <span>Updated</span>
+          <span>Status</span>
+          <span />
+        </div>
+        {isLoading ? <div className="designer-ops-queue-empty">Loading Proposal Consulting projects...</div> : null}
+        {errorLabel ? <div className="designer-ops-queue-empty">{errorLabel}</div> : null}
+        {!isLoading && !errorLabel && items.length === 0 ? (
+          <div className="designer-ops-queue-empty">{emptyLabel}</div>
+        ) : null}
+        {items.map((item) => (
+          <div className="designer-ops-queue-row designer-ops-consulting-row" key={item.projectId}>
+            <strong title={`${item.projectCode} ${item.projectName}`.trim()}>
+              {`${item.projectCode} ${item.projectName}`.trim()}
+            </strong>
+            <span title={item.customerName || undefined}>{item.customerName || '-'}</span>
+            <span title={item.assignedDesignerName ?? undefined}>{item.assignedDesignerName || '-'}</span>
+            <span>{item.designerAssignedAt ? formatScheduleDateTime(item.designerAssignedAt) : '-'}</span>
+            <span>{formatScheduleDateTime(item.updatedAt)}</span>
+            <em title={formatStatusLabel(item.status)}>{formatStatusLabel(item.status)}</em>
+            <Link
+              aria-label={`Open ${item.projectCode}`}
+              className="designer-ops-queue-open"
+              title="Open project"
+              to={`/designer/assigned-projects/${item.projectId}`}
+            >
+              <IconChevronRight size={18} stroke={2} />
+            </Link>
+          </div>
+        ))}
+      </div>
+
+      <KpiListPager
+        isLoading={isLoading}
+        page={page}
+        pageSize={pageSize}
+        totalItems={totalItems}
+        totalPages={totalPages}
+        onPageChange={onPageChange}
+        onPageSizeChange={onPageSizeChange}
+      />
+    </>
+  );
+}
+
+function RevisionRequestedList({
+  emptyLabel,
+  errorLabel,
+  isLoading,
+  items,
+  page,
+  pageSize,
+  totalItems,
+  totalPages,
+  onPageChange,
+  onPageSizeChange,
+}: {
+  emptyLabel: string;
+  errorLabel: string | null;
+  isLoading: boolean;
+  items: DesignerRevisionRequestedItemDto[];
+  page: number;
+  pageSize: number;
+  totalItems: number;
+  totalPages: number;
+  onPageChange: (page: number) => void;
+  onPageSizeChange: (pageSize: number) => void;
+}) {
+  return (
+    <>
+      <div className="designer-ops-tabs" role="tablist" aria-label="Revision requested proposals">
+        <button aria-selected="true" type="button">
+          Revision Requests
+          <em>{totalItems}</em>
+        </button>
+      </div>
+
+      <div className="designer-ops-queue-table designer-ops-revisions-table">
+        <div className="designer-ops-queue-head designer-ops-revisions-head">
+          <span>Proposal</span>
+          <span>Project</span>
+          <span>Note</span>
+          <span>Requested</span>
+          <span>Designer</span>
+          <span>Status</span>
+          <span />
+        </div>
+        {isLoading ? <div className="designer-ops-queue-empty">Loading revision requests...</div> : null}
+        {errorLabel ? <div className="designer-ops-queue-empty">{errorLabel}</div> : null}
+        {!isLoading && !errorLabel && items.length === 0 ? (
+          <div className="designer-ops-queue-empty">{emptyLabel}</div>
+        ) : null}
+        {items.map((item) => (
+          <div className="designer-ops-queue-row designer-ops-revisions-row" key={item.proposalId}>
+            <strong title={item.proposalName ?? undefined}>{item.proposalName || 'Untitled proposal'}</strong>
+            <span title={`${item.projectCode} ${item.projectName}`.trim()}>
+              {`${item.projectCode} ${item.projectName}`.trim()}
+            </span>
+            <span title={item.revisionNote ?? undefined}>{item.revisionNote || '-'}</span>
+            <span>{formatScheduleDateTime(item.revisionRequestedAt)}</span>
+            <span title={item.assignedDesignerName ?? undefined}>{item.assignedDesignerName || '-'}</span>
+            <em title={formatStatusLabel(item.status)}>{formatStatusLabel(item.status)}</em>
+            <Link
+              aria-label={`Open proposal ${item.proposalName || item.proposalId}`}
+              className="designer-ops-queue-open"
+              title="Open proposal"
+              to={`/designer/projects/${item.projectId}/proposals/${item.proposalId}`}
+            >
+              <IconChevronRight size={18} stroke={2} />
+            </Link>
+          </div>
+        ))}
+      </div>
+
+      <KpiListPager
+        isLoading={isLoading}
+        page={page}
+        pageSize={pageSize}
+        totalItems={totalItems}
+        totalPages={totalPages}
+        onPageChange={onPageChange}
+        onPageSizeChange={onPageSizeChange}
+      />
+    </>
+  );
+}
+
+function KpiListPager({
+  isLoading,
+  page,
+  pageSize,
+  totalItems,
+  totalPages,
+  onPageChange,
+  onPageSizeChange,
+}: {
+  isLoading: boolean;
+  page: number;
+  pageSize: number;
+  totalItems: number;
+  totalPages: number;
+  onPageChange: (page: number) => void;
+  onPageSizeChange: (pageSize: number) => void;
+}) {
+  return (
+    <div className="designer-ops-pager">
+      <label>
+        <span>Rows</span>
+        <select
+          disabled={isLoading}
+          value={pageSize}
+          onChange={(event) => onPageSizeChange(Number(event.target.value))}
+        >
+          {LIST_PAGE_SIZES.map((size) => (
+            <option key={size} value={size}>{size}</option>
+          ))}
+        </select>
+      </label>
+      <span>
+        {totalItems === 0 ? '0 items' : `Page ${page} of ${totalPages} · ${totalItems} items`}
+      </span>
+      <div className="designer-ops-pager-buttons">
+        <button
+          aria-label="Previous page"
+          disabled={isLoading || page <= 1}
+          type="button"
+          onClick={() => onPageChange(page - 1)}
+        >
+          <IconChevronLeft size={16} />
+        </button>
+        <button
+          aria-label="Next page"
+          disabled={isLoading || page >= totalPages}
+          type="button"
+          onClick={() => onPageChange(page + 1)}
+        >
+          <IconChevronRight size={16} />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function mapDesignerKpis(
+  data: DesignerDashboardKpisDto | undefined,
+  rangeLabel: string,
+  detailPanel: DetailPanel,
+  onOpenDetailPanel: (panel: Exclude<DetailPanel, 'queue'>) => void,
+): KpiItem[] {
+  const confirmedCount = data?.confirmedMeasurements ?? data?.measurementDue ?? 0;
+  const consultingCount = data?.proposalConsultingProjects ?? data?.proposalsInProgress ?? 0;
+  const revisionCount = data?.proposalRevisionsRequested ?? data?.revisionRequested ?? 0;
+
   return [
     {
-      description: 'Projects still needing measurement or files',
-      icon: IconFileUpload,
-      label: 'Measurement Due',
+      description: 'Confirmed measurement schedules still to complete in this date range',
+      icon: IconCalendarEvent,
+      id: 'confirmed-measurements',
+      label: 'Confirmed Measurements',
       note: rangeLabel,
-      path: '/designer/schedules',
+      onSelect: () => onOpenDetailPanel('confirmed-measurements'),
+      selected: detailPanel === 'confirmed-measurements',
       tone: 'red',
-      value: String(data?.measurementDue ?? 0),
+      value: String(confirmedCount),
     },
     {
-      description: 'Proposal drafts currently in progress',
+      description: 'Assigned projects currently in Proposal Consulting',
       icon: IconChecklist,
-      label: 'Proposals In Progress',
+      id: 'proposals',
+      label: 'Proposal Consulting',
       note: rangeLabel,
-      path: '/designer/assigned-projects',
+      onSelect: () => onOpenDetailPanel('proposal-consulting'),
+      selected: detailPanel === 'proposal-consulting',
       tone: 'blue',
-      value: String(data?.proposalsInProgress ?? 0),
+      value: String(consultingCount),
     },
     {
-      description: 'Customer requested proposal revisions',
+      description: 'Proposals with customer revision requests still pending',
       icon: IconEditCircle,
+      id: 'revisions',
       label: 'Revision Requests',
       note: rangeLabel,
-      path: '/designer/assigned-projects',
+      onSelect: () => onOpenDetailPanel('revision-requested'),
+      selected: detailPanel === 'revision-requested',
       tone: 'amber',
-      value: String(data?.revisionRequested ?? 0),
+      value: String(revisionCount),
     },
     {
       description: 'Design tasks past due date',
       icon: IconFlag,
+      id: 'overdue',
       label: 'Overdue Design Tasks',
       note: rangeLabel,
       path: '/designer/assigned-projects',
@@ -407,42 +926,50 @@ function formatProjectLabel(item: DashboardQueueItemDto) {
   return `${item.projectCode} ${item.projectName}`.trim();
 }
 
-function formatPriorityLabel(priority: DashboardPriority) {
-  return priority.charAt(0) + priority.slice(1).toLowerCase();
+function formatPriorityLabel(priority: DashboardPriority | string) {
+  if (priority === 'URGENT') return 'Urgent';
+  if (priority === 'HIGH') return 'High';
+  if (priority === 'MEDIUM') return 'Medium';
+  if (priority === 'LOW') return 'Low';
+  return priority;
 }
 
-function formatStatusLabel(value: string) {
-  return value
+function formatStatusLabel(status: string) {
+  return status
     .toLowerCase()
-    .split('_')
+    .split(/[_\s]+/)
+    .filter(Boolean)
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(' ');
 }
 
 function formatDueLabel(dueAt: string | null, dueBucket: DashboardDueBucket | null) {
+  if (!dueAt && !dueBucket) return '-';
   if (dueBucket === 'OVERDUE') return 'Overdue';
   if (dueBucket === 'TODAY') return 'Today';
   if (dueBucket === 'THIS_WEEK') return 'This week';
-  if (dueBucket === 'LATER') return dueAt ? formatShortDate(dueAt) : 'Later';
-  if (dueAt) return formatShortDate(dueAt);
-  return '-';
+  if (dueBucket === 'LATER') return 'Later';
+  if (!dueAt) return '-';
+
+  return new Intl.DateTimeFormat('en-US', {
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(new Date(dueAt));
 }
 
-function formatShortDate(value: string) {
-  return new Intl.DateTimeFormat('en-US', { month: 'short', day: '2-digit' }).format(new Date(value));
+function formatScheduleDateTime(value: string) {
+  return new Intl.DateTimeFormat('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(new Date(value));
 }
 
 function resolveDesignerActionPath(item: DashboardQueueItemDto) {
-  const path = item.actionPath || '';
-  const projectMatch = path.match(/^\/projects\/([^/]+)/);
-
-  if (projectMatch?.[1]) {
-    return `/designer/assigned-projects/${projectMatch[1]}`;
-  }
-
-  if (item.projectId) {
-    return `/designer/assigned-projects/${item.projectId}`;
-  }
-
-  return path.startsWith('/') ? path : '/designer/assigned-projects';
+  if (item.actionPath) return item.actionPath;
+  return `/designer/assigned-projects/${item.projectId}`;
 }

@@ -14,6 +14,7 @@ import {
   type RealtimeNotificationPayload,
 } from '@/services/api/notifications';
 import { getStoredAccessToken } from '@/services/api/tokenStore';
+import { dashboardQueryKeys } from './useDashboard';
 import { orderQueryKeys } from './useOrders';
 import { operationalDelayQueryKeys } from './useOperationalDelayReports';
 import { paymentQueryKeys } from './usePayments';
@@ -285,6 +286,9 @@ function invalidateBusinessQueries(queryClient: ReturnType<typeof useQueryClient
       ?? asId(referenceType === 'DELIVERY_PRODUCT_ISSUE_REPORT' ? payload.referenceId : null),
     chatId: asId(metadata.chatId),
   };
+
+  // Keep role dashboards (KPIs + queues + KPI detail lists) in sync with notification hub events.
+  void queryClient.invalidateQueries({ queryKey: dashboardQueryKeys.all });
 
   if (projectId) {
     void queryClient.invalidateQueries({ queryKey: projectQueryKeys.detail(projectId) });

@@ -126,10 +126,77 @@ export type SalesDashboardKpisDto = {
 };
 
 export type DesignerDashboardKpisDto = {
+  /**
+   * Confirmed MEASUREMENT schedules in dateRange (assigned per scope).
+   * Same count as confirmedMeasurements. Not project MEASUREMENT_REQUIRED backlog.
+   */
   measurementDue: number;
+  /** Alias of measurementDue — prefer this for Confirmed Measurements card. */
+  confirmedMeasurements?: number;
+  /**
+   * Projects in status PROPOSAL_CONSULTING (assigned per scope).
+   * Filtered by updatedAt (fallback createdAt) in dateRange. Not proposal DRAFT/PUBLISHED.
+   * Same count as proposalConsultingProjects.
+   */
   proposalsInProgress: number;
+  /** Alias of proposalsInProgress — prefer for Proposal Consulting card. */
+  proposalConsultingProjects?: number;
+  /**
+   * Proposals in status REVISION_REQUESTED (via parent project assignee + dateRange).
+   * Same count as proposalRevisionsRequested. Not project QUOTATION_REVISION_REQUESTED.
+   */
   revisionRequested: number;
+  /** Alias of revisionRequested — prefer for Revision Requests card. */
+  proposalRevisionsRequested?: number;
   overdueTasks: number;
+};
+
+export type DesignerConfirmedMeasurementItemDto = {
+  scheduleId: string;
+  projectId: string;
+  projectCode: string;
+  projectName: string;
+  title: string | null;
+  scheduledStart: string;
+  scheduledEnd: string | null;
+  location: string | null;
+  status: string;
+  assignedStaffId: string | null;
+  assignedStaffName: string | null;
+};
+
+export type DesignerProposalConsultingItemDto = {
+  projectId: string;
+  projectCode: string;
+  projectName: string;
+  customerId: string;
+  customerName: string;
+  assignedDesignerId: string | null;
+  assignedDesignerName: string | null;
+  status: string;
+  designerAssignedAt: string | null;
+  updatedAt: string;
+  submittedAt: string | null;
+};
+
+export type DesignerRevisionRequestedItemDto = {
+  proposalId: string;
+  proposalName: string | null;
+  status: string;
+  revisionNote: string | null;
+  projectId: string;
+  projectCode: string;
+  projectName: string;
+  assignedDesignerId: string | null;
+  assignedDesignerName: string | null;
+  revisionRequestedAt: string;
+};
+
+export type DesignerKpiListQueryDto = {
+  scope?: DashboardScope;
+  dateRange?: DashboardDateRange | null;
+  page?: number;
+  limit?: number;
 };
 
 export type ProductionDashboardKpisDto = {
@@ -296,6 +363,33 @@ export async function getDesignerDashboardKpis(params?: DashboardKpiQueryDto) {
   return response.data.data;
 }
 
+export async function getDesignerConfirmedMeasurementsList(params?: DesignerKpiListQueryDto) {
+  const response = await dashboardApiClient.get<ServiceResult<SalesKpiListResponseDto<DesignerConfirmedMeasurementItemDto>>>(
+    '/api/dashboard/designer/kpis/confirmed-measurements',
+    { params: getDesignerKpiListSearchParams(params) },
+  );
+
+  return response.data.data;
+}
+
+export async function getDesignerProposalConsultingList(params?: DesignerKpiListQueryDto) {
+  const response = await dashboardApiClient.get<ServiceResult<SalesKpiListResponseDto<DesignerProposalConsultingItemDto>>>(
+    '/api/dashboard/designer/kpis/proposal-consulting',
+    { params: getDesignerKpiListSearchParams(params) },
+  );
+
+  return response.data.data;
+}
+
+export async function getDesignerRevisionRequestedList(params?: DesignerKpiListQueryDto) {
+  const response = await dashboardApiClient.get<ServiceResult<SalesKpiListResponseDto<DesignerRevisionRequestedItemDto>>>(
+    '/api/dashboard/designer/kpis/revision-requested',
+    { params: getDesignerKpiListSearchParams(params) },
+  );
+
+  return response.data.data;
+}
+
 export async function getProductionQueue(params?: DashboardQueueQueryDto) {
   const response = await dashboardApiClient.get<ServiceResult<DashboardQueueResponseDto>>('/api/dashboard/production/queue', {
     params: getDashboardSearchParams(params),
@@ -373,6 +467,19 @@ function getSalesKpiListSearchParams(params?: SalesKpiListQueryDto) {
 
   return {
     scope: params.scope,
+    page: params.page,
+    limit: params.limit,
+  };
+}
+
+function getDesignerKpiListSearchParams(params?: DesignerKpiListQueryDto) {
+  if (!params) {
+    return undefined;
+  }
+
+  return {
+    scope: params.scope,
+    dateRange: params.dateRange ?? undefined,
     page: params.page,
     limit: params.limit,
   };
