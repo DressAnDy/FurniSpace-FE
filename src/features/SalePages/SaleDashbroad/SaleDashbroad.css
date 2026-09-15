@@ -114,6 +114,25 @@
   flex: 1;
 }
 
+.sale-sidebar-brand-link > div {
+  min-width: 0;
+  flex: 1;
+}
+
+.sale-sidebar-brand-link {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  align-items: flex-start;
+  gap: 12px;
+  color: inherit;
+  text-decoration: none;
+}
+
+.sale-sidebar-brand-link:hover h1 {
+  color: #ffffff;
+}
+
 .sale-sidebar-brand-mark {
   display: none;
 }

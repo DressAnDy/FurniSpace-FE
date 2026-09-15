@@ -46,11 +46,13 @@ export function DesignerSidebar({ activeLabel }: DesignerSidebarProps) {
 
     <aside className={`designer-sidebar ${isCollapsed ? 'is-collapsed' : 'is-expanded'}`}>
       <div className="designer-sidebar-brand">
-        <img src={logoImage} alt="" />
-        <div>
-          <h1>FurniSpace</h1>
-          <p>Designer</p>
-        </div>
+        <NavLink className="designer-sidebar-brand-link" to="/">
+          <img src={logoImage} alt="FurniSpace" />
+          <div>
+            <h1>FurniSpace</h1>
+            <p>Designer</p>
+          </div>
+        </NavLink>
         <button aria-label="Collapse designer sidebar" className="actor-sidebar-collapse-button" hidden={isCollapsed} type="button" onClick={collapse}>
           <IconChevronLeft size={18} />
         </button>

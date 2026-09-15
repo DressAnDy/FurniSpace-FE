@@ -425,6 +425,7 @@ export function ReadyForDelivery() {
       setMessage({ tone: 'success', text: 'Delivery batch completed. Linked schedule will sync to completed.' });
       void orderDetailQuery.refetch();
       void deliveryTrackingQuery.refetch();
+      void deliverySchedulesQuery.refetch();
       void deliveriesQuery.refetch();
     } catch (error) {
       setMessage({ tone: 'error', text: getOrderServiceResultMessage(error) });
@@ -1129,7 +1130,7 @@ function isValidBatchQuantityInput(value: string) {
 function isInProgressDeliveryBatch(delivery: DeliveryBatchDto) {
   const status = normalizeWorkflowStatus(delivery.status);
 
-  return status === 'IN_PROGRESS' || status === 'DELIVERY_IN_PROGRESS';
+  return ['IN_PROGRESS', 'DELIVERY_IN_PROGRESS', 'DELIVERING', 'PHYSICAL_DELIVERY_IN_PROGRESS'].includes(status);
 }
 
 function isCompletedDeliveryBatch(delivery: DeliveryBatchDto) {

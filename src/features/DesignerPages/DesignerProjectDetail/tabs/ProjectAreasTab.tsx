@@ -629,30 +629,42 @@ function ProjectAreaItem({ area, onUpdate }: Readonly<{ area: ProjectAreaDto; on
           <p><span>Requirement Note</span>{area.requirementNote || '-'}</p>
         </details>
         {areaFiles.length > 0 ? (
-          <div className="designer-project-area-blueprints">
-            {areaFiles.slice(0, 4).map((file) => {
-              const imageUrl = getAreaFileUrl(file);
+          <section className="designer-project-area-image-group">
+            <div className="designer-project-area-image-group-header">
+              <span>Special layout images</span>
+              <small>{areaFiles.length}</small>
+            </div>
+            <div className="designer-project-area-blueprints">
+              {areaFiles.slice(0, 4).map((file) => {
+                const imageUrl = getAreaFileUrl(file);
 
-              return imageUrl ? (
-                <a href={imageUrl} key={file.fileId} rel="noreferrer" target="_blank" title={file.originalFileName ?? 'Special area reference'}>
-                  <img alt={file.originalFileName ?? area.areaName} src={imageUrl} />
-                </a>
-              ) : null;
-            })}
-          </div>
+                return imageUrl ? (
+                  <a href={imageUrl} key={file.fileId} rel="noreferrer" target="_blank" title={file.originalFileName ?? 'Special area reference'}>
+                    <img alt={file.originalFileName ?? area.areaName} src={imageUrl} />
+                  </a>
+                ) : null;
+              })}
+            </div>
+          </section>
         ) : null}
         {measurementImages.length > 0 ? (
-          <div className="designer-project-area-measurements">
-            {measurementImages.slice(0, 4).map((image) => {
-              const imageUrl = image.url ?? image.publicUrl;
+          <section className="designer-project-area-image-group">
+            <div className="designer-project-area-image-group-header">
+              <span>Measurement images</span>
+              <small>{measurementImages.length}</small>
+            </div>
+            <div className="designer-project-area-measurements">
+              {measurementImages.slice(0, 4).map((image) => {
+                const imageUrl = image.url ?? image.publicUrl;
 
-              return imageUrl ? (
-                <a href={imageUrl} key={image.fileId} rel="noreferrer" target="_blank">
-                  <img alt={image.originalFileName ?? area.areaName} src={imageUrl} />
-                </a>
-              ) : null;
-            })}
-          </div>
+                return imageUrl ? (
+                  <a href={imageUrl} key={image.fileId} rel="noreferrer" target="_blank">
+                    <img alt={image.originalFileName ?? area.areaName} src={imageUrl} />
+                  </a>
+                ) : null;
+              })}
+            </div>
+          </section>
         ) : null}
       </div>
       <button className="designer-project-area-update-button" type="button" onClick={() => onUpdate(area)}>

@@ -379,28 +379,14 @@
 }
 
 .sale-quotations-table-scroll {
-  overflow-x: auto;
-  scrollbar-width: thin;
-  scrollbar-color: #8b6f47 #f5f1ec;
-}
-
-.sale-quotations-table-scroll::-webkit-scrollbar {
-  height: 8px;
-}
-
-.sale-quotations-table-scroll::-webkit-scrollbar-track {
-  background: #f5f1ec;
-}
-
-.sale-quotations-table-scroll::-webkit-scrollbar-thumb {
-  border-radius: 999px;
-  background: #8b6f47;
+  overflow: hidden;
 }
 
 .sale-quotations-card table {
   width: 100%;
-  min-width: 920px;
+  min-width: 0;
   border-collapse: collapse;
+  table-layout: fixed;
   text-align: left;
 }
 
@@ -409,9 +395,10 @@
   border-bottom: 1px solid rgba(139, 111, 71, 0.15);
   padding: 12px 8px;
   color: #2d2d2d;
-  font-size: 12px;
-  line-height: 20px;
-  vertical-align: middle;
+  font-size: 11px;
+  line-height: 18px;
+  overflow-wrap: anywhere;
+  vertical-align: top;
 }
 
 .sale-quotations-card th {
@@ -453,16 +440,9 @@
   white-space: nowrap;
 }
 
-.sale-quotations-items-table td:not(:first-child),
-.sale-quotations-card table td:nth-child(4),
-.sale-quotations-card table td:nth-child(5),
-.sale-quotations-card table td:nth-child(6),
-.sale-quotations-card table td:nth-child(7) {
-  white-space: nowrap;
-}
-
 .sale-quotations-item-name {
-  max-width: 300px;
+  max-width: none;
+  white-space: normal;
 }
 
 .sale-quotations-version {
@@ -526,8 +506,8 @@
 
 .sale-quotations-detail-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 24px 160px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
   margin-bottom: 24px;
 }
 
@@ -644,7 +624,7 @@
 }
 
 .sale-quotations-line-input {
-  width: 118px;
+  width: min(100%, 96px);
   min-width: 0;
   height: 34px;
   border: 1px solid rgba(139, 111, 71, 0.2);

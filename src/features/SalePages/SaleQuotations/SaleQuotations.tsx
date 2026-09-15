@@ -166,27 +166,10 @@ export function SaleQuotations() {
   );
 
   useEffect(() => {
-    if (!selectedProjectId && quotationProjects.length > 0) {
-      setSelectedProjectId(quotationProjects[0].projectId);
+    if (!selectedProjectId && visibleProjectGroup.length > 0) {
+      setSelectedProjectId(visibleProjectGroup[0].projectId);
     }
-  }, [quotationProjects, selectedProjectId]);
-
-  useEffect(() => {
-    if (projectView === 'pending' && pendingQuotationProjects.length === 0 && finalizedQuotationProjects.length > 0) {
-      setProjectView('finalized');
-      setProjectPage(1);
-      setSelectedProjectId(finalizedQuotationProjects[0].projectId);
-      setSelectedQuotationId('');
-      return;
-    }
-
-    if (projectView === 'finalized' && finalizedQuotationProjects.length === 0 && pendingQuotationProjects.length > 0) {
-      setProjectView('pending');
-      setProjectPage(1);
-      setSelectedProjectId(pendingQuotationProjects[0].projectId);
-      setSelectedQuotationId('');
-    }
-  }, [finalizedQuotationProjects, pendingQuotationProjects, projectView]);
+  }, [selectedProjectId, visibleProjectGroup]);
 
   useEffect(() => {
     setProjectPage((currentPage) => Math.min(currentPage, visibleProjectPageCount));
@@ -476,7 +459,6 @@ export function SaleQuotations() {
                         <th>{q.quotationCode}</th>
                         <th>{t.dashboard.colProject}</th>
                         <th>{q.proposal}</th>
-                        <th>{q.version}</th>
                         <th>{q.totalAmount}</th>
                         <th>{t.common.status}</th>
                         <th>{q.validUntil}</th>
@@ -484,10 +466,10 @@ export function SaleQuotations() {
                     </thead>
                     <tbody>
                       {quotationsQuery.isLoading ? (
-                        <tr><td colSpan={7}>{t.common.loading}</td></tr>
+                        <tr><td colSpan={6}>{t.common.loading}</td></tr>
                       ) : null}
                       {!quotationsQuery.isLoading && quotations.length === 0 ? (
-                        <tr><td colSpan={7}>{selectedProjectId ? q.emptyList : q.selectProject}</td></tr>
+                        <tr><td colSpan={6}>{selectedProjectId ? q.emptyList : q.selectProject}</td></tr>
                       ) : null}
                       {quotations.map((quotation) => (
                         <tr key={quotation.quotationId}>
@@ -497,9 +479,6 @@ export function SaleQuotations() {
                             <span>{selectedProject?.projectName ?? '-'}</span>
                           </td>
                           <td className="sale-quotations-truncate" title={getProposalName(quotation.proposalId, proposalNameById)}>{getProposalName(quotation.proposalId, proposalNameById)}</td>
-                          <td>
-                            <span className="sale-quotations-version">v{quotation.versionNo ?? 1}</span>
-                          </td>
                           <td>{formatMoney(quotation.totalAmount)}</td>
                           <td>
                             <span className={`sale-quotations-status sale-quotations-status-${statusClass(quotation.status)}`}>{formatEnumLabel(quotation.status ?? 'UNKNOWN')}</span>
@@ -537,10 +516,6 @@ export function SaleQuotations() {
                   <span>Sent Date</span>
                   <strong>{selectedQuotation.sentAt ? formatDate(selectedQuotation.sentAt) : '-'}</strong>
                 </div>
-                <div>
-                  <span>{q.version}</span>
-                  <strong>{q.version} {selectedQuotation.versionNo ?? 1}</strong>
-                </div>
               </div>
 
               <div className="sale-quotations-divider" />
@@ -565,7 +540,6 @@ export function SaleQuotations() {
                 <table className="sale-quotations-items-table">
                   <thead>
                     <tr>
-                      <th>Order</th>
                       <th>Item</th>
                       <th>Quantity</th>
                       <th>Unit Price</th>
@@ -581,9 +555,6 @@ export function SaleQuotations() {
 
                       return (
                       <tr key={item.quotationItemId}>
-                        <td>
-                          {item.displayOrder ?? '-'}
-                        </td>
                         <td className="sale-quotations-item-name" title={getQuotationItemName(item)}>
                           {getQuotationItemName(item)}
                         </td>

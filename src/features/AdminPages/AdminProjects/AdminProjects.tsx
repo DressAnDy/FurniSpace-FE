@@ -140,8 +140,8 @@ export function AdminProjects() {
   const accountsQuery = useAccountList({ page: 1, pageSize: 100, includeDeleted: false });
   const accounts = accountsQuery.data?.items ?? EMPTY_ACCOUNTS;
   const accountById = useMemo(() => createAccountLookup(accounts), [accounts]);
-  const salesAccounts = useMemo(() => accounts.filter((account) => getAccountRoleName(account.roleId) === 'SALES'), [accounts]);
-  const designerAccounts = useMemo(() => accounts.filter((account) => getAccountRoleName(account.roleId) === 'DESIGNER'), [accounts]);
+  const salesAccounts = useMemo(() => accounts.filter((account) => getAccountRoleName(account) === 'SALES'), [accounts]);
+  const designerAccounts = useMemo(() => accounts.filter((account) => getAccountRoleName(account) === 'DESIGNER'), [accounts]);
   const projects = projectsQuery.data?.items ?? EMPTY_PROJECTS;
   const stats = useMemo(() => getProjectStats(projectStatsQuery.data), [projectStatsQuery.data]);
   const totalItems = projectsQuery.data?.total ?? 0;

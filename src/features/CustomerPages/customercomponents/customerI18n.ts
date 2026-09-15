@@ -98,6 +98,7 @@ type CustomerCopy = {
     noActiveProjectDesc: string;
     createProject: string;
     yourActiveProject: string;
+    projectsToShow: string;
     trackProgress: string;
     trackProject: string;
     openProject: string;
@@ -566,6 +567,7 @@ const en: CustomerCopy = {
       'Create your first project request so you can follow its progress, schedules, proposals, and team updates from this dashboard.',
     createProject: 'Create Project',
     yourActiveProject: 'Your Active Project',
+    projectsToShow: 'Show',
     trackProgress: 'Track progress and take next steps',
     trackProject: 'Track Project',
     openProject: 'Open Project',
@@ -1036,6 +1038,7 @@ const vi: CustomerCopy = {
       'Tạo yêu cầu dự án đầu tiên để theo dõi tiến độ, lịch trình, đề xuất và cập nhật từ đội ngũ ngay trên bảng điều khiển này.',
     createProject: 'Tạo dự án',
     yourActiveProject: 'Dự án đang hoạt động',
+    projectsToShow: 'Hiển thị',
     trackProgress: 'Theo dõi tiến độ và thực hiện bước tiếp theo',
     trackProject: 'Theo dõi dự án',
     openProject: 'Mở dự án',
