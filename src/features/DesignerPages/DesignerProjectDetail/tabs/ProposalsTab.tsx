@@ -112,7 +112,7 @@ export function ProposalsTab({ project }: Readonly<ProposalsTabProps>) {
         note: 'Published by designer from assigned project proposal list.',
       });
       setMessageTone('success');
-      setMessage(`${getDisplayText(proposal.proposalName, 'Proposal')} is now visible to the customer.`);
+      setMessage(`${getDisplayText(proposal.proposalName, 'Proposal')} was published successfully.`);
     } catch (error) {
       setMessageTone('error');
       setMessage(getProposalServiceResultMessage(error));
@@ -244,7 +244,6 @@ function ProposalRow({ proposal, onOpenDetail, onPublish, publishDisabled }: Rea
   const scenes = scenesQuery.data?.items ?? [];
   const primaryScene = scenes[0] ?? null;
   const canPublish = isEditableProposalStatus(proposal.status) && Boolean(primaryScene);
-  const isCustomerVisible = isCustomerVisibleProposal(proposal.status);
   const sceneCount = scenesQuery.data?.total ?? scenes.length;
 
   return (
@@ -264,9 +263,6 @@ function ProposalRow({ proposal, onOpenDetail, onPublish, publishDisabled }: Rea
       <td className="designer-proposal-status-cell">
         <div className="designer-proposal-status-stack">
           <span className={`designer-project-status designer-project-status-${getProposalStatusTone(proposal.status)}`}>{formatEnumLabel(proposal.status)}</span>
-          <small className={`designer-project-proposal-visibility ${isCustomerVisible ? 'is-visible' : ''}`}>
-            {isCustomerVisible ? 'Customer visible' : 'Hidden draft'}
-          </small>
         </div>
       </td>
       <td>
@@ -301,10 +297,10 @@ function ProposalRow({ proposal, onOpenDetail, onPublish, publishDisabled }: Rea
               className="designer-project-table-locked"
               type="button"
               disabled
-              title="Published proposals are customer-visible and locked for editing."
+              title="Published proposals are locked for editing."
             >
               <IconLock size={14} stroke={1.9} />
-              Customer Visible
+              Published
             </button>
           )}
         </div>
@@ -388,10 +384,6 @@ function CreateProposalModal({
       </section>
     </div>
   );
-}
-
-function isCustomerVisibleProposal(status: string) {
-  return ['PUBLISHED', 'SELECTED', 'REVISION_REQUESTED', 'REJECTED'].includes(status);
 }
 
 function isEditableProposalStatus(status: ProposalDto['status']) {

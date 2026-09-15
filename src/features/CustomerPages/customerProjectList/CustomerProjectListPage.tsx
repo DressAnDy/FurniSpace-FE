@@ -19,7 +19,7 @@ import type { ProjectListItemDto, ProjectStatus } from '@/services/api/projects'
 import { usePayments } from '@/services/queries';
 import { useProjectList } from '@/services/queries/useProjects';
 
-const PROJECT_PAGE_SIZE = 6;
+const PROJECT_PAGE_SIZE = 5;
 
 export function CustomerProjectListPage() {
   const { lang } = useLang();
@@ -27,22 +27,32 @@ export function CustomerProjectListPage() {
   const [keyword, setKeyword] = useState('');
   const [status, setStatus] = useState<ProjectStatus | ''>('');
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(PROJECT_PAGE_SIZE);
   const [chatProject, setChatProject] = useState<ProjectListItemDto | null>(null);
   const projectsQuery = useProjectList({
     search: keyword,
     status: status || null,
     page,
-    limit: PROJECT_PAGE_SIZE,
+    limit: pageSize,
   });
   const projects = projectsQuery.data?.items ?? [];
   const totalProjects = projectsQuery.data?.total ?? 0;
-  const totalPages = Math.max(1, Math.ceil(totalProjects / PROJECT_PAGE_SIZE));
-  const showingFrom = totalProjects === 0 ? 0 : (page - 1) * PROJECT_PAGE_SIZE + 1;
-  const showingTo = Math.min(page * PROJECT_PAGE_SIZE, totalProjects);
+  const totalPages = Math.max(1, Math.ceil(totalProjects / pageSize));
 
   useEffect(() => {
     setPage(1);
-  }, [keyword, status]);
+  }, [keyword, pageSize, status]);
+
+  useEffect(() => {
+    if (page > totalPages) {
+      setPage(totalPages);
+    }
+  }, [page, totalPages]);
+
+  function handlePageSizeChange(nextSize: number) {
+    setPageSize(nextSize);
+    setPage(1);
+  }
 
   return (
     <main className="customer-project-list-page">
@@ -95,20 +105,17 @@ export function CustomerProjectListPage() {
           ))}
         </section>
 
-        <footer className="customer-project-list-pagination">
-          <p>{t.projects.showing(showingFrom, showingTo, totalProjects)}</p>
-          <div>
-            <button disabled={page <= 1 || projectsQuery.isFetching} type="button" onClick={() => setPage((current) => Math.max(1, current - 1))}>
-              {t.common.previous}
-            </button>
-            <button className="customer-project-list-page-active" type="button" aria-current="page">
-              {page}
-            </button>
-            <button disabled={page >= totalPages || projectsQuery.isFetching} type="button" onClick={() => setPage((current) => Math.min(totalPages, current + 1))}>
-              {t.common.next}
-            </button>
-          </div>
-        </footer>
+        <CustomerProjectPager
+          disabled={projectsQuery.isFetching}
+          lang={lang}
+          page={page}
+          pageSize={pageSize}
+          totalItems={totalProjects}
+          totalPages={totalPages}
+          t={t}
+          onPageChange={setPage}
+          onPageSizeChange={handlePageSizeChange}
+        />
       </div>
 
       {chatProject ? (
@@ -128,6 +135,108 @@ export function CustomerProjectListPage() {
         </div>
       ) : null}
     </main>
+  );
+}
+
+type CustomerProjectPagerProps = {
+  disabled?: boolean;
+  lang: Lang;
+  page: number;
+  pageSize: number;
+  t: CustomerCopy;
+  totalItems: number;
+  totalPages: number;
+  onPageChange: (page: number) => void;
+  onPageSizeChange: (pageSize: number) => void;
+};
+
+function CustomerProjectPager({
+  disabled = false,
+  lang,
+  page,
+  pageSize,
+  t,
+  totalItems,
+  totalPages,
+  onPageChange,
+  onPageSizeChange,
+}: CustomerProjectPagerProps) {
+  const safeTotalPages = Math.max(totalPages, 1);
+  const [pageDraft, setPageDraft] = useState(String(page));
+  const [sizeDraft, setSizeDraft] = useState(String(pageSize));
+  const rowsLabel = lang === 'vi' ? 'Dòng' : 'Rows';
+  const pageLabel = lang === 'vi' ? 'Trang' : 'Page';
+  const totalRowsLabel = lang === 'vi' ? `${totalItems} dòng` : `${totalItems} rows`;
+
+  useEffect(() => {
+    setPageDraft(String(page));
+  }, [page]);
+
+  useEffect(() => {
+    setSizeDraft(String(pageSize));
+  }, [pageSize]);
+
+  function commitPage() {
+    const parsed = Number.parseInt(pageDraft, 10);
+    const next = Number.isFinite(parsed) ? Math.min(Math.max(parsed, 1), safeTotalPages) : page;
+    setPageDraft(String(next));
+    if (next !== page) onPageChange(next);
+  }
+
+  function commitPageSize() {
+    const parsed = Number.parseInt(sizeDraft, 10);
+    const next = Number.isFinite(parsed) ? Math.min(Math.max(parsed, 1), 100) : pageSize;
+    setSizeDraft(String(next));
+    if (next !== pageSize) onPageSizeChange(next);
+  }
+
+  return (
+    <footer className="customer-project-list-pagination">
+      <div className="customer-project-list-pager-meta">
+        <label className="customer-project-list-pager-field">
+          <span>{rowsLabel}</span>
+          <input
+            aria-label={rowsLabel}
+            disabled={disabled}
+            max={100}
+            min={1}
+            type="number"
+            value={sizeDraft}
+            onBlur={commitPageSize}
+            onChange={(event) => setSizeDraft(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') event.currentTarget.blur();
+            }}
+          />
+        </label>
+        <label className="customer-project-list-pager-field">
+          <span>{pageLabel}</span>
+          <input
+            aria-label={pageLabel}
+            disabled={disabled}
+            max={safeTotalPages}
+            min={1}
+            type="number"
+            value={pageDraft}
+            onBlur={commitPage}
+            onChange={(event) => setPageDraft(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') event.currentTarget.blur();
+            }}
+          />
+          <span className="customer-project-list-pager-of">/ {safeTotalPages}</span>
+        </label>
+        <span className="customer-project-list-pager-total">{totalRowsLabel}</span>
+      </div>
+      <div className="customer-project-list-pager-nav">
+        <button disabled={disabled || page <= 1} type="button" onClick={() => onPageChange(page - 1)}>
+          {t.common.previous}
+        </button>
+        <button disabled={disabled || page >= safeTotalPages} type="button" onClick={() => onPageChange(page + 1)}>
+          {t.common.next}
+        </button>
+      </div>
+    </footer>
   );
 }
 

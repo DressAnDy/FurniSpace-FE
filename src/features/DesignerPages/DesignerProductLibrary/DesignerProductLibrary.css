@@ -111,10 +111,16 @@
 @keyframes designer-product-pulse { 0% { background-position: 100% 0; } 100% { background-position: -100% 0; } }
 
 .designer-products-pagination { display: flex; align-items: center; justify-content: space-between; gap: 14px; border-top: 1px solid #f1efec; margin-top: 20px; padding-top: 14px; color: #6b6b73; font-size: 13px; font-weight: 600; }
-.designer-products-pagination div { display: flex; gap: 8px; }
 .designer-products-pagination button { height: 34px; border: 1px solid #e4e4e7; border-radius: 999px; background: #fff; color: #52525b; cursor: pointer; font: inherit; font-size: 12px; font-weight: 700; padding: 0 14px; transition: background 150ms ease, border-color 150ms ease, color 150ms ease; }
 .designer-products-pagination button:hover:not(:disabled) { border-color: #9a713b; background: #9a713b; color: #fff; }
 .designer-products-pagination button:disabled { cursor: not-allowed; opacity: 0.45; }
+.designer-products-batch-pager { flex-wrap: wrap; }
+.designer-products-pager-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.designer-products-pager-field { display: inline-flex; align-items: center; gap: 7px; color: #6b6b73; font-size: 13px; font-weight: 700; }
+.designer-products-pager-field input { width: 64px; height: 34px; border: 1px solid #e4e4e7; border-radius: 8px; background: #ffffff; color: #18181b; font: inherit; font-size: 13px; font-weight: 700; padding: 0 8px; text-align: center; }
+.designer-products-pager-field input:focus { border-color: #c7a15f; outline: none; }
+.designer-products-pager-of,.designer-products-pager-total { color: #6b6b73; font-size: 13px; font-weight: 500; }
+.designer-products-pager-nav { display: flex; gap: 8px; }
 
 @media (max-width: 1180px) { .designer-products-grid { grid-template-columns: repeat(2,minmax(0,1fr)); } .designer-products-toolbar-top { grid-template-columns: minmax(0,1fr) 180px; } .designer-products-filter-count { justify-self: start; } }
 @media (max-width: 860px) { .designer-products-grid,.designer-product-version-grid { grid-template-columns: 1fr; } .designer-product-version-summary-card { grid-template-columns: 1fr; text-align: left; } }

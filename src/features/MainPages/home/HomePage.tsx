@@ -1,4 +1,4 @@
-import { IconArrowRight, IconPhone, IconShieldCheck } from '@tabler/icons-react';
+import { IconPhone, IconShieldCheck } from '@tabler/icons-react';
 import { useEffect, useRef } from 'react';
 
 import { useLang } from '@/app/providers/useLang';
@@ -8,8 +8,6 @@ import { MainNavbar } from '@/features/MainPages/maincomponents';
 import { SiteFooter } from '@/shared/components';
 
 import './HomePage.css';
-
-const projectImages: string[] = [];
 
 const homeContent = {
   vi: {
@@ -128,7 +126,6 @@ const homeContent = {
     ],
     ctaTitle: 'Ready to shape your next business space?',
     ctaBody: 'Talk to FurniSpace and turn your brief into a clear design, quotation, and delivery plan.',
-    ctaBtn: 'Free consultation',
   },
 } as const;
 
@@ -375,14 +372,7 @@ function HomePageContent() {
         </div>
       </section>
 
-      {/* Projects */}
-      <section className="section-container home-projects" aria-labelledby="home-projects-title">
-        <SectionHeading
-          id="home-projects-title"
-          title={t.projectsTitle}
-          subtitle={t.projectsSubtitle}
-        />
-
+      {/*
         <div className="home-filter-row" aria-label={lang === 'vi' ? 'Bộ lọc dự án' : 'Project filters'}>
           {t.filters.map((filter) => (
             <select key={filter} className="home-filter" defaultValue="">
@@ -409,6 +399,8 @@ function HomePageContent() {
           </button>
         </div>
       </section>
+
+      */}
 
       {/* Process */}
       <section className="home-process" aria-labelledby="home-process-title">
@@ -469,10 +461,6 @@ function HomePageContent() {
             <p>{t.ctaBody}</p>
           </div>
           <div className="home-cta-actions">
-            <button className="button button-light" type="button">
-              {t.ctaBtn}
-              <IconArrowRight size={16} />
-            </button>
             <button className="button button-transparent" type="button">
               +84 770 111 101
             </button>

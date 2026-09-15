@@ -183,17 +183,17 @@
 }
 
 .project-detail-status-buttons button.project-detail-decision-reject {
-  border: 1px solid rgba(185, 28, 28, 0.32);
-  background: linear-gradient(180deg, #ffffff 0%, #fdf3f3 100%);
-  box-shadow: 0 1px 2px rgba(185, 28, 28, 0.08);
-  color: #b91c1c;
+  border: 1px solid #8b6f47;
+  background: #8b6f47;
+  box-shadow: none;
+  color: #ffffff;
 }
 
 .project-detail-status-buttons button.project-detail-decision-reject:hover:not(:disabled) {
   transform: translateY(-1px);
-  border-color: #b91c1c;
-  background: linear-gradient(180deg, #dc2626 0%, #b91c1c 100%);
-  box-shadow: 0 8px 18px rgba(185, 28, 28, 0.24);
+  border-color: #6d502f;
+  background: #6d502f;
+  box-shadow: 0 8px 18px rgba(109, 80, 47, 0.22);
   color: #ffffff;
 }
 
@@ -208,7 +208,7 @@
 }
 
 .project-detail-status-buttons button.project-detail-decision-reject:focus-visible {
-  outline-color: #b91c1c;
+  outline-color: #8b6f47;
 }
 
 .project-detail-status-buttons button.project-detail-decision-button:disabled {
@@ -229,12 +229,13 @@
 .project-detail-status-banner {
   margin: -10px 0 18px;
   border: 1px solid #bbf7d0;
-  border-radius: 10px;
+  border-radius: 8px;
   background: #f0fdf4;
   color: #166534;
-  font-size: 14px;
-  font-weight: 600;
-  padding: 12px 14px;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 18px;
+  padding: 9px 10px;
 }
 
 .project-detail-status-banner-error {
@@ -553,7 +554,7 @@
   border-radius: 12px;
   background: transparent;
   color: #2d2d2d;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 500;
 }
 
@@ -594,8 +595,8 @@
 .project-detail-muted,
 .project-detail-api-note {
   color: #6b6b6b;
-  font-size: 14px;
-  line-height: 22px;
+  font-size: 12px;
+  line-height: 18px;
 }
 
 .project-detail-state p {
@@ -603,6 +604,8 @@
 }
 
 .project-detail-muted {
+  font-size: 11px;
+  line-height: 16px;
   margin: 0;
 }
 
@@ -612,7 +615,7 @@
   border-radius: 8px;
   background: #eff6ff;
   color: #1c398e;
-  padding: 14px 16px;
+  padding: 9px 10px;
 }
 
 .project-detail-tabs-section > .project-detail-card,
@@ -642,7 +645,7 @@
 
 .project-detail-issue-scope-tabs button {
   display: inline-flex;
-  min-height: 34px;
+  min-height: 30px;
   align-items: center;
   justify-content: center;
   border: 0;
@@ -652,9 +655,9 @@
   cursor: pointer;
   flex: 1 1 140px;
   font: inherit;
-  font-size: 13px;
-  font-weight: 800;
-  padding: 8px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 6px 10px;
 }
 
 .project-detail-issue-scope-tabs button:hover,
@@ -678,8 +681,8 @@
 .project-detail-card header p {
   margin: 6px 0 0;
   color: #6b6b6b;
-  font-size: 14px;
-  line-height: 20px;
+  font-size: 12px;
+  line-height: 18px;
 }
 
 .project-detail-overview {
@@ -2193,10 +2196,10 @@
   border-radius: 8px;
   background: rgba(34, 197, 94, 0.08);
   color: #166534;
-  font-size: 13px;
-  line-height: 20px;
+  font-size: 12px;
+  line-height: 18px;
   margin: 0;
-  padding: 10px 12px;
+  padding: 8px 10px;
 }
 
 .project-detail-form-message-error {

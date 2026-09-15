@@ -234,6 +234,7 @@
 }
 
 .product-list-preview-card {
+  display: flex;
   min-width: 0;
   border: 1px solid rgba(23, 19, 15, 0.08);
   border-radius: 8px;
@@ -250,7 +251,9 @@
 }
 
 .product-list-preview-card-link {
-  display: block;
+  display: flex;
+  width: 100%;
+  flex-direction: column;
   color: inherit;
   text-decoration: none;
 }
@@ -258,7 +261,8 @@
 .product-list-preview-card-media {
   position: relative;
   display: grid;
-  min-height: 326px;
+  min-height: 0;
+  aspect-ratio: 1 / 1.12;
   place-items: center;
   overflow: hidden;
   border-radius: 6px;
@@ -299,38 +303,61 @@
 
 .product-list-preview-card-body {
   display: grid;
-  gap: 12px;
+  min-height: 168px;
+  flex: 1;
+  align-content: start;
+  gap: 14px;
+  grid-template-rows: auto auto;
   padding: 16px 4px 0;
 }
 
 .product-list-preview-card-body h2 {
+  display: -webkit-box;
+  overflow: hidden;
   margin: 0;
   font-family: Archivo, Arial, sans-serif;
   font-size: 18px;
   font-weight: 600;
   line-height: 1.2;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
 .product-list-preview-card-body p {
+  display: -webkit-box;
+  overflow: hidden;
   margin: 5px 0 0;
   color: rgba(23, 19, 15, 0.56);
   font-size: 13px;
+  line-height: 1.45;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
 .product-list-preview-card-tags {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
+  max-height: 54px;
   margin-top: 10px;
+  overflow: hidden;
 }
 
 .product-list-preview-card-tags span {
+  display: inline-flex;
+  max-width: 100%;
+  min-height: 24px;
+  align-items: center;
   border-radius: 999px;
   background: #f0e8de;
   color: rgba(23, 19, 15, 0.72);
   font-size: 11px;
   font-weight: 600;
+  line-height: 1.2;
+  overflow: hidden;
   padding: 4px 8px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .product-list-preview-card-swatches {
@@ -538,7 +565,7 @@
   }
 
   .product-list-preview-card-media {
-    min-height: 292px;
+    aspect-ratio: 1 / 0.88;
   }
 }
 

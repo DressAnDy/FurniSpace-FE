@@ -42,38 +42,19 @@ export type ServiceResult<T> = {
 export type AccountStatus = 'ACTIVE' | 'INACTIVE' | 'SUSPENDED';
 export type AccountRoleName = 'ADMIN' | 'SALES' | 'DESIGNER' | 'CUSTOMER';
 
-export const ACCOUNT_ROLE_OPTIONS: Array<{
+export type AccountRoleDto = {
   roleId: string;
-  roleName: AccountRoleName;
-  description: string;
-}> = [
-  {
-    roleId: '11111111-1111-1111-1111-111111111111',
-    roleName: 'ADMIN',
-    description: 'System administrator',
-  },
-  {
-    roleId: '22222222-2222-2222-2222-222222222222',
-    roleName: 'SALES',
-    description: 'Sales consultant',
-  },
-  {
-    roleId: '33333333-3333-3333-3333-333333333333',
-    roleName: 'DESIGNER',
-    description: 'Interior designer',
-  },
-  {
-    roleId: '44444444-4444-4444-4444-444444444444',
-    roleName: 'CUSTOMER',
-    description: 'Customer account',
-  },
-];
+  roleName: AccountRoleName | string;
+  description: string | null;
+};
 
 export const ACCOUNT_STATUS_OPTIONS: AccountStatus[] = ['ACTIVE', 'INACTIVE', 'SUSPENDED'];
 
 export type AccountDto = {
   accountId: string;
   roleId: string;
+  roleName?: AccountRoleName | string | null;
+  role?: AccountRoleDto | null;
   email: string;
   fullName: string;
   phone: string | null;
@@ -82,12 +63,6 @@ export type AccountDto = {
   createdAt: string | null;
   updatedAt: string | null;
   deletedAt: string | null;
-};
-
-export type AccountRoleDto = {
-  roleId: string;
-  roleName: AccountRoleName | string;
-  description: string | null;
 };
 
 export type AdminAccountDetailDto = Omit<AccountDto, 'roleId'> & {
@@ -327,8 +302,47 @@ export type UpdateAccountInput = Omit<CreateAccountInput, 'password'> & {
   accountId: string;
 };
 
-export function getAccountRoleName(roleId: string | null | undefined) {
-  return ACCOUNT_ROLE_OPTIONS.find((role) => role.roleId === roleId)?.roleName ?? 'UNKNOWN';
+export function getAccountRoleName(account: AccountDto | AccountRoleDto | null | undefined) {
+  if (!account) return 'UNKNOWN';
+
+  if ('role' in account) {
+    return normalizeAccountRoleName(account.role?.roleName ?? account.roleName);
+  }
+
+  return normalizeAccountRoleName(account.roleName);
+}
+
+export function getAccountRoleId(account: AccountDto | AccountRoleDto | null | undefined) {
+  if (!account) return null;
+
+  if ('role' in account) {
+    return account.role?.roleId ?? account.roleId ?? null;
+  }
+
+  return account.roleId;
+}
+
+export function getAccountRoleOptions(accounts: AccountDto[]) {
+  const roleById = new Map<string, AccountRoleDto>();
+
+  accounts.forEach((account) => {
+    const roleId = getAccountRoleId(account);
+    const roleName = getAccountRoleName(account);
+
+    if (roleId && roleName !== 'UNKNOWN') {
+      roleById.set(roleId, {
+        roleId,
+        roleName,
+        description: account.role?.description ?? null,
+      });
+    }
+  });
+
+  return Array.from(roleById.values()).sort((first, second) => first.roleName.localeCompare(second.roleName));
+}
+
+function normalizeAccountRoleName(value: string | null | undefined) {
+  return value?.trim().toUpperCase() || 'UNKNOWN';
 }
 
 export function getAccountServiceResultMessage(error: unknown) {

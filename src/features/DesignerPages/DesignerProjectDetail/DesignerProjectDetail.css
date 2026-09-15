@@ -94,6 +94,7 @@
 .designer-project-measurement-upload h4 svg { color: #9a713b; }
 .designer-project-measurement-upload header p { margin: 4px 0 0; color: #71717a; font-size: 13px; line-height: 1.45; }
 .designer-project-measurement-form-grid,.designer-project-measurement-filters { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.designer-project-measurement-filters-single { grid-template-columns: minmax(220px, 360px); }
 .designer-project-measurement-form-grid label,.designer-project-measurement-filters label { display: grid; min-width: 0; gap: 6px; }
 .designer-project-measurement-form-grid label span,.designer-project-measurement-filters label span { color: #71717a; font-size: 11px; font-weight: 800; text-transform: uppercase; }
 .designer-project-measurement-form-grid input,.designer-project-measurement-form-grid select,.designer-project-measurement-filters select { width: 100%; min-height: 38px; border: 1px solid #e4e4e7; border-radius: 10px; background: #ffffff; color: #18181b; font: inherit; font-size: 13px; padding: 8px 10px; }
@@ -179,6 +180,10 @@
 .designer-project-area-notes[open] summary { border-color: rgba(154, 113, 59, 0.24); color: #8b6834; }
 .designer-project-area-notes p { display: grid; gap: 3px; margin: 0; border: 1px solid #eeeeef; border-radius: 10px; background: #ffffff; color: #52525b; font-size: 12px; line-height: 1.45; padding: 9px 10px; }
 .designer-project-area-notes summary + p { margin-top: 8px; }
+.designer-project-area-image-group { display: grid; gap: 7px; border: 1px solid #eeeeef; border-radius: 10px; background: #ffffff; padding: 8px; }
+.designer-project-area-image-group-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.designer-project-area-image-group-header span { color: #6f675f; font-size: 10px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; }
+.designer-project-area-image-group-header small { border-radius: 999px; background: #f4f4f5; color: #52525b; font-size: 10px; font-weight: 800; line-height: 1; padding: 4px 7px; }
 .designer-project-area-measurements { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
 .designer-project-area-measurements img { display: block; width: 100%; aspect-ratio: 1; border-radius: 8px; object-fit: cover; }
 .designer-project-area-blueprint-upload { display: grid; grid-column: 1 / -1; gap: 10px; border: 1px solid rgba(154, 113, 59, 0.18); border-radius: 12px; background: #faf9f7; padding: 12px; }
@@ -802,38 +807,6 @@
 .designer-proposal-status-cell .designer-project-status {
   display: inline-flex;
   margin: 0;
-}
-
-.designer-proposal-status-cell .designer-project-proposal-visibility {
-  display: inline-flex;
-  margin: 0;
-}
-
-.designer-project-proposal-visibility {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  margin-top: 7px;
-  color: #6f675f;
-  font-size: 11px;
-  font-weight: 700;
-  white-space: nowrap;
-}
-
-.designer-project-proposal-visibility::before {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: #c3bdb5;
-  content: '';
-}
-
-.designer-project-proposal-visibility.is-visible {
-  color: #15803d;
-}
-
-.designer-project-proposal-visibility.is-visible::before {
-  background: #22c55e;
 }
 
 .designer-project-table td .designer-proposal-scenes {

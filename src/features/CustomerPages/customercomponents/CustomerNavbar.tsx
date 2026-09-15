@@ -63,7 +63,7 @@ export function CustomerNavbar({ activeKey, classPrefix }: CustomerNavbarProps) 
 
       <aside className={`customer-shell-sidebar ${isCollapsed ? 'is-collapsed' : 'is-expanded'}`}>
         <div className="customer-shell-brand">
-          <NavLink className="customer-shell-logo" to="/customer/dashboard">
+          <NavLink className="customer-shell-logo" to="/">
             <span>
               <IconBox size={19} stroke={1.8} />
             </span>

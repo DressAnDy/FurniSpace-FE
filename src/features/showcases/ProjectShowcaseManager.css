@@ -611,7 +611,7 @@
 }
 
 .project-showcase-manager-sales {
-  gap: 10px;
+  gap: 12px;
 }
 
 .project-showcase-manager-sales .project-showcase-manager-header,
@@ -629,11 +629,18 @@
 }
 
 .project-showcase-manager-sales .project-showcase-manager-header h3 {
-  font-size: 18px;
-  line-height: 24px;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 20px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.project-showcase-manager-sales .project-showcase-manager-header > div > span,
+.project-showcase-manager-sales .project-showcase-status-stack span {
+  font-size: 10px;
+  line-height: 14px;
 }
 
 .project-showcase-manager-sales .project-showcase-manager-header p {
@@ -642,16 +649,24 @@
 
 .project-showcase-manager-sales .project-showcase-status-stack strong {
   font-size: 11px;
+  line-height: 14px;
   padding: 5px 8px;
 }
 
+.project-showcase-manager-sales .project-showcase-message,
+.project-showcase-manager-sales .project-showcase-state {
+  font-size: 12px;
+  line-height: 18px;
+  padding: 9px 10px;
+}
+
 .project-showcase-manager-sales .project-showcase-grid {
-  grid-template-columns: minmax(0, 1.1fr) minmax(240px, 0.9fr);
-  gap: 10px;
+  grid-template-columns: 1fr;
+  gap: 12px;
 }
 
 .project-showcase-manager-sales .project-showcase-overview {
-  grid-template-columns: 180px minmax(0, 1fr);
+  grid-template-columns: 220px minmax(0, 1fr);
 }
 
 .project-showcase-manager-sales .project-showcase-cover-stage,
@@ -686,12 +701,19 @@
 }
 
 .project-showcase-manager-sales .project-showcase-readiness ul {
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: 6px;
 }
 
 .project-showcase-manager-sales .project-showcase-readiness li {
-  font-size: 12px;
+  align-items: center;
+  border: 1px solid rgba(139, 111, 71, 0.12);
+  border-radius: 8px;
+  background: #fbfaf7;
+  font-size: 11px;
+  line-height: 16px;
   gap: 6px;
+  padding: 7px 8px;
 }
 
 .project-showcase-manager-sales .project-showcase-readiness li span {
@@ -803,7 +825,7 @@
 }
 
 .project-showcase-manager-sales .project-showcase-media-grid {
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
   gap: 10px;
 }
 
@@ -834,8 +856,8 @@
 }
 
 .project-showcase-manager-sales .project-showcase-media-actions {
-  display: grid;
-  grid-template-columns: 30px 30px minmax(58px, auto) minmax(92px, auto);
+  display: flex;
+  flex-wrap: wrap;
   gap: 6px;
   padding: 8px;
 }

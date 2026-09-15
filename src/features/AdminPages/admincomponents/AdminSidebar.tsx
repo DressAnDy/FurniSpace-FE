@@ -30,7 +30,6 @@ const sidebarItems: SidebarItem[] = [
   { key: 'categories', icon: IconTags, path: '/admin/categories' },
   { key: 'products', icon: IconPackage, path: '/admin/products' },
   { key: 'catalogModels', icon: IconCube, path: '/admin/catalog/models' },
-  { key: 'layoutAssets', icon: IconCube, path: '/admin/catalog/layout-assets' },
   { key: 'threeDLab', icon: IconCube, path: '/admin/3d-lab' },
   { key: 'projects', icon: IconFolder, path: '/admin/projects' },
   { key: 'reports', icon: IconChartBar, path: '/admin/reports' },
@@ -59,11 +58,13 @@ export function AdminSidebar({ activeKey }: AdminSidebarProps) {
 
       <aside className={`admin-sidebar ${isCollapsed ? 'is-collapsed' : 'is-expanded'}`}>
         <div className="admin-brand">
-          <img className="admin-brand-logo" src={logoImage} alt="FurniSpace" />
-          <div>
-            <h1>FurniSpace</h1>
-            <p>{t.workspace}</p>
-          </div>
+          <NavLink className="admin-brand-link" to="/">
+            <img className="admin-brand-logo" src={logoImage} alt="FurniSpace" />
+            <div>
+              <h1>FurniSpace</h1>
+              <p>{t.workspace}</p>
+            </div>
+          </NavLink>
           <button aria-label={t.collapseSidebar} className="actor-sidebar-collapse-button" hidden={isCollapsed} type="button" onClick={collapse}>
             <IconChevronLeft size={18} />
           </button>

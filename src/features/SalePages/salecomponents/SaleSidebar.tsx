@@ -55,11 +55,13 @@ export function SaleSidebar({ activeKey }: SaleSidebarProps) {
 
       <aside className={`sale-sidebar ${isCollapsed ? 'is-collapsed' : 'is-expanded'}`}>
         <div className="sale-sidebar-brand">
-          <img className="sale-sidebar-brand-logo" src={logoImage} alt="FurniSpace" />
-          <div>
-            <h1>FurniSpace</h1>
-            <p>{t.workspace}</p>
-          </div>
+          <NavLink className="sale-sidebar-brand-link" to="/">
+            <img className="sale-sidebar-brand-logo" src={logoImage} alt="FurniSpace" />
+            <div>
+              <h1>FurniSpace</h1>
+              <p>{t.workspace}</p>
+            </div>
+          </NavLink>
           <button
             aria-label={t.collapseSidebar}
             className="actor-sidebar-collapse-button"

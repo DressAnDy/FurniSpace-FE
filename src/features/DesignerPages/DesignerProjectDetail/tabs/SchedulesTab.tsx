@@ -4,7 +4,6 @@ import { useMemo, useState, type ReactNode } from 'react';
 import type { ProjectDto } from '@/services/api/projects';
 import { getProjectScheduleServiceResultMessage } from '@/services/api/schedules';
 import { useProjectScheduleList, useUpdateProjectScheduleStatus } from '@/services/queries';
-import { isScheduleVisible } from '@/shared/utils/scheduleVisibility';
 
 type SchedulesTabProps = {
   project: ProjectDto;
@@ -12,7 +11,6 @@ type SchedulesTabProps = {
 
 export function SchedulesTab({ project }: Readonly<SchedulesTabProps>) {
   const [statusMessage, setStatusMessage] = useState('');
-  const [hiddenCompletedScheduleIds, setHiddenCompletedScheduleIds] = useState<Set<string>>(() => new Set());
   const schedulesQuery = useProjectScheduleList(
     {
       projectId: project.projectId,
@@ -22,10 +20,10 @@ export function SchedulesTab({ project }: Readonly<SchedulesTabProps>) {
     { fetchAll: true, staleTime: 60_000 },
   );
   const schedules = useMemo(
-    () => (schedulesQuery.data?.items ?? []).filter((schedule) => (
-      isScheduleVisible(schedule.status) && !hiddenCompletedScheduleIds.has(schedule.scheduleId)
+    () => [...(schedulesQuery.data?.items ?? [])].sort((left, right) => (
+      new Date(right.scheduledStart).getTime() - new Date(left.scheduledStart).getTime()
     )),
-    [hiddenCompletedScheduleIds, schedulesQuery.data?.items],
+    [schedulesQuery.data?.items],
   );
   const updateScheduleStatusMutation = useUpdateProjectScheduleStatus();
 
@@ -38,7 +36,6 @@ export function SchedulesTab({ project }: Readonly<SchedulesTabProps>) {
         status: 'COMPLETED',
         note: 'Designer marked the schedule as completed from project detail.',
       });
-      setHiddenCompletedScheduleIds((current) => new Set(current).add(scheduleId));
       setStatusMessage('Schedule completed successfully.');
       void schedulesQuery.refetch();
     } catch (error) {

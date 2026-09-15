@@ -300,8 +300,31 @@
 .customer-dashboard-project-head-actions {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: 8px;
   justify-content: flex-end;
+}
+
+.customer-dashboard-project-count {
+  display: inline-flex;
+  min-height: 38px;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid rgba(139, 111, 71, 0.16);
+  border-radius: 8px;
+  background: #faf9f7;
+  color: #6b6b6b;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 0 10px;
+}
+
+.customer-dashboard-project-count select {
+  border: 0;
+  background: transparent;
+  color: #2d2d2d;
+  font: inherit;
+  outline: 0;
 }
 
 .customer-dashboard-title-row {
@@ -360,9 +383,9 @@
 
 .customer-dashboard-project-meta {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 32px;
-  margin-top: 28px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 16px;
 }
 
 .customer-dashboard-project-meta span {
@@ -373,21 +396,87 @@
 }
 
 .customer-dashboard-project-meta strong {
+  display: block;
+  overflow-wrap: anywhere;
   color: #2d2d2d;
   font-size: 14px;
   font-weight: 700;
 }
 
+.customer-dashboard-active-projects {
+  display: grid;
+  gap: 16px;
+  margin-top: 22px;
+}
+
+.customer-dashboard-active-project {
+  border: 1px solid rgba(139, 111, 71, 0.14);
+  border-radius: 10px;
+  background: #ffffff;
+  padding: 18px;
+}
+
+.customer-dashboard-active-project-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.customer-dashboard-active-project-head h3 {
+  margin: 0;
+  color: #2d2d2d;
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.customer-dashboard-active-project-head p {
+  margin: 5px 0 0;
+  color: #6b6b6b;
+  font-family: Consolas, "Courier New", monospace;
+  font-size: 12px;
+}
+
+.customer-dashboard-project-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 16px;
+}
+
+.customer-dashboard-project-card-actions button {
+  display: inline-flex;
+  min-height: 36px;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid #8b6f47;
+  border-radius: 8px;
+  background: #8b6f47;
+  color: #ffffff;
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 0 12px;
+}
+
+.customer-dashboard-project-card-actions button:first-child:not(:last-child) {
+  background: #ffffff;
+  color: #8b6f47;
+}
+
 .customer-dashboard-journey {
-  margin-top: 28px;
+  margin-top: 16px;
   border-radius: 8px;
   background: #f5f1ec;
-  padding: 24px;
+  padding: 16px;
 }
 
 .customer-dashboard-journey h3 {
-  margin: 0 0 24px;
-  font-size: 18px;
+  margin: 0 0 16px;
+  font-size: 14px;
   font-weight: 500;
 }
 
@@ -859,6 +948,7 @@
 
   .customer-dashboard-project-head,
   .customer-dashboard-project-head-actions,
+  .customer-dashboard-active-project-head,
   .customer-dashboard-title-row,
   .customer-dashboard-empty-project,
   .customer-dashboard-action-required {
@@ -892,5 +982,15 @@
 
   .customer-dashboard-help {
     grid-template-columns: 1fr;
+  }
+
+  .customer-dashboard-project-card-actions {
+    justify-content: stretch;
+  }
+
+  .customer-dashboard-project-card-actions button,
+  .customer-dashboard-project-count {
+    width: 100%;
+    justify-content: center;
   }
 }

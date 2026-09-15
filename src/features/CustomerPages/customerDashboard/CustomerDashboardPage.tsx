@@ -1,8 +1,6 @@
 import {
   IconArrowRight,
   IconCheck,
-  IconHelp,
-  IconMessageCircle,
   IconPlus,
 } from '@tabler/icons-react';
 import { useMemo, useState } from 'react';
@@ -64,10 +62,13 @@ export function CustomerDashboardPage() {
   const todayIso = useMemo(() => new Date().toISOString(), []);
   const [scheduleActionMessage, setScheduleActionMessage] = useState('');
   const [activeScheduleActionId, setActiveScheduleActionId] = useState<string | null>(null);
+  const [projectDisplayCount, setProjectDisplayCount] = useState(3);
   const currentUserQuery = useCurrentUser();
   const customerName = getCustomerGreetingName(currentUserQuery.data?.fullName, t.common.customer);
   const projectsQuery = useProjectList({ page: 1, limit: 50 });
-  const activeProject = useMemo(() => getFirstActiveProject(projectsQuery.data?.items ?? []), [projectsQuery.data?.items]);
+  const activeProjects = useMemo(() => getActiveProjects(projectsQuery.data?.items ?? []), [projectsQuery.data?.items]);
+  const visibleActiveProjects = useMemo(() => activeProjects.slice(0, projectDisplayCount), [activeProjects, projectDisplayCount]);
+  const activeProject = activeProjects[0];
   const projectDetailQuery = useProjectDetail(activeProject?.projectId);
   const project = projectDetailQuery.data ?? activeProject;
   const proposalsQuery = useProjectProposals(
@@ -97,7 +98,6 @@ export function CustomerDashboardPage() {
   );
   const updateScheduleStatusMutation = useUpdateProjectScheduleStatus();
   const journeyLabels = getJourneyLabels(t);
-  const journeySteps = getJourneySteps(project?.status, journeyLabels);
   const hasActiveProject = Boolean(project);
   const pendingReviewProposals = proposalsQuery.data?.items ?? [];
   const upcomingSchedules = useMemo(
@@ -107,7 +107,6 @@ export function CustomerDashboardPage() {
         .sort((left, right) => new Date(left.scheduledStart).getTime() - new Date(right.scheduledStart).getTime()),
     [schedulesQuery.data?.items, todayIso],
   );
-  const actionConfig = project ? getActionConfig(project.status, t.dashboard, project.projectId) : null;
 
   async function handleScheduleConfirm(schedule: ProjectScheduleDto) {
     setScheduleActionMessage('');
@@ -164,11 +163,19 @@ export function CustomerDashboardPage() {
                   <div>
                     <div className="customer-dashboard-title-row">
                       <h2>{t.dashboard.yourActiveProject}</h2>
-                      <span className="customer-dashboard-status">{getCustomerProjectStatusLabel(project.status, lang)}</span>
+                      <span className="customer-dashboard-status">{activeProjects.length}</span>
                     </div>
                     <p>{t.dashboard.trackProgress}</p>
                   </div>
                   <div className="customer-dashboard-project-head-actions">
+                    <label className="customer-dashboard-project-count">
+                      <span>{t.dashboard.projectsToShow}</span>
+                      <select value={projectDisplayCount} onChange={(event) => setProjectDisplayCount(Number(event.target.value))}>
+                        {[3, 6, 9, 12].map((count) => (
+                          <option key={count} value={count}>{count}</option>
+                        ))}
+                      </select>
+                    </label>
                     <button type="button" onClick={() => navigate('/customer/tracking')}>
                       {t.dashboard.trackProject}
                       <IconArrowRight size={16} stroke={1.8} />
@@ -180,47 +187,62 @@ export function CustomerDashboardPage() {
                   </div>
                 </div>
 
-                <div className="customer-dashboard-project-meta">
-                  <div>
-                    <span>{t.common.projectName}</span>
-                    <strong>{project.projectName}</strong>
-                  </div>
-                  <div>
-                    <span>{t.common.businessType}</span>
-                    <strong>{project.businessType}</strong>
-                  </div>
-                  <div>
-                    <span>{t.dashboard.budgetRange}</span>
-                    <strong>
-                      {projectDetailQuery.data
-                        ? formatBudgetRange(projectDetailQuery.data.budgetMin, projectDetailQuery.data.budgetMax, t.common, lang)
-                        : t.dashboard.availableInDetail}
-                    </strong>
-                  </div>
-                </div>
+                <div className="customer-dashboard-active-projects">
+                  {visibleActiveProjects.map((item) => {
+                    const resolvedProject = item.projectId === project?.projectId ? project : item;
+                    const itemJourneySteps = getJourneySteps(resolvedProject.status, journeyLabels);
+                    const itemActionConfig = getActionConfig(resolvedProject.status, t.dashboard, resolvedProject.projectId);
 
-                <div className="customer-dashboard-journey">
-                  <h3>{t.dashboard.projectJourney}</h3>
-                  <ol>
-                    {journeySteps.map((step, index) => (
-                      <li className={`customer-dashboard-step customer-dashboard-step-${step.status}`} key={step.label}>
-                        <span>{step.status === 'complete' ? <IconCheck size={15} stroke={2.4} /> : index + 1}</span>
-                        <p>{step.label}</p>
-                      </li>
-                    ))}
-                  </ol>
-                </div>
+                    return (
+                      <article className="customer-dashboard-active-project" key={item.projectId}>
+                        <div className="customer-dashboard-active-project-head">
+                          <div>
+                            <h3>{resolvedProject.projectName}</h3>
+                            <p>{resolvedProject.projectCode}</p>
+                          </div>
+                          <span className="customer-dashboard-status">{getCustomerProjectStatusLabel(resolvedProject.status, lang)}</span>
+                        </div>
 
-                {actionConfig ? (
-                  <div className="customer-dashboard-action-required">
-                    <IconHelp size={16} stroke={1.8} />
-                    <div>
-                      <strong>{actionConfig.title}</strong>
-                      <p>{actionConfig.description}</p>
-                    </div>
-                    <button type="button" onClick={() => navigate(actionConfig.path)}>{actionConfig.label}</button>
-                  </div>
-                ) : null}
+                        <div className="customer-dashboard-project-meta">
+                          <div>
+                            <span>{t.common.businessType}</span>
+                            <strong>{resolvedProject.businessType}</strong>
+                          </div>
+                          <div>
+                            <span>{t.dashboard.budgetRange}</span>
+                            <strong>
+                              {item.projectId === projectDetailQuery.data?.projectId
+                                ? formatBudgetRange(projectDetailQuery.data.budgetMin, projectDetailQuery.data.budgetMax, t.common, lang)
+                                : t.dashboard.availableInDetail}
+                            </strong>
+                          </div>
+                        </div>
+
+                        <div className="customer-dashboard-journey">
+                          <h3>{t.dashboard.projectJourney}</h3>
+                          <ol>
+                            {itemJourneySteps.map((step, index) => (
+                              <li className={`customer-dashboard-step customer-dashboard-step-${step.status}`} key={`${item.projectId}-${step.label}`}>
+                                <span>{step.status === 'complete' ? <IconCheck size={15} stroke={2.4} /> : index + 1}</span>
+                                <p>{step.label}</p>
+                              </li>
+                            ))}
+                          </ol>
+                        </div>
+
+                        <div className="customer-dashboard-project-card-actions">
+                          {itemActionConfig ? (
+                            <button type="button" onClick={() => navigate(itemActionConfig.path)}>{itemActionConfig.label}</button>
+                          ) : null}
+                          <button type="button" onClick={() => navigate(`/customer/projects/${item.projectId}`)}>
+                            {t.dashboard.openProject}
+                            <IconArrowRight size={16} stroke={1.8} />
+                          </button>
+                        </div>
+                      </article>
+                    );
+                  })}
+                </div>
               </section>
             )}
           </div>
@@ -295,19 +317,6 @@ export function CustomerDashboardPage() {
               </div>
             </section>
 
-            <section className="customer-dashboard-help">
-              <div className="customer-dashboard-help-icon">
-                <IconMessageCircle size={28} stroke={1.8} />
-              </div>
-              <div>
-                <h2>{t.dashboard.needHelp}</h2>
-                <p>{t.dashboard.needHelpDesc}</p>
-                <div>
-                  <button type="button" onClick={() => navigate('/customer/projects')}>{t.dashboard.contactYourTeam}</button>
-                  <button type="button" onClick={() => navigate('/customer/dashboard')}>{t.dashboard.viewHelpCenter}</button>
-                </div>
-              </div>
-            </section>
           </aside>
         </div>
       </div>
@@ -336,10 +345,10 @@ function DashboardPanel({ children, projectId, title, viewAllLabel }: DashboardP
   );
 }
 
-function getFirstActiveProject(projects: ProjectListItemDto[]) {
+function getActiveProjects(projects: ProjectListItemDto[]) {
   return projects
-    .filter((project) => activeProjectStatuses.includes(project.status))
-    .sort((left, right) => new Date(right.submittedAt).getTime() - new Date(left.submittedAt).getTime())[0];
+    .filter((project) => activeProjectStatuses.includes(project.status) && project.status !== 'COMPLETED')
+    .sort((left, right) => new Date(right.submittedAt).getTime() - new Date(left.submittedAt).getTime());
 }
 
 function getJourneyLabels(t: CustomerCopy): Record<JourneyStatus, string> {

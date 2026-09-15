@@ -198,19 +198,18 @@ export function ProductionRequests() {
                   <th>Priority</th>
                   <th>Status</th>
                   <th>Production Deadline</th>
-                  <th>Actual Completion</th>
                   <th>Action</th>
                 </tr>
               </thead>
               <tbody>
                 {requestsQuery.isLoading ? (
                   <tr>
-                    <td colSpan={9}>Loading production requests...</td>
+                    <td colSpan={8}>Loading production requests...</td>
                   </tr>
                 ) : null}
                 {!requestsQuery.isLoading && requests.length === 0 ? (
                   <tr>
-                    <td colSpan={9}>No production request matched current filters.</td>
+                    <td colSpan={8}>No production request matched current filters.</td>
                   </tr>
                 ) : null}
                 {pagedRequests.map((request) => (
@@ -238,7 +237,6 @@ export function ProductionRequests() {
                     </td>
                     <td><ProductionStatusBadge label={getProductionRequestStatusLabel(request.status)} status={request.status} /></td>
                     <td>{formatDate(request.productionDeadline)}</td>
-                    <td>{formatDate(request.actualCompletionDate)}</td>
                     <td>
                       <div className="production-workspace-row-actions">
                         <Link to={`/production/requests/${request.productionRequestId}`}>View Detail</Link>
