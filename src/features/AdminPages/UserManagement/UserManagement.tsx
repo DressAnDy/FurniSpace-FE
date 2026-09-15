@@ -4,12 +4,14 @@ import { IconBriefcase, IconEdit, IconEye, IconPlus, IconSearch, IconTrash, Icon
 
 import { useLang } from '@/app/providers/useLang';
 import {
-  ACCOUNT_ROLE_OPTIONS,
   ACCOUNT_STATUS_OPTIONS,
+  getAccountRoleId,
   getAccountRoleName,
+  getAccountRoleOptions,
   getAccountServiceResultMessage,
   normalizeAccountOptionalText,
   normalizeAccountRequiredText,
+  type AccountRoleDto,
   type AccountDto,
   type AccountStatus,
 } from '@/services/api';
@@ -74,13 +76,14 @@ export function UserManagement() {
   const deleteAccountMutation = useDeleteAccount();
 
   const accounts = accountListQuery.data?.items ?? EMPTY_ACCOUNTS;
+  const roleOptions = useMemo(() => getAccountRoleOptions(accounts), [accounts]);
   const totalAccounts = accountListQuery.data?.totalItems ?? accounts.length;
   const accountTotalPages = accountListQuery.data?.totalPages ?? 1;
   const hasPreviousAccountPage = accountListQuery.data?.hasPreviousPage ?? accountPage > 1;
   const hasNextAccountPage = accountListQuery.data?.hasNextPage ?? accountPage < accountTotalPages;
   const roleStats = useMemo(() => {
     const countRole = (roleName: string) =>
-      accounts.filter((account) => getAccountRoleName(account.roleId).toUpperCase() === roleName).length;
+      accounts.filter((account) => getAccountRoleName(account) === roleName).length;
 
     return [
       { label: 'Customer', value: countRole('CUSTOMER'), icon: IconUsers, tone: 'blue' },
@@ -331,7 +334,7 @@ export function UserManagement() {
                             <td>{account.email}</td>
                             <td>{account.phone ?? '-'}</td>
                             <td>
-                              <span className="user-management-role">{getAccountRoleName(account.roleId)}</span>
+                              <span className="user-management-role">{getAccountRoleName(account)}</span>
                             </td>
                             <td>
                               <span className={`user-management-status user-management-status-${(account.status ?? 'inactive').toLowerCase()}`}>
@@ -410,6 +413,7 @@ export function UserManagement() {
         account={editingAccount}
         isSubmitting={isSubmitting}
         errorMessage={formError}
+        roleOptions={roleOptions}
         onClose={closeFormModal}
         onSubmit={handleSubmitAccount}
       />
@@ -439,19 +443,22 @@ type AccountFormModalProps = {
   isOpen: boolean;
   mode: AccountFormMode;
   account: AccountDto | null;
+  roleOptions: AccountRoleDto[];
   isSubmitting: boolean;
   errorMessage: string | null;
   onClose: () => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
 };
 
-function AccountFormModal({ isOpen, mode, account, isSubmitting, errorMessage, onClose, onSubmit }: AccountFormModalProps) {
+function AccountFormModal({ isOpen, mode, account, roleOptions, isSubmitting, errorMessage, onClose, onSubmit }: AccountFormModalProps) {
   if (!isOpen) {
     return null;
   }
 
   const title = mode === 'edit' ? 'Edit Account' : 'Create Account';
   const submitLabel = mode === 'edit' ? 'Save Changes' : 'Create Account';
+  const selectedRoleId = getAccountRoleId(account) ?? roleOptions[0]?.roleId ?? '';
+  const hasRoleOptions = roleOptions.length > 0;
 
   return (
     <div className="user-modal-overlay">
@@ -491,12 +498,13 @@ function AccountFormModal({ isOpen, mode, account, isSubmitting, errorMessage, o
 
           <label className="user-modal-field">
             <span>Role *</span>
-            <select defaultValue={account?.roleId ?? ACCOUNT_ROLE_OPTIONS[1].roleId} name="roleId" required>
-              {ACCOUNT_ROLE_OPTIONS.map((role) => (
+            <select defaultValue={selectedRoleId} name="roleId" required disabled={!hasRoleOptions}>
+              {roleOptions.map((role) => (
                 <option key={role.roleId} value={role.roleId}>
                   {role.roleName}
                 </option>
               ))}
+              {!hasRoleOptions ? <option value="">No roles returned from backend</option> : null}
             </select>
           </label>
 

@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 
+import { MainNavbar } from '@/features/MainPages/maincomponents';
 import type { ProjectShowcaseDto, ProjectShowcaseListParams } from '@/services/api/showcases';
 import { usePublicShowcase, usePublicShowcases } from '@/services/queries';
 import { SiteFooter } from '@/shared/components';
@@ -28,6 +29,7 @@ export function PublicShowcasesPage() {
 
   return (
     <>
+      <MainNavbar activePath="/projects" classPrefix="public-showcase" />
       <main className="public-showcase-page public-showcase-list-page">
         <header className="public-showcase-list-hero">
           <p>FurniSpace Portfolio</p>
@@ -141,15 +143,16 @@ export function PublicShowcaseDetailPage() {
 
   return (
     <>
+      <MainNavbar activePath="/projects" classPrefix="public-showcase" />
       <main className="public-showcase-page public-showcase-detail-page">
         {showcaseQuery.isLoading ? <p className="public-showcase-state">Loading showcase...</p> : null}
         {showcaseQuery.isError ? <p className="public-showcase-state is-error">Cannot load this showcase.</p> : null}
         {showcase ? (
           <>
-            <button className="public-showcase-back-button" type="button" onClick={() => navigate(-1)}>
-              Back
-            </button>
             <figure className="public-showcase-primary-image">
+              <button className="public-showcase-back-button" type="button" onClick={() => navigate(-1)}>
+                Back
+              </button>
               {primaryImageUrl ? (
                 <img alt={showcase.title ?? showcase.projectName ?? 'Project showcase'} src={primaryImageUrl} />
               ) : (

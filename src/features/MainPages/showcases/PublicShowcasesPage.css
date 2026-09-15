@@ -2,7 +2,7 @@
   min-height: 100vh;
   background: #f7f5f3;
   color: #283247;
-  padding: 42px clamp(18px, 5vw, 72px);
+  padding: 120px clamp(18px, 5vw, 72px) 42px;
 }
 
 .public-showcase-list-hero {
@@ -217,10 +217,11 @@
 }
 
 .public-showcase-detail-page {
-  padding-top: 20px;
+  padding-top: 120px;
 }
 
 .public-showcase-primary-image {
+  position: relative;
   overflow: hidden;
   max-width: 1560px;
   margin: 0 auto clamp(28px, 4vw, 48px);
@@ -232,7 +233,7 @@
 .public-showcase-primary-empty {
   display: block;
   width: 100%;
-  aspect-ratio: 16 / 7;
+  aspect-ratio: 16 / 6.6;
   object-fit: cover;
 }
 
@@ -241,6 +242,10 @@
 }
 
 .public-showcase-back-button {
+  position: absolute;
+  z-index: 2;
+  top: 18px;
+  left: 18px;
   display: inline-flex;
   width: fit-content;
   min-height: 40px;
@@ -254,8 +259,7 @@
   font: inherit;
   font-size: 14px;
   font-weight: 800;
-  margin: 0 auto 14px calc((100% - min(1560px, 100%)) / 2);
-  max-width: 1560px;
+  margin: 0;
   padding: 0 16px;
 }
 
@@ -396,6 +400,11 @@
 @media (max-width: 640px) {
   .public-showcase-page {
     padding-inline: 16px;
+    padding-top: 104px;
+  }
+
+  .public-showcase-detail-page {
+    padding-top: 104px;
   }
 
   .public-showcase-primary-image {

@@ -247,7 +247,7 @@ type ProjectMemberCardProps = {
 
 function ProjectMemberCard({ label, fallbackId, account, placeholder, avatarClassName = '' }: ProjectMemberCardProps) {
   const displayName = account?.fullName ?? (fallbackId ? 'Loading account...' : placeholder);
-  const roleName = account ? getAccountRoleName(account.roleId) : label;
+  const roleName = account ? getAccountRoleName(account) : label;
 
   return (
     <article className="project-detail-team-member-card project-detail-project-member-card">

@@ -198,6 +198,8 @@ type ProductCardProps = {
 function ProductCard({ eagerImage = false, product, revealIndex }: ProductCardProps) {
   const defaultVersion = getPublicDefaultVersion(product);
   const imageUrl = getProductThumbnailImage(product);
+  const visibleBusinessTypes = product.businessTypes?.slice(0, 3) ?? [];
+  const hiddenBusinessTypeCount = Math.max((product.businessTypes?.length ?? 0) - visibleBusinessTypes.length, 0);
   const { isTransitioning, transitionTo } = useTileTransition();
   const detailPath = `/products/detail?productId=${product.productId}`;
   const revealStyle = {
@@ -241,9 +243,10 @@ function ProductCard({ eagerImage = false, product, revealIndex }: ProductCardPr
             <p>{product.description ?? product.categoryName}</p>
             {product.businessTypes?.length ? (
               <div className="product-list-preview-card-tags">
-                {product.businessTypes.slice(0, 3).map((businessType) => (
+                {visibleBusinessTypes.map((businessType) => (
                   <span key={businessType.id}>{businessType.name}</span>
                 ))}
+                {hiddenBusinessTypeCount > 0 ? <span>+...</span> : null}
               </div>
             ) : null}
           </div>

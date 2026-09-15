@@ -33,7 +33,7 @@ export function CustomerInfoTab({ project }: CustomerInfoTabProps) {
               <h3>{customer.fullName}</h3>
               <p>{customer.email}</p>
               <div className="project-detail-badge-row project-detail-customer-badges">
-                <span className="project-detail-small-badge project-detail-small-badge-primary">{getAccountRoleName(customer.roleId)}</span>
+                <span className="project-detail-small-badge project-detail-small-badge-primary">{getAccountRoleName(customer)}</span>
               </div>
             </div>
           </div>

@@ -30,7 +30,6 @@ const sidebarItems: SidebarItem[] = [
   { key: 'categories', icon: IconTags, path: '/admin/categories' },
   { key: 'products', icon: IconPackage, path: '/admin/products' },
   { key: 'catalogModels', icon: IconCube, path: '/admin/catalog/models' },
-  { key: 'layoutAssets', icon: IconCube, path: '/admin/catalog/layout-assets' },
   { key: 'threeDLab', icon: IconCube, path: '/admin/3d-lab' },
   { key: 'projects', icon: IconFolder, path: '/admin/projects' },
   { key: 'reports', icon: IconChartBar, path: '/admin/reports' },
