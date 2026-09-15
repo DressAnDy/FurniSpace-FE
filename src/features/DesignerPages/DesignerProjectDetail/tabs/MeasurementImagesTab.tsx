@@ -25,11 +25,10 @@ type MeasurementUploadItem = {
 
 export function MeasurementImagesTab({ project }: Readonly<MeasurementImagesTabProps>) {
   const [areaFilter, setAreaFilter] = useState('');
-  const [assignmentFilter, setAssignmentFilter] = useState<'all' | 'assigned'>('all');
   const [uploadItems, setUploadItems] = useState<MeasurementUploadItem[]>([]);
   const [uploadMessage, setUploadMessage] = useState<{ tone: 'error' | 'success'; text: string } | null>(null);
   const imagesQuery = useProjectMeasurementImages(project.projectId, {
-    assigned: assignmentFilter === 'all' ? null : assignmentFilter === 'assigned',
+    assigned: null,
     projectAreaId: areaFilter || null,
     page: 1,
     limit: 80,
@@ -251,7 +250,7 @@ export function MeasurementImagesTab({ project }: Readonly<MeasurementImagesTabP
         </div>
       </form>
 
-      <div className="designer-project-measurement-filters">
+      <div className="designer-project-measurement-filters designer-project-measurement-filters-single">
         <label>
           <span>Area</span>
           <select value={areaFilter} onChange={(event) => setAreaFilter(event.target.value)}>
@@ -259,13 +258,6 @@ export function MeasurementImagesTab({ project }: Readonly<MeasurementImagesTabP
             {areas.map((area) => (
               <option key={area.projectAreaId} value={area.projectAreaId}>{area.areaName}</option>
             ))}
-          </select>
-        </label>
-        <label>
-          <span>Link status</span>
-          <select value={assignmentFilter} onChange={(event) => setAssignmentFilter(event.target.value as 'all' | 'assigned')}>
-            <option value="all">All images</option>
-            <option value="assigned">Linked to area</option>
           </select>
         </label>
       </div>
@@ -322,7 +314,7 @@ function MeasurementUploadTile({ item, onRemove }: { item: MeasurementUploadItem
 
 function MeasurementImageCard({ image }: { image: MeasurementImageDto }) {
   const imageUrl = image.url ?? image.publicUrl;
-  const imageName = getDisplayFileName(image.originalFileName, 'Measurement image');
+  const imageAlt = getMeasurementImageFileName(image);
   const areaNames = image.areas
     ?.map((area) => getDisplayText(area.areaName, 'Unnamed area'))
     .filter(Boolean)
@@ -332,14 +324,13 @@ function MeasurementImageCard({ image }: { image: MeasurementImageDto }) {
     <article className="designer-project-file-card">
       {imageUrl ? (
         <a href={imageUrl} rel="noreferrer" target="_blank">
-          <img alt={imageName} className="designer-project-measurement-image" src={imageUrl} />
+          <img alt={imageAlt} className="designer-project-measurement-image" src={imageUrl} />
         </a>
       ) : (
         <div className="designer-project-measurement-placeholder"><IconPhoto size={28} /></div>
       )}
       <div className="designer-project-file-content">
         <div className="designer-project-file-name">
-          <h4>{imageName}</h4>
           <p>{image.uploadedAt ? formatDateTime(image.uploadedAt) : 'No upload time'}</p>
         </div>
         <p className="designer-project-file-meta">
@@ -391,10 +382,35 @@ function formatDateTime(value: string) {
   }).format(new Date(value));
 }
 
-function getDisplayFileName(value: string | null | undefined, fallback: string) {
-  const displayText = getDisplayText(value, fallback);
+function getMeasurementImageFileName(image: MeasurementImageDto) {
+  const explicitName = getDisplayText(image.originalFileName, '');
 
-  return isTechnicalId(displayText) ? fallback : displayText;
+  if (explicitName && !isTechnicalId(explicitName)) {
+    return explicitName;
+  }
+
+  const urlName = getFileNameFromPath(image.storagePath) ?? getFileNameFromPath(image.publicUrl) ?? getFileNameFromPath(image.url);
+
+  if (urlName && !isTechnicalId(urlName)) {
+    return urlName;
+  }
+
+  return image.fileId ? `File ${image.fileId.slice(0, 8)}` : 'Measurement file';
+}
+
+function getFileNameFromPath(value?: string | null) {
+  if (!value) return null;
+
+  const withoutQuery = value.split(/[?#]/)[0] ?? '';
+  const fileName = withoutQuery.split('/').filter(Boolean).pop()?.trim();
+
+  if (!fileName) return null;
+
+  try {
+    return decodeURIComponent(fileName);
+  } catch {
+    return fileName;
+  }
 }
 
 function getDisplayText(value: string | null | undefined, fallback: string) {

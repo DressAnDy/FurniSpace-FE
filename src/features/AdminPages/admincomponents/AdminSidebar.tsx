@@ -59,11 +59,13 @@ export function AdminSidebar({ activeKey }: AdminSidebarProps) {
 
       <aside className={`admin-sidebar ${isCollapsed ? 'is-collapsed' : 'is-expanded'}`}>
         <div className="admin-brand">
-          <img className="admin-brand-logo" src={logoImage} alt="FurniSpace" />
-          <div>
-            <h1>FurniSpace</h1>
-            <p>{t.workspace}</p>
-          </div>
+          <NavLink className="admin-brand-link" to="/">
+            <img className="admin-brand-logo" src={logoImage} alt="FurniSpace" />
+            <div>
+              <h1>FurniSpace</h1>
+              <p>{t.workspace}</p>
+            </div>
+          </NavLink>
           <button aria-label={t.collapseSidebar} className="actor-sidebar-collapse-button" hidden={isCollapsed} type="button" onClick={collapse}>
             <IconChevronLeft size={18} />
           </button>

@@ -1,8 +1,8 @@
 .product-issue-panel {
   background: #ffffff;
   border: 1px solid rgba(166, 124, 82, 0.18);
-  border-radius: 18px;
-  box-shadow: 0 18px 40px rgba(79, 55, 38, 0.08);
+  border-radius: 12px;
+  box-shadow: 0 8px 20px rgba(79, 55, 38, 0.05);
   display: grid;
   gap: 0;
   overflow: hidden;
@@ -19,7 +19,7 @@
 }
 
 .product-issue-header {
-  padding: 16px 18px;
+  padding: 12px 14px;
 }
 
 .product-issue-toggle {
@@ -47,7 +47,7 @@
 
 .product-issue-toggle strong {
   color: #2f261f;
-  font-size: 18px;
+  font-size: 15px;
   font-weight: 900;
   line-height: 1.25;
   overflow: hidden;
@@ -57,7 +57,7 @@
 
 .product-issue-toggle small {
   color: #7a6d63;
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 500;
   line-height: 1.35;
 }
@@ -75,8 +75,8 @@
 .product-issue-body {
   border-top: 1px solid rgba(166, 124, 82, 0.12);
   display: grid;
-  gap: 16px;
-  padding: 16px 18px 18px;
+  gap: 10px;
+  padding: 12px 14px 14px;
 }
 
 .product-issue-modal-title {
@@ -117,8 +117,8 @@
   font-weight: 600;
   gap: 6px;
   justify-content: center;
-  min-height: 36px;
-  padding: 8px 12px;
+  min-height: 32px;
+  padding: 6px 10px;
   transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
 }
 
@@ -142,10 +142,12 @@
 .product-issue-state {
   background: #f7efe4;
   border: 1px dashed rgba(166, 124, 82, 0.28);
-  border-radius: 12px;
+  border-radius: 8px;
   color: #7a6d63;
+  font-size: 12px;
+  line-height: 18px;
   margin: 0;
-  padding: 18px;
+  padding: 12px;
   text-align: center;
 }
 
@@ -168,14 +170,14 @@
 .product-issue-status-tabs button {
   background: #ffffff;
   border: 1px solid rgba(166, 124, 82, 0.28);
-  border-radius: 10px;
+  border-radius: 8px;
   color: #5c4a3a;
   cursor: pointer;
   font: inherit;
   font-size: 12px;
   font-weight: 800;
-  min-height: 34px;
-  padding: 7px 11px;
+  min-height: 30px;
+  padding: 5px 9px;
 }
 
 .product-issue-status-tabs button:hover {
@@ -191,7 +193,7 @@
 
 .product-issue-list {
   display: grid;
-  gap: 10px;
+  gap: 8px;
 }
 
 .product-issue-row {
@@ -204,7 +206,7 @@
   display: grid;
   gap: 12px;
   grid-template-columns: auto minmax(180px, 1fr) minmax(160px, auto) auto;
-  padding: 14px;
+  padding: 10px;
   text-align: left;
   transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
   width: 100%;
@@ -229,12 +231,12 @@
 
 .product-issue-row strong {
   color: #312721;
-  font-size: 14px;
+  font-size: 12px;
 }
 
 .product-issue-row small {
   color: #7a6d63;
-  font-size: 12px;
+  font-size: 10px;
   line-height: 1.4;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -251,12 +253,12 @@
   border-radius: 999px;
   color: #047857;
   display: inline-flex;
-  font-size: 11px;
+  font-size: 10px;
   font-style: normal;
   font-weight: 900;
   justify-self: end;
   line-height: 1;
-  padding: 7px 10px;
+  padding: 6px 8px;
   white-space: nowrap;
 }
 

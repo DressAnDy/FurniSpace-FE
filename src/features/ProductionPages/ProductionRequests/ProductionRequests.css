@@ -9,8 +9,16 @@
 }
 
 .production-requests-queue .production-workspace-table {
-  min-width: 1080px;
+  min-width: 0;
   table-layout: fixed;
+}
+
+.production-requests-queue .production-workspace-table-wrap {
+  overflow-x: hidden;
+}
+
+.production-requests-queue .production-workspace-table-wrap::-webkit-scrollbar {
+  display: none;
 }
 
 .production-requests-queue .production-workspace-table th,
@@ -22,6 +30,12 @@
   vertical-align: middle;
 }
 
+.production-requests-queue .production-workspace-table th {
+  line-height: 15px;
+  overflow: visible;
+  white-space: normal;
+}
+
 .production-requests-queue .production-workspace-table th:nth-child(1),
 .production-requests-queue .production-workspace-table td:nth-child(1) {
   width: 118px;
@@ -29,7 +43,7 @@
 
 .production-requests-queue .production-workspace-table th:nth-child(2),
 .production-requests-queue .production-workspace-table td:nth-child(2) {
-  width: 120px;
+  width: 22%;
 }
 
 .production-requests-queue .production-workspace-table th:nth-child(3),
@@ -39,7 +53,7 @@
 
 .production-requests-queue .production-workspace-table th:nth-child(4),
 .production-requests-queue .production-workspace-table td:nth-child(4) {
-  width: 120px;
+  width: 14%;
 }
 
 .production-requests-queue .production-workspace-table th:nth-child(5),
@@ -49,19 +63,17 @@
 
 .production-requests-queue .production-workspace-table th:nth-child(6),
 .production-requests-queue .production-workspace-table td:nth-child(6) {
-  width: 126px;
+  width: 128px;
 }
 
 .production-requests-queue .production-workspace-table th:nth-child(7),
-.production-requests-queue .production-workspace-table td:nth-child(7),
-.production-requests-queue .production-workspace-table th:nth-child(8),
-.production-requests-queue .production-workspace-table td:nth-child(8) {
-  width: 108px;
+.production-requests-queue .production-workspace-table td:nth-child(7) {
+  width: 168px;
 }
 
-.production-requests-queue .production-workspace-table th:nth-child(9),
-.production-requests-queue .production-workspace-table td:nth-child(9) {
-  width: 300px;
+.production-requests-queue .production-workspace-table th:nth-child(8),
+.production-requests-queue .production-workspace-table td:nth-child(8) {
+  width: 252px;
   overflow: visible;
   white-space: normal;
 }

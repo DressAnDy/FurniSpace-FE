@@ -20,13 +20,16 @@ type VersionFilter = 'All Types' | 'Default' | 'Public' | 'Project Specific' | '
 
 const versionFilters: VersionFilter[] = ['All Types', 'Default', 'Public', 'Project Specific', 'Planner Ready'];
 const EMPTY_PRODUCTS: ProductListItemDto[] = [];
-const PRODUCTS_PER_PAGE = 9;
+const MIN_PRODUCT_PAGE_SIZE = 1;
+const MAX_PRODUCT_PAGE_SIZE = 100;
+const DEFAULT_PRODUCT_PAGE_SIZE = 9;
 
 export function DesignerProductLibrary() {
   const [search, setSearch] = useState('');
   const [activeFilter, setActiveFilter] = useState<VersionFilter>('All Types');
   const [businessTypeFilterIds, setBusinessTypeFilterIds] = useState<number[]>([]);
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(DEFAULT_PRODUCT_PAGE_SIZE);
   const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
   const productListQuery = useProductList({ page: 1, limit: 100, businessTypeIds: businessTypeFilterIds });
   const businessTypeListQuery = useBusinessTypeList({ page: 1, limit: 100 });
@@ -75,9 +78,9 @@ export function DesignerProductLibrary() {
       return matchesFilter && matchesSearch;
     });
   }, [activeFilter, cards, search]);
-  const totalPages = Math.max(Math.ceil(visibleCards.length / PRODUCTS_PER_PAGE), 1);
+  const totalPages = Math.max(Math.ceil(visibleCards.length / pageSize), 1);
   const currentPage = Math.min(page, totalPages);
-  const pagedCards = visibleCards.slice((currentPage - 1) * PRODUCTS_PER_PAGE, currentPage * PRODUCTS_PER_PAGE);
+  const pagedCards = visibleCards.slice((currentPage - 1) * pageSize, currentPage * pageSize);
   const selectedCard = cards.find((card) => card.product.productId === selectedProductId) ?? null;
 
   useEffect(() => {
@@ -211,19 +214,126 @@ export function DesignerProductLibrary() {
       )}
 
       {!selectedCard && !productListQuery.isLoading && visibleCards.length > 0 ? (
-        <nav className="designer-products-pagination" aria-label="Product library pagination">
-          <span>Page {currentPage} of {totalPages}</span>
-          <div>
-            <button disabled={currentPage === 1} type="button" onClick={() => setPage((current) => Math.max(current - 1, 1))}>
-              Previous
-            </button>
-            <button disabled={currentPage === totalPages} type="button" onClick={() => setPage((current) => Math.min(current + 1, totalPages))}>
-              Next
-            </button>
-          </div>
-        </nav>
+        <DesignerProductsPager
+          page={currentPage}
+          pageSize={pageSize}
+          totalItems={visibleCards.length}
+          totalPages={totalPages}
+          onChange={setPage}
+          onPageSizeChange={(nextSize) => {
+            setPageSize(nextSize);
+            setPage(1);
+          }}
+        />
       ) : null}
     </DesignerLayout>
+  );
+}
+
+function DesignerProductsPager({
+  page,
+  pageSize,
+  totalPages,
+  totalItems,
+  onChange,
+  onPageSizeChange,
+}: {
+  page: number;
+  pageSize: number;
+  totalPages: number;
+  totalItems: number;
+  onChange: (page: number) => void;
+  onPageSizeChange: (pageSize: number) => void;
+}) {
+  const safeTotalPages = Math.max(totalPages, 1);
+  const [pageDraft, setPageDraft] = useState(String(page));
+  const [sizeDraft, setSizeDraft] = useState(String(pageSize));
+
+  useEffect(() => {
+    setPageDraft(String(page));
+  }, [page]);
+
+  useEffect(() => {
+    setSizeDraft(String(pageSize));
+  }, [pageSize]);
+
+  function commitPage() {
+    const parsed = Number.parseInt(pageDraft, 10);
+
+    if (!Number.isFinite(parsed)) {
+      setPageDraft(String(page));
+      return;
+    }
+
+    const next = Math.min(Math.max(parsed, 1), safeTotalPages);
+    setPageDraft(String(next));
+    if (next !== page) onChange(next);
+  }
+
+  function commitPageSize() {
+    const parsed = Number.parseInt(sizeDraft, 10);
+
+    if (!Number.isFinite(parsed)) {
+      setSizeDraft(String(pageSize));
+      return;
+    }
+
+    const next = Math.min(Math.max(parsed, MIN_PRODUCT_PAGE_SIZE), MAX_PRODUCT_PAGE_SIZE);
+    setSizeDraft(String(next));
+    if (next !== pageSize) onPageSizeChange(next);
+  }
+
+  return (
+    <nav className="designer-products-pagination designer-products-batch-pager" aria-label="Product library pagination">
+      <div className="designer-products-pager-meta">
+        <label className="designer-products-pager-field">
+          <span>Rows</span>
+          <input
+            aria-label="Rows per page"
+            inputMode="numeric"
+            max={MAX_PRODUCT_PAGE_SIZE}
+            min={MIN_PRODUCT_PAGE_SIZE}
+            type="number"
+            value={sizeDraft}
+            onBlur={commitPageSize}
+            onChange={(event) => setSizeDraft(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') {
+                event.currentTarget.blur();
+              }
+            }}
+          />
+        </label>
+        <label className="designer-products-pager-field">
+          <span>Page</span>
+          <input
+            aria-label="Page"
+            inputMode="numeric"
+            max={safeTotalPages}
+            min={1}
+            type="number"
+            value={pageDraft}
+            onBlur={commitPage}
+            onChange={(event) => setPageDraft(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') {
+                event.currentTarget.blur();
+              }
+            }}
+          />
+          <span className="designer-products-pager-of">/ {safeTotalPages}</span>
+        </label>
+        <span className="designer-products-pager-total">{totalItems} products</span>
+      </div>
+      <div className="designer-products-pager-nav">
+        <button disabled={page <= 1} type="button" onClick={() => onChange(page - 1)}>
+          Previous
+        </button>
+        <button disabled={page >= safeTotalPages} type="button" onClick={() => onChange(page + 1)}>
+          Next
+        </button>
+      </div>
+    </nav>
   );
 }
 

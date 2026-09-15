@@ -50,8 +50,8 @@
 
 .customer-orders-layout {
   display: grid;
-  grid-template-columns: minmax(180px, 220px) minmax(0, 1fr);
-  gap: 20px;
+  grid-template-columns: 1fr;
+  gap: 16px;
   align-items: start;
 }
 
@@ -63,6 +63,10 @@
 
 .customer-orders-panel {
   padding: 14px;
+}
+
+.customer-orders-panel header {
+  margin-bottom: 12px;
 }
 
 .customer-orders-panel header,
@@ -170,6 +174,7 @@
 
 .customer-orders-filter-grid {
   display: grid;
+  grid-template-columns: minmax(220px, 1fr) minmax(170px, 240px);
   gap: 8px;
   margin-bottom: 12px;
 }
@@ -258,14 +263,15 @@
 .customer-orders-metrics svg { color: #8b6f47; flex: 0 0 auto; }
 
 .customer-orders-order-list {
-  grid-template-columns: 1fr;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
   align-items: stretch;
 }
 
 .customer-orders-order-list button {
   align-content: start;
   gap: 6px;
-  min-height: 98px;
+  min-height: 86px;
+  padding: 10px;
 }
 
 .customer-orders-order-list strong {
@@ -679,13 +685,14 @@
 }
 
 .customer-orders-table-wrap {
-  overflow-x: auto;
+  overflow: hidden;
 }
 
 .customer-orders-table-wrap table {
   width: 100%;
-  min-width: 820px;
+  min-width: 0;
   border-collapse: collapse;
+  table-layout: fixed;
 }
 
 .customer-orders-table-wrap th {
@@ -693,7 +700,7 @@
   color: #8d8174;
   font-size: 11px;
   font-weight: 900;
-  padding: 14px;
+  padding: 12px 10px;
   text-align: left;
   text-transform: uppercase;
 }
@@ -703,7 +710,14 @@
   color: #5f5244;
   font-size: 11px;
   font-weight: 700;
-  padding: 15px 14px;
+  padding: 12px 10px;
+  overflow-wrap: anywhere;
+  vertical-align: top;
+}
+
+.customer-orders-table-wrap th:first-child,
+.customer-orders-table-wrap td:first-child {
+  width: 24%;
 }
 
 .customer-orders-table-action {
@@ -765,5 +779,6 @@
   .customer-orders-payment-history-list dl,
   .customer-orders-delivery-summary-grid,
   .customer-orders-delivery-details-grid,
+  .customer-orders-filter-grid,
   .customer-orders-order-list { grid-template-columns: 1fr; }
 }
