@@ -148,6 +148,12 @@ export type DesignerDashboardKpisDto = {
   revisionRequested: number;
   /** Alias of revisionRequested — prefer for Revision Requests card. */
   proposalRevisionsRequested?: number;
+  /**
+   * Stock count of projects currently assigned to designer (excludes COMPLETED, REJECTED).
+   * dateRange/search ignored for this field.
+   */
+  assignedProjects?: number;
+  /** @deprecated Prefer assignedProjects. Kept for older payloads during FE migrate. */
   overdueTasks: number;
 };
 
@@ -190,6 +196,20 @@ export type DesignerRevisionRequestedItemDto = {
   assignedDesignerId: string | null;
   assignedDesignerName: string | null;
   revisionRequestedAt: string;
+};
+
+export type DesignerAssignedProjectKpiItemDto = {
+  projectId: string;
+  projectCode: string;
+  projectName: string;
+  status: string;
+  customerId: string;
+  customerName: string;
+  designerAssignedAt: string | null;
+  hasCustomerCustomizationRequest: boolean;
+  openCustomizationRequestCount: number;
+  latestCustomizationStatus: string | null;
+  updatedAt: string;
 };
 
 export type DesignerKpiListQueryDto = {
@@ -385,6 +405,21 @@ export async function getDesignerRevisionRequestedList(params?: DesignerKpiListQ
   const response = await dashboardApiClient.get<ServiceResult<SalesKpiListResponseDto<DesignerRevisionRequestedItemDto>>>(
     '/api/dashboard/designer/kpis/revision-requested',
     { params: getDesignerKpiListSearchParams(params) },
+  );
+
+  return response.data.data;
+}
+
+export async function getDesignerAssignedProjectsList(params?: DesignerKpiListQueryDto) {
+  const response = await dashboardApiClient.get<ServiceResult<SalesKpiListResponseDto<DesignerAssignedProjectKpiItemDto>>>(
+    '/api/dashboard/designer/kpis/assigned-projects',
+    {
+      params: {
+        scope: params?.scope,
+        page: params?.page,
+        limit: params?.limit,
+      },
+    },
   );
 
   return response.data.data;

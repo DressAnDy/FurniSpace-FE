@@ -45,6 +45,9 @@ export function LoginPage() {
           setMessage(result.message);
 
           try {
+            // Prevent previous user's dashboard/KPI caches from leaking into the new session.
+            queryClient.clear();
+
             const currentUserResult = await getCurrentUser();
             const currentUser = currentUserResult.data;
 
