@@ -91,6 +91,7 @@ export {
 export {
   dashboardQueryKeys,
   getDashboardServiceResultMessage,
+  useDesignerAssignedProjectsList,
   useDesignerConfirmedMeasurementsList,
   useDesignerDashboardKpis,
   useDesignerProposalConsultingList,
