@@ -102,7 +102,7 @@ export function useChangePassword() {
   return useMutation({
     mutationFn: (input: ChangePasswordInput) => changePassword(input),
     onSuccess: () => {
-      queryClient.removeQueries({ queryKey: authQueryKeys.all });
+      queryClient.clear();
     },
   });
 }
@@ -113,7 +113,11 @@ export function useLogout() {
   return useMutation({
     mutationFn: logout,
     onSuccess: () => {
-      queryClient.removeQueries({ queryKey: authQueryKeys.all });
+      // Drop all user-scoped caches (dashboard KPIs use scope=mine without accountId in the key).
+      queryClient.clear();
+    },
+    onError: () => {
+      queryClient.clear();
     },
   });
 }

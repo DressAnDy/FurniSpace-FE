@@ -1,13 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   IconArrowRight,
+  IconBriefcase,
   IconCalendarEvent,
   IconChecklist,
   IconChevronLeft,
   IconChevronRight,
   IconEditCircle,
   IconFilter,
-  IconFlag,
   IconRefresh,
   IconX,
   type Icon,
@@ -20,6 +20,7 @@ import type {
   DashboardDueBucket,
   DashboardPriority,
   DashboardQueueItemDto,
+  DesignerAssignedProjectKpiItemDto,
   DesignerConfirmedMeasurementItemDto,
   DesignerDashboardKpisDto,
   DesignerProposalConsultingItemDto,
@@ -27,6 +28,7 @@ import type {
 } from '@/services/api/dashboard';
 import {
   getDashboardServiceResultMessage,
+  useDesignerAssignedProjectsList,
   useDesignerConfirmedMeasurementsList,
   useDesignerDashboardKpis,
   useDesignerProposalConsultingList,
@@ -36,12 +38,12 @@ import {
 
 import './DesignerDashbroad.css';
 
-type DetailPanel = 'queue' | 'confirmed-measurements' | 'proposal-consulting' | 'revision-requested';
+type DetailPanel = 'queue' | 'confirmed-measurements' | 'proposal-consulting' | 'revision-requested' | 'assigned-projects';
 
 type KpiItem = {
   description: string;
   icon: Icon;
-  id: 'confirmed-measurements' | 'proposals' | 'revisions' | 'overdue';
+  id: 'confirmed-measurements' | 'proposals' | 'revisions' | 'assigned';
   label: string;
   note: string;
   onSelect?: () => void;
@@ -84,6 +86,8 @@ export function DesignerDashbroad() {
   const [consultingPageSize, setConsultingPageSize] = useState(5);
   const [revisionsPage, setRevisionsPage] = useState(1);
   const [revisionsPageSize, setRevisionsPageSize] = useState(5);
+  const [assignedPage, setAssignedPage] = useState(1);
+  const [assignedPageSize, setAssignedPageSize] = useState(5);
   const [lastRefreshAt, setLastRefreshAt] = useState(() => new Date());
   const [isRefreshing, setIsRefreshing] = useState(false);
   const filterMenuRef = useRef<HTMLDivElement | null>(null);
@@ -93,7 +97,9 @@ export function DesignerDashbroad() {
   const showConfirmedMeasurements = detailPanel === 'confirmed-measurements';
   const showProposalConsulting = detailPanel === 'proposal-consulting';
   const showRevisionRequested = detailPanel === 'revision-requested';
-  const showDetailPanel = showConfirmedMeasurements || showProposalConsulting || showRevisionRequested;
+  const showAssignedProjects = detailPanel === 'assigned-projects';
+  const showDetailPanel =
+    showConfirmedMeasurements || showProposalConsulting || showRevisionRequested || showAssignedProjects;
 
   const queueQuery = useDesignerWorkQueue({
     scope: 'mine',
@@ -134,6 +140,14 @@ export function DesignerDashbroad() {
     },
     showRevisionRequested,
   );
+  const assignedProjectsQuery = useDesignerAssignedProjectsList(
+    {
+      scope: 'mine',
+      page: assignedPage,
+      limit: assignedPageSize,
+    },
+    showAssignedProjects,
+  );
 
   const queueItems = useMemo(() => {
     const items = queueQuery.data?.items ?? [];
@@ -157,6 +171,7 @@ export function DesignerDashbroad() {
     if (panel === 'confirmed-measurements') setMeasurementsPage(1);
     if (panel === 'proposal-consulting') setConsultingPage(1);
     if (panel === 'revision-requested') setRevisionsPage(1);
+    if (panel === 'assigned-projects') setAssignedPage(1);
   }, []);
 
   const visibleKpis = useMemo(
@@ -180,6 +195,9 @@ export function DesignerDashbroad() {
   const revisionsError = revisionRequestedQuery.error
     ? getDashboardServiceResultMessage(revisionRequestedQuery.error)
     : null;
+  const assignedError = assignedProjectsQuery.error
+    ? getDashboardServiceResultMessage(assignedProjectsQuery.error)
+    : null;
   const activeFilterCount = Number(priorityFilter !== ALL_PRIORITIES);
   const hasActiveFilters = activeFilterCount > 0;
   const primaryActionLabel =
@@ -194,20 +212,26 @@ export function DesignerDashbroad() {
   const consultingTotalPages = Math.max(1, Math.ceil(consultingTotal / consultingPageSize));
   const revisionsTotal = revisionRequestedQuery.data?.total ?? 0;
   const revisionsTotalPages = Math.max(1, Math.ceil(revisionsTotal / revisionsPageSize));
+  const assignedTotal = assignedProjectsQuery.data?.total ?? 0;
+  const assignedTotalPages = Math.max(1, Math.ceil(assignedTotal / assignedPageSize));
   const detailTitle = showConfirmedMeasurements
     ? 'Confirmed Measurements'
     : showProposalConsulting
       ? 'Proposal Consulting'
       : showRevisionRequested
         ? 'Revision Requests'
-        : 'Main Design Work Queue';
+        : showAssignedProjects
+          ? 'Assigned Projects'
+          : 'Main Design Work Queue';
   const detailSubtitle = showConfirmedMeasurements
     ? `Confirmed measurement schedules for ${DATE_RANGE_LABEL[dateRange].toLowerCase()}.`
     : showProposalConsulting
       ? `Projects in Proposal Consulting for ${DATE_RANGE_LABEL[dateRange].toLowerCase()}.`
       : showRevisionRequested
         ? `Proposals with customer revision requests for ${DATE_RANGE_LABEL[dateRange].toLowerCase()}.`
-        : `Prioritized work for ${DATE_RANGE_LABEL[dateRange].toLowerCase()} · ${PROJECT_FILTER_LABEL[projectFilter]}.`;
+        : showAssignedProjects
+          ? 'Projects currently assigned to you (stock count). Customer customization shown per project.'
+          : `Prioritized work for ${DATE_RANGE_LABEL[dateRange].toLowerCase()} · ${PROJECT_FILTER_LABEL[projectFilter]}.`;
 
   useEffect(() => {
     setActiveGroup((current) => {
@@ -266,6 +290,7 @@ export function DesignerDashbroad() {
         showConfirmedMeasurements ? confirmedMeasurementsQuery.refetch() : Promise.resolve(),
         showProposalConsulting ? proposalConsultingQuery.refetch() : Promise.resolve(),
         showRevisionRequested ? revisionRequestedQuery.refetch() : Promise.resolve(),
+        showAssignedProjects ? assignedProjectsQuery.refetch() : Promise.resolve(),
       ]);
       setLastRefreshAt(new Date());
     } finally {
@@ -477,6 +502,22 @@ export function DesignerDashbroad() {
                 onPageSizeChange={(nextSize) => {
                   setRevisionsPageSize(nextSize);
                   setRevisionsPage(1);
+                }}
+              />
+            ) : showAssignedProjects ? (
+              <AssignedProjectsList
+                emptyLabel="No projects are currently assigned to you."
+                errorLabel={assignedError}
+                isLoading={assignedProjectsQuery.isLoading}
+                items={assignedProjectsQuery.data?.items ?? []}
+                page={Math.min(assignedPage, assignedTotalPages)}
+                pageSize={assignedPageSize}
+                totalItems={assignedTotal}
+                totalPages={assignedTotalPages}
+                onPageChange={setAssignedPage}
+                onPageSizeChange={(nextSize) => {
+                  setAssignedPageSize(nextSize);
+                  setAssignedPage(1);
                 }}
               />
             ) : (
@@ -799,6 +840,107 @@ function RevisionRequestedList({
   );
 }
 
+function AssignedProjectsList({
+  emptyLabel,
+  errorLabel,
+  isLoading,
+  items,
+  page,
+  pageSize,
+  totalItems,
+  totalPages,
+  onPageChange,
+  onPageSizeChange,
+}: {
+  emptyLabel: string;
+  errorLabel: string | null;
+  isLoading: boolean;
+  items: DesignerAssignedProjectKpiItemDto[];
+  page: number;
+  pageSize: number;
+  totalItems: number;
+  totalPages: number;
+  onPageChange: (page: number) => void;
+  onPageSizeChange: (pageSize: number) => void;
+}) {
+  return (
+    <>
+      <div className="designer-ops-tabs" role="tablist" aria-label="Assigned projects">
+        <button aria-selected="true" type="button">
+          Assigned
+          <em>{totalItems}</em>
+        </button>
+      </div>
+
+      <div className="designer-ops-queue-table designer-ops-assigned-table">
+        <div className="designer-ops-queue-head designer-ops-assigned-head">
+          <span>Project</span>
+          <span>Customer</span>
+          <span>Assigned</span>
+          <span>Customization</span>
+          <span>Custom status</span>
+          <span>Status</span>
+          <span />
+        </div>
+        {isLoading ? <div className="designer-ops-queue-empty">Loading assigned projects...</div> : null}
+        {errorLabel ? <div className="designer-ops-queue-empty">{errorLabel}</div> : null}
+        {!isLoading && !errorLabel && items.length === 0 ? (
+          <div className="designer-ops-queue-empty">{emptyLabel}</div>
+        ) : null}
+        {items.map((item) => {
+          const customizationLabel = item.hasCustomerCustomizationRequest
+            ? item.openCustomizationRequestCount > 0
+              ? `Yes · ${item.openCustomizationRequestCount} open`
+              : 'Yes'
+            : 'No';
+
+          return (
+            <div className="designer-ops-queue-row designer-ops-assigned-row" key={item.projectId}>
+              <strong title={`${item.projectCode} ${item.projectName}`.trim()}>
+                {`${item.projectCode} ${item.projectName}`.trim()}
+              </strong>
+              <span title={item.customerName || undefined}>{item.customerName || '-'}</span>
+              <span>{item.designerAssignedAt ? formatScheduleDateTime(item.designerAssignedAt) : '-'}</span>
+              <span
+                className={
+                  item.hasCustomerCustomizationRequest
+                    ? 'designer-ops-customization-yes'
+                    : 'designer-ops-customization-no'
+                }
+                title={customizationLabel}
+              >
+                {customizationLabel}
+              </span>
+              <em title={item.latestCustomizationStatus ? formatStatusLabel(item.latestCustomizationStatus) : undefined}>
+                {item.latestCustomizationStatus ? formatStatusLabel(item.latestCustomizationStatus) : '-'}
+              </em>
+              <em title={formatStatusLabel(item.status)}>{formatStatusLabel(item.status)}</em>
+              <Link
+                aria-label={`Open ${item.projectCode}`}
+                className="designer-ops-queue-open"
+                title="Open project"
+                to={`/designer/assigned-projects/${item.projectId}`}
+              >
+                <IconChevronRight size={18} stroke={2} />
+              </Link>
+            </div>
+          );
+        })}
+      </div>
+
+      <KpiListPager
+        isLoading={isLoading}
+        page={page}
+        pageSize={pageSize}
+        totalItems={totalItems}
+        totalPages={totalPages}
+        onPageChange={onPageChange}
+        onPageSizeChange={onPageSizeChange}
+      />
+    </>
+  );
+}
+
 function KpiListPager({
   isLoading,
   page,
@@ -864,6 +1006,7 @@ function mapDesignerKpis(
   const confirmedCount = data?.confirmedMeasurements ?? data?.measurementDue ?? 0;
   const consultingCount = data?.proposalConsultingProjects ?? data?.proposalsInProgress ?? 0;
   const revisionCount = data?.proposalRevisionsRequested ?? data?.revisionRequested ?? 0;
+  const assignedCount = data?.assignedProjects ?? 0;
 
   return [
     {
@@ -900,14 +1043,15 @@ function mapDesignerKpis(
       value: String(revisionCount),
     },
     {
-      description: 'Design tasks past due date',
-      icon: IconFlag,
-      id: 'overdue',
-      label: 'Overdue Design Tasks',
-      note: rangeLabel,
-      path: '/designer/assigned-projects',
-      tone: 'red',
-      value: String(data?.overdueTasks ?? 0),
+      description: 'Projects currently assigned to you, including customer customization requests',
+      icon: IconBriefcase,
+      id: 'assigned',
+      label: 'Assigned Projects',
+      note: 'Stock',
+      onSelect: () => onOpenDetailPanel('assigned-projects'),
+      selected: detailPanel === 'assigned-projects',
+      tone: 'neutral',
+      value: String(assignedCount),
     },
   ];
 }
