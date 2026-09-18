@@ -727,7 +727,6 @@ export function ReadyForDelivery() {
           <div>
             <span>Production Workspace</span>
             <h2>Ready for Delivery</h2>
-            <p>Plan multiple delivery schedules, deliver partial quantities by batch, and let completed batches sync schedules automatically.</p>
           </div>
         </section>
 

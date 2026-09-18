@@ -15,6 +15,7 @@ import {
   type ProjectChatListItem,
   type ProjectChatMessage,
   type ProjectChatMessageListResponse,
+  type ProjectChatType,
 } from '@/services/api/projectChats';
 import { useCurrentUser, useProjectList } from '@/services/queries';
 import {
@@ -28,6 +29,8 @@ import {
 } from '@/services/queries/useProjectChats';
 
 import './CustomerChatPage.css';
+
+const CUSTOMER_CHAT_TYPES: ProjectChatType[] = ['SALES', 'DESIGNER'];
 
 export function CustomerChatPage() {
   const { lang } = useLang();
@@ -61,7 +64,10 @@ export function CustomerChatPage() {
   );
   const { refetch: refetchChats } = chatListQuery;
   const chats = useMemo(
-    () => (chatListQuery.data?.items ?? []).filter((chat) => chat.chatType === 'SALES' || chat.chatType === 'DESIGNER'),
+    () =>
+      (chatListQuery.data?.items ?? [])
+        .filter((chat) => CUSTOMER_CHAT_TYPES.includes(chat.chatType))
+        .sort((left, right) => CUSTOMER_CHAT_TYPES.indexOf(left.chatType) - CUSTOMER_CHAT_TYPES.indexOf(right.chatType)),
     [chatListQuery.data?.items],
   );
   const filteredConversations = useMemo(() => {

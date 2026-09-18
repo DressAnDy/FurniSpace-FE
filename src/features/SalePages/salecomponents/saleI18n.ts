@@ -241,6 +241,7 @@ type SaleCopy = {
     backQueue: string;
     tabOverview: string;
     tabMembers: string;
+    tabProjectFile: string;
     tabFiles: string;
     tabDelay: string;
     tabShowcase: string;
@@ -499,6 +500,7 @@ const en: SaleCopy = {
     backQueue: 'Back to Project Request Queue',
     tabOverview: 'Overview',
     tabMembers: 'Project Member',
+    tabProjectFile: 'Project File',
     tabFiles: 'Files & Attachments',
     tabDelay: 'Issue',
     tabShowcase: 'Showcase',
@@ -757,6 +759,7 @@ const vi: SaleCopy = {
     backQueue: 'Quay lại hàng chờ yêu cầu',
     tabOverview: 'Tổng quan',
     tabMembers: 'Thành viên dự án',
+    tabProjectFile: 'Tệp dự án',
     tabFiles: 'Tệp & đính kèm',
     tabDelay: 'Sự cố',
     tabShowcase: 'Showcase',

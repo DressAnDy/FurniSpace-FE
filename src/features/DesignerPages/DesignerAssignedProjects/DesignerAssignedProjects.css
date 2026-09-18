@@ -160,6 +160,19 @@
 .designer-assigned-primary,.designer-assigned-account { margin: 0; color: #18181b; font-weight: 600; }
 .designer-assigned-account { color: #3f3f46; font-weight: 500; }
 .designer-assigned-secondary { color: #71717a; font-size: 12px; }
+.designer-assigned-status-cell > span {
+  min-width: 0;
+  justify-content: center;
+  border: 0;
+  box-shadow: none;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0;
+  line-height: 1.2;
+  padding: 8px 18px;
+  text-transform: none;
+  white-space: nowrap;
+}
 .designer-assigned-view-link { color: #9a713b; font-size: 12px; font-weight: 600; text-decoration: none; }
 .designer-assigned-empty { color: #71717a; text-align: center; }
 .designer-assigned-pagination {

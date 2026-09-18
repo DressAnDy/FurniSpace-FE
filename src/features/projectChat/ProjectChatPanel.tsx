@@ -58,21 +58,29 @@ export function ProjectChatPanel({
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const hasAppliedInitialChatRef = useRef(false);
   const messageListRef = useRef<HTMLDivElement | null>(null);
+  const queryChatType = allowedChatTypes?.length ? null : preferredChatType ?? null;
+  const chatTypeOrder = allowedChatTypes?.length ? allowedChatTypes : preferredChatType ? [preferredChatType] : null;
   const chatListQuery = useProjectChats({
     projectId,
-    chatType: preferredChatType ?? null,
+    chatType: queryChatType,
     page: 1,
     limit: 20,
   });
   const chats = useMemo(() => {
     const items = chatListQuery.data?.items ?? [];
 
-    if (!allowedChatTypes?.length) {
-      return items;
+    const visibleItems = allowedChatTypes?.length
+      ? items.filter((chat) => allowedChatTypes.includes(chat.chatType))
+      : items;
+
+    if (!chatTypeOrder?.length) {
+      return visibleItems;
     }
 
-    return items.filter((chat) => allowedChatTypes.includes(chat.chatType));
-  }, [allowedChatTypes, chatListQuery.data?.items]);
+    return [...visibleItems].sort(
+      (left, right) => chatTypeOrder.indexOf(left.chatType) - chatTypeOrder.indexOf(right.chatType),
+    );
+  }, [allowedChatTypes, chatListQuery.data?.items, chatTypeOrder]);
   const activeChat = useMemo(() => {
     if (activeChatId) {
       return chats.find((chat) => chat.chatId === activeChatId) ?? null;
@@ -119,7 +127,7 @@ export function ProjectChatPanel({
     activeChatId: activeChat?.chatId ?? null,
     enabled: Boolean(activeChat),
     onMessage: (event) => {
-      void queryClient.invalidateQueries({ queryKey: projectChatQueryKeys.list({ projectId, chatType: preferredChatType ?? null, page: 1, limit: 20 }) });
+      void queryClient.invalidateQueries({ queryKey: projectChatQueryKeys.list({ projectId, chatType: queryChatType, page: 1, limit: 20 }) });
 
       queryClient.setQueryData(
         projectChatQueryKeys.messages({
@@ -175,7 +183,7 @@ export function ProjectChatPanel({
           return replaceProjectChatTempMessage(currentData, tempMessage.messageId, savedMessage);
         });
       }
-      void queryClient.invalidateQueries({ queryKey: projectChatQueryKeys.list({ projectId, chatType: preferredChatType ?? null, page: 1, limit: 20 }) });
+      void queryClient.invalidateQueries({ queryKey: projectChatQueryKeys.list({ projectId, chatType: queryChatType, page: 1, limit: 20 }) });
     } catch (error) {
       setErrorMessage(getProjectChatServiceResultMessage(error));
       void messagesQuery.refetch();
@@ -348,7 +356,7 @@ function getChatTypeLabel(chatType?: ProjectChatType) {
     PRODUCTION: 'Production Chat',
     DELIVERY: 'Delivery Chat',
     GENERAL: 'General Chat',
-    INTERNAL: 'Internal Chat',
+    INTERNAL: 'Designer - Sales Chat',
   };
 
   return chatType ? labels[chatType] : 'Project Chat';

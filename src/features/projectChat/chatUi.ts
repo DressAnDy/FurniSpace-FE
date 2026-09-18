@@ -31,6 +31,27 @@ export function getChatParticipant(chat: ProjectChatListItem | null | undefined,
     };
   }
 
+  if (options.viewerRole === 'DESIGNER' && chat.chatType === 'INTERNAL') {
+    return {
+      name: chat.staffName || chat.title || 'Sales',
+      role: 'Sales',
+    };
+  }
+
+  if (options.viewerRole === 'SALES' && chat.chatType === 'INTERNAL') {
+    return {
+      name: chat.staffName || chat.title || 'Designer',
+      role: 'Designer',
+    };
+  }
+
+  if (options.viewerRole === 'SALES' && chat.chatType === 'PRODUCTION') {
+    return {
+      name: chat.staffName || chat.title || 'Production',
+      role: 'Production',
+    };
+  }
+
   if (options.viewerRole === 'PRODUCTION' && chat.chatType === 'PRODUCTION') {
     return {
       name: chat.staffName || chat.title || 'Sales',
@@ -51,7 +72,7 @@ export function getChatTypeLabel(chatType?: ProjectChatType | null) {
     PRODUCTION: 'Production Chat',
     DELIVERY: 'Delivery Chat',
     GENERAL: 'General Chat',
-    INTERNAL: 'Internal Chat',
+    INTERNAL: 'Designer - Sales Chat',
   };
 
   return chatType ? labels[chatType] : 'Project Chat';
@@ -64,7 +85,7 @@ export function getChatParticipantRoleLabel(chatType?: ProjectChatType | null) {
     PRODUCTION: 'Production',
     DELIVERY: 'Delivery',
     GENERAL: 'General',
-    INTERNAL: 'Internal',
+    INTERNAL: 'Internal Coordination',
   };
 
   return chatType ? labels[chatType] : 'Project Chat';
