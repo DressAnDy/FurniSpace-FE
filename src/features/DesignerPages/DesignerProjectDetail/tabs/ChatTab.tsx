@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useLocation } from 'react-router-dom';
 
-import { formatChatTime, formatFileSize, formatUnreadBadge, getChatParticipant, getInitials, getMessageContent } from '@/features/projectChat/chatUi';
+import { formatChatTime, formatFileSize, formatUnreadBadge, getChatParticipant, getChatTypeLabel, getInitials, getMessageContent } from '@/features/projectChat/chatUi';
 import {
   getProjectChatServiceResultMessage,
   type ProjectChatListItem,
@@ -26,26 +26,45 @@ type ChatTabProps = {
   project: ProjectDto;
 };
 
+type DesignerChatActor = 'CUSTOMER' | 'SALES';
+type DesignerChatEntry = {
+  actor: DesignerChatActor;
+  chat: ProjectChatListItem;
+  key: string;
+};
+
 export function ChatTab({ project }: ChatTabProps) {
   const queryClient = useQueryClient();
   const location = useLocation();
   const currentUserQuery = useCurrentUser();
   const customerQuery = useAccountDetail(project.customerId);
-  const [activeChatId, setActiveChatId] = useState<string | null>(null);
+  const [activeChatKey, setActiveChatKey] = useState<string | null>(null);
   const [draft, setDraft] = useState('');
   const [statusMessage, setStatusMessage] = useState('');
   const messagesListRef = useRef<HTMLDivElement | null>(null);
-  const chatListQuery = useProjectChats({
+  const customerChatQuery = useProjectChats({
     projectId: project.projectId,
     chatType: 'DESIGNER',
     page: 1,
     limit: 20,
   });
-  const { refetch: refetchChats } = chatListQuery;
-  const chats = useMemo(() => chatListQuery.data?.items ?? [], [chatListQuery.data?.items]);
+  const salesChatQuery = useProjectChats({
+    projectId: project.projectId,
+    chatType: 'INTERNAL',
+    page: 1,
+    limit: 20,
+  });
+  const chatEntries = useMemo(
+    () => buildDesignerChatEntries(customerChatQuery.data?.items, salesChatQuery.data?.items),
+    [customerChatQuery.data?.items, salesChatQuery.data?.items],
+  );
+  const isChatListLoading = customerChatQuery.isLoading || salesChatQuery.isLoading;
+  const chatListError = customerChatQuery.error ?? salesChatQuery.error ?? null;
   const requestedChatId = new URLSearchParams(location.search).get('chatId');
-  const activeChat = chats.find((chat) => chat.chatId === activeChatId) ?? chats[0] ?? null;
-  const unreadCounts = useProjectChatUnreadCounts(chats, currentUserQuery.data?.accountId, activeChat?.chatId);
+  const activeChatEntry = chatEntries.find((entry) => entry.key === activeChatKey) ?? chatEntries[0] ?? null;
+  const activeChat = activeChatEntry?.chat ?? null;
+  const unreadChats = useMemo(() => dedupeChats(chatEntries.map((entry) => entry.chat)), [chatEntries]);
+  const unreadCounts = useProjectChatUnreadCounts(unreadChats, currentUserQuery.data?.accountId, activeChat?.chatId);
   const messagesQueryParams = activeChat
     ? {
         chatId: activeChat.chatId,
@@ -56,34 +75,36 @@ export function ChatTab({ project }: ChatTabProps) {
     : undefined;
   const messagesQuery = useProjectChatMessages(messagesQueryParams);
   const sendTextMutation = useSendProjectChatTextMessage();
-  const activeParticipant = getChatParticipant(activeChat, {
-    viewerRole: 'DESIGNER',
-    customerName: customerQuery.data?.fullName,
+  const activeParticipant = getDesignerChatParticipant(activeChatEntry, {
     customerFallback: project.customerId,
+    customerName: customerQuery.data?.fullName,
   });
 
   useEffect(() => {
-    if (chats.length === 0) {
-      if (activeChatId) {
-        setActiveChatId(null);
+    if (chatEntries.length === 0) {
+      if (activeChatKey) {
+        setActiveChatKey(null);
       }
 
       return;
     }
 
-    if (requestedChatId && chats.some((chat) => chat.chatId === requestedChatId)) {
-      setActiveChatId(requestedChatId);
+    const requestedEntry = requestedChatId ? chatEntries.find((entry) => entry.chat.chatId === requestedChatId) : null;
+
+    if (requestedEntry) {
+      setActiveChatKey(requestedEntry.key);
       return;
     }
 
-    if (!activeChatId || !chats.some((chat) => chat.chatId === activeChatId)) {
-      setActiveChatId(chats[0].chatId);
+    if (!activeChatKey || !chatEntries.some((entry) => entry.key === activeChatKey)) {
+      setActiveChatKey(chatEntries[0].key);
     }
-  }, [activeChatId, chats, requestedChatId]);
+  }, [activeChatKey, chatEntries, requestedChatId]);
 
   useEffect(() => {
-    void refetchChats();
-  }, [project.assignedDesignerId, project.status, refetchChats]);
+    void customerChatQuery.refetch();
+    void salesChatQuery.refetch();
+  }, [customerChatQuery.refetch, project.assignedDesignerId, project.status, salesChatQuery.refetch]);
 
   useEffect(() => {
     const messageList = messagesListRef.current;
@@ -106,6 +127,7 @@ export function ChatTab({ project }: ChatTabProps) {
     enabled: Boolean(activeChat),
     onMessage: (event) => {
       void queryClient.invalidateQueries({ queryKey: projectChatQueryKeys.list({ projectId: project.projectId, chatType: 'DESIGNER', page: 1, limit: 20 }) });
+      void queryClient.invalidateQueries({ queryKey: projectChatQueryKeys.list({ projectId: project.projectId, chatType: 'INTERNAL', page: 1, limit: 20 }) });
       queryClient.setQueryData(
         projectChatQueryKeys.messages({
           chatId: event.chatId,
@@ -140,11 +162,13 @@ export function ChatTab({ project }: ChatTabProps) {
         );
       }
 
-      void chatListQuery.refetch();
+      void customerChatQuery.refetch();
+      void salesChatQuery.refetch();
     } catch (error) {
       setStatusMessage(getProjectChatServiceResultMessage(error));
       void messagesQuery.refetch();
-      void chatListQuery.refetch();
+      void customerChatQuery.refetch();
+      void salesChatQuery.refetch();
     }
   }
 
@@ -161,18 +185,21 @@ export function ChatTab({ project }: ChatTabProps) {
       {statusMessage ? <p className="designer-project-file-message designer-project-file-error">{statusMessage}</p> : null}
       <div className="designer-project-chat-layout">
         <aside className="designer-project-chat-selector">
-          {chatListQuery.isLoading ? <p>Loading chat...</p> : null}
-          {chatListQuery.isError ? <p>{getProjectChatServiceResultMessage(chatListQuery.error)}</p> : null}
-          {!chatListQuery.isLoading && !chatListQuery.isError && chats.length === 0 ? <p>No chat is available for this project.</p> : null}
-          {chats.map((chat) => (
+          {isChatListLoading ? <p>Loading chat...</p> : null}
+          {chatListError ? <p>{getProjectChatServiceResultMessage(chatListError)}</p> : null}
+          {!isChatListLoading && !chatListError && chatEntries.length === 0 ? (
+            <p>No customer-designer or designer-sales chat is available for this project.</p>
+          ) : null}
+          {chatEntries.map((entry) => (
             <ChatSelectorItem
-              chat={chat}
+              actor={entry.actor}
+              chat={entry.chat}
               customerFallback={project.customerId}
               customerName={customerQuery.data?.fullName}
-              isActive={chat.chatId === activeChat?.chatId}
-              key={chat.chatId}
-              onSelect={() => setActiveChatId(chat.chatId)}
-              unreadCount={unreadCounts[chat.chatId] ?? 0}
+              isActive={entry.key === activeChatEntry?.key}
+              key={entry.key}
+              onSelect={() => setActiveChatKey(entry.key)}
+              unreadCount={unreadCounts[entry.chat.chatId] ?? 0}
             />
           ))}
         </aside>
@@ -216,6 +243,7 @@ export function ChatTab({ project }: ChatTabProps) {
 }
 
 function ChatSelectorItem({
+  actor,
   chat,
   customerFallback,
   customerName,
@@ -223,6 +251,7 @@ function ChatSelectorItem({
   onSelect,
   unreadCount,
 }: {
+  actor: DesignerChatActor;
   chat: ProjectChatListItem;
   customerFallback: string;
   customerName?: string | null;
@@ -230,23 +259,88 @@ function ChatSelectorItem({
   onSelect: () => void;
   unreadCount: number;
 }) {
-  const participant = getChatParticipant(chat, {
-    viewerRole: 'DESIGNER',
-    customerName,
-    customerFallback,
-  });
+  const participant = getDesignerChatParticipant(
+    { actor, chat, key: '' },
+    { customerFallback, customerName },
+  );
   const unreadBadge = formatUnreadBadge(unreadCount);
+  const chatLabel = actor === 'SALES'
+    ? getChatTypeLabel(chat.chatType)
+    : getChatTypeLabel(chat.chatType);
 
   return (
     <button className={`${isActive ? 'is-active' : ''}${unreadBadge ? ' has-unread' : ''}`.trim()} type="button" onClick={onSelect}>
       <strong>{participant.name}</strong>
       <small>
         {participant.role}
+        {` - ${chatLabel}`}
         {chat.lastMessage?.contentPreview ? ` - ${chat.lastMessage.contentPreview}` : ''}
       </small>
       {unreadBadge ? <span className="designer-project-chat-unread-badge">{unreadBadge}</span> : null}
     </button>
   );
+}
+
+function getDesignerChatParticipant(
+  entry: DesignerChatEntry | null,
+  options: { customerFallback: string; customerName?: string | null },
+) {
+  if (!entry) {
+    return {
+      name: 'Select chat',
+      role: 'Project Chat',
+    };
+  }
+
+  if (entry.actor === 'SALES') {
+    return {
+      name: entry.chat.chatType === 'INTERNAL'
+        ? getChatParticipant(entry.chat, { viewerRole: 'DESIGNER' }).name
+        : 'Sales',
+      role: 'Sales',
+    };
+  }
+
+  return getChatParticipant(entry.chat, {
+    viewerRole: 'DESIGNER',
+    customerName: options.customerName,
+    customerFallback: options.customerFallback,
+  });
+}
+
+function buildDesignerChatEntries(
+  customerChats: ProjectChatListItem[] | undefined,
+  salesChats: ProjectChatListItem[] | undefined,
+) {
+  const designerChat = customerChats?.find((chat) => chat.chatType === 'DESIGNER') ?? null;
+  const internalChat = salesChats?.find((chat) => chat.chatType === 'INTERNAL') ?? null;
+  const entries: DesignerChatEntry[] = [];
+
+  if (designerChat) {
+    entries.push({
+      actor: 'CUSTOMER',
+      chat: designerChat,
+      key: `${designerChat.chatId}:customer`,
+    });
+  }
+
+  if (internalChat) {
+    entries.push({
+      actor: 'SALES',
+      chat: internalChat,
+      key: `${internalChat.chatId}:sales`,
+    });
+  }
+
+  return entries;
+}
+
+function dedupeChats(chats: ProjectChatListItem[]) {
+  const chatsById = new Map<string, ProjectChatListItem>();
+
+  chats.forEach((chat) => chatsById.set(chat.chatId, chat));
+
+  return Array.from(chatsById.values());
 }
 
 function DesignerMessage({ currentUserId, message }: { currentUserId?: string; message: ProjectChatMessage }) {

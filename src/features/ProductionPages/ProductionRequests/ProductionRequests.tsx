@@ -137,7 +137,6 @@ export function ProductionRequests() {
           <div>
             <span>Production Workspace</span>
             <h2>Production Requests</h2>
-            <p>Manage confirmed order production requests, track request status, priority, assigned staff, and completion timeline.</p>
           </div>
         </section>
 

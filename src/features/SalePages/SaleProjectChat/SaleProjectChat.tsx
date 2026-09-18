@@ -27,6 +27,7 @@ import {
   getProjectChatServiceResultMessage,
   type ProjectChatMessage,
   type ProjectChatMessageListResponse,
+  type ProjectChatType,
 } from '@/services/api/projectChats';
 import type { ProjectListItemDto } from '@/services/api/projects';
 import { useAccountDetail, useCurrentUser, useProjectList } from '@/services/queries';
@@ -43,6 +44,7 @@ import {
 import './SaleProjectChat.css';
 
 const PROJECT_PAGE_SIZE = 5;
+const SALE_CHAT_TYPES: ProjectChatType[] = ['SALES', 'INTERNAL', 'PRODUCTION'];
 
 export function SaleProjectChat() {
   const { lang } = useLang();
@@ -106,7 +108,10 @@ export function SaleProjectChat() {
     { enabled: Boolean(activeProjectId) },
   );
   const chats = useMemo(
-    () => (chatListQuery.data?.items ?? []).filter((chat) => chat.chatType === 'SALES' || chat.chatType === 'PRODUCTION'),
+    () =>
+      (chatListQuery.data?.items ?? [])
+        .filter((chat) => SALE_CHAT_TYPES.includes(chat.chatType))
+        .sort((left, right) => SALE_CHAT_TYPES.indexOf(left.chatType) - SALE_CHAT_TYPES.indexOf(right.chatType)),
     [chatListQuery.data?.items],
   );
   const chatIdsKey = chats.map((chat) => chat.chatId).join('|');

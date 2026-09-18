@@ -126,7 +126,7 @@ export function CustomerProjectListPage() {
               <IconX size={18} />
             </button>
             <ProjectChatPanel
-              preferredChatType="SALES"
+              allowedChatTypes={['SALES', 'DESIGNER']}
               projectCode={chatProject.projectCode}
               projectId={chatProject.projectId}
               title={`${chatProject.projectName} ${t.projects.chat}`}

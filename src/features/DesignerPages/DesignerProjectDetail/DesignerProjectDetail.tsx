@@ -14,7 +14,7 @@ import { Link, useLocation, useParams } from 'react-router-dom';
 import { DesignerLayout } from '@/features/DesignerPages/designercomponents';
 import { getAccountById } from '@/services/api';
 import { getProjectServiceResultMessage, type ProjectDto, type ProjectStatus } from '@/services/api/projects';
-import { useMarkSpaceVerified, useProjectDetail, useStartProposalConsulting } from '@/services/queries';
+import { useMarkSpaceVerified, useProjectDetail, useProjectScheduleList, useStartProposalConsulting } from '@/services/queries';
 
 import { ChatTab, CustomizationTab, MeasurementImagesTab, OverviewTab, ProjectAreasTab, ProposalsTab, SchedulesTab, SpaceFilesTab } from './tabs';
 import './DesignerProjectDetail.css';
@@ -50,6 +50,20 @@ export function DesignerProjectDetail() {
   const projectQuery = useProjectDetail(projectId);
   const markSpaceVerifiedMutation = useMarkSpaceVerified();
   const startProposalConsultingMutation = useStartProposalConsulting();
+  const projectSchedulesQuery = useProjectScheduleList(
+    projectId
+      ? {
+          projectId,
+          page: 1,
+          limit: 100,
+        }
+      : undefined,
+    {
+      enabled: Boolean(projectId),
+      fetchAll: true,
+      staleTime: 30_000,
+    },
+  );
   const project = projectQuery.data;
   const accountIds = useMemo(() => [project?.customerId, project?.assignedSalesId].filter((accountId): accountId is string => Boolean(accountId)), [project?.assignedSalesId, project?.customerId]);
   const accountQueries = useQueries({
@@ -77,6 +91,7 @@ export function DesignerProjectDetail() {
   const requestedTab = new URLSearchParams(location.search).get('tab') as DesignerProjectDetailTab | null;
   const ActiveTab = activeTabConfig.component ?? OverviewTab;
   const salesDeadline = project ? getSalesDeadline(project) : null;
+  const isCheckingSpaceVerifySchedules = project?.status === 'MEASUREMENT_REQUIRED' && projectSchedulesQuery.isFetching;
   const projectFacts = project
     ? [
         { icon: IconBox, label: `${project.businessType}${project.totalAreaSqm ? ` - ${project.totalAreaSqm} sqm` : ''}` },
@@ -108,6 +123,15 @@ export function DesignerProjectDetail() {
 
     try {
       if (nextStatus === 'SPACE_VERIFIED') {
+        const schedulesResult = await projectSchedulesQuery.refetch();
+        const schedules = schedulesResult.data?.items ?? projectSchedulesQuery.data?.items ?? [];
+        const hasIncompleteSchedule = schedules.some((schedule) => !isScheduleClosed(schedule.status));
+
+        if (hasIncompleteSchedule) {
+          setProjectActionMessage({ tone: 'error', text: SPACE_VERIFY_SCHEDULE_BLOCK_MESSAGE });
+          return;
+        }
+
         await markSpaceVerifiedMutation.mutateAsync({
           projectId: project.projectId,
           note: 'Designer verified project space information from project detail.',
@@ -168,12 +192,12 @@ export function DesignerProjectDetail() {
                 <div className="designer-project-progress-actions">
                   <button
                     className="designer-project-detail-button"
-                    disabled={!getNextDesignStatus(project.status) || markSpaceVerifiedMutation.isPending || startProposalConsultingMutation.isPending}
+                    disabled={!getNextDesignStatus(project.status) || markSpaceVerifiedMutation.isPending || startProposalConsultingMutation.isPending || isCheckingSpaceVerifySchedules}
                     type="button"
                     onClick={() => void updateProjectToNextDesignStatus()}
                   >
                     <IconRefresh size={17} />
-                    {markSpaceVerifiedMutation.isPending || startProposalConsultingMutation.isPending ? 'Updating...' : getDesignStatusActionLabel(project.status)}
+                    {markSpaceVerifiedMutation.isPending || startProposalConsultingMutation.isPending || isCheckingSpaceVerifySchedules ? 'Updating...' : getDesignStatusActionLabel(project.status)}
                   </button>
                 </div>
               </div>
@@ -219,6 +243,12 @@ export function DesignerProjectDetail() {
       </section>
     </DesignerLayout>
   );
+}
+
+const SPACE_VERIFY_SCHEDULE_BLOCK_MESSAGE = 'Please complete all project schedules before marking the space as verified.';
+
+function isScheduleClosed(status: string) {
+  return status === 'COMPLETED' || status === 'CANCELLED';
 }
 
 function getNextDesignStatus(status: ProjectStatus): ProjectStatus | null {

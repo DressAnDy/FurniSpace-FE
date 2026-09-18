@@ -15,8 +15,11 @@ const PAGE_SIZE = 5;
 const ALL_STATUS = 'All status';
 const ALL_BUSINESS_TYPES = 'All business types';
 
-const statusOptions: Array<ProjectStatus | typeof ALL_STATUS> = [
-  ALL_STATUS,
+const projectStatusPriority: ProjectStatus[] = [
+  'SUBMITTED',
+  'IN_CONSULTATION',
+  'NEED_BASIC_INFORMATION',
+  'WAITING_FOR_DESIGNER_ASSIGNMENT',
   'MEASUREMENT_REQUIRED',
   'SPACE_VERIFIED',
   'PROPOSAL_CONSULTING',
@@ -30,6 +33,14 @@ const statusOptions: Array<ProjectStatus | typeof ALL_STATUS> = [
   'AWAITING_CUSTOMER_CONFIRMATION',
   'DELIVERED',
   'COMPLETED',
+];
+const projectStatusRank = new Map<ProjectStatus, number>(
+  projectStatusPriority.map((projectStatus, index) => [projectStatus, index]),
+);
+
+const statusOptions: Array<ProjectStatus | typeof ALL_STATUS> = [
+  ALL_STATUS,
+  ...projectStatusPriority,
 ];
 
 export function DesignerAssignedProjects() {
@@ -97,19 +108,30 @@ export function DesignerAssignedProjects() {
   const filteredProjects = useMemo(() => {
     const normalizedKeyword = keyword.trim().toLowerCase();
 
-    return projects.filter((project) => {
-      const customer = accountById[project.customerId];
-      const sales = project.assignedSalesId ? accountById[project.assignedSalesId] : null;
-      const matchesStatus = status === ALL_STATUS || project.status === status;
-      const matchesBusinessType = businessType === ALL_BUSINESS_TYPES || project.businessType === businessType;
-      const matchesKeyword =
-        !normalizedKeyword ||
-        [project.projectCode, project.projectName, project.businessType, project.status, customer?.fullName ?? '', customer?.email ?? '', sales?.fullName ?? '', sales?.email ?? ''].some((value) =>
-          value.toLowerCase().includes(normalizedKeyword),
-        );
+    return projects
+      .filter((project) => {
+        const customer = accountById[project.customerId];
+        const sales = project.assignedSalesId ? accountById[project.assignedSalesId] : null;
+        const matchesStatus = status === ALL_STATUS || project.status === status;
+        const matchesBusinessType = businessType === ALL_BUSINESS_TYPES || project.businessType === businessType;
+        const matchesKeyword =
+          !normalizedKeyword ||
+          [project.projectCode, project.projectName, project.businessType, project.status, customer?.fullName ?? '', customer?.email ?? '', sales?.fullName ?? '', sales?.email ?? ''].some((value) =>
+            value.toLowerCase().includes(normalizedKeyword),
+          );
 
-      return matchesStatus && matchesBusinessType && matchesKeyword;
-    });
+        return matchesStatus && matchesBusinessType && matchesKeyword;
+      })
+      .sort((left, right) => {
+        const leftRank = projectStatusRank.get(left.status) ?? projectStatusPriority.length;
+        const rightRank = projectStatusRank.get(right.status) ?? projectStatusPriority.length;
+
+        if (leftRank !== rightRank) {
+          return leftRank - rightRank;
+        }
+
+        return new Date(right.submittedAt).getTime() - new Date(left.submittedAt).getTime();
+      });
   }, [accountById, businessType, keyword, projects, status]);
 
   const totalPages = Math.max(1, Math.ceil(filteredProjects.length / PAGE_SIZE));
@@ -290,7 +312,7 @@ export function DesignerAssignedProjects() {
                     </td>
                     <td>{project.businessType}</td>
                     <td>{formatDate(project.submittedAt)}</td>
-                    <td><ProjectStatusBadge status={project.status} /></td>
+                    <td className="designer-assigned-status-cell"><ProjectStatusBadge status={project.status} /></td>
                     <td>
                       <p className="designer-assigned-account">{sales?.fullName ?? 'Loading sales...'}</p>
                       <span className="designer-assigned-secondary">{sales?.email ?? project.assignedSalesId ?? '-'}</span>

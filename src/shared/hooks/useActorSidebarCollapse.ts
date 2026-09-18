@@ -10,12 +10,21 @@ const bodyClassByActor: Record<ActorKey, string> = {
   sale: 'sale-sidebar-collapsed',
 };
 
+const storageKeyByActor: Record<ActorKey, string> = {
+  admin: 'furnispace.admin.sidebarCollapsed',
+  customer: 'furnispace.customer.sidebarCollapsed',
+  designer: 'furnispace.designer.sidebarCollapsed',
+  production: 'furnispace.production.sidebarCollapsed',
+  sale: 'furnispace.sale.sidebarCollapsed',
+};
+
 export function useActorSidebarCollapse(actor: ActorKey) {
-  const [isCollapsed, setIsCollapsed] = useState(true);
+  const [isCollapsed, setIsCollapsed] = useState(() => getStoredSidebarState(actor));
 
   useLayoutEffect(() => {
     const bodyClass = bodyClassByActor[actor];
     document.body.classList.toggle(bodyClass, isCollapsed);
+    storeSidebarState(actor, isCollapsed);
 
     return () => {
       document.body.classList.remove(bodyClass);
@@ -27,4 +36,25 @@ export function useActorSidebarCollapse(actor: ActorKey) {
     collapse: () => setIsCollapsed(true),
     expand: () => setIsCollapsed(false),
   };
+}
+
+function getStoredSidebarState(actor: ActorKey) {
+  try {
+    const storedValue = window.localStorage.getItem(storageKeyByActor[actor]);
+
+    if (storedValue === 'expanded') return false;
+    if (storedValue === 'collapsed') return true;
+  } catch {
+    return true;
+  }
+
+  return true;
+}
+
+function storeSidebarState(actor: ActorKey, isCollapsed: boolean) {
+  try {
+    window.localStorage.setItem(storageKeyByActor[actor], isCollapsed ? 'collapsed' : 'expanded');
+  } catch {
+    // Ignore storage errors; the in-memory state still works for the current page.
+  }
 }
