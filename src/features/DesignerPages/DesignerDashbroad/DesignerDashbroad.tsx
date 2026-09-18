@@ -1046,7 +1046,7 @@ function mapDesignerKpis(
       description: 'Projects currently assigned to you, including customer customization requests',
       icon: IconBriefcase,
       id: 'assigned',
-      label: 'Assigned Projects',
+      label: 'Customize Requests',
       note: 'Stock',
       onSelect: () => onOpenDetailPanel('assigned-projects'),
       selected: detailPanel === 'assigned-projects',

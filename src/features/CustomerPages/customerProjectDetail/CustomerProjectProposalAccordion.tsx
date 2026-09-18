@@ -325,7 +325,6 @@ function CustomerProjectProposalPanel({
         <div className="customer-proposal-detail-section-heading">
           <div>
             <h2>{t.proposalAccordion.proposalScenes} ({scenes.length})</h2>
-            <p>Open a saved scene to inspect the design before making a decision.</p>
           </div>
         </div>
         {isLoadingScenes ? <p>{t.proposalAccordion.loadingScenes}</p> : null}

@@ -621,6 +621,7 @@ function DesignerRequestForm({
   const setField = (name: keyof RequestFormState, value: string) => onChange({ ...form, [name]: value });
   const hasPublishedProposal = proposals.length > 0;
   const selectedItem = items.find((item) => item.proposalItemId === form.proposalItemId) ?? null;
+  const canSubmitRequest = hasPublishedProposal && Boolean(form.proposalItemId) && !mutationPending;
 
   return (
     <form className="designer-project-custom-action-form" onSubmit={onSubmit}>
@@ -629,9 +630,6 @@ function DesignerRequestForm({
           <span>Designer Assisted Request</span>
           <h4>Create a customization request for the customer</h4>
         </div>
-        <button className="designer-project-detail-button designer-project-detail-button-primary" disabled={!hasPublishedProposal || !form.proposalItemId || mutationPending} type="submit">
-          {mutationPending ? 'Submitting...' : 'Create for Customer'}
-        </button>
       </div>
 
       {!hasPublishedProposal && !proposalsLoading ? (
@@ -716,6 +714,11 @@ function DesignerRequestForm({
         <span>Change note</span>
         <textarea rows={2} value={form.requestedChangeNote} placeholder="Customer-facing change note" onChange={(event) => setField('requestedChangeNote', event.target.value)} />
       </label>
+      <footer className="designer-project-custom-action-footer">
+        <button className="designer-project-detail-button designer-project-detail-button-primary" disabled={!canSubmitRequest} type="submit">
+          {mutationPending ? 'Submitting...' : 'Submit Customize Request'}
+        </button>
+      </footer>
     </form>
   );
 }

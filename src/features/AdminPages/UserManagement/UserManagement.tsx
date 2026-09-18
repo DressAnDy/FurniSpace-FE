@@ -466,7 +466,6 @@ function AccountFormModal({ isOpen, mode, account, roleOptions, isSubmitting, er
         <div className="user-modal-header">
           <div>
             <h2>{title}</h2>
-            <p>Account CRUD follows the backend /api/Accounts contract.</p>
           </div>
           <button className="user-modal-icon-button" type="button" aria-label="Close account form" onClick={onClose}>
             <IconX size={18} />

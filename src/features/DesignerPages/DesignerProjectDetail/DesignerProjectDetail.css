@@ -1263,6 +1263,13 @@
   display: none;
 }
 
+.designer-project-custom-action-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding-top: 4px;
+}
+
 .designer-project-custom-upload-section {
   display: grid;
   gap: 12px;

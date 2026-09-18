@@ -107,7 +107,7 @@ export function ProjectDetail() {
   const hasConsultationAccess = Boolean(project && project.status !== 'SUBMITTED');
   const reviewTabs: TabDef[] = [
     { id: 'overview', label: pd.tabOverview },
-    { id: 'customer', label: pd.tabMembers },
+    { id: 'files', label: pd.tabProjectFile },
   ];
   const baseTabs: TabDef[] = [
     { id: 'overview', label: pd.tabOverview },
@@ -243,7 +243,7 @@ export function ProjectDetail() {
     if (activeTab === 'chat' && isAssignedProjectRoute) {
       return (
         <ProjectChatPanel
-          allowedChatTypes={['SALES', 'DESIGNER']}
+          allowedChatTypes={['SALES', 'INTERNAL']}
           initialChatId={requestedChatId}
           projectCode={project.projectCode}
           projectId={project.projectId}

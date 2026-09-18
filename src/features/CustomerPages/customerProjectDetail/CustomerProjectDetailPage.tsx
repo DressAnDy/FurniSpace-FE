@@ -1,4 +1,5 @@
 import {
+  IconArrowLeft,
   IconCalendar,
   IconCheck,
   IconClock,
@@ -193,6 +194,15 @@ export function CustomerProjectDetailPage() {
     }
   }
 
+  function goBack() {
+    if ((window.history.state as { idx?: number } | null)?.idx) {
+      navigate(-1);
+      return;
+    }
+
+    navigate('/customer/projects');
+  }
+
   return (
     <main className="customer-project-list-page">
       <CustomerNavbar activeKey="myProjects" classPrefix="customer-project-list" />
@@ -203,19 +213,25 @@ export function CustomerProjectDetailPage() {
         {message ? <section className={`customer-project-detail-message customer-project-detail-message-${message.tone}`}>{message.text}</section> : null}
 
         {project ? (
-          <section className="customer-project-detail-card">
-            <div className="customer-project-detail-hero">
-              <span className={`customer-project-list-status customer-project-list-status-${getStageTone(project.status)}`}>
-                {getCustomerProjectStatusLabel(project.status, lang)}
-              </span>
-              <div className="customer-project-detail-hero-copy">
-                <span className="customer-project-detail-kicker">{t.projectDetail.overview}</span>
-                <h1>{project.projectName}</h1>
-                <span className="customer-project-detail-code">{project.projectCode}</span>
-              </div>
-            </div>
+          <>
+            <button className="customer-project-detail-back-button" type="button" onClick={goBack}>
+              <IconArrowLeft size={18} stroke={1.8} />
+              <span>{t.common.previous}</span>
+            </button>
 
-            <div className="customer-project-detail-body">
+            <section className="customer-project-detail-card">
+              <div className="customer-project-detail-hero">
+                <span className={`customer-project-list-status customer-project-list-status-${getStageTone(project.status)}`}>
+                  {getCustomerProjectStatusLabel(project.status, lang)}
+                </span>
+                <div className="customer-project-detail-hero-copy">
+                  <span className="customer-project-detail-kicker">{t.projectDetail.overview}</span>
+                  <h1>{project.projectName}</h1>
+                  <span className="customer-project-detail-code">{project.projectCode}</span>
+                </div>
+              </div>
+
+              <div className="customer-project-detail-body">
               {(project.status === 'NEED_BASIC_INFORMATION' || project.status === 'SUBMITTED') ? (
                 <div className="customer-project-detail-actions">
                   {project.status === 'NEED_BASIC_INFORMATION' || project.status === 'SUBMITTED' ? (
@@ -390,8 +406,9 @@ export function CustomerProjectDetailPage() {
                   title={t.projectDetail.tabIssue}
                 />
               ) : null}
-            </div>
-          </section>
+              </div>
+            </section>
+          </>
         ) : null}
       </div>
     </main>
