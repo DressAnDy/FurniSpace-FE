@@ -1,10 +1,12 @@
 import {
   IconBriefcase,
+  IconClipboardList,
   IconFileDollar,
   IconHome,
   IconMenu2,
   IconMessageCircle,
   IconChevronLeft,
+  IconReceipt2,
   IconTruckDelivery,
   type Icon,
 } from '@tabler/icons-react';
@@ -24,10 +26,10 @@ type SaleSidebarItem = {
 
 const saleSidebarItems: SaleSidebarItem[] = [
   { key: 'dashboard', icon: IconHome, path: '/sales/dashbroad' },
-  { key: 'projectRequestQueue', icon: IconHome, path: '/sales/project-requests' },
+  { key: 'projectRequestQueue', icon: IconClipboardList, path: '/sales/project-requests' },
   { key: 'assignedProjects', icon: IconBriefcase, path: '/sales/assigned-projects' },
   { key: 'projectChat', icon: IconMessageCircle, path: '/sales/chat' },
-  { key: 'quotations', icon: IconFileDollar, path: '/sales/quotations' },
+  { key: 'quotations', icon: IconReceipt2, path: '/sales/quotations' },
   { key: 'orders', icon: IconFileDollar, path: '/sales/orders' },
   { key: 'tracking', icon: IconTruckDelivery, path: '/sales/tracking' },
 ];

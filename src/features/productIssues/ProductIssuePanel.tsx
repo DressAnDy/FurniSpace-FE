@@ -239,7 +239,7 @@ export function ProductIssuePanel({
                   <IconAlertCircle size={20} />
                   <span>
                     <strong>{formatLabel(issue.issueType)}</strong>
-                    <small>{issue.productNameSnapshot ?? productNameByOrderItemId.get(issue.orderItemId) ?? issue.orderItemId}</small>
+                    <small>{getIssueProductName(issue, productNameByOrderItemId.get(issue.orderItemId))}</small>
                   </span>
                   <span>
                     <strong>{issue.affectedQuantity ? `${issue.affectedQuantity} affected` : 'Quantity not specified'}</strong>
@@ -405,14 +405,14 @@ function ProductIssueDetail({
             <header className="product-issue-detail-hero">
               <div>
                 <span>Product</span>
-                <strong>{issue.productNameSnapshot ?? productNameFallback ?? issue.orderItemId}</strong>
+                <strong>{getIssueProductName(issue, productNameFallback)}</strong>
               </div>
               <em className="product-issue-detail-type">{formatLabel(issue.issueType)}</em>
             </header>
 
             <div className="product-issue-detail-meta">
               <Detail label="Affected quantity" value={issue.affectedQuantity?.toString() ?? '—'} />
-              <Detail label="Reporter" value={issue.reporterName ?? issue.reportedBy} />
+              <Detail label="Reporter" value={issue.reporterName?.trim() || 'Unknown reporter'} />
               <Detail label="Reported at" value={formatDateTime(issue.reportedAt)} />
               <div>
                 <span>Status</span>
@@ -544,7 +544,15 @@ function Detail({ label, value }: Readonly<{ label: string; value: string }>) {
 }
 
 function getItemName(item: OrderItemDto) {
-  return item.productNameSnapshot ?? item.itemName ?? item.productVersionNameSnapshot ?? item.orderItemId;
+  return item.productNameSnapshot?.trim()
+    || item.itemName?.trim()
+    || item.productVersionNameSnapshot?.trim()
+    || item.productVersionCodeSnapshot?.trim()
+    || 'Product item';
+}
+
+function getIssueProductName(issue: ProductIssueReportDto, fallback?: string) {
+  return issue.productNameSnapshot?.trim() || fallback?.trim() || 'Product item';
 }
 
 function getIssueResolutionStatus(issue: ProductIssueReportDto): ProductIssueReportResolutionStatus {
