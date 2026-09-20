@@ -178,6 +178,16 @@ export function CustomizationTab({ project }: Readonly<CustomizationTabProps>) {
     setMessage(null);
   }
 
+  function openNewVersionModal() {
+    if (!activeRequest) return;
+
+    setEditingVersionId(null);
+    setVersionForm(formFromCustomizationRequest(activeRequest));
+    setPreviewFile(null);
+    setModelFile(null);
+    setVersionModalOpen(true);
+  }
+
   async function submitRequestOnBehalf(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setMessage(null);
@@ -437,11 +447,7 @@ export function CustomizationTab({ project }: Readonly<CustomizationTabProps>) {
                   submitVersionMutation.isPending
                 }
                 onCancelRequest={() => setCancelModalOpen(true)}
-                onNewVersion={() => {
-                  setEditingVersionId(null);
-                  setVersionForm(emptyVersionForm);
-                  setVersionModalOpen(true);
-                }}
+                onNewVersion={openNewVersionModal}
                 onSubmitVersion={(version) => void submitVersion(version)}
               />
             ) : (
@@ -1147,6 +1153,23 @@ function formFromVersion(version: CustomizationRequestVersionDto): VersionFormSt
     versionName: productVersion.versionName ?? '',
     versionTitle: version.versionTitle ?? '',
     width: formatInputNumber(productVersion.width),
+  };
+}
+
+function formFromCustomizationRequest(request: CustomizationRequestDto): VersionFormState {
+  const customerNote = request.requestedChangeNote || request.requestDescription || '';
+
+  return {
+    ...emptyVersionForm,
+    color: request.requestedColor ?? '',
+    depth: formatInputNumber(request.requestedDepth),
+    designerNote: customerNote,
+    dimensionUnit: 'm',
+    height: formatInputNumber(request.requestedHeight),
+    material: request.requestedMaterial ?? '',
+    versionName: request.requestTitle,
+    versionTitle: request.requestTitle,
+    width: formatInputNumber(request.requestedWidth),
   };
 }
 

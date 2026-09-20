@@ -351,7 +351,7 @@ body.sale-sidebar-collapsed .sale-sidebar-item span {
   color: #2d2d2d;
 }
 
-.sale-icon-button span {
+.sale-icon-button > span:not(.notification-bell-badge) {
   position: absolute;
   top: 7px;
   right: 8px;
