@@ -245,6 +245,8 @@ body.sale-sidebar-collapsed .sale-sidebar-item span {
 }
 
 .sale-topbar {
+  position: relative;
+  z-index: 70;
   display: flex;
   min-height: 64px;
   align-items: center;

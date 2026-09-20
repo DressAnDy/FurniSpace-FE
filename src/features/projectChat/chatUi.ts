@@ -6,6 +6,8 @@ type ChatParticipantOptions = {
   viewerRole: ChatViewerRole;
   customerName?: string | null;
   customerFallback?: string | null;
+  counterpartName?: string | null;
+  counterpartFallback?: string | null;
 };
 
 export function getChatTitle(chat?: ProjectChatListItem | null) {
@@ -31,16 +33,16 @@ export function getChatParticipant(chat: ProjectChatListItem | null | undefined,
     };
   }
 
-  if (options.viewerRole === 'DESIGNER' && chat.chatType === 'INTERNAL') {
+  if (options.viewerRole === 'DESIGNER' && chat.chatType === 'DESIGNER_SALES') {
     return {
-      name: chat.staffName || chat.title || 'Sales',
+      name: options.counterpartName || options.counterpartFallback || chat.staffName || chat.title || 'Sales',
       role: 'Sales',
     };
   }
 
-  if (options.viewerRole === 'SALES' && chat.chatType === 'INTERNAL') {
+  if (options.viewerRole === 'SALES' && chat.chatType === 'DESIGNER_SALES') {
     return {
-      name: chat.staffName || chat.title || 'Designer',
+      name: options.counterpartName || options.counterpartFallback || chat.staffName || chat.title || 'Designer',
       role: 'Designer',
     };
   }
@@ -69,10 +71,11 @@ export function getChatTypeLabel(chatType?: ProjectChatType | null) {
   const labels: Record<ProjectChatType, string> = {
     SALES: 'Sales Chat',
     DESIGNER: 'Designer Chat',
+    DESIGNER_SALES: 'Designer - Sales Chat',
     PRODUCTION: 'Production Chat',
     DELIVERY: 'Delivery Chat',
     GENERAL: 'General Chat',
-    INTERNAL: 'Designer - Sales Chat',
+    INTERNAL: 'Internal Chat',
   };
 
   return chatType ? labels[chatType] : 'Project Chat';
@@ -82,6 +85,7 @@ export function getChatParticipantRoleLabel(chatType?: ProjectChatType | null) {
   const labels: Record<ProjectChatType, string> = {
     SALES: 'Sales',
     DESIGNER: 'Designer',
+    DESIGNER_SALES: 'Designer - Sales',
     PRODUCTION: 'Production',
     DELIVERY: 'Delivery',
     GENERAL: 'General',

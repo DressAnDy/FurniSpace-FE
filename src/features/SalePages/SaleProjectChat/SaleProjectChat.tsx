@@ -19,7 +19,6 @@ import {
   formatFileSize,
   formatUnreadBadge,
   getChatParticipant,
-  getChatTypeLabel,
   getInitials,
   getMessageContent,
 } from '@/features/projectChat/chatUi';
@@ -44,7 +43,7 @@ import {
 import './SaleProjectChat.css';
 
 const PROJECT_PAGE_SIZE = 5;
-const SALE_CHAT_TYPES: ProjectChatType[] = ['SALES', 'INTERNAL', 'PRODUCTION'];
+const SALE_CHAT_TYPES: ProjectChatType[] = ['SALES', 'DESIGNER_SALES', 'PRODUCTION'];
 
 export function SaleProjectChat() {
   const { lang } = useLang();
@@ -82,9 +81,11 @@ export function SaleProjectChat() {
 
     if (!keyword) return projects;
 
-    return projects.filter((project) =>
-      (project.projectCode ?? '').toLowerCase().includes(keyword),
-    );
+    return projects.filter((project) => {
+      const code = (project.projectCode ?? '').toLowerCase();
+      const name = (project.projectName ?? '').toLowerCase();
+      return code.includes(keyword) || name.includes(keyword);
+    });
   }, [projectSearch, projects]);
   const totalProjectPages = Math.max(1, Math.ceil(filteredProjects.length / PROJECT_PAGE_SIZE));
   const currentProjectPage = Math.min(projectPage, totalProjectPages);
@@ -443,10 +444,7 @@ export function SaleProjectChat() {
                               </span>
                               <span className="sale-project-chat-channel-select-body">
                                 <strong>{activeParticipant.name}</strong>
-                                <span>
-                                  {activeParticipant.role}
-                                  {activeChat ? ` · ${getChatTypeLabel(activeChat.chatType)}` : ''}
-                                </span>
+                                <span>{activeParticipant.role}</span>
                               </span>
                               <IconChevronDown
                                 className={isChannelMenuOpen ? 'is-open' : undefined}
@@ -477,10 +475,7 @@ export function SaleProjectChat() {
                                     >
                                       <span className="sale-project-chat-channel-menu-copy">
                                         <strong>{participant.name}</strong>
-                                        <small>
-                                          {participant.role}
-                                          {` · ${getChatTypeLabel(chat.chatType)}`}
-                                        </small>
+                                        <small>{participant.role}</small>
                                       </span>
                                       {unreadBadge ? (
                                         <span className="sale-project-chat-channel-menu-unread">{unreadBadge}</span>
