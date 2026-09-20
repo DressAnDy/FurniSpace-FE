@@ -6,6 +6,8 @@ type ChatParticipantOptions = {
   viewerRole: ChatViewerRole;
   customerName?: string | null;
   customerFallback?: string | null;
+  counterpartName?: string | null;
+  counterpartFallback?: string | null;
 };
 
 export function getChatTitle(chat?: ProjectChatListItem | null) {
@@ -33,14 +35,14 @@ export function getChatParticipant(chat: ProjectChatListItem | null | undefined,
 
   if (options.viewerRole === 'DESIGNER' && chat.chatType === 'DESIGNER_SALES') {
     return {
-      name: chat.staffName || chat.title || 'Sales',
+      name: options.counterpartName || options.counterpartFallback || chat.staffName || chat.title || 'Sales',
       role: 'Sales',
     };
   }
 
   if (options.viewerRole === 'SALES' && chat.chatType === 'DESIGNER_SALES') {
     return {
-      name: chat.staffName || chat.title || 'Designer',
+      name: options.counterpartName || options.counterpartFallback || chat.staffName || chat.title || 'Designer',
       role: 'Designer',
     };
   }
