@@ -6,7 +6,7 @@ import {
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 
-import { formatUnreadBadge } from '@/features/projectChat/chatUi';
+import { formatUnreadBadge, getChatParticipant } from '@/features/projectChat/chatUi';
 import {
   getProjectChatServiceResultMessage,
   type ProjectChatListItem,
@@ -28,6 +28,8 @@ import {
 
 import './ProjectChatPanel.css';
 
+type ChatViewerRole = 'CUSTOMER' | 'SALES' | 'DESIGNER' | 'PRODUCTION';
+
 type ProjectChatPanelProps = {
   projectId: string;
   projectCode?: string | null;
@@ -36,6 +38,7 @@ type ProjectChatPanelProps = {
   allowedChatTypes?: ProjectChatType[];
   compact?: boolean;
   initialChatId?: string | null;
+  viewerRole?: ChatViewerRole;
 };
 
 type PendingMessage = ProjectChatMessage & {
@@ -50,6 +53,7 @@ export function ProjectChatPanel({
   projectCode,
   projectId,
   title = 'Project Chat',
+  viewerRole = 'CUSTOMER',
 }: ProjectChatPanelProps) {
   const queryClient = useQueryClient();
   const currentUserQuery = useCurrentUser();
@@ -227,6 +231,7 @@ export function ProjectChatPanel({
                 setErrorMessage(null);
               }}
               unreadCount={unreadCounts[chat.chatId] ?? 0}
+              viewerRole={viewerRole}
             />
           ))}
         </aside>
@@ -235,7 +240,7 @@ export function ProjectChatPanel({
           <div className="project-chat-panel-thread-header">
             <div>
               <strong>{getChatTitle(activeChat)}</strong>
-              <span>{activeChat?.staffName ?? getChatTypeLabel(activeChat?.chatType)}</span>
+              <span>{getChatParticipant(activeChat, { viewerRole }).role}</span>
             </div>
           </div>
 
@@ -287,8 +292,21 @@ function EmptyState({ message }: { message: string }) {
   );
 }
 
-function ChatListButton({ chat, isActive, onClick, unreadCount }: { chat: ProjectChatListItem; isActive: boolean; onClick: () => void; unreadCount: number }) {
+function ChatListButton({
+  chat,
+  isActive,
+  onClick,
+  unreadCount,
+  viewerRole,
+}: {
+  chat: ProjectChatListItem;
+  isActive: boolean;
+  onClick: () => void;
+  unreadCount: number;
+  viewerRole: ChatViewerRole;
+}) {
   const unreadBadge = formatUnreadBadge(unreadCount);
+  const participant = getChatParticipant(chat, { viewerRole });
 
   return (
     <button className={`${isActive ? 'is-active' : ''}${unreadBadge ? ' has-unread' : ''}`.trim()} type="button" onClick={onClick}>
@@ -296,7 +314,7 @@ function ChatListButton({ chat, isActive, onClick, unreadCount }: { chat: Projec
         <IconMessageCircle size={16} />
         <strong>{getChatTitle(chat)}</strong>
       </span>
-      <small>{chat.lastMessage?.contentPreview ?? `${getChatTypeLabel(chat.chatType)} conversation`}</small>
+      <small>{participant.role}</small>
       {unreadBadge ? <span className="project-chat-panel-unread-badge">{unreadBadge}</span> : null}
     </button>
   );
@@ -353,10 +371,11 @@ function getChatTypeLabel(chatType?: ProjectChatType) {
   const labels: Record<ProjectChatType, string> = {
     SALES: 'Sales Chat',
     DESIGNER: 'Designer Chat',
+    DESIGNER_SALES: 'Designer - Sales Chat',
     PRODUCTION: 'Production Chat',
     DELIVERY: 'Delivery Chat',
     GENERAL: 'General Chat',
-    INTERNAL: 'Designer - Sales Chat',
+    INTERNAL: 'Internal Chat',
   };
 
   return chatType ? labels[chatType] : 'Project Chat';

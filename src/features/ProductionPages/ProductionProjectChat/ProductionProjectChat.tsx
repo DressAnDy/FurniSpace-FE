@@ -17,7 +17,6 @@ import {
   formatChatTime,
   formatFileSize,
   getChatParticipant,
-  getChatTypeLabel,
   getInitials,
   getMessageContent,
 } from '@/features/projectChat/chatUi';
@@ -394,10 +393,7 @@ export function ProductionProjectChat() {
                                   ? activeParticipant.name
                                   : 'No chat available'}
                           </strong>
-                          <span>
-                            {activeParticipant.role}
-                            {activeChat ? ` · ${getChatTypeLabel(activeChat.chatType)}` : ''}
-                          </span>
+                          <span>{activeParticipant.role}</span>
                         </span>
                       </div>
                     </div>

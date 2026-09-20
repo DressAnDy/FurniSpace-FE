@@ -1,5 +1,6 @@
 import { IconBell, IconCheck, IconLoader2 } from '@tabler/icons-react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 
 import { useRealtimeInAppNotification } from '@/app/providers/realtimeSyncContext';
@@ -22,12 +23,19 @@ type NotificationBellProps = {
   className?: string;
 };
 
+type PanelPosition = {
+  top: number;
+  right: number;
+};
+
 const shownToastStoragePrefix = 'furnispace:notification-toast-shown';
 
 export function NotificationBell({ buttonClassName, className }: NotificationBellProps) {
   const navigate = useNavigate();
   const wrapRef = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
   const [isOpen, setIsOpen] = useState(false);
+  const [panelPosition, setPanelPosition] = useState<PanelPosition | null>(null);
   const notificationsQuery = useNotifications({ page: 1, limit: 10 });
   const unreadCountQuery = useNotificationUnreadCount();
   const markReadMutation = useMarkNotificationAsRead();
@@ -95,11 +103,48 @@ export function NotificationBell({ buttonClassName, className }: NotificationBel
     return () => window.clearTimeout(timeoutId);
   }, [realtimeMessage]);
 
+  useLayoutEffect(() => {
+    if (!isOpen) {
+      setPanelPosition(null);
+      return undefined;
+    }
+
+    function updatePanelPosition() {
+      const buttonRect = buttonRef.current?.getBoundingClientRect();
+
+      if (!buttonRect) {
+        return;
+      }
+
+      setPanelPosition({
+        top: buttonRect.bottom + 12,
+        right: Math.max(16, window.innerWidth - buttonRect.right),
+      });
+    }
+
+    updatePanelPosition();
+    window.addEventListener('resize', updatePanelPosition);
+    window.addEventListener('scroll', updatePanelPosition, true);
+
+    return () => {
+      window.removeEventListener('resize', updatePanelPosition);
+      window.removeEventListener('scroll', updatePanelPosition, true);
+    };
+  }, [isOpen]);
+
   useEffect(() => {
     function handlePointerDown(event: MouseEvent) {
-      if (!wrapRef.current?.contains(event.target as Node)) {
-        setIsOpen(false);
+      const target = event.target as Node;
+
+      if (wrapRef.current?.contains(target)) {
+        return;
       }
+
+      if (target instanceof Element && target.closest('.notification-bell-panel')) {
+        return;
+      }
+
+      setIsOpen(false);
     }
 
     function handleEscape(event: KeyboardEvent) {
@@ -142,6 +187,70 @@ export function NotificationBell({ buttonClassName, className }: NotificationBel
     markAllReadMutation.mutate();
   }
 
+  const panel =
+    isOpen && panelPosition
+      ? createPortal(
+          <section
+            aria-label="Notifications"
+            className="notification-bell-panel notification-bell-panel-portal"
+            style={{ top: panelPosition.top, right: panelPosition.right }}
+          >
+            <header className="notification-bell-panel-header">
+              <div>
+                <h2>Notifications</h2>
+                <span>{unreadCount > 0 ? `${unreadCount} unread` : 'All caught up'}</span>
+              </div>
+              <button disabled={unreadCount === 0 || markAllReadMutation.isPending} onClick={handleMarkAllRead} type="button">
+                <IconCheck size={15} stroke={2} />
+                Mark all read
+              </button>
+            </header>
+
+            <div className="notification-bell-list">
+              {notificationsQuery.isLoading || unreadCountQuery.isLoading ? (
+                <div className="notification-bell-state">
+                  <IconLoader2 className="notification-bell-spin" size={18} stroke={1.8} />
+                  Loading notifications...
+                </div>
+              ) : null}
+
+              {errorMessage ? <div className="notification-bell-state notification-bell-state-error">{errorMessage}</div> : null}
+
+              {!notificationsQuery.isLoading && !errorMessage && notifications.length === 0 ? (
+                <div className="notification-bell-state">No notifications yet.</div>
+              ) : null}
+
+              {notifications.map((notification) => (
+                <button
+                  className={`notification-bell-item ${notification.isRead ? 'notification-bell-item-read' : ''}`}
+                  key={notification.notificationId}
+                  onClick={() => void handleNotificationClick(notification)}
+                  type="button"
+                >
+                  <span className="notification-bell-item-dot" />
+                  <span className="notification-bell-item-body">
+                    <strong>{notification.title}</strong>
+                    {notification.message ? <span>{notification.message}</span> : null}
+                    <small>{formatNotificationTime(notification.createdAt)}</small>
+                  </span>
+                </button>
+              ))}
+            </div>
+          </section>,
+          document.body,
+        )
+      : null;
+
+  const toast = realtimeMessage
+    ? createPortal(
+        <div className="notification-bell-toast" role="status">
+          <strong>{realtimeMessage.title}</strong>
+          {realtimeMessage.message ? <span>{realtimeMessage.message}</span> : null}
+        </div>,
+        document.body,
+      )
+    : null;
+
   return (
     <div className={`notification-bell ${className ?? ''}`} ref={wrapRef}>
       <button
@@ -150,64 +259,15 @@ export function NotificationBell({ buttonClassName, className }: NotificationBel
         aria-label={`Notifications${unreadCount > 0 ? `, ${unreadCount} unread` : ''}`}
         className={`notification-bell-button ${buttonClassName ?? ''}`}
         onClick={() => setIsOpen((current) => !current)}
+        ref={buttonRef}
         type="button"
       >
         <IconBell size={20} stroke={1.8} />
         {unreadCount > 0 ? <span className="notification-bell-badge">{formattedUnreadCount}</span> : null}
       </button>
 
-      {realtimeMessage ? (
-        <div className="notification-bell-toast" role="status">
-          <strong>{realtimeMessage.title}</strong>
-          {realtimeMessage.message ? <span>{realtimeMessage.message}</span> : null}
-        </div>
-      ) : null}
-
-      {isOpen ? (
-        <section className="notification-bell-panel" aria-label="Notifications">
-          <header className="notification-bell-panel-header">
-            <div>
-              <h2>Notifications</h2>
-              <span>{unreadCount > 0 ? `${unreadCount} unread` : 'All caught up'}</span>
-            </div>
-            <button disabled={unreadCount === 0 || markAllReadMutation.isPending} onClick={handleMarkAllRead} type="button">
-              <IconCheck size={15} stroke={2} />
-              Mark all read
-            </button>
-          </header>
-
-          <div className="notification-bell-list">
-            {notificationsQuery.isLoading || unreadCountQuery.isLoading ? (
-              <div className="notification-bell-state">
-                <IconLoader2 className="notification-bell-spin" size={18} stroke={1.8} />
-                Loading notifications...
-              </div>
-            ) : null}
-
-            {errorMessage ? <div className="notification-bell-state notification-bell-state-error">{errorMessage}</div> : null}
-
-            {!notificationsQuery.isLoading && !errorMessage && notifications.length === 0 ? (
-              <div className="notification-bell-state">No notifications yet.</div>
-            ) : null}
-
-            {notifications.map((notification) => (
-              <button
-                className={`notification-bell-item ${notification.isRead ? 'notification-bell-item-read' : ''}`}
-                key={notification.notificationId}
-                onClick={() => void handleNotificationClick(notification)}
-                type="button"
-              >
-                <span className="notification-bell-item-dot" />
-                <span className="notification-bell-item-body">
-                  <strong>{notification.title}</strong>
-                  {notification.message ? <span>{notification.message}</span> : null}
-                  <small>{formatNotificationTime(notification.createdAt)}</small>
-                </span>
-              </button>
-            ))}
-          </div>
-        </section>
-      ) : null}
+      {toast}
+      {panel}
     </div>
   );
 }

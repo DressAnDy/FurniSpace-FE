@@ -38,6 +38,13 @@
   border-radius: 12px;
   background: #ffffff;
   box-shadow: 0 24px 54px rgba(45, 45, 45, 0.16);
+  color: #2d2d2d;
+  font-family: var(--fs-ui-font, "Be Vietnam Pro", "DM Sans", system-ui, -apple-system, "Segoe UI", sans-serif);
+}
+
+.notification-bell-panel-portal {
+  position: fixed;
+  z-index: 1200;
 }
 
 .notification-bell-panel::before {
@@ -62,9 +69,16 @@
   padding: 14px 14px 12px;
 }
 
+.notification-bell-panel-header > div {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
 .notification-bell-panel-header h2,
 .notification-bell-panel-header span {
   margin: 0;
+  font-family: inherit;
 }
 
 .notification-bell-panel-header h2 {
@@ -83,6 +97,7 @@
 .notification-bell-panel-header button {
   display: inline-flex;
   min-height: 32px;
+  flex-shrink: 0;
   align-items: center;
   gap: 6px;
   border: 1px solid rgba(139, 111, 71, 0.2);
@@ -237,7 +252,7 @@
 }
 
 @media (max-width: 720px) {
-  .notification-bell-panel {
+  .notification-bell-panel:not(.notification-bell-panel-portal) {
     right: -72px;
   }
 }

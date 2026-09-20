@@ -36,7 +36,14 @@ projectChatApiClient.interceptors.response.use(
   },
 );
 
-export type ProjectChatType = 'SALES' | 'DESIGNER' | 'PRODUCTION' | 'DELIVERY' | 'GENERAL' | 'INTERNAL';
+export type ProjectChatType =
+  | 'SALES'
+  | 'DESIGNER'
+  | 'DESIGNER_SALES'
+  | 'PRODUCTION'
+  | 'DELIVERY'
+  | 'GENERAL'
+  | 'INTERNAL';
 export type ProjectChatStatus = 'OPEN' | 'CLOSED' | 'ARCHIVED';
 export type ProjectChatMessageType = 'TEXT' | 'FILE' | 'SYSTEM';
 

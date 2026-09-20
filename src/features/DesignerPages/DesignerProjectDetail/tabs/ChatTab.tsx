@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useLocation } from 'react-router-dom';
 
-import { formatChatTime, formatFileSize, formatUnreadBadge, getChatParticipant, getChatTypeLabel, getInitials, getMessageContent } from '@/features/projectChat/chatUi';
+import { formatChatTime, formatFileSize, formatUnreadBadge, getChatParticipant, getInitials, getMessageContent } from '@/features/projectChat/chatUi';
 import {
   getProjectChatServiceResultMessage,
   type ProjectChatListItem,
@@ -50,7 +50,7 @@ export function ChatTab({ project }: ChatTabProps) {
   });
   const salesChatQuery = useProjectChats({
     projectId: project.projectId,
-    chatType: 'INTERNAL',
+    chatType: 'DESIGNER_SALES',
     page: 1,
     limit: 20,
   });
@@ -127,7 +127,7 @@ export function ChatTab({ project }: ChatTabProps) {
     enabled: Boolean(activeChat),
     onMessage: (event) => {
       void queryClient.invalidateQueries({ queryKey: projectChatQueryKeys.list({ projectId: project.projectId, chatType: 'DESIGNER', page: 1, limit: 20 }) });
-      void queryClient.invalidateQueries({ queryKey: projectChatQueryKeys.list({ projectId: project.projectId, chatType: 'INTERNAL', page: 1, limit: 20 }) });
+      void queryClient.invalidateQueries({ queryKey: projectChatQueryKeys.list({ projectId: project.projectId, chatType: 'DESIGNER_SALES', page: 1, limit: 20 }) });
       queryClient.setQueryData(
         projectChatQueryKeys.messages({
           chatId: event.chatId,
@@ -264,17 +264,13 @@ function ChatSelectorItem({
     { customerFallback, customerName },
   );
   const unreadBadge = formatUnreadBadge(unreadCount);
-  const chatLabel = actor === 'SALES'
-    ? getChatTypeLabel(chat.chatType)
-    : getChatTypeLabel(chat.chatType);
 
   return (
     <button className={`${isActive ? 'is-active' : ''}${unreadBadge ? ' has-unread' : ''}`.trim()} type="button" onClick={onSelect}>
       <strong>{participant.name}</strong>
       <small>
         {participant.role}
-        {` - ${chatLabel}`}
-        {chat.lastMessage?.contentPreview ? ` - ${chat.lastMessage.contentPreview}` : ''}
+        {chat.lastMessage?.contentPreview ? ` · ${chat.lastMessage.contentPreview}` : ''}
       </small>
       {unreadBadge ? <span className="designer-project-chat-unread-badge">{unreadBadge}</span> : null}
     </button>
@@ -294,7 +290,7 @@ function getDesignerChatParticipant(
 
   if (entry.actor === 'SALES') {
     return {
-      name: entry.chat.chatType === 'INTERNAL'
+      name: entry.chat.chatType === 'DESIGNER_SALES'
         ? getChatParticipant(entry.chat, { viewerRole: 'DESIGNER' }).name
         : 'Sales',
       role: 'Sales',
@@ -313,7 +309,7 @@ function buildDesignerChatEntries(
   salesChats: ProjectChatListItem[] | undefined,
 ) {
   const designerChat = customerChats?.find((chat) => chat.chatType === 'DESIGNER') ?? null;
-  const internalChat = salesChats?.find((chat) => chat.chatType === 'INTERNAL') ?? null;
+  const designerSalesChat = salesChats?.find((chat) => chat.chatType === 'DESIGNER_SALES') ?? null;
   const entries: DesignerChatEntry[] = [];
 
   if (designerChat) {
@@ -324,11 +320,11 @@ function buildDesignerChatEntries(
     });
   }
 
-  if (internalChat) {
+  if (designerSalesChat) {
     entries.push({
       actor: 'SALES',
-      chat: internalChat,
-      key: `${internalChat.chatId}:sales`,
+      chat: designerSalesChat,
+      key: `${designerSalesChat.chatId}:sales`,
     });
   }
 
