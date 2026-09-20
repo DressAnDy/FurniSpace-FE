@@ -6,7 +6,6 @@ import { useLang } from '@/app/providers/useLang';
 import { ProjectStatusBadge, ProjectTimeline, SaleNavbar, SaleSidebar, saleCopy } from '@/features/SalePages/salecomponents';
 import { OperationalDelayPanel } from '@/features/operationalDelayReports/OperationalDelayPanel';
 import { ProductIssuePanel } from '@/features/productIssues/ProductIssuePanel';
-import { ProjectChatPanel } from '@/features/projectChat/ProjectChatPanel';
 import { ProjectShowcaseManager } from '@/features/showcases/ProjectShowcaseManager';
 import type { OrderListItemDto } from '@/services/api/orders';
 import type { ProjectDto, ProjectStatus } from '@/services/api/projects';
@@ -26,7 +25,7 @@ import { FilesAttachmentsTab, OverviewTab, ProjectMemberTab, SchedulesTab } from
 import { ProjectStartFeePanel } from './components/ProjectStartFeePanel';
 import './ProjectDetail.css';
 
-type ProjectDetailTab = 'overview' | 'customer' | 'files' | 'schedules' | 'chat' | 'delays' | 'showcase';
+type ProjectDetailTab = 'overview' | 'customer' | 'files' | 'schedules' | 'delays' | 'showcase';
 type ProjectIssueScope = 'PRODUCTION' | 'DELIVERY' | 'CUSTOMER';
 
 export type ProjectDetailProject = ProjectDto;
@@ -117,7 +116,6 @@ export function ProjectDetail() {
   const assignedProjectTabs: TabDef[] = [
     ...baseTabs,
     { id: 'schedules', label: pd.tabSchedules },
-    { id: 'chat', label: pd.tabChat },
     { id: 'delays', label: pd.tabDelay },
     { id: 'showcase', label: pd.tabShowcase },
   ];
@@ -126,7 +124,6 @@ export function ProjectDetail() {
   const backLabel = isAssignedProjectRoute ? pd.backAssigned : pd.backQueue;
   const requestedTab = new URLSearchParams(location.search).get('tab');
   const requestedProjectDetailTab = normalizeProjectDetailTab(requestedTab);
-  const requestedChatId = new URLSearchParams(location.search).get('chatId');
 
   useEffect(() => {
     if (!visibleTabs.some((tab) => tab.id === activeTab)) {
@@ -240,17 +237,6 @@ export function ProjectDetail() {
     if (activeTab === 'customer') return <ProjectMemberTab project={project} canManageAssignment={isAssignedProjectRoute} />;
     if (activeTab === 'files') return <FilesAttachmentsTab projectId={project.projectId} />;
     if (activeTab === 'schedules' && isAssignedProjectRoute) return <SchedulesTab project={project} />;
-    if (activeTab === 'chat' && isAssignedProjectRoute) {
-      return (
-        <ProjectChatPanel
-          allowedChatTypes={['SALES', 'INTERNAL']}
-          initialChatId={requestedChatId}
-          projectCode={project.projectCode}
-          projectId={project.projectId}
-          title={`${project.projectName} Chat`}
-        />
-      );
-    }
     if (activeTab === 'delays' && isAssignedProjectRoute) {
       return (
         <section className="project-detail-issue-tab">
@@ -513,7 +499,7 @@ function getTimelineDates(project: ProjectDto) {
 function normalizeProjectDetailTab(value: string | null): ProjectDetailTab | null {
   if (value === 'schedule') return 'schedules';
 
-  const supportedTabs: ProjectDetailTab[] = ['overview', 'customer', 'files', 'schedules', 'chat', 'delays', 'showcase'];
+  const supportedTabs: ProjectDetailTab[] = ['overview', 'customer', 'files', 'schedules', 'delays', 'showcase'];
 
   return supportedTabs.includes(value as ProjectDetailTab) ? value as ProjectDetailTab : null;
 }

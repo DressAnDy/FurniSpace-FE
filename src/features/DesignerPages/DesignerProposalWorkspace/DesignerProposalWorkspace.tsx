@@ -567,6 +567,7 @@ export function DesignerProposalWorkspace() {
               projectCode={project.projectCode}
               projectId={project.projectId}
               title="Designer Chat with Customer"
+              viewerRole="DESIGNER"
             />
           ) : (
             <EmptyState message="Project chat is unavailable until project data is loaded from backend." />

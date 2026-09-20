@@ -1,9 +1,7 @@
 import {
   IconArrowRight,
   IconCalendar,
-  IconMessageCircle,
   IconSearch,
-  IconX,
 } from '@tabler/icons-react';
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -13,13 +11,12 @@ import { useLang, type Lang } from '@/app/providers/useLang';
 import { CustomerNavbar, customerCopy, type CustomerCopy } from '@/features/CustomerPages/customercomponents';
 import { formatCustomerDate, getCustomerProjectStatusLabel } from '@/features/CustomerPages/utils';
 import { PaymentCollectionModal } from '@/features/payments';
-import { ProjectChatPanel } from '@/features/projectChat/ProjectChatPanel';
 import type { PaymentDetailDto } from '@/services/api/payments';
 import type { ProjectListItemDto, ProjectStatus } from '@/services/api/projects';
 import { usePayments } from '@/services/queries';
 import { useProjectList } from '@/services/queries/useProjects';
 
-const PROJECT_PAGE_SIZE = 5;
+const PROJECT_PAGE_SIZE = 6;
 
 export function CustomerProjectListPage() {
   const { lang } = useLang();
@@ -28,7 +25,6 @@ export function CustomerProjectListPage() {
   const [status, setStatus] = useState<ProjectStatus | ''>('');
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(PROJECT_PAGE_SIZE);
-  const [chatProject, setChatProject] = useState<ProjectListItemDto | null>(null);
   const projectsQuery = useProjectList({
     search: keyword,
     status: status || null,
@@ -99,7 +95,6 @@ export function CustomerProjectListPage() {
               lang={lang}
               project={project}
               t={t}
-              onOpenChat={() => setChatProject(project)}
               onPaymentCompleted={() => void projectsQuery.refetch()}
             />
           ))}
@@ -117,23 +112,6 @@ export function CustomerProjectListPage() {
           onPageSizeChange={handlePageSizeChange}
         />
       </div>
-
-      {chatProject ? (
-        <div className="customer-project-chat-modal" role="dialog" aria-modal="true" aria-label={`${chatProject.projectName} chat`}>
-          <div className="customer-project-chat-backdrop" onClick={() => setChatProject(null)} />
-          <div className="customer-project-chat-dialog">
-            <button className="customer-project-chat-close" type="button" aria-label={t.common.close} onClick={() => setChatProject(null)}>
-              <IconX size={18} />
-            </button>
-            <ProjectChatPanel
-              allowedChatTypes={['SALES', 'DESIGNER']}
-              projectCode={chatProject.projectCode}
-              projectId={chatProject.projectId}
-              title={`${chatProject.projectName} ${t.projects.chat}`}
-            />
-          </div>
-        </div>
-      ) : null}
     </main>
   );
 }
@@ -242,13 +220,12 @@ function CustomerProjectPager({
 
 type ProjectCardProps = {
   lang: Lang;
-  onOpenChat: () => void;
   onPaymentCompleted: () => void;
   project: ProjectListItemDto;
   t: CustomerCopy;
 };
 
-function ProjectCard({ lang, onOpenChat, onPaymentCompleted, project, t }: ProjectCardProps) {
+function ProjectCard({ lang, onPaymentCompleted, project, t }: ProjectCardProps) {
   const navigate = useNavigate();
   const [startFeePayment, setStartFeePayment] = useState<PaymentDetailDto | null>(null);
   const stage = getProjectStage(project.status, lang);
@@ -316,10 +293,6 @@ function ProjectCard({ lang, onOpenChat, onPaymentCompleted, project, t }: Proje
           >
             {canPayStartFee ? t.projects.payStartFee : needsInformationUpdate ? t.projects.updateInformation : t.projects.openProject}
             <IconArrowRight size={16} stroke={1.8} />
-          </button>
-          <button type="button" onClick={onOpenChat}>
-            <IconMessageCircle size={16} stroke={1.8} />
-            {t.projects.chat}
           </button>
         </div>
       </div>
