@@ -993,6 +993,7 @@ export function ReadyForDelivery() {
             />
             <ProductIssuePanel
               orderId={order?.orderId ?? selectedRequest.orderId}
+              orderItems={order?.items ?? []}
               projectId={selectedRequest.projectId}
               title="Customer product issues"
             />

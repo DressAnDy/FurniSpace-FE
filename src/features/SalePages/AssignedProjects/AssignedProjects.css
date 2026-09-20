@@ -130,7 +130,7 @@
 
 .assigned-projects-table-card table {
   width: 100%;
-  min-width: 980px;
+  min-width: 1220px;
   border-collapse: collapse;
   text-align: left;
 }
@@ -141,6 +141,7 @@
   color: #2d2d2d;
   font-size: 12px;
   font-weight: 500;
+  white-space: nowrap;
 }
 
 .assigned-projects-table-card td {
@@ -150,6 +151,39 @@
   font-size: 14px;
   line-height: 20px;
   vertical-align: middle;
+  white-space: nowrap;
+}
+
+.assigned-projects-table-card th:nth-child(1),
+.assigned-projects-table-card td:nth-child(1) {
+  width: 150px;
+}
+
+.assigned-projects-table-card th:nth-child(2),
+.assigned-projects-table-card td:nth-child(2) {
+  width: 250px;
+}
+
+.assigned-projects-table-card th:nth-child(3),
+.assigned-projects-table-card td:nth-child(3),
+.assigned-projects-table-card th:nth-child(6),
+.assigned-projects-table-card td:nth-child(6) {
+  width: 230px;
+}
+
+.assigned-projects-table-card th:nth-child(4),
+.assigned-projects-table-card td:nth-child(4) {
+  width: 140px;
+}
+
+.assigned-projects-table-card th:nth-child(5),
+.assigned-projects-table-card td:nth-child(5) {
+  width: 190px;
+}
+
+.assigned-projects-table-card th:nth-child(7),
+.assigned-projects-table-card td:nth-child(7) {
+  width: 120px;
 }
 
 .assigned-projects-table-card tbody tr:last-child td {
@@ -162,18 +196,22 @@
 
 .assigned-projects-table-card td strong {
   display: block;
+  overflow: hidden;
   color: #2d2d2d;
   font-size: 14px;
   font-weight: 400;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .assigned-projects-table-card td span {
   display: block;
+  overflow: hidden;
   margin-top: 2px;
   color: #6b6b6b;
   font-size: 12px;
   line-height: 16px;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
 

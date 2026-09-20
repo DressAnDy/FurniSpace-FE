@@ -341,7 +341,13 @@ export function CustomerProjectInformationPage() {
                   className={`customer-project-request-upload ${isDraggingFiles ? 'customer-project-request-upload-active' : ''}`}
                   role="button"
                   tabIndex={canEdit && !isSubmitting ? 0 : -1}
-                  onClick={() => fileInputRef.current?.click()}
+                  onClick={(event) => {
+                    if (!canEdit || isSubmitting || event.target === fileInputRef.current) {
+                      return;
+                    }
+
+                    fileInputRef.current?.click();
+                  }}
                   onDragLeave={() => setIsDraggingFiles(false)}
                   onDragOver={(event) => {
                     event.preventDefault();
@@ -367,6 +373,7 @@ export function CustomerProjectInformationPage() {
                     disabled={!canEdit || isSubmitting}
                     multiple
                     type="file"
+                    onClick={(event) => event.stopPropagation()}
                     onChange={(event) => {
                       addSelectedFiles(event.target.files);
                       event.currentTarget.value = '';

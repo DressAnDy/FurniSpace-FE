@@ -153,13 +153,19 @@
 .designer-assigned-error { color: #b91c1c; }
 .designer-assigned-table-card { overflow: hidden; }
 .designer-assigned-table-scroll { overflow-x: auto; }
-.designer-assigned-table { width: 100%; min-width: 980px; border-collapse: collapse; color: #52525b; font-size: 14px; text-align: left; }
+.designer-assigned-table { width: 100%; min-width: 1260px; border-collapse: collapse; color: #52525b; font-size: 14px; text-align: left; }
 .designer-assigned-table thead { background: #fafafa; color: #a1a1aa; font-size: 12px; letter-spacing: .04em; text-transform: uppercase; }
-.designer-assigned-table th { padding: 16px 20px; font-weight: 600; }
-.designer-assigned-table td { border-top: 1px solid #f4f4f5; padding: 20px; }
-.designer-assigned-primary,.designer-assigned-account { margin: 0; color: #18181b; font-weight: 600; }
+.designer-assigned-table th { padding: 16px 20px; font-weight: 600; white-space: nowrap; }
+.designer-assigned-table td { border-top: 1px solid #f4f4f5; padding: 20px; white-space: nowrap; }
+.designer-assigned-table th:nth-child(1),.designer-assigned-table td:nth-child(1) { width: 260px; }
+.designer-assigned-table th:nth-child(2),.designer-assigned-table td:nth-child(2),.designer-assigned-table th:nth-child(6),.designer-assigned-table td:nth-child(6) { width: 250px; }
+.designer-assigned-table th:nth-child(3),.designer-assigned-table td:nth-child(3) { width: 130px; }
+.designer-assigned-table th:nth-child(4),.designer-assigned-table td:nth-child(4) { width: 150px; }
+.designer-assigned-table th:nth-child(5),.designer-assigned-table td:nth-child(5) { width: 230px; }
+.designer-assigned-table th:nth-child(7),.designer-assigned-table td:nth-child(7) { width: 130px; }
+.designer-assigned-primary,.designer-assigned-account { margin: 0; overflow: hidden; color: #18181b; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
 .designer-assigned-account { color: #3f3f46; font-weight: 500; }
-.designer-assigned-secondary { color: #71717a; font-size: 12px; }
+.designer-assigned-secondary { display: block; overflow: hidden; color: #71717a; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
 .designer-assigned-status-cell > span {
   min-width: 0;
   justify-content: center;
@@ -173,7 +179,7 @@
   text-transform: none;
   white-space: nowrap;
 }
-.designer-assigned-view-link { color: #9a713b; font-size: 12px; font-weight: 600; text-decoration: none; }
+.designer-assigned-view-link { color: #9a713b; font-size: 12px; font-weight: 600; text-decoration: none; white-space: nowrap; }
 .designer-assigned-empty { color: #71717a; text-align: center; }
 .designer-assigned-pagination {
   align-items: center;
