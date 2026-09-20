@@ -202,7 +202,16 @@ export function CustomerChatPage() {
 
       <div className="customer-chat-body">
         <header className="customer-chat-page-header">
-          <h1>{t.chat.title}</h1>
+          <div>
+            <h1>{t.chat.title}</h1>
+            <p>{t.chat.subtitle}</p>
+          </div>
+          {activeProject ? (
+            <div className="customer-chat-page-project-chip">
+              <span>{activeProject.projectCode}</span>
+              <strong>{activeProject.projectName}</strong>
+            </div>
+          ) : null}
         </header>
 
         <div className="customer-chat-layout">
@@ -250,49 +259,66 @@ export function CustomerChatPage() {
           </aside>
 
           <section className="customer-chat-main" aria-label="Chat messages">
-            <div className="customer-chat-conversation-header">
-              <div className="customer-chat-conversation-identity">
-                <span className="customer-chat-avatar">{getInitials(getChatParticipant(activeConversation, { viewerRole: 'CUSTOMER' }).name, activeConversation?.chatType)}</span>
-                <div>
-                  <strong>{getChatParticipant(activeConversation, { viewerRole: 'CUSTOMER' }).name}</strong>
-                  <span>{getChatParticipant(activeConversation, { viewerRole: 'CUSTOMER' }).role}</span>
+            <div className="customer-chat-panel">
+              <div className="customer-chat-conversation-header">
+                <div className="customer-chat-conversation-identity">
+                  <span className="customer-chat-avatar">
+                    {getInitials(getChatParticipant(activeConversation, { viewerRole: 'CUSTOMER' }).name, activeConversation?.chatType)}
+                  </span>
+                  <div>
+                    <strong>{getChatParticipant(activeConversation, { viewerRole: 'CUSTOMER' }).name}</strong>
+                    <span>{getChatParticipant(activeConversation, { viewerRole: 'CUSTOMER' }).role}</span>
+                  </div>
                 </div>
               </div>
-            </div>
 
-            <div className="customer-chat-messages" aria-live="polite" ref={messagesListRef}>
-              {errorMessage ? <div className="customer-chat-message customer-chat-message-system">{errorMessage}</div> : null}
-              {messagesQuery.isLoading ? <div className="customer-chat-message customer-chat-message-system">{t.chat.loadingMessages}</div> : null}
-              {messagesQuery.isError ? (
-                <div className="customer-chat-message customer-chat-message-system">{getProjectChatServiceResultMessage(messagesQuery.error)}</div>
-              ) : null}
-              {!messagesQuery.isLoading && !messagesQuery.isError && activeConversation && (messagesQuery.data?.items.length ?? 0) === 0 ? (
-                <div className="customer-chat-message customer-chat-message-system">{t.chat.noMessages}</div>
-              ) : null}
-              {messagesQuery.data?.items.map((message) => (
-                <CustomerMessage currentUserId={currentUserQuery.data?.accountId} key={message.messageId} message={message} />
-              ))}
-            </div>
-            <div className="customer-chat-input-area">
-              <div className="customer-chat-composer-main">
-                <textarea
-                  className="customer-chat-textarea"
-                  disabled={!activeConversation || sendTextMutation.isPending}
-                  placeholder={t.chat.typeMessage}
-                  rows={2}
-                  value={draft}
-                  onChange={(event) => setDraft(event.target.value)}
-                  onKeyDown={(event) => {
-                    if (event.key === 'Enter' && !event.shiftKey) {
-                      event.preventDefault();
-                      void handleSendText();
-                    }
-                  }}
-                />
+              <div className="customer-chat-messages" aria-live="polite" ref={messagesListRef}>
+                {errorMessage ? <div className="customer-chat-message customer-chat-message-system">{errorMessage}</div> : null}
+                {messagesQuery.isLoading ? <div className="customer-chat-message customer-chat-message-system">{t.chat.loadingMessages}</div> : null}
+                {messagesQuery.isError ? (
+                  <div className="customer-chat-message customer-chat-message-system">{getProjectChatServiceResultMessage(messagesQuery.error)}</div>
+                ) : null}
+                {!messagesQuery.isLoading && !messagesQuery.isError && activeConversation && (messagesQuery.data?.items.length ?? 0) === 0 ? (
+                  <div className="customer-chat-empty-thread">
+                    <span className="customer-chat-empty-thread-icon" aria-hidden>
+                      <IconSend size={20} stroke={1.7} />
+                    </span>
+                    <strong>{t.chat.noMessages}</strong>
+                    <p>{t.chat.emptyThreadHint}</p>
+                  </div>
+                ) : null}
+                {messagesQuery.data?.items.map((message) => (
+                  <CustomerMessage currentUserId={currentUserQuery.data?.accountId} key={message.messageId} message={message} />
+                ))}
               </div>
-              <button className="customer-chat-send" disabled={!activeConversation || !draft.trim() || sendTextMutation.isPending} type="button" aria-label={t.chat.sendMessage} onClick={() => void handleSendText()}>
-                <IconSend size={20} stroke={1.8} />
-              </button>
+
+              <div className="customer-chat-input-area">
+                <div className="customer-chat-composer-main">
+                  <textarea
+                    className="customer-chat-textarea"
+                    disabled={!activeConversation || sendTextMutation.isPending}
+                    placeholder={t.chat.typeMessage}
+                    rows={1}
+                    value={draft}
+                    onChange={(event) => setDraft(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter' && !event.shiftKey) {
+                        event.preventDefault();
+                        void handleSendText();
+                      }
+                    }}
+                  />
+                </div>
+                <button
+                  className="customer-chat-send"
+                  disabled={!activeConversation || !draft.trim() || sendTextMutation.isPending}
+                  type="button"
+                  aria-label={t.chat.sendMessage}
+                  onClick={() => void handleSendText()}
+                >
+                  <IconSend size={18} stroke={1.8} />
+                </button>
+              </div>
             </div>
           </section>
         </div>
@@ -320,23 +346,24 @@ function ConversationItem({
   return (
     <li className={`customer-chat-list-item${isActive ? ' customer-chat-list-item-active' : ''}${unreadBadge ? ' customer-chat-list-item-unread' : ''}`}>
       <button type="button" onClick={onSelect}>
-        <span className="customer-chat-avatar">{getInitials(participant.name, conversation.chatType)}</span>
+        <span className={`customer-chat-avatar customer-chat-avatar-${conversation.chatType.toLowerCase()}`}>
+          {getInitials(participant.name, conversation.chatType)}
+        </span>
 
         <div className="customer-chat-list-info">
           <div className="customer-chat-list-name-row">
             <span className="customer-chat-list-name">{participant.name}</span>
+            <time className="customer-chat-list-time">{formatChatTime(conversation.lastMessage?.createdAt ?? conversation.createdAt)}</time>
+          </div>
+
+          <div className="customer-chat-list-meta-row">
+            <span className={`customer-chat-role-label customer-chat-role-label-${conversation.chatType.toLowerCase()}`}>
+              {participant.role}
+            </span>
             {unreadBadge ? <span className="customer-chat-badge">{unreadBadge}</span> : null}
           </div>
 
-          <div className="customer-chat-list-role-row">
-            <span className={`customer-chat-role-tag customer-chat-role-tag-${conversation.chatType.toLowerCase()}`}>
-              {conversation.chatType}
-            </span>
-            <span className="customer-chat-role-label">{participant.role}</span>
-          </div>
-
           <p className="customer-chat-list-preview">{conversation.lastMessage?.contentPreview ?? t.chat.noMessages}</p>
-          <time className="customer-chat-list-time">{formatChatTime(conversation.lastMessage?.createdAt ?? conversation.createdAt)}</time>
         </div>
       </button>
     </li>

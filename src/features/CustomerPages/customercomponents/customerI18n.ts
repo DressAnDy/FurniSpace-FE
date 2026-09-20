@@ -431,6 +431,7 @@ type CustomerCopy = {
   };
   chat: {
     title: string;
+    subtitle: string;
     selectProject: string;
     filterConversations: string;
     loadingProjects: string;
@@ -438,6 +439,7 @@ type CustomerCopy = {
     loadingMessages: string;
     noChat: string;
     noMessages: string;
+    emptyThreadHint: string;
     attachment: string;
     typeMessage: string;
     sendMessage: string;
@@ -902,6 +904,7 @@ const en: CustomerCopy = {
   },
   chat: {
     title: 'Project Chat',
+    subtitle: 'Talk with Sales and Designer on your active projects',
     selectProject: 'Select project',
     filterConversations: 'Filter conversations...',
     loadingProjects: 'Loading projects...',
@@ -909,6 +912,7 @@ const en: CustomerCopy = {
     loadingMessages: 'Loading messages...',
     noChat: 'No chat available for this project.',
     noMessages: 'No messages yet.',
+    emptyThreadHint: 'Say hello to start the conversation.',
     attachment: 'Attachment',
     typeMessage: 'Type your message...',
     sendMessage: 'Send message',
@@ -1373,6 +1377,7 @@ const vi: CustomerCopy = {
   },
   chat: {
     title: 'Chat dự án',
+    subtitle: 'Trao đổi với Sales và Designer cho dự án đang theo dõi',
     selectProject: 'Chọn dự án',
     filterConversations: 'Lọc hội thoại...',
     loadingProjects: 'Đang tải dự án...',
@@ -1380,6 +1385,7 @@ const vi: CustomerCopy = {
     loadingMessages: 'Đang tải tin nhắn...',
     noChat: 'Chưa có chat cho dự án này.',
     noMessages: 'Chưa có tin nhắn.',
+    emptyThreadHint: 'Gửi lời chào để bắt đầu trò chuyện.',
     attachment: 'Tệp đính kèm',
     typeMessage: 'Nhập tin nhắn...',
     sendMessage: 'Gửi tin nhắn',
