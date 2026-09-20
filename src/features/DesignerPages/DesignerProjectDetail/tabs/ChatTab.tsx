@@ -38,7 +38,7 @@ export function ChatTab({ project }: ChatTabProps) {
   const location = useLocation();
   const currentUserQuery = useCurrentUser();
   const customerQuery = useAccountDetail(project.customerId);
-  const salesQuery = useAccountDetail(project.assignedSalesId);
+  const salesQuery = useAccountDetail(project.assignedSalesId ?? undefined);
   const [activeChatKey, setActiveChatKey] = useState<string | null>(null);
   const [draft, setDraft] = useState('');
   const [statusMessage, setStatusMessage] = useState('');
