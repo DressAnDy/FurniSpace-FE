@@ -38,6 +38,7 @@ export function ChatTab({ project }: ChatTabProps) {
   const location = useLocation();
   const currentUserQuery = useCurrentUser();
   const customerQuery = useAccountDetail(project.customerId);
+  const salesQuery = useAccountDetail(project.assignedSalesId ?? undefined);
   const [activeChatKey, setActiveChatKey] = useState<string | null>(null);
   const [draft, setDraft] = useState('');
   const [statusMessage, setStatusMessage] = useState('');
@@ -75,10 +76,13 @@ export function ChatTab({ project }: ChatTabProps) {
     : undefined;
   const messagesQuery = useProjectChatMessages(messagesQueryParams);
   const sendTextMutation = useSendProjectChatTextMessage();
-  const activeParticipant = getDesignerChatParticipant(activeChatEntry, {
+  const participantOptions = {
     customerFallback: project.customerId,
     customerName: customerQuery.data?.fullName,
-  });
+    salesFallback: project.assignedSalesId,
+    salesName: salesQuery.data?.fullName,
+  };
+  const activeParticipant = getDesignerChatParticipant(activeChatEntry, participantOptions);
 
   useEffect(() => {
     if (chatEntries.length === 0) {
@@ -199,6 +203,8 @@ export function ChatTab({ project }: ChatTabProps) {
               isActive={entry.key === activeChatEntry?.key}
               key={entry.key}
               onSelect={() => setActiveChatKey(entry.key)}
+              salesFallback={project.assignedSalesId}
+              salesName={salesQuery.data?.fullName}
               unreadCount={unreadCounts[entry.chat.chatId] ?? 0}
             />
           ))}
@@ -249,6 +255,8 @@ function ChatSelectorItem({
   customerName,
   isActive,
   onSelect,
+  salesFallback,
+  salesName,
   unreadCount,
 }: {
   actor: DesignerChatActor;
@@ -257,11 +265,13 @@ function ChatSelectorItem({
   customerName?: string | null;
   isActive: boolean;
   onSelect: () => void;
+  salesFallback?: string | null;
+  salesName?: string | null;
   unreadCount: number;
 }) {
   const participant = getDesignerChatParticipant(
     { actor, chat, key: '' },
-    { customerFallback, customerName },
+    { customerFallback, customerName, salesFallback, salesName },
   );
   const unreadBadge = formatUnreadBadge(unreadCount);
 
@@ -279,7 +289,12 @@ function ChatSelectorItem({
 
 function getDesignerChatParticipant(
   entry: DesignerChatEntry | null,
-  options: { customerFallback: string; customerName?: string | null },
+  options: {
+    customerFallback: string;
+    customerName?: string | null;
+    salesFallback?: string | null;
+    salesName?: string | null;
+  },
 ) {
   if (!entry) {
     return {
@@ -290,9 +305,7 @@ function getDesignerChatParticipant(
 
   if (entry.actor === 'SALES') {
     return {
-      name: entry.chat.chatType === 'DESIGNER_SALES'
-        ? getChatParticipant(entry.chat, { viewerRole: 'DESIGNER' }).name
-        : 'Sales',
+      name: options.salesName || options.salesFallback || 'Sales',
       role: 'Sales',
     };
   }
