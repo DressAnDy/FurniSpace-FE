@@ -1,6 +1,7 @@
 import { type Dispatch, type FormEvent, type SetStateAction, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
+  IconBriefcase,
   IconChevronRight,
   IconCreditCard,
   IconEdit,
@@ -11,6 +12,7 @@ import {
   IconPhone,
   IconShieldCheck,
   IconUser,
+  IconUserCircle,
 } from '@tabler/icons-react';
 
 import { useLang, type Lang } from '@/app/providers/useLang';
@@ -57,7 +59,10 @@ type PaymentFilterState = {
   to: string;
 };
 
-const PAYMENT_PAGE_SIZE = 8;
+const DEFAULT_PAYMENT_PAGE_SIZE = 5;
+const MIN_PAYMENT_PAGE_SIZE = 1;
+const MAX_PAYMENT_PAGE_SIZE = 50;
+const PAYMENT_FETCH_LIMIT = 100;
 
 type ProfileCopy = typeof profileCopy.en;
 
@@ -128,6 +133,8 @@ const profileCopy = {
       loading: 'Loading payment history...',
       empty: 'No payments match the current filters.',
       page: 'Page',
+      pageSize: 'Per page',
+      goToPage: 'Go to',
       previous: 'Previous',
       next: 'Next',
       allStatuses: 'All statuses',
@@ -225,6 +232,8 @@ const profileCopy = {
       loading: 'Dang tai lich su thanh toan...',
       empty: 'Chua co thanh toan phu hop voi bo loc.',
       page: 'Trang',
+      pageSize: 'Moi trang',
+      goToPage: 'Den trang',
       previous: 'Truoc',
       next: 'Sau',
       allStatuses: 'Tat ca trang thai',
@@ -270,6 +279,7 @@ export function UserProfilePage() {
   const changePasswordMutation = useChangePassword();
   const [activeTab, setActiveTab] = useState<ProfileTab>(() => getProfileTabFromSearch(searchParams));
   const [paymentPage, setPaymentPage] = useState(1);
+  const [paymentPageSize, setPaymentPageSize] = useState(DEFAULT_PAYMENT_PAGE_SIZE);
   const [paymentFilters, setPaymentFilters] = useState<PaymentFilterState>({
     from: '',
     paymentType: '',
@@ -288,8 +298,8 @@ export function UserProfilePage() {
   const paymentsQuery = usePayments(
     {
       from: paymentFilters.from || null,
-      limit: PAYMENT_PAGE_SIZE,
-      page: paymentPage,
+      limit: PAYMENT_FETCH_LIMIT,
+      page: 1,
       paymentType: paymentFilters.paymentType || null,
       status: paymentFilters.status || null,
       to: paymentFilters.to || null,
@@ -302,9 +312,18 @@ export function UserProfilePage() {
   const initials = getInitials(displayName);
   const overviewStats = useMemo(
     () => [
-      { label: t.stats.status, value: formatStatus(user?.status, t)},
-      { label: t.stats.role, value: formatRole(user?.role, t),  },
       {
+        icon: IconShieldCheck,
+        label: t.stats.status,
+        value: formatStatus(user?.status, t),
+      },
+      {
+        icon: IconUserCircle,
+        label: t.stats.role,
+        value: formatRole(user?.role, t),
+      },
+      {
+        icon: IconBriefcase,
         label: t.stats.projects,
         value: projectsSummaryQuery.isLoading ? '...' : String(projectsSummaryQuery.data?.total ?? 0),
       },
@@ -393,7 +412,7 @@ export function UserProfilePage() {
 
   return (
     <main className="user-profile-page">
-      <MainNavbar activePath="/user-profile" classPrefix="user-profile" />
+      <MainNavbar activePath="/user-profile" classPrefix="user-profile" variant="profile" />
 
       <section className="user-profile-shell">
         <aside className="user-profile-sidebar" aria-label={lang === 'vi' ? 'Dieu huong ho so' : 'User profile navigation'}>
@@ -444,12 +463,21 @@ export function UserProfilePage() {
           ) : null}
 
           <section className="user-profile-overview">
-            {overviewStats.map((stat) => (
-              <article className="user-profile-stat" key={stat.label}>
-                <strong>{stat.value}</strong>
-                <span>{stat.label}</span>
-              </article>
-            ))}
+            {overviewStats.map((stat) => {
+              const Icon = stat.icon;
+
+              return (
+                <article className="user-profile-stat" key={stat.label}>
+                  <span className="user-profile-stat-icon" aria-hidden="true">
+                    <Icon size={18} stroke={1.8} />
+                  </span>
+                  <div className="user-profile-stat-copy">
+                    <span>{stat.label}</span>
+                    <strong>{stat.value}</strong>
+                  </div>
+                </article>
+              );
+            })}
           </section>
 
           {activeTab === 'profile' ? (
@@ -488,6 +516,7 @@ export function UserProfilePage() {
               filters={paymentFilters}
               lang={lang}
               page={paymentPage}
+              pageSize={paymentPageSize}
               paymentsQuery={paymentsQuery}
               t={t}
               onFiltersChange={(nextFilters) => {
@@ -495,6 +524,10 @@ export function UserProfilePage() {
                 setPaymentPage(1);
               }}
               onPageChange={setPaymentPage}
+              onPageSizeChange={(nextSize) => {
+                setPaymentPageSize(nextSize);
+                setPaymentPage(1);
+              }}
             />
           ) : null}
         </div>
@@ -695,27 +728,73 @@ type PaymentsTabPanelProps = {
   filters: PaymentFilterState;
   lang: Lang;
   page: number;
+  pageSize: number;
   paymentsQuery: ReturnType<typeof usePayments>;
   t: ProfileCopy;
   onFiltersChange: (filters: PaymentFilterState) => void;
   onPageChange: Dispatch<SetStateAction<number>>;
+  onPageSizeChange: (pageSize: number) => void;
 };
 
 function PaymentsTabPanel({
   filters,
   lang,
   page,
+  pageSize,
   paymentsQuery,
   t,
   onFiltersChange,
   onPageChange,
+  onPageSizeChange,
 }: PaymentsTabPanelProps) {
-  const payments = paymentsQuery.data?.items ?? [];
-  const total = getPaymentListTotal(paymentsQuery.data);
-  const totalPages = Math.max(1, paymentsQuery.data?.totalPages ?? Math.ceil(total / PAYMENT_PAGE_SIZE));
+  const allPayments = paymentsQuery.data?.items ?? [];
+  const total = getPaymentListReportedTotal(paymentsQuery.data) ?? allPayments.length;
+  const totalPages = Math.max(1, Math.ceil(total / Math.max(pageSize, 1)));
+  const payments = allPayments.slice((page - 1) * pageSize, page * pageSize);
+  const [pageDraft, setPageDraft] = useState(String(page));
+  const [pageSizeDraft, setPageSizeDraft] = useState(String(pageSize));
+
+  useEffect(() => {
+    setPageDraft(String(page));
+  }, [page]);
+
+  useEffect(() => {
+    setPageSizeDraft(String(pageSize));
+  }, [pageSize]);
+
+  useEffect(() => {
+    if (paymentsQuery.isFetching) {
+      return;
+    }
+
+    if (page > totalPages) {
+      onPageChange(totalPages);
+    }
+  }, [onPageChange, page, paymentsQuery.isFetching, totalPages]);
 
   function updateFilter(field: keyof PaymentFilterState, value: string) {
     onFiltersChange({ ...filters, [field]: value } as PaymentFilterState);
+  }
+
+  function commitPageDraft() {
+    const parsed = Number.parseInt(pageDraft, 10);
+    const nextPage = Number.isFinite(parsed) ? Math.min(totalPages, Math.max(1, parsed)) : page;
+
+    setPageDraft(String(nextPage));
+    onPageChange(nextPage);
+  }
+
+  function commitPageSizeDraft() {
+    const parsed = Number.parseInt(pageSizeDraft, 10);
+    const nextSize = Number.isFinite(parsed)
+      ? Math.min(MAX_PAYMENT_PAGE_SIZE, Math.max(MIN_PAYMENT_PAGE_SIZE, parsed))
+      : pageSize;
+
+    setPageSizeDraft(String(nextSize));
+
+    if (nextSize !== pageSize) {
+      onPageSizeChange(nextSize);
+    }
   }
 
   return (
@@ -772,7 +851,45 @@ function PaymentsTabPanel({
         ) : null}
 
         <div className="user-profile-payment-pagination">
-          <span>{t.payments.page} {page} / {totalPages}</span>
+          <div className="user-profile-payment-pagination-meta">
+            <label>
+              <span>{t.payments.pageSize}</span>
+              <input
+                inputMode="numeric"
+                min={MIN_PAYMENT_PAGE_SIZE}
+                max={MAX_PAYMENT_PAGE_SIZE}
+                type="number"
+                value={pageSizeDraft}
+                onBlur={commitPageSizeDraft}
+                onChange={(event) => setPageSizeDraft(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') {
+                    event.currentTarget.blur();
+                  }
+                }}
+              />
+            </label>
+            <label>
+              <span>{t.payments.goToPage}</span>
+              <input
+                inputMode="numeric"
+                min={1}
+                max={totalPages}
+                type="number"
+                value={pageDraft}
+                onBlur={commitPageDraft}
+                onChange={(event) => setPageDraft(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') {
+                    event.currentTarget.blur();
+                  }
+                }}
+              />
+            </label>
+            <span>
+              {t.payments.page} {page} / {totalPages}
+            </span>
+          </div>
           <div>
             <button disabled={page <= 1 || paymentsQuery.isFetching} type="button" onClick={() => onPageChange((current) => Math.max(1, current - 1))}>
               {t.payments.previous}
@@ -935,8 +1052,16 @@ function formatMoney(value: number | null | undefined, lang: Lang) {
   }).format(value);
 }
 
-function getPaymentListTotal(data?: { items?: PaymentDto[]; total?: number; totalCount?: number } | null) {
-  return data?.total ?? data?.totalCount ?? data?.items?.length ?? 0;
+function getPaymentListReportedTotal(data?: { items?: PaymentDto[]; total?: number; totalCount?: number } | null) {
+  if (typeof data?.total === 'number') {
+    return data.total;
+  }
+
+  if (typeof data?.totalCount === 'number') {
+    return data.totalCount;
+  }
+
+  return null;
 }
 
 function shortCode(value: string) {
@@ -953,7 +1078,6 @@ function getPaymentStatusOptions(t: ProfileCopy): Array<{ label: string; value: 
     { label: t.status.PENDING, value: 'PENDING' },
     { label: t.status.PROCESSING, value: 'PROCESSING' },
     { label: t.status.PAID, value: 'PAID' },
-    { label: t.status.FAILED, value: 'FAILED' },
     { label: t.status.CANCELLED, value: 'CANCELLED' },
     { label: t.status.EXPIRED, value: 'EXPIRED' },
     { label: t.status.REFUNDED, value: 'REFUNDED' },

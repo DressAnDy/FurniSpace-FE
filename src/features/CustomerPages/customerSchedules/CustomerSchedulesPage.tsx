@@ -126,12 +126,19 @@ export function CustomerSchedulesPage() {
 
     return groups;
   }, [visibleSchedules]);
-  const selectedItem = useMemo(
-    () => visibleSchedules.find((item) => item.schedule.scheduleId === selectedScheduleId)
-      ?? schedulesByDate.get(selectedDateKey)?.[0]
-      ?? null,
-    [schedulesByDate, selectedDateKey, selectedScheduleId, visibleSchedules],
-  );
+  const selectedItem = useMemo(() => {
+    const daySchedules = schedulesByDate.get(selectedDateKey) ?? [];
+
+    if (selectedScheduleId) {
+      const matchedOnSelectedDay = daySchedules.find((item) => item.schedule.scheduleId === selectedScheduleId);
+
+      if (matchedOnSelectedDay) {
+        return matchedOnSelectedDay;
+      }
+    }
+
+    return daySchedules[0] ?? null;
+  }, [schedulesByDate, selectedDateKey, selectedScheduleId]);
   const isLoading = projectsQuery.isLoading || schedulesQuery.isLoading;
   const scheduleError = schedulesQuery.error;
 
@@ -156,10 +163,15 @@ export function CustomerSchedulesPage() {
 
   function handleSelectCalendarDay(dateKey: string, daySchedules: CustomerScheduleItem[]) {
     setSelectedDateKey(dateKey);
+    setMessage('');
 
     if (daySchedules[0]) {
       handleSelectSchedule(daySchedules[0].schedule.scheduleId, dateKey);
+      return;
     }
+
+    setSelectedScheduleId('');
+    setSearchParams({});
   }
 
   function handleMoveCalendarMonth(offset: number) {
@@ -264,7 +276,7 @@ export function CustomerSchedulesPage() {
             ) : (
               <div className="customer-schedules-empty-detail">
                 <IconCalendarEvent size={28} stroke={1.8} />
-                <h2>{t.schedules.noScheduleSelected}</h2>
+                <h2>{selectedDateKey ? t.schedules.noSchedule : t.schedules.noScheduleSelected}</h2>
               </div>
             )}
           </section>

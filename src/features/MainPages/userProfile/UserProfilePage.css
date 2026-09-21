@@ -202,31 +202,49 @@
 }
 
 .user-profile-stat {
-  padding: 14px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border: 1px solid rgba(139, 111, 71, 0.14);
+  border-radius: 12px;
+  background:
+    linear-gradient(180deg, #ffffff 0%, #fbfaf7 100%);
+  box-shadow: 0 8px 20px rgba(45, 45, 45, 0.04);
+  padding: 14px 16px;
 }
 
-.user-profile-stat strong {
-  display: block;
+.user-profile-stat-icon {
+  display: grid;
+  width: 40px;
+  height: 40px;
+  flex: 0 0 40px;
+  place-items: center;
+  border-radius: 10px;
+  background: rgba(139, 111, 71, 0.12);
+  color: #8b6f47;
+}
+
+.user-profile-stat-copy {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.user-profile-stat-copy span {
+  color: #8d8174;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  line-height: 15px;
+  text-transform: uppercase;
+}
+
+.user-profile-stat-copy strong {
   overflow-wrap: anywhere;
-  color: #6f5636;
-  font-size: 22px;
-  font-weight: 900;
-  line-height: 28px;
-}
-
-.user-profile-stat span,
-.user-profile-stat em {
-  display: block;
-  margin-top: 4px;
-  color: #6f6a63;
-  font-size: 12px;
-  font-style: normal;
-  line-height: 17px;
-}
-
-.user-profile-stat span {
-  color: #181512;
+  color: #2f2a24;
+  font-size: 18px;
   font-weight: 800;
+  line-height: 24px;
 }
 
 .user-profile-grid {
@@ -593,6 +611,42 @@
   padding-top: 12px;
 }
 
+.user-profile-payment-pagination-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.user-profile-payment-pagination-meta label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #6f6a63;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.user-profile-payment-pagination-meta input {
+  width: 64px;
+  min-height: 34px;
+  border: 1px solid rgba(139, 111, 71, 0.2);
+  border-radius: 8px;
+  background: #ffffff;
+  color: #2f2a24;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 800;
+  outline: 0;
+  padding: 0 8px;
+  text-align: center;
+}
+
+.user-profile-payment-pagination-meta input:focus {
+  border-color: #8b6f47;
+  box-shadow: 0 0 0 3px rgba(139, 111, 71, 0.12);
+}
+
 .user-profile-payment-pagination span {
   color: #6f6a63;
   font-size: 12px;
@@ -625,6 +679,17 @@
 .user-profile-payment-pagination button:disabled {
   cursor: not-allowed;
   opacity: 0.48;
+}
+
+@media (max-width: 820px) {
+  .user-profile-payment-pagination {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .user-profile-payment-pagination > div:last-child {
+    justify-content: flex-end;
+  }
 }
 
 .user-profile-security-intro {

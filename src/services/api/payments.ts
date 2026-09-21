@@ -235,6 +235,8 @@ export async function getPaymentById(paymentId: string) {
 }
 
 export async function getPayments(params: PaymentListParams = {}) {
+  const pageSize = params.limit ?? undefined;
+
   const response = await paymentApiClient.get<ServiceResult<PaymentListResponseDto>>('/api/payments', {
     params: {
       projectId: params.projectId ?? undefined,
@@ -244,7 +246,8 @@ export async function getPayments(params: PaymentListParams = {}) {
       from: params.from || undefined,
       to: params.to || undefined,
       page: params.page ?? undefined,
-      limit: params.limit ?? undefined,
+      limit: pageSize,
+      pageSize,
     },
   });
 

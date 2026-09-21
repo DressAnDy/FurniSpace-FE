@@ -108,7 +108,7 @@ export function ChatTab({ project }: ChatTabProps) {
   useEffect(() => {
     void customerChatQuery.refetch();
     void salesChatQuery.refetch();
-  }, [customerChatQuery.refetch, project.assignedDesignerId, project.status, salesChatQuery.refetch]);
+  }, [customerChatQuery, project.assignedDesignerId, project.status, salesChatQuery]);
 
   useEffect(() => {
     const messageList = messagesListRef.current;
