@@ -18,7 +18,11 @@ import {
   type PaymentListParams,
   type PaymentUpdatedRealtimeDto,
 } from '@/services/api/payments';
-import { getStoredAccessToken } from '@/services/api/tokenStore';
+import {
+  attachSignalRRecovery,
+  infiniteSignalRRetryPolicy,
+  signalRHttpConnectionOptions,
+} from '@/services/api/signalRAuth';
 
 export const paymentQueryKeys = {
   all: ['payments'] as const,
@@ -134,6 +138,7 @@ type PaymentRealtimeListener = (payload: PaymentUpdatedRealtimeDto) => void;
 
 type SharedPaymentHub = {
   connection: signalR.HubConnection;
+  detachRecovery: () => void;
   holderCount: number;
   joinedPaymentIds: Map<string, number>;
   listeners: Set<PaymentRealtimeListener>;
@@ -149,15 +154,13 @@ function acquirePaymentHub(hubUrl: string, queryClient: ReturnType<typeof useQue
   }
 
   const connection = new signalR.HubConnectionBuilder()
-    .withUrl(hubUrl, {
-      accessTokenFactory: () => getStoredAccessToken() ?? '',
-      withCredentials: true,
-    })
-    .withAutomaticReconnect()
+    .withUrl(hubUrl, signalRHttpConnectionOptions)
+    .withAutomaticReconnect(infiniteSignalRRetryPolicy)
     .configureLogging(signalR.LogLevel.Warning)
     .build();
 
   const listeners = new Set<PaymentRealtimeListener>();
+  let isReleased = false;
 
   connection.on('payment.updated', (payload: PaymentUpdatedRealtimeDto) => {
     updatePaymentFromRealtime(queryClient, payload);
@@ -174,8 +177,22 @@ function acquirePaymentHub(hubUrl: string, queryClient: ReturnType<typeof useQue
     }
   });
 
+  const detachRecovery = attachSignalRRecovery(connection, () => isReleased || sharedPaymentHub === null, () => {
+    if (!sharedPaymentHub) {
+      return;
+    }
+
+    for (const joinedPaymentId of sharedPaymentHub.joinedPaymentIds.keys()) {
+      void connection.invoke('JoinPayment', joinedPaymentId).catch(() => undefined);
+    }
+  });
+
   sharedPaymentHub = {
     connection,
+    detachRecovery: () => {
+      isReleased = true;
+      detachRecovery();
+    },
     holderCount: 1,
     joinedPaymentIds: new Map(),
     listeners,
@@ -193,6 +210,7 @@ function releasePaymentHub(hub: SharedPaymentHub) {
   }
 
   sharedPaymentHub = null;
+  hub.detachRecovery();
   hub.connection.off('payment.updated');
   void hub.startPromise.finally(() => {
     void hub.connection.stop();

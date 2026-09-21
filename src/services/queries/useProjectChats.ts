@@ -16,7 +16,11 @@ import {
   type ProjectChatMessageParams,
   type ProjectChatMessageSentEvent,
 } from '@/services/api/projectChats';
-import { getStoredAccessToken } from '@/services/api/tokenStore';
+import {
+  attachSignalRRecovery,
+  infiniteSignalRRetryPolicy,
+  signalRHttpConnectionOptions,
+} from '@/services/api/signalRAuth';
 
 export const projectChatQueryKeys = {
   all: ['project-chats'] as const,
@@ -217,11 +221,8 @@ export function useProjectChatRealtime(input: {
     }
 
     const connection = new signalR.HubConnectionBuilder()
-      .withUrl(hubUrl, {
-        accessTokenFactory: () => getStoredAccessToken() ?? '',
-        withCredentials: true,
-      })
-      .withAutomaticReconnect([0, 2000, 10000, 30000])
+      .withUrl(hubUrl, signalRHttpConnectionOptions)
+      .withAutomaticReconnect(infiniteSignalRRetryPolicy)
       .build();
     connectionRef.current = connection;
 
@@ -246,6 +247,10 @@ export function useProjectChatRealtime(input: {
       }
     };
 
+    const detachRecovery = attachSignalRRecovery(connection, () => isDisposed, () => {
+      void joinGroups();
+    });
+
     connection.on('project_chat.message_sent', (event: ProjectChatMessageSentEvent) => {
       onMessageRef.current?.(event);
     });
@@ -258,6 +263,7 @@ export function useProjectChatRealtime(input: {
 
     return () => {
       isDisposed = true;
+      detachRecovery();
       connection.off('project_chat.message_sent');
       connectionRef.current = null;
       void startPromise.finally(() => {
