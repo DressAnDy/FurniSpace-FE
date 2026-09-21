@@ -63,7 +63,6 @@ export function ProjectChatPanel({
   const hasAppliedInitialChatRef = useRef(false);
   const messageListRef = useRef<HTMLDivElement | null>(null);
   const queryChatType = allowedChatTypes?.length ? null : preferredChatType ?? null;
-  const chatTypeOrder = allowedChatTypes?.length ? allowedChatTypes : preferredChatType ? [preferredChatType] : null;
   const chatListQuery = useProjectChats({
     projectId,
     chatType: queryChatType,
@@ -72,6 +71,7 @@ export function ProjectChatPanel({
   });
   const chats = useMemo(() => {
     const items = chatListQuery.data?.items ?? [];
+    const chatTypeOrder = allowedChatTypes?.length ? allowedChatTypes : preferredChatType ? [preferredChatType] : null;
 
     const visibleItems = allowedChatTypes?.length
       ? items.filter((chat) => allowedChatTypes.includes(chat.chatType))
@@ -84,7 +84,7 @@ export function ProjectChatPanel({
     return [...visibleItems].sort(
       (left, right) => chatTypeOrder.indexOf(left.chatType) - chatTypeOrder.indexOf(right.chatType),
     );
-  }, [allowedChatTypes, chatListQuery.data?.items, chatTypeOrder]);
+  }, [allowedChatTypes, chatListQuery.data?.items, preferredChatType]);
   const activeChat = useMemo(() => {
     if (activeChatId) {
       return chats.find((chat) => chat.chatId === activeChatId) ?? null;

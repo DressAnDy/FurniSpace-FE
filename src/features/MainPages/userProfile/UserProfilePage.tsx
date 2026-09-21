@@ -1064,10 +1064,6 @@ function getPaymentListReportedTotal(data?: { items?: PaymentDto[]; total?: numb
   return null;
 }
 
-function getPaymentListTotal(data?: { items?: PaymentDto[]; total?: number; totalCount?: number } | null) {
-  return getPaymentListReportedTotal(data) ?? data?.items?.length ?? 0;
-}
-
 function shortCode(value: string) {
   return value.slice(0, 8);
 }
