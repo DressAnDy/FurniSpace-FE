@@ -127,7 +127,7 @@
 }
 
 .customer-quotations-project-list {
-  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
 }
 
 .customer-quotations-project-list button,
@@ -640,6 +640,7 @@
 
   .customer-quotations-metrics,
   .customer-quotations-version-list,
+  .customer-quotations-project-list,
   .customer-quotations-total-strip,
   .customer-quotations-delivery-details-grid,
   .customer-quotations-note-grid {

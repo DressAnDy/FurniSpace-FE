@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef } from 'react';
 import * as signalR from '@microsoft/signalr';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import {
   createPayOsPaymentLink,
@@ -46,6 +46,7 @@ export function usePayments(params?: PaymentListParams, options?: { enabled?: bo
     queryKey: paymentQueryKeys.list(params),
     queryFn: () => getPayments(params),
     enabled: options?.enabled ?? true,
+    placeholderData: keepPreviousData,
   });
 }
 

@@ -49,6 +49,7 @@ type OrderDeliveryDetailsDraft = {
 };
 
 const ORDER_PAGE_SIZE = 5;
+const ORDERS_FETCH_SIZE = 100;
 
 export function CustomerOrdersPage() {
   const { lang } = useLang();
@@ -69,17 +70,39 @@ export function CustomerOrdersPage() {
   const [savedDeliveryDetailsByOrderId, setSavedDeliveryDetailsByOrderId] = useState<Record<string, OrderDeliveryDetailsDraft>>({});
   const [message, setMessage] = useState<{ tone: 'error' | 'success'; text: string } | null>(null);
   const ordersQuery = useCustomerOrders({
-    page: orderPage,
-    pageSize: ORDER_PAGE_SIZE,
-    search,
+    page: 1,
+    pageSize: ORDERS_FETCH_SIZE,
     status: statusFilter || null,
   });
-  const orders = useMemo(() => ordersQuery.data?.items ?? [], [ordersQuery.data?.items]);
   const projectsQuery = useProjectList({ page: 1, limit: 100 });
   const projectLookup = useMemo(() => {
     return new Map((projectsQuery.data?.items ?? []).map((project) => [project.projectId, project]));
   }, [projectsQuery.data?.items]);
-  const totalOrderPages = Math.max(1, Math.ceil((ordersQuery.data?.totalCount ?? 0) / ORDER_PAGE_SIZE));
+  const filteredOrders = useMemo(() => {
+    const items = ordersQuery.data?.items ?? [];
+    const keyword = search.trim().toLowerCase();
+
+    if (!keyword) return items;
+
+    return items.filter((item) => {
+      const project = projectLookup.get(item.projectId);
+      const searchableFields = [
+        item.orderCode,
+        item.projectCode,
+        item.projectName,
+        project?.projectCode,
+        project?.projectName,
+      ];
+
+      return searchableFields.some((value) => value?.toLowerCase().includes(keyword));
+    });
+  }, [ordersQuery.data?.items, projectLookup, search]);
+  const totalOrderCount = filteredOrders.length;
+  const totalOrderPages = Math.max(1, Math.ceil(totalOrderCount / ORDER_PAGE_SIZE));
+  const orders = useMemo(
+    () => filteredOrders.slice((orderPage - 1) * ORDER_PAGE_SIZE, orderPage * ORDER_PAGE_SIZE),
+    [filteredOrders, orderPage],
+  );
   const orderDetailQuery = useOrderDetail(selectedOrderId, { enabled: Boolean(selectedOrderId) });
   const paymentHistoryQuery = useOrderPaymentHistory(selectedOrderId, { enabled: Boolean(selectedOrderId) });
   const order = useMemo(() => {
@@ -108,10 +131,14 @@ export function CustomerOrdersPage() {
   }, [orders, selectedOrderId]);
 
   useEffect(() => {
+    if (ordersQuery.isFetching) {
+      return;
+    }
+
     if (orderPage > totalOrderPages) {
       setOrderPage(totalOrderPages);
     }
-  }, [orderPage, totalOrderPages]);
+  }, [orderPage, ordersQuery.isFetching, totalOrderPages]);
 
   return (
     <main className="customer-orders-page">
@@ -134,13 +161,14 @@ export function CustomerOrdersPage() {
             <header>
               <div>
                 <h2>{t.orders.myOrders}</h2>
-                <p>{t.orders.orderCount(ordersQuery.data?.totalCount ?? 0)}</p>
+                <p>{t.orders.orderCount(totalOrderCount)}</p>
               </div>
             </header>
 
             <div className="customer-orders-filter-grid">
               <input
                 placeholder={t.orders.searchOrderCode}
+                type="search"
                 value={search}
                 onChange={(event) => {
                   setSearch(event.target.value);
@@ -181,7 +209,7 @@ export function CustomerOrdersPage() {
                 </button>
               ))}
             </div>
-            {(ordersQuery.data?.totalCount ?? 0) > ORDER_PAGE_SIZE ? (
+            {totalOrderCount > ORDER_PAGE_SIZE ? (
               <footer className="customer-orders-panel-pagination">
                 <p>
                   <strong>{orderPage}</strong> / {totalOrderPages}

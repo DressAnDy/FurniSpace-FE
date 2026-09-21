@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import {
   completeOrder,
@@ -43,6 +43,7 @@ export function useCustomerOrders(params?: CustomerMyOrdersParams, options?: { e
     queryKey: orderQueryKeys.mine(params),
     queryFn: () => getCustomerOrders(params),
     enabled: options?.enabled ?? true,
+    placeholderData: keepPreviousData,
   });
 }
 
