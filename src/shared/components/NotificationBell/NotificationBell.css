@@ -27,17 +27,29 @@
   padding: 0 5px !important;
 }
 
-.notification-bell .notification-bell-panel {
-  position: absolute !important;
-  top: calc(100% + 12px) !important;
-  right: 0 !important;
-  z-index: 80 !important;
+/* Nested (legacy) + portal panel rendered on document.body */
+.notification-bell .notification-bell-panel,
+.notification-bell-panel-portal {
   width: min(380px, calc(100vw - 32px)) !important;
   overflow: hidden !important;
   border: 1px solid rgba(139, 111, 71, 0.15) !important;
   border-radius: 12px !important;
   background: #ffffff !important;
   box-shadow: 0 24px 54px rgba(45, 45, 45, 0.16) !important;
+  color: #2d2d2d !important;
+  font-family: var(--fs-ui-font, "Be Vietnam Pro", "DM Sans", system-ui, -apple-system, "Segoe UI", sans-serif) !important;
+}
+
+.notification-bell .notification-bell-panel {
+  position: absolute !important;
+  top: calc(100% + 12px) !important;
+  right: 0 !important;
+  z-index: 80 !important;
+}
+
+.notification-bell-panel-portal {
+  position: fixed !important;
+  z-index: 1200 !important;
 }
 
 .notification-bell-panel::before {
@@ -53,7 +65,7 @@
   transform: rotate(45deg);
 }
 
-.notification-bell .notification-bell-panel-header {
+.notification-bell-panel-header {
   display: flex !important;
   align-items: center !important;
   justify-content: space-between !important;
@@ -62,36 +74,32 @@
   padding: 14px 14px 12px !important;
 }
 
-.notification-bell .notification-bell-panel-header h2,
-.notification-bell .notification-bell-panel-header span {
-  margin: 0 !important;
-}
-
 .notification-bell-panel-header > div {
   display: grid;
   min-width: 0;
   gap: 2px;
 }
 
-.notification-bell .notification-bell-panel-header h2,
-.notification-bell .notification-bell-panel-header span {
+.notification-bell-panel-header h2,
+.notification-bell-panel-header span {
+  margin: 0 !important;
   font-family: inherit;
 }
 
-.notification-bell .notification-bell-panel-header h2 {
+.notification-bell-panel-header h2 {
   color: #111827 !important;
   font-size: 15px !important;
   font-weight: 700 !important;
   line-height: 20px !important;
 }
 
-.notification-bell .notification-bell-panel-header span {
+.notification-bell-panel-header span {
   color: #8b6f47 !important;
   font-size: 12px !important;
   line-height: 16px !important;
 }
 
-.notification-bell .notification-bell-panel-header button {
+.notification-bell-panel-header button {
   display: inline-flex !important;
   min-height: 32px !important;
   flex-shrink: 0 !important;
@@ -113,14 +121,14 @@
   opacity: 0.48;
 }
 
-.notification-bell .notification-bell-list {
+.notification-bell-list {
   display: grid !important;
   max-height: 430px !important;
   overflow-y: auto !important;
   padding: 6px !important;
 }
 
-.notification-bell .notification-bell-item {
+.notification-bell-item {
   display: grid !important;
   width: 100% !important;
   grid-template-columns: 10px minmax(0, 1fr) !important;
@@ -157,7 +165,7 @@
   gap: 4px;
 }
 
-.notification-bell .notification-bell-item-body strong {
+.notification-bell-item-body strong {
   overflow: hidden !important;
   color: #2d2d2d !important;
   font-size: 13px !important;
@@ -167,7 +175,7 @@
   white-space: nowrap !important;
 }
 
-.notification-bell .notification-bell-item-body span {
+.notification-bell-item-body span {
   display: -webkit-box !important;
   overflow: hidden !important;
   color: #5f5f5f !important;
@@ -177,7 +185,7 @@
   -webkit-line-clamp: 2 !important;
 }
 
-.notification-bell .notification-bell-item-body small {
+.notification-bell-item-body small {
   color: #9a8260 !important;
   font-size: 11px !important;
   font-weight: 600 !important;
@@ -214,7 +222,7 @@
   position: fixed;
   right: 22px;
   bottom: 22px;
-  z-index: 90;
+  z-index: 1210;
   display: grid;
   max-width: min(360px, calc(100vw - 32px));
   gap: 4px;
