@@ -13,7 +13,11 @@ import {
   type NotificationListResponse,
   type RealtimeNotificationPayload,
 } from '@/services/api/notifications';
-import { getStoredAccessToken } from '@/services/api/tokenStore';
+import {
+  attachSignalRRecovery,
+  infiniteSignalRRetryPolicy,
+  signalRHttpConnectionOptions,
+} from '@/services/api/signalRAuth';
 import { dashboardQueryKeys } from './useDashboard';
 import { orderQueryKeys } from './useOrders';
 import { operationalDelayQueryKeys } from './useOperationalDelayReports';
@@ -155,11 +159,8 @@ export function useNotificationRealtime(input: {
     }
 
     const connection = new signalR.HubConnectionBuilder()
-      .withUrl(hubUrl, {
-        accessTokenFactory: () => getStoredAccessToken() ?? '',
-        withCredentials: true,
-      })
-      .withAutomaticReconnect()
+      .withUrl(hubUrl, signalRHttpConnectionOptions)
+      .withAutomaticReconnect(infiniteSignalRRetryPolicy)
       .configureLogging(signalR.LogLevel.Warning)
       .build();
 
@@ -186,11 +187,13 @@ export function useNotificationRealtime(input: {
     });
 
     let isDisposed = false;
+    const detachRecovery = attachSignalRRecovery(connection, () => isDisposed);
 
     const startPromise = connection.start().catch(() => undefined);
 
     return () => {
       isDisposed = true;
+      detachRecovery();
       inAppNotificationEvents.forEach((eventName) => {
         connection.off(eventName, handleInAppNotification);
       });
