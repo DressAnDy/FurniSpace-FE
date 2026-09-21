@@ -11,6 +11,7 @@ import type { OrderListItemDto } from '@/services/api/orders';
 import type { ProjectDto, ProjectStatus } from '@/services/api/projects';
 import { getProjectServiceResultMessage } from '@/services/api/projects';
 import { useProjectOrders } from '@/services/queries/useOrders';
+import { useProjectStartFeeStatus } from '@/services/queries/usePayments';
 import {
   useAssignSalesToProject,
   useCompleteProject,
@@ -97,6 +98,11 @@ export function ProjectDetail() {
   const projectOrdersQuery = useProjectOrders(projectId, { enabled: Boolean(projectId) && isAssignedProjectRoute });
   const productionRequestsQuery = useProductionRequests(undefined, { enabled: Boolean(projectId) && isAssignedProjectRoute });
   const project = projectQuery.data;
+  const startFeeStatusQuery = useProjectStartFeeStatus(projectId, {
+    enabled: Boolean(projectId) && isAssignedProjectRoute && Boolean(project && canRejectProject(project.status)),
+  });
+  const hasStartFeeSent = Boolean(startFeeStatusQuery.data?.paymentId);
+  const canShowRejectProject = Boolean(project && canRejectProject(project.status) && !hasStartFeeSent);
   const relatedOrder = useMemo(() => getPrimaryRelatedOrder(projectOrdersQuery.data?.items ?? []), [projectOrdersQuery.data?.items]);
   const relatedProductionRequest = useMemo(
     () => productionRequestsQuery.data?.items.find((request) => request.projectId === projectId) ?? null,
@@ -321,7 +327,7 @@ export function ProjectDetail() {
             </div>
             {project ? (
               <div className="project-detail-header-actions">
-                {canRequestMoreInformation(project.status) || canRejectProject(project.status) || project.status === 'SUBMITTED' || project.status === 'NEED_BASIC_INFORMATION' ? (
+                {canRequestMoreInformation(project.status) || canShowRejectProject || project.status === 'SUBMITTED' || project.status === 'NEED_BASIC_INFORMATION' ? (
                   <div className="project-detail-status-update">
                     <div className="project-detail-status-buttons">
                       {canRequestMoreInformation(project.status) ? (
@@ -339,7 +345,7 @@ export function ProjectDetail() {
                           <span>{requestInformationMutation.isPending ? t.common.sending : pd.requestMoreInfo}</span>
                         </button>
                       ) : null}
-                      {canRejectProject(project.status) ? (
+                      {canShowRejectProject ? (
                         <button
                           className="project-detail-decision-button project-detail-decision-reject"
                           type="button"

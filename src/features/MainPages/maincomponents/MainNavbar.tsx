@@ -1,11 +1,12 @@
-import { IconChevronDown, IconGlobe, IconLayoutDashboard, IconLogout, IconUser } from '@tabler/icons-react';
+import { IconArrowLeft, IconChevronDown, IconGlobe, IconLayoutDashboard, IconLogout, IconUser } from '@tabler/icons-react';
 import { useEffect, useRef, useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 
 import logoImage from '@/assets/Logo/Logo.png';
 import { useLang } from '@/app/providers/useLang';
-import { useCurrentUser, useLogout } from '@/services/queries';
+import { getPostLoginPath } from '@/features/auth/authRedirect';
 import { getStoredAccessToken } from '@/services/api/tokenStore';
+import { useCurrentUser, useLogout } from '@/services/queries';
 
 import './MainNavbar.css';
 
@@ -17,6 +18,8 @@ type MainNavbarProps = {
   brandNameClassName?: string;
   classPrefix: string;
   linkClassName?: string;
+  /** Profile page: back button + account/language only (no Home nav). */
+  variant?: 'default' | 'profile';
 };
 
 const navPaths = ['/', '/projects', '/products'];
@@ -27,6 +30,7 @@ const navbarText = {
     register: 'ĐĂNG KÝ',
     login: 'ĐĂNG NHẬP',
     dashboard: 'Trung tâm quản lý',
+    backToDashboard: 'Quay lại dashboard',
     profile: 'Thông tin người dùng',
     logout: 'Đăng xuất',
     loggingOut: 'Đang đăng xuất...',
@@ -37,6 +41,7 @@ const navbarText = {
     register: 'SIGN UP',
     login: 'LOG IN',
     dashboard: 'My Dashboard',
+    backToDashboard: 'Back to dashboard',
     profile: 'My Profile',
     logout: 'Log out',
     loggingOut: 'Logging out...',
@@ -55,6 +60,7 @@ export function MainNavbar({
   brandNameClassName,
   classPrefix,
   linkClassName,
+  variant = 'default',
 }: MainNavbarProps) {
   const navigate = useNavigate();
   const accountMenuRef = useRef<HTMLDivElement>(null);
@@ -68,6 +74,8 @@ export function MainNavbar({
   const resolvedBrandLabel = brandLabel.toLowerCase() === 'furnispace' ? 'FurniSpace' : brandLabel;
   const displayName = user?.fullName?.trim() || user?.email || (lang === 'vi' ? 'Khách hàng' : 'Guest');
   const initials = getInitials(displayName);
+  const dashboardPath = getPostLoginPath(user?.role);
+  const isProfileVariant = variant === 'profile';
 
   useEffect(() => {
     const handleScroll = () => {
@@ -120,38 +128,56 @@ export function MainNavbar({
   }
 
   return (
-    <header className={cx(`${classPrefix}-header`, 'main-navbar', isScrolled && 'main-navbar-scrolled')}>
-      <NavLink className={cx(`${classPrefix}-brand`, 'main-navbar-brand')} to="/">
-        <span className={cx(`${classPrefix}-brand-mark`, 'main-navbar-logo-wrap')} aria-hidden="true">
-          <img className="main-navbar-logo-image" src={logoImage} alt="" />
-        </span>
-        <span className={cx(brandNameClassName, 'main-navbar-brand-name')}>{resolvedBrandLabel}</span>
-      </NavLink>
+    <header
+      className={cx(
+        `${classPrefix}-header`,
+        'main-navbar',
+        isProfileVariant && 'main-navbar-profile',
+        isScrolled && 'main-navbar-scrolled',
+      )}
+    >
+      {isProfileVariant ? (
+        <NavLink className="main-navbar-back" to={dashboardPath}>
+          <IconArrowLeft size={18} stroke={1.9} />
+          <span>{t.backToDashboard}</span>
+        </NavLink>
+      ) : (
+        <NavLink className={cx(`${classPrefix}-brand`, 'main-navbar-brand')} to="/">
+          <span className={cx(`${classPrefix}-brand-mark`, 'main-navbar-logo-wrap')} aria-hidden="true">
+            <img className="main-navbar-logo-image" src={logoImage} alt="" />
+          </span>
+          <span className={cx(brandNameClassName, 'main-navbar-brand-name')}>{resolvedBrandLabel}</span>
+        </NavLink>
+      )}
 
-      <nav className={cx(`${classPrefix}-nav`, 'main-navbar-nav')} aria-label="Main navigation">
-        {navPaths.map((path, index) => {
-          const label = t.nav[index];
-          const isActive = activePath ? path === activePath : undefined;
-          const resolvedActiveClassName = activeClassName ?? `${classPrefix}-nav-active`;
+      {!isProfileVariant ? (
+        <nav className={cx(`${classPrefix}-nav`, 'main-navbar-nav')} aria-label="Main navigation">
+          {navPaths.map((path, index) => {
+            const label = t.nav[index];
+            const isActive = activePath ? path === activePath : undefined;
+            const resolvedActiveClassName = activeClassName ?? `${classPrefix}-nav-active`;
 
-          return (
-            <NavLink
-              className={({ isActive: routeIsActive }) => {
-                const shouldActivate = isActive ?? routeIsActive;
-                return (
-                  cx('main-navbar-link', linkClassName, shouldActivate ? resolvedActiveClassName : null, shouldActivate ? 'main-navbar-link-active' : null) ||
-                  undefined
-                );
-              }}
-              end={path === '/'}
-              key={path}
-              to={path}
-            >
-              {label}
-            </NavLink>
-          );
-        })}
-      </nav>
+            return (
+              <NavLink
+                className={({ isActive: routeIsActive }) => {
+                  const shouldActivate = isActive ?? routeIsActive;
+                  return (
+                    cx('main-navbar-link', linkClassName, shouldActivate ? resolvedActiveClassName : null, shouldActivate ? 'main-navbar-link-active' : null) ||
+                    undefined
+                  );
+                }}
+                end={path === '/'}
+                key={path}
+                to={path}
+              >
+                {label}
+              </NavLink>
+            );
+          })}
+        </nav>
+      ) : (
+        <div className="main-navbar-profile-spacer" aria-hidden="true" />
+      )}
 
       <div className="main-navbar-actions" aria-label="Account actions">
         {user ? (
@@ -170,7 +196,7 @@ export function MainNavbar({
 
             {isAccountMenuOpen ? (
               <div className="main-navbar-account-menu" role="menu">
-                <NavLink className="main-navbar-account-menu-item" role="menuitem" to="/customer/dashboard" onClick={() => setIsAccountMenuOpen(false)}>
+                <NavLink className="main-navbar-account-menu-item" role="menuitem" to={dashboardPath} onClick={() => setIsAccountMenuOpen(false)}>
                   <IconLayoutDashboard size={18} stroke={1.8} />
                   <span>{t.dashboard}</span>
                 </NavLink>
