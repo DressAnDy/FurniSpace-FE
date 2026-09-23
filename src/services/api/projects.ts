@@ -88,6 +88,8 @@ export type ProjectDto = ProjectListItemDto & {
   budgetMin: number | null;
   budgetMax: number | null;
   targetCompletionDate: string | null;
+  rejectionReason?: string | null;
+  rejectedAt?: string | null;
   deliverySummary?: ProjectDeliverySummaryDto | null;
   phaseDeadlines?: ProjectPhaseDeadlineItemDto[];
 };
@@ -281,6 +283,18 @@ export type ProjectCompletionDto = {
   projectId: string;
   projectStatus: Extract<ProjectStatus, 'COMPLETED'>;
   completedAt?: string | null;
+};
+
+export type RejectProjectInput = {
+  projectId: string;
+  rejectionReason: string;
+};
+
+export type ProjectRejectionDto = {
+  projectId: string;
+  status: Extract<ProjectStatus, 'REJECTED'>;
+  rejectionReason: string;
+  rejectedAt: string;
 };
 
 export type ReopenProposalData = {
@@ -590,6 +604,14 @@ export async function updateProductionDeadline(input: UpdateProductionDeadlineIn
 
 export async function completeProject(projectId: string) {
   const response = await projectApiClient.patch<ServiceResult<ProjectCompletionDto>>(`/projects/${projectId}/complete`);
+
+  return response.data.data;
+}
+
+export async function rejectProject(input: RejectProjectInput) {
+  const response = await projectApiClient.patch<ServiceResult<ProjectRejectionDto>>(`/projects/${input.projectId}/rejection`, {
+    rejectionReason: input.rejectionReason.trim(),
+  });
 
   return response.data.data;
 }

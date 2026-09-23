@@ -423,7 +423,7 @@ function ScheduleDetail({ item, isUpdating, labels, cancelLabel, deleteLabel, on
   const { project, schedule } = item;
   const canReschedule = schedule.status === 'PENDING_CONFIRMATION' || schedule.status === 'CONFIRMED' || schedule.status === 'CANCELLED';
   const canCancel = schedule.status === 'PENDING_CONFIRMATION' || schedule.status === 'CONFIRMED';
-  const canComplete = schedule.status === 'CONFIRMED';
+  const canComplete = schedule.status === 'CONFIRMED' && schedule.scheduleType !== 'DELIVERY';
   const canDelete = schedule.status !== 'COMPLETED';
 
   return (

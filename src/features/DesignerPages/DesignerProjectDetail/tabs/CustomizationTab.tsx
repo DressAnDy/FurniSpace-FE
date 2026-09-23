@@ -33,6 +33,11 @@ import {
   useUpdateCustomizationRequestVersion,
   useUploadProductVersionFile,
 } from '@/services/queries';
+import {
+  parseOptionalProjectRequestNumber,
+  sanitizeProjectRequestDecimalInput,
+  validateOptionalPositiveNumber,
+} from '@/shared/utils/projectRequestValidation';
 
 type CustomizationTabProps = {
   project: ProjectDto;
@@ -192,15 +197,15 @@ export function CustomizationTab({ project }: Readonly<CustomizationTabProps>) {
     event.preventDefault();
     setMessage(null);
 
-    const input = getRequestInput(requestForm);
+    const requestValidation = getRequestInput(requestForm);
 
-    if (!input) {
-      setMessage({ tone: 'error', text: 'Select a proposal item, add a title, and provide at least one customization field.' });
+    if (!requestValidation.ok) {
+      setMessage({ tone: 'error', text: requestValidation.message });
       return;
     }
 
     try {
-      const request = await submitRequestMutation.mutateAsync(input);
+      const request = await submitRequestMutation.mutateAsync(requestValidation.input);
       setRequestForm((current) => ({
         ...emptyRequestForm,
         proposalId: current.proposalId,
@@ -226,7 +231,14 @@ export function CustomizationTab({ project }: Readonly<CustomizationTabProps>) {
       return;
     }
 
-    const body = getVersionBody(versionForm);
+    const versionValidation = getVersionBody(versionForm);
+
+    if (!versionValidation.ok) {
+      setMessage({ tone: 'error', text: versionValidation.message });
+      return;
+    }
+
+    const body = versionValidation.body;
     const selectedFileValidationMessage = validateSelectedCustomizationFiles({ modelFile, previewFile });
 
     if (selectedFileValidationMessage) {
@@ -625,6 +637,7 @@ function DesignerRequestForm({
   proposalsLoading: boolean;
 }) {
   const setField = (name: keyof RequestFormState, value: string) => onChange({ ...form, [name]: value });
+  const setDecimalField = (name: keyof RequestFormState, value: string) => setField(name, sanitizeCustomizationDecimalInput(value));
   const hasPublishedProposal = proposals.length > 0;
   const selectedItem = items.find((item) => item.proposalItemId === form.proposalItemId) ?? null;
   const canSubmitRequest = hasPublishedProposal && Boolean(form.proposalItemId) && !mutationPending;
@@ -705,15 +718,15 @@ function DesignerRequestForm({
         </label>
         <label>
           <span>Width</span>
-          <input min="0" type="number" value={form.requestedWidth} onChange={(event) => setField('requestedWidth', event.target.value)} />
+          <input inputMode="decimal" value={form.requestedWidth} onChange={(event) => setDecimalField('requestedWidth', event.target.value)} />
         </label>
         <label>
           <span>Height</span>
-          <input min="0" type="number" value={form.requestedHeight} onChange={(event) => setField('requestedHeight', event.target.value)} />
+          <input inputMode="decimal" value={form.requestedHeight} onChange={(event) => setDecimalField('requestedHeight', event.target.value)} />
         </label>
         <label>
           <span>Depth</span>
-          <input min="0" type="number" value={form.requestedDepth} onChange={(event) => setField('requestedDepth', event.target.value)} />
+          <input inputMode="decimal" value={form.requestedDepth} onChange={(event) => setDecimalField('requestedDepth', event.target.value)} />
         </label>
       </div>
       <label>
@@ -885,6 +898,7 @@ function VersionForm({
   previewFile: File | null;
 }) {
   const setField = (name: keyof VersionFormState, value: string) => onChange({ ...form, [name]: value });
+  const setDecimalField = (name: keyof VersionFormState, value: string) => setField(name, sanitizeCustomizationDecimalInput(value));
   const currentPreviewFile = editingVersion?.productVersion?.previewFiles?.[0] ?? null;
 
   return (
@@ -914,15 +928,15 @@ function VersionForm({
         </label>
         <label>
           <span>Width</span>
-          <input min="0" type="number" value={form.width} onChange={(event) => setField('width', event.target.value)} />
+          <input inputMode="decimal" value={form.width} onChange={(event) => setDecimalField('width', event.target.value)} />
         </label>
         <label>
           <span>Height</span>
-          <input min="0" type="number" value={form.height} onChange={(event) => setField('height', event.target.value)} />
+          <input inputMode="decimal" value={form.height} onChange={(event) => setDecimalField('height', event.target.value)} />
         </label>
         <label>
           <span>Depth</span>
-          <input min="0" type="number" value={form.depth} onChange={(event) => setField('depth', event.target.value)} />
+          <input inputMode="decimal" value={form.depth} onChange={(event) => setDecimalField('depth', event.target.value)} />
         </label>
         <label>
           <span>Version code</span>
@@ -1027,16 +1041,32 @@ function getFeasibilityStatusTone(status: string) {
   return 'new';
 }
 
-function getRequestInput(form: RequestFormState): SubmitCustomizationRequestInput | null {
+type RequestInputValidationResult =
+  | { ok: true; input: SubmitCustomizationRequestInput }
+  | { ok: false; message: string };
+
+type VersionBodyValidationResult =
+  | { ok: true; body: UpdateCustomizationRequestVersionDto }
+  | { ok: false; message: string };
+
+function getRequestInput(form: RequestFormState): RequestInputValidationResult {
+  const width = validateOptionalCustomizationNumber(form.requestedWidth, 'Width');
+  const height = validateOptionalCustomizationNumber(form.requestedHeight, 'Height');
+  const depth = validateOptionalCustomizationNumber(form.requestedDepth, 'Depth');
+
+  if (!width.ok) return width;
+  if (!height.ok) return height;
+  if (!depth.ok) return depth;
+
   const body = {
     proposalItemId: form.proposalItemId,
     requestTitle: form.requestTitle.trim(),
     requestDescription: normalizeText(form.requestDescription),
     requestedMaterial: normalizeText(form.requestedMaterial),
     requestedColor: normalizeText(form.requestedColor),
-    requestedWidth: normalizeNumber(form.requestedWidth),
-    requestedHeight: normalizeNumber(form.requestedHeight),
-    requestedDepth: normalizeNumber(form.requestedDepth),
+    requestedWidth: width.value,
+    requestedHeight: height.value,
+    requestedDepth: depth.value,
     requestedChangeNote: normalizeText(form.requestedChangeNote),
   };
   const hasCustomizationField = Boolean(
@@ -1050,27 +1080,43 @@ function getRequestInput(form: RequestFormState): SubmitCustomizationRequestInpu
   );
 
   if (!body.proposalItemId || !body.requestTitle || !hasCustomizationField) {
-    return null;
+    return {
+      ok: false,
+      message: 'Select a proposal item, add a title, and provide at least one customization field.',
+    };
   }
 
-  return body;
+  return { ok: true, input: body };
 }
 
-function getVersionBody(form: VersionFormState): UpdateCustomizationRequestVersionDto {
+function getVersionBody(form: VersionFormState): VersionBodyValidationResult {
+  const width = validateOptionalCustomizationNumber(form.width, 'Width');
+  const height = validateOptionalCustomizationNumber(form.height, 'Height');
+  const depth = validateOptionalCustomizationNumber(form.depth, 'Depth');
+  const estimatedPrice = validateOptionalCustomizationNumber(form.estimatedPrice, 'Estimated price');
+
+  if (!width.ok) return width;
+  if (!height.ok) return height;
+  if (!depth.ok) return depth;
+  if (!estimatedPrice.ok) return estimatedPrice;
+
   return {
-    versionTitle: form.versionTitle,
-    designerNote: form.designerNote,
-    versionName: form.versionName,
-    versionCode: form.versionCode,
-    material: form.material,
-    color: form.color,
-    width: normalizeNumber(form.width),
-    height: normalizeNumber(form.height),
-    depth: normalizeNumber(form.depth),
-    dimensionUnit: form.dimensionUnit,
-    estimatedPrice: normalizeNumber(form.estimatedPrice),
-    modelFileId: form.modelFileId,
-    previewFileIds: getPreviewFileIds(form.previewFileIds),
+    ok: true,
+    body: {
+      versionTitle: normalizeText(form.versionTitle),
+      designerNote: normalizeText(form.designerNote),
+      versionName: form.versionName.trim(),
+      versionCode: normalizeText(form.versionCode),
+      material: normalizeText(form.material),
+      color: normalizeText(form.color),
+      width: width.value,
+      height: height.value,
+      depth: depth.value,
+      dimensionUnit: form.dimensionUnit,
+      estimatedPrice: estimatedPrice.value,
+      modelFileId: normalizeText(form.modelFileId),
+      previewFileIds: getPreviewFileIds(form.previewFileIds),
+    },
   };
 }
 
@@ -1199,17 +1245,20 @@ function isDimensionUnit(value?: string | null): value is 'cm' | 'm' | 'mm' {
   return value === 'cm' || value === 'm' || value === 'mm';
 }
 
-function normalizeNumber(value: string) {
-  if (!value.trim()) return null;
-  const numberValue = Number(value);
-
-  return Number.isFinite(numberValue) ? numberValue : null;
-}
-
 function normalizeText(value: string) {
   const trimmed = value.trim();
 
   return trimmed ? trimmed : null;
+}
+
+function validateOptionalCustomizationNumber(value: string, label: string) {
+  const parsedValue = parseOptionalProjectRequestNumber(value);
+
+  return validateOptionalPositiveNumber(parsedValue, label);
+}
+
+function sanitizeCustomizationDecimalInput(value: string) {
+  return sanitizeProjectRequestDecimalInput(value);
 }
 
 function formatInputNumber(value?: number | null) {

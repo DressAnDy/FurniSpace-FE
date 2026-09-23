@@ -18,17 +18,21 @@ const storageKeyByActor: Record<ActorKey, string> = {
   sale: 'furnispace.sale.sidebarCollapsed',
 };
 
+const inMemorySidebarState: Partial<Record<ActorKey, boolean>> = {};
+
 export function useActorSidebarCollapse(actor: ActorKey) {
-  const [isCollapsed, setIsCollapsed] = useState(() => getStoredSidebarState(actor));
+  const [isCollapsed, setIsCollapsed] = useState(() => getInitialSidebarState(actor));
 
   useLayoutEffect(() => {
     const bodyClass = bodyClassByActor[actor];
+    Object.entries(bodyClassByActor).forEach(([entryActor, entryBodyClass]) => {
+      if (entryActor !== actor) {
+        document.body.classList.remove(entryBodyClass);
+      }
+    });
     document.body.classList.toggle(bodyClass, isCollapsed);
+    inMemorySidebarState[actor] = isCollapsed;
     storeSidebarState(actor, isCollapsed);
-
-    return () => {
-      document.body.classList.remove(bodyClass);
-    };
   }, [actor, isCollapsed]);
 
   return {
@@ -36,6 +40,20 @@ export function useActorSidebarCollapse(actor: ActorKey) {
     collapse: () => setIsCollapsed(true),
     expand: () => setIsCollapsed(false),
   };
+}
+
+function getInitialSidebarState(actor: ActorKey) {
+  const memoryValue = inMemorySidebarState[actor];
+
+  if (typeof memoryValue === 'boolean') {
+    return memoryValue;
+  }
+
+  if (actor === 'customer') {
+    return true;
+  }
+
+  return getStoredSidebarState(actor);
 }
 
 function getStoredSidebarState(actor: ActorKey) {

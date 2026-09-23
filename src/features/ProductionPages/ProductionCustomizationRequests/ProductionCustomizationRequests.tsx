@@ -23,6 +23,12 @@ import {
   useProductionCustomizationVersionQueue,
   useProductionReviewCustomizationVersion,
 } from '@/services/queries';
+import {
+  parseOptionalProjectRequestNumber,
+  sanitizeProjectRequestIntegerInput,
+  validateOptionalNonNegativeNumber,
+  validateOptionalPositiveInteger,
+} from '@/shared/utils/projectRequestValidation';
 
 import './ProductionCustomizationRequests.css';
 
@@ -362,11 +368,11 @@ export function ProductionCustomizationRequests() {
                     <div className="production-workspace-form-grid">
                       <label>
                         <span>Estimated Production Days</span>
-                        <input className="production-workspace-input" disabled={reviewForm.result === 'NOT_FEASIBLE'} min="1" type="number" value={reviewForm.estimatedProductionDays} onChange={(event) => setReviewForm((current) => ({ ...current, estimatedProductionDays: event.target.value }))} />
+                        <input className="production-workspace-input" disabled={reviewForm.result === 'NOT_FEASIBLE'} inputMode="numeric" value={reviewForm.estimatedProductionDays} onChange={(event) => setReviewForm((current) => ({ ...current, estimatedProductionDays: sanitizeProjectRequestIntegerInput(event.target.value) }))} />
                       </label>
                       <label>
                         <span>Estimated Additional Cost</span>
-                        <input className="production-workspace-input" disabled={reviewForm.result === 'NOT_FEASIBLE'} min="0" type="number" value={reviewForm.estimatedAdditionalCost} onChange={(event) => setReviewForm((current) => ({ ...current, estimatedAdditionalCost: event.target.value }))} />
+                        <input className="production-workspace-input" disabled={reviewForm.result === 'NOT_FEASIBLE'} inputMode="numeric" value={reviewForm.estimatedAdditionalCost} onChange={(event) => setReviewForm((current) => ({ ...current, estimatedAdditionalCost: sanitizeProjectRequestIntegerInput(event.target.value) }))} />
                       </label>
                     </div>
                     <label>
@@ -531,10 +537,13 @@ function CustomizationQueuePager({
 
 function validateProductionReview(form: ReviewFormState) {
   if (form.result === 'FEASIBLE') {
+    const estimatedProductionDays = validateRequiredProductionDays(form.estimatedProductionDays);
+    const estimatedAdditionalCost = validateRequiredAdditionalCost(form.estimatedAdditionalCost);
+
     if (form.materialAvailability !== 'AVAILABLE') return 'Material availability must be available for feasible reviews.';
-    if (!normalizeNumber(form.estimatedProductionDays)) return 'Estimated production days is required.';
-    if (normalizeNumber(form.estimatedAdditionalCost) === null) return 'Estimated additional cost is required.';
-    if ((normalizeNumber(form.estimatedAdditionalCost) ?? 0) > 0 && !form.additionalCostReason.trim()) return 'Additional cost reason is required when additional cost is greater than zero.';
+    if (!estimatedProductionDays.ok) return estimatedProductionDays.message;
+    if (!estimatedAdditionalCost.ok) return estimatedAdditionalCost.message;
+    if (estimatedAdditionalCost.value > 0 && !form.additionalCostReason.trim()) return 'Additional cost reason is required when additional cost is greater than zero.';
     if (!form.feasibilityNote.trim()) return 'Feasibility note is required.';
     return null;
   }
@@ -547,10 +556,35 @@ function validateProductionReview(form: ReviewFormState) {
 }
 
 function normalizeNumber(value: string) {
-  if (!value.trim()) return null;
-  const numberValue = Number(value);
+  const numberValue = parseOptionalProjectRequestNumber(value);
 
   return Number.isFinite(numberValue) ? numberValue : null;
+}
+
+function validateRequiredProductionDays(value: string) {
+  const parsedValue = parseOptionalProjectRequestNumber(value);
+
+  if (parsedValue == null) {
+    return { ok: false as const, message: 'Estimated production days is required.' };
+  }
+
+  return validateOptionalPositiveInteger(parsedValue, 'Estimated production days');
+}
+
+function validateRequiredAdditionalCost(value: string) {
+  const parsedValue = parseOptionalProjectRequestNumber(value);
+
+  if (parsedValue == null) {
+    return { ok: false as const, message: 'Estimated additional cost is required.' };
+  }
+
+  const result = validateOptionalNonNegativeNumber(parsedValue, 'Estimated additional cost');
+
+  if (!result.ok) {
+    return result;
+  }
+
+  return { ok: true as const, value: parsedValue };
 }
 
 function matchesFilters(

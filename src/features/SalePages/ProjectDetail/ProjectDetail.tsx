@@ -87,7 +87,9 @@ export function ProjectDetail() {
   const [activeIssueScope, setActiveIssueScope] = useState<ProjectIssueScope>('PRODUCTION');
   const [statusMessage, setStatusMessage] = useState('');
   const [isRequestInfoModalOpen, setIsRequestInfoModalOpen] = useState(false);
+  const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
   const [requestInfoMessage, setRequestInfoMessage] = useState('');
+  const [rejectionReason, setRejectionReason] = useState('');
   const projectQuery = useProjectDetail(projectId);
   const assignSalesMutation = useAssignSalesToProject();
   const requestInformationMutation = useRequestProjectInformation();
@@ -102,7 +104,13 @@ export function ProjectDetail() {
     enabled: Boolean(projectId) && isAssignedProjectRoute && Boolean(project && canRejectProject(project.status)),
   });
   const hasStartFeeSent = Boolean(startFeeStatusQuery.data?.paymentId);
-  const canShowRejectProject = Boolean(project && canRejectProject(project.status) && !hasStartFeeSent);
+  const canShowRejectProject = Boolean(
+    project
+      && isAssignedProjectRoute
+      && project.assignedSalesId
+      && canRejectProject(project.status)
+      && !hasStartFeeSent,
+  );
   const relatedOrder = useMemo(() => getPrimaryRelatedOrder(projectOrdersQuery.data?.items ?? []), [projectOrdersQuery.data?.items]);
   const relatedProductionRequest = useMemo(
     () => productionRequestsQuery.data?.items.find((request) => request.projectId === projectId) ?? null,
@@ -154,15 +162,8 @@ export function ProjectDetail() {
       return;
     }
 
-    try {
-      await rejectProjectMutation.mutateAsync({
-        projectId: project.projectId,
-        note: getStatusUpdateNote(status),
-      });
-      setStatusMessage('Project status updated successfully.');
-    } catch (error) {
-      setStatusMessage(getProjectServiceResultMessage(error));
-    }
+    setRejectionReason('');
+    setIsRejectModalOpen(true);
   }
 
   async function handleRequestInformationSubmit(event: FormEvent<HTMLFormElement>) {
@@ -186,6 +187,33 @@ export function ProjectDetail() {
       setIsRequestInfoModalOpen(false);
       setRequestInfoMessage('');
       setStatusMessage('Project status updated successfully.');
+    } catch (error) {
+      setStatusMessage(getProjectServiceResultMessage(error));
+    }
+  }
+
+  async function handleRejectProjectSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setStatusMessage('');
+
+    if (!project) return;
+
+    const trimmedReason = rejectionReason.trim();
+
+    if (!trimmedReason) {
+      setStatusMessage('Rejection reason is required.');
+      return;
+    }
+
+    try {
+      await rejectProjectMutation.mutateAsync({
+        projectId: project.projectId,
+        rejectionReason: trimmedReason,
+      });
+      setIsRejectModalOpen(false);
+      setRejectionReason('');
+      setStatusMessage('Project rejected successfully.');
+      void projectQuery.refetch();
     } catch (error) {
       setStatusMessage(getProjectServiceResultMessage(error));
     }
@@ -387,7 +415,7 @@ export function ProjectDetail() {
             ) : null}
           </section>
 
-          {statusMessage && !isRequestInfoModalOpen ? (
+          {statusMessage && !isRequestInfoModalOpen && !isRejectModalOpen ? (
             <section className={isSuccessStatusMessage(statusMessage) ? 'project-detail-status-banner' : 'project-detail-status-banner project-detail-status-banner-error'}>
               {statusMessage}
             </section>
@@ -481,6 +509,64 @@ export function ProjectDetail() {
                   </button>
                   <button type="submit" disabled={requestInformationMutation.isPending || !requestInfoMessage.trim()}>
                     {requestInformationMutation.isPending ? t.common.sending : pd.sendRequest}
+                  </button>
+                </div>
+              </form>
+            </div>
+          ) : null}
+
+          {isRejectModalOpen && project ? (
+            <div className="project-detail-request-modal-overlay">
+              <form className="project-detail-request-modal" onSubmit={handleRejectProjectSubmit}>
+                <div className="project-detail-request-modal-header">
+                  <div>
+                    <strong>Reject project</strong>
+                    <p>Enter the rejection reason that will be saved on this project.</p>
+                  </div>
+                  <button
+                    aria-label={t.common.close}
+                    type="button"
+                    onClick={() => {
+                      setIsRejectModalOpen(false);
+                      setRejectionReason('');
+                      setStatusMessage('');
+                    }}
+                  >
+                    <IconX size={16} />
+                  </button>
+                </div>
+                <label className="project-detail-request-modal-field">
+                  <span>Rejection reason *</span>
+                  <textarea
+                    autoFocus
+                    maxLength={1000}
+                    required
+                    rows={5}
+                    value={rejectionReason}
+                    placeholder="Explain why this project cannot continue."
+                    onChange={(event) => setRejectionReason(event.target.value)}
+                  />
+                </label>
+                <div className="project-detail-request-modal-counter">
+                  {rejectionReason.length}/1000
+                </div>
+                {statusMessage && !isSuccessStatusMessage(statusMessage) ? (
+                  <p className="project-detail-request-modal-error">{statusMessage}</p>
+                ) : null}
+                <div className="project-detail-request-modal-actions">
+                  <button
+                    type="button"
+                    disabled={rejectProjectMutation.isPending}
+                    onClick={() => {
+                      setIsRejectModalOpen(false);
+                      setRejectionReason('');
+                      setStatusMessage('');
+                    }}
+                  >
+                    {t.common.cancel}
+                  </button>
+                  <button type="submit" disabled={rejectProjectMutation.isPending || !rejectionReason.trim()}>
+                    {rejectProjectMutation.isPending ? t.common.refreshing : pd.rejectProject}
                   </button>
                 </div>
               </form>
@@ -654,13 +740,6 @@ function canReopenProjectProposal(status: ProjectStatus) {
   return status === 'PROPOSAL_SELECTED'
     || status === 'QUOTATION_SENT'
     || status === 'ORDER_CONFIRMED';
-}
-
-function getStatusUpdateNote(status: ProjectStatus) {
-  if (status === 'NEED_BASIC_INFORMATION') return 'Sales requested more basic information from the customer.';
-  if (status === 'REJECTED') return 'Sales rejected the project during consultation.';
-
-  return 'Project status updated by sales from project detail.';
 }
 
 function getAcceptForConsultationNote(status: ProjectStatus) {
