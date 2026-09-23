@@ -241,28 +241,6 @@
   background: linear-gradient(135deg, #ece4da, #d8c9b6);
 }
 
-.public-showcase-back-button {
-  position: absolute;
-  z-index: 2;
-  top: 18px;
-  left: 18px;
-  display: inline-flex;
-  width: fit-content;
-  min-height: 40px;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid rgba(177, 132, 96, 0.28);
-  border-radius: 8px;
-  background: #fffaf4;
-  color: #6f5636;
-  cursor: pointer;
-  font: inherit;
-  font-size: 14px;
-  font-weight: 800;
-  margin: 0;
-  padding: 0 16px;
-}
-
 .public-showcase-detail-layout {
   display: grid;
   max-width: 1560px;

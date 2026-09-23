@@ -10,6 +10,7 @@ import {
   getProjectFiles,
   getProjectPhaseDeadlines,
   getProjects,
+  rejectProject,
   reopenProjectProposal,
   requestProjectInformation,
   updateProjectStatus,
@@ -25,6 +26,7 @@ import {
   type ProjectFileListParams,
   type FileType,
   type FileVisibility,
+  type RejectProjectInput,
   type UpdateProjectBasicInformationInput,
   type UpdateProjectPhaseDeadlinesInput,
   type UpdateProductionDeadlineInput,
@@ -264,7 +266,16 @@ export function useReopenProjectProposal() {
 }
 
 export function useRejectProject() {
-  return useProjectStatusAction('REJECTED', 'Project rejected through controlled project review action.');
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (input: RejectProjectInput) => rejectProject(input),
+    onSuccess: (data) => {
+      invalidateProjectCaches(queryClient, data.projectId);
+      void queryClient.invalidateQueries({ queryKey: projectQueryKeys.workflow(data.projectId) });
+      void queryClient.invalidateQueries({ queryKey: ['notifications'] });
+    },
+  });
 }
 
 export function useMarkReadyForDesignerAssignment() {

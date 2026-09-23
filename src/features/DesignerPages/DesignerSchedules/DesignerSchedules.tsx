@@ -223,7 +223,7 @@ type ScheduleDetailProps = {
 };
 
 function ScheduleDetail({ isUpdating, project, schedule, onComplete }: ScheduleDetailProps) {
-  const canComplete = schedule.status === 'CONFIRMED';
+  const canComplete = schedule.status === 'CONFIRMED' && schedule.scheduleType !== 'DELIVERY';
 
   return (
     <>
@@ -265,7 +265,7 @@ function ScheduleDetail({ isUpdating, project, schedule, onComplete }: ScheduleD
       </div>
 
       <div className="designer-schedules-detail-actions">
-        {schedule.status === 'CONFIRMED' ? (
+        {canComplete ? (
           <button className="designer-schedule-confirm" disabled={isUpdating || !canComplete} type="button" onClick={onComplete}>
             <IconCheck size={16} />
             {isUpdating ? 'Completing...' : 'Complete Schedule'}

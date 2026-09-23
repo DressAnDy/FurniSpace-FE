@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 
 import { MainNavbar } from '@/features/MainPages/maincomponents';
 import type { ProjectShowcaseDto, ProjectShowcaseListParams } from '@/services/api/showcases';
@@ -128,7 +128,6 @@ export function PublicShowcasesPage() {
 
 export function PublicShowcaseDetailPage() {
   const { slug } = useParams();
-  const navigate = useNavigate();
   const showcaseQuery = usePublicShowcase(slug);
   const showcase = showcaseQuery.data;
   const media = useMemo(
@@ -150,9 +149,6 @@ export function PublicShowcaseDetailPage() {
         {showcase ? (
           <>
             <figure className="public-showcase-primary-image">
-              <button className="public-showcase-back-button" type="button" onClick={() => navigate(-1)}>
-                Back
-              </button>
               {primaryImageUrl ? (
                 <img alt={showcase.title ?? showcase.projectName ?? 'Project showcase'} src={primaryImageUrl} />
               ) : (

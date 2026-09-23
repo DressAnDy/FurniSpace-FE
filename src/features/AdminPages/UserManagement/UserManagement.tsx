@@ -17,9 +17,11 @@ import {
 } from '@/services/api';
 import {
   useAccountList,
+  useAllAccounts,
   useAdminAccountDetail,
   useCreateAccount,
   useDeleteAccount,
+  useRoleList,
   useUpdateAccount,
 } from '@/services/queries';
 
@@ -33,6 +35,7 @@ type UserManagementTab = 'accounts' | 'designer-workload' | 'sales-workload';
 
 const EMPTY_ACCOUNTS: AccountDto[] = [];
 const VALID_TABS: UserManagementTab[] = ['accounts', 'designer-workload', 'sales-workload'];
+const ACCOUNT_PAGE_SIZE = 5;
 
 function resolveUserManagementTab(value: string | null): UserManagementTab {
   if (value && VALID_TABS.includes(value as UserManagementTab)) {
@@ -57,6 +60,7 @@ export function UserManagement() {
   };
   const [searchValue, setSearchValue] = useState('');
   const [statusFilter, setStatusFilter] = useState<AccountStatus | ''>('');
+  const [roleFilter, setRoleFilter] = useState('');
   const [accountPage, setAccountPage] = useState(1);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [editingAccount, setEditingAccount] = useState<AccountDto | null>(null);
@@ -65,32 +69,73 @@ export function UserManagement() {
 
   const accountListQuery = useAccountList({
     page: accountPage,
-    pageSize: 5,
+    pageSize: ACCOUNT_PAGE_SIZE,
     search: searchValue,
     status: statusFilter || null,
     includeDeleted: false,
   });
+  const allAccountsQuery = useAllAccounts({
+    includeDeleted: false,
+  });
   const accountDetailQuery = useAdminAccountDetail(viewingAccountId ?? undefined);
+  const roleListQuery = useRoleList();
   const createAccountMutation = useCreateAccount();
   const updateAccountMutation = useUpdateAccount();
   const deleteAccountMutation = useDeleteAccount();
 
   const accounts = accountListQuery.data?.items ?? EMPTY_ACCOUNTS;
-  const roleOptions = useMemo(() => getAccountRoleOptions(accounts), [accounts]);
-  const totalAccounts = accountListQuery.data?.totalItems ?? accounts.length;
-  const accountTotalPages = accountListQuery.data?.totalPages ?? 1;
-  const hasPreviousAccountPage = accountListQuery.data?.hasPreviousPage ?? accountPage > 1;
-  const hasNextAccountPage = accountListQuery.data?.hasNextPage ?? accountPage < accountTotalPages;
-  const roleStats = useMemo(() => {
-    const countRole = (roleName: string) =>
-      accounts.filter((account) => getAccountRoleName(account) === roleName).length;
+  const systemAccounts = allAccountsQuery.data ?? accounts;
+  const fallbackRoleOptions = useMemo(() => getAccountRoleOptions(accounts), [accounts]);
+  const roleOptions = roleListQuery.data?.length ? roleListQuery.data : fallbackRoleOptions;
+  const roleById = useMemo(() => new Map(roleOptions.map((role) => [role.roleId, role])), [roleOptions]);
+  const isRoleFilteredView = Boolean(roleFilter);
+  const displayedAccounts = useMemo(() => {
+    const sourceAccounts = isRoleFilteredView ? systemAccounts : accounts;
+    const normalizedSearch = searchValue.trim().toLowerCase();
 
-    return [
-      { label: 'Customer', value: countRole('CUSTOMER'), icon: IconUsers, tone: 'blue' },
-      { label: 'Saler', value: countRole('SALES'), icon: IconBriefcase, tone: 'gold' },
-      { label: 'Design', value: countRole('DESIGNER'), icon: IconEdit, tone: 'violet' },
-    ];
-  }, [accounts]);
+    return sourceAccounts.filter((account) => {
+      const matchesRole = !roleFilter || getAccountRoleId(account) === roleFilter;
+      const matchesStatus = !statusFilter || account.status === statusFilter;
+      const matchesSearch =
+        !normalizedSearch ||
+        account.fullName.toLowerCase().includes(normalizedSearch) ||
+        account.email.toLowerCase().includes(normalizedSearch) ||
+        (account.phone ?? '').toLowerCase().includes(normalizedSearch);
+
+      return matchesRole && matchesStatus && matchesSearch;
+    });
+  }, [accounts, isRoleFilteredView, roleFilter, searchValue, statusFilter, systemAccounts]);
+  const totalAccounts = accountListQuery.data?.totalItems ?? accounts.length;
+  const filteredAccountTotalPages = Math.max(1, Math.ceil(displayedAccounts.length / ACCOUNT_PAGE_SIZE));
+  const accountTotalPages = isRoleFilteredView ? filteredAccountTotalPages : accountListQuery.data?.totalPages ?? 1;
+  const hasPreviousAccountPage = isRoleFilteredView ? accountPage > 1 : accountListQuery.data?.hasPreviousPage ?? accountPage > 1;
+  const hasNextAccountPage = isRoleFilteredView ? accountPage < accountTotalPages : accountListQuery.data?.hasNextPage ?? accountPage < accountTotalPages;
+  const showAccountPagination = accountTotalPages > 1;
+  const pagedDisplayedAccounts = isRoleFilteredView
+    ? displayedAccounts.slice((accountPage - 1) * ACCOUNT_PAGE_SIZE, accountPage * ACCOUNT_PAGE_SIZE)
+    : displayedAccounts;
+  const isAccountTableLoading = accountListQuery.isLoading || (isRoleFilteredView && allAccountsQuery.isLoading);
+  const isAccountTableError = accountListQuery.isError || (isRoleFilteredView && allAccountsQuery.isError);
+  const roleStats = useMemo(() => {
+    const countRole = (role: AccountRoleDto) =>
+      systemAccounts.filter((account) => {
+        const accountRoleId = getAccountRoleId(account);
+
+        if (accountRoleId) {
+          return accountRoleId === role.roleId;
+        }
+
+        return normalizeRoleName(getAccountRoleName(account)) === normalizeRoleName(role.roleName);
+      }).length;
+
+    return roleOptions.map((role) => ({
+      roleId: role.roleId,
+      label: formatRoleLabel(role.roleName),
+      value: countRole(role),
+      icon: getRoleStatIcon(role.roleName),
+      tone: getRoleStatTone(role.roleName),
+    }));
+  }, [roleOptions, systemAccounts]);
   const isFormOpen = isCreateModalOpen || Boolean(editingAccount);
   const formMode: AccountFormMode = editingAccount ? 'edit' : 'create';
   const isSubmitting = createAccountMutation.isPending || updateAccountMutation.isPending;
@@ -234,17 +279,26 @@ export function UserManagement() {
             {activeTab === 'accounts' ? (
               <>
             <section className="user-role-stat-grid" aria-label="Role overview">
-              {roleStats.map(({ label, value, icon: Icon, tone }) => (
-                <article key={label} className="user-role-stat-card">
+              {roleStats.map(({ roleId, label, value, icon: Icon, tone }) => (
+                <button
+                  key={roleId}
+                  type="button"
+                  className={`user-role-stat-card${roleFilter === roleId ? ' is-active' : ''}`}
+                  aria-pressed={roleFilter === roleId}
+                  onClick={() => {
+                    setRoleFilter((current) => (current === roleId ? '' : roleId));
+                    setAccountPage(1);
+                  }}
+                >
                   <div className="user-role-stat-copy">
                     <span>{label}</span>
                     <strong>{value}</strong>
-                    <p>Accounts in current view</p>
+                    <p>Accounts in system</p>
                   </div>
                   <div className={`user-role-stat-icon admin-tone-${tone}`}>
                     <Icon size={22} />
                   </div>
-                </article>
+                </button>
               ))}
             </section>
 
@@ -281,13 +335,31 @@ export function UserManagement() {
                   </select>
                 </label>
 
+                <label className="user-management-filter">
+                  <span>Role</span>
+                  <select
+                    value={roleFilter}
+                    onChange={(event) => {
+                      setRoleFilter(event.target.value);
+                      setAccountPage(1);
+                    }}
+                  >
+                    <option value="">All roles</option>
+                    {roleOptions.map((role) => (
+                      <option key={role.roleId} value={role.roleId}>
+                        {role.roleName}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
                 <div className="user-management-total">
                   <span>Total</span>
                   <strong>{totalAccounts}</strong>
                 </div>
               </div>
 
-              {accountListQuery.isLoading ? <div className="user-management-state">Loading accounts from API...</div> : null}
+              {isAccountTableLoading ? <div className="user-management-state">Loading accounts from API...</div> : null}
 
               {accountListQuery.isError ? (
                 <div className="user-management-state user-management-state-error">
@@ -301,11 +373,25 @@ export function UserManagement() {
                 </div>
               ) : null}
 
-              {!accountListQuery.isLoading && !accountListQuery.isError && accounts.length === 0 ? (
+              {roleListQuery.isLoading ? <div className="user-management-state">Loading roles from API...</div> : null}
+
+              {roleListQuery.isError && fallbackRoleOptions.length === 0 ? (
+                <div className="user-management-state user-management-state-error">
+                  {getAccountServiceResultMessage(roleListQuery.error)}
+                </div>
+              ) : null}
+
+              {isRoleFilteredView && allAccountsQuery.isError ? (
+                <div className="user-management-state user-management-state-error">
+                  {getAccountServiceResultMessage(allAccountsQuery.error)}
+                </div>
+              ) : null}
+
+              {!isAccountTableLoading && !isAccountTableError && displayedAccounts.length === 0 ? (
                 <div className="user-management-state">{t.users.noAccounts}</div>
               ) : null}
 
-              {!accountListQuery.isLoading && !accountListQuery.isError && accounts.length > 0 ? (
+              {!isAccountTableLoading && !isAccountTableError && pagedDisplayedAccounts.length > 0 ? (
                 <>
                   <div className="admin-table-wrap">
                     <table className="user-management-table">
@@ -321,7 +407,7 @@ export function UserManagement() {
                         </tr>
                       </thead>
                       <tbody>
-                        {accounts.map((account) => (
+                        {pagedDisplayedAccounts.map((account) => (
                           <tr key={account.accountId}>
                             <td>
                               <div className="user-management-user">
@@ -334,7 +420,7 @@ export function UserManagement() {
                             <td>{account.email}</td>
                             <td>{account.phone ?? '-'}</td>
                             <td>
-                              <span className="user-management-role">{getAccountRoleName(account)}</span>
+                              <span className="user-management-role">{getResolvedAccountRoleName(account, roleById)}</span>
                             </td>
                             <td>
                               <span className={`user-management-status user-management-status-${(account.status ?? 'inactive').toLowerCase()}`}>
@@ -372,23 +458,23 @@ export function UserManagement() {
                     </table>
                   </div>
 
-                  {accountTotalPages > 1 ? (
+                  {showAccountPagination ? (
                     <div className="workload-pagination">
                       <button
                         type="button"
                         className="admin-button admin-button-secondary"
-                        disabled={!hasPreviousAccountPage || accountListQuery.isFetching}
+                        disabled={!hasPreviousAccountPage || accountListQuery.isFetching || allAccountsQuery.isFetching}
                         onClick={() => setAccountPage((current) => Math.max(1, current - 1))}
                       >
                         Previous
                       </button>
                       <span>
-                        Page {accountListQuery.data?.page ?? accountPage} / {accountTotalPages}
+                        Page {accountPage} / {accountTotalPages}
                       </span>
                       <button
                         type="button"
                         className="admin-button admin-button-secondary"
-                        disabled={!hasNextAccountPage || accountListQuery.isFetching}
+                        disabled={!hasNextAccountPage || accountListQuery.isFetching || allAccountsQuery.isFetching}
                         onClick={() => setAccountPage((current) => current + 1)}
                       >
                         Next
@@ -651,6 +737,70 @@ function DetailItem({ label, value }: { label: string; value: string }) {
       <strong>{value}</strong>
     </div>
   );
+}
+
+function getResolvedAccountRoleName(account: AccountDto, roleById: Map<string, AccountRoleDto>) {
+  const roleId = getAccountRoleId(account);
+
+  if (roleId) {
+    return roleById.get(roleId)?.roleName ?? getAccountRoleName(account);
+  }
+
+  return getAccountRoleName(account);
+}
+
+function normalizeRoleName(roleName: string) {
+  return roleName.trim().toUpperCase();
+}
+
+function formatRoleLabel(roleName: string) {
+  const normalizedRole = normalizeRoleName(roleName);
+
+  if (normalizedRole === 'SALES') {
+    return 'Sales';
+  }
+
+  return normalizedRole
+    .toLowerCase()
+    .split('_')
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
+}
+
+function getRoleStatIcon(roleName: string) {
+  const normalizedRole = roleName.trim().toUpperCase();
+
+  if (normalizedRole === 'CUSTOMER') {
+    return IconUsers;
+  }
+
+  if (normalizedRole === 'SALES') {
+    return IconBriefcase;
+  }
+
+  if (normalizedRole === 'DESIGNER') {
+    return IconEdit;
+  }
+
+  return IconUser;
+}
+
+function getRoleStatTone(roleName: string) {
+  const normalizedRole = roleName.trim().toUpperCase();
+
+  if (normalizedRole === 'CUSTOMER') {
+    return 'blue';
+  }
+
+  if (normalizedRole === 'SALES') {
+    return 'gold';
+  }
+
+  if (normalizedRole === 'DESIGNER') {
+    return 'violet';
+  }
+
+  return 'green';
 }
 
 function formatDate(value: string | null | undefined) {

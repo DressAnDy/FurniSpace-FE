@@ -91,7 +91,7 @@ export function SchedulesTab({ project }: Readonly<SchedulesTabProps>) {
                 <ScheduleMeta icon={<IconUsers size={16} stroke={1.9} />} label="Assignee" value="Assigned to you" />
               </div>
             </div>
-            {schedule.status === 'CONFIRMED' ? (
+            {schedule.status === 'CONFIRMED' && schedule.scheduleType !== 'DELIVERY' ? (
               <button
                 className="designer-project-detail-button designer-project-detail-button-primary designer-project-schedule-complete-button"
                 type="button"

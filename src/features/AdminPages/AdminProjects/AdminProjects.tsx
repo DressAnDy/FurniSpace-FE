@@ -34,7 +34,7 @@ import type {
 } from '@/services/api/dashboard';
 import type { ReportProjectsDto } from '@/services/api/reports';
 import {
-  useAccountList,
+  useAllAccounts,
   useAdminProjectWorkflow,
   useAssignDesignerToProject,
   useAssignSalesToProject,
@@ -137,8 +137,8 @@ export function AdminProjects() {
     { enabled: listModule === 'projects' },
   );
   const projectStatsQuery = useReportProjects();
-  const accountsQuery = useAccountList({ page: 1, pageSize: 100, includeDeleted: false });
-  const accounts = accountsQuery.data?.items ?? EMPTY_ACCOUNTS;
+  const accountsQuery = useAllAccounts({ includeDeleted: false });
+  const accounts = accountsQuery.data ?? EMPTY_ACCOUNTS;
   const accountById = useMemo(() => createAccountLookup(accounts), [accounts]);
   const salesAccounts = useMemo(() => accounts.filter((account) => getAccountRoleName(account) === 'SALES'), [accounts]);
   const designerAccounts = useMemo(() => accounts.filter((account) => getAccountRoleName(account) === 'DESIGNER'), [accounts]);
@@ -318,7 +318,7 @@ export function AdminProjects() {
                               </td>
                               <td>
                                 <strong>{customer?.fullName ?? 'Unknown customer'}</strong>
-                                <span>{customer?.email ?? shortId(project.customerId)}</span>
+                                <span>{customer?.email ?? 'Customer contact unavailable'}</span>
                               </td>
                               <td><ProjectStatusPill status={project.status} /></td>
                               <td>
@@ -562,9 +562,9 @@ function ProjectDetailDrawer({
 
             <CollapsibleDetailSection defaultOpen title="Project Information">
               <section className="admin-projects-detail-grid">
-                <DetailItem label="Customer" value={customer?.fullName ?? shortId(project.customerId)} note={customer?.email ?? project.customerId} />
-                <DetailItem label="Sales Owner" value={sales?.fullName ?? 'Unassigned'} note={project.assignedSalesId ?? 'Waiting for sales/admin acceptance'} />
-                <DetailItem label="Designer" value={designer?.fullName ?? 'Unassigned'} note={project.assignedDesignerId ?? 'Not assigned yet'} />
+                <DetailItem label="Customer" value={customer?.fullName ?? 'Customer unavailable'} note={customer?.email ?? 'Customer contact unavailable'} />
+                <DetailItem label="Sales Owner" value={sales?.fullName ?? 'Unassigned'} note={getOwnerNote(project.assignedSalesId, sales, 'Waiting for sales/admin acceptance')} />
+                <DetailItem label="Designer" value={designer?.fullName ?? 'Unassigned'} note={getOwnerNote(project.assignedDesignerId, designer, 'Not assigned yet')} />
                 <DetailItem label="Business Type" value={project.businessType} note={project.businessPurpose ?? 'No business purpose'} />
                 <DetailItem label="Address" value={project.projectAddress ?? '-'} note={`${project.totalAreaSqm ?? '-'} sqm, ${project.numberOfFloors ?? '-'} floor(s)`} />
                 <DetailItem label="Budget" value={formatBudget(project)} note={`Target ${formatDate(project.targetCompletionDate)}`} />
@@ -890,6 +890,14 @@ function DetailItem({ label, value, note }: { label: string; value: string; note
   );
 }
 
+function getOwnerNote(ownerId: string | null | undefined, owner: AccountDto | null, emptyNote: string) {
+  if (owner?.email) {
+    return owner.email;
+  }
+
+  return ownerId ? 'Assigned account unavailable' : emptyNote;
+}
+
 function createAccountLookup(accounts: AccountDto[]) {
   return accounts.reduce<Record<string, AccountDto>>((lookup, account) => {
     lookup[account.accountId] = account;
@@ -1057,10 +1065,6 @@ function formatFileSize(size: number) {
   if (size < 1024) return `${size} B`;
   if (size < 1024 * 1024) return `${Math.round(size / 1024)} KB`;
   return `${(size / 1024 / 1024).toFixed(1)} MB`;
-}
-
-function shortId(value: string) {
-  return value.length > 10 ? `${value.slice(0, 8)}...` : value;
 }
 
 export default AdminProjects;

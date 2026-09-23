@@ -47,7 +47,7 @@ export function getModelLoadErrorMessage(cause: unknown, modelUrl?: string) {
     /failed|network|load|cors|xmlhttprequest|fetch/i.test(rawMessage);
 
   if (maybeCorsBlocked) {
-    return 'Cannot load this Firebase Storage MODEL_3D because the bucket CORS policy does not allow this app origin. Add http://localhost:5173 to Firebase Storage CORS, then reload and try again.';
+    return 'Cannot load this Firebase Storage MODEL_3D';
   }
 
   return rawMessage;

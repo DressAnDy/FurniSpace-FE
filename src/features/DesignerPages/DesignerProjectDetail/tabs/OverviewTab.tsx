@@ -27,7 +27,6 @@ export function OverviewTab({ project }: OverviewTabProps) {
       <section className="designer-card designer-project-section-card">
         <header className="designer-project-section-header">
           <h3>Project Information</h3>
-          <p>Core project brief shared by sales and customer.</p>
         </header>
         <div className="designer-project-info-grid">
           {projectInformation.map(([label, value]) => (
@@ -43,7 +42,6 @@ export function OverviewTab({ project }: OverviewTabProps) {
         projectId={project.projectId}
         phases={['DESIGN', 'PROPOSAL']}
         title="Design Timeline"
-        description="Design phase deadlines and backend-calculated progress."
         emptyText="No design deadline has been planned yet."
       />
 

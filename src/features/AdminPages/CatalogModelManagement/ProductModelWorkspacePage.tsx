@@ -1,6 +1,5 @@
 import { type ChangeEvent, useCallback, useMemo, useState } from 'react';
 import {
-  IconAlertTriangle,
   IconArrowLeft,
   IconCheck,
   IconPhoto,
@@ -164,10 +163,12 @@ export function ProductModelWorkspacePage() {
                   </dl>
 
                   <div className="model-workspace-section-heading"><span>Planner readiness</span></div>
-                  <div className={readiness?.isReady ? 'planner-readiness is-ready' : 'planner-readiness is-warning'}>
-                    {readiness?.isReady ? <IconCheck size={18} /> : <IconAlertTriangle size={18} />}
-                    <strong>{readiness?.isReady ? 'Ready for Room Planner' : 'Needs attention'}</strong>
-                  </div>
+                  {readiness?.isReady ? (
+                    <div className="planner-readiness is-ready">
+                      <IconCheck size={18} />
+                      <strong>Ready for Room Planner</strong>
+                    </div>
+                  ) : null}
                   {!readiness?.isReady && (
                     <ul className="planner-readiness-issues">
                       {readiness?.issues.map((issue) => <li key={issue}>{issue}</li>)}

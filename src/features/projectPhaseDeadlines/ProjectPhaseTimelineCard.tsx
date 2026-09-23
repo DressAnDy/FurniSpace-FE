@@ -14,7 +14,6 @@ type ProjectPhaseTimelineCardProps = {
 };
 
 export function ProjectPhaseTimelineCard({
-  description = 'Timeline status is calculated by backend and is read-only.',
   emptyText = 'No phase deadline has been planned yet.',
   phases,
   projectId,
@@ -37,7 +36,6 @@ export function ProjectPhaseTimelineCard({
       <header>
         <div>
           <h3>{title}</h3>
-          {description ? <p>{description}</p> : null}
         </div>
         {deadlinesQuery.data?.targetCompletionDate ? (
           <span>Target {formatDateOnly(deadlinesQuery.data.targetCompletionDate)}</span>

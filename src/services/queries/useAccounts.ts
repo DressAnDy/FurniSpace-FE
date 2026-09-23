@@ -4,12 +4,14 @@ import {
   createAccount,
   deleteAccount,
   getAccountById,
+  getAllAccounts,
   getAccounts,
   getAdminAccountDetail,
   getAvailableDesigners,
   getDesignerAssignedProjects,
   getDesignerWorkload,
   getDesignerWorkloadSummary,
+  getRoles,
   getSalesAssignedProjects,
   getSalesWorkload,
   getSalesWorkloadSummary,
@@ -29,8 +31,10 @@ import {
 export const accountQueryKeys = {
   all: ['accounts'] as const,
   list: (params?: AccountListParams) => ['accounts', 'list', params] as const,
+  allList: (params?: Omit<AccountListParams, 'page' | 'pageSize'>) => ['accounts', 'all-list', params] as const,
   detail: (accountId: string) => ['accounts', 'detail', accountId] as const,
   adminDetail: (accountId: string) => ['accounts', 'admin-detail', accountId] as const,
+  roles: ['accounts', 'roles'] as const,
   availableDesigners: (params?: AvailableDesignerListParams) => ['accounts', 'available-designers', params] as const,
   designerWorkload: (params?: DesignerWorkloadListParams) => ['accounts', 'designer-workload', params] as const,
   designerWorkloadSummary: ['accounts', 'designer-workload-summary'] as const,
@@ -48,6 +52,13 @@ export function useAccountList(params?: AccountListParams) {
   });
 }
 
+export function useAllAccounts(params?: Omit<AccountListParams, 'page' | 'pageSize'>) {
+  return useQuery({
+    queryKey: accountQueryKeys.allList(params),
+    queryFn: () => getAllAccounts(params),
+  });
+}
+
 export function useAccountDetail(accountId?: string) {
   return useQuery({
     queryKey: accountQueryKeys.detail(accountId ?? ''),
@@ -61,6 +72,13 @@ export function useAdminAccountDetail(accountId?: string) {
     queryKey: accountQueryKeys.adminDetail(accountId ?? ''),
     queryFn: () => getAdminAccountDetail(accountId ?? ''),
     enabled: Boolean(accountId),
+  });
+}
+
+export function useRoleList() {
+  return useQuery({
+    queryKey: accountQueryKeys.roles,
+    queryFn: () => getRoles(),
   });
 }
 
