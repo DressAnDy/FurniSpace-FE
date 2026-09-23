@@ -30,6 +30,11 @@ import {
   useSubmitCustomizationRequest,
 } from '@/services/queries';
 import { aggregateDuplicateItems } from '@/shared/utils/itemAggregation';
+import {
+  parseOptionalProjectRequestNumber,
+  sanitizeProjectRequestDecimalInput,
+  validateOptionalPositiveNumber,
+} from '@/shared/utils/projectRequestValidation';
 
 import '../customerProposalDetail/CustomerProposalDetailPage.css';
 
@@ -238,16 +243,39 @@ function CustomerProjectProposalPanel({
 
     if (!customizingItemId) return;
 
+    const width = validateOptionalCustomizationNumber(customizationWidth, 'Width');
+    const height = validateOptionalCustomizationNumber(customizationHeight, 'Height');
+    const depth = validateOptionalCustomizationNumber(customizationDepth, 'Depth');
+
+    if (!width.ok) {
+      setCustomizationMessage(width.message);
+      return;
+    }
+
+    if (!height.ok) {
+      setCustomizationMessage(height.message);
+      return;
+    }
+
+    if (!depth.ok) {
+      setCustomizationMessage(depth.message);
+      return;
+    }
+
+    const trimmedTitle = customizationTitle.trim();
+    const trimmedDescription = customizationDescription.trim();
+    const trimmedMaterial = customizationMaterial.trim();
+    const trimmedColor = customizationColor.trim();
     const hasCustomizationField = Boolean(
-      customizationDescription.trim() ||
-        customizationMaterial.trim() ||
-        customizationColor.trim() ||
-        customizationWidth ||
-        customizationHeight ||
-        customizationDepth,
+      trimmedDescription ||
+        trimmedMaterial ||
+        trimmedColor ||
+        typeof width.value === 'number' ||
+        typeof height.value === 'number' ||
+        typeof depth.value === 'number',
     );
 
-    if (!customizationTitle.trim() || !hasCustomizationField) {
+    if (!trimmedTitle || !hasCustomizationField) {
       setCustomizationMessage(t.proposalAccordion.titleRequiredToast);
       return;
     }
@@ -255,13 +283,13 @@ function CustomerProjectProposalPanel({
     try {
       await submitCustomizationMutation.mutateAsync({
         proposalItemId: customizingItemId,
-        requestTitle: customizationTitle,
-        requestDescription: customizationDescription,
-        requestedMaterial: customizationMaterial,
-        requestedColor: customizationColor,
-        requestedWidth: normalizeNumber(customizationWidth),
-        requestedHeight: normalizeNumber(customizationHeight),
-        requestedDepth: normalizeNumber(customizationDepth),
+        requestTitle: trimmedTitle,
+        requestDescription: trimmedDescription || null,
+        requestedMaterial: trimmedMaterial || null,
+        requestedColor: trimmedColor || null,
+        requestedWidth: width.value,
+        requestedHeight: height.value,
+        requestedDepth: depth.value,
       });
       resetCustomizationForm();
       setCustomizationMessage('Customization request submitted for this proposal item.');
@@ -397,9 +425,9 @@ function CustomerProjectProposalPanel({
                 <div>
                   <input value={customizationMaterial} placeholder={t.proposalAccordion.materialPlaceholder} onChange={(event) => setCustomizationMaterial(event.target.value)} />
                   <input value={customizationColor} placeholder={t.proposalAccordion.colorPlaceholder} onChange={(event) => setCustomizationColor(event.target.value)} />
-                  <input value={customizationWidth} placeholder={t.proposalAccordion.widthPlaceholder} type="number" onChange={(event) => setCustomizationWidth(event.target.value)} />
-                  <input value={customizationHeight} placeholder={t.proposalAccordion.heightPlaceholder} type="number" onChange={(event) => setCustomizationHeight(event.target.value)} />
-                  <input value={customizationDepth} placeholder={t.proposalAccordion.depthPlaceholder} type="number" onChange={(event) => setCustomizationDepth(event.target.value)} />
+                  <input inputMode="decimal" value={customizationWidth} placeholder={t.proposalAccordion.widthPlaceholder} onChange={(event) => setCustomizationWidth(sanitizeCustomizationDecimalInput(event.target.value))} />
+                  <input inputMode="decimal" value={customizationHeight} placeholder={t.proposalAccordion.heightPlaceholder} onChange={(event) => setCustomizationHeight(sanitizeCustomizationDecimalInput(event.target.value))} />
+                  <input inputMode="decimal" value={customizationDepth} placeholder={t.proposalAccordion.depthPlaceholder} onChange={(event) => setCustomizationDepth(sanitizeCustomizationDecimalInput(event.target.value))} />
                 </div>
                 <div>
                   <button type="button" onClick={resetCustomizationForm}>{t.common.cancel}</button>
@@ -718,14 +746,6 @@ function formatStatusLabel(value: string) {
     .join(' ');
 }
 
-function normalizeNumber(value: string) {
-  if (!value.trim()) return null;
-
-  const numberValue = Number(value);
-
-  return Number.isFinite(numberValue) ? numberValue : null;
-}
-
 function formatDimensions(width?: number | null, height?: number | null, depth?: number | null, unit?: string | null) {
   const values = [
     width ? `W ${width}` : null,
@@ -734,6 +754,16 @@ function formatDimensions(width?: number | null, height?: number | null, depth?:
   ].filter(Boolean);
 
   return values.length > 0 ? `${values.join(' x ')} ${unit || 'cm'}` : '-';
+}
+
+function validateOptionalCustomizationNumber(value: string, label: string) {
+  const parsedValue = parseOptionalProjectRequestNumber(value);
+
+  return validateOptionalPositiveNumber(parsedValue, label);
+}
+
+function sanitizeCustomizationDecimalInput(value: string) {
+  return sanitizeProjectRequestDecimalInput(value);
 }
 
 function formatMoney(value?: number | null) {

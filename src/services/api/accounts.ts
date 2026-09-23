@@ -40,7 +40,7 @@ export type ServiceResult<T> = {
 };
 
 export type AccountStatus = 'ACTIVE' | 'INACTIVE' | 'SUSPENDED';
-export type AccountRoleName = 'ADMIN' | 'SALES' | 'DESIGNER' | 'CUSTOMER';
+export type AccountRoleName = 'ADMIN' | 'SALES' | 'DESIGNER' | 'CUSTOMER' | 'PRODUCTION';
 
 export type AccountRoleDto = {
   roleId: string;
@@ -341,6 +341,10 @@ export function getAccountRoleOptions(accounts: AccountDto[]) {
   return Array.from(roleById.values()).sort((first, second) => first.roleName.localeCompare(second.roleName));
 }
 
+export function sortAccountRoles(roles: AccountRoleDto[]) {
+  return [...roles].sort((first, second) => first.roleName.localeCompare(second.roleName));
+}
+
 function normalizeAccountRoleName(value: string | null | undefined) {
   return value?.trim().toUpperCase() || 'UNKNOWN';
 }
@@ -405,6 +409,31 @@ export async function getAccounts(params: AccountListParams = {}) {
   return response.data.data;
 }
 
+export async function getAllAccounts(params: Omit<AccountListParams, 'page' | 'pageSize'> = {}) {
+  const pageSize = 100;
+  const firstPage = await getAccounts({
+    ...params,
+    page: 1,
+    pageSize,
+  });
+
+  if (firstPage.totalPages <= 1) {
+    return firstPage.items;
+  }
+
+  const remainingPages = await Promise.all(
+    Array.from({ length: firstPage.totalPages - 1 }, (_, index) =>
+      getAccounts({
+        ...params,
+        page: index + 2,
+        pageSize,
+      }),
+    ),
+  );
+
+  return [firstPage, ...remainingPages].flatMap((page) => page.items);
+}
+
 export async function getAccountById(accountId: string) {
   const response = await accountApiClient.get<ServiceResult<AccountDto>>(`/api/Accounts/${accountId}`);
 
@@ -415,6 +444,12 @@ export async function getAdminAccountDetail(accountId: string) {
   const response = await accountApiClient.get<ServiceResult<AdminAccountDetailDto>>(`/admin/accounts/${accountId}`);
 
   return response.data.data;
+}
+
+export async function getRoles() {
+  const response = await accountApiClient.get<ServiceResult<AccountRoleDto[]>>('/admin/roles');
+
+  return sortAccountRoles(response.data.data);
 }
 
 export async function getAvailableDesigners(params: AvailableDesignerListParams = {}) {

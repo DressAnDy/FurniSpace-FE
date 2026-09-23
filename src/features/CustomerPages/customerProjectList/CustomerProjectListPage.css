@@ -433,13 +433,6 @@
   padding: 0 12px;
 }
 
-.customer-project-list-actions button:last-child {
-  width: auto;
-  border: 1px solid #d9d4cc;
-  background: #ffffff;
-  color: #111111;
-}
-
 .customer-project-list-pagination {
   display: flex;
   flex-wrap: wrap;
