@@ -76,18 +76,20 @@ export function OperationalDelayPanel({
   const canResolve = canResolveReports(currentUserQuery.data?.role);
 
   useEffect(() => {
-    const reportId = searchParams.get('delayReportId');
+    const allowedPhaseList = allowedPhaseKey.split('|').filter(Boolean) as OperationalDelayPhase[];
     const requestedPhase = normalizeDelayPhase(searchParams.get('reportPhase'));
-    const allowedPhaseList = allowedPhaseKey.split('|') as OperationalDelayPhase[];
+    const nextPhase = requestedPhase && allowedPhaseList.includes(requestedPhase)
+      ? requestedPhase
+      : defaultPhase && allowedPhaseList.includes(defaultPhase)
+        ? defaultPhase
+        : allowedPhaseList[0] ?? 'PRODUCTION';
+    const reportId = searchParams.get('delayReportId');
 
-    if (requestedPhase && allowedPhaseList.includes(requestedPhase)) {
-      setPhase(requestedPhase);
-    }
-
-    if (reportId) {
-      setSelectedReportId(reportId);
-    }
-  }, [allowedPhaseKey, searchParams]);
+    setPhase((current) => allowedPhaseList.includes(current) && current === nextPhase ? current : nextPhase);
+    setSelectedReportId(reportId ?? '');
+    setMessage('');
+    setIsCreateOpen(false);
+  }, [allowedPhaseKey, defaultPhase, searchParams]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -226,14 +228,16 @@ export function OperationalDelayPanel({
 
           return (
             <button
-              className="operational-delay-row"
+              className={`operational-delay-row${resolutionStatus === 'RESOLVED' ? ' is-resolved' : ''}`}
               key={report.operationalDelayReportId}
               type="button"
               onClick={() => setSelectedReportId(report.operationalDelayReportId)}
             >
-              <span className={`operational-delay-badge is-${report.delayState.toLowerCase()}`}>
-                {formatLabel(report.delayState)}
-              </span>
+              {resolutionStatus === 'OPEN' ? (
+                <span className={`operational-delay-badge is-${report.delayState.toLowerCase()}`}>
+                  {formatLabel(report.delayState)}
+                </span>
+              ) : null}
               <span>
                 <strong>{reasonCode ? formatLabel(reasonCode) : 'Schedule risk'}</strong>
                 <small>{report.reasonDetail}</small>
@@ -346,6 +350,7 @@ function DelayReportDetail({
 }>) {
   const reasonCode = report ? getReportReasonCode(report) : null;
   const [isResolveOpen, setIsResolveOpen] = useState(false);
+  const resolutionStatus = report ? getReportResolutionStatus(report) : 'OPEN';
 
   return (
     <div className="operational-delay-modal-backdrop">
@@ -357,16 +362,18 @@ function DelayReportDetail({
         {isLoading || !report ? <p className="operational-delay-state">Loading report...</p> : (
           <div className="operational-delay-detail-grid">
             <Detail label="Phase" value={formatLabel(report.reportPhase)} />
-            <div className="operational-delay-detail-state">
-              <span>State</span>
-              <span className={`operational-delay-badge is-${report.delayState.toLowerCase()}`}>
-                {formatLabel(report.delayState)}
-              </span>
-            </div>
+            {resolutionStatus === 'OPEN' ? (
+              <div className="operational-delay-detail-state">
+                <span>State</span>
+                <span className={`operational-delay-badge is-${report.delayState.toLowerCase()}`}>
+                  {formatLabel(report.delayState)}
+                </span>
+              </div>
+            ) : null}
             <div className="operational-delay-detail-state">
               <span>Status</span>
-              <span className={`operational-delay-resolution is-${getReportResolutionStatus(report).toLowerCase()}`}>
-                {formatLabel(getReportResolutionStatus(report))}
+              <span className={`operational-delay-resolution is-${resolutionStatus.toLowerCase()}`}>
+                {formatLabel(resolutionStatus)}
               </span>
             </div>
             <Detail label="Deadline snapshot" value={formatDate(report.deadlineSnapshot)} />
@@ -384,7 +391,7 @@ function DelayReportDetail({
             ) : null}
           </div>
         )}
-        {!isLoading && report && canResolve && getReportResolutionStatus(report) === 'OPEN' ? (
+        {!isLoading && report && canResolve && resolutionStatus === 'OPEN' ? (
           <div className="operational-delay-modal-actions">
             <button className="operational-delay-primary" type="button" onClick={() => setIsResolveOpen(true)}>
               Mark resolved

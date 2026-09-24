@@ -299,11 +299,18 @@ export type ProjectRejectionDto = {
 
 export type ReopenProposalData = {
   projectId: string;
-  status: ProjectStatus;
+  status?: ProjectStatus;
+  oldStatus?: ProjectStatus | null;
+  newStatus?: ProjectStatus | null;
+  orderId?: string | null;
   proposalStatus?: string | null;
-  cancelledQuotationId?: string | null;
-  cancelledOrderId?: string | null;
-  reopenedAt?: string | null;
+  quotationId?: string | null;
+  orderStatus?: string | null;
+  quotationStatus?: string | null;
+  selectedProposalId?: string | null;
+  selectedProposalStatus?: string | null;
+  restoredProposalCount?: number | null;
+  updatedAt?: string | null;
 };
 
 export type ProjectWorkflowStageKey =
@@ -879,6 +886,12 @@ function getProjectErrorCodeMessage(errorCode: string) {
     PROJECT_FILE_UPLOAD_NOT_PENDING: 'This file upload can no longer be completed. Please start the upload again.',
     PROJECT_FILE_UPLOAD_FORBIDDEN: 'You do not have permission to complete this file upload.',
     PROJECT_FILE_UPLOAD_NOT_FOUND: 'This file upload was not found for the project.',
+    PROJECT_DEPOSIT_ALREADY_PAID: 'The deposit has already been paid, so this project cannot be reopened to proposal consulting.',
+    PROJECT_PRODUCTION_ALREADY_CREATED: 'Production has already been created, so this project cannot be reopened to proposal consulting.',
+    ACTIVE_DEPOSIT_CANNOT_BE_CANCELLED: 'The active deposit payment cannot be cancelled automatically. Please handle the payment before reopening.',
+    PROJECT_REOPEN_NOT_ALLOWED: 'This project cannot be reopened from its current status.',
+    PROJECT_ACTIVE_QUOTATION_NOT_FOUND: 'No active quotation was found for this project.',
+    PROJECT_NO_ACCEPTED_ORDER: 'No accepted order was found for this project.',
   };
 
   return messages[errorCode] ?? 'Request failed. Please try again.';

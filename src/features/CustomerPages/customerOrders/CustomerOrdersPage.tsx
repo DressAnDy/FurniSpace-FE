@@ -50,6 +50,8 @@ type OrderDeliveryDetailsDraft = {
 
 const ORDER_PAGE_SIZE = 5;
 const ORDERS_FETCH_SIZE = 100;
+const RECEIVER_PHONE_PATTERN = /^\d{10,11}$/;
+const RECEIVER_PHONE_ERROR = 'Phone must be 10 to 11 digits.';
 
 export function CustomerOrdersPage() {
   const { lang } = useLang();
@@ -265,7 +267,7 @@ export function CustomerOrdersPage() {
                   setMessage(null);
 
                   if (!hasCompleteDeliveryDetails(order)) {
-                    setMessage({ tone: 'error', text: 'Please complete all delivery details before creating the deposit payment.' });
+                    setMessage({ tone: 'error', text: getDeliveryDetailsValidationMessage(order) });
                     return;
                   }
 
@@ -289,10 +291,14 @@ export function CustomerOrdersPage() {
                 onOpenRemainingPayment={setActivePayment}
                 onSaveDeliveryDetails={async (details) => {
                   setMessage(null);
+                  const normalizedDetails = normalizeDeliveryDetailsDraft(details);
+
+                  if (!hasCompleteDeliveryDetails(normalizedDetails)) {
+                    setMessage({ tone: 'error', text: getDeliveryDetailsValidationMessage(normalizedDetails) });
+                    return;
+                  }
 
                   try {
-                    const normalizedDetails = normalizeDeliveryDetailsDraft(details);
-
                     await updateDeliveryDetailsMutation.mutateAsync({
                       ...normalizedDetails,
                       orderId: order.orderId,
@@ -474,7 +480,10 @@ function OrderDetailCard({
             <tbody>
               {orderItems.map((item) => (
                 <tr key={item.orderItemId}>
-                  <td>{getOrderItemName(item)}</td>
+                  <td>
+                    <strong className="customer-orders-item-name">{getOrderItemName(item)}</strong>
+                    {item.isCustomized ? <span className="customer-orders-customize-pill">Customize</span> : null}
+                  </td>
                   <td>{item.quantity ?? '-'}</td>
                   <td>{formatCustomerMoney(item.unitPrice)}</td>
                   <td>{formatCustomerMoney(getItemGrossAmount(item))}</td>
@@ -633,6 +642,8 @@ function DeliveryDetailsPanel({
   const t = customerCopy[lang];
   const [draft, setDraft] = useState<OrderDeliveryDetailsDraft>(() => getOrderDeliveryDetailsDraft(order));
   const isComplete = hasCompleteDeliveryDetails(draft);
+  const hasPhoneValue = draft.receiverPhone.trim().length > 0;
+  const hasPhoneError = hasPhoneValue && !isValidReceiverPhone(draft.receiverPhone);
 
   useEffect(() => {
     setDraft(getOrderDeliveryDetailsDraft(order));
@@ -671,10 +682,19 @@ function DeliveryDetailsPanel({
         <label>
           <span>{t.orders.phone}</span>
           <input
+            aria-invalid={hasPhoneError}
             disabled={isPending}
+            inputMode="numeric"
+            maxLength={11}
+            pattern="[0-9]{10,11}"
+            type="tel"
             value={draft.receiverPhone}
-            onChange={(event) => setDraft((current) => ({ ...current, receiverPhone: event.target.value }))}
+            onChange={(event) => {
+              const receiverPhone = event.target.value.replace(/\D/g, '').slice(0, 11);
+              setDraft((current) => ({ ...current, receiverPhone }));
+            }}
           />
+          {hasPhoneError ? <small className="customer-orders-field-error">{RECEIVER_PHONE_ERROR}</small> : null}
         </label>
         <label className="customer-orders-delivery-details-note">
           <span>{t.orders.note}</span>
@@ -773,8 +793,22 @@ function hasCompleteDeliveryDetails(details: OrderDeliveryDetailsDraft | OrderDe
     resolvedDetails.deliveryAddress?.trim()
     && resolvedDetails.deliveryNote?.trim()
     && resolvedDetails.receiverName?.trim()
-    && resolvedDetails.receiverPhone?.trim(),
+    && isValidReceiverPhone(resolvedDetails.receiverPhone),
   );
+}
+
+function isValidReceiverPhone(phone?: string | null) {
+  return RECEIVER_PHONE_PATTERN.test(phone?.trim() ?? '');
+}
+
+function getDeliveryDetailsValidationMessage(details: OrderDeliveryDetailsDraft | OrderDetailDto) {
+  const resolvedDetails = 'deliveryDetails' in details ? getOrderDeliveryDetailsDraft(details) : details;
+
+  if (resolvedDetails.receiverPhone?.trim() && !isValidReceiverPhone(resolvedDetails.receiverPhone)) {
+    return RECEIVER_PHONE_ERROR;
+  }
+
+  return 'Please complete all delivery details before creating the deposit payment.';
 }
 
 function areDeliveryDetailsLocked(status?: OrderStatus | null) {

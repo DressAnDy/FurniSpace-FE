@@ -215,6 +215,64 @@
   white-space: nowrap;
 }
 
+.assigned-projects-table-card td .project-status-badge {
+  display: inline-flex;
+  width: fit-content;
+  max-width: 180px;
+  align-items: center;
+  justify-content: center;
+  margin-top: 0;
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 16px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.assigned-projects-table-card td .project-status-badge.bg-blue-50 {
+  background: #eff6ff;
+  color: #1d4ed8;
+  box-shadow: inset 0 0 0 1px #dbeafe;
+}
+
+.assigned-projects-table-card td .project-status-badge.bg-amber-50 {
+  background: #fffbeb;
+  color: #b45309;
+  box-shadow: inset 0 0 0 1px #fde68a;
+}
+
+.assigned-projects-table-card td .project-status-badge.bg-purple-50 {
+  background: #faf5ff;
+  color: #7e22ce;
+  box-shadow: inset 0 0 0 1px #e9d5ff;
+}
+
+.assigned-projects-table-card td .project-status-badge.bg-orange-50 {
+  background: #fff7ed;
+  color: #c2410c;
+  box-shadow: inset 0 0 0 1px #fed7aa;
+}
+
+.assigned-projects-table-card td .project-status-badge.bg-emerald-50 {
+  background: #ecfdf5;
+  color: #047857;
+  box-shadow: inset 0 0 0 1px #bbf7d0;
+}
+
+.assigned-projects-table-card td .project-status-badge.bg-red-50 {
+  background: #fef2f2;
+  color: #b91c1c;
+  box-shadow: inset 0 0 0 1px #fecaca;
+}
+
+.assigned-projects-table-card td .project-status-badge.bg-zinc-100 {
+  background: #f4f4f5;
+  color: #3f3f46;
+  box-shadow: inset 0 0 0 1px #e4e4e7;
+}
+
 .assigned-projects-code {
   color: #8b6f47;
   font-weight: 500;

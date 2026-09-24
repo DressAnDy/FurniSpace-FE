@@ -4,7 +4,15 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 import { useLang } from '@/app/providers/useLang';
-import { ProjectStatusBadge, SaleNavbar, SaleSidebar, saleCopy } from '@/features/SalePages/salecomponents';
+import {
+  ProjectStatusBadge,
+  SaleNavbar,
+  SaleSidebar,
+  getProjectStatusPhase,
+  projectStatusPhases,
+  saleCopy,
+  type ProjectStatusPhaseKey,
+} from '@/features/SalePages/salecomponents';
 import { getAccountById, type AccountDto } from '@/services/api';
 import type { ProjectStatus } from '@/services/api/projects';
 import { useCurrentUser } from '@/services/queries/useAuth';
@@ -13,7 +21,7 @@ import { useProjectList } from '@/services/queries/useProjects';
 import './AssignedProjects.css';
 
 const PAGE_SIZE = 5;
-const ALL_STATUS_VALUE = 'ALL';
+const ALL_PHASE_VALUE = 'ALL';
 const ALL_BUSINESS_TYPE_VALUE = 'ALL';
 const projectStatusPriority: ProjectStatus[] = [
   'SUBMITTED',
@@ -44,7 +52,7 @@ export function AssignedProjects() {
   const a = t.assignedProjects;
   const navigate = useNavigate();
   const [keyword, setKeyword] = useState('');
-  const [status, setStatus] = useState<ProjectStatus | typeof ALL_STATUS_VALUE>(ALL_STATUS_VALUE);
+  const [phase, setPhase] = useState<ProjectStatusPhaseKey | typeof ALL_PHASE_VALUE>(ALL_PHASE_VALUE);
   const [businessType, setBusinessType] = useState(ALL_BUSINESS_TYPE_VALUE);
   const [page, setPage] = useState(1);
   const currentUserQuery = useCurrentUser();
@@ -118,10 +126,10 @@ export function AssignedProjects() {
           designer?.email ?? '',
         ];
         const matchesKeyword = !normalizedKeyword || keywordFields.some((value) => value.toLowerCase().includes(normalizedKeyword));
-        const matchesStatus = status === ALL_STATUS_VALUE || project.status === status;
+        const matchesPhase = phase === ALL_PHASE_VALUE || getProjectStatusPhase(project.status)?.key === phase;
         const matchesBusinessType = businessType === ALL_BUSINESS_TYPE_VALUE || project.businessType === businessType;
 
-        return matchesKeyword && matchesStatus && matchesBusinessType;
+        return matchesKeyword && matchesPhase && matchesBusinessType;
       })
       .sort((left, right) => {
         const leftRank = projectStatusRank.get(left.status) ?? projectStatusPriority.length;
@@ -131,7 +139,7 @@ export function AssignedProjects() {
 
         return new Date(right.submittedAt).getTime() - new Date(left.submittedAt).getTime();
       });
-  }, [accountById, assignedProjects, businessType, keyword, status]);
+  }, [accountById, assignedProjects, businessType, keyword, phase]);
 
   const totalPages = Math.max(1, Math.ceil(filteredProjects.length / PAGE_SIZE));
   const currentPage = Math.min(page, totalPages);
@@ -142,7 +150,7 @@ export function AssignedProjects() {
 
   useEffect(() => {
     setPage(1);
-  }, [keyword, status, businessType]);
+  }, [keyword, phase, businessType]);
 
   useEffect(() => {
     if (page > totalPages) {
@@ -178,10 +186,12 @@ export function AssignedProjects() {
                   onChange={(event) => setKeyword(event.target.value)}
                 />
               </label>
-              <select value={status} onChange={(event) => setStatus(event.target.value as ProjectStatus | typeof ALL_STATUS_VALUE)}>
-                <option value={ALL_STATUS_VALUE}>{t.common.allStatus}</option>
-                {projectStatusPriority.map((projectStatus) => (
-                  <option key={projectStatus} value={projectStatus}>{formatStatusLabel(projectStatus)}</option>
+              <select value={phase} onChange={(event) => setPhase(event.target.value as ProjectStatusPhaseKey | typeof ALL_PHASE_VALUE)}>
+                <option value={ALL_PHASE_VALUE}>{t.common.allStatus}</option>
+                {projectStatusPhases.map((projectPhase) => (
+                  <option key={projectPhase.key} value={projectPhase.key}>
+                    {projectPhase.label}
+                  </option>
                 ))}
               </select>
               <select value={businessType} onChange={(event) => setBusinessType(event.target.value)}>
@@ -291,14 +301,6 @@ export function AssignedProjects() {
       </div>
     </div>
   );
-}
-
-function formatStatusLabel(status: string) {
-  return status
-    .toLowerCase()
-    .split('_')
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(' ');
 }
 
 function formatDate(value: string) {

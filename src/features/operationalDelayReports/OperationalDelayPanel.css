@@ -122,6 +122,10 @@
   transform: translateY(-1px);
 }
 
+.operational-delay-row.is-resolved {
+  grid-template-columns: minmax(180px, 1fr) minmax(180px, auto) auto;
+}
+
 .operational-delay-row > span:not(.operational-delay-badge) {
   display: grid;
   gap: 4px;

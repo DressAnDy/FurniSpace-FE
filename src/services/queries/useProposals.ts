@@ -142,7 +142,10 @@ export function useReopenProposalForEditing() {
       void queryClient.invalidateQueries({ queryKey: proposalQueryKeys.all });
       void queryClient.invalidateQueries({ queryKey: proposalQueryKeys.detail(result.proposalId) });
       void queryClient.invalidateQueries({ queryKey: proposalQueryKeys.byProject({ projectId: result.projectId }) });
+      void queryClient.invalidateQueries({ queryKey: ['quotations'] });
+      void queryClient.invalidateQueries({ queryKey: ['quotations', 'project'] });
       void queryClient.invalidateQueries({ queryKey: ['projects'] });
+      void queryClient.invalidateQueries({ queryKey: ['projects', 'detail', result.projectId] });
       void queryClient.invalidateQueries({ queryKey: ['notifications'] });
     },
   });

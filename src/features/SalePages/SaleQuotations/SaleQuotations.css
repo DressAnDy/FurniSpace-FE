@@ -445,6 +445,21 @@
   white-space: normal;
 }
 
+.sale-quotations-customize-pill {
+  display: inline-flex !important;
+  width: fit-content;
+  align-items: center;
+  border-radius: 999px;
+  background: rgba(139, 111, 71, 0.12);
+  color: #6f5636 !important;
+  font-size: 9px !important;
+  font-weight: 800;
+  line-height: 14px !important;
+  margin-top: 4px;
+  padding: 2px 8px;
+  text-transform: uppercase;
+}
+
 .sale-quotations-version {
   display: inline-flex !important;
   border: 1px solid rgba(139, 111, 71, 0.15);

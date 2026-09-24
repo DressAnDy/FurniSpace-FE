@@ -324,11 +324,27 @@ export function getProposalServiceResultMessage(error: unknown) {
     return 'Cannot connect to proposal API. Please check backend and VITE_API_URL.';
   }
 
+  if (result.errorCode) {
+    return getProposalErrorCodeMessage(result.errorCode);
+  }
+
   if (result.errors?.length) {
     return result.errors.join('\n');
   }
 
   return result.message || 'Request failed. Please try again.';
+}
+
+function getProposalErrorCodeMessage(errorCode: string) {
+  const messages: Record<string, string> = {
+    PROPOSAL_ALREADY_SELECTED: 'This proposal is already selected. Use project reopen to return to proposal consulting.',
+    PROPOSAL_REOPEN_NOT_ALLOWED: 'This proposal cannot be reopened from its current status.',
+    PROPOSAL_QUOTATION_HAS_ORDER: 'This proposal already has an order. Use project reopen instead, or contact Sales to handle the order path.',
+    PROPOSAL_QUOTATION_CANNOT_BE_CANCELLED: 'The active quotation cannot be cancelled automatically. Please ask Sales to handle it manually.',
+    PROPOSAL_HAS_QUOTATION: 'The quotation linked to this proposal could not be cancelled automatically.',
+  };
+
+  return messages[errorCode] ?? 'Request failed. Please try again.';
 }
 
 export function getProposalServiceResultFromError(error: unknown) {

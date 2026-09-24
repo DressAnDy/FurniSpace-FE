@@ -121,6 +121,12 @@ export function CustomerProjectDetailPage() {
 
     setMessage(null);
 
+    const confirmed = window.confirm(
+      'This will cancel the active quotation and any pending order/deposit path, then move the project back to proposal consulting so you can choose a proposal again.',
+    );
+
+    if (!confirmed) return;
+
     try {
       await reopenProposalMutation.mutateAsync(project.projectId);
       setMessage({ tone: 'success', text: t.projectDetail.reopenedToast });

@@ -2,14 +2,13 @@ import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { useQueries } from '@tanstack/react-query';
 import { IconCalendarEvent } from '@tabler/icons-react';
 
-import { getAccountById, getAccountRoleName, type AccountDto, type AccountRoleDto } from '@/services/api';
+import { getAccountById, type AccountDto } from '@/services/api';
 import { getAccountServiceResultMessage } from '@/services/api/accounts';
 import { getProjectServiceResultMessage, type ProjectSpaceDataStatus } from '@/services/api/projects';
 import {
   useAssignDesignerToProject,
   useAvailableDesigners,
   useProjectStartFeeStatus,
-  useRoleList,
 } from '@/services/queries';
 import { getLocalDateInputValue } from '@/shared/utils/dateValidation';
 
@@ -46,11 +45,6 @@ export function ProjectMemberTab({ project, canManageAssignment = false }: Proje
   const assignedDesigner = project.assignedDesignerId ? accountById[project.assignedDesignerId] ?? null : null;
   const isLoadingMembers = accountQueries.some((query) => query.isLoading);
   const hasMemberLoadError = accountQueries.some((query) => query.isError);
-  const rolesQuery = useRoleList();
-  const roleById = useMemo(
-    () => new Map((rolesQuery.data ?? []).map((role) => [role.roleId, role])),
-    [rolesQuery.data],
-  );
   const availableDesignersQuery = useAvailableDesigners(
     { page: 1, pageSize: 100 },
     { enabled: canManageAssignment && !project.assignedDesignerId },
@@ -138,14 +132,13 @@ export function ProjectMemberTab({ project, canManageAssignment = false }: Proje
       {hasMemberLoadError ? <p className="project-detail-api-note">Some account details could not be loaded. Showing assigned ids where available.</p> : null}
 
       <div className="project-detail-member-grid">
-        <ProjectMemberCard label="Customer" fallbackId={project.customerId} account={customer} placeholder="Customer unavailable" roleById={roleById} />
-        <ProjectMemberCard label="Sales" fallbackId={project.assignedSalesId} account={assignedSales} placeholder="Unassigned" roleById={roleById} />
+        <ProjectMemberCard label="Customer" fallbackId={project.customerId} account={customer} placeholder="Customer unavailable" />
+        <ProjectMemberCard label="Sales" fallbackId={project.assignedSalesId} account={assignedSales} placeholder="Unassigned" />
         <ProjectMemberCard
           label="Designer"
           fallbackId={project.assignedDesignerId}
           account={assignedDesigner}
           placeholder="Unassigned"
-          roleById={roleById}
           avatarClassName="project-detail-team-avatar-designer"
         />
       </div>
@@ -249,16 +242,11 @@ type ProjectMemberCardProps = {
   fallbackId: string | null;
   account: AccountDto | null;
   placeholder: string;
-  roleById: Map<string, AccountRoleDto>;
   avatarClassName?: string;
 };
 
-function ProjectMemberCard({ label, fallbackId, account, placeholder, roleById, avatarClassName = '' }: ProjectMemberCardProps) {
+function ProjectMemberCard({ label, fallbackId, account, placeholder, avatarClassName = '' }: ProjectMemberCardProps) {
   const displayName = account?.fullName ?? (fallbackId ? 'Loading account...' : placeholder);
-  const accountRoleName = account ? getAccountRoleName(account) : label;
-  const roleName = accountRoleName === 'UNKNOWN' && account?.roleId
-    ? roleById.get(account.roleId)?.roleName ?? accountRoleName
-    : accountRoleName;
 
   return (
     <article className="project-detail-team-member-card project-detail-project-member-card">
@@ -271,7 +259,7 @@ function ProjectMemberCard({ label, fallbackId, account, placeholder, roleById, 
       <div className="project-detail-member-meta-row">
         <div className="project-detail-team-meta">
           <span>Role</span>
-          <strong>{roleName}</strong>
+          <strong>{label}</strong>
         </div>
         <div className="project-detail-team-meta">
           <span>Status</span>

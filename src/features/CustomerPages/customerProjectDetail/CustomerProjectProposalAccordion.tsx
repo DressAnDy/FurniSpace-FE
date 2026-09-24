@@ -243,9 +243,9 @@ function CustomerProjectProposalPanel({
 
     if (!customizingItemId) return;
 
-    const width = validateOptionalCustomizationNumber(customizationWidth, 'Width');
-    const height = validateOptionalCustomizationNumber(customizationHeight, 'Height');
-    const depth = validateOptionalCustomizationNumber(customizationDepth, 'Depth');
+    const width = validateOptionalCustomizationNumber(customizationWidth, 'Width (cm)');
+    const height = validateOptionalCustomizationNumber(customizationHeight, 'Height (cm)');
+    const depth = validateOptionalCustomizationNumber(customizationDepth, 'Depth (cm)');
 
     if (!width.ok) {
       setCustomizationMessage(width.message);
@@ -425,9 +425,9 @@ function CustomerProjectProposalPanel({
                 <div>
                   <input value={customizationMaterial} placeholder={t.proposalAccordion.materialPlaceholder} onChange={(event) => setCustomizationMaterial(event.target.value)} />
                   <input value={customizationColor} placeholder={t.proposalAccordion.colorPlaceholder} onChange={(event) => setCustomizationColor(event.target.value)} />
-                  <input inputMode="decimal" value={customizationWidth} placeholder={t.proposalAccordion.widthPlaceholder} onChange={(event) => setCustomizationWidth(sanitizeCustomizationDecimalInput(event.target.value))} />
-                  <input inputMode="decimal" value={customizationHeight} placeholder={t.proposalAccordion.heightPlaceholder} onChange={(event) => setCustomizationHeight(sanitizeCustomizationDecimalInput(event.target.value))} />
-                  <input inputMode="decimal" value={customizationDepth} placeholder={t.proposalAccordion.depthPlaceholder} onChange={(event) => setCustomizationDepth(sanitizeCustomizationDecimalInput(event.target.value))} />
+                  <input inputMode="decimal" value={customizationWidth} placeholder={`${t.proposalAccordion.widthPlaceholder} (cm)`} onChange={(event) => setCustomizationWidth(sanitizeCustomizationDecimalInput(event.target.value))} />
+                  <input inputMode="decimal" value={customizationHeight} placeholder={`${t.proposalAccordion.heightPlaceholder} (cm)`} onChange={(event) => setCustomizationHeight(sanitizeCustomizationDecimalInput(event.target.value))} />
+                  <input inputMode="decimal" value={customizationDepth} placeholder={`${t.proposalAccordion.depthPlaceholder} (cm)`} onChange={(event) => setCustomizationDepth(sanitizeCustomizationDecimalInput(event.target.value))} />
                 </div>
                 <div>
                   <button type="button" onClick={resetCustomizationForm}>{t.common.cancel}</button>
