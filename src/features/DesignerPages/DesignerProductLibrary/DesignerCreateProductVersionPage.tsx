@@ -2,7 +2,8 @@ import { type FormEvent, useMemo } from 'react';
 import { IconArrowLeft, IconBox } from '@tabler/icons-react';
 import { useNavigate, useParams } from 'react-router-dom';
 
-import { DesignerLayout } from '@/features/DesignerPages/designercomponents';
+import { useLang } from '@/app/providers/useLang';
+import { DesignerLayout, designerCopy } from '@/features/DesignerPages/designercomponents';
 import {
   generateProductVersionCode,
   getProductServiceResultMessage,
@@ -17,6 +18,8 @@ import '../../AdminPages/Productmanagement/Productmanagement.css';
 import './DesignerProductLibrary.css';
 
 export function DesignerCreateProductVersionPage() {
+  const { lang } = useLang();
+  const t = designerCopy[lang];
   const navigate = useNavigate();
   const { productId } = useParams();
   const productQuery = useProductDetail(productId);
@@ -62,17 +65,17 @@ export function DesignerCreateProductVersionPage() {
   }
 
   return (
-    <DesignerLayout activeLabel="Product Library">
+    <DesignerLayout activeKey="productLibrary">
       <section className="designer-products-header">
         <button className="designer-products-back" type="button" onClick={() => navigate('/designer/product-library')}>
           <IconArrowLeft size={16} />
-          Back to Product Library
+          {t.createProductVersion.back}
         </button>
-        <h2>Create Product Version</h2>
-        <p>{product ? `Add a Designer-created version for ${product.productName}` : 'Loading product from catalog...'}</p>
+        <h2>{t.createProductVersion.title}</h2>
+        <p>{product ? t.createProductVersion.subtitle(product.productName) : t.createProductVersion.loadingProduct}</p>
       </section>
 
-      {productQuery.isLoading ? <section className="designer-card designer-products-state">Loading parent product...</section> : null}
+      {productQuery.isLoading ? <section className="designer-card designer-products-state">{t.createProductVersion.loadingParent}</section> : null}
       {productQuery.isError ? (
         <section className="designer-card designer-products-state designer-products-state-error">
           {getProductServiceResultMessage(productQuery.error)}
@@ -83,47 +86,47 @@ export function DesignerCreateProductVersionPage() {
         <form className="product-form-shell designer-create-version-shell" onSubmit={handleSubmit}>
           <section className="product-form-card">
             <div className="product-form-note">
-              Designer can create version records. Updating versions, setting default, and uploading catalog files remain Admin-only until backend opens those permissions.
+              {t.createProductVersion.adminNote}
             </div>
 
             <div className="product-form-section">
               <div className="product-form-section-title">
                 <IconBox size={20} />
-                <h3>Parent Product</h3>
+                <h3>{t.createProductVersion.parentProduct}</h3>
               </div>
               <div className="product-form-info-grid">
                 <div>
-                  <span>Product</span>
+                  <span>{t.createProductVersion.product}</span>
                   <strong>{product.productName}</strong>
                 </div>
                 <div>
-                  <span>Category</span>
+                  <span>{t.createProductVersion.category}</span>
                   <strong>{product.categoryName}</strong>
                 </div>
                 <div>
-                  <span>Business Type</span>
-                  <strong>{product.businessTypes?.map((businessType) => businessType.name).join(', ') || 'Not assigned'}</strong>
+                  <span>{t.createProductVersion.businessType}</span>
+                  <strong>{product.businessTypes?.map((businessType) => businessType.name).join(', ') || t.createProductVersion.notAssigned}</strong>
                 </div>
                 <div>
-                  <span>Code</span>
+                  <span>{t.createProductVersion.code}</span>
                   <strong>{product.productCode ?? product.productId}</strong>
                 </div>
               </div>
             </div>
 
             <div className="product-form-section">
-              <h3>Version Information</h3>
+              <h3>{t.createProductVersion.versionInformation}</h3>
               <div className="product-form-grid">
                 <label className="product-form-field">
-                  <span>Version Code *</span>
+                  <span>{t.createProductVersion.versionCode} *</span>
                   <input className="admin-form-input" defaultValue={suggestedVersionCode} maxLength={50} name="version_code" required type="text" />
                 </label>
                 <label className="product-form-field">
-                  <span>Version Name *</span>
-                  <input className="admin-form-input" maxLength={150} name="version_name" placeholder="e.g., Designer layout variant" required type="text" />
+                  <span>{t.createProductVersion.versionName} *</span>
+                  <input className="admin-form-input" maxLength={150} name="version_name" placeholder={t.createProductVersion.placeholderVersionName} required type="text" />
                 </label>
                 <label className="product-form-field">
-                  <span>Version Type</span>
+                  <span>{t.createProductVersion.versionType}</span>
                   <select className="admin-form-input" defaultValue="STANDARD" name="version_type">
                     <option value="STANDARD">STANDARD</option>
                     <option value="CUSTOM">CUSTOM</option>
@@ -131,46 +134,46 @@ export function DesignerCreateProductVersionPage() {
                   </select>
                 </label>
                 <label className="product-form-field">
-                  <span>Material</span>
-                  <input className="admin-form-input" name="material" placeholder="e.g., Oak Wood" type="text" />
+                  <span>{t.createProductVersion.material}</span>
+                  <input className="admin-form-input" name="material" placeholder={t.createProductVersion.placeholderMaterial} type="text" />
                 </label>
                 <label className="product-form-field">
-                  <span>Color</span>
-                  <input className="admin-form-input" name="color" placeholder="e.g., Natural" type="text" />
+                  <span>{t.createProductVersion.color}</span>
+                  <input className="admin-form-input" name="color" placeholder={t.createProductVersion.placeholderColor} type="text" />
                 </label>
                 <label className="product-form-field">
-                  <span>Estimated Price</span>
-                  <input className="admin-form-input" min="0" name="estimated_price" placeholder="0" type="number" />
+                  <span>{t.createProductVersion.estimatedPrice}</span>
+                  <input className="admin-form-input" min="0" name="estimated_price" placeholder={t.createProductVersion.placeholderPrice} type="number" />
                 </label>
               </div>
             </div>
 
             <div className="product-form-section">
-              <h3>Dimensions (cm)</h3>
+              <h3>{t.createProductVersion.dimensions}</h3>
               <div className="product-form-grid product-form-grid-three">
                 <label className="product-form-field">
-                  <span>Width</span>
-                  <input className="admin-form-input" min="0" name="width" placeholder="0" type="number" />
+                  <span>{t.createProductVersion.width}</span>
+                  <input className="admin-form-input" min="0" name="width" placeholder={t.createProductVersion.placeholderPrice} type="number" />
                 </label>
                 <label className="product-form-field">
-                  <span>Height</span>
-                  <input className="admin-form-input" min="0" name="height" placeholder="0" type="number" />
+                  <span>{t.createProductVersion.height}</span>
+                  <input className="admin-form-input" min="0" name="height" placeholder={t.createProductVersion.placeholderPrice} type="number" />
                 </label>
                 <label className="product-form-field">
-                  <span>Depth</span>
-                  <input className="admin-form-input" min="0" name="depth" placeholder="0" type="number" />
+                  <span>{t.createProductVersion.depth}</span>
+                  <input className="admin-form-input" min="0" name="depth" placeholder={t.createProductVersion.placeholderPrice} type="number" />
                 </label>
               </div>
             </div>
 
             <div className="product-form-section">
-              <h3>Settings</h3>
+              <h3>{t.createProductVersion.settings}</h3>
               <div className="product-setting-list">
                 <label>
                   <input name="is_project_specific" type="checkbox" />
                   <span>
-                    <strong>Project Specific</strong>
-                    <small>Marks this version as intended for a project-specific design.</small>
+                    <strong>{t.createProductVersion.projectSpecific}</strong>
+                    <small>{t.createProductVersion.projectSpecificHint}</small>
                   </span>
                 </label>
               </div>
@@ -183,10 +186,10 @@ export function DesignerCreateProductVersionPage() {
 
           <div className="product-form-actions">
             <button className="product-form-button product-form-button-secondary" type="button" onClick={() => navigate('/designer/product-library')}>
-              Cancel
+              {t.createProductVersion.cancel}
             </button>
             <button className="product-form-button product-form-button-primary" disabled={createVersionMutation.isPending} type="submit">
-              {createVersionMutation.isPending ? 'Saving...' : 'Create Version'}
+              {createVersionMutation.isPending ? t.createProductVersion.saving : t.createProductVersion.createVersion}
             </button>
           </div>
         </form>

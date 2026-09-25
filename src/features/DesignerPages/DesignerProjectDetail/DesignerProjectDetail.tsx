@@ -11,7 +11,8 @@ import { useQueries } from '@tanstack/react-query';
 import { useEffect, useMemo, useState, type ComponentType } from 'react';
 import { Link, useLocation, useParams } from 'react-router-dom';
 
-import { DesignerLayout } from '@/features/DesignerPages/designercomponents';
+import { useLang } from '@/app/providers/useLang';
+import { DesignerLayout, designerCopy } from '@/features/DesignerPages/designercomponents';
 import { getAccountById } from '@/services/api';
 import { getProjectServiceResultMessage, type ProjectDto, type ProjectStatus } from '@/services/api/projects';
 import { useMarkSpaceVerified, useProjectDetail, useProjectScheduleList, useStartProposalConsulting } from '@/services/queries';
@@ -31,18 +32,36 @@ type DesignerProjectTabConfig = {
   component?: ComponentType<DesignerProjectTabProps>;
 };
 
-const detailTabs: DesignerProjectTabConfig[] = [
-  { id: 'overview', label: 'Overview', component: OverviewTab },
-  { id: 'space-files', label: 'Space Files', component: SpaceFilesTab },
-  { id: 'measurement-images', label: 'Measurement Images', component: MeasurementImagesTab },
-  { id: 'project-areas', label: 'Project Areas', component: ProjectAreasTab },
-  { id: 'proposals', label: 'Proposals', component: ProposalsTab },
-  { id: 'customization', label: 'Customization', component: CustomizationTab },
-  { id: 'schedules', label: 'Schedules', component: SchedulesTab },
-  { id: 'chat', label: 'Chat', component: ChatTab },
+const detailTabDefs: Omit<DesignerProjectTabConfig, 'label'>[] = [
+  { id: 'overview', component: OverviewTab },
+  { id: 'space-files', component: SpaceFilesTab },
+  { id: 'measurement-images', component: MeasurementImagesTab },
+  { id: 'project-areas', component: ProjectAreasTab },
+  { id: 'proposals', component: ProposalsTab },
+  { id: 'customization', component: CustomizationTab },
+  { id: 'schedules', component: SchedulesTab },
+  { id: 'chat', component: ChatTab },
 ];
 
 export function DesignerProjectDetail() {
+  const { lang } = useLang();
+  const t = designerCopy[lang];
+  const pd = t.projectDetail;
+  const detailTabs = useMemo((): DesignerProjectTabConfig[] => {
+    const tabLabels = pd.tabs;
+    return detailTabDefs.map((tab) => ({
+      ...tab,
+      label:
+        tab.id === 'overview' ? tabLabels.overview
+        : tab.id === 'space-files' ? tabLabels.spaceFiles
+        : tab.id === 'measurement-images' ? tabLabels.measurementImages
+        : tab.id === 'project-areas' ? tabLabels.projectAreas
+        : tab.id === 'proposals' ? tabLabels.proposals
+        : tab.id === 'customization' ? tabLabels.customization
+        : tab.id === 'schedules' ? tabLabels.schedules
+        : tabLabels.chat,
+    }));
+  }, [pd.tabs]);
   const { projectId } = useParams();
   const location = useLocation();
   const [activeTab, setActiveTab] = useState<DesignerProjectDetailTab>('overview');
@@ -94,13 +113,19 @@ export function DesignerProjectDetail() {
   const isCheckingSpaceVerifySchedules = project?.status === 'MEASUREMENT_REQUIRED' && projectSchedulesQuery.isFetching;
   const projectFacts = project
     ? [
-        { icon: IconBox, label: `${project.businessType}${project.totalAreaSqm ? ` - ${project.totalAreaSqm} sqm` : ''}` },
-        { icon: IconClipboardList, label: customer?.fullName ?? 'Loading customer...' },
-        { icon: IconCalendarEvent, label: project.targetCompletionDate ? formatDate(project.targetCompletionDate) : 'No target date' },
-        { icon: IconMessage, label: `Sales: ${sales?.fullName ?? project.assignedSalesId ?? '-'}` },
-        ...(salesDeadline ? [{ icon: IconCalendarEvent, label: `Sale deadline: ${formatDate(salesDeadline.deadlineAt ?? salesDeadline.dueDate ?? '')}` }] : []),
+        {
+          icon: IconBox,
+          label: project.totalAreaSqm
+            ? pd.sqm(project.businessType, project.totalAreaSqm)
+            : project.businessType,
+        },
+        { icon: IconClipboardList, label: customer?.fullName ?? pd.loadingCustomer },
+        { icon: IconCalendarEvent, label: project.targetCompletionDate ? formatDate(project.targetCompletionDate) : pd.noTargetDate },
+        { icon: IconMessage, label: pd.sales(sales?.fullName ?? project.assignedSalesId ?? t.common.dash) },
+        ...(salesDeadline ? [{ icon: IconCalendarEvent, label: pd.saleDeadline(formatDate(salesDeadline.deadlineAt ?? salesDeadline.dueDate ?? '')) }] : []),
       ]
     : [];
+  const designStatusActionLabel = project ? getDesignStatusActionLabel(project.status, pd) : '';
 
   useEffect(() => {
     if (requestedTab && detailTabs.some((tab) => tab.id === requestedTab)) {
@@ -128,7 +153,7 @@ export function DesignerProjectDetail() {
         const hasIncompleteSchedule = schedules.some((schedule) => !isScheduleClosed(schedule.status));
 
         if (hasIncompleteSchedule) {
-          setProjectActionMessage({ tone: 'error', text: SPACE_VERIFY_SCHEDULE_BLOCK_MESSAGE });
+          setProjectActionMessage({ tone: 'error', text: pd.spaceVerifyBlock });
           return;
         }
 
@@ -142,21 +167,21 @@ export function DesignerProjectDetail() {
           note: 'Designer started proposal consulting from project detail.',
         });
       }
-      setProjectActionMessage({ tone: 'success', text: `Project status updated to ${formatEnumLabel(nextStatus)}.` });
+      setProjectActionMessage({ tone: 'success', text: pd.statusUpdated(formatEnumLabel(nextStatus)) });
     } catch (error) {
       setProjectActionMessage({ tone: 'error', text: getProjectServiceResultMessage(error) });
     }
   }
 
   return (
-    <DesignerLayout activeLabel="Assigned Projects" searchPlaceholder="Search designer features...">
+    <DesignerLayout activeKey="assignedProjects">
       <section className="designer-project-detail-page">
         <Link className="designer-project-back-link" to="/designer/assigned-projects">
           <IconArrowLeft size={18} stroke={1.8} />
-          <span>Back to Assigned Projects</span>
+          <span>{pd.back}</span>
         </Link>
 
-        {projectQuery.isLoading ? <section className="designer-card designer-project-state">Loading project detail...</section> : null}
+        {projectQuery.isLoading ? <section className="designer-card designer-project-state">{pd.loading}</section> : null}
         {projectQuery.isError ? <section className="designer-card designer-project-state designer-project-state-error">{getProjectServiceResultMessage(projectQuery.error)}</section> : null}
         {projectActionMessage ? (
           <section className={`designer-card designer-project-state ${projectActionMessage.tone === 'error' ? 'designer-project-state-error' : 'designer-project-state-success'}`}>
@@ -186,7 +211,7 @@ export function DesignerProjectDetail() {
 
               <div className="designer-project-process-card">
                 <div className="designer-project-current-status">
-                  <span>Current Status</span>
+                  <span>{pd.currentStatus}</span>
                   <strong>{formatEnumLabel(project.status)}</strong>
                 </div>
                 <div className="designer-project-progress-actions">
@@ -197,14 +222,14 @@ export function DesignerProjectDetail() {
                     onClick={() => void updateProjectToNextDesignStatus()}
                   >
                     <IconRefresh size={17} />
-                    {markSpaceVerifiedMutation.isPending || startProposalConsultingMutation.isPending || isCheckingSpaceVerifySchedules ? 'Updating...' : getDesignStatusActionLabel(project.status)}
+                    {markSpaceVerifiedMutation.isPending || startProposalConsultingMutation.isPending || isCheckingSpaceVerifySchedules ? pd.updating : designStatusActionLabel}
                   </button>
                 </div>
               </div>
             </section>
 
             <section className="designer-project-tabs-section">
-              <div className="designer-project-tabs" role="tablist" aria-label="Designer project detail sections">
+              <div className="designer-project-tabs" role="tablist" aria-label={pd.tabsAria}>
                 {detailTabs.map((tab) => {
                   const disabled = !tab.component;
                   return (
@@ -229,7 +254,7 @@ export function DesignerProjectDetail() {
                     <IconFileText className="designer-project-placeholder-icon" size={22} />
                     <div>
                       <h3>{activeTabConfig.label}</h3>
-                      <p>This section is reserved for the next designer workflow implementation.</p>
+                      <p>{pd.placeholder}</p>
                     </div>
                   </div>
                 </section>
@@ -245,8 +270,6 @@ export function DesignerProjectDetail() {
   );
 }
 
-const SPACE_VERIFY_SCHEDULE_BLOCK_MESSAGE = 'Please complete all project schedules before marking the space as verified.';
-
 function isScheduleClosed(status: string) {
   return status === 'COMPLETED' || status === 'CANCELLED';
 }
@@ -258,22 +281,22 @@ function getNextDesignStatus(status: ProjectStatus): ProjectStatus | null {
   return null;
 }
 
-function getDesignStatusActionLabel(status: ProjectStatus) {
+function getDesignStatusActionLabel(status: ProjectStatus, pd: typeof designerCopy.en.projectDetail) {
   const nextStatus = getNextDesignStatus(status);
 
   if (status === 'MEASUREMENT_REQUIRED') {
-    return 'Mark Space Verified';
+    return pd.markSpaceVerified;
   }
 
   if (status === 'SPACE_VERIFIED') {
-    return 'Start Proposal Consulting';
+    return pd.startProposalConsulting;
   }
 
   if (!nextStatus) {
-    return status === 'PROPOSAL_CONSULTING' ? 'Ready for Proposals' : 'No Designer Step';
+    return status === 'PROPOSAL_CONSULTING' ? pd.readyForProposals : pd.noDesignerStep;
   }
 
-  return `Update to ${formatEnumLabel(nextStatus)}`;
+  return pd.updateTo(formatEnumLabel(nextStatus));
 }
 
 function getStatusTone(status: string) {

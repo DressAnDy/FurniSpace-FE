@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { IconLink, IconPhoto, IconRulerMeasure, IconUpload, IconX } from '@tabler/icons-react';
 
+import { useLang } from '@/app/providers/useLang';
+import { designerCopy } from '@/features/DesignerPages/designercomponents';
 import { getMeasurementImageServiceResultMessage, type MeasurementImageDto } from '@/services/api/measurementImages';
 import type { ProjectDto } from '@/services/api/projects';
 import {
@@ -24,6 +26,8 @@ type MeasurementUploadItem = {
 };
 
 export function MeasurementImagesTab({ project }: Readonly<MeasurementImagesTabProps>) {
+  const { lang } = useLang();
+  const t = designerCopy[lang].measurementImagesTab;
   const [areaFilter, setAreaFilter] = useState('');
   const [uploadItems, setUploadItems] = useState<MeasurementUploadItem[]>([]);
   const [uploadMessage, setUploadMessage] = useState<{ tone: 'error' | 'success'; text: string } | null>(null);
@@ -51,7 +55,7 @@ export function MeasurementImagesTab({ project }: Readonly<MeasurementImagesTabP
     const nextFiles = Array.from(fileList ?? []).filter(isSupportedMeasurementImageFile);
 
     if (nextFiles.length === 0) {
-      setUploadMessage({ tone: 'error', text: 'Measurement images must be JPG, PNG, or WebP files.' });
+      setUploadMessage({ tone: 'error', text: t.invalidFileType });
       return;
     }
 
@@ -117,17 +121,17 @@ export function MeasurementImagesTab({ project }: Readonly<MeasurementImagesTabP
     const uploadQueue = uploadItems.filter((item) => item.status !== 'uploaded');
 
     if (!scheduleId) {
-      setUploadMessage({ tone: 'error', text: 'Select a confirmed measurement schedule first.' });
+      setUploadMessage({ tone: 'error', text: t.errSelectSchedule });
       return;
     }
 
     if (!projectAreaId) {
-      setUploadMessage({ tone: 'error', text: 'Select a project area so the image can be referenced correctly.' });
+      setUploadMessage({ tone: 'error', text: t.errSelectArea });
       return;
     }
 
     if (uploadQueue.length === 0) {
-      setUploadMessage({ tone: 'error', text: 'Select at least one measurement image.' });
+      setUploadMessage({ tone: 'error', text: t.errSelectImages });
       return;
     }
 
@@ -153,8 +157,8 @@ export function MeasurementImagesTab({ project }: Readonly<MeasurementImagesTabP
       }
 
       setUploadMessage(failedCount > 0
-        ? { tone: uploadedCount > 0 ? 'success' : 'error', text: `${uploadedCount}/${uploadQueue.length} image(s) uploaded, ${failedCount} failed. Please retry failed images.` }
-        : { tone: 'success', text: `${uploadedCount} measurement image(s) uploaded and linked to area.` });
+        ? { tone: uploadedCount > 0 ? 'success' : 'error', text: t.uploadPartial(uploadedCount, uploadQueue.length, failedCount) }
+        : { tone: 'success', text: t.uploadSuccess(uploadedCount) });
       void imagesQuery.refetch();
     } catch (error) {
       setUploadMessage({ tone: 'error', text: getMeasurementImageServiceResultMessage(error) });
@@ -164,33 +168,33 @@ export function MeasurementImagesTab({ project }: Readonly<MeasurementImagesTabP
   return (
     <section className="designer-card designer-project-section-card designer-project-measurement-section">
       <header className="designer-project-section-header">
-        <h3>Measurement Images</h3>
-        <p>Images captured from measurement schedules are synced from mobile and linked to project areas.</p>
+        <h3>{t.title}</h3>
+        <p>{t.intro}</p>
       </header>
 
       <form className="designer-project-measurement-upload" onSubmit={(event) => void uploadMeasurementImage(event)}>
         <header>
           <div>
-            <h4><IconUpload size={17} /> Upload Measurement Image</h4>
-            <p>Upload image files to a confirmed measurement schedule and link them to the measured area.</p>
+            <h4><IconUpload size={17} /> {t.uploadTitle}</h4>
+            <p>{t.uploadDesc}</p>
           </div>
         </header>
         <div className="designer-project-measurement-form-grid">
           <label>
-            <span>Measurement schedule</span>
+            <span>{t.measurementSchedule}</span>
             <select name="scheduleId" disabled={isUploading || schedulesQuery.isLoading}>
-              <option value="">{schedulesQuery.isLoading ? 'Loading schedules...' : 'Select schedule'}</option>
+              <option value="">{schedulesQuery.isLoading ? t.loadingSchedules : t.selectSchedule}</option>
               {eligibleSchedules.map((schedule) => (
                 <option key={schedule.scheduleId} value={schedule.scheduleId}>
-                  {schedule.title ?? 'Measurement'} - {formatDateTime(schedule.scheduledStart)}
+                  {schedule.title ?? t.measurement} - {formatDateTime(schedule.scheduledStart)}
                 </option>
               ))}
             </select>
           </label>
           <label>
-            <span>Project area</span>
+            <span>{t.projectArea}</span>
             <select name="projectAreaId" disabled={isUploading || areasQuery.isLoading}>
-              <option value="">{areasQuery.isLoading ? 'Loading areas...' : 'Select area'}</option>
+              <option value="">{areasQuery.isLoading ? t.loadingAreas : t.selectArea}</option>
               {areas.map((area) => (
                 <option key={area.projectAreaId} value={area.projectAreaId}>
                   {area.areaName}
@@ -201,8 +205,8 @@ export function MeasurementImagesTab({ project }: Readonly<MeasurementImagesTabP
         </div>
         <div className="designer-project-measurement-form-grid">
           <label>
-            <span>Note</span>
-            <input name="note" placeholder="Optional measurement note" disabled={isUploading} />
+            <span>{t.note}</span>
+            <input name="note" placeholder={t.optionalNote} disabled={isUploading} />
           </label>
         </div>
         <div className="designer-project-measurement-file-picker">
@@ -220,8 +224,8 @@ export function MeasurementImagesTab({ project }: Readonly<MeasurementImagesTabP
             />
             <span className="designer-project-measurement-dropzone-body">
               <IconUpload size={28} />
-              <strong>{uploadItems.length > 0 ? `${uploadItems.length} image(s) ready` : 'Choose measurement images'}</strong>
-              <small>You can choose multiple images at once, or add more before uploading.</small>
+              <strong>{uploadItems.length > 0 ? t.imagesReady(uploadItems.length) : t.chooseImages}</strong>
+              <small>{t.multiHint}</small>
             </span>
           </label>
         </div>
@@ -232,29 +236,30 @@ export function MeasurementImagesTab({ project }: Readonly<MeasurementImagesTabP
                 item={item}
                 key={item.id}
                 onRemove={() => removeUploadItem(item.id)}
+                removeLabel={t.removeFile(item.file.name)}
               />
             ))}
           </div>
         ) : null}
         {areas.length === 0 ? (
-          <p className="designer-project-file-message designer-project-file-error">Create at least one project area before linking measurement images.</p>
+          <p className="designer-project-file-message designer-project-file-error">{t.createAreaFirst}</p>
         ) : null}
         {eligibleSchedules.length === 0 && !schedulesQuery.isLoading ? (
-          <p className="designer-project-file-message designer-project-file-error">No confirmed measurement schedule is available for this project.</p>
+          <p className="designer-project-file-message designer-project-file-error">{t.noConfirmedSchedule}</p>
         ) : null}
         {uploadMessage ? <p className={`designer-project-file-message designer-project-file-${uploadMessage.tone}`}>{uploadMessage.text}</p> : null}
         <div className="designer-project-measurement-actions">
           <button className="designer-project-primary-button" disabled={isUploading || areas.length === 0 || eligibleSchedules.length === 0} type="submit">
-            {isUploading ? 'Uploading...' : 'Upload Images & Link'}
+            {isUploading ? t.uploading : t.uploadButton}
           </button>
         </div>
       </form>
 
       <div className="designer-project-measurement-filters designer-project-measurement-filters-single">
         <label>
-          <span>Area</span>
+          <span>{t.area}</span>
           <select value={areaFilter} onChange={(event) => setAreaFilter(event.target.value)}>
-            <option value="">All areas</option>
+            <option value="">{t.allAreas}</option>
             {areas.map((area) => (
               <option key={area.projectAreaId} value={area.projectAreaId}>{area.areaName}</option>
             ))}
@@ -266,26 +271,26 @@ export function MeasurementImagesTab({ project }: Readonly<MeasurementImagesTabP
         <p className="designer-project-file-message designer-project-file-error">{getMeasurementImageServiceResultMessage(imagesQuery.error)}</p>
       ) : null}
       {areasQuery.isError ? (
-        <p className="designer-project-file-message designer-project-file-error">Cannot load project areas.</p>
+        <p className="designer-project-file-message designer-project-file-error">{t.cannotLoadAreas}</p>
       ) : null}
 
-      {imagesQuery.isLoading ? <p className="designer-project-empty-text">Loading measurement images...</p> : null}
+      {imagesQuery.isLoading ? <p className="designer-project-empty-text">{designerCopy[lang].common.loading}</p> : null}
       {!imagesQuery.isLoading && images.length === 0 ? (
         <div className="designer-project-custom-empty-state">
           <IconRulerMeasure size={24} />
-          <strong>No measurement images yet</strong>
-          <span>Photos uploaded from mobile measurement sessions will appear here.</span>
+          <strong>{t.emptyTitle}</strong>
+          <span>{t.emptyHint}</span>
         </div>
       ) : null}
 
       <div className="designer-project-measurement-grid">
-        {images.map((image) => <MeasurementImageCard image={image} key={image.fileId} />)}
+        {images.map((image) => <MeasurementImageCard image={image} key={image.fileId} t={t} />)}
       </div>
     </section>
   );
 }
 
-function MeasurementUploadTile({ item, onRemove }: { item: MeasurementUploadItem; onRemove: () => void }) {
+function MeasurementUploadTile({ item, onRemove, removeLabel }: { item: MeasurementUploadItem; onRemove: () => void; removeLabel: string }) {
   const [previewUrl, setPreviewUrl] = useState('');
 
   useEffect(() => {
@@ -304,7 +309,7 @@ function MeasurementUploadTile({ item, onRemove }: { item: MeasurementUploadItem
         {item.errorMessage ? <em>{item.errorMessage}</em> : null}
       </div>
       <div className="designer-project-measurement-pending-actions">
-        <button aria-label={`Remove ${item.file.name}`} disabled={item.status === 'uploading'} type="button" onClick={onRemove}>
+        <button aria-label={removeLabel} disabled={item.status === 'uploading'} type="button" onClick={onRemove}>
           <IconX size={14} />
         </button>
       </div>
@@ -312,11 +317,11 @@ function MeasurementUploadTile({ item, onRemove }: { item: MeasurementUploadItem
   );
 }
 
-function MeasurementImageCard({ image }: { image: MeasurementImageDto }) {
+function MeasurementImageCard({ image, t }: { image: MeasurementImageDto; t: typeof designerCopy.en.measurementImagesTab }) {
   const imageUrl = image.url ?? image.publicUrl;
-  const imageAlt = getMeasurementImageFileName(image);
+  const imageAlt = getMeasurementImageFileName(image, t);
   const areaNames = image.areas
-    ?.map((area) => getDisplayText(area.areaName, 'Unnamed area'))
+    ?.map((area) => getDisplayText(area.areaName, t.unnamedArea))
     .filter(Boolean)
     .join(', ');
 
@@ -331,12 +336,12 @@ function MeasurementImageCard({ image }: { image: MeasurementImageDto }) {
       )}
       <div className="designer-project-file-content">
         <div className="designer-project-file-name">
-          <p>{image.uploadedAt ? formatDateTime(image.uploadedAt) : 'No upload time'}</p>
+          <p>{image.uploadedAt ? formatDateTime(image.uploadedAt) : t.noUploadTime}</p>
         </div>
         <p className="designer-project-file-meta">
-          Schedule: {image.measurementSchedule?.scheduledStart ? formatDateTime(image.measurementSchedule.scheduledStart) : '-'}
+          {t.scheduleLabel}: {image.measurementSchedule?.scheduledStart ? formatDateTime(image.measurementSchedule.scheduledStart) : '-'}
           <br />
-          <IconLink size={13} /> Areas: {areaNames || '-'}
+          <IconLink size={13} /> {t.areasLabel}: {areaNames || '-'}
         </p>
       </div>
     </article>
@@ -382,7 +387,7 @@ function formatDateTime(value: string) {
   }).format(new Date(value));
 }
 
-function getMeasurementImageFileName(image: MeasurementImageDto) {
+function getMeasurementImageFileName(image: MeasurementImageDto, t: typeof designerCopy.en.measurementImagesTab) {
   const explicitName = getDisplayText(image.originalFileName, '');
 
   if (explicitName && !isTechnicalId(explicitName)) {
@@ -395,7 +400,7 @@ function getMeasurementImageFileName(image: MeasurementImageDto) {
     return urlName;
   }
 
-  return image.fileId ? `File ${image.fileId.slice(0, 8)}` : 'Measurement file';
+  return image.fileId ? t.fileId(image.fileId.slice(0, 8)) : t.measurementFile;
 }
 
 function getFileNameFromPath(value?: string | null) {

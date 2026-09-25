@@ -2,7 +2,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { useQueries } from '@tanstack/react-query';
 import { IconArrowLeft, IconBox, IconChevronRight, IconCube, IconLayersIntersect, IconSearch, IconX } from '@tabler/icons-react';
 
-import { DesignerLayout } from '@/features/DesignerPages/designercomponents';
+import { useLang } from '@/app/providers/useLang';
+import { DesignerLayout, designerCopy } from '@/features/DesignerPages/designercomponents';
 import { ModelViewer, type ModelViewerStatus } from '@/features/ThreeD/components';
 import {
   formatCatalogPrice,
@@ -16,17 +17,31 @@ import { productQueryKeys, useBusinessTypeList, useProductList } from '@/service
 
 import './DesignerProductLibrary.css';
 
-type VersionFilter = 'All Types' | 'Default' | 'Public' | 'Project Specific' | 'Planner Ready';
+type VersionFilterKey = 'all' | 'default' | 'public' | 'projectSpecific' | 'plannerReady';
 
-const versionFilters: VersionFilter[] = ['All Types', 'Default', 'Public', 'Project Specific', 'Planner Ready'];
+const versionFilterKeys: VersionFilterKey[] = ['all', 'default', 'public', 'projectSpecific', 'plannerReady'];
+
+function versionFilterLabel(key: VersionFilterKey, pl: (typeof designerCopy)['en']['productLibrary']) {
+  const labels: Record<VersionFilterKey, string> = {
+    all: pl.filterAllTypes,
+    default: pl.filterDefault,
+    public: pl.filterPublic,
+    projectSpecific: pl.filterProjectSpecific,
+    plannerReady: pl.filterPlannerReady,
+  };
+
+  return labels[key];
+}
 const EMPTY_PRODUCTS: ProductListItemDto[] = [];
 const MIN_PRODUCT_PAGE_SIZE = 1;
 const MAX_PRODUCT_PAGE_SIZE = 100;
 const DEFAULT_PRODUCT_PAGE_SIZE = 9;
 
 export function DesignerProductLibrary() {
+  const { lang } = useLang();
+  const t = designerCopy[lang];
   const [search, setSearch] = useState('');
-  const [activeFilter, setActiveFilter] = useState<VersionFilter>('All Types');
+  const [activeFilter, setActiveFilter] = useState<VersionFilterKey>('all');
   const [businessTypeFilterIds, setBusinessTypeFilterIds] = useState<number[]>([]);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(DEFAULT_PRODUCT_PAGE_SIZE);
@@ -53,11 +68,11 @@ export function DesignerProductLibrary() {
 
     return cards.filter((card) => {
       const matchesFilter =
-        activeFilter === 'All Types'
-        || (activeFilter === 'Default' && card.versions.some((version) => version.isDefault))
-        || (activeFilter === 'Public' && card.versions.some((version) => version.isPublic))
-        || (activeFilter === 'Project Specific' && card.versions.some((version) => version.isProjectSpecific))
-        || (activeFilter === 'Planner Ready' && card.hasModel3d);
+        activeFilter === 'all'
+        || (activeFilter === 'default' && card.versions.some((version) => version.isDefault))
+        || (activeFilter === 'public' && card.versions.some((version) => version.isPublic))
+        || (activeFilter === 'projectSpecific' && card.versions.some((version) => version.isProjectSpecific))
+        || (activeFilter === 'plannerReady' && card.hasModel3d);
       const matchesSearch =
         !normalizedSearch
         || [
@@ -94,7 +109,7 @@ export function DesignerProductLibrary() {
     setPage(1);
   }
 
-  function updateFilter(filter: VersionFilter) {
+  function updateFilter(filter: VersionFilterKey) {
     setActiveFilter(filter);
     setPage(1);
   }
@@ -109,21 +124,21 @@ export function DesignerProductLibrary() {
   }
 
   return (
-    <DesignerLayout activeLabel="Product Library">
+    <DesignerLayout activeKey="productLibrary">
       <section className="designer-products-header">
         {selectedCard ? (
           <button className="designer-products-back" type="button" onClick={() => setSelectedProductId(null)}>
             <IconArrowLeft size={16} />
-            Back to Product Library
+            {t.productLibrary.back}
           </button>
         ) : null}
-        <h2>{selectedCard ? selectedCard.product.productName : 'Product Library'}</h2>
+        <h2>{selectedCard ? selectedCard.product.productName : t.productLibrary.title}</h2>
         <p>
           {selectedCard
-            ? `${selectedCard.versions.length} product versions - Select the version and model for your proposal`
+            ? t.productLibrary.subtitleVersions(selectedCard.versions.length)
             : productListQuery.isLoading
-            ? 'Loading products from catalog...'
-            : `${visibleCards.length} of ${cards.length} products - Browse versions and 3D models`}
+            ? t.productLibrary.subtitleLoading
+            : t.productLibrary.subtitleBrowse(visibleCards.length, cards.length)}
         </p>
       </section>
 
@@ -131,37 +146,37 @@ export function DesignerProductLibrary() {
         <form
           className="designer-card designer-products-toolbar"
           role="search"
-          aria-label="Filter product library"
+          aria-label={t.common.filters}
           onSubmit={(event) => event.preventDefault()}
         >
           <div className="designer-products-toolbar-top">
             <label className="designer-products-search">
               <IconSearch size={18} />
               <input
-                placeholder="Search product, material, code..."
+                placeholder={t.productLibrary.searchPlaceholder}
                 type="search"
                 value={search}
                 onChange={(event) => updateSearch(event.target.value)}
               />
             </label>
             <label className="designer-products-select-field">
-              <span>Version type</span>
-              <select value={activeFilter} onChange={(event) => updateFilter(event.target.value as VersionFilter)}>
-                {versionFilters.map((filter) => (
+              <span>{t.productLibrary.versionType}</span>
+              <select value={activeFilter} onChange={(event) => updateFilter(event.target.value as VersionFilterKey)}>
+                {versionFilterKeys.map((filter) => (
                   <option key={filter} value={filter}>
-                    {filter}
+                    {versionFilterLabel(filter, t.productLibrary)}
                   </option>
                 ))}
               </select>
             </label>
             <label className="designer-products-select-field">
-              <span>Business type</span>
+              <span>{t.productLibrary.businessType}</span>
               <select
                 disabled={businessTypeOptions.length === 0}
                 value={businessTypeFilterIds.length > 0 ? String(businessTypeFilterIds[0]) : ''}
                 onChange={(event) => updateBusinessTypeFilter(event.target.value)}
               >
-                <option value="">All business types</option>
+                <option value="">{t.common.allBusinessTypes}</option>
                 {businessTypeOptions.map((businessType) => (
                   <option key={businessType.id} value={businessType.id}>
                     {getBusinessTypeLabel(businessType.name)}
@@ -170,7 +185,7 @@ export function DesignerProductLibrary() {
               </select>
             </label>
             <span className="designer-products-filter-count">
-              {visibleCards.reduce((total, card) => total + card.versions.length, 0)} versions
+              {t.productLibrary.versionsCount(visibleCards.reduce((total, card) => total + card.versions.length, 0))}
             </span>
           </div>
         </form>
@@ -190,7 +205,7 @@ export function DesignerProductLibrary() {
 
       {!selectedCard && !productListQuery.isLoading && !productListQuery.isError && visibleCards.length === 0 ? (
         <section className="designer-card designer-products-state">
-          No products match the current filters.
+          {t.productLibrary.empty}
         </section>
       ) : null}
 
@@ -245,6 +260,8 @@ function DesignerProductsPager({
   onChange: (page: number) => void;
   onPageSizeChange: (pageSize: number) => void;
 }) {
+  const { lang } = useLang();
+  const t = designerCopy[lang];
   const safeTotalPages = Math.max(totalPages, 1);
   const [pageDraft, setPageDraft] = useState(String(page));
   const [sizeDraft, setSizeDraft] = useState(String(pageSize));
@@ -284,12 +301,12 @@ function DesignerProductsPager({
   }
 
   return (
-    <nav className="designer-products-pagination designer-products-batch-pager" aria-label="Product library pagination">
+    <nav className="designer-products-pagination designer-products-batch-pager" aria-label={t.productLibrary.paginationAria}>
       <div className="designer-products-pager-meta">
         <label className="designer-products-pager-field">
-          <span>Rows</span>
+          <span>{t.productLibrary.rowsPerPage}</span>
           <input
-            aria-label="Rows per page"
+            aria-label={t.productLibrary.rowsPerPage}
             inputMode="numeric"
             max={MAX_PRODUCT_PAGE_SIZE}
             min={MIN_PRODUCT_PAGE_SIZE}
@@ -305,9 +322,9 @@ function DesignerProductsPager({
           />
         </label>
         <label className="designer-products-pager-field">
-          <span>Page</span>
+          <span>{t.productLibrary.pageLabel}</span>
           <input
-            aria-label="Page"
+            aria-label={t.productLibrary.pageLabel}
             inputMode="numeric"
             max={safeTotalPages}
             min={1}
@@ -323,14 +340,14 @@ function DesignerProductsPager({
           />
           <span className="designer-products-pager-of">/ {safeTotalPages}</span>
         </label>
-        <span className="designer-products-pager-total">{totalItems} products</span>
+        <span className="designer-products-pager-total">{t.productLibrary.productsCount(totalItems)}</span>
       </div>
       <div className="designer-products-pager-nav">
         <button disabled={page <= 1} type="button" onClick={() => onChange(page - 1)}>
-          Previous
+          {t.common.previous}
         </button>
         <button disabled={page >= safeTotalPages} type="button" onClick={() => onChange(page + 1)}>
-          Next
+          {t.common.next}
         </button>
       </div>
     </nav>
@@ -364,6 +381,8 @@ function mapProductToLibraryCard(product: ProductListItemDto, detail: ProductDet
 }
 
 function ProductCard({ card, onOpen }: { card: ProductLibraryCardData; onOpen: (productId: string) => void }) {
+  const { lang } = useLang();
+  const t = designerCopy[lang];
   const { product, versions } = card;
 
   return (
@@ -377,17 +396,17 @@ function ProductCard({ card, onOpen }: { card: ProductLibraryCardData; onOpen: (
       </div>
       <div className="designer-product-body">
         <div className="designer-product-badges">
-          <span className="designer-pill designer-product-mode">{card.hasModel3d ? '3D Models Ready' : 'Product Versions'}</span>
+          <span className="designer-pill designer-product-mode">{card.hasModel3d ? t.productLibrary.modelsReady : t.productLibrary.productVersions}</span>
           <span className="designer-product-type">{product.categoryName}</span>
         </div>
         <h3>{product.productName}</h3>
-        <p className="designer-product-name">{product.description || 'No description yet.'}</p>
+        <p className="designer-product-name">{product.description || t.productLibrary.noDescription}</p>
         <div className="designer-product-summary">
           <span>{product.productCode || product.productId}</span>
-          <span>{versions.length} version{versions.length === 1 ? '' : 's'}</span>
+          <span>{t.productLibrary.versionCount(versions.length)}</span>
         </div>
         <button className="designer-product-open-button" type="button" onClick={() => onOpen(product.productId)}>
-          View versions
+          {t.productLibrary.viewVersions}
           <IconChevronRight size={15} />
         </button>
       </div>
@@ -396,6 +415,8 @@ function ProductCard({ card, onOpen }: { card: ProductLibraryCardData; onOpen: (
 }
 
 function ProductVersionList({ card }: { card: ProductLibraryCardData }) {
+  const { lang } = useLang();
+  const t = designerCopy[lang];
   const { product, versions } = card;
   const [previewVersionId, setPreviewVersionId] = useState<string | null>(null);
   const [viewerStatus, setViewerStatus] = useState<ModelViewerStatus>('idle');
@@ -413,15 +434,15 @@ function ProductVersionList({ card }: { card: ProductLibraryCardData }) {
         <div className="designer-product-version-summary-copy">
           <span className="designer-product-version-summary-category">{product.categoryName}</span>
           <h3>{product.productName}</h3>
-          <p>{product.description || 'No description yet.'}</p>
+          <p>{product.description || t.productLibrary.noDescription}</p>
           <div className="designer-product-summary">
             <span className="designer-product-summary-count">
               <IconLayersIntersect size={13} stroke={1.9} />
-              {versions.length} version{versions.length === 1 ? '' : 's'}
+              {t.productLibrary.versionCount(versions.length)}
             </span>
             <span className={`designer-product-summary-model ${card.hasModel3d ? 'is-ready' : ''}`}>
               <IconCube size={13} stroke={1.9} />
-              {card.hasModel3d ? '3D model ready' : 'No 3D model'}
+              {card.hasModel3d ? t.productLibrary.modelReady : t.productLibrary.noModel}
             </span>
             {(product.businessTypes ?? []).map((businessType) => (
               <span className="designer-product-summary-business" key={businessType.id}>
@@ -433,11 +454,11 @@ function ProductVersionList({ card }: { card: ProductLibraryCardData }) {
       </div>
 
       {card.isLoadingDetail && versions.length === 0 ? (
-        <section className="designer-card designer-products-state">Loading product versions...</section>
+        <section className="designer-card designer-products-state">{t.productLibrary.loadingVersions}</section>
       ) : null}
 
       {!card.isLoadingDetail && versions.length === 0 ? (
-        <section className="designer-card designer-products-state">No product versions found.</section>
+        <section className="designer-card designer-products-state">{t.productLibrary.noVersions}</section>
       ) : null}
 
       <section className="designer-product-version-grid">
@@ -465,11 +486,11 @@ function ProductVersionList({ card }: { card: ProductLibraryCardData }) {
                   {viewerStatus === 'error'
                     ? viewerError
                     : previewModelFile
-                      ? 'Drag to rotate, scroll to zoom.'
-                      : 'No MODEL_3D file is attached to this version.'}
+                      ? t.productLibrary.previewHint
+                      : t.productLibrary.noModelFile}
                 </p>
               </div>
-              <button type="button" aria-label="Close 3D model preview" onClick={() => setPreviewVersionId(null)}>
+              <button type="button" aria-label={t.productLibrary.closePreview} onClick={() => setPreviewVersionId(null)}>
                 <IconX size={16} />
               </button>
             </div>
@@ -501,6 +522,8 @@ function VersionRow({
   version: ProductVersionDto;
   onPreview: () => void;
 }>) {
+  const { lang } = useLang();
+  const t = designerCopy[lang];
   const modelFile = getVersionModelFile(version);
   const thumbnailUrl = getVersionPreviewImage(version) ?? getProductCoverImage(product, version);
 
@@ -518,28 +541,28 @@ function VersionRow({
           </div>
           <span className={`designer-product-model-pill ${modelFile ? 'is-ready' : ''}`}>
             <IconCube size={13} />
-            {modelFile ? '3D Ready' : 'No 3D'}
+            {modelFile ? t.productLibrary.ready3d : t.productLibrary.no3d}
           </span>
         </div>
         <div className="designer-product-version-tags">
-          {getVersionBadges(version).map((badge) => (
+          {getVersionBadges(version, t.productLibrary).map((badge) => (
             <span key={badge}>{badge}</span>
           ))}
         </div>
         <dl className="designer-product-version-specs">
-          <ProductSpec label="Material" value={version.material || '-'} />
-          <ProductSpec label="Color" value={version.color || '-'} />
-          <ProductSpec label="Size" value={formatDimensions(version)} />
+          <ProductSpec label={t.productLibrary.material} value={version.material || t.common.dash} />
+          <ProductSpec label={t.productLibrary.color} value={version.color || t.common.dash} />
+          <ProductSpec label={t.productLibrary.size} value={formatDimensions(version, t.common.dash)} />
         </dl>
         <div className="designer-product-footer">
           <div className="designer-product-version-price">
-            <small>Estimated price</small>
+            <small>{t.productLibrary.estimatedPrice}</small>
             <strong>{formatCatalogPrice(version.estimatedPrice)}</strong>
           </div>
           <div className="designer-product-actions">
             <button className="designer-product-asset-button" type="button" onClick={onPreview}>
               <IconCube size={15} />
-              3D Assets
+              {t.productLibrary.assets3d}
             </button>
           </div>
         </div>
@@ -575,24 +598,24 @@ function getPrimaryVersion(versions: ProductVersionDto[]) {
   return versions.find((version) => version.isDefault) ?? versions[0] ?? null;
 }
 
-function getVersionBadges(version: ProductVersionDto) {
+function getVersionBadges(version: ProductVersionDto, pl: (typeof designerCopy)['en']['productLibrary']) {
   const badges = [formatEnumLabel(version.versionType)];
 
-  if (version.isDefault) badges.push('Default');
-  if (version.isPublic) badges.push('Public');
-  if (version.isProjectSpecific) badges.push('Project');
+  if (version.isDefault) badges.push(pl.badgeDefault);
+  if (version.isPublic) badges.push(pl.badgePublic);
+  if (version.isProjectSpecific) badges.push(pl.badgeProject);
 
   return badges;
 }
 
-function formatDimensions(version: ProductVersionDto) {
+function formatDimensions(version: ProductVersionDto, emptyLabel: string) {
   const dimensions = [
     version.width ? `W ${version.width}` : null,
     version.depth ? `D ${version.depth}` : null,
     version.height ? `H ${version.height}` : null,
   ].filter(Boolean);
 
-  return dimensions.length > 0 ? `${dimensions.join(' x ')} cm` : '-';
+  return dimensions.length > 0 ? `${dimensions.join(' x ')} cm` : emptyLabel;
 }
 
 const businessTypeLabels: Record<string, string> = {

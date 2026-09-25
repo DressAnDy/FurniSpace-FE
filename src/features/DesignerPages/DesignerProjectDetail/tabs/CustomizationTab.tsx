@@ -1,4 +1,7 @@
 import { FormEvent, type ReactNode, useEffect, useMemo, useState } from 'react';
+
+import { useLang } from '@/app/providers/useLang';
+import { designerCopy } from '@/features/DesignerPages/designercomponents';
 import {
   IconAlertCircle,
   IconCircleCheck,
@@ -101,15 +104,20 @@ const emptyRequestForm: RequestFormState = {
   requestedChangeNote: '',
 };
 
-const statusFilters: Array<{ label: string; value: CustomizationStatus | null }> = [
-  { label: 'All', value: null },
-  { label: 'Submitted', value: 'SUBMITTED' },
-  { label: 'Reviewing', value: 'REVIEWING' },
-  { label: 'Accepted', value: 'ACCEPTED' },
-  { label: 'Cancelled', value: 'CANCELLED' },
-];
-
 export function CustomizationTab({ project }: Readonly<CustomizationTabProps>) {
+  const { lang } = useLang();
+  const t = designerCopy[lang].customizationTab;
+  const tc = designerCopy[lang].common;
+  const statusFilters = useMemo(
+    (): Array<{ label: string; value: CustomizationStatus | null }> => [
+      { label: t.filterAll, value: null },
+      { label: t.filterSubmitted, value: 'SUBMITTED' },
+      { label: t.filterReviewing, value: 'REVIEWING' },
+      { label: t.filterAccepted, value: 'ACCEPTED' },
+      { label: t.filterCancelled, value: 'CANCELLED' },
+    ],
+    [t],
+  );
   const [statusFilter, setStatusFilter] = useState<CustomizationStatus | null>(null);
   const [activeRequestId, setActiveRequestId] = useState<string | null>(null);
   const [editingVersionId, setEditingVersionId] = useState<string | null>(null);
@@ -200,7 +208,7 @@ export function CustomizationTab({ project }: Readonly<CustomizationTabProps>) {
     const requestValidation = getRequestInput(requestForm);
 
     if (!requestValidation.ok) {
-      setMessage({ tone: 'error', text: requestValidation.message });
+      setMessage({ tone: 'error', text: t.errRequestFields });
       return;
     }
 
@@ -214,7 +222,7 @@ export function CustomizationTab({ project }: Readonly<CustomizationTabProps>) {
       setStatusFilter(null);
       setActiveRequestId(request.customizationRequestId);
       setRequestModalOpen(false);
-      setMessage({ tone: 'success', text: 'Customization request created for the customer.' });
+      setMessage({ tone: 'success', text: t.successRequestCreated });
     } catch (error) {
       setMessage({ tone: 'error', text: getCustomizationRequestServiceResultMessage(error) });
     }
@@ -227,7 +235,7 @@ export function CustomizationTab({ project }: Readonly<CustomizationTabProps>) {
     if (!activeRequest) return;
 
     if (!versionForm.versionName.trim()) {
-      setMessage({ tone: 'error', text: 'Version name is required.' });
+      setMessage({ tone: 'error', text: t.errVersionName });
       return;
     }
 
@@ -294,7 +302,7 @@ export function CustomizationTab({ project }: Readonly<CustomizationTabProps>) {
       setModelFile(null);
       setVersionModalOpen(false);
       await requestsQuery.refetch();
-      setMessage({ tone: 'success', text: editingVersion ? 'Customization version updated.' : 'Customization version draft created.' });
+      setMessage({ tone: 'success', text: t.successVersionSaved });
     } catch (error) {
       setMessage({ tone: 'error', text: getVersionSaveErrorMessage(error) });
     }
@@ -309,7 +317,7 @@ export function CustomizationTab({ project }: Readonly<CustomizationTabProps>) {
         customizationRequestId: activeRequest.customizationRequestId,
         customizationRequestVersionId: version.customizationRequestVersionId,
       });
-      setMessage({ tone: 'success', text: 'Customization version sent to production review.' });
+      setMessage({ tone: 'success', text: t.successVersionSubmitted });
     } catch (error) {
       setMessage({ tone: 'error', text: getCustomizationRequestServiceResultMessage(error) });
     }
@@ -321,7 +329,7 @@ export function CustomizationTab({ project }: Readonly<CustomizationTabProps>) {
     setMessage(null);
 
     if (!cancelReason.trim()) {
-      setMessage({ tone: 'error', text: 'Cancel reason is required.' });
+      setMessage({ tone: 'error', text: t.errCancelReason });
       return;
     }
 
@@ -332,7 +340,7 @@ export function CustomizationTab({ project }: Readonly<CustomizationTabProps>) {
       });
       setCancelReason('');
       setCancelModalOpen(false);
-      setMessage({ tone: 'success', text: 'Customization request cancelled.' });
+      setMessage({ tone: 'success', text: t.successCancelled });
     } catch (error) {
       setMessage({ tone: 'error', text: getCustomizationRequestServiceResultMessage(error) });
     }
@@ -343,11 +351,11 @@ export function CustomizationTab({ project }: Readonly<CustomizationTabProps>) {
       <div className="designer-project-section-toolbar">
         <div>
           <h3>
-            Customization
+            {t.title}
             {!requestsQuery.isLoading ? <span className="designer-proposal-count">{requests.length}</span> : null}
           </h3>
         </div>
-        <div className="designer-project-filter-list" aria-label="Customization status filter">
+        <div className="designer-project-filter-list" aria-label={t.filterAria}>
           {statusFilters.map((filter) => {
             const isActive = statusFilter === filter.value;
 
@@ -381,9 +389,10 @@ export function CustomizationTab({ project }: Readonly<CustomizationTabProps>) {
         proposalsCount={proposals.length}
         proposalsLoading={proposalsQuery.isLoading}
         onOpen={() => setRequestModalOpen(true)}
+        t={t}
       />
 
-      {requestsQuery.isLoading ? <p className="designer-project-empty-text">Loading customization requests...</p> : null}
+      {requestsQuery.isLoading ? <p className="designer-project-empty-text">{t.loading}</p> : null}
       {requestsQuery.isError ? (
         <p className="designer-project-file-message designer-project-file-error">
           <IconAlertCircle size={17} />
@@ -393,8 +402,8 @@ export function CustomizationTab({ project }: Readonly<CustomizationTabProps>) {
       {!requestsQuery.isLoading && requests.length === 0 ? (
         <div className="designer-project-custom-empty-state">
           <IconPalette size={22} stroke={1.6} />
-          <strong>No customization requests yet</strong>
-          <span>Create an assisted request from a published proposal item, or wait for the customer to submit one.</span>
+          <strong>{t.empty}</strong>
+          <span>{t.emptyHint}</span>
         </div>
       ) : null}
 
@@ -419,26 +428,26 @@ export function CustomizationTab({ project }: Readonly<CustomizationTabProps>) {
                       </span>
                     </div>
                     <p className="designer-project-custom-subtitle">
-                      <span>Created {request.createdAt ? formatDate(request.createdAt) : '-'}</span>
+                      <span>{t.created(request.createdAt ? formatDate(request.createdAt) : tc.dash)}</span>
                       <span className="designer-project-custom-version-chip">
                         <IconStack2 size={12} stroke={1.9} />
-                        {versionCount} version{versionCount === 1 ? '' : 's'}
+                        {t.versions(versionCount)}
                       </span>
                     </p>
                     <p className="designer-project-custom-note-preview">
-                      {request.requestedChangeNote || request.requestDescription || 'No note provided.'}
+                      {request.requestedChangeNote || request.requestDescription || t.noNote}
                     </p>
                     <div className="designer-project-custom-specs">
                       <div className="designer-project-custom-spec">
-                        <span>Source</span>
+                        <span>{t.source}</span>
                         <p>{request.sourceProductVersion?.versionName ?? request.sourceProductVersionId}</p>
                       </div>
                       <div className="designer-project-custom-spec">
-                        <span>Material</span>
+                        <span>{t.material}</span>
                         <p>{request.requestedMaterial ?? '-'}</p>
                       </div>
                       <div className="designer-project-custom-spec">
-                        <span>Color</span>
+                        <span>{t.color}</span>
                         <p>{request.requestedColor ?? '-'}</p>
                       </div>
                     </div>
@@ -461,13 +470,14 @@ export function CustomizationTab({ project }: Readonly<CustomizationTabProps>) {
                 onCancelRequest={() => setCancelModalOpen(true)}
                 onNewVersion={openNewVersionModal}
                 onSubmitVersion={(version) => void submitVersion(version)}
+                t={t}
               />
             ) : (
               <div className="designer-project-custom-empty-panel">
                 <IconPalette size={22} stroke={1.6} />
-                <span>Version Panel</span>
-                <h4>Select a customization request</h4>
-                <p>Requested specs, custom versions, and review actions will appear here.</p>
+                <span>{t.versionPanel}</span>
+                <h4>{t.selectRequest}</h4>
+                <p>{t.emptyHint}</p>
               </div>
             )}
           </aside>
@@ -476,8 +486,8 @@ export function CustomizationTab({ project }: Readonly<CustomizationTabProps>) {
 
       {requestModalOpen ? (
         <DesignerModal
-          description="Create a customer customization request from a published proposal item."
-          title="Designer Assisted Request"
+          description={t.assistDesc}
+          title={t.modalAssistTitle}
           onClose={() => setRequestModalOpen(false)}
         >
           <DesignerRequestForm
@@ -489,14 +499,16 @@ export function CustomizationTab({ project }: Readonly<CustomizationTabProps>) {
             proposalsLoading={proposalsQuery.isLoading}
             onChange={setRequestForm}
             onSubmit={(event) => void submitRequestOnBehalf(event)}
+            t={t}
+            tc={tc}
           />
         </DesignerModal>
       ) : null}
 
       {versionModalOpen && activeRequest ? (
         <DesignerModal
-          description={editingVersion ? 'Update the selected draft before production review.' : 'Create a draft custom product version for this request.'}
-          title={editingVersion ? 'Edit Custom Version' : 'Create Custom Version'}
+          description={t.assistDesc}
+          title={editingVersion ? t.modalVersionEdit : t.modalVersionCreate}
           onClose={() => {
             setVersionModalOpen(false);
             setEditingVersionId(null);
@@ -514,27 +526,28 @@ export function CustomizationTab({ project }: Readonly<CustomizationTabProps>) {
             onModelFileChange={setModelFile}
             onPreviewFileChange={setPreviewFile}
             onSubmit={(event) => void saveVersion(event)}
+            t={t}
           />
         </DesignerModal>
       ) : null}
 
       {cancelModalOpen && activeRequest ? (
         <DesignerModal
-          description={`Cancel "${activeRequest.requestTitle}" and withdraw active versions.`}
-          title="Cancel Customization Request"
+          description={activeRequest.requestTitle}
+          title={t.modalCancelTitle}
           onClose={() => setCancelModalOpen(false)}
         >
           <form className="designer-project-modal-form" onSubmit={(event) => void cancelRequest(event)}>
             <label>
-              <span>Cancel reason</span>
-              <textarea required rows={4} value={cancelReason} placeholder="Explain why this request is being cancelled" onChange={(event) => setCancelReason(event.target.value)} />
+              <span>{t.formChangeNote}</span>
+              <textarea required rows={4} value={cancelReason} placeholder={t.cancelReasonPh} onChange={(event) => setCancelReason(event.target.value)} />
             </label>
             <footer>
               <button className="designer-project-detail-button" disabled={cancelMutation.isPending} type="button" onClick={() => setCancelModalOpen(false)}>
-                Keep Request
+                {tc.cancel}
               </button>
               <button className="designer-project-detail-button designer-project-detail-button-primary" disabled={cancelMutation.isPending} type="submit">
-                {cancelMutation.isPending ? 'Cancelling...' : 'Cancel Request'}
+                {cancelMutation.isPending ? t.cancelling : t.cancelRequest}
               </button>
             </footer>
           </form>
@@ -549,11 +562,13 @@ function DesignerRequestPrompt({
   onOpen,
   proposalsCount,
   proposalsLoading,
+  t,
 }: Readonly<{
   itemsCount: number;
   onOpen: () => void;
   proposalsCount: number;
   proposalsLoading: boolean;
+  t: typeof designerCopy.en.customizationTab;
 }>) {
   return (
     <section className="designer-project-custom-assist-card">
@@ -561,18 +576,18 @@ function DesignerRequestPrompt({
         <IconPalette size={20} stroke={1.8} />
       </div>
       <div>
-        <span>Designer Assisted Request</span>
-        <h4>Create a request for the customer</h4>
-        <p>Use this when the customer explains a change in chat or during review and needs the designer to submit it from a published proposal item.</p>
+        <span>{t.assistTitle}</span>
+        <h4>{t.createRequest}</h4>
+        <p>{t.assistDesc}</p>
       </div>
       <div className="designer-project-custom-assist-meta">
         <div>
           <strong>{proposalsCount}</strong>
-          <span>Published proposals</span>
+          <span>{t.publishedProposals}</span>
         </div>
         <div>
           <strong>{itemsCount}</strong>
-          <span>Items loaded</span>
+          <span>{t.itemsLoaded}</span>
         </div>
       </div>
       <button
@@ -582,7 +597,7 @@ function DesignerRequestPrompt({
         onClick={onOpen}
       >
         <IconPlus size={16} stroke={2.2} />
-        Create Request
+        {t.createRequest}
       </button>
     </section>
   );
@@ -626,6 +641,8 @@ function DesignerRequestForm({
   onSubmit,
   proposals,
   proposalsLoading,
+  t,
+  tc,
 }: {
   form: RequestFormState;
   items: ProposalItemDto[];
@@ -635,6 +652,8 @@ function DesignerRequestForm({
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
   proposals: ProposalDto[];
   proposalsLoading: boolean;
+  t: typeof designerCopy.en.customizationTab;
+  tc: typeof designerCopy.en.common;
 }) {
   const setField = (name: keyof RequestFormState, value: string) => onChange({ ...form, [name]: value });
   const setDecimalField = (name: keyof RequestFormState, value: string) => setField(name, sanitizeCustomizationDecimalInput(value));
@@ -646,21 +665,21 @@ function DesignerRequestForm({
     <form className="designer-project-custom-action-form" onSubmit={onSubmit}>
       <div className="designer-project-custom-review-header">
         <div>
-          <span>Designer Assisted Request</span>
-          <h4>Create a customization request for the customer</h4>
+          <span>{t.assistTitle}</span>
+          <h4>{t.createRequest}</h4>
         </div>
       </div>
 
       {!hasPublishedProposal && !proposalsLoading ? (
-        <p className="designer-project-empty-text">No published proposal is available for assisted customization requests.</p>
+        <p className="designer-project-empty-text">{t.emptyHint}</p>
       ) : null}
       {hasPublishedProposal && !itemsLoading && items.length === 0 ? (
-        <p className="designer-project-empty-text">No proposal items are available for assisted customization requests.</p>
+        <p className="designer-project-empty-text">{t.emptyHint}</p>
       ) : null}
 
       <div className="designer-project-custom-detail-grid">
         <label>
-          <span>Published proposal</span>
+          <span>{t.publishedProposals}</span>
           <select
             disabled={proposalsLoading || mutationPending}
             value={form.proposalId}
@@ -674,7 +693,7 @@ function DesignerRequestForm({
           </select>
         </label>
         <label>
-          <span>Proposal item</span>
+          <span>{t.source}</span>
           <select
             disabled={!hasPublishedProposal || itemsLoading || mutationPending}
             value={form.proposalItemId}
@@ -700,21 +719,21 @@ function DesignerRequestForm({
       ) : null}
 
       <label>
-        <span>Request title</span>
-        <input required value={form.requestTitle} placeholder="Customer request title" onChange={(event) => setField('requestTitle', event.target.value)} />
+        <span>{t.formTitle}</span>
+        <input required value={form.requestTitle} placeholder={t.formTitle} onChange={(event) => setField('requestTitle', event.target.value)} />
       </label>
       <label>
-        <span>Description</span>
-        <textarea rows={3} value={form.requestDescription} placeholder="Describe the requested change" onChange={(event) => setField('requestDescription', event.target.value)} />
+        <span>{t.formDescription}</span>
+        <textarea rows={3} value={form.requestDescription} placeholder={t.formDescription} onChange={(event) => setField('requestDescription', event.target.value)} />
       </label>
       <div className="designer-project-custom-detail-grid">
         <label>
-          <span>Material</span>
-          <input value={form.requestedMaterial} placeholder="Requested material" onChange={(event) => setField('requestedMaterial', event.target.value)} />
+          <span>{t.formMaterial}</span>
+          <input value={form.requestedMaterial} placeholder={t.formMaterial} onChange={(event) => setField('requestedMaterial', event.target.value)} />
         </label>
         <label>
-          <span>Color</span>
-          <input value={form.requestedColor} placeholder="Requested color" onChange={(event) => setField('requestedColor', event.target.value)} />
+          <span>{t.formColor}</span>
+          <input value={form.requestedColor} placeholder={t.formColor} onChange={(event) => setField('requestedColor', event.target.value)} />
         </label>
         <label>
           <span>Width (cm)</span>
@@ -730,12 +749,12 @@ function DesignerRequestForm({
         </label>
       </div>
       <label>
-        <span>Change note</span>
-        <textarea rows={2} value={form.requestedChangeNote} placeholder="Customer-facing change note" onChange={(event) => setField('requestedChangeNote', event.target.value)} />
+        <span>{t.formChangeNote}</span>
+        <textarea rows={2} value={form.requestedChangeNote} placeholder={t.formChangeNote} onChange={(event) => setField('requestedChangeNote', event.target.value)} />
       </label>
       <footer className="designer-project-custom-action-footer">
         <button className="designer-project-detail-button designer-project-detail-button-primary" disabled={!canSubmitRequest} type="submit">
-          {mutationPending ? 'Submitting...' : 'Submit Customize Request'}
+          {mutationPending ? t.submitting : t.submit}
         </button>
       </footer>
     </form>
@@ -749,6 +768,7 @@ function RequestVersionPanel({
   onCancelRequest,
   onNewVersion,
   onSubmitVersion,
+  t,
 }: Readonly<{
   activeRequest: CustomizationRequestDto;
   cancelMutationPending: boolean;
@@ -756,6 +776,7 @@ function RequestVersionPanel({
   onCancelRequest: () => void;
   onNewVersion: () => void;
   onSubmitVersion: (version: CustomizationRequestVersionDto) => void;
+  t: typeof designerCopy.en.customizationTab;
 }>) {
   const versions = activeRequest.versions ?? [];
   const canCreateVersion = activeRequest.status === 'SUBMITTED' || activeRequest.status === 'REVIEWING';
@@ -765,7 +786,7 @@ function RequestVersionPanel({
     <>
       <div className="designer-project-custom-review-header">
         <div>
-          <span>Selected Request</span>
+          <span>{t.selectedRequest}</span>
           <h4>{activeRequest.requestTitle}</h4>
           <p className="designer-project-custom-review-status">
             <span className={`designer-project-status designer-project-status-${getRequestStatusTone(activeRequest.status)}`}>
@@ -780,18 +801,18 @@ function RequestVersionPanel({
           onClick={onNewVersion}
         >
           <IconPlus size={15} stroke={2.2} />
-          New Version
+          {t.newVersion}
         </button>
       </div>
 
-      <CustomizationRequestSummary request={activeRequest} />
+      <CustomizationRequestSummary request={activeRequest} t={t} />
 
       <div className="designer-project-custom-detail">
         <div className="designer-project-custom-versions-header">
           <div>
-            <span>Versions</span>
-            <strong>{versions.length ? `${versions.length} custom version${versions.length === 1 ? '' : 's'}` : 'No version yet'}</strong>
-            <p>Create a draft version, then submit it to production review.</p>
+            <span>{t.versionsLabel}</span>
+            <strong>{versions.length ? t.versions(versions.length) : t.noVersion}</strong>
+            <p>{t.successVersionSubmitted}</p>
           </div>
         </div>
         {versions.map((version) => (
@@ -806,14 +827,14 @@ function RequestVersionPanel({
 
       {!readOnlyRequest ? (
         <button className="designer-project-detail-button designer-project-custom-cancel-button" disabled={cancelMutationPending} type="button" onClick={onCancelRequest}>
-          {cancelMutationPending ? 'Cancelling...' : 'Cancel Request'}
+          {cancelMutationPending ? t.cancelling : t.cancelRequest}
         </button>
       ) : null}
     </>
   );
 }
 
-function CustomizationRequestSummary({ request }: { request: CustomizationRequestDto }) {
+function CustomizationRequestSummary({ request, t }: { request: CustomizationRequestDto; t: typeof designerCopy.en.customizationTab }) {
   return (
     <div className="designer-project-custom-detail">
       <div className="designer-project-custom-detail-section">
@@ -822,8 +843,8 @@ function CustomizationRequestSummary({ request }: { request: CustomizationReques
         <p>{request.sourceProductVersion?.productName ?? '-'}</p>
       </div>
       <div className="designer-project-custom-detail-grid">
-        <DetailValue label="Requested Material" value={request.requestedMaterial} />
-        <DetailValue label="Requested Color" value={request.requestedColor} />
+        <DetailValue label={t.formMaterial} value={request.requestedMaterial} />
+        <DetailValue label={t.formColor} value={request.requestedColor} />
         <DetailValue label="Requested Width" value={formatDimension(request.requestedWidth)} />
         <DetailValue label="Requested Height" value={formatDimension(request.requestedHeight)} />
         <DetailValue label="Requested Depth" value={formatDimension(request.requestedDepth)} />
@@ -886,6 +907,7 @@ function VersionForm({
   onPreviewFileChange,
   onSubmit,
   previewFile,
+  t,
 }: {
   editingVersion: CustomizationRequestVersionDto | null;
   form: VersionFormState;
@@ -896,6 +918,7 @@ function VersionForm({
   onPreviewFileChange: (file: File | null) => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
   previewFile: File | null;
+  t: typeof designerCopy.en.customizationTab;
 }) {
   const setField = (name: keyof VersionFormState, value: string) => onChange({ ...form, [name]: value });
   const setDecimalField = (name: keyof VersionFormState, value: string) => setField(name, sanitizeCustomizationDecimalInput(value));
@@ -919,12 +942,12 @@ function VersionForm({
       </label>
       <div className="designer-project-custom-field-grid">
         <label>
-          <span>Material</span>
-          <input value={form.material} placeholder="Material" onChange={(event) => setField('material', event.target.value)} />
+          <span>{t.material}</span>
+          <input value={form.material} placeholder={t.formMaterial} onChange={(event) => setField('material', event.target.value)} />
         </label>
         <label>
-          <span>Color</span>
-          <input value={form.color} placeholder="Color" onChange={(event) => setField('color', event.target.value)} />
+          <span>{t.color}</span>
+          <input value={form.color} placeholder={t.formColor} onChange={(event) => setField('color', event.target.value)} />
         </label>
         <label>
           <span>Width (cm)</span>
@@ -1001,7 +1024,7 @@ function VersionForm({
         </div>
       </div>
       <button className="designer-project-detail-button designer-project-detail-button-primary" disabled={mutationPending} type="submit">
-        {mutationPending ? 'Saving...' : editingVersion ? 'Update Draft' : 'Create Draft'}
+        {mutationPending ? t.saving : editingVersion ? t.updateDraft : t.createDraft}
       </button>
     </form>
   );

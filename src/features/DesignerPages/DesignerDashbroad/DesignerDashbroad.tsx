@@ -14,7 +14,9 @@ import {
 } from '@tabler/icons-react';
 import { Link } from 'react-router-dom';
 
-import { DesignerLayout } from '@/features/DesignerPages/designercomponents';
+import { useLang, type Lang } from '@/app/providers/useLang';
+import { DesignerLayout, designerCopy } from '@/features/DesignerPages/designercomponents';
+import type { DesignerCopy } from '@/features/DesignerPages/designercomponents/designerI18n';
 import type {
   DashboardDateRange,
   DashboardDueBucket,
@@ -56,24 +58,15 @@ type KpiItem = {
 type DateRangeKey = 'today' | 'this-week' | 'this-month';
 type ProjectFilterKey = 'assigned' | 'overdue' | 'customization';
 
-const DATE_RANGE_LABEL: Record<DateRangeKey, string> = {
-  today: 'Today',
-  'this-week': 'This week',
-  'this-month': 'This month',
-};
-
-const PROJECT_FILTER_LABEL: Record<ProjectFilterKey, string> = {
-  assigned: 'My assigned projects',
-  overdue: 'Overdue / at risk',
-  customization: 'Customization work',
-};
-
-const ALL_PRIORITIES = 'All priorities';
-const priorityOptions = [ALL_PRIORITIES, 'HIGH', 'MEDIUM', 'LOW'];
+const ALL_PRIORITIES = '';
+const priorityOptions: Array<'' | DashboardPriority> = [ALL_PRIORITIES, 'HIGH', 'MEDIUM', 'LOW'];
 const DEFAULT_DESIGNER_GROUPS: string[] = ['Design'];
 const LIST_PAGE_SIZES = [5, 10, 20];
 
 export function DesignerDashbroad() {
+  const { lang } = useLang();
+  const t = designerCopy[lang];
+  const d = t.dashboard;
   const [activeGroup, setActiveGroup] = useState<string>('Design');
   const [dateRange, setDateRange] = useState<DateRangeKey>('this-week');
   const [projectFilter, setProjectFilter] = useState<ProjectFilterKey>('assigned');
@@ -174,12 +167,18 @@ export function DesignerDashbroad() {
     if (panel === 'assigned-projects') setAssignedPage(1);
   }, []);
 
+  const dateRangeLabel = getDateRangeLabel(d, dateRange);
+  const projectFilterLabel = getProjectFilterLabel(d, projectFilter);
+
   const visibleKpis = useMemo(
-    () => mapDesignerKpis(kpisQuery.data, DATE_RANGE_LABEL[dateRange], detailPanel, openDetailPanel),
-    [dateRange, detailPanel, kpisQuery.data, openDetailPanel],
+    () => mapDesignerKpis(kpisQuery.data, d, dateRange, detailPanel, openDetailPanel),
+    [d, dateRange, detailPanel, kpisQuery.data, openDetailPanel],
   );
 
-  const refreshTime = new Intl.DateTimeFormat('en-US', { hour: '2-digit', minute: '2-digit' }).format(lastRefreshAt);
+  const refreshTime = new Intl.DateTimeFormat(lang === 'vi' ? 'vi-VN' : 'en-US', {
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(lastRefreshAt);
   const isLoading = queueQuery.isLoading || kpisQuery.isLoading;
   const loadError = queueQuery.error
     ? getDashboardServiceResultMessage(queueQuery.error)
@@ -202,10 +201,10 @@ export function DesignerDashbroad() {
   const hasActiveFilters = activeFilterCount > 0;
   const primaryActionLabel =
     projectFilter === 'customization'
-      ? 'Open Customization Work'
+      ? d.primaryActionCustomization
       : projectFilter === 'overdue'
-        ? 'Open At-Risk Projects'
-        : 'Open Assigned Projects';
+        ? d.primaryActionOverdue
+        : d.primaryActionAssigned;
   const measurementsTotal = confirmedMeasurementsQuery.data?.total ?? 0;
   const measurementsTotalPages = Math.max(1, Math.ceil(measurementsTotal / measurementsPageSize));
   const consultingTotal = proposalConsultingQuery.data?.total ?? 0;
@@ -215,23 +214,23 @@ export function DesignerDashbroad() {
   const assignedTotal = assignedProjectsQuery.data?.total ?? 0;
   const assignedTotalPages = Math.max(1, Math.ceil(assignedTotal / assignedPageSize));
   const detailTitle = showConfirmedMeasurements
-    ? 'Confirmed Measurements'
+    ? d.panelConfirmed
     : showProposalConsulting
-      ? 'Proposal Consulting'
+      ? d.panelConsulting
       : showRevisionRequested
-        ? 'Revision Requests'
+        ? d.panelRevisions
         : showAssignedProjects
-          ? 'Assigned Projects'
-          : 'Main Design Work Queue';
+          ? d.panelAssigned
+          : d.panelWorkQueue;
   const detailSubtitle = showConfirmedMeasurements
-    ? `Confirmed measurement schedules for ${DATE_RANGE_LABEL[dateRange].toLowerCase()}.`
+    ? d.panelSubtitleConfirmed(dateRangeLabel)
     : showProposalConsulting
-      ? `Projects in Proposal Consulting for ${DATE_RANGE_LABEL[dateRange].toLowerCase()}.`
+      ? d.panelSubtitleConsulting(dateRangeLabel)
       : showRevisionRequested
-        ? `Proposals with customer revision requests for ${DATE_RANGE_LABEL[dateRange].toLowerCase()}.`
+        ? d.panelSubtitleRevisions(dateRangeLabel)
         : showAssignedProjects
-          ? 'Projects currently assigned to you (stock count). Customer customization shown per project.'
-          : `Prioritized work for ${DATE_RANGE_LABEL[dateRange].toLowerCase()} · ${PROJECT_FILTER_LABEL[projectFilter]}.`;
+          ? d.panelSubtitleAssigned
+          : d.panelSubtitleWorkQueue(dateRangeLabel, projectFilterLabel);
 
   useEffect(() => {
     setActiveGroup((current) => {
@@ -299,13 +298,13 @@ export function DesignerDashbroad() {
   }
 
   return (
-    <DesignerLayout activeLabel="Dashboard">
+    <DesignerLayout activeKey="dashboard">
       <div className="designer-dashboard-page">
         <section className="designer-ops-header">
           <div>
-            <span>Designer Workspace</span>
-            <h2>Designer Dashboard</h2>
-            <p>Assigned projects, design progress, Room Planner, and customization work</p>
+            <span>{d.eyebrow}</span>
+            <h2>{d.title}</h2>
+            <p>{d.subtitle}</p>
           </div>
           <div className="designer-ops-header-side">
             <button
@@ -315,14 +314,14 @@ export function DesignerDashbroad() {
               onClick={() => void handleRefresh()}
             >
               <IconRefresh className={isRefreshing ? 'is-spinning' : undefined} size={14} />
-              {isRefreshing ? 'Refreshing...' : `Refresh · ${refreshTime}`}
+              {isRefreshing ? t.common.refreshing : d.refreshAt(refreshTime)}
             </button>
           </div>
         </section>
 
-        <section className="designer-ops-filter-bar" aria-label="Designer dashboard filters">
+        <section className="designer-ops-filter-bar" aria-label={d.filtersAria}>
           <label>
-            <span>Date range</span>
+            <span>{d.dateRange}</span>
             <select
               value={dateRange}
               onChange={(event) => {
@@ -332,17 +331,17 @@ export function DesignerDashbroad() {
                 setRevisionsPage(1);
               }}
             >
-              <option value="today">Today</option>
-              <option value="this-week">This week</option>
-              <option value="this-month">This month</option>
+              <option value="today">{d.today}</option>
+              <option value="this-week">{d.thisWeek}</option>
+              <option value="this-month">{d.thisMonth}</option>
             </select>
           </label>
           <label>
-            <span>Project filter</span>
+            <span>{d.projectFilter}</span>
             <select value={projectFilter} onChange={(event) => setProjectFilter(event.target.value as ProjectFilterKey)}>
-              <option value="assigned">My assigned projects</option>
-              <option value="overdue">Overdue / at risk</option>
-              <option value="customization">Customization work</option>
+              <option value="assigned">{d.filterAssigned}</option>
+              <option value="overdue">{d.filterOverdue}</option>
+              <option value="customization">{d.filterCustomization}</option>
             </select>
           </label>
           <Link className="designer-ops-primary-action" to="/designer/assigned-projects">
@@ -404,10 +403,10 @@ export function DesignerDashbroad() {
                     className="designer-ops-panel-link"
                     to={showConfirmedMeasurements ? '/designer/schedules' : '/designer/assigned-projects'}
                   >
-                    {showConfirmedMeasurements ? 'Open schedules' : 'Open projects'}
+                    {showConfirmedMeasurements ? d.openSchedules : d.openProjects}
                   </Link>
                   <button type="button" onClick={() => setDetailPanel('queue')}>
-                    Back to queue
+                    {d.backToQueue}
                   </button>
                 </div>
               ) : (
@@ -415,7 +414,7 @@ export function DesignerDashbroad() {
                   <button
                     aria-expanded={isFilterOpen}
                     aria-haspopup="dialog"
-                    aria-label="Filter work queue"
+                    aria-label={d.filterWorkQueue}
                     className={hasActiveFilters || isFilterOpen ? 'designer-ops-filter-toggle is-active' : 'designer-ops-filter-toggle'}
                     type="button"
                     onClick={() => setIsFilterOpen((open) => !open)}
@@ -425,29 +424,34 @@ export function DesignerDashbroad() {
                   </button>
 
                   {isFilterOpen ? (
-                    <div className="designer-ops-filter-panel" role="dialog" aria-label="Work queue filters">
+                    <div className="designer-ops-filter-panel" role="dialog" aria-label={d.workQueueFiltersAria}>
                       <div className="designer-ops-filter-panel-header">
-                        <strong>Filter work queue</strong>
-                        <button aria-label="Close filters" type="button" onClick={() => setIsFilterOpen(false)}>
+                        <strong>{d.filterWorkQueue}</strong>
+                        <button aria-label={t.common.closeFilters} type="button" onClick={() => setIsFilterOpen(false)}>
                           <IconX size={16} />
                         </button>
                       </div>
 
                       <label>
-                        <span>Priority</span>
-                        <select value={priorityFilter} onChange={(event) => setPriorityFilter(event.target.value)}>
+                        <span>{t.common.priority}</span>
+                        <select
+                          value={priorityFilter}
+                          onChange={(event) => setPriorityFilter(event.target.value as '' | DashboardPriority)}
+                        >
                           {priorityOptions.map((option) => (
-                            <option key={option} value={option}>{option === ALL_PRIORITIES ? option : formatPriorityLabel(option as DashboardPriority)}</option>
+                            <option key={option || '__all__'} value={option}>
+                              {option === ALL_PRIORITIES ? t.common.allPriorities : formatPriorityLabel(option)}
+                            </option>
                           ))}
                         </select>
                       </label>
 
                       <div className="designer-ops-filter-panel-actions">
                         <button disabled={!hasActiveFilters} type="button" onClick={clearWorkFilters}>
-                          Clear
+                          {t.common.clear}
                         </button>
                         <button type="button" onClick={() => setIsFilterOpen(false)}>
-                          Done
+                          {t.common.done}
                         </button>
                       </div>
                     </div>
@@ -458,7 +462,7 @@ export function DesignerDashbroad() {
 
             {showConfirmedMeasurements ? (
               <ConfirmedMeasurementsList
-                emptyLabel={`No confirmed measurement schedules for ${DATE_RANGE_LABEL[dateRange].toLowerCase()}.`}
+                emptyLabel={d.emptyConfirmed(dateRangeLabel)}
                 errorLabel={measurementsError}
                 isLoading={confirmedMeasurementsQuery.isLoading}
                 items={confirmedMeasurementsQuery.data?.items ?? []}
@@ -474,7 +478,7 @@ export function DesignerDashbroad() {
               />
             ) : showProposalConsulting ? (
               <ProposalConsultingList
-                emptyLabel={`No Proposal Consulting projects for ${DATE_RANGE_LABEL[dateRange].toLowerCase()}.`}
+                emptyLabel={d.emptyConsulting(dateRangeLabel)}
                 errorLabel={consultingError}
                 isLoading={proposalConsultingQuery.isLoading}
                 items={proposalConsultingQuery.data?.items ?? []}
@@ -490,7 +494,7 @@ export function DesignerDashbroad() {
               />
             ) : showRevisionRequested ? (
               <RevisionRequestedList
-                emptyLabel={`No revision requests for ${DATE_RANGE_LABEL[dateRange].toLowerCase()}.`}
+                emptyLabel={d.emptyRevisions(dateRangeLabel)}
                 errorLabel={revisionsError}
                 isLoading={revisionRequestedQuery.isLoading}
                 items={revisionRequestedQuery.data?.items ?? []}
@@ -506,7 +510,7 @@ export function DesignerDashbroad() {
               />
             ) : showAssignedProjects ? (
               <AssignedProjectsList
-                emptyLabel="No projects are currently assigned to you."
+                emptyLabel={d.emptyAssigned}
                 errorLabel={assignedError}
                 isLoading={assignedProjectsQuery.isLoading}
                 items={assignedProjectsQuery.data?.items ?? []}
@@ -526,17 +530,17 @@ export function DesignerDashbroad() {
                   <div className="designer-ops-active-filters">
                     {priorityFilter !== ALL_PRIORITIES ? (
                       <button type="button" onClick={() => setPriorityFilter(ALL_PRIORITIES)}>
-                        Priority: {formatPriorityLabel(priorityFilter as DashboardPriority)}
+                        {d.priorityChip(formatPriorityLabel(priorityFilter))}
                         <IconX size={14} />
                       </button>
                     ) : null}
                     <button className="designer-ops-clear-all" type="button" onClick={clearWorkFilters}>
-                      Clear all
+                      {t.common.clearAll}
                     </button>
                   </div>
                 ) : null}
 
-                <div className="designer-ops-tabs" role="tablist" aria-label="Design work groups">
+                <div className="designer-ops-tabs" role="tablist" aria-label={d.workGroupsAria}>
                   {workGroups.map((group) => (
                     <button aria-selected={activeGroup === group} key={group} role="tab" type="button" onClick={() => setActiveGroup(group)}>
                       {group}
@@ -547,37 +551,37 @@ export function DesignerDashbroad() {
 
                 <div className="designer-ops-queue-table">
                   <div className="designer-ops-queue-head">
-                    <span>Project</span>
-                    <span>Phase</span>
-                    <span>Warning</span>
-                    <span className="designer-ops-queue-col-center">Priority</span>
-                    <span>Action</span>
-                    <span>Due</span>
-                    <span className="designer-ops-queue-col-center">Status</span>
+                    <span>{d.queueCols.project}</span>
+                    <span>{d.queueCols.phase}</span>
+                    <span>{d.queueCols.warning}</span>
+                    <span className="designer-ops-queue-col-center">{d.queueCols.priority}</span>
+                    <span>{d.queueCols.action}</span>
+                    <span>{d.queueCols.due}</span>
+                    <span className="designer-ops-queue-col-center">{d.queueCols.status}</span>
                     <span />
                   </div>
-                  {isLoading ? <div className="designer-ops-queue-empty">Loading design work queue...</div> : null}
+                  {isLoading ? <div className="designer-ops-queue-empty">{d.loadingQueue}</div> : null}
                   {loadError ? <div className="designer-ops-queue-empty">{loadError}</div> : null}
                   {!isLoading && !loadError && queueItems.length === 0 ? (
                     <div className="designer-ops-queue-empty">
                       {hasActiveFilters || dateRange !== 'this-month' || projectFilter !== 'assigned'
-                        ? `No work items match ${DATE_RANGE_LABEL[dateRange].toLowerCase()} · ${PROJECT_FILTER_LABEL[projectFilter]}.`
-                        : 'No work items in this phase.'}
+                        ? d.emptyQueueFiltered(dateRangeLabel, projectFilterLabel)
+                        : d.emptyQueueDefault}
                     </div>
                   ) : null}
                   {queueItems.map((item) => (
                     <div className="designer-ops-queue-row" key={item.id}>
                       <strong>{formatProjectLabel(item)}</strong>
-                      <span>{item.phase || '-'}</span>
-                      <span>{item.warning || '-'}</span>
+                      <span>{item.phase || t.common.dash}</span>
+                      <span>{item.warning || t.common.dash}</span>
                       <span className={priorityClass(item.priority)}>{formatPriorityLabel(item.priority)}</span>
                       <span>{item.action}</span>
-                      <span>{formatDueLabel(item.dueAt, item.dueBucket)}</span>
+                      <span>{formatDueLabel(item.dueAt, item.dueBucket, d, lang)}</span>
                       <em title={item.status}>{formatStatusLabel(item.status)}</em>
                       <Link
-                        aria-label={`Open ${item.projectCode}`}
+                        aria-label={d.openProjectAria(item.projectCode)}
                         className="designer-ops-queue-open"
-                        title="Open"
+                        title={t.common.open}
                         to={resolveDesignerActionPath(item)}
                       >
                         <IconChevronRight size={18} stroke={2} />
@@ -617,26 +621,30 @@ function ConfirmedMeasurementsList({
   onPageChange: (page: number) => void;
   onPageSizeChange: (pageSize: number) => void;
 }) {
+  const { lang } = useLang();
+  const t = designerCopy[lang];
+  const d = t.dashboard;
+
   return (
     <>
-      <div className="designer-ops-tabs" role="tablist" aria-label="Confirmed measurements">
+      <div className="designer-ops-tabs" role="tablist" aria-label={d.panelConfirmed}>
         <button aria-selected="true" type="button">
-          Confirmed
+          {d.tabConfirmed}
           <em>{totalItems}</em>
         </button>
       </div>
 
       <div className="designer-ops-queue-table designer-ops-measurements-table">
         <div className="designer-ops-queue-head designer-ops-measurements-head">
-          <span>Project</span>
-          <span>Title</span>
-          <span>Start</span>
-          <span>Location</span>
-          <span>Assignee</span>
-          <span>Status</span>
+          <span>{d.measurementsCols.project}</span>
+          <span>{d.measurementsCols.title}</span>
+          <span>{d.measurementsCols.start}</span>
+          <span>{d.measurementsCols.location}</span>
+          <span>{d.measurementsCols.assignee}</span>
+          <span>{d.measurementsCols.status}</span>
           <span />
         </div>
-        {isLoading ? <div className="designer-ops-queue-empty">Loading confirmed measurements...</div> : null}
+        {isLoading ? <div className="designer-ops-queue-empty">{d.loadingConfirmed}</div> : null}
         {errorLabel ? <div className="designer-ops-queue-empty">{errorLabel}</div> : null}
         {!isLoading && !errorLabel && items.length === 0 ? (
           <div className="designer-ops-queue-empty">{emptyLabel}</div>
@@ -646,15 +654,15 @@ function ConfirmedMeasurementsList({
             <strong title={`${item.projectCode} ${item.projectName}`.trim()}>
               {`${item.projectCode} ${item.projectName}`.trim()}
             </strong>
-            <span title={item.title ?? undefined}>{item.title || '-'}</span>
-            <span>{formatScheduleDateTime(item.scheduledStart)}</span>
-            <span title={item.location ?? undefined}>{item.location || '-'}</span>
-            <span title={item.assignedStaffName ?? undefined}>{item.assignedStaffName || '-'}</span>
+            <span title={item.title ?? undefined}>{item.title || t.common.dash}</span>
+            <span>{formatScheduleDateTime(item.scheduledStart, lang)}</span>
+            <span title={item.location ?? undefined}>{item.location || t.common.dash}</span>
+            <span title={item.assignedStaffName ?? undefined}>{item.assignedStaffName || t.common.dash}</span>
             <em title={formatStatusLabel(item.status)}>{formatStatusLabel(item.status)}</em>
             <Link
-              aria-label={`Open ${item.projectCode}`}
+              aria-label={d.openProjectAria(item.projectCode)}
               className="designer-ops-queue-open"
-              title="Open project"
+              title={d.openProject}
               to={`/designer/assigned-projects/${item.projectId}`}
             >
               <IconChevronRight size={18} stroke={2} />
@@ -699,26 +707,30 @@ function ProposalConsultingList({
   onPageChange: (page: number) => void;
   onPageSizeChange: (pageSize: number) => void;
 }) {
+  const { lang } = useLang();
+  const t = designerCopy[lang];
+  const d = t.dashboard;
+
   return (
     <>
-      <div className="designer-ops-tabs" role="tablist" aria-label="Proposal consulting projects">
+      <div className="designer-ops-tabs" role="tablist" aria-label={d.panelConsulting}>
         <button aria-selected="true" type="button">
-          Proposal Consulting
+          {d.tabConsulting}
           <em>{totalItems}</em>
         </button>
       </div>
 
       <div className="designer-ops-queue-table designer-ops-consulting-table">
         <div className="designer-ops-queue-head designer-ops-consulting-head">
-          <span>Project</span>
-          <span>Customer</span>
-          <span>Designer</span>
-          <span>Assigned</span>
-          <span>Updated</span>
-          <span>Status</span>
+          <span>{d.consultingCols.project}</span>
+          <span>{d.consultingCols.customer}</span>
+          <span>{d.consultingCols.designer}</span>
+          <span>{d.consultingCols.assigned}</span>
+          <span>{d.consultingCols.updated}</span>
+          <span>{d.consultingCols.status}</span>
           <span />
         </div>
-        {isLoading ? <div className="designer-ops-queue-empty">Loading Proposal Consulting projects...</div> : null}
+        {isLoading ? <div className="designer-ops-queue-empty">{d.loadingConsulting}</div> : null}
         {errorLabel ? <div className="designer-ops-queue-empty">{errorLabel}</div> : null}
         {!isLoading && !errorLabel && items.length === 0 ? (
           <div className="designer-ops-queue-empty">{emptyLabel}</div>
@@ -728,15 +740,15 @@ function ProposalConsultingList({
             <strong title={`${item.projectCode} ${item.projectName}`.trim()}>
               {`${item.projectCode} ${item.projectName}`.trim()}
             </strong>
-            <span title={item.customerName || undefined}>{item.customerName || '-'}</span>
-            <span title={item.assignedDesignerName ?? undefined}>{item.assignedDesignerName || '-'}</span>
-            <span>{item.designerAssignedAt ? formatScheduleDateTime(item.designerAssignedAt) : '-'}</span>
-            <span>{formatScheduleDateTime(item.updatedAt)}</span>
+            <span title={item.customerName || undefined}>{item.customerName || t.common.dash}</span>
+            <span title={item.assignedDesignerName ?? undefined}>{item.assignedDesignerName || t.common.dash}</span>
+            <span>{item.designerAssignedAt ? formatScheduleDateTime(item.designerAssignedAt, lang) : t.common.dash}</span>
+            <span>{formatScheduleDateTime(item.updatedAt, lang)}</span>
             <em title={formatStatusLabel(item.status)}>{formatStatusLabel(item.status)}</em>
             <Link
-              aria-label={`Open ${item.projectCode}`}
+              aria-label={d.openProjectAria(item.projectCode)}
               className="designer-ops-queue-open"
-              title="Open project"
+              title={d.openProject}
               to={`/designer/assigned-projects/${item.projectId}`}
             >
               <IconChevronRight size={18} stroke={2} />
@@ -781,44 +793,48 @@ function RevisionRequestedList({
   onPageChange: (page: number) => void;
   onPageSizeChange: (pageSize: number) => void;
 }) {
+  const { lang } = useLang();
+  const t = designerCopy[lang];
+  const d = t.dashboard;
+
   return (
     <>
-      <div className="designer-ops-tabs" role="tablist" aria-label="Revision requested proposals">
+      <div className="designer-ops-tabs" role="tablist" aria-label={d.panelRevisions}>
         <button aria-selected="true" type="button">
-          Revision Requests
+          {d.tabRevisions}
           <em>{totalItems}</em>
         </button>
       </div>
 
       <div className="designer-ops-queue-table designer-ops-revisions-table">
         <div className="designer-ops-queue-head designer-ops-revisions-head">
-          <span>Proposal</span>
-          <span>Project</span>
-          <span>Note</span>
-          <span>Requested</span>
-          <span>Designer</span>
-          <span>Status</span>
+          <span>{d.revisionsCols.proposal}</span>
+          <span>{d.revisionsCols.project}</span>
+          <span>{d.revisionsCols.note}</span>
+          <span>{d.revisionsCols.requested}</span>
+          <span>{d.revisionsCols.designer}</span>
+          <span>{d.revisionsCols.status}</span>
           <span />
         </div>
-        {isLoading ? <div className="designer-ops-queue-empty">Loading revision requests...</div> : null}
+        {isLoading ? <div className="designer-ops-queue-empty">{d.loadingRevisions}</div> : null}
         {errorLabel ? <div className="designer-ops-queue-empty">{errorLabel}</div> : null}
         {!isLoading && !errorLabel && items.length === 0 ? (
           <div className="designer-ops-queue-empty">{emptyLabel}</div>
         ) : null}
         {items.map((item) => (
           <div className="designer-ops-queue-row designer-ops-revisions-row" key={item.proposalId}>
-            <strong title={item.proposalName ?? undefined}>{item.proposalName || 'Untitled proposal'}</strong>
+            <strong title={item.proposalName ?? undefined}>{item.proposalName || d.untitledProposal}</strong>
             <span title={`${item.projectCode} ${item.projectName}`.trim()}>
               {`${item.projectCode} ${item.projectName}`.trim()}
             </span>
-            <span title={item.revisionNote ?? undefined}>{item.revisionNote || '-'}</span>
-            <span>{formatScheduleDateTime(item.revisionRequestedAt)}</span>
-            <span title={item.assignedDesignerName ?? undefined}>{item.assignedDesignerName || '-'}</span>
+            <span title={item.revisionNote ?? undefined}>{item.revisionNote || t.common.dash}</span>
+            <span>{formatScheduleDateTime(item.revisionRequestedAt, lang)}</span>
+            <span title={item.assignedDesignerName ?? undefined}>{item.assignedDesignerName || t.common.dash}</span>
             <em title={formatStatusLabel(item.status)}>{formatStatusLabel(item.status)}</em>
             <Link
-              aria-label={`Open proposal ${item.proposalName || item.proposalId}`}
+              aria-label={d.openProposalAria(item.proposalName || item.proposalId)}
               className="designer-ops-queue-open"
-              title="Open proposal"
+              title={d.openProposal}
               to={`/designer/projects/${item.projectId}/proposals/${item.proposalId}`}
             >
               <IconChevronRight size={18} stroke={2} />
@@ -863,26 +879,30 @@ function AssignedProjectsList({
   onPageChange: (page: number) => void;
   onPageSizeChange: (pageSize: number) => void;
 }) {
+  const { lang } = useLang();
+  const t = designerCopy[lang];
+  const d = t.dashboard;
+
   return (
     <>
-      <div className="designer-ops-tabs" role="tablist" aria-label="Assigned projects">
+      <div className="designer-ops-tabs" role="tablist" aria-label={d.panelAssigned}>
         <button aria-selected="true" type="button">
-          Assigned
+          {d.tabAssigned}
           <em>{totalItems}</em>
         </button>
       </div>
 
       <div className="designer-ops-queue-table designer-ops-assigned-table">
         <div className="designer-ops-queue-head designer-ops-assigned-head">
-          <span>Project</span>
-          <span>Customer</span>
-          <span>Assigned</span>
-          <span>Customization</span>
-          <span>Custom status</span>
-          <span>Status</span>
+          <span>{d.assignedCols.project}</span>
+          <span>{d.assignedCols.customer}</span>
+          <span>{d.assignedCols.assigned}</span>
+          <span>{d.assignedCols.customization}</span>
+          <span>{d.assignedCols.customStatus}</span>
+          <span>{d.assignedCols.status}</span>
           <span />
         </div>
-        {isLoading ? <div className="designer-ops-queue-empty">Loading assigned projects...</div> : null}
+        {isLoading ? <div className="designer-ops-queue-empty">{d.loadingAssigned}</div> : null}
         {errorLabel ? <div className="designer-ops-queue-empty">{errorLabel}</div> : null}
         {!isLoading && !errorLabel && items.length === 0 ? (
           <div className="designer-ops-queue-empty">{emptyLabel}</div>
@@ -890,17 +910,17 @@ function AssignedProjectsList({
         {items.map((item) => {
           const customizationLabel = item.hasCustomerCustomizationRequest
             ? item.openCustomizationRequestCount > 0
-              ? `Yes · ${item.openCustomizationRequestCount} open`
-              : 'Yes'
-            : 'No';
+              ? d.customizationYesOpen(item.openCustomizationRequestCount)
+              : d.customizationYes
+            : d.customizationNo;
 
           return (
             <div className="designer-ops-queue-row designer-ops-assigned-row" key={item.projectId}>
               <strong title={`${item.projectCode} ${item.projectName}`.trim()}>
                 {`${item.projectCode} ${item.projectName}`.trim()}
               </strong>
-              <span title={item.customerName || undefined}>{item.customerName || '-'}</span>
-              <span>{item.designerAssignedAt ? formatScheduleDateTime(item.designerAssignedAt) : '-'}</span>
+              <span title={item.customerName || undefined}>{item.customerName || t.common.dash}</span>
+              <span>{item.designerAssignedAt ? formatScheduleDateTime(item.designerAssignedAt, lang) : t.common.dash}</span>
               <span
                 className={
                   item.hasCustomerCustomizationRequest
@@ -912,13 +932,13 @@ function AssignedProjectsList({
                 {customizationLabel}
               </span>
               <em title={item.latestCustomizationStatus ? formatStatusLabel(item.latestCustomizationStatus) : undefined}>
-                {item.latestCustomizationStatus ? formatStatusLabel(item.latestCustomizationStatus) : '-'}
+                {item.latestCustomizationStatus ? formatStatusLabel(item.latestCustomizationStatus) : t.common.dash}
               </em>
               <em title={formatStatusLabel(item.status)}>{formatStatusLabel(item.status)}</em>
               <Link
-                aria-label={`Open ${item.projectCode}`}
+                aria-label={d.openProjectAria(item.projectCode)}
                 className="designer-ops-queue-open"
-                title="Open project"
+                title={d.openProject}
                 to={`/designer/assigned-projects/${item.projectId}`}
               >
                 <IconChevronRight size={18} stroke={2} />
@@ -958,10 +978,14 @@ function KpiListPager({
   onPageChange: (page: number) => void;
   onPageSizeChange: (pageSize: number) => void;
 }) {
+  const { lang } = useLang();
+  const t = designerCopy[lang];
+  const d = t.dashboard;
+
   return (
     <div className="designer-ops-pager">
       <label>
-        <span>Rows</span>
+        <span>{t.common.rows}</span>
         <select
           disabled={isLoading}
           value={pageSize}
@@ -973,11 +997,11 @@ function KpiListPager({
         </select>
       </label>
       <span>
-        {totalItems === 0 ? '0 items' : `Page ${page} of ${totalPages} · ${totalItems} items`}
+        {totalItems === 0 ? d.pagerZeroItems : d.pagerSummary(page, totalPages, totalItems)}
       </span>
       <div className="designer-ops-pager-buttons">
         <button
-          aria-label="Previous page"
+          aria-label={d.previousPageAria}
           disabled={isLoading || page <= 1}
           type="button"
           onClick={() => onPageChange(page - 1)}
@@ -985,7 +1009,7 @@ function KpiListPager({
           <IconChevronLeft size={16} />
         </button>
         <button
-          aria-label="Next page"
+          aria-label={d.nextPageAria}
           disabled={isLoading || page >= totalPages}
           type="button"
           onClick={() => onPageChange(page + 1)}
@@ -999,7 +1023,8 @@ function KpiListPager({
 
 function mapDesignerKpis(
   data: DesignerDashboardKpisDto | undefined,
-  rangeLabel: string,
+  d: DesignerCopy['dashboard'],
+  dateRange: DateRangeKey,
   detailPanel: DetailPanel,
   onOpenDetailPanel: (panel: Exclude<DetailPanel, 'queue'>) => void,
 ): KpiItem[] {
@@ -1007,53 +1032,66 @@ function mapDesignerKpis(
   const consultingCount = data?.proposalConsultingProjects ?? data?.proposalsInProgress ?? 0;
   const revisionCount = data?.proposalRevisionsRequested ?? data?.revisionRequested ?? 0;
   const assignedCount = data?.assignedProjects ?? 0;
+  const rangeNote = getDateRangeLabel(d, dateRange);
 
   return [
     {
-      description: 'Confirmed measurement schedules still to complete in this date range',
+      description: d.kpiConfirmedDescription,
       icon: IconCalendarEvent,
       id: 'confirmed-measurements',
-      label: 'Confirmed Measurements',
-      note: rangeLabel,
+      label: d.kpiConfirmedLabel,
+      note: rangeNote,
       onSelect: () => onOpenDetailPanel('confirmed-measurements'),
       selected: detailPanel === 'confirmed-measurements',
       tone: 'red',
       value: String(confirmedCount),
     },
     {
-      description: 'Assigned projects currently in Proposal Consulting',
+      description: d.kpiConsultingDescription,
       icon: IconChecklist,
       id: 'proposals',
-      label: 'Proposal Consulting',
-      note: rangeLabel,
+      label: d.kpiConsultingLabel,
+      note: rangeNote,
       onSelect: () => onOpenDetailPanel('proposal-consulting'),
       selected: detailPanel === 'proposal-consulting',
       tone: 'blue',
       value: String(consultingCount),
     },
     {
-      description: 'Proposals with customer revision requests still pending',
+      description: d.kpiRevisionDescription,
       icon: IconEditCircle,
       id: 'revisions',
-      label: 'Revision Requests',
-      note: rangeLabel,
+      label: d.kpiRevisionLabel,
+      note: rangeNote,
       onSelect: () => onOpenDetailPanel('revision-requested'),
       selected: detailPanel === 'revision-requested',
       tone: 'amber',
       value: String(revisionCount),
     },
     {
-      description: 'Projects currently assigned to you, including customer customization requests',
+      description: d.kpiAssignedDescription,
       icon: IconBriefcase,
       id: 'assigned',
-      label: 'Customize Requests',
-      note: 'Stock',
+      label: d.kpiAssignedLabel,
+      note: d.kpiAssignedNote,
       onSelect: () => onOpenDetailPanel('assigned-projects'),
       selected: detailPanel === 'assigned-projects',
       tone: 'neutral',
       value: String(assignedCount),
     },
   ];
+}
+
+function getDateRangeLabel(d: DesignerCopy['dashboard'], dateRange: DateRangeKey) {
+  if (dateRange === 'today') return d.today;
+  if (dateRange === 'this-week') return d.thisWeek;
+  return d.thisMonth;
+}
+
+function getProjectFilterLabel(d: DesignerCopy['dashboard'], projectFilter: ProjectFilterKey) {
+  if (projectFilter === 'assigned') return d.filterAssigned;
+  if (projectFilter === 'overdue') return d.filterOverdue;
+  return d.filterCustomization;
 }
 
 function toApiDateRange(dateRange: DateRangeKey): DashboardDateRange {
@@ -1087,15 +1125,21 @@ function formatStatusLabel(status: string) {
     .join(' ');
 }
 
-function formatDueLabel(dueAt: string | null, dueBucket: DashboardDueBucket | null) {
-  if (!dueAt && !dueBucket) return '-';
+function formatDueLabel(
+  dueAt: string | null,
+  dueBucket: DashboardDueBucket | null,
+  d: DesignerCopy['dashboard'],
+  lang: Lang,
+) {
+  const dash = designerCopy[lang].common.dash;
+  if (!dueAt && !dueBucket) return dash;
   if (dueBucket === 'OVERDUE') return 'Overdue';
-  if (dueBucket === 'TODAY') return 'Today';
-  if (dueBucket === 'THIS_WEEK') return 'This week';
+  if (dueBucket === 'TODAY') return d.today;
+  if (dueBucket === 'THIS_WEEK') return d.thisWeek;
   if (dueBucket === 'LATER') return 'Later';
-  if (!dueAt) return '-';
+  if (!dueAt) return dash;
 
-  return new Intl.DateTimeFormat('en-US', {
+  return new Intl.DateTimeFormat(lang === 'vi' ? 'vi-VN' : 'en-US', {
     month: 'short',
     day: 'numeric',
     hour: '2-digit',
@@ -1103,8 +1147,8 @@ function formatDueLabel(dueAt: string | null, dueBucket: DashboardDueBucket | nu
   }).format(new Date(dueAt));
 }
 
-function formatScheduleDateTime(value: string) {
-  return new Intl.DateTimeFormat('en-US', {
+function formatScheduleDateTime(value: string, lang: Lang) {
+  return new Intl.DateTimeFormat(lang === 'vi' ? 'vi-VN' : 'en-US', {
     month: 'short',
     day: 'numeric',
     year: 'numeric',
