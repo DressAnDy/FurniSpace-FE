@@ -106,7 +106,10 @@ export function DesignerProjectDetail() {
   }, [accountIds, accountQueries]);
   const customer = project ? accountById[project.customerId] : null;
   const sales = project?.assignedSalesId ? accountById[project.assignedSalesId] : null;
-  const activeTabConfig = useMemo(() => detailTabs.find((tab) => tab.id === activeTab) ?? detailTabs[0], [activeTab]);
+  const activeTabConfig = useMemo(
+    () => detailTabs.find((tab) => tab.id === activeTab) ?? detailTabs[0],
+    [activeTab, detailTabs],
+  );
   const requestedTab = new URLSearchParams(location.search).get('tab') as DesignerProjectDetailTab | null;
   const ActiveTab = activeTabConfig.component ?? OverviewTab;
   const salesDeadline = project ? getSalesDeadline(project) : null;
@@ -131,7 +134,7 @@ export function DesignerProjectDetail() {
     if (requestedTab && detailTabs.some((tab) => tab.id === requestedTab)) {
       setActiveTab(requestedTab);
     }
-  }, [requestedTab]);
+  }, [detailTabs, requestedTab]);
 
   async function updateProjectToNextDesignStatus() {
     if (!project) {

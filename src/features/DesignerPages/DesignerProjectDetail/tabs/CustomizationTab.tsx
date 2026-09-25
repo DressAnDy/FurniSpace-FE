@@ -500,7 +500,6 @@ export function CustomizationTab({ project }: Readonly<CustomizationTabProps>) {
             onChange={setRequestForm}
             onSubmit={(event) => void submitRequestOnBehalf(event)}
             t={t}
-            tc={tc}
           />
         </DesignerModal>
       ) : null}
@@ -642,7 +641,6 @@ function DesignerRequestForm({
   proposals,
   proposalsLoading,
   t,
-  tc,
 }: {
   form: RequestFormState;
   items: ProposalItemDto[];
@@ -653,7 +651,6 @@ function DesignerRequestForm({
   proposals: ProposalDto[];
   proposalsLoading: boolean;
   t: typeof designerCopy.en.customizationTab;
-  tc: typeof designerCopy.en.common;
 }) {
   const setField = (name: keyof RequestFormState, value: string) => onChange({ ...form, [name]: value });
   const setDecimalField = (name: keyof RequestFormState, value: string) => setField(name, sanitizeCustomizationDecimalInput(value));
