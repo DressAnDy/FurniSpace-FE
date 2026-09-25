@@ -258,7 +258,9 @@ export function useReopenProjectProposal() {
       invalidateProjectCaches(queryClient, data.projectId);
       void queryClient.invalidateQueries({ queryKey: ['proposals', 'project'] });
       void queryClient.invalidateQueries({ queryKey: ['quotations'] });
+      void queryClient.invalidateQueries({ queryKey: ['quotations', 'project'] });
       void queryClient.invalidateQueries({ queryKey: ['orders'] });
+      void queryClient.invalidateQueries({ queryKey: ['orders', 'project', data.projectId] });
       void queryClient.invalidateQueries({ queryKey: ['payments'] });
       void queryClient.invalidateQueries({ queryKey: ['notifications'] });
     },

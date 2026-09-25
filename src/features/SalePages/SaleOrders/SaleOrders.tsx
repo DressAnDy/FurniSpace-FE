@@ -479,7 +479,10 @@ function OrderDetailPanel({
           <tbody>
             {orderItems.map((item) => (
               <tr key={item.orderItemId}>
-                <td>{getOrderItemName(item)}</td>
+                <td>
+                  <strong className="sale-orders-item-name">{getOrderItemName(item)}</strong>
+                  {item.isCustomized ? <span className="sale-orders-customize-pill">Customize</span> : null}
+                </td>
                 <td>{item.quantity ?? '-'}</td>
                 <td>{formatMoney(item.unitPrice)}</td>
                 <td>{formatMoney(getOrderItemGrossAmount(item))}</td>

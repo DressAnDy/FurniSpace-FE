@@ -2617,6 +2617,22 @@
   line-height: 16px;
 }
 
+.project-detail-order-customize-pill {
+  display: inline-flex;
+  width: fit-content;
+  align-items: center;
+  border-radius: 999px;
+  background: rgba(139, 111, 71, 0.12);
+  color: #6f5636;
+  font-size: 9px;
+  font-style: normal;
+  font-weight: 800;
+  line-height: 14px;
+  margin-top: 5px;
+  padding: 2px 8px;
+  text-transform: uppercase;
+}
+
 .project-detail-order-status {
   display: inline-flex;
   min-height: 26px;

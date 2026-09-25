@@ -717,15 +717,15 @@ function DesignerRequestForm({
           <input value={form.requestedColor} placeholder="Requested color" onChange={(event) => setField('requestedColor', event.target.value)} />
         </label>
         <label>
-          <span>Width</span>
+          <span>Width (cm)</span>
           <input inputMode="decimal" value={form.requestedWidth} onChange={(event) => setDecimalField('requestedWidth', event.target.value)} />
         </label>
         <label>
-          <span>Height</span>
+          <span>Height (cm)</span>
           <input inputMode="decimal" value={form.requestedHeight} onChange={(event) => setDecimalField('requestedHeight', event.target.value)} />
         </label>
         <label>
-          <span>Depth</span>
+          <span>Depth (cm)</span>
           <input inputMode="decimal" value={form.requestedDepth} onChange={(event) => setDecimalField('requestedDepth', event.target.value)} />
         </label>
       </div>
@@ -927,15 +927,15 @@ function VersionForm({
           <input value={form.color} placeholder="Color" onChange={(event) => setField('color', event.target.value)} />
         </label>
         <label>
-          <span>Width</span>
+          <span>Width (cm)</span>
           <input inputMode="decimal" value={form.width} onChange={(event) => setDecimalField('width', event.target.value)} />
         </label>
         <label>
-          <span>Height</span>
+          <span>Height (cm)</span>
           <input inputMode="decimal" value={form.height} onChange={(event) => setDecimalField('height', event.target.value)} />
         </label>
         <label>
-          <span>Depth</span>
+          <span>Depth (cm)</span>
           <input inputMode="decimal" value={form.depth} onChange={(event) => setDecimalField('depth', event.target.value)} />
         </label>
         <label>
@@ -1050,9 +1050,9 @@ type VersionBodyValidationResult =
   | { ok: false; message: string };
 
 function getRequestInput(form: RequestFormState): RequestInputValidationResult {
-  const width = validateOptionalCustomizationNumber(form.requestedWidth, 'Width');
-  const height = validateOptionalCustomizationNumber(form.requestedHeight, 'Height');
-  const depth = validateOptionalCustomizationNumber(form.requestedDepth, 'Depth');
+  const width = validateOptionalCustomizationNumber(form.requestedWidth, 'Width (cm)');
+  const height = validateOptionalCustomizationNumber(form.requestedHeight, 'Height (cm)');
+  const depth = validateOptionalCustomizationNumber(form.requestedDepth, 'Depth (cm)');
 
   if (!width.ok) return width;
   if (!height.ok) return height;
@@ -1090,9 +1090,9 @@ function getRequestInput(form: RequestFormState): RequestInputValidationResult {
 }
 
 function getVersionBody(form: VersionFormState): VersionBodyValidationResult {
-  const width = validateOptionalCustomizationNumber(form.width, 'Width');
-  const height = validateOptionalCustomizationNumber(form.height, 'Height');
-  const depth = validateOptionalCustomizationNumber(form.depth, 'Depth');
+  const width = validateOptionalCustomizationNumber(form.width, 'Width (cm)');
+  const height = validateOptionalCustomizationNumber(form.height, 'Height (cm)');
+  const depth = validateOptionalCustomizationNumber(form.depth, 'Depth (cm)');
   const estimatedPrice = validateOptionalCustomizationNumber(form.estimatedPrice, 'Estimated price');
 
   if (!width.ok) return width;

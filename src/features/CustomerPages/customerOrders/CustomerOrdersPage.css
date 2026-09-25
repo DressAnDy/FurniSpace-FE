@@ -674,6 +674,18 @@
   min-height: 42px;
 }
 
+.customer-orders-delivery-details-grid input[aria-invalid="true"] {
+  border-color: rgba(220, 38, 38, 0.55);
+  background: #fff7f7;
+}
+
+.customer-orders-field-error {
+  color: #b91c1c;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 16px;
+}
+
 .customer-orders-delivery-details-grid input:disabled,
 .customer-orders-delivery-details-grid textarea:disabled {
   background: #f3f0eb;
@@ -718,6 +730,30 @@
 .customer-orders-table-wrap th:first-child,
 .customer-orders-table-wrap td:first-child {
   width: 24%;
+}
+
+.customer-orders-item-name {
+  display: block;
+  color: #2f2a24;
+  font-size: 12px;
+  font-weight: 900;
+  line-height: 18px;
+  overflow-wrap: anywhere;
+}
+
+.customer-orders-customize-pill {
+  display: inline-flex;
+  width: fit-content;
+  align-items: center;
+  border-radius: 999px;
+  background: rgba(139, 111, 71, 0.12);
+  color: #6f5636;
+  font-size: 9px;
+  font-weight: 900;
+  line-height: 14px;
+  margin-top: 4px;
+  padding: 2px 8px;
+  text-transform: uppercase;
 }
 
 .customer-orders-table-action {
