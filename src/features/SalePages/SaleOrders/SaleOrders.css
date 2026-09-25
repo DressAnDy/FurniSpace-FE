@@ -806,6 +806,29 @@
   padding: 15px 14px;
 }
 
+.sale-orders-item-name {
+  display: block;
+  color: #2d2d2d;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 18px;
+}
+
+.sale-orders-customize-pill {
+  display: inline-flex;
+  width: fit-content;
+  align-items: center;
+  border-radius: 999px;
+  background: rgba(139, 111, 71, 0.12);
+  color: #6f5636;
+  font-size: 9px;
+  font-weight: 800;
+  line-height: 14px;
+  margin-top: 4px;
+  padding: 2px 8px;
+  text-transform: uppercase;
+}
+
 @media (max-width: 1080px) {
   .sale-orders-toolbar,
   .sale-orders-metrics,

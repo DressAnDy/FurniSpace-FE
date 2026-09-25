@@ -29,6 +29,7 @@ const statusOptions: Array<{ label: string; value: QuotationStatus | null }> = [
   { label: 'Revision', value: 'REVISION_REQUESTED' },
   { label: 'Revised', value: 'REVISED' },
   { label: 'Accepted', value: 'ACCEPTED' },
+  { label: 'Cancelled', value: 'CANCELLED' },
 ];
 
 const pendingQuotationProjectStatuses = new Set<ProjectStatus>(['PROPOSAL_SELECTED']);
@@ -556,7 +557,8 @@ export function SaleQuotations() {
                       return (
                       <tr key={item.quotationItemId}>
                         <td className="sale-quotations-item-name" title={getQuotationItemName(item)}>
-                          {getQuotationItemName(item)}
+                          <strong>{getQuotationItemName(item)}</strong>
+                          {item.isCustomized ? <span className="sale-quotations-customize-pill">Customize</span> : null}
                         </td>
                         <td>{formatNumberValue(item.quantity)}</td>
                         <td>{formatMoney(item.unitPrice)}</td>
@@ -794,6 +796,10 @@ function canSend(quotation: QuotationDto & { items?: QuotationItemDto[] }) {
 function getSendBlockedReason(quotation: QuotationDto & { items?: QuotationItemDto[] }) {
   if (quotation.status === 'REVISION_REQUESTED') {
     return 'Click Revise first, then update the quotation before sending it back to the customer.';
+  }
+
+  if (quotation.status !== 'DRAFT' && quotation.status !== 'REVISED') {
+    return 'Only draft or revised quotations can be sent. Cancelled quotations are kept as history.';
   }
 
   if (!quotation.validUntil) {

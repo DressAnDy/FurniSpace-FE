@@ -310,6 +310,7 @@ function QuotationDetail({
               <tr key={item.quotationItemId}>
                 <td>
                   <strong title={getQuotationItemName(item)}>{getQuotationItemName(item)}</strong>
+                  {item.isCustomized ? <span className="customer-quotations-customize-pill">Customize</span> : null}
                   {item.note || item.customizationNote ? <span>{item.note ?? item.customizationNote}</span> : null}
                 </td>
                 <td>{item.quantity ?? '-'}</td>

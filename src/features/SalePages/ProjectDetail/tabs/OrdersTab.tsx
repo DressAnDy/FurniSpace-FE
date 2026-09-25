@@ -99,7 +99,8 @@ export function OrdersTab({ projectId }: OrdersTabProps) {
                     <article key={item.orderItemId}>
                       <div>
                         <strong>{getOrderItemName(item)}</strong>
-                        <span>{formatStatusLabel(item.status)}{item.isCustomized ? ' - Customized' : ''}</span>
+                        <span>{formatStatusLabel(item.status)}</span>
+                        {item.isCustomized ? <em className="project-detail-order-customize-pill">Customize</em> : null}
                       </div>
                       <div>
                         <strong>{formatMoney(getOrderItemPreVatAmount(item))}</strong>

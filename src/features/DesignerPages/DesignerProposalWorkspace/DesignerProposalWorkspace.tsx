@@ -156,7 +156,7 @@ export function DesignerProposalWorkspace() {
   const selectedScene = scenes.find((scene) => scene.sceneId === selectedSceneId) ?? selectedAreaScenes[0] ?? (selectedAreaId ? null : primaryScene);
   const canEditProposal = Boolean(proposal && isEditableProposalStatus(proposal.status));
   const canPublishProposal = Boolean(activeProposalId && proposal && isEditableProposalStatus(proposal.status) && scenes.length > 0);
-  const canReopenProposal = proposal?.status === 'PUBLISHED';
+  const canReopenProposal = canReopenProposalForEditing(proposal?.status, project?.status);
   useEffect(() => {
     if (!proposal) {
       return;
@@ -397,9 +397,18 @@ export function DesignerProposalWorkspace() {
 
     setMessage('');
 
+    const confirmed = window.confirm(
+      'This proposal will move back to Draft. The current quotation, if any, will be cancelled. After editing, publish the proposal again so the customer can select it and create a new quotation.',
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
     try {
       await reopenProposalMutation.mutateAsync(activeProposalId);
       setMessage('Proposal reopened for editing. You can update scenes, items, and proposal information before publishing again.');
+      void projectQuery.refetch();
       void proposalQuery.refetch();
       void scenesQuery.refetch();
       void itemsQuery.refetch();
@@ -1008,4 +1017,11 @@ function getSortableFloor(floorNumber: number | null) {
 
 function isEditableProposalStatus(status?: ProposalDetailDto['status'] | null) {
   return status === 'DRAFT' || status === 'REVISION_REQUESTED';
+}
+
+function canReopenProposalForEditing(
+  proposalStatus?: ProposalDetailDto['status'] | null,
+  projectStatus?: string | null,
+) {
+  return proposalStatus === 'PUBLISHED' && projectStatus === 'PROPOSAL_CONSULTING';
 }
