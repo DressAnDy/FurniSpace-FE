@@ -1,4 +1,4 @@
-import { ChangeEvent, FormEvent, KeyboardEvent, useMemo, useRef, useState } from 'react';
+import { ChangeEvent, ClipboardEvent, FormEvent, KeyboardEvent, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 
 import authenPic from '@/assets/auth/register-hero.png';
@@ -27,8 +27,38 @@ export function CodeVerifyPage() {
     return normalizeEmail(emailFromUrl || emailFromStorage);
   }, [searchParams]);
 
+  function applyOtpDigits(rawValue: string, startIndex = 0) {
+    const digits = rawValue.replace(/\D/g, '').slice(0, codeSlots.length - startIndex);
+
+    if (!digits) {
+      return;
+    }
+
+    setCode((currentCode) => {
+      const nextCode = [...currentCode];
+
+      for (let offset = 0; offset < digits.length; offset += 1) {
+        nextCode[startIndex + offset] = digits[offset];
+      }
+
+      return nextCode;
+    });
+
+    const focusIndex = Math.min(startIndex + digits.length, codeSlots.length - 1);
+    inputRefs.current[focusIndex]?.focus();
+    setMessage('');
+  }
+
   function handleCodeChange(index: number, event: ChangeEvent<HTMLInputElement>) {
-    const nextDigit = event.target.value.replace(/\D/g, '').slice(-1);
+    const rawValue = event.target.value.replace(/\D/g, '');
+
+    // Mobile autofill / paste fallback may put multiple digits into one input.
+    if (rawValue.length > 1) {
+      applyOtpDigits(rawValue, rawValue.length >= codeSlots.length ? 0 : index);
+      return;
+    }
+
+    const nextDigit = rawValue.slice(-1);
 
     setCode((currentCode) => {
       const nextCode = [...currentCode];
@@ -40,12 +70,21 @@ export function CodeVerifyPage() {
     if (nextDigit && index < codeSlots.length - 1) {
       inputRefs.current[index + 1]?.focus();
     }
+
+    setMessage('');
   }
 
   function handleCodeKeyDown(index: number, event: KeyboardEvent<HTMLInputElement>) {
     if (event.key === 'Backspace' && !code[index] && index > 0) {
       inputRefs.current[index - 1]?.focus();
     }
+  }
+
+  function handleCodePaste(index: number, event: ClipboardEvent<HTMLInputElement>) {
+    event.preventDefault();
+    const digits = event.clipboardData.getData('text').replace(/\D/g, '');
+    // Full OTP paste always fills from the first box.
+    applyOtpDigits(digits, digits.length >= codeSlots.length ? 0 : index);
   }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -92,10 +131,11 @@ export function CodeVerifyPage() {
                 autoComplete={index === 0 ? 'one-time-code' : 'off'}
                 inputMode="numeric"
                 key={slot}
-                maxLength={1}
+                maxLength={index === 0 ? 6 : 1}
                 name={slot}
                 onChange={(event) => handleCodeChange(index, event)}
                 onKeyDown={(event) => handleCodeKeyDown(index, event)}
+                onPaste={(event) => handleCodePaste(index, event)}
                 ref={(node) => {
                   inputRefs.current[index] = node;
                 }}

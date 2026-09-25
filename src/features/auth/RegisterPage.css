@@ -4,9 +4,12 @@
   height: 100dvh;
   min-height: 0;
   overflow: hidden;
-  background: #f5f0e3;
+  background:
+    radial-gradient(circle at 12% 18%, rgba(217, 180, 130, 0.18), transparent 42%),
+    radial-gradient(circle at 88% 82%, rgba(139, 111, 71, 0.1), transparent 36%),
+    #f5f0e3;
   color: #1f1b16;
-  font-family: Arial, "DM Sans", sans-serif;
+  font-family: "DM Sans", Arial, sans-serif;
 }
 
 .register-form-panel {
@@ -17,33 +20,34 @@
   min-width: 420px;
   align-items: center;
   justify-content: center;
-  background: #f5f0e3;
+  background: transparent;
   padding: 34px 28px 28px;
 }
 
 .register-form {
   display: grid;
   width: min(400px, 100%);
-  gap: 14px;
+  gap: 16px;
 }
 
 .register-form h1 {
-  margin: 0 0 2px;
-  color: #8b6f47;
+  margin: 0 0 6px;
+  color: #6f5635;
   font-size: 42px;
-  font-weight: 700;
+  font-weight: 800;
+  letter-spacing: -0.02em;
   line-height: 1.15;
   text-align: center;
 }
 
 .register-field-list {
   display: grid;
-  gap: 14px;
+  gap: 12px;
 }
 
 .register-field {
-  position: relative;
-  display: block;
+  display: grid;
+  gap: 6px;
 }
 
 .register-field span {
@@ -55,32 +59,52 @@
   white-space: nowrap;
 }
 
+.register-field-control {
+  position: relative;
+}
+
 .register-field input {
   width: 100%;
   height: 52px;
   border: 2px solid #8b6f47;
-  border-radius: 20px;
+  border-radius: 18px;
   background: #ffffff;
-  color: #111111;
+  box-shadow: 0 8px 20px rgba(88, 64, 36, 0.06);
+  color: #1a1510;
   font: inherit;
-  font-size: 16px;
+  font-size: 15px;
+  font-weight: 500;
   outline: none;
   padding: 0 18px;
   transition:
     border-color 160ms ease,
-    box-shadow 160ms ease;
+    box-shadow 160ms ease,
+    background-color 160ms ease;
 }
 
 .register-field input[type="password"],
 .register-field input[type="text"][name="password"],
 .register-field input[type="text"][name="confirmPassword"] {
-  padding-right: 54px;
+  padding-right: 52px;
+}
+
+.register-field input.is-invalid,
+.register-field.is-invalid input {
+  border-color: #8b6f47;
+  background: #ffffff;
+  box-shadow: none;
+}
+
+.register-field input.is-invalid:focus,
+.register-field.is-invalid input:focus {
+  border-color: #a87830;
+  box-shadow: 0 0 0 4px rgba(168, 120, 48, 0.16);
 }
 
 .register-password-toggle {
   position: absolute;
   top: 50%;
-  right: 14px;
+  right: 12px;
   z-index: 1;
   display: grid;
   width: 34px;
@@ -89,7 +113,7 @@
   border: 0;
   border-radius: 999px;
   background: transparent;
-  color: #8b6f47;
+  color: #6f5635;
   cursor: pointer;
   padding: 0;
   transform: translateY(-50%);
@@ -99,8 +123,8 @@
 }
 
 .register-password-toggle:hover {
-  background: rgba(139, 111, 71, 0.12);
-  color: #c99243;
+  background: rgba(139, 111, 71, 0.16);
+  color: #a87830;
 }
 
 .register-password-toggle:focus-visible {
@@ -109,26 +133,35 @@
 }
 
 .register-field input::placeholder {
-  color: #111111;
-  opacity: 1;
+  color: #6f5635;
+  font-weight: 600;
+  opacity: 0.88;
+}
+
+.register-field input:hover:not(.is-invalid):not(:disabled) {
+  border-color: #6f5635;
 }
 
 .register-field input:focus {
-  border-color: #c99243;
-  box-shadow: 0 0 0 4px rgba(201, 146, 67, 0.18);
+  border-color: #a87830;
+  background: #ffffff;
+  box-shadow: 0 0 0 4px rgba(168, 120, 48, 0.2);
 }
 
 .register-submit {
   width: 100%;
   height: 52px;
+  margin-top: 2px;
   border: 2px solid #8b6f47;
-  border-radius: 20px;
+  border-radius: 18px;
   background: #d4a574;
+  box-shadow: none;
   color: #ffffff;
   cursor: pointer;
   font: inherit;
   font-size: 16px;
-  font-weight: 700;
+  font-weight: 800;
+  letter-spacing: 0.02em;
   transition:
     background 160ms ease,
     transform 160ms ease;
@@ -137,28 +170,32 @@
 .register-submit:disabled {
   cursor: not-allowed;
   opacity: 0.72;
+  box-shadow: none;
 }
 
-.register-submit:hover {
+.register-submit:hover:not(:disabled) {
   background: #c99243;
+  box-shadow: none;
 }
 
-.register-submit:active {
+.register-submit:active:not(:disabled) {
   transform: translateY(1px);
 }
 
 .register-divider {
   width: 100%;
-  height: 1px;
+  height: 1.5px;
   margin-top: 2px;
-  background: #1f1b16;
-  opacity: 0.7;
+  background: linear-gradient(90deg, transparent, rgba(31, 27, 22, 0.55), transparent);
+  opacity: 1;
 }
 
 .register-login-copy {
   margin: 2px 0 0;
-  color: #8b6f47;
+  color: #6f5635;
   font-size: 14px;
+  font-weight: 600;
+  text-align: center;
 }
 
 .register-message {
@@ -170,12 +207,13 @@
 }
 
 .register-login-copy a {
-  color: #8b6f47;
-  font-weight: 700;
+  color: #6f5635;
+  font-weight: 800;
   text-decoration: none;
 }
 
 .register-login-copy a:hover {
+  color: #a87830;
   text-decoration: underline;
 }
 
@@ -218,10 +256,12 @@
   justify-content: center;
   border-radius: 999px;
   background: rgba(181, 181, 181, 0.62);
+  backdrop-filter: blur(6px);
   color: #ffffff;
   font-size: 14px;
   font-weight: 700;
   text-decoration: none;
+  transition: background 160ms ease;
 }
 
 .register-back-home:hover {
