@@ -1,6 +1,8 @@
 import { IconEdit, IconPhoto, IconPlus, IconRulerMeasure, IconUpload, IconX } from '@tabler/icons-react';
 import { useEffect, useMemo, useState } from 'react';
 
+import { useLang } from '@/app/providers/useLang';
+import { designerCopy } from '@/features/DesignerPages/designercomponents';
 import {
   getProjectAreaServiceResultMessage,
   type ProjectAreaDto,
@@ -66,14 +68,15 @@ const DEFAULT_AREA_DRAFT: AreaDraft = {
   width: '',
 };
 
-const NUMERIC_FIELD_LABELS: Record<NumericAreaField, string> = {
-  areaSqm: 'Area (m2)',
-  width: 'Width (m)',
-  length: 'Length (m)',
-  height: 'Height (m)',
-};
-
 export function ProjectAreasTab({ project }: Readonly<ProjectAreasTabProps>) {
+  const { lang } = useLang();
+  const t = designerCopy[lang].projectAreasTab;
+  const numericFieldLabels: Record<NumericAreaField, string> = {
+    areaSqm: t.areaM2,
+    width: t.width,
+    length: t.length,
+    height: t.height,
+  };
   const [areaDraft, setAreaDraft] = useState<AreaDraft>(DEFAULT_AREA_DRAFT);
   const [editingAreaId, setEditingAreaId] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<AreaFieldErrors>({});
@@ -90,7 +93,7 @@ export function ProjectAreasTab({ project }: Readonly<ProjectAreasTabProps>) {
   const isSavingArea = createAreaMutation.isPending || updateAreaMutation.isPending;
   const calculatedAreaSqm = getDraftAreaSqm(areaDraft);
   const assignedFloorNumber = getAssignedFloorNumber(areaDraft, areas, editingAreaId, project);
-  const floorAssignmentError = assignedFloorNumber === null ? getFloorAssignmentError(areas, editingAreaId, project) ?? 'No available floor for this project.' : null;
+  const floorAssignmentError = assignedFloorNumber === null ? getFloorAssignmentError(areas, editingAreaId, project) ?? t.errNoFloor : null;
   const isAreaCreationLocked = !isEditingArea && Boolean(floorAssignmentError);
   const areaLimitError = useMemo(
     () => getAreaLimitError(areaDraft, areas, editingAreaId, project),
@@ -135,14 +138,14 @@ export function ProjectAreasTab({ project }: Readonly<ProjectAreasTabProps>) {
 
   async function saveArea() {
     const areaName = areaDraft.areaName.trim();
-    const nextFieldErrors = getAreaFieldErrors(areaDraft, areas, editingAreaId, project, assignedFloorNumber);
+    const nextFieldErrors = getAreaFieldErrors(areaDraft, areas, editingAreaId, project, assignedFloorNumber, t, numericFieldLabels);
 
     setFieldErrors(nextFieldErrors);
     setMessage('');
     setMessageTone('error');
 
     if (!areaName) {
-      setMessage('Area name is required.');
+      setMessage(t.errAreaName);
       return;
     }
 
@@ -199,8 +202,8 @@ export function ProjectAreasTab({ project }: Readonly<ProjectAreasTabProps>) {
     <section className="designer-card designer-project-section-card">
       <div className="designer-project-section-toolbar">
         <div>
-          <h3>Project Areas</h3>
-          <p>Project areas are reusable project-level spaces. Create them before building proposal scenes.</p>
+          <h3>{t.title}</h3>
+          <p>{t.intro}</p>
         </div>
       </div>
 
@@ -216,12 +219,12 @@ export function ProjectAreasTab({ project }: Readonly<ProjectAreasTabProps>) {
           <div className="designer-project-area-heading">
             <IconRulerMeasure size={22} />
             <div>
-              <h4>{isEditingArea ? 'Update Project Area' : 'Add Project Area'}</h4>
+              <h4>{isEditingArea ? t.updateArea : t.addArea}</h4>
             </div>
           </div>
           <div className={`designer-project-area-form${isAreaCreationLocked ? ' designer-project-area-form-locked' : ''}`}>
             <label>
-              <span>Area Name</span>
+              <span>{t.areaName}</span>
               <input
                 aria-invalid={Boolean(fieldErrors.areaName)}
                 className={fieldErrors.areaName ? 'designer-project-area-input-invalid' : undefined}
@@ -232,20 +235,20 @@ export function ProjectAreasTab({ project }: Readonly<ProjectAreasTabProps>) {
               />
             </label>
             <label>
-              <span>Layout Mode</span>
+              <span>{t.layoutMode}</span>
               <select
                 disabled={isAreaCreationLocked}
                 value={areaDraft.isSpecialLayout ? 'special' : 'standard'}
                 onChange={(event) => updateDraft('isSpecialLayout', event.target.value === 'special')}
               >
-                <option value="standard">Standard rectangle</option>
-                <option value="special">Special layout</option>
+                <option value="standard">{t.standardRect}</option>
+                <option value="special">{t.specialLayout}</option>
               </select>
             </label>
             <NumericAreaInput
               error={fieldErrors.width}
               inputMode="decimal"
-              label={areaDraft.isSpecialLayout ? 'Width (m, optional)' : 'Width (m)'}
+              label={t.width}
               value={areaDraft.width}
               disabled={isAreaCreationLocked}
               onChange={(value) => updateNumericDraft('width', value)}
@@ -253,7 +256,7 @@ export function ProjectAreasTab({ project }: Readonly<ProjectAreasTabProps>) {
             <NumericAreaInput
               error={fieldErrors.length}
               inputMode="decimal"
-              label={areaDraft.isSpecialLayout ? 'Length (m, optional)' : 'Length (m)'}
+              label={t.length}
               value={areaDraft.length}
               disabled={isAreaCreationLocked}
               onChange={(value) => updateNumericDraft('length', value)}
@@ -261,7 +264,7 @@ export function ProjectAreasTab({ project }: Readonly<ProjectAreasTabProps>) {
             <NumericAreaInput
               error={fieldErrors.height}
               inputMode="decimal"
-              label="Height (m)"
+              label={t.height}
               value={areaDraft.height}
               disabled={isAreaCreationLocked}
               onChange={(value) => updateNumericDraft('height', value)}
@@ -270,7 +273,7 @@ export function ProjectAreasTab({ project }: Readonly<ProjectAreasTabProps>) {
               <NumericAreaInput
                 error={fieldErrors.areaSqm}
                 inputMode="decimal"
-                label="Area (m2, optional)"
+                label={t.areaM2}
                 value={areaDraft.areaSqm}
                 disabled={isAreaCreationLocked}
                 onChange={(value) => updateNumericDraft('areaSqm', value)}
@@ -283,27 +286,27 @@ export function ProjectAreasTab({ project }: Readonly<ProjectAreasTabProps>) {
               </div>
             )}
             <label className="designer-project-area-note">
-              <span>Description</span>
+              <span>{t.description}</span>
               <textarea disabled={isAreaCreationLocked} value={areaDraft.description} onChange={(event) => updateDraft('description', event.target.value)} />
             </label>
             <label className="designer-project-area-note">
-              <span>Current Condition</span>
+              <span>{t.currentCondition}</span>
               <textarea disabled={isAreaCreationLocked} value={areaDraft.currentCondition} onChange={(event) => updateDraft('currentCondition', event.target.value)} />
             </label>
             <label className="designer-project-area-note">
-              <span>Requirement Note</span>
+              <span>{t.requirementNote}</span>
               <textarea disabled={isAreaCreationLocked} value={areaDraft.requirementNote} onChange={(event) => updateDraft('requirementNote', event.target.value)} />
             </label>
             {areaDraft.isSpecialLayout && !isAreaCreationLocked ? <SpecialAreaBlueprintUpload projectAreaId={editingAreaId} /> : null}
             <div className="designer-project-area-form-actions">
               {isEditingArea ? (
                 <button className="designer-project-area-cancel-button" disabled={isSavingArea} type="button" onClick={resetAreaForm}>
-                  <IconX size={16} /> Cancel
+                  <IconX size={16} /> {t.cancel}
                 </button>
               ) : null}
               <button disabled={isSavingArea || !areaDraft.areaName.trim() || assignedFloorNumber === null} type="button" onClick={() => void saveArea()}>
                 {isEditingArea ? <IconEdit size={16} /> : <IconPlus size={16} />}
-                {getSaveButtonLabel(isSavingArea, isEditingArea)}
+                {isSavingArea ? t.saving : isEditingArea ? t.update : t.create}
               </button>
             </div>
           </div>
@@ -311,9 +314,9 @@ export function ProjectAreasTab({ project }: Readonly<ProjectAreasTabProps>) {
 
         <section className="designer-project-area-list-card">
           <div className="designer-project-area-list">
-            {areasQuery.isLoading ? <p className="designer-project-empty-text">Loading project areas...</p> : null}
-            {!areasQuery.isLoading && areas.length === 0 ? <p className="designer-project-empty-text">No project areas yet.</p> : null}
-            {areas.map((area) => <ProjectAreaItem area={area} key={area.projectAreaId} onUpdate={startUpdateArea} />)}
+            {areasQuery.isLoading ? <p className="designer-project-empty-text">{t.loading}</p> : null}
+            {!areasQuery.isLoading && areas.length === 0 ? <p className="designer-project-empty-text">{t.empty}</p> : null}
+            {areas.map((area) => <ProjectAreaItem area={area} key={area.projectAreaId} onUpdate={startUpdateArea} t={t} />)}
           </div>
         </section>
       </div>
@@ -322,6 +325,8 @@ export function ProjectAreasTab({ project }: Readonly<ProjectAreasTabProps>) {
 }
 
 function SpecialAreaBlueprintUpload({ projectAreaId }: Readonly<{ projectAreaId: string | null }>) {
+  const { lang } = useLang();
+  const t = designerCopy[lang].projectAreasTab;
   const [uploadItems, setUploadItems] = useState<SpecialAreaUploadItem[]>([]);
   const [message, setMessage] = useState('');
   const [messageTone, setMessageTone] = useState<'error' | 'success'>('success');
@@ -445,7 +450,7 @@ function SpecialAreaBlueprintUpload({ projectAreaId }: Readonly<{ projectAreaId:
     if (uploadedFileId) {
       setUploadItems((currentItems) => currentItems.filter((currentItem) => currentItem.id !== itemId));
       setMessageTone('success');
-      setMessage('Image uploaded.');
+      setMessage(t.imageUploaded);
     }
   }
 
@@ -454,8 +459,8 @@ function SpecialAreaBlueprintUpload({ projectAreaId }: Readonly<{ projectAreaId:
       <div className="designer-project-area-blueprint-upload-header">
         <IconPhoto size={18} />
         <div>
-          <strong>Special Area Images</strong>
-          <span>Upload reference images for blueprint review.</span>
+          <strong>{t.specialImages}</strong>
+          <span>{t.uploadHint}</span>
         </div>
       </div>
 
@@ -487,12 +492,13 @@ function SpecialAreaBlueprintUpload({ projectAreaId }: Readonly<{ projectAreaId:
                   key={item.id}
                   onRemove={() => removeUploadItem(item.id)}
                   onRetry={() => void retryUpload(item.id)}
+                  retryLabel={t.retry}
                 />
               ))}
             </div>
           ) : null}
           <button disabled={isUploading || uploadItems.length === 0} type="button" onClick={() => void uploadSelectedFiles()}>
-            <IconUpload size={16} /> {isUploading ? 'Uploading...' : 'Upload Images'}
+            <IconUpload size={16} /> {isUploading ? t.saving : t.specialImages}
           </button>
           {message ? (
             <p className={`designer-project-area-blueprint-message ${messageTone === 'success' ? 'is-success' : 'is-error'}`}>{message}</p>
@@ -508,7 +514,7 @@ function SpecialAreaBlueprintUpload({ projectAreaId }: Readonly<{ projectAreaId:
                       <img alt={file.originalFileName ?? 'Special area reference'} src={imageUrl} />
                     </a>
                     <figcaption>
-                      <span>{file.originalFileName ?? 'Reference image'}</span>
+                      <span>{file.originalFileName ?? t.referenceImage}</span>
                     </figcaption>
                   </figure>
                 ) : null;
@@ -525,10 +531,12 @@ function SpecialAreaUploadTile({
   item,
   onRemove,
   onRetry,
+  retryLabel,
 }: Readonly<{
   item: SpecialAreaUploadItem;
   onRemove: () => void;
   onRetry: () => void;
+  retryLabel: string;
 }>) {
   const [previewUrl, setPreviewUrl] = useState('');
 
@@ -550,7 +558,7 @@ function SpecialAreaUploadTile({
       <div className="designer-project-area-blueprint-pending-actions">
         {item.status === 'failed' ? (
           <button aria-label={`Retry ${item.file.name}`} type="button" onClick={onRetry}>
-            Retry
+            {retryLabel}
           </button>
         ) : null}
         <button aria-label={`Remove ${item.file.name}`} disabled={item.status === 'uploading'} type="button" onClick={onRemove}>
@@ -599,7 +607,7 @@ function NumericAreaInput({
   );
 }
 
-function ProjectAreaItem({ area, onUpdate }: Readonly<{ area: ProjectAreaDto; onUpdate: (area: ProjectAreaDto) => void }>) {
+function ProjectAreaItem({ area, onUpdate, t }: Readonly<{ area: ProjectAreaDto; onUpdate: (area: ProjectAreaDto) => void; t: typeof designerCopy.en.projectAreasTab }>) {
   const areaSqm = getProjectAreaSqm(area);
   const measurementImagesQuery = useProjectAreaMeasurementImages(area.projectAreaId);
   const measurementImages = measurementImagesQuery.data?.items ?? [];
@@ -615,7 +623,7 @@ function ProjectAreaItem({ area, onUpdate }: Readonly<{ area: ProjectAreaDto; on
         <header>
           <div>
             <strong>{area.areaName}</strong>
-            <span>{typeof area.floorNumber === 'number' ? `Floor ${area.floorNumber}` : 'Floor area'} - {area.isSpecialLayout ? 'Special layout' : 'Standard'}</span>
+            <span>{typeof area.floorNumber === 'number' ? t.floor(area.floorNumber) : t.floorArea} - {area.isSpecialLayout ? t.special : t.standard}</span>
           </div>
           <small>{formatEnumLabel(area.status)}</small>
         </header>
@@ -623,15 +631,15 @@ function ProjectAreaItem({ area, onUpdate }: Readonly<{ area: ProjectAreaDto; on
           Area: {formatMetric(areaSqm, 'm2')} - Width: {formatMetric(area.width, 'm')} - Length: {formatMetric(area.length, 'm')} - Height: {formatMetric(area.height, 'm')}
         </p>
         <details className="designer-project-area-notes">
-          <summary>Area details</summary>
-          <p><span>Description</span>{area.description || '-'}</p>
-          <p><span>Current Condition</span>{area.currentCondition || '-'}</p>
-          <p><span>Requirement Note</span>{area.requirementNote || '-'}</p>
+          <summary>{t.areaDetails}</summary>
+          <p><span>{t.description}</span>{area.description || '-'}</p>
+          <p><span>{t.currentCondition}</span>{area.currentCondition || '-'}</p>
+          <p><span>{t.requirementNote}</span>{area.requirementNote || '-'}</p>
         </details>
         {areaFiles.length > 0 ? (
           <section className="designer-project-area-image-group">
             <div className="designer-project-area-image-group-header">
-              <span>Special layout images</span>
+              <span>{t.specialLayoutImages}</span>
               <small>{areaFiles.length}</small>
             </div>
             <div className="designer-project-area-blueprints">
@@ -650,7 +658,7 @@ function ProjectAreaItem({ area, onUpdate }: Readonly<{ area: ProjectAreaDto; on
         {measurementImages.length > 0 ? (
           <section className="designer-project-area-image-group">
             <div className="designer-project-area-image-group-header">
-              <span>Measurement images</span>
+              <span>{t.measurementImages}</span>
               <small>{measurementImages.length}</small>
             </div>
             <div className="designer-project-area-measurements">
@@ -668,7 +676,7 @@ function ProjectAreaItem({ area, onUpdate }: Readonly<{ area: ProjectAreaDto; on
         ) : null}
       </div>
       <button className="designer-project-area-update-button" type="button" onClick={() => onUpdate(area)}>
-        <IconEdit size={15} /> Update
+        <IconEdit size={15} /> {t.updateBtn}
       </button>
     </article>
   );
@@ -717,15 +725,17 @@ function getAreaFieldErrors(
   editingAreaId: string | null,
   project: ProjectDto,
   assignedFloorNumber: number | null,
+  t: typeof designerCopy.en.projectAreasTab,
+  numericFieldLabels: Record<NumericAreaField, string>,
 ): AreaFieldErrors {
   const fieldErrors: AreaFieldErrors = {};
 
   if (!draft.areaName.trim()) {
-    fieldErrors.areaName = 'Area name is required.';
+    fieldErrors.areaName = t.errAreaName;
   }
 
   if (assignedFloorNumber === null) {
-    fieldErrors.floorNumber = getFloorAssignmentError(areas, editingAreaId, project) ?? 'No available floor for this project.';
+    fieldErrors.floorNumber = getFloorAssignmentError(areas, editingAreaId, project) ?? t.errNoFloor;
   }
 
   if (draft.isSpecialLayout) {
@@ -733,7 +743,7 @@ function getAreaFieldErrors(
       const value = parseOptionalNumber(draft[field]);
 
       if (value !== null) {
-        const result = validateOptionalPositiveNumber(value, NUMERIC_FIELD_LABELS[field]);
+        const result = validateOptionalPositiveNumber(value, numericFieldLabels[field]);
         if (!result.ok) fieldErrors[field] = result.message;
       }
     });
@@ -744,16 +754,16 @@ function getAreaFieldErrors(
     }
   } else {
     (['width', 'length'] as const).forEach((field) => {
-      const result = validateOptionalPositiveNumber(parseOptionalNumber(draft[field]), NUMERIC_FIELD_LABELS[field]);
+      const result = validateOptionalPositiveNumber(parseOptionalNumber(draft[field]), numericFieldLabels[field]);
       if (!result.ok) fieldErrors[field] = result.message;
     });
 
     if (parseOptionalNumber(draft.width) === null) {
-      fieldErrors.width = 'Width is required.';
+      fieldErrors.width = t.errDimensions;
     }
 
     if (parseOptionalNumber(draft.length) === null) {
-      fieldErrors.length = 'Length is required.';
+      fieldErrors.length = t.errDimensions;
     }
 
     const areaLimitError = getAreaLimitError(draft, areas, editingAreaId, project);
@@ -763,7 +773,7 @@ function getAreaFieldErrors(
     }
   }
 
-  const height = validateOptionalPositiveNumber(parseOptionalNumber(draft.height), NUMERIC_FIELD_LABELS.height);
+  const height = validateOptionalPositiveNumber(parseOptionalNumber(draft.height), numericFieldLabels.height);
   if (!height.ok) fieldErrors.height = height.message;
 
   return fieldErrors;
@@ -945,7 +955,3 @@ function formatEnumLabel(value: string) {
     .join(' ');
 }
 
-function getSaveButtonLabel(isSavingArea: boolean, isEditingArea: boolean) {
-  if (isSavingArea) return 'Saving...';
-  return isEditingArea ? 'Update Area' : 'Create Area';
-}

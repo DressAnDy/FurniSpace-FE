@@ -1,12 +1,12 @@
 import type { ReactNode } from 'react';
 
-import { DesignerLayout } from '@/features/DesignerPages/designercomponents';
+import { DesignerLayout, type DesignerNavKey } from '@/features/DesignerPages/designercomponents';
 
 type DesignerShellProps = {
-  activeLabel: string;
+  activeKey: DesignerNavKey;
   children: ReactNode;
 };
 
-export function DesignerShell({ activeLabel, children }: DesignerShellProps) {
-  return <DesignerLayout activeLabel={activeLabel}>{children}</DesignerLayout>;
+export function DesignerShell({ activeKey, children }: DesignerShellProps) {
+  return <DesignerLayout activeKey={activeKey}>{children}</DesignerLayout>;
 }

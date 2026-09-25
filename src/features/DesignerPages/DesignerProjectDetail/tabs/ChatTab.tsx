@@ -3,6 +3,8 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useLocation } from 'react-router-dom';
 
+import { useLang } from '@/app/providers/useLang';
+import { designerCopy } from '@/features/DesignerPages/designercomponents';
 import { formatChatTime, formatFileSize, formatUnreadBadge, getChatParticipant, getInitials, getMessageContent } from '@/features/projectChat/chatUi';
 import {
   getProjectChatServiceResultMessage,
@@ -34,6 +36,8 @@ type DesignerChatEntry = {
 };
 
 export function ChatTab({ project }: ChatTabProps) {
+  const { lang } = useLang();
+  const t = designerCopy[lang].chatTab;
   const queryClient = useQueryClient();
   const location = useLocation();
   const currentUserQuery = useCurrentUser();
@@ -82,7 +86,7 @@ export function ChatTab({ project }: ChatTabProps) {
     salesFallback: project.assignedSalesId,
     salesName: salesQuery.data?.fullName,
   };
-  const activeParticipant = getDesignerChatParticipant(activeChatEntry, participantOptions);
+  const activeParticipant = getDesignerChatParticipant(activeChatEntry, participantOptions, t);
 
   useEffect(() => {
     if (chatEntries.length === 0) {
@@ -183,16 +187,16 @@ export function ChatTab({ project }: ChatTabProps) {
           <h3>{activeParticipant.name}</h3>
           <p>{activeParticipant.role}</p>
         </div>
-        <span className="designer-project-chat-status">{activeChat?.status ?? 'No Chat'}</span>
+        <span className="designer-project-chat-status">{activeChat?.status ?? t.noChat}</span>
       </div>
 
       {statusMessage ? <p className="designer-project-file-message designer-project-file-error">{statusMessage}</p> : null}
       <div className="designer-project-chat-layout">
         <aside className="designer-project-chat-selector">
-          {isChatListLoading ? <p>Loading chat...</p> : null}
+          {isChatListLoading ? <p>{t.loadingChat}</p> : null}
           {chatListError ? <p>{getProjectChatServiceResultMessage(chatListError)}</p> : null}
           {!isChatListLoading && !chatListError && chatEntries.length === 0 ? (
-            <p>No customer-designer or designer-sales chat is available for this project.</p>
+            <p>{t.noThreads}</p>
           ) : null}
           {chatEntries.map((entry) => (
             <ChatSelectorItem
@@ -205,6 +209,7 @@ export function ChatTab({ project }: ChatTabProps) {
               onSelect={() => setActiveChatKey(entry.key)}
               salesFallback={project.assignedSalesId}
               salesName={salesQuery.data?.fullName}
+              t={t}
               unreadCount={unreadCounts[entry.chat.chatId] ?? 0}
             />
           ))}
@@ -212,20 +217,20 @@ export function ChatTab({ project }: ChatTabProps) {
 
         <div className="designer-project-chat-thread">
           <div className="designer-project-message-list" ref={messagesListRef}>
-            {messagesQuery.isLoading ? <p className="designer-project-empty-text">Loading messages...</p> : null}
+            {messagesQuery.isLoading ? <p className="designer-project-empty-text">{t.loadingMessages}</p> : null}
             {messagesQuery.isError ? <p className="designer-project-empty-text">{getProjectChatServiceResultMessage(messagesQuery.error)}</p> : null}
             {!messagesQuery.isLoading && !messagesQuery.isError && activeChat && (messagesQuery.data?.items.length ?? 0) === 0 ? (
-              <p className="designer-project-empty-text">No messages yet.</p>
+              <p className="designer-project-empty-text">{t.noMessages}</p>
             ) : null}
             {messagesQuery.data?.items.map((message) => (
-              <DesignerMessage currentUserId={currentUserQuery.data?.accountId} key={message.messageId} message={message} />
+              <DesignerMessage currentUserId={currentUserQuery.data?.accountId} key={message.messageId} message={message} t={t} />
             ))}
           </div>
           <div className="designer-project-chat-input">
             <div className="designer-project-chat-composer-main">
               <input
                 disabled={!activeChat || sendTextMutation.isPending}
-                placeholder="Type a message..."
+                placeholder={t.typeMessage}
                 type="text"
                 value={draft}
                 onChange={(event) => setDraft(event.target.value)}
@@ -238,7 +243,7 @@ export function ChatTab({ project }: ChatTabProps) {
               />
             </div>
             <button disabled={!activeChat || !draft.trim() || sendTextMutation.isPending} type="button" onClick={() => void handleSendText()}>
-              <span>{sendTextMutation.isPending ? 'Sending...' : 'Send'}</span>
+              <span>{sendTextMutation.isPending ? t.sending : t.send}</span>
               <IconSend size={17} />
             </button>
           </div>
@@ -257,6 +262,7 @@ function ChatSelectorItem({
   onSelect,
   salesFallback,
   salesName,
+  t,
   unreadCount,
 }: {
   actor: DesignerChatActor;
@@ -267,11 +273,13 @@ function ChatSelectorItem({
   onSelect: () => void;
   salesFallback?: string | null;
   salesName?: string | null;
+  t: typeof designerCopy.en.chatTab;
   unreadCount: number;
 }) {
   const participant = getDesignerChatParticipant(
     { actor, chat, key: '' },
     { customerFallback, customerName, salesFallback, salesName },
+    t,
   );
   const unreadBadge = formatUnreadBadge(unreadCount);
 
@@ -295,18 +303,19 @@ function getDesignerChatParticipant(
     salesFallback?: string | null;
     salesName?: string | null;
   },
+  t: typeof designerCopy.en.chatTab,
 ) {
   if (!entry) {
     return {
-      name: 'Select chat',
-      role: 'Project Chat',
+      name: t.selectChat,
+      role: t.projectChat,
     };
   }
 
   if (entry.actor === 'SALES') {
     return {
-      name: options.salesName || options.salesFallback || 'Sales',
-      role: 'Sales',
+      name: options.salesName || options.salesFallback || t.sales,
+      role: t.sales,
     };
   }
 
@@ -352,7 +361,7 @@ function dedupeChats(chats: ProjectChatListItem[]) {
   return Array.from(chatsById.values());
 }
 
-function DesignerMessage({ currentUserId, message }: { currentUserId?: string; message: ProjectChatMessage }) {
+function DesignerMessage({ currentUserId, message, t }: { currentUserId?: string; message: ProjectChatMessage; t: typeof designerCopy.en.chatTab }) {
   const isMine = Boolean(currentUserId && message.senderId === currentUserId);
 
   if (message.messageType === 'SYSTEM') {
@@ -364,11 +373,11 @@ function DesignerMessage({ currentUserId, message }: { currentUserId?: string; m
       <div className="designer-project-message-avatar">{getInitials(message.senderName, message.senderRole)}</div>
       <div className="designer-project-message-bubble">
         <div className="designer-project-message-meta">
-          <strong>{message.senderName ?? message.senderRole ?? 'Unknown'}</strong>
+          <strong>{message.senderName ?? message.senderRole ?? t.unknown}</strong>
           <span>{message.senderRole}</span>
           <span>{formatChatTime(message.createdAt)}</span>
         </div>
-        <p>{message.content ?? (message.attachment ? 'Attachment' : 'Message deleted')}</p>
+        <p>{message.content ?? (message.attachment ? t.attachment : t.messageDeleted)}</p>
         {message.attachment ? (
           <a className="designer-project-message-attachment" href={message.attachment.fileUrl} rel="noreferrer" target="_blank">
             <IconFile size={15} />

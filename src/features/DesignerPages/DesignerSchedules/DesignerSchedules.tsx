@@ -2,18 +2,21 @@ import { IconCalendar, IconCheck, IconChevronLeft, IconChevronRight, IconClock, 
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 
-import { DesignerLayout } from '@/features/DesignerPages/designercomponents';
+import { useLang } from '@/app/providers/useLang';
+import { DesignerLayout, designerCopy } from '@/features/DesignerPages/designercomponents';
 import { getProjectScheduleServiceResultMessage } from '@/services/api/schedules';
 import type { ProjectScheduleDto, ProjectScheduleStatus } from '@/services/api/schedules';
 import { useMyAssignedProjectSchedules, useProjectDetail, useUpdateProjectScheduleStatus } from '@/services/queries';
 
 import './DesignerSchedules.css';
 
-const weekDays = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
 const scheduleStatusLegend: ProjectScheduleStatus[] = ['PENDING_CONFIRMATION', 'CONFIRMED', 'COMPLETED', 'CANCELLED'];
 
 export function DesignerSchedules() {
+  const { lang } = useLang();
+  const t = designerCopy[lang];
   const [statusMessage, setStatusMessage] = useState('');
+  const [statusIsSuccess, setStatusIsSuccess] = useState(false);
   const [calendarMonth, setCalendarMonth] = useState(() => {
     const now = new Date();
 
@@ -58,26 +61,29 @@ export function DesignerSchedules() {
 
   async function handleCompleteSchedule(scheduleId: string) {
     setStatusMessage('');
+    setStatusIsSuccess(false);
 
     try {
       await updateScheduleStatusMutation.mutateAsync({
         scheduleId,
         status: 'COMPLETED',
-        note: 'Designer marked the schedule as completed.',
+        note: t.schedules.completeNote,
       });
       setSelectedScheduleId(scheduleId);
-      setStatusMessage('Schedule completed successfully.');
+      setStatusMessage(t.schedules.completedSuccess);
+      setStatusIsSuccess(true);
       void schedulesQuery.refetch();
     } catch (error) {
       setStatusMessage(getProjectScheduleServiceResultMessage(error));
+      setStatusIsSuccess(false);
     }
   }
 
   return (
-    <DesignerLayout activeLabel="My Schedule">
+    <DesignerLayout activeKey="schedules">
       <section className="designer-schedules-header">
-        <h2>Schedules</h2>
-        <div className="designer-schedules-legend" aria-label="Schedule status legend">
+        <h2>{t.schedules.title}</h2>
+        <div className="designer-schedules-legend" aria-label={t.schedules.legendAria}>
           {scheduleStatusLegend.map((legendStatus) => (
             <span className={`designer-schedules-legend-item designer-schedules-legend-item-${legendStatus.toLowerCase().replace(/_/g, '-')}`} key={legendStatus}>
               {formatEnumLabel(legendStatus)}
@@ -93,30 +99,30 @@ export function DesignerSchedules() {
       ) : null}
 
       {statusMessage ? (
-        <section className={`designer-card designer-schedules-status-message ${statusMessage.toLowerCase().includes('success') ? 'designer-schedules-success' : 'designer-schedules-error'}`}>
+        <section className={`designer-card designer-schedules-status-message ${statusIsSuccess ? 'designer-schedules-success' : 'designer-schedules-error'}`}>
           {statusMessage}
         </section>
       ) : null}
 
       <section className="designer-schedules-calendar-layout">
-        <section className="designer-card designer-schedules-calendar" aria-label="Monthly schedule calendar">
+        <section className="designer-card designer-schedules-calendar" aria-label={t.schedules.monthlyOverview}>
           <div className="designer-schedules-calendar-head">
             <div>
-              <span>Monthly overview</span>
-              <h3>{formatMonthYear(calendarMonth)}</h3>
+              <span>{t.schedules.monthlyOverview}</span>
+              <h3>{formatMonthYear(calendarMonth, lang)}</h3>
             </div>
             <div className="designer-schedules-calendar-controls">
-              <button type="button" aria-label="Previous month" onClick={() => setCalendarMonth(moveMonth(calendarMonth, -1))}>
+              <button type="button" aria-label={t.schedules.prevMonth} onClick={() => setCalendarMonth(moveMonth(calendarMonth, -1))}>
                 <IconChevronLeft size={18} />
               </button>
-              <button type="button" aria-label="Next month" onClick={() => setCalendarMonth(moveMonth(calendarMonth, 1))}>
+              <button type="button" aria-label={t.schedules.nextMonth} onClick={() => setCalendarMonth(moveMonth(calendarMonth, 1))}>
                 <IconChevronRight size={18} />
               </button>
             </div>
           </div>
 
           <div className="designer-schedules-calendar-weekdays" aria-hidden="true">
-            {weekDays.map((day) => <span key={day}>{day}</span>)}
+            {t.schedules.weekdays.map((day) => <span key={day}>{day}</span>)}
           </div>
 
           <div className="designer-schedules-calendar-grid">
@@ -152,7 +158,7 @@ export function DesignerSchedules() {
                   >
                     <span className="designer-schedules-calendar-day-number">{day}</span>
                     <span className="designer-schedules-calendar-day-meta">
-                      {daySchedules.length > 0 ? `${daySchedules.length} schedule${daySchedules.length > 1 ? 's' : ''}` : 'No schedule'}
+                      {daySchedules.length > 0 ? t.schedules.scheduleCount(daySchedules.length) : t.schedules.noSchedule}
                     </span>
                   </button>
                   {daySchedules.length > 0 ? (
@@ -161,7 +167,7 @@ export function DesignerSchedules() {
                         <button
                           className={`designer-schedules-calendar-event designer-schedules-calendar-event-${schedule.status.toLowerCase().replace(/_/g, '-')}${selectedSchedule?.scheduleId === schedule.scheduleId ? ' designer-schedules-calendar-event-active' : ''}`}
                           key={schedule.scheduleId}
-                          title={`${schedule.title ?? formatEnumLabel(schedule.scheduleType)} - ${formatTime(schedule.scheduledStart)}`}
+                          title={`${schedule.title ?? formatEnumLabel(schedule.scheduleType)} - ${formatTime(schedule.scheduledStart, lang)}`}
                           type="button"
                           onClick={(event) => {
                             event.stopPropagation();
@@ -169,7 +175,7 @@ export function DesignerSchedules() {
                             setSelectedScheduleId(schedule.scheduleId);
                           }}
                         >
-                          <strong>{formatTime(schedule.scheduledStart)}</strong>
+                          <strong>{formatTime(schedule.scheduledStart, lang)}</strong>
                           <em>{schedule.title ?? formatEnumLabel(schedule.scheduleType)}</em>
                         </button>
                       ))}
@@ -183,7 +189,7 @@ export function DesignerSchedules() {
                             setExpandedDateKey(isExpanded ? null : dateKey);
                           }}
                         >
-                          {isExpanded ? 'Show less' : `+${hiddenCount} more`}
+                          {isExpanded ? t.schedules.showLess : t.schedules.more(hiddenCount)}
                         </button>
                       ) : null}
                     </span>
@@ -205,8 +211,8 @@ export function DesignerSchedules() {
           ) : (
             <div className="designer-schedules-empty-detail">
               <IconCalendar size={32} />
-              <h3>No schedule selected</h3>
-              <p>Select a schedule from the calendar to review its details.</p>
+              <h3>{t.schedules.emptyTitle}</h3>
+              <p>{t.schedules.emptyHint}</p>
             </div>
           )}
         </section>
@@ -223,6 +229,8 @@ type ScheduleDetailProps = {
 };
 
 function ScheduleDetail({ isUpdating, project, schedule, onComplete }: ScheduleDetailProps) {
+  const { lang } = useLang();
+  const t = designerCopy[lang];
   const canComplete = schedule.status === 'CONFIRMED' && schedule.scheduleType !== 'DELIVERY';
 
   return (
@@ -239,39 +247,39 @@ function ScheduleDetail({ isUpdating, project, schedule, onComplete }: ScheduleD
       <div className="designer-schedules-detail-grid">
         <div>
           <IconClock size={18} />
-          <span>Start</span>
-          <strong>{formatDateTime(schedule.scheduledStart)}</strong>
+          <span>{t.schedules.start}</span>
+          <strong>{formatDateTime(schedule.scheduledStart, lang)}</strong>
         </div>
         <div>
           <IconClock size={18} />
-          <span>End</span>
-          <strong>{schedule.scheduledEnd ? formatDateTime(schedule.scheduledEnd) : 'Not specified'}</strong>
+          <span>{t.schedules.end}</span>
+          <strong>{schedule.scheduledEnd ? formatDateTime(schedule.scheduledEnd, lang) : t.schedules.notSpecified}</strong>
         </div>
         <div>
           <IconMapPin size={18} />
-          <span>Location</span>
-          <strong>{schedule.location ?? 'Not specified'}</strong>
+          <span>{t.schedules.location}</span>
+          <strong>{schedule.location ?? t.schedules.notSpecified}</strong>
         </div>
         <div>
           <IconUsers size={18} />
-          <span>Assignment</span>
-          <strong>Assigned to you</strong>
+          <span>{t.schedules.assignment}</span>
+          <strong>{t.schedules.assignedToYou}</strong>
         </div>
       </div>
 
       <div className="designer-schedules-notes">
-        <h4>Details</h4>
-        <p>{schedule.description || 'No additional schedule details were provided.'}</p>
+        <h4>{t.schedules.details}</h4>
+        <p>{schedule.description || t.schedules.noDetails}</p>
       </div>
 
       <div className="designer-schedules-detail-actions">
         {canComplete ? (
           <button className="designer-schedule-confirm" disabled={isUpdating || !canComplete} type="button" onClick={onComplete}>
             <IconCheck size={16} />
-            {isUpdating ? 'Completing...' : 'Complete Schedule'}
+            {isUpdating ? t.schedules.completing : t.schedules.completeSchedule}
           </button>
         ) : null}
-        <Link className="designer-schedule-open" to={`/designer/assigned-projects/${schedule.projectId}`}>Open project</Link>
+        <Link className="designer-schedule-open" to={`/designer/assigned-projects/${schedule.projectId}`}>{t.schedules.openProject}</Link>
       </div>
     </>
   );
@@ -285,22 +293,22 @@ function formatEnumLabel(value: string) {
     .join(' ');
 }
 
-function formatMonthYear(value: Date) {
-  return new Intl.DateTimeFormat('en', {
+function formatMonthYear(value: Date, locale: string) {
+  return new Intl.DateTimeFormat(locale === 'vi' ? 'vi-VN' : 'en', {
     month: 'long',
     year: 'numeric',
   }).format(value);
 }
 
-function formatTime(value: string) {
-  return new Intl.DateTimeFormat('en', {
+function formatTime(value: string, locale: string) {
+  return new Intl.DateTimeFormat(locale === 'vi' ? 'vi-VN' : 'en', {
     hour: '2-digit',
     minute: '2-digit',
   }).format(new Date(value));
 }
 
-function formatDateTime(value: string) {
-  return new Intl.DateTimeFormat('en', {
+function formatDateTime(value: string, locale: string) {
+  return new Intl.DateTimeFormat(locale === 'vi' ? 'vi-VN' : 'en', {
     day: '2-digit',
     month: 'short',
     year: 'numeric',

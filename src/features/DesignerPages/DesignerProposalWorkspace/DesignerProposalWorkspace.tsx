@@ -14,7 +14,9 @@ import {
 } from '@tabler/icons-react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 
+import { useLang } from '@/app/providers/useLang';
 import { DesignerShell } from '@/features/DesignerPages/components/DesignerShell';
+import { designerCopy } from '@/features/DesignerPages/designercomponents';
 import { ProjectChatPanel } from '@/features/projectChat/ProjectChatPanel';
 import { getProjectAreaServiceResultMessage, type ProjectAreaDto } from '@/services/api/projectAreas';
 import { getProjectServiceResultMessage } from '@/services/api/projects';
@@ -67,12 +69,12 @@ function getSceneAreaIds(scene: ProposalSceneDto) {
   return scene.projectAreaId ? [scene.projectAreaId] : [];
 }
 
-function getSceneDisplayName(scene: ProposalSceneDto) {
-  return getDisplayText(scene.sceneName, 'Untitled Room Planner Scene');
+function getSceneDisplayName(scene: ProposalSceneDto, untitledFallback: string) {
+  return getDisplayText(scene.sceneName, untitledFallback);
 }
 
-function getAreaDisplayName(areaName: string | null | undefined) {
-  return getDisplayText(areaName, 'Unnamed area');
+function getAreaDisplayName(areaName: string | null | undefined, unnamedFallback: string) {
+  return getDisplayText(areaName, unnamedFallback);
 }
 
 function getDisplayText(value: string | null | undefined, fallback: string) {
@@ -91,6 +93,9 @@ function isTechnicalId(value: string) {
 }
 
 export function DesignerProposalWorkspace() {
+  const { lang } = useLang();
+  const w = designerCopy[lang].proposalWorkspace;
+  const tc = designerCopy[lang].common;
   const navigate = useNavigate();
   const location = useLocation();
   const { projectId, proposalId } = useParams();
@@ -193,7 +198,7 @@ export function DesignerProposalWorkspace() {
     setMessage('');
 
     if (!canPublishProposal) {
-      setMessage('Proposal must be editable and have at least one active scene before publishing.');
+      setMessage(w.errPublish);
       return;
     }
 
@@ -202,7 +207,7 @@ export function DesignerProposalWorkspace() {
         proposalId: activeProposalId,
         note: 'Published by designer from proposal workspace.',
       });
-      setMessage('Proposal published successfully. It is now ready for customer review.');
+      setMessage(w.publishSuccess);
     } catch (error) {
       setMessage(getProposalServiceResultMessage(error));
     }
@@ -222,17 +227,17 @@ export function DesignerProposalWorkspace() {
     setMessage('');
 
     if (!proposalName) {
-      setMessage('Proposal name is required. Leave the default blank and enter the sale/designer naming before creating it.');
+      setMessage(w.errNameRequired);
       return;
     }
 
     if (!description) {
-      setMessage('Proposal description is required.');
+      setMessage(w.errDescRequired);
       return;
     }
 
     if (projectAreaIds.length === 0) {
-      setMessage('Create at least one project area first. Each area becomes a floor in the room planner scene.');
+      setMessage(w.errNeedAreas);
       return;
     }
 
@@ -317,7 +322,7 @@ export function DesignerProposalWorkspace() {
     setMessage('');
 
     if (!proposalName) {
-      setMessage('Proposal name is required.');
+      setMessage(w.errNameRequired);
       return;
     }
 
@@ -328,7 +333,7 @@ export function DesignerProposalWorkspace() {
         description: proposalEditDraft.description,
       });
       setIsUpdateInfoModalOpen(false);
-      setMessage('Proposal information updated.');
+      setMessage(w.proposalUpdated);
     } catch (error) {
       setMessage(getProposalServiceResultMessage(error));
     }
@@ -343,7 +348,7 @@ export function DesignerProposalWorkspace() {
     setEditingScene(scene);
     setSceneEditDraft({
       projectAreaId: getSceneAreaIds(scene)[0] ?? '',
-      sceneName: getSceneDisplayName(scene),
+      sceneName: getSceneDisplayName(scene, w.untitledScene),
     });
   }
 
@@ -373,7 +378,7 @@ export function DesignerProposalWorkspace() {
     setMessage('');
 
     if (!sceneName) {
-      setMessage('Scene name is required.');
+      setMessage(w.errNameRequired);
       return;
     }
 
@@ -383,7 +388,7 @@ export function DesignerProposalWorkspace() {
         sceneName,
         projectAreaIds: sceneEditDraft.projectAreaId ? [sceneEditDraft.projectAreaId] : getSceneAreaIds(editingScene),
       });
-      setMessage('Scene information updated.');
+      setMessage(w.sceneUpdated);
       closeSceneEditModal();
     } catch (error) {
       setMessage(getProposalServiceResultMessage(error));
@@ -397,9 +402,7 @@ export function DesignerProposalWorkspace() {
 
     setMessage('');
 
-    const confirmed = window.confirm(
-      'This proposal will move back to Draft. The current quotation, if any, will be cancelled. After editing, publish the proposal again so the customer can select it and create a new quotation.',
-    );
+    const confirmed = window.confirm(w.confirmReopen);
 
     if (!confirmed) {
       return;
@@ -407,7 +410,7 @@ export function DesignerProposalWorkspace() {
 
     try {
       await reopenProposalMutation.mutateAsync(activeProposalId);
-      setMessage('Proposal reopened for editing. You can update scenes, items, and proposal information before publishing again.');
+      setMessage(w.reopened);
       void projectQuery.refetch();
       void proposalQuery.refetch();
       void scenesQuery.refetch();
@@ -418,22 +421,22 @@ export function DesignerProposalWorkspace() {
   }
 
   return (
-    <DesignerShell activeLabel="Proposals">
+    <DesignerShell activeKey="assignedProjects">
       <button className="designer-proposal-back" type="button" onClick={() => navigate(projectId ? `/designer/assigned-projects/${projectId}` : '/designer/assigned-projects')}>
-        <IconArrowLeft size={16} /> Project Detail
+        <IconArrowLeft size={16} /> {w.backProjectDetail}
       </button>
 
       <header className="designer-proposal-heading">
         <div className="designer-proposal-heading-copy">
-          <span>{projectQuery.isLoading ? 'LOADING PROJECT' : project?.projectCode ?? 'PROJECT NOT FOUND'}</span>
-          <h1>{isProposalSetupMode ? 'Set Up Project Areas & Proposal' : proposalQuery.isLoading ? 'Loading proposal...' : getDisplayText(proposal?.proposalName, 'Proposal not found')}</h1>
+          <span>{projectQuery.isLoading ? w.loadingProject : project?.projectCode ?? w.projectNotFound}</span>
+          <h1>{isProposalSetupMode ? w.setupTitle : proposalQuery.isLoading ? w.loadingProposal : getDisplayText(proposal?.proposalName, w.proposalNotFound)}</h1>
           <p>
-            {project?.projectName ?? 'No project data from backend'}
-            {proposal ? ` · Version ${proposal.versionNo}` : ''}
+            {project?.projectName ?? w.noProjectData}
+            {proposal ? ` · ${w.version(proposal.versionNo)}` : ''}
           </p>
         </div>
         <div className="designer-proposal-heading-actions">
-          <span className="designer-proposal-status">{isProposalSetupMode ? 'SETUP' : proposal?.status ?? 'UNKNOWN'}</span>
+          <span className="designer-proposal-status">{isProposalSetupMode ? w.setup : proposal?.status ?? 'UNKNOWN'}</span>
           <button
             className="designer-proposal-update-button"
             disabled={isProposalSetupMode || !proposal || !canEditProposal}
@@ -441,7 +444,7 @@ export function DesignerProposalWorkspace() {
             type="button"
             onClick={openUpdateInfoModal}
           >
-            <IconEdit size={17} /> Update Info
+            <IconEdit size={17} /> {w.updateInfo}
           </button>
           {canReopenProposal ? (
             <button
@@ -451,7 +454,7 @@ export function DesignerProposalWorkspace() {
               type="button"
               onClick={() => void reopenCurrentProposal()}
             >
-              <IconRefresh size={17} /> {reopenProposalMutation.isPending ? 'Reopening...' : 'Reopen for Editing'}
+              <IconRefresh size={17} /> {reopenProposalMutation.isPending ? w.reopening : w.reopen}
             </button>
           ) : null}
           <button
@@ -461,14 +464,14 @@ export function DesignerProposalWorkspace() {
             type="button"
             onClick={() => void publishCurrentProposal()}
           >
-            <IconFileText size={17} /> {publishProposalMutation.isPending ? 'Publishing...' : 'Publish Proposal'}
+            <IconFileText size={17} /> {publishProposalMutation.isPending ? w.publishing : w.publishProposal}
           </button>
         </div>
       </header>
 
       <nav className="designer-proposal-tabs" aria-label="Proposal workspace tabs">
-        <button className={activeTab === 'scenes' ? 'is-active' : ''} type="button" onClick={() => setActiveTab('scenes')}><IconCube size={16} /> Scenes</button>
-        <button className={activeTab === 'chat' ? 'is-active' : ''} type="button" onClick={() => setActiveTab('chat')}><IconMessageCircle size={16} /> Chat</button>
+        <button className={activeTab === 'scenes' ? 'is-active' : ''} type="button" onClick={() => setActiveTab('scenes')}><IconCube size={16} /> {w.scenes}</button>
+        <button className={activeTab === 'chat' ? 'is-active' : ''} type="button" onClick={() => setActiveTab('chat')}><IconMessageCircle size={16} /> {w.chat}</button>
       </nav>
 
       {message && <div className="designer-proposal-message">{message}</div>}
@@ -482,6 +485,8 @@ export function DesignerProposalWorkspace() {
           onClose={closeUpdateInfoModal}
           onDraftChange={setProposalEditDraft}
           onSave={() => void updateProposalMetadata()}
+          w={w}
+          tc={tc}
         />
       ) : null}
       {editingScene ? (
@@ -492,6 +497,8 @@ export function DesignerProposalWorkspace() {
           onClose={closeSceneEditModal}
           onDraftChange={setSceneEditDraft}
           onSave={() => void updateSceneMetadata()}
+          w={w}
+          tc={tc}
         />
       ) : null}
 
@@ -503,6 +510,7 @@ export function DesignerProposalWorkspace() {
               isCreating={createProposalMutation.isPending || createSceneMutation.isPending}
               onCreateProposal={() => void createProposal()}
               onDraftChange={setProposalDraft}
+              w={w}
             />
           ) : (
             <div className="designer-scenes-layout">
@@ -512,6 +520,7 @@ export function DesignerProposalWorkspace() {
                     proposal={proposal}
                     sceneCount={scenesQuery.data?.total ?? scenes.length}
                     itemCount={itemsQuery.data?.total ?? items.length}
+                    w={w}
                   />
                 ) : null}
                 <ProjectAreasSection
@@ -520,18 +529,19 @@ export function DesignerProposalWorkspace() {
                   projectId={projectId}
                   selectedAreaId={selectedAreaId}
                   onSelectArea={selectProjectArea}
+                  w={w}
                 />
               </aside>
 
               <div className="designer-scenes-main">
                 <section className="designer-scenes-section">
                   <header>
-                    <div><h2>Proposal Scenes</h2><p>One proposal maps to one Room Planner scene per area.</p></div>
+                    <div><h2>{w.proposalScenes}</h2><p>{w.proposalScenesHint}</p></div>
                   </header>
                   <div className="designer-scenes-list">
-                    {scenesQuery.isLoading ? <EmptyState message="Loading proposal scenes from backend..." /> : null}
-                    {!selectedAreaId ? <EmptyState message="Select a project area first." /> : null}
-                    {selectedAreaId && !scenesQuery.isLoading && selectedAreaScenes.length === 0 ? <EmptyState message="No scene has been created for the selected project area in this proposal." /> : null}
+                    {scenesQuery.isLoading ? <EmptyState message={w.loadingScenes} /> : null}
+                    {!selectedAreaId ? <EmptyState message={w.selectAreaFirst} /> : null}
+                    {selectedAreaId && !scenesQuery.isLoading && selectedAreaScenes.length === 0 ? <EmptyState message={w.noSceneForArea} /> : null}
                     {selectedAreaScenes.map((scene) => (
                       <SceneRow
                         key={scene.sceneId}
@@ -542,6 +552,7 @@ export function DesignerProposalWorkspace() {
                         onOpen={() => openRoomPlanner(scene)}
                         onSelect={() => setSelectedSceneId(scene.sceneId)}
                         canEdit={canEditProposal}
+                        w={w}
                       />
                     ))}
                   </div>
@@ -550,16 +561,16 @@ export function DesignerProposalWorkspace() {
                 <section className="designer-items-section designer-scene-items-section">
                   <header>
                     <div>
-                      <h2>Project Items</h2>
-                      <p>{selectedScene ? getSceneDisplayName(selectedScene) : 'Select a proposal scene to view synced project items.'}</p>
+                      <h2>{w.projectItems}</h2>
+                      <p>{selectedScene ? getSceneDisplayName(selectedScene, w.untitledScene) : w.selectAreaFirst}</p>
                     </div>
                   </header>
                   {itemsQuery.isLoading ? (
-                    <EmptyState message="Loading proposal items from backend..." />
+                    <EmptyState message={w.loadingItems} />
                   ) : displayItems.length ? (
-                    <ItemsTable items={displayItems} total={total} />
+                    <ItemsTable items={displayItems} total={total} w={w} />
                   ) : (
-                    <EmptyState message="No proposal items returned by backend. Open a scene, add catalog products, then Save Project to sync." />
+                    <EmptyState message={w.noItems} />
                   )}
                 </section>
               </div>
@@ -575,11 +586,11 @@ export function DesignerProposalWorkspace() {
               preferredChatType="DESIGNER"
               projectCode={project.projectCode}
               projectId={project.projectId}
-              title="Designer Chat with Customer"
+              title={w.designerChat}
               viewerRole="DESIGNER"
             />
           ) : (
-            <EmptyState message="Project chat is unavailable until project data is loaded from backend." />
+            <EmptyState message={w.chatUnavailable} />
           )}
         </section>
       )}
@@ -591,48 +602,52 @@ function ProposalSummarySection({
   itemCount,
   proposal,
   sceneCount,
+  w,
 }: {
   itemCount: number;
   proposal: ProposalDetailDto;
   sceneCount: number;
+  w: typeof designerCopy.en.proposalWorkspace;
 }) {
+  const { lang } = useLang();
+  const pt = designerCopy[lang].proposalsTab;
   return (
-    <section className="designer-proposal-summary" aria-label="Proposal information">
+    <section className="designer-proposal-summary" aria-label={w.proposalInfo}>
       <header>
         <div>
           <IconFileText size={22} />
           <div>
-            <h2>Proposal Information</h2>
-            <p>{proposal.description?.trim() || 'No description provided.'}</p>
+            <h2>{w.proposalInfo}</h2>
+            <p>{proposal.description?.trim() || w.noDescription}</p>
           </div>
         </div>
         <span>{formatEnumLabel(proposal.status)}</span>
       </header>
       <dl>
         <div>
-          <dt>Version</dt>
-          <dd>v{proposal.versionNo}</dd>
+          <dt>{pt.cols.version}</dt>
+          <dd>{w.version(proposal.versionNo)}</dd>
         </div>
         <div>
-          <dt>Scenes</dt>
+          <dt>{w.scenes}</dt>
           <dd>{sceneCount}</dd>
         </div>
         <div>
-          <dt>Items</dt>
+          <dt>{w.projectItems}</dt>
           <dd>{itemCount}</dd>
         </div>
         <div>
-          <dt>Published</dt>
+          <dt>{w.publish}</dt>
           <dd>{proposal.publishedAt ? formatDateTime(proposal.publishedAt) : '-'}</dd>
         </div>
         <div>
-          <dt>Updated</dt>
+          <dt>{w.updateInfo}</dt>
           <dd>{formatDateTime(proposal.updatedAt)}</dd>
         </div>
       </dl>
       {proposal.status === 'REVISION_REQUESTED' && proposal.revisionNote ? (
         <div className="designer-proposal-revision-note">
-          <strong>Customer revision note</strong>
+          <strong>{w.customerRevisionNote}</strong>
           <p>{proposal.revisionNote}</p>
         </div>
       ) : null}
@@ -653,13 +668,17 @@ function ProjectAreasSection({
   isLoading,
   selectedAreaId,
   onSelectArea,
+  w,
 }: {
   areas: ProjectAreaDto[];
   isLoading: boolean;
   projectId?: string;
   selectedAreaId: string;
   onSelectArea: (areaId: string) => void;
+  w: typeof designerCopy.en.proposalWorkspace;
 }) {
+  const { lang } = useLang();
+  const tc = designerCopy[lang].common;
   const selectedArea = areas.find((area) => area.projectAreaId === selectedAreaId) ?? null;
 
   return (
@@ -668,15 +687,15 @@ function ProjectAreasSection({
         <div>
           <IconRulerMeasure size={22} />
           <div>
-            <h3>Project Areas</h3>
+            <h3>{w.projectAreas}</h3>
           </div>
         </div>
-        {selectedArea ? <span><IconCheck size={15} /> Selected: {selectedArea.areaName}</span> : <span>Select a project area</span>}
+        {selectedArea ? <span><IconCheck size={15} /> {w.selected(selectedArea.areaName)}</span> : <span>{w.selectArea}</span>}
       </div>
 
       <div className="designer-area-picker">
-        {isLoading ? <p>Loading project areas...</p> : null}
-        {!isLoading && areas.length === 0 ? <p>No project areas exist for this project yet. Create project areas from Project Detail &gt; Project Areas before creating proposal scenes.</p> : null}
+        {isLoading ? <p>{tc.loading}</p> : null}
+        {!isLoading && areas.length === 0 ? <p>{w.noFloors}</p> : null}
         {areas.map((area) => (
           <button
             className={selectedAreaId === area.projectAreaId ? 'is-selected' : ''}
@@ -685,7 +704,7 @@ function ProjectAreasSection({
             type="button"
             onClick={() => onSelectArea(area.projectAreaId)}
           >
-              <strong>{getAreaDisplayName(area.areaName)}</strong>
+              <strong>{getAreaDisplayName(area.areaName, w.unnamedArea)}</strong>
             <span>{formatEnumLabel(area.areaType)}{area.areaSqm ? ` - ${area.areaSqm} m2` : ''}</span>
           </button>
         ))}
@@ -695,38 +714,38 @@ function ProjectAreasSection({
         <div className="designer-selected-area-panel">
           <header>
             <div>
-              <strong>{getAreaDisplayName(selectedArea.areaName)}</strong>
+              <strong>{getAreaDisplayName(selectedArea.areaName, w.unnamedArea)}</strong>
             </div>
           </header>
           <dl>
             <div>
-              <dt>Floor</dt>
+              <dt>{w.floor}</dt>
               <dd>{selectedArea.floorNumber ?? '-'}</dd>
             </div>
             <div>
-              <dt>Area</dt>
+              <dt>{w.area}</dt>
               <dd>{formatAreaMeasurement(selectedArea.areaSqm, 'm2')}</dd>
             </div>
             <div>
-              <dt>Width</dt>
+              <dt>{w.width}</dt>
               <dd>{formatAreaMeasurement(selectedArea.width, 'm')}</dd>
             </div>
             <div>
-              <dt>Length</dt>
+              <dt>{w.length}</dt>
               <dd>{formatAreaMeasurement(selectedArea.length, 'm')}</dd>
             </div>
             <div>
-              <dt>Height</dt>
+              <dt>{w.height}</dt>
               <dd>{formatAreaMeasurement(selectedArea.height, 'm')}</dd>
             </div>
           </dl>
           {(selectedArea.currentCondition || selectedArea.requirementNote) ? (
             <div className="designer-selected-area-notes">
               {selectedArea.currentCondition ? (
-                <p><span>Condition</span>{selectedArea.currentCondition}</p>
+                <p><span>{w.condition}</span>{selectedArea.currentCondition}</p>
               ) : null}
               {selectedArea.requirementNote ? (
-                <p><span>Requirement</span>{selectedArea.requirementNote}</p>
+                <p><span>{w.requirement}</span>{selectedArea.requirementNote}</p>
               ) : null}
             </div>
           ) : null}
@@ -743,13 +762,19 @@ function ProposalUpdateModal({
   onClose,
   onDraftChange,
   onSave,
+  w,
+  tc,
 }: {
   draft: ProposalDraft;
   isSaving: boolean;
   onClose: () => void;
   onDraftChange: (draft: ProposalDraft) => void;
   onSave: () => void;
+  w: typeof designerCopy.en.proposalWorkspace;
+  tc: typeof designerCopy.en.common;
 }) {
+  const { lang } = useLang();
+  const pt = designerCopy[lang].proposalsTab;
   function updateDraft<K extends keyof ProposalDraft>(field: K, value: ProposalDraft[K]) {
     onDraftChange({ ...draft, [field]: value });
   }
@@ -761,8 +786,8 @@ function ProposalUpdateModal({
           <div>
             <IconFileText size={22} />
             <div>
-              <h2 id="proposal-update-title">Update Proposal Info</h2>
-              <p>Edit the proposal name and description before publishing.</p>
+              <h2 id="proposal-update-title">{w.updateProposalModalTitle}</h2>
+              <p>{w.updateProposalModalDesc}</p>
             </div>
           </div>
           <button aria-label="Close update proposal info modal" className="designer-proposal-modal-close" type="button" onClick={onClose}>
@@ -771,20 +796,20 @@ function ProposalUpdateModal({
         </header>
         <div className="designer-proposal-metadata-form">
           <label>
-            <span>Proposal Name</span>
+            <span>{w.proposalName}</span>
             <input value={draft.proposalName} onChange={(event) => updateDraft('proposalName', event.target.value)} />
           </label>
           <label>
-            <span>Description</span>
+            <span>{pt.description}</span>
             <textarea value={draft.description} onChange={(event) => updateDraft('description', event.target.value)} />
           </label>
         </div>
         <footer>
           <button className="designer-proposal-modal-secondary" disabled={isSaving} type="button" onClick={onClose}>
-            Cancel
+            {tc.cancel}
           </button>
           <button disabled={isSaving || !draft.proposalName.trim()} type="button" onClick={onSave}>
-            <IconCheck size={16} /> {isSaving ? 'Saving...' : 'Save Info'}
+            <IconCheck size={16} /> {isSaving ? tc.saving : w.saveInfo}
           </button>
         </footer>
       </section>
@@ -799,6 +824,8 @@ function SceneUpdateModal({
   onClose,
   onDraftChange,
   onSave,
+  w,
+  tc,
 }: {
   areas: ProjectAreaDto[];
   draft: SceneEditDraft;
@@ -806,6 +833,8 @@ function SceneUpdateModal({
   onClose: () => void;
   onDraftChange: (draft: SceneEditDraft) => void;
   onSave: () => void;
+  w: typeof designerCopy.en.proposalWorkspace;
+  tc: typeof designerCopy.en.common;
 }) {
   function updateDraft<K extends keyof SceneEditDraft>(field: K, value: SceneEditDraft[K]) {
     onDraftChange({ ...draft, [field]: value });
@@ -818,8 +847,8 @@ function SceneUpdateModal({
           <div>
             <IconEdit size={22} />
             <div>
-              <h2 id="scene-update-title">Update Scene Info</h2>
-              <p>Update the scene name and link it to a project area.</p>
+              <h2 id="scene-update-title">{w.updateSceneModalTitle}</h2>
+              <p>{w.updateSceneModalDesc}</p>
             </div>
           </div>
           <button aria-label="Close update scene info modal" className="designer-proposal-modal-close" type="button" onClick={onClose}>
@@ -828,25 +857,25 @@ function SceneUpdateModal({
         </header>
         <div className="designer-proposal-metadata-form">
           <label>
-            <span>Scene Name</span>
+            <span>{w.sceneName}</span>
             <input value={draft.sceneName} onChange={(event) => updateDraft('sceneName', event.target.value)} />
           </label>
           <label>
-            <span>Project Area</span>
+            <span>{w.projectAreas}</span>
             <select value={draft.projectAreaId} onChange={(event) => updateDraft('projectAreaId', event.target.value)}>
-              <option value="">No area linked</option>
+              <option value="">{w.noAreaLinked}</option>
               {areas.map((area) => (
-                <option key={area.projectAreaId} value={area.projectAreaId}>{getAreaDisplayName(area.areaName)}</option>
+                <option key={area.projectAreaId} value={area.projectAreaId}>{getAreaDisplayName(area.areaName, w.unnamedArea)}</option>
               ))}
             </select>
           </label>
         </div>
         <footer>
           <button className="designer-proposal-modal-secondary" disabled={isSaving} type="button" onClick={onClose}>
-            Cancel
+            {tc.cancel}
           </button>
           <button disabled={isSaving || !draft.sceneName.trim()} type="button" onClick={onSave}>
-            <IconCheck size={16} /> {isSaving ? 'Saving...' : 'Save Scene'}
+            <IconCheck size={16} /> {isSaving ? tc.saving : w.saveScene}
           </button>
         </footer>
       </section>
@@ -859,12 +888,16 @@ function ProposalSetupSection({
   isCreating,
   onCreateProposal,
   onDraftChange,
+  w,
 }: {
   draft: ProposalDraft;
   isCreating: boolean;
   onCreateProposal: () => void;
   onDraftChange: (draft: ProposalDraft) => void;
+  w: typeof designerCopy.en.proposalWorkspace;
 }) {
+  const { lang } = useLang();
+  const pt = designerCopy[lang].proposalsTab;
   function updateDraft<K extends keyof ProposalDraft>(field: K, value: ProposalDraft[K]) {
     onDraftChange({ ...draft, [field]: value });
   }
@@ -875,8 +908,8 @@ function ProposalSetupSection({
         <div>
           <IconFileText size={22} />
           <div>
-            <h2>Create Proposal & Scene</h2>
-            <p>Creates one proposal with one Room Planner scene. Do not create extra scenes for the same proposal.</p>
+            <h2>{w.createProposalScene}</h2>
+            <p>{w.proposalScenesHint}</p>
           </div>
         </div>
         <span>Name and description required</span>
@@ -884,23 +917,23 @@ function ProposalSetupSection({
 
       <div className="designer-proposal-setup-form">
         <label>
-          <span>Proposal Name</span>
+          <span>{w.proposalName}</span>
           <input
-            placeholder="Enter proposal name"
+            placeholder={pt.namePh}
             value={draft.proposalName}
             onChange={(event) => updateDraft('proposalName', event.target.value)}
           />
         </label>
         <label>
-          <span>Description</span>
+          <span>{pt.description}</span>
           <textarea
-            placeholder="Enter proposal description"
+            placeholder={pt.descPh}
             value={draft.description}
             onChange={(event) => updateDraft('description', event.target.value)}
           />
         </label>
         <button disabled={isCreating || !draft.proposalName.trim() || !draft.description.trim()} type="button" onClick={onCreateProposal}>
-          <IconPlus size={17} /> {isCreating ? 'Creating proposal & scene...' : 'Create Proposal & Scene'}
+          <IconPlus size={17} /> {isCreating ? pt.creating : w.createProposalScene}
         </button>
       </div>
     </section>
@@ -915,6 +948,7 @@ function SceneRow({
   onEdit,
   onOpen,
   onSelect,
+  w,
 }: {
   areas: ProjectAreaDto[];
   canEdit: boolean;
@@ -923,40 +957,41 @@ function SceneRow({
   onEdit: () => void;
   onOpen: () => void;
   onSelect: () => void;
+  w: typeof designerCopy.en.proposalWorkspace;
 }) {
   const sceneAreaIds = getSceneAreaIds(scene);
   const sceneAreaNames = sceneAreaIds
-    .map((areaId) => getAreaDisplayName(areas.find((area) => area.projectAreaId === areaId)?.areaName ?? scene.areas?.find((area) => area.projectAreaId === areaId)?.areaName))
+    .map((areaId) => getAreaDisplayName(areas.find((area) => area.projectAreaId === areaId)?.areaName ?? scene.areas?.find((area) => area.projectAreaId === areaId)?.areaName, w.unnamedArea))
     .filter(Boolean);
-  const areaLabel = sceneAreaNames.length > 0 ? `Floors: ${sceneAreaNames.join(', ')}` : 'No floors linked';
+  const areaLabel = sceneAreaNames.length > 0 ? `${w.floors}: ${sceneAreaNames.join(', ')}` : w.noFloors;
 
   return (
     <article className={isSelected ? 'designer-scene-row is-selected' : 'designer-scene-row'}>
       <button className="designer-scene-summary-button" type="button" onClick={onSelect}>
         <span>{scene.sceneType ?? 'ROOM_PLANNER'}</span>
-        <h3>{getSceneDisplayName(scene)}</h3>
+        <h3>{getSceneDisplayName(scene, w.untitledScene)}</h3>
         <p>{areaLabel}</p>
         <small>Version {scene.versionNo} · Updated {formatDateTime(scene.updatedAt)}</small>
       </button>
       <div className="designer-scene-actions">
         <button disabled={!canEdit} title={canEdit ? 'Edit scene metadata' : 'Only Draft or Revision Requested proposals can be edited.'} type="button" onClick={onEdit}><IconEdit size={17} /></button>
-        <button type="button" onClick={onOpen}>Open Room Planner <IconChevronRight size={17} /></button>
+        <button type="button" onClick={onOpen}>{w.openRoomPlanner} <IconChevronRight size={17} /></button>
       </div>
     </article>
   );
 }
 
-function ItemsTable({ items, total }: { items: ProposalItemDto[]; total: number }) {
+function ItemsTable({ items, total, w }: { items: ProposalItemDto[]; total: number; w: typeof designerCopy.en.proposalWorkspace }) {
   return (
     <div className="designer-items-table-wrap">
       <table>
         <thead>
-          <tr><th>Product Version</th><th>Material</th><th>Color</th><th>Quantity</th><th>Unit Price</th><th>Subtotal</th></tr>
+          <tr><th>{w.productVersion}</th><th>{w.material}</th><th>{w.color}</th><th>{w.quantity}</th><th>{w.unitPrice}</th><th>{w.subtotal}</th></tr>
         </thead>
         <tbody>
           {items.map((item) => (
             <tr key={item.proposalItemId}>
-              <td><strong>{getDisplayText(item.productNameSnapshot, 'Proposal item')}</strong></td>
+              <td><strong>{getDisplayText(item.productNameSnapshot, w.proposalItem)}</strong></td>
               <td>{item.materialSnapshot ?? '-'}</td>
               <td>{item.colorSnapshot ?? '-'}</td>
               <td>{item.quantity}</td>
@@ -965,7 +1000,7 @@ function ItemsTable({ items, total }: { items: ProposalItemDto[]; total: number 
             </tr>
           ))}
         </tbody>
-        <tfoot><tr><td colSpan={5}>Estimated total</td><td>{formatCurrency(total)}</td></tr></tfoot>
+        <tfoot><tr><td colSpan={5}>{w.estimatedTotal}</td><td>{formatCurrency(total)}</td></tr></tfoot>
       </table>
     </div>
   );

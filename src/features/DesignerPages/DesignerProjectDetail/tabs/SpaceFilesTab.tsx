@@ -1,5 +1,7 @@
 import { IconDownload, IconEye, IconFileText } from '@tabler/icons-react';
 
+import { useLang } from '@/app/providers/useLang';
+import { designerCopy } from '@/features/DesignerPages/designercomponents';
 import type { ProjectDto } from '@/services/api/projects';
 import { useProjectFiles } from '@/services/queries/useProjects';
 
@@ -8,6 +10,8 @@ type SpaceFilesTabProps = {
 };
 
 export function SpaceFilesTab({ project }: SpaceFilesTabProps) {
+  const { lang } = useLang();
+  const t = designerCopy[lang].spaceFilesTab;
   const filesQuery = useProjectFiles({
     projectId: project.projectId,
     fileType: null,
@@ -20,29 +24,29 @@ export function SpaceFilesTab({ project }: SpaceFilesTabProps) {
     <section className="designer-card designer-project-section-card">
       <div className="designer-project-section-toolbar">
         <div>
-          <h3>Space Files</h3>
+          <h3>{t.title}</h3>
           <p>
-            {filesQuery.isLoading ? 'Loading project files...' : `${files.length} file${files.length === 1 ? '' : 's'} available for ${project.projectCode}`}
+            {filesQuery.isLoading ? t.loading : t.count(files.length, project.projectCode)}
           </p>
         </div>
       </div>
 
-      {filesQuery.isLoading ? <p className="designer-project-empty-text">Loading project files...</p> : null}
+      {filesQuery.isLoading ? <p className="designer-project-empty-text">{t.loading}</p> : null}
       {filesQuery.isError ? (
         <p className="designer-project-file-message designer-project-file-error">
-          Could not load project files. Please check project file access permissions.
+          {t.error}
         </p>
       ) : null}
       {!filesQuery.isLoading && !filesQuery.isError && files.length === 0 ? (
         <p className="designer-project-file-message">
-          Chưa có file nào cho project này.
+          {t.empty}
         </p>
       ) : null}
 
       {files.length > 0 ? (
         <div className="designer-project-file-grid">
           {files.map((file) => {
-            const fileName = getDisplayFileName(file.originalFileName, 'Project file');
+            const fileName = getDisplayFileName(file.originalFileName, t.projectFile);
 
             return (
               <article className="designer-project-file-card" key={file.fileLinkId}>
@@ -59,10 +63,10 @@ export function SpaceFilesTab({ project }: SpaceFilesTabProps) {
                   </div>
                   <p className="designer-project-file-meta">{formatFileSize(file.fileSize)} - {formatDate(file.uploadedAt)}</p>
                   <div className="designer-project-file-actions">
-                    <button className="designer-project-icon-button" type="button" aria-label={`Preview ${fileName}`} onClick={() => window.open(file.publicUrl, '_blank', 'noopener,noreferrer')}>
+                    <button className="designer-project-icon-button" type="button" aria-label={t.preview(fileName)} onClick={() => window.open(file.publicUrl, '_blank', 'noopener,noreferrer')}>
                       <IconEye size={17} />
                     </button>
-                    <button className="designer-project-icon-button" type="button" aria-label={`Download ${fileName}`} onClick={() => window.open(file.publicUrl, '_blank', 'noopener,noreferrer')}>
+                    <button className="designer-project-icon-button" type="button" aria-label={t.download(fileName)} onClick={() => window.open(file.publicUrl, '_blank', 'noopener,noreferrer')}>
                       <IconDownload size={17} />
                     </button>
                   </div>

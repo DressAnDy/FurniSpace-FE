@@ -1,6 +1,8 @@
 import { IconCalendarEvent, IconClock, IconMapPin, IconUsers } from '@tabler/icons-react';
 import { useMemo, useState, type ReactNode } from 'react';
 
+import { useLang } from '@/app/providers/useLang';
+import { designerCopy } from '@/features/DesignerPages/designercomponents';
 import type { ProjectDto } from '@/services/api/projects';
 import { getProjectScheduleServiceResultMessage } from '@/services/api/schedules';
 import { useProjectScheduleList, useUpdateProjectScheduleStatus } from '@/services/queries';
@@ -10,6 +12,8 @@ type SchedulesTabProps = {
 };
 
 export function SchedulesTab({ project }: Readonly<SchedulesTabProps>) {
+  const { lang } = useLang();
+  const t = designerCopy[lang].schedulesTab;
   const [statusMessage, setStatusMessage] = useState('');
   const schedulesQuery = useProjectScheduleList(
     {
@@ -36,7 +40,7 @@ export function SchedulesTab({ project }: Readonly<SchedulesTabProps>) {
         status: 'COMPLETED',
         note: 'Designer marked the schedule as completed from project detail.',
       });
-      setStatusMessage('Schedule completed successfully.');
+      setStatusMessage(t.completedSuccess);
       void schedulesQuery.refetch();
     } catch (error) {
       setStatusMessage(getProjectScheduleServiceResultMessage(error));
@@ -47,14 +51,14 @@ export function SchedulesTab({ project }: Readonly<SchedulesTabProps>) {
     <section className="designer-card designer-project-section-card">
       <div className="designer-project-section-toolbar">
         <div>
-          <h3>Schedules</h3><p>{project.projectCode} - project meetings and design review sessions.</p>
+          <h3>{t.title}</h3><p>{t.subtitle(project.projectCode)}</p>
         </div>
       </div>
 
-      {schedulesQuery.isLoading ? <p className="designer-project-empty-text">Loading project schedules...</p> : null}
+      {schedulesQuery.isLoading ? <p className="designer-project-empty-text">{t.loading}</p> : null}
       {schedulesQuery.isError ? <p className="designer-project-empty-text designer-project-state-error">{getProjectScheduleServiceResultMessage(schedulesQuery.error)}</p> : null}
-      {!schedulesQuery.isLoading && !schedulesQuery.isError && schedules.length === 0 ? <p className="designer-project-empty-text">No schedules have been created for this project yet.</p> : null}
-      {statusMessage ? <p className={`designer-project-schedule-message ${statusMessage.toLowerCase().includes('success') ? 'designer-project-message-success' : 'designer-project-state-error'}`}>{statusMessage}</p> : null}
+      {!schedulesQuery.isLoading && !schedulesQuery.isError && schedules.length === 0 ? <p className="designer-project-empty-text">{t.empty}</p> : null}
+      {statusMessage ? <p className={`designer-project-schedule-message ${statusMessage === t.completedSuccess ? 'designer-project-message-success' : 'designer-project-state-error'}`}>{statusMessage}</p> : null}
 
       <div className="designer-project-schedule-list">
         {schedules.map((schedule) => (
@@ -78,17 +82,17 @@ export function SchedulesTab({ project }: Readonly<SchedulesTabProps>) {
               <div className="designer-project-schedule-meta-grid">
                 <ScheduleMeta
                   icon={<IconClock size={16} stroke={1.9} />}
-                  label="When"
+                  label={t.when}
                   value={formatScheduleDate(schedule.scheduledStart, schedule.scheduledEnd)}
                   hint={formatScheduleTime(schedule.scheduledStart, schedule.scheduledEnd)}
                 />
                 <ScheduleMeta
                   icon={<IconMapPin size={16} stroke={1.9} />}
-                  label="Location"
-                  value={schedule.location || 'Not specified'}
+                  label={t.location}
+                  value={schedule.location || t.notSpecified}
                   isMuted={!schedule.location}
                 />
-                <ScheduleMeta icon={<IconUsers size={16} stroke={1.9} />} label="Assignee" value="Assigned to you" />
+                <ScheduleMeta icon={<IconUsers size={16} stroke={1.9} />} label={t.assignee} value={t.assignedToYou} />
               </div>
             </div>
             {schedule.status === 'CONFIRMED' && schedule.scheduleType !== 'DELIVERY' ? (
@@ -98,7 +102,7 @@ export function SchedulesTab({ project }: Readonly<SchedulesTabProps>) {
                 disabled={updateScheduleStatusMutation.isPending}
                 onClick={() => void handleCompleteSchedule(schedule.scheduleId)}
               >
-                {updateScheduleStatusMutation.isPending ? 'Completing...' : 'Complete Schedule'}
+                {updateScheduleStatusMutation.isPending ? t.completing : t.complete}
               </button>
             ) : null}
           </article>
