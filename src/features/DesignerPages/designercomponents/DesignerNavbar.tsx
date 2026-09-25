@@ -1,24 +1,29 @@
 import { useState } from 'react';
-import { IconChevronDown, IconLogout } from '@tabler/icons-react';
+import { IconChevronDown, IconGlobe, IconLogout } from '@tabler/icons-react';
 import { useNavigate } from 'react-router-dom';
 
+import { useLang } from '@/app/providers/useLang';
 import { ActorCommandSearch } from '@/shared/components/ActorCommandSearch';
 import { NotificationBell } from '@/shared/components/NotificationBell';
 import { useCurrentUser, useLogout } from '@/services/queries';
 
+import { designerCopy } from './designerI18n';
+
 type DesignerNavbarProps = {
-  activeLabel: string;
   searchPlaceholder?: string;
 };
 
-export function DesignerNavbar({ searchPlaceholder = 'Search designer features...' }: DesignerNavbarProps) {
+export function DesignerNavbar({ searchPlaceholder }: DesignerNavbarProps) {
   const navigate = useNavigate();
+  const { lang, setLang } = useLang();
+  const t = designerCopy[lang];
   const { data: user } = useCurrentUser();
   const logoutMutation = useLogout();
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
-  const displayName = user?.fullName?.trim() || user?.email || 'Designer';
+  const displayName = user?.fullName?.trim() || user?.email || t.navbar.designerUser;
   const roleLabel = formatRole(user?.role ?? 'DESIGNER');
   const initials = getInitials(displayName);
+  const nextLang = lang === 'vi' ? 'en' : 'vi';
 
   function handleLogout() {
     logoutMutation.mutate(undefined, {
@@ -30,17 +35,29 @@ export function DesignerNavbar({ searchPlaceholder = 'Search designer features..
 
   return (
     <header className="designer-topbar">
-
-
-      <ActorCommandSearch actor="designer" className="designer-topbar-search" placeholder={searchPlaceholder} />
+      <ActorCommandSearch
+        actor="designer"
+        className="designer-topbar-search"
+        placeholder={searchPlaceholder ?? t.navbar.searchPlaceholder}
+      />
 
       <div className="designer-topbar-account">
+        <button
+          aria-label={t.navbar.switchLang}
+          className="designer-language"
+          title={t.navbar.switchLang}
+          type="button"
+          onClick={() => setLang(nextLang)}
+        >
+          <IconGlobe size={16} />
+          <span>{lang.toUpperCase()}</span>
+        </button>
         <NotificationBell buttonClassName="designer-topbar-notification" />
         <div className="designer-user-menu-wrap">
           <button
             aria-expanded={isUserMenuOpen}
             aria-haspopup="menu"
-            aria-label="Open user menu"
+            aria-label={t.navbar.openUserMenu}
             className="designer-user-trigger"
             type="button"
             onClick={() => setIsUserMenuOpen((isOpen) => !isOpen)}
@@ -59,7 +76,7 @@ export function DesignerNavbar({ searchPlaceholder = 'Search designer features..
               </div>
               <button disabled={logoutMutation.isPending} role="menuitem" type="button" onClick={handleLogout}>
                 <IconLogout size={16} />
-                <span>{logoutMutation.isPending ? 'Logging out...' : 'Logout'}</span>
+                <span>{logoutMutation.isPending ? t.navbar.loggingOut : t.navbar.logout}</span>
               </button>
             </div>
           )}

@@ -1,4 +1,6 @@
+import { useLang } from '@/app/providers/useLang';
 import { ProjectPhaseTimelineCard } from '@/features/projectPhaseDeadlines/ProjectPhaseTimelineCard';
+import { designerCopy } from '@/features/DesignerPages/designercomponents';
 import type { ProjectDto } from '@/services/api/projects';
 
 type OverviewTabProps = {
@@ -6,27 +8,30 @@ type OverviewTabProps = {
 };
 
 export function OverviewTab({ project }: OverviewTabProps) {
+  const { lang } = useLang();
+  const t = designerCopy[lang].overviewTab;
+
   const projectInformation = [
-    ['Project Code', project.projectCode],
-    ['Business Type', project.businessType],
-    ['Address', project.projectAddress],
-    ['Floors', formatNumber(project.numberOfFloors)],
-    ['Total Area', formatArea(project.totalAreaSqm)],
-    ['Budget', formatBudgetRange(project.budgetMin, project.budgetMax)],
-    ['Target Date', formatDateOnly(project.targetCompletionDate)],
-    ['Status', formatEnumLabel(project.status)],
+    [t.projectCode, project.projectCode],
+    [t.businessType, project.businessType],
+    [t.address, project.projectAddress],
+    [t.floors, formatNumber(project.numberOfFloors)],
+    [t.totalArea, formatArea(project.totalAreaSqm, t.sqm)],
+    [t.budget, formatBudgetRange(project.budgetMin, project.budgetMax)],
+    [t.targetDate, formatDateOnly(project.targetCompletionDate)],
+    [t.status, formatEnumLabel(project.status)],
   ].filter(([, value]) => Boolean(value));
   const requirements = [
-    ['Furniture Requirement', project.furnitureRequirement],
-    ['Business Purpose', project.businessPurpose],
-    ['Description', project.description],
+    [t.furnitureRequirement, project.furnitureRequirement],
+    [t.businessPurpose, project.businessPurpose],
+    [t.description, project.description],
   ].filter(([, value]) => Boolean(value));
 
   return (
     <div className="designer-project-detail-panel">
       <section className="designer-card designer-project-section-card">
         <header className="designer-project-section-header">
-          <h3>Project Information</h3>
+          <h3>{t.projectInformation}</h3>
         </header>
         <div className="designer-project-info-grid">
           {projectInformation.map(([label, value]) => (
@@ -41,13 +46,13 @@ export function OverviewTab({ project }: OverviewTabProps) {
       <ProjectPhaseTimelineCard
         projectId={project.projectId}
         phases={['DESIGN', 'PROPOSAL']}
-        title="Design Timeline"
-        emptyText="No design deadline has been planned yet."
+        title={t.designTimeline}
+        emptyText={t.noDeadline}
       />
 
       <section className="designer-card designer-project-section-card">
         <header className="designer-project-section-header">
-          <h3>Customer Requirements</h3>
+          <h3>{t.customerRequirements}</h3>
         </header>
         {requirements.length > 0 ? (
           <div className="designer-project-requirements-list">
@@ -59,15 +64,15 @@ export function OverviewTab({ project }: OverviewTabProps) {
             ))}
           </div>
         ) : (
-          <p className="designer-project-empty-text">No additional customer requirements have been provided yet.</p>
+          <p className="designer-project-empty-text">{t.emptyRequirements}</p>
         )}
       </section>
     </div>
   );
 }
 
-function formatArea(value: number | null) {
-  return typeof value === 'number' ? `${value} sqm` : null;
+function formatArea(value: number | null, sqm: (v: number) => string) {
+  return typeof value === 'number' ? sqm(value) : null;
 }
 
 function formatNumber(value: number | null) {

@@ -11,6 +11,8 @@ import {
   IconStack2,
 } from '@tabler/icons-react';
 
+import { useLang } from '@/app/providers/useLang';
+import { designerCopy } from '@/features/DesignerPages/designercomponents';
 import { getProposalServiceResultMessage, type ProposalDto } from '@/services/api/proposals';
 import type { ProjectDto } from '@/services/api/projects';
 import { useCreateProposal, useCreateProposalScene, useProjectAreas, useProjectProposals, useProposalScenes, usePublishProposal } from '@/services/queries';
@@ -20,6 +22,8 @@ type ProposalsTabProps = {
 };
 
 export function ProposalsTab({ project }: Readonly<ProposalsTabProps>) {
+  const { lang } = useLang();
+  const t = designerCopy[lang].proposalsTab;
   const navigate = useNavigate();
   const [message, setMessage] = useState('');
   const [messageTone, setMessageTone] = useState<'error' | 'success'>('error');
@@ -60,17 +64,17 @@ export function ProposalsTab({ project }: Readonly<ProposalsTabProps>) {
     setMessageTone('error');
 
     if (!proposalName) {
-      setMessage('Proposal name is required.');
+      setMessage(t.errNameRequired);
       return;
     }
 
     if (!description) {
-      setMessage('Proposal description is required.');
+      setMessage(t.errDescRequired);
       return;
     }
 
     if (projectAreaIds.length === 0) {
-      setMessage('Create at least one project area first. Each area will become a floor in the new room planner scene.');
+      setMessage(t.errNeedAreas);
       return;
     }
 
@@ -91,7 +95,7 @@ export function ProposalsTab({ project }: Readonly<ProposalsTabProps>) {
       setIsCreateModalOpen(false);
       setProposalDraft({ description: '', proposalName: '' });
       setMessageTone('success');
-      setMessage(`Created ${getDisplayText(createdProposal.proposalName, 'proposal')} with a room planner scene across ${projectAreaIds.length} floor${projectAreaIds.length === 1 ? '' : 's'}.`);
+      setMessage(t.createSuccess(getDisplayText(createdProposal.proposalName, t.cols.proposal), projectAreaIds.length));
       navigate(`/designer/projects/${project.projectId}/proposals/${createdProposal.proposalId}`, {
         state: { createdSceneId: createdScene.sceneId },
       });
@@ -112,7 +116,7 @@ export function ProposalsTab({ project }: Readonly<ProposalsTabProps>) {
         note: 'Published by designer from assigned project proposal list.',
       });
       setMessageTone('success');
-      setMessage(`${getDisplayText(proposal.proposalName, 'Proposal')} was published successfully.`);
+      setMessage(t.publishSuccess(getDisplayText(proposal.proposalName, t.cols.proposal)));
     } catch (error) {
       setMessageTone('error');
       setMessage(getProposalServiceResultMessage(error));
@@ -128,25 +132,25 @@ export function ProposalsTab({ project }: Readonly<ProposalsTabProps>) {
       <div className="designer-project-section-toolbar">
         <div>
           <h3>
-            Proposals
+            {t.title}
             {!proposalsQuery.isLoading ? <span className="designer-proposal-count">{proposalTotal}</span> : null}
           </h3>
           <p>
             {proposalsQuery.isLoading
-              ? 'Loading proposals from backend...'
-              : `${pluralize(proposalTotal, 'proposal')} for this project.`}
+              ? t.loading
+              : t.count(proposalTotal)}
           </p>
         </div>
         <div className="designer-project-table-actions">
           <button
             className="designer-project-detail-button designer-project-detail-button-primary designer-project-proposal-setup-button"
             disabled={!canCreateProposal || areasQuery.isLoading}
-            title={canCreateProposal ? undefined : 'Available once the project reaches Proposal Consulting.'}
+            title={canCreateProposal ? undefined : t.setupTooltip}
             type="button"
             onClick={openProposalSetup}
           >
             <IconPlus size={17} stroke={2.2} />
-            Set Up Room Planner Proposal
+            {t.setupButton}
           </button>
         </div>
       </div>
@@ -159,6 +163,7 @@ export function ProposalsTab({ project }: Readonly<ProposalsTabProps>) {
           onClose={() => setIsCreateModalOpen(false)}
           onDraftChange={setProposalDraft}
           onSubmit={() => void createRoomPlannerProposal()}
+          t={t}
         />
       ) : null}
 
@@ -171,7 +176,7 @@ export function ProposalsTab({ project }: Readonly<ProposalsTabProps>) {
       {!canCreateProposal ? (
         <p className="designer-project-file-message">
           <IconInfoCircle size={17} />
-          Move this project to Proposal Consulting before creating a new proposal.
+          {t.moveToConsulting}
         </p>
       ) : null}
       {proposalsQuery.isError ? (
@@ -185,8 +190,8 @@ export function ProposalsTab({ project }: Readonly<ProposalsTabProps>) {
         <table className="designer-project-table">
           <thead>
             <tr>
-              {['Proposal', 'Version', 'Status', 'Scenes', 'Published', 'Updated', 'Action'].map((head) => (
-                <th className={head === 'Status' ? 'designer-proposal-status-cell' : undefined} key={head}>
+              {[t.cols.proposal, t.cols.version, t.cols.status, t.cols.scenes, t.cols.published, t.cols.updated, t.cols.action].map((head) => (
+                <th className={head === t.cols.status ? 'designer-proposal-status-cell' : undefined} key={head}>
                   {head}
                 </th>
               ))}
@@ -196,7 +201,7 @@ export function ProposalsTab({ project }: Readonly<ProposalsTabProps>) {
             {proposalsQuery.isLoading ? (
               <tr>
                 <td className="designer-proposal-table-state" colSpan={7}>
-                  Loading proposals...
+                  {t.loadingTable}
                 </td>
               </tr>
             ) : null}
@@ -205,8 +210,8 @@ export function ProposalsTab({ project }: Readonly<ProposalsTabProps>) {
               <tr>
                 <td className="designer-proposal-table-state" colSpan={7}>
                   <IconStack2 size={22} stroke={1.6} />
-                  <strong>No proposals yet</strong>
-                  <span>Set up a room planner proposal to start designing for this project.</span>
+                  <strong>{t.empty}</strong>
+                  <span>{t.emptyHint}</span>
                 </td>
               </tr>
             ) : null}
@@ -218,6 +223,7 @@ export function ProposalsTab({ project }: Readonly<ProposalsTabProps>) {
                 onOpenDetail={() => navigate(`/designer/projects/${project.projectId}/proposals/${proposal.proposalId}`)}
                 onPublish={() => publishProposal(proposal)}
                 publishDisabled={publishingProposalId === proposal.proposalId || publishProposalMutation.isPending}
+                t={t}
               />
             ))}
           </tbody>
@@ -234,7 +240,13 @@ type ProposalRowProps = {
   publishDisabled: boolean;
 };
 
-function ProposalRow({ proposal, onOpenDetail, onPublish, publishDisabled }: Readonly<ProposalRowProps>) {
+function ProposalRow({
+  proposal,
+  onOpenDetail,
+  onPublish,
+  publishDisabled,
+  t,
+}: Readonly<ProposalRowProps & { t: typeof designerCopy.en.proposalsTab }>) {
   const scenesQuery = useProposalScenes({
     proposalId: proposal.proposalId,
     isActive: true,
@@ -249,10 +261,10 @@ function ProposalRow({ proposal, onOpenDetail, onPublish, publishDisabled }: Rea
   return (
     <tr>
       <td>
-        <strong>{getDisplayText(proposal.proposalName, 'Untitled proposal')}</strong>
+        <strong>{getDisplayText(proposal.proposalName, t.cols.proposal)}</strong>
         {proposal.status === 'REVISION_REQUESTED' && proposal.revisionNote ? (
           <div className="designer-proposal-revision-note-inline">
-            <span>Customer revision note</span>
+            <span>{t.revisionNote}</span>
             <p>{proposal.revisionNote}</p>
           </div>
         ) : null}
@@ -268,39 +280,39 @@ function ProposalRow({ proposal, onOpenDetail, onPublish, publishDisabled }: Rea
       <td>
         <span className="designer-proposal-scenes">
           <IconStack2 size={13} stroke={1.9} />
-          {scenesQuery.isLoading ? 'Loading...' : pluralize(sceneCount, 'scene')}
+          {scenesQuery.isLoading ? t.loadingTable : t.scenes(sceneCount)}
         </span>
       </td>
-      <td>{proposal.publishedAt ? <DateStamp value={proposal.publishedAt} /> : <span className="designer-proposal-empty-value">Not published</span>}</td>
+      <td>{proposal.publishedAt ? <DateStamp value={proposal.publishedAt} /> : <span className="designer-proposal-empty-value">{t.notPublished}</span>}</td>
       <td>
         <DateStamp value={proposal.updatedAt} />
       </td>
       <td>
         <div className="designer-project-table-actions">
           <button className="designer-project-table-open" type="button" onClick={onOpenDetail}>
-            Open Detail
+            {t.openDetail}
             <IconArrowUpRight size={14} stroke={2.1} />
           </button>
           {isEditableProposalStatus(proposal.status) ? (
             <button
               className="designer-project-table-publish"
               disabled={!canPublish || publishDisabled || scenesQuery.isLoading}
-              title={canPublish ? 'Publish this proposal so the customer can review it.' : 'Create at least one active scene before publishing.'}
+              title={canPublish ? t.publish : t.errNeedAreas}
               type="button"
               onClick={() => void onPublish()}
             >
               <IconSend size={14} stroke={1.9} />
-              {publishDisabled ? 'Publishing...' : 'Publish to Customer'}
+              {publishDisabled ? t.publishing : t.publish}
             </button>
           ) : (
             <button
               className="designer-project-table-locked"
               type="button"
               disabled
-              title="Published proposals are locked for editing."
+              title={t.published}
             >
               <IconLock size={14} stroke={1.9} />
-              Published
+              {t.published}
             </button>
           )}
         </div>
@@ -325,6 +337,7 @@ function CreateProposalModal({
   onClose,
   onDraftChange,
   onSubmit,
+  t,
 }: Readonly<{
   areaCount: number;
   draft: { description: string; proposalName: string };
@@ -332,6 +345,7 @@ function CreateProposalModal({
   onClose: () => void;
   onDraftChange: (draft: { description: string; proposalName: string }) => void;
   onSubmit: () => void;
+  t: typeof designerCopy.en.proposalsTab;
 }>) {
   function updateDraft(field: keyof typeof draft, value: string) {
     onDraftChange({ ...draft, [field]: value });
@@ -342,8 +356,8 @@ function CreateProposalModal({
       <section className="designer-project-modal" role="dialog" aria-modal="true" aria-labelledby="designer-create-proposal-title">
         <header>
           <div>
-            <h3 id="designer-create-proposal-title">Create Room Planner Proposal</h3>
-            <p>{areaCount} project area{areaCount === 1 ? '' : 's'} will be attached to the new scene as floors.</p>
+            <h3 id="designer-create-proposal-title">{t.createModalTitle}</h3>
+            <p>{t.errNeedAreas}</p>
           </div>
           <button className="designer-project-modal-close" type="button" aria-label="Close create proposal modal" onClick={onClose}>
             X
@@ -351,18 +365,18 @@ function CreateProposalModal({
         </header>
         <div className="designer-project-modal-form">
           <label>
-            <span>Name</span>
+            <span>{t.name}</span>
             <input
               autoFocus
-              placeholder="Enter proposal name"
+              placeholder={t.namePh}
               value={draft.proposalName}
               onChange={(event) => updateDraft('proposalName', event.target.value)}
             />
           </label>
           <label>
-            <span>Description</span>
+            <span>{t.description}</span>
             <textarea
-              placeholder="Enter proposal description"
+              placeholder={t.descPh}
               value={draft.description}
               onChange={(event) => updateDraft('description', event.target.value)}
             />
@@ -370,7 +384,7 @@ function CreateProposalModal({
         </div>
         <footer>
           <button className="designer-project-detail-button" disabled={isCreating} type="button" onClick={onClose}>
-            Cancel
+            {t.cancel}
           </button>
           <button
             className="designer-project-detail-button designer-project-detail-button-primary"
@@ -378,7 +392,7 @@ function CreateProposalModal({
             type="button"
             onClick={onSubmit}
           >
-            {isCreating ? 'Creating...' : 'Create Proposal & Scene'}
+            {isCreating ? t.creating : t.createSubmit}
           </button>
         </footer>
       </section>
@@ -427,10 +441,6 @@ function formatEnumLabel(value: string) {
     .split('_')
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(' ');
-}
-
-function pluralize(count: number, noun: string) {
-  return `${count} ${noun}${count === 1 ? '' : 's'}`;
 }
 
 function getDisplayText(value: string | null | undefined, fallback: string) {

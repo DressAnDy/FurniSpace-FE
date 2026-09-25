@@ -3,7 +3,8 @@ import { useQueries } from '@tanstack/react-query';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 
-import { DesignerLayout } from '@/features/DesignerPages/designercomponents';
+import { useLang } from '@/app/providers/useLang';
+import { DesignerLayout, designerCopy } from '@/features/DesignerPages/designercomponents';
 import { ProjectStatusBadge } from '@/features/SalePages/salecomponents';
 import { getAccountById, type AccountDto } from '@/services/api';
 import { getProjectServiceResultMessage, type ProjectStatus } from '@/services/api/projects';
@@ -12,8 +13,8 @@ import { useCurrentUser, useProjectList } from '@/services/queries';
 import './DesignerAssignedProjects.css';
 
 const PAGE_SIZE = 5;
-const ALL_STATUS = 'All status';
-const ALL_BUSINESS_TYPES = 'All business types';
+const ALL_STATUS = '__ALL_STATUS__';
+const ALL_BUSINESS_TYPES = '__ALL_BUSINESS_TYPES__';
 
 const projectStatusPriority: ProjectStatus[] = [
   'SUBMITTED',
@@ -44,6 +45,8 @@ const statusOptions: Array<ProjectStatus | typeof ALL_STATUS> = [
 ];
 
 export function DesignerAssignedProjects() {
+  const { lang } = useLang();
+  const t = designerCopy[lang];
   const [keyword, setKeyword] = useState('');
   const [status, setStatus] = useState<ProjectStatus | typeof ALL_STATUS>(ALL_STATUS);
   const [businessType, setBusinessType] = useState(ALL_BUSINESS_TYPES);
@@ -185,21 +188,23 @@ export function DesignerAssignedProjects() {
   }
 
   return (
-    <DesignerLayout activeLabel="Assigned Projects">
+    <DesignerLayout activeKey="assignedProjects">
       <section className="designer-assigned-header">
-        <h2>Assigned Projects</h2>
+        <h2>{t.assignedProjects.title}</h2>
         <p>
-          {projectsQuery.isLoading || currentUserQuery.isLoading ? 'Loading projects assigned to you...' : `${filteredProjects.length} of ${projects.length} assigned projects`}
+          {projectsQuery.isLoading || currentUserQuery.isLoading
+            ? t.assignedProjects.subtitleLoading
+            : t.assignedProjects.subtitleCount(filteredProjects.length, projects.length)}
         </p>
       </section>
 
       <section className="designer-card designer-assigned-toolbar">
         <label className="designer-assigned-search">
           <IconSearch size={18} />
-          <input placeholder="Search project, customer..." type="search" value={keyword} onChange={(event) => setKeyword(event.target.value)} />
+          <input placeholder={t.assignedProjects.searchPlaceholder} type="search" value={keyword} onChange={(event) => setKeyword(event.target.value)} />
         </label>
         <div className="designer-assigned-filters">
-          <span>Filters:</span>
+          <span>{t.assignedProjects.filtersLabel}</span>
           <div className="designer-assigned-filter-menu" ref={filterPanelRef}>
             <button
               aria-expanded={isFilterOpen}
@@ -213,44 +218,48 @@ export function DesignerAssignedProjects() {
             </button>
 
             {isFilterOpen ? (
-              <div className="designer-assigned-filter-panel" role="dialog" aria-label="Project filters">
+              <div className="designer-assigned-filter-panel" role="dialog" aria-label={t.assignedProjects.projectFiltersAria}>
                 <div className="designer-assigned-filter-panel-header">
-                  <strong>Filter projects</strong>
-                  <button aria-label="Close filters" type="button" onClick={() => setIsFilterOpen(false)}>
+                  <strong>{t.assignedProjects.filterProjects}</strong>
+                  <button aria-label={t.assignedProjects.closeFilters} type="button" onClick={() => setIsFilterOpen(false)}>
                     <IconX size={16} />
                   </button>
                 </div>
 
                 <label>
-                  <span>Status</span>
+                  <span>{t.assignedProjects.status}</span>
                   <select value={status} onChange={(event) => setStatus(event.target.value as ProjectStatus | typeof ALL_STATUS)}>
                     {statusOptions.map((option) => (
-                      <option key={option} value={option}>{option === ALL_STATUS ? option : formatEnumLabel(option)}</option>
+                      <option key={option} value={option}>
+                        {option === ALL_STATUS ? t.common.allStatus : formatEnumLabel(option)}
+                      </option>
                     ))}
                   </select>
                 </label>
 
                 <label>
-                  <span>Business type</span>
+                  <span>{t.assignedProjects.businessType}</span>
                   <select value={businessType} onChange={(event) => setBusinessType(event.target.value)}>
                     {businessTypeOptions.map((option) => (
-                      <option key={option} value={option}>{option}</option>
+                      <option key={option} value={option}>
+                        {option === ALL_BUSINESS_TYPES ? t.common.allBusinessTypes : option}
+                      </option>
                     ))}
                   </select>
                 </label>
 
                 <div className="designer-assigned-filter-panel-actions">
                   <button disabled={!hasActiveFilters} type="button" onClick={clearFilters}>
-                    Clear
+                    {t.common.clear}
                   </button>
                   <button type="button" onClick={() => setIsFilterOpen(false)}>
-                    Done
+                    {t.common.done}
                   </button>
                 </div>
               </div>
             ) : null}
           </div>
-          <span>{filteredProjects.length} of {projects.length} projects</span>
+          <span>{t.assignedProjects.countOfProjects(filteredProjects.length, projects.length)}</span>
         </div>
       </section>
 
@@ -258,18 +267,18 @@ export function DesignerAssignedProjects() {
         <section className="designer-assigned-active-filters">
           {status !== ALL_STATUS ? (
             <button type="button" onClick={() => setStatus(ALL_STATUS)}>
-              Status: {formatEnumLabel(status)}
+              {t.assignedProjects.statusChip(formatEnumLabel(status))}
               <IconX size={14} />
             </button>
           ) : null}
           {businessType !== ALL_BUSINESS_TYPES ? (
             <button type="button" onClick={() => setBusinessType(ALL_BUSINESS_TYPES)}>
-              Type: {businessType}
+              {t.assignedProjects.typeChip(businessType)}
               <IconX size={14} />
             </button>
           ) : null}
           <button className="designer-assigned-clear-all" type="button" onClick={clearFilters}>
-            Clear all
+            {t.assignedProjects.clearAll}
           </button>
         </section>
       ) : null}
@@ -285,7 +294,15 @@ export function DesignerAssignedProjects() {
           <table className="designer-assigned-table">
             <thead>
               <tr>
-                {['Project', 'Customer', 'Type', 'Submitted', 'Status', 'Sales', 'Action'].map((head) => (
+                {[
+                  t.assignedProjects.cols.project,
+                  t.assignedProjects.cols.customer,
+                  t.assignedProjects.cols.type,
+                  t.assignedProjects.cols.submitted,
+                  t.assignedProjects.cols.status,
+                  t.assignedProjects.cols.sales,
+                  t.assignedProjects.cols.action,
+                ].map((head) => (
                   <th key={head}>{head}</th>
                 ))}
               </tr>
@@ -293,7 +310,7 @@ export function DesignerAssignedProjects() {
             <tbody>
               {currentUserQuery.isLoading || projectsQuery.isLoading ? (
                 <tr>
-                  <td className="designer-assigned-empty" colSpan={7}>Loading assigned projects...</td>
+                  <td className="designer-assigned-empty" colSpan={7}>{t.assignedProjects.loading}</td>
                 </tr>
               ) : null}
               {pagedProjects.map((project) => {
@@ -307,19 +324,19 @@ export function DesignerAssignedProjects() {
                       <span className="designer-assigned-secondary">{project.projectCode}</span>
                     </td>
                     <td>
-                      <p className="designer-assigned-account">{customer?.fullName ?? 'Loading customer...'}</p>
+                      <p className="designer-assigned-account">{customer?.fullName ?? t.assignedProjects.loadingCustomer}</p>
                       <span className="designer-assigned-secondary">{customer?.email ?? project.customerId}</span>
                     </td>
                     <td>{project.businessType}</td>
                     <td>{formatDate(project.submittedAt)}</td>
                     <td className="designer-assigned-status-cell"><ProjectStatusBadge status={project.status} /></td>
                     <td>
-                      <p className="designer-assigned-account">{sales?.fullName ?? 'Loading sales...'}</p>
-                      <span className="designer-assigned-secondary">{sales?.email ?? project.assignedSalesId ?? '-'}</span>
+                      <p className="designer-assigned-account">{sales?.fullName ?? t.assignedProjects.loadingSales}</p>
+                      <span className="designer-assigned-secondary">{sales?.email ?? project.assignedSalesId ?? t.common.dash}</span>
                     </td>
                     <td>
                       <Link className="designer-assigned-view-link" to={`/designer/assigned-projects/${project.projectId}`}>
-                        View Project
+                        {t.assignedProjects.viewProject}
                       </Link>
                     </td>
                   </tr>
@@ -328,7 +345,7 @@ export function DesignerAssignedProjects() {
               {!currentUserQuery.isLoading && !projectsQuery.isLoading && filteredProjects.length === 0 ? (
                 <tr>
                   <td className="designer-assigned-empty" colSpan={7}>
-                    You do not have assigned projects matching these filters yet.
+                    {t.assignedProjects.empty}
                   </td>
                 </tr>
               ) : null}
@@ -339,17 +356,17 @@ export function DesignerAssignedProjects() {
         {filteredProjects.length > 0 ? (
           <div className="designer-assigned-pagination">
             <button type="button" disabled={currentPage <= 1} onClick={() => setPage((current) => Math.max(1, current - 1))}>
-              Previous
+              {t.common.previous}
             </button>
             <span>
-              Page {currentPage} / {totalPages}
+              {t.common.pageOf(currentPage, totalPages)}
             </span>
             <button
               type="button"
               disabled={currentPage >= totalPages}
               onClick={() => setPage((current) => Math.min(totalPages, current + 1))}
             >
-              Next
+              {t.common.next}
             </button>
           </div>
         ) : null}

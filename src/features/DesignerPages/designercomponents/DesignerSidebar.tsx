@@ -9,95 +9,86 @@ import {
 } from '@tabler/icons-react';
 import { NavLink } from 'react-router-dom';
 
+import { useLang } from '@/app/providers/useLang';
 import logoImage from '@/assets/Logo/Logo.png';
 import { useActorSidebarCollapse } from '@/shared/hooks/useActorSidebarCollapse';
 
+import { designerCopy, type DesignerNavKey } from './designerI18n';
+
 type DesignerSidebarItem = {
-  label: string;
+  key: DesignerNavKey;
   icon: Icon;
-  path?: string;
+  path: string;
 };
 
 const designerSidebarItems: DesignerSidebarItem[] = [
-  { label: 'Dashboard', icon: IconHome, path: '/designer/dashbroad' },
-  { label: 'Assigned Projects', icon: IconTable, path: '/designer/assigned-projects' },
-  { label: 'Product Library', icon: IconPackage, path: '/designer/product-library' },
-  { label: 'My Schedule', icon: IconCalendarEvent, path: '/designer/schedules' },
+  { key: 'dashboard', icon: IconHome, path: '/designer/dashbroad' },
+  { key: 'assignedProjects', icon: IconTable, path: '/designer/assigned-projects' },
+  { key: 'productLibrary', icon: IconPackage, path: '/designer/product-library' },
+  { key: 'schedules', icon: IconCalendarEvent, path: '/designer/schedules' },
 ];
 
 type DesignerSidebarProps = {
-  activeLabel: string;
+  activeKey: DesignerNavKey;
 };
 
-export function DesignerSidebar({ activeLabel }: DesignerSidebarProps) {
+export function DesignerSidebar({ activeKey }: DesignerSidebarProps) {
+  const { lang } = useLang();
+  const t = designerCopy[lang];
   const { collapse, expand, isCollapsed } = useActorSidebarCollapse('designer');
 
   return (
     <>
-    <button
-      aria-label="Open designer sidebar"
-      className="actor-sidebar-open-button designer-sidebar-open-button"
-      hidden={!isCollapsed}
-      type="button"
-      onClick={expand}
-    >
-      <IconMenu2 size={22} />
-    </button>
+      <button
+        aria-label={t.openSidebar}
+        className="actor-sidebar-open-button designer-sidebar-open-button"
+        hidden={!isCollapsed}
+        type="button"
+        onClick={expand}
+      >
+        <IconMenu2 size={22} />
+      </button>
 
-    <aside className={`designer-sidebar ${isCollapsed ? 'is-collapsed' : 'is-expanded'}`}>
-      <div className="designer-sidebar-brand">
-        <NavLink className="designer-sidebar-brand-link" to="/">
-          <img src={logoImage} alt="FurniSpace" />
-          <div>
-            <h1>FurniSpace</h1>
-            <p>Designer</p>
-          </div>
-        </NavLink>
-        <button aria-label="Collapse designer sidebar" className="actor-sidebar-collapse-button" hidden={isCollapsed} type="button" onClick={collapse}>
-          <IconChevronLeft size={18} />
-        </button>
-      </div>
+      <aside className={`designer-sidebar ${isCollapsed ? 'is-collapsed' : 'is-expanded'}`}>
+        <div className="designer-sidebar-brand">
+          <NavLink className="designer-sidebar-brand-link" to="/">
+            <img src={logoImage} alt="FurniSpace" />
+            <div>
+              <h1>FurniSpace</h1>
+              <p>{t.workspace}</p>
+            </div>
+          </NavLink>
+          <button
+            aria-label={t.collapseSidebar}
+            className="actor-sidebar-collapse-button"
+            hidden={isCollapsed}
+            type="button"
+            onClick={collapse}
+          >
+            <IconChevronLeft size={18} />
+          </button>
+        </div>
 
-      <nav className="designer-sidebar-nav">
-        {designerSidebarItems.map(({ label, icon: ItemIcon, path }) => {
-          const activeClass = label === activeLabel ? 'designer-sidebar-item-active' : '';
-          const content = (
-            <>
-              <ItemIcon size={18} stroke={1.9} />
-              <span>{label}</span>
-            </>
-          );
+        <nav className="designer-sidebar-nav">
+          {designerSidebarItems.map(({ key, icon: ItemIcon, path }) => {
+            const label = t.nav[key];
 
-          if (!path) {
             return (
-              <button
-                className={`designer-sidebar-item ${activeClass}`}
-                disabled
-                key={label}
+              <NavLink
+                className={({ isActive }) =>
+                  `designer-sidebar-item ${isActive || key === activeKey ? 'designer-sidebar-item-active' : ''}`
+                }
+                key={key}
+                to={path}
                 title={label}
-                type="button"
               >
-                {content}
-              </button>
+                <ItemIcon size={18} stroke={1.9} />
+                <span>{label}</span>
+              </NavLink>
             );
-          }
-
-          return (
-            <NavLink
-              className={({ isActive }) =>
-                `designer-sidebar-item ${isActive || label === activeLabel ? 'designer-sidebar-item-active' : ''}`
-              }
-              key={label}
-              to={path}
-              title={label}
-            >
-              {content}
-            </NavLink>
-          );
-        })}
-      </nav>
-
-    </aside>
+          })}
+        </nav>
+      </aside>
     </>
   );
 }
