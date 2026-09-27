@@ -253,7 +253,7 @@ export function useProjectChatRealtime(input: {
         }
       }
 
-      await syncJoinedChat(connection, currentChatId ?? null, joinedChatIdRef, isDisposed);
+      await syncJoinedChat(connection, currentChatId ?? null, joinedChatIdRef, () => isDisposed);
     };
 
     const detachRecovery = attachSignalRRecovery(connection, () => isDisposed, () => {
@@ -302,7 +302,7 @@ export function useProjectChatRealtime(input: {
       return;
     }
 
-    void syncJoinedChat(connection, activeChatId ?? null, joinedChatIdRef, false);
+    void syncJoinedChat(connection, activeChatId ?? null, joinedChatIdRef, () => false);
   }, [activeChatId, enabled]);
 }
 
@@ -310,9 +310,9 @@ async function syncJoinedChat(
   connection: signalR.HubConnection,
   nextChatId: string | null,
   joinedChatIdRef: { current: string | null },
-  isDisposed: boolean,
+  isDisposed: () => boolean,
 ) {
-  if (isDisposed || connection.state !== signalR.HubConnectionState.Connected) {
+  if (isDisposed() || connection.state !== signalR.HubConnectionState.Connected) {
     return;
   }
 
@@ -340,6 +340,30 @@ async function syncJoinedChat(
     if (import.meta.env.DEV) {
       console.warn('[SignalR] JoinChat failed', error);
     }
+
+    // One short retry — JoinChat can fail if hub groups are still settling after reconnect.
+    window.setTimeout(() => {
+      if (isDisposed() || connection.state !== signalR.HubConnectionState.Connected) {
+        return;
+      }
+
+      if (joinedChatIdRef.current === nextChatId) {
+        return;
+      }
+
+      void connection
+        .invoke('JoinChat', nextChatId)
+        .then(() => {
+          if (!isDisposed()) {
+            joinedChatIdRef.current = nextChatId;
+          }
+        })
+        .catch((retryError) => {
+          if (import.meta.env.DEV) {
+            console.warn('[SignalR] JoinChat retry failed', retryError);
+          }
+        });
+    }, 1_000);
   }
 }
 

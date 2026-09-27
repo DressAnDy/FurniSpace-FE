@@ -3,17 +3,19 @@ import {
   IconCalendar,
   IconSearch,
 } from '@tabler/icons-react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 import './CustomerProjectListPage.css';
+import { useRealtimeInAppNotification } from '@/app/providers/realtimeSyncContext';
 import { useLang, type Lang } from '@/app/providers/useLang';
 import { CustomerNavbar, customerCopy, type CustomerCopy } from '@/features/CustomerPages/customercomponents';
 import { formatCustomerDate, getCustomerProjectStatusLabel } from '@/features/CustomerPages/utils';
 import { PaymentCollectionModal } from '@/features/payments';
 import type { PaymentDetailDto } from '@/services/api/payments';
 import type { ProjectListItemDto, ProjectStatus } from '@/services/api/projects';
-import { usePayments } from '@/services/queries';
+import { paymentQueryKeys, usePayments } from '@/services/queries';
 import { useProjectList } from '@/services/queries/useProjects';
 
 const PROJECT_PAGE_SIZE = 6;
@@ -227,6 +229,8 @@ type ProjectCardProps = {
 
 function ProjectCard({ lang, onPaymentCompleted, project, t }: ProjectCardProps) {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const lastInAppNotification = useRealtimeInAppNotification();
   const [startFeePayment, setStartFeePayment] = useState<PaymentDetailDto | null>(null);
   const stage = getProjectStage(project.status, lang);
   const needsInformationUpdate = project.status === 'NEED_BASIC_INFORMATION';
@@ -246,6 +250,22 @@ function ProjectCard({ lang, onPaymentCompleted, project, t }: ProjectCardProps)
   }, [startFeePaymentsQuery.data?.items]);
   const startFeePaymentStatus = normalizePaymentStatus(projectStartFeePayment?.status);
   const canPayStartFee = Boolean(projectStartFeePayment && isCollectablePaymentStatus(startFeePaymentStatus));
+
+  // Sales creating start fee pushes payment.created — ensure this card refetches even if
+  // global invalidate races with a thin notification envelope.
+  useEffect(() => {
+    if (!lastInAppNotification) {
+      return;
+    }
+
+    const notificationType = lastInAppNotification.notificationType ?? '';
+    const isPaymentNotification = notificationType.toLowerCase().includes('payment');
+    const matchesProject = !lastInAppNotification.projectId || lastInAppNotification.projectId === project.projectId;
+
+    if (isPaymentNotification && matchesProject) {
+      void queryClient.invalidateQueries({ queryKey: paymentQueryKeys.all });
+    }
+  }, [lastInAppNotification, project.projectId, queryClient]);
 
   return (
     <article className="customer-project-list-card">
