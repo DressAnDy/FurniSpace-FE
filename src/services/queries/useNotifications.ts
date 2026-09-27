@@ -166,26 +166,30 @@ export function useNotificationRealtime(input: {
       .configureLogging(signalR.LogLevel.Warning)
       .build();
 
-    const handleInAppNotification = (payload: RealtimeNotificationPayload) => {
+    const handleInAppNotification = (eventName: string, payload: RealtimeNotificationPayload) => {
       if (payload.notificationId) {
         upsertRealtimeNotification(queryClient, payload);
       }
 
-      invalidateBusinessQueries(queryClient, payload);
+      invalidateBusinessQueries(queryClient, payload, eventName);
       onInAppNotificationRef.current?.(payload);
     };
 
-    const handleRealtimeOnlyNotification = (payload: RealtimeNotificationPayload) => {
-      invalidateBusinessQueries(queryClient, payload);
+    const handleRealtimeOnlyNotification = (eventName: string, payload: RealtimeNotificationPayload) => {
+      invalidateBusinessQueries(queryClient, payload, eventName);
       onRealtimeOnlyNotificationRef.current?.(payload);
     };
 
     inAppNotificationEvents.forEach((eventName) => {
-      connection.on(eventName, handleInAppNotification);
+      connection.on(eventName, (payload: RealtimeNotificationPayload) => {
+        handleInAppNotification(eventName, payload);
+      });
     });
 
     realtimeOnlyNotificationEvents.forEach((eventName) => {
-      connection.on(eventName, handleRealtimeOnlyNotification);
+      connection.on(eventName, (payload: RealtimeNotificationPayload) => {
+        handleRealtimeOnlyNotification(eventName, payload);
+      });
     });
 
     let isDisposed = false;
@@ -201,10 +205,10 @@ export function useNotificationRealtime(input: {
       isDisposed = true;
       detachRecovery();
       inAppNotificationEvents.forEach((eventName) => {
-        connection.off(eventName, handleInAppNotification);
+        connection.off(eventName);
       });
       realtimeOnlyNotificationEvents.forEach((eventName) => {
-        connection.off(eventName, handleRealtimeOnlyNotification);
+        connection.off(eventName);
       });
 
       void startPromise.finally(() => {
@@ -276,86 +280,108 @@ function updateNotificationReadState(queryClient: ReturnType<typeof useQueryClie
   );
 }
 
-function invalidateBusinessQueries(queryClient: ReturnType<typeof useQueryClient>, payload: RealtimeNotificationPayload) {
+function invalidateBusinessQueries(
+  queryClient: ReturnType<typeof useQueryClient>,
+  payload: RealtimeNotificationPayload,
+  eventName = '',
+) {
   const metadata = payload.metadata ?? {};
   const referenceType = payload.referenceType ?? '';
+  const notificationType = payload.notificationType ?? '';
   const projectId = payload.projectId ?? asId(metadata.projectId);
+
+  const isPaymentEvent = matchesDomain(eventName, referenceType, notificationType, {
+    eventPrefix: 'payment.',
+    referenceType: 'PAYMENT',
+    notificationNeedle: 'payment',
+  });
+  const isOrderEvent = matchesDomain(eventName, referenceType, notificationType, {
+    eventPrefix: 'order.',
+    referenceType: 'ORDER',
+    notificationNeedle: 'order',
+  });
+  const isScheduleEvent = matchesDomain(eventName, referenceType, notificationType, {
+    eventPrefix: 'project_schedule.',
+    referenceType: 'PROJECT_SCHEDULE',
+    notificationNeedle: 'schedule',
+  });
+  const isProposalEvent = matchesDomain(eventName, referenceType, notificationType, {
+    eventPrefix: 'proposal.',
+    referenceType: 'PROPOSAL',
+    notificationNeedle: 'proposal',
+  });
+  const isQuotationEvent = matchesDomain(eventName, referenceType, notificationType, {
+    eventPrefix: 'quotation.',
+    referenceType: 'QUOTATION',
+    notificationNeedle: 'quotation',
+  });
+  const isProductionEvent =
+    eventName.startsWith('production.')
+    || eventName.startsWith('production_item.')
+    || eventName.startsWith('delivery.delay.')
+    || referenceType === 'PRODUCTION_REQUEST'
+    || referenceType === 'OPERATIONAL_DELAY_REPORT'
+    || notificationType.toLowerCase().includes('production')
+    || notificationType.toLowerCase().includes('delayreported');
+  const isCustomizationEvent = matchesDomain(eventName, referenceType, notificationType, {
+    eventPrefix: 'customization_request.',
+    referenceType: 'CUSTOMIZATION_REQUEST',
+    notificationNeedle: 'customization',
+  });
+  const isProductIssueEvent = matchesDomain(eventName, referenceType, notificationType, {
+    eventPrefix: 'product_issue.',
+    referenceType: 'DELIVERY_PRODUCT_ISSUE_REPORT',
+    notificationNeedle: 'productissue',
+  });
+  const isChatEvent =
+    eventName.startsWith('project_chat.')
+    || referenceType === 'PROJECT_CHAT_MESSAGE'
+    || notificationType === 'ProjectChatMessageSent';
+  const isProjectEvent =
+    eventName.startsWith('project.')
+    || referenceType === 'PROJECT'
+    || notificationType.toLowerCase().includes('project');
+
   const ids = {
-    orderId: asId(metadata.orderId) ?? asId(referenceType === 'ORDER' ? payload.referenceId : null),
-    quotationId: asId(metadata.quotationId) ?? asId(referenceType === 'QUOTATION' ? payload.referenceId : null),
-    proposalId: asId(metadata.proposalId) ?? asId(referenceType === 'PROPOSAL' ? payload.referenceId : null),
-    scheduleId: asId(metadata.scheduleId) ?? asId(referenceType === 'PROJECT_SCHEDULE' ? payload.referenceId : null),
-    paymentId: asId(referenceType === 'PAYMENT' ? payload.referenceId : null),
+    orderId:
+      asId(metadata.orderId)
+      ?? asId(isOrderEvent || referenceType === 'ORDER' ? payload.referenceId : null),
+    quotationId:
+      asId(metadata.quotationId)
+      ?? asId(isQuotationEvent || referenceType === 'QUOTATION' ? payload.referenceId : null),
+    proposalId:
+      asId(metadata.proposalId)
+      ?? asId(isProposalEvent || referenceType === 'PROPOSAL' ? payload.referenceId : null),
+    scheduleId:
+      asId(metadata.scheduleId)
+      ?? asId(isScheduleEvent || referenceType === 'PROJECT_SCHEDULE' ? payload.referenceId : null),
+    paymentId:
+      asId(metadata.paymentId)
+      ?? asId(isPaymentEvent || referenceType === 'PAYMENT' ? payload.referenceId : null),
     productionRequestId:
-      asId(metadata.productionRequestId) ?? asId(referenceType === 'PRODUCTION_REQUEST' ? payload.referenceId : null),
+      asId(metadata.productionRequestId)
+      ?? asId(referenceType === 'PRODUCTION_REQUEST' || eventName.startsWith('production.request.') ? payload.referenceId : null),
     operationalDelayReportId:
-      asId(metadata.operationalDelayReportId) ?? asId(referenceType === 'OPERATIONAL_DELAY_REPORT' ? payload.referenceId : null),
+      asId(metadata.operationalDelayReportId)
+      ?? asId(referenceType === 'OPERATIONAL_DELAY_REPORT' ? payload.referenceId : null),
     productIssueId:
       asId(metadata.deliveryProductIssueReportId)
-      ?? asId(referenceType === 'DELIVERY_PRODUCT_ISSUE_REPORT' ? payload.referenceId : null),
+      ?? asId(isProductIssueEvent || referenceType === 'DELIVERY_PRODUCT_ISSUE_REPORT' ? payload.referenceId : null),
     chatId: asId(metadata.chatId),
   };
 
-  // Keep role dashboards (KPIs + queues + KPI detail lists) in sync with notification hub events.
   void queryClient.invalidateQueries({ queryKey: dashboardQueryKeys.all });
 
-  if (projectId) {
-    void queryClient.invalidateQueries({ queryKey: projectQueryKeys.detail(projectId) });
-    void queryClient.invalidateQueries({ queryKey: projectQueryKeys.workflow(projectId) });
+  if (projectId || isProjectEvent) {
     void queryClient.invalidateQueries({ queryKey: projectQueryKeys.all });
-  }
 
-  if (referenceType === 'PROJECT' || payload.notificationType?.includes('ProjectStatus')) {
-    void queryClient.invalidateQueries({ queryKey: projectQueryKeys.all });
-  }
-
-  invalidateByReference(queryClient, payload, projectId, ids);
-}
-
-function invalidateByReference(
-  queryClient: ReturnType<typeof useQueryClient>,
-  payload: RealtimeNotificationPayload,
-  projectId: string | null,
-  ids: {
-    orderId: string | null;
-    quotationId: string | null;
-    proposalId: string | null;
-    scheduleId: string | null;
-    paymentId: string | null;
-    productionRequestId: string | null;
-    operationalDelayReportId: string | null;
-    productIssueId: string | null;
-    chatId: string | null;
-  },
-) {
-  const referenceType = payload.referenceType ?? '';
-  const notificationType = payload.notificationType ?? '';
-
-  if (referenceType === 'PROJECT_SCHEDULE' || notificationType.includes('Schedule')) {
-    void queryClient.invalidateQueries({ queryKey: projectScheduleQueryKeys.all });
-
-    if (ids.scheduleId) {
-      void queryClient.invalidateQueries({ queryKey: projectScheduleQueryKeys.detail(ids.scheduleId) });
+    if (projectId) {
+      void queryClient.invalidateQueries({ queryKey: projectQueryKeys.detail(projectId) });
+      void queryClient.invalidateQueries({ queryKey: projectQueryKeys.workflow(projectId) });
     }
   }
 
-  if (referenceType === 'PROPOSAL' || notificationType.includes('Proposal')) {
-    void queryClient.invalidateQueries({ queryKey: proposalQueryKeys.all });
-
-    if (ids.proposalId) {
-      void queryClient.invalidateQueries({ queryKey: proposalQueryKeys.detail(ids.proposalId) });
-    }
-  }
-
-  if (referenceType === 'QUOTATION' || notificationType.includes('Quotation')) {
-    void queryClient.invalidateQueries({ queryKey: quotationQueryKeys.all });
-
-    if (ids.quotationId) {
-      void queryClient.invalidateQueries({ queryKey: quotationQueryKeys.detail(ids.quotationId) });
-    }
-  }
-
-  if (referenceType === 'PAYMENT' || notificationType.includes('Payment')) {
+  if (isPaymentEvent) {
     void queryClient.invalidateQueries({ queryKey: paymentQueryKeys.all });
 
     if (ids.paymentId) {
@@ -367,17 +393,11 @@ function invalidateByReference(
       void queryClient.invalidateQueries({ queryKey: paymentQueryKeys.projectStartFeeStatus(projectId) });
     }
 
-    if (ids.orderId) {
-      void queryClient.invalidateQueries({ queryKey: orderQueryKeys.all });
-      void queryClient.invalidateQueries({ queryKey: orderQueryKeys.detail(ids.orderId) });
-
-      if (projectId) {
-        void queryClient.invalidateQueries({ queryKey: orderQueryKeys.byProject(projectId) });
-      }
-    }
+    // Payment lifecycle often unlocks / updates orders (deposit, start fee paid).
+    void queryClient.invalidateQueries({ queryKey: orderQueryKeys.all });
   }
 
-  if (referenceType === 'ORDER' || notificationType.includes('Order')) {
+  if (isOrderEvent) {
     void queryClient.invalidateQueries({ queryKey: orderQueryKeys.all });
 
     if (ids.orderId) {
@@ -389,30 +409,60 @@ function invalidateByReference(
     }
   }
 
-  if (referenceType === 'PRODUCTION_REQUEST' || notificationType.includes('Production')) {
+  if (isScheduleEvent) {
+    void queryClient.invalidateQueries({ queryKey: projectScheduleQueryKeys.all });
+
+    if (ids.scheduleId) {
+      void queryClient.invalidateQueries({ queryKey: projectScheduleQueryKeys.detail(ids.scheduleId) });
+    }
+  }
+
+  if (isProposalEvent) {
+    void queryClient.invalidateQueries({ queryKey: proposalQueryKeys.all });
+
+    if (ids.proposalId) {
+      void queryClient.invalidateQueries({ queryKey: proposalQueryKeys.detail(ids.proposalId) });
+    }
+  }
+
+  if (isQuotationEvent) {
+    void queryClient.invalidateQueries({ queryKey: quotationQueryKeys.all });
+
+    if (ids.quotationId) {
+      void queryClient.invalidateQueries({ queryKey: quotationQueryKeys.detail(ids.quotationId) });
+    }
+
+    // Accepting a quotation creates / unlocks orders + deposit payment CTAs.
+    if (eventName === 'quotation.accepted' || notificationType === 'QuotationAccepted') {
+      void queryClient.invalidateQueries({ queryKey: orderQueryKeys.all });
+      void queryClient.invalidateQueries({ queryKey: paymentQueryKeys.all });
+
+      if (projectId) {
+        void queryClient.invalidateQueries({ queryKey: orderQueryKeys.byProject(projectId) });
+      }
+    }
+  }
+
+  if (isProductionEvent) {
     void queryClient.invalidateQueries({ queryKey: productionQueryKeys.all });
+    void queryClient.invalidateQueries({ queryKey: operationalDelayQueryKeys.all });
 
     if (ids.productionRequestId) {
       void queryClient.invalidateQueries({ queryKey: productionQueryKeys.detail(ids.productionRequestId) });
     }
-  }
-
-  if (
-    referenceType === 'CUSTOMIZATION_REQUEST'
-    || notificationType.includes('Customization')
-  ) {
-    void queryClient.invalidateQueries({ queryKey: customizationRequestQueryKeys.all });
-  }
-
-  if (referenceType === 'OPERATIONAL_DELAY_REPORT' || notificationType.includes('DelayReported')) {
-    void queryClient.invalidateQueries({ queryKey: operationalDelayQueryKeys.all });
 
     if (ids.operationalDelayReportId) {
       void queryClient.invalidateQueries({ queryKey: operationalDelayQueryKeys.detail(ids.operationalDelayReportId) });
     }
   }
 
-  if (referenceType === 'DELIVERY_PRODUCT_ISSUE_REPORT' || notificationType === 'ProductIssueReported') {
+  if (isCustomizationEvent) {
+    void queryClient.invalidateQueries({ queryKey: customizationRequestQueryKeys.all });
+    // Production queue uses a separate key tree from designer project requests.
+    void queryClient.invalidateQueries({ queryKey: ['customization-versions'] });
+  }
+
+  if (isProductIssueEvent) {
     void queryClient.invalidateQueries({ queryKey: productIssueQueryKeys.all });
 
     if (ids.productIssueId) {
@@ -428,13 +478,36 @@ function invalidateByReference(
     }
   }
 
-  if (referenceType === 'PROJECT_CHAT_MESSAGE' || notificationType === 'ProjectChatMessageSent') {
+  if (isChatEvent) {
     void queryClient.invalidateQueries({ queryKey: projectChatQueryKeys.all });
 
     if (ids.chatId) {
-      void queryClient.invalidateQueries({ queryKey: projectChatQueryKeys.messages({ chatId: ids.chatId, page: 1, limit: 50, sort: 'ASC' }) });
+      void queryClient.invalidateQueries({
+        queryKey: projectChatQueryKeys.messages({ chatId: ids.chatId, page: 1, limit: 50, sort: 'ASC' }),
+      });
     }
   }
+
+  if (isPaymentEvent && ids.orderId) {
+    void queryClient.invalidateQueries({ queryKey: orderQueryKeys.detail(ids.orderId) });
+  }
+}
+
+function matchesDomain(
+  eventName: string,
+  referenceType: string,
+  notificationType: string,
+  options: {
+    eventPrefix: string;
+    referenceType: string;
+    notificationNeedle: string;
+  },
+) {
+  return (
+    eventName.startsWith(options.eventPrefix)
+    || referenceType === options.referenceType
+    || notificationType.toLowerCase().includes(options.notificationNeedle)
+  );
 }
 
 function asId(value: unknown): string | null {
