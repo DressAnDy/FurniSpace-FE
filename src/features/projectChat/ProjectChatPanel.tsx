@@ -129,7 +129,7 @@ export function ProjectChatPanel({
   useProjectChatRealtime({
     projectId,
     activeChatId: activeChat?.chatId ?? null,
-    enabled: Boolean(activeChat),
+    enabled: Boolean(projectId),
     onMessage: (event) => {
       void queryClient.invalidateQueries({ queryKey: projectChatQueryKeys.list({ projectId, chatType: queryChatType, page: 1, limit: 20 }) });
 

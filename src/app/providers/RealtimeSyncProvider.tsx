@@ -60,7 +60,13 @@ export function RealtimeSyncProvider({ children }: Readonly<{ children: ReactNod
 function shouldEnablePaymentRealtime(role?: string | null) {
   const normalizedRole = normalizeRole(role);
 
-  return normalizedRole === 'ADMIN' || normalizedRole === 'CUSTOMER' || normalizedRole === 'SALES' || normalizedRole === 'SALE';
+  return (
+    normalizedRole === 'ADMIN'
+    || normalizedRole === 'CUSTOMER'
+    || normalizedRole === 'DESIGNER'
+    || normalizedRole === 'SALES'
+    || normalizedRole === 'SALE'
+  );
 }
 
 function normalizeRole(role?: string | null) {

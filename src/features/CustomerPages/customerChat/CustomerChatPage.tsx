@@ -148,8 +148,8 @@ export function CustomerChatPage() {
 
   useProjectChatRealtime({
     projectId: activeProject?.projectId,
-    activeChatId: activeConversation?.chatId,
-    enabled: Boolean(activeProject && activeConversation),
+    activeChatId: activeConversation?.chatId ?? null,
+    enabled: Boolean(activeProject?.projectId),
     onMessage: (event) => {
       if (!activeProject) return;
 
