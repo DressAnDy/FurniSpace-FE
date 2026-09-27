@@ -199,6 +199,7 @@ export function useProjectChatRealtime(input: {
   const { activeChatId, enabled = true, onMessage, projectId } = input;
   const connectionRef = useRef<signalR.HubConnection | null>(null);
   const activeChatIdRef = useRef(activeChatId);
+  const joinedChatIdRef = useRef<string | null>(null);
   const onMessageRef = useRef(onMessage);
   const projectIdRef = useRef(projectId);
   const hubUrl = useMemo(() => getProjectChatHubUrl(), []);
@@ -223,8 +224,10 @@ export function useProjectChatRealtime(input: {
     const connection = new signalR.HubConnectionBuilder()
       .withUrl(hubUrl, signalRHttpConnectionOptions)
       .withAutomaticReconnect(infiniteSignalRRetryPolicy)
+      .configureLogging(signalR.LogLevel.Warning)
       .build();
     connectionRef.current = connection;
+    joinedChatIdRef.current = null;
 
     let isDisposed = false;
 
@@ -240,11 +243,17 @@ export function useProjectChatRealtime(input: {
         return;
       }
 
-      await connection.invoke('JoinProject', currentProjectId);
-
-      if (currentChatId) {
-        await connection.invoke('JoinChat', currentChatId);
+      // JoinProject does not receive message_sent; keep for future project-level events.
+      // Do not block JoinChat if it fails.
+      try {
+        await connection.invoke('JoinProject', currentProjectId);
+      } catch (error) {
+        if (import.meta.env.DEV) {
+          console.warn('[SignalR] JoinProject failed', error);
+        }
       }
+
+      await syncJoinedChat(connection, currentChatId ?? null, joinedChatIdRef, isDisposed);
     };
 
     const detachRecovery = attachSignalRRecovery(connection, () => isDisposed, () => {
@@ -256,16 +265,25 @@ export function useProjectChatRealtime(input: {
     });
 
     connection.onreconnected(() => {
+      joinedChatIdRef.current = null;
       void joinGroups();
     });
 
-    const startPromise = connection.start().then(joinGroups).catch(() => undefined);
+    const startPromise = connection
+      .start()
+      .then(joinGroups)
+      .catch((error) => {
+        if (import.meta.env.DEV) {
+          console.warn('[SignalR] project-chat start failed', error);
+        }
+      });
 
     return () => {
       isDisposed = true;
       detachRecovery();
       connection.off('project_chat.message_sent');
       connectionRef.current = null;
+      joinedChatIdRef.current = null;
       void startPromise.finally(() => {
         void connection.stop().catch(() => undefined);
       });
@@ -275,12 +293,54 @@ export function useProjectChatRealtime(input: {
   useEffect(() => {
     const connection = connectionRef.current;
 
-    if (!enabled || !activeChatId || !connection || connection.state !== signalR.HubConnectionState.Connected) {
+    if (!enabled || !connection) {
       return;
     }
 
-    void connection.invoke('JoinChat', activeChatId).catch(() => undefined);
+    if (connection.state !== signalR.HubConnectionState.Connected) {
+      // joinGroups runs after start / reconnect / recovery using activeChatIdRef
+      return;
+    }
+
+    void syncJoinedChat(connection, activeChatId ?? null, joinedChatIdRef, false);
   }, [activeChatId, enabled]);
+}
+
+async function syncJoinedChat(
+  connection: signalR.HubConnection,
+  nextChatId: string | null,
+  joinedChatIdRef: { current: string | null },
+  isDisposed: boolean,
+) {
+  if (isDisposed || connection.state !== signalR.HubConnectionState.Connected) {
+    return;
+  }
+
+  const previousChatId = joinedChatIdRef.current;
+
+  if (previousChatId && previousChatId !== nextChatId) {
+    try {
+      await connection.invoke('LeaveChat', previousChatId);
+    } catch (error) {
+      if (import.meta.env.DEV) {
+        console.warn('[SignalR] LeaveChat failed', error);
+      }
+    }
+    joinedChatIdRef.current = null;
+  }
+
+  if (!nextChatId || joinedChatIdRef.current === nextChatId) {
+    return;
+  }
+
+  try {
+    await connection.invoke('JoinChat', nextChatId);
+    joinedChatIdRef.current = nextChatId;
+  } catch (error) {
+    if (import.meta.env.DEV) {
+      console.warn('[SignalR] JoinChat failed', error);
+    }
+  }
 }
 
 export function upsertProjectChatMessage(
