@@ -20,16 +20,19 @@ import {
 } from '@/services/api/signalRAuth';
 import { dashboardQueryKeys } from './useDashboard';
 import { customizationRequestQueryKeys } from './useCustomizationRequests';
+import { measurementImageQueryKeys } from './useMeasurementImages';
 import { orderQueryKeys } from './useOrders';
 import { operationalDelayQueryKeys } from './useOperationalDelayReports';
 import { paymentQueryKeys } from './usePayments';
 import { productIssueQueryKeys } from './useProductIssues';
 import { productionQueryKeys } from './useProduction';
+import { projectAreaQueryKeys } from './useProjectAreas';
 import { projectChatQueryKeys } from './useProjectChats';
 import { projectQueryKeys } from './useProjects';
 import { proposalQueryKeys } from './useProposals';
 import { quotationQueryKeys } from './useQuotations';
 import { projectScheduleQueryKeys } from './useSchedules';
+import { showcaseQueryKeys } from './useShowcases';
 
 export const notificationQueryKeys = {
   all: ['notifications'] as const,
@@ -37,6 +40,7 @@ export const notificationQueryKeys = {
   unreadCount: ['notifications', 'unread-count'] as const,
 };
 
+/** In-app events (may persist to bell). Invalidate always runs even if notificationId is null. */
 const inAppNotificationEvents = [
   'notification.created',
   'project.request.submitted',
@@ -44,9 +48,11 @@ const inAppNotificationEvents = [
   'project.more_information.requested',
   'project.basic_information.updated',
   'project.designer.assigned',
+  'project.proposal.reopened',
   'proposal.published',
   'proposal.selected',
   'proposal.revision.requested',
+  'proposal.reopened_for_editing',
   'quotation.sent',
   'quotation.revised',
   'quotation.revision_requested',
@@ -54,8 +60,13 @@ const inAppNotificationEvents = [
   'quotation.accepted',
   'customization_request.submitted',
   'customization_request.designer_reviewed',
+  'customization.version.submitted_for_review',
+  'customization.version.production_reviewed',
+  'customization.version.accepted',
   'project_schedule.created',
   'project_schedule.confirmed',
+  'project_schedule.change_requested',
+  'project_showcase.submitted',
   'payment.created',
   'payment.updated',
   'payment.processing',
@@ -67,6 +78,7 @@ const inAppNotificationEvents = [
   'order.updated',
   'order.delivered',
   'order.completed',
+  'order.delivery.completed',
   'production.request.created',
   'production.request.assigned',
   'production.request.completed',
@@ -74,15 +86,18 @@ const inAppNotificationEvents = [
   'production.delay.reported',
   'delivery.delay.reported',
   'product_issue.reported',
+  'product_issue.resolved',
   'project_chat.message_sent',
 ] as const;
 
+/** Realtime-only events (no bell row). Still invalidate domain caches. */
 const realtimeOnlyNotificationEvents = [
   'project.status.changed',
   'project_schedule.updated',
   'project_schedule.completed',
   'order.item.delivery_updated',
   'order.item.delivery_confirmed',
+  'measurement_image.uploaded',
 ] as const;
 
 export function useNotifications(params: NotificationListParams = {}) {
@@ -350,28 +365,36 @@ function invalidateBusinessQueries(
   const metadata = payload.metadata ?? {};
   const referenceType = payload.referenceType ?? '';
   const notificationType = payload.notificationType ?? '';
-  const projectId = payload.projectId ?? asId(metadata.projectId);
+  const projectId =
+    payload.projectId
+    ?? asId(metadata.projectId)
+    ?? asId(referenceType === 'PROJECT' ? payload.referenceId : null);
 
   const isPaymentEvent = matchesDomain(eventName, referenceType, notificationType, {
     eventPrefix: 'payment.',
     referenceType: 'PAYMENT',
     notificationNeedle: 'payment',
   });
-  const isOrderEvent = matchesDomain(eventName, referenceType, notificationType, {
-    eventPrefix: 'order.',
-    referenceType: 'ORDER',
-    notificationNeedle: 'order',
-  });
+  const isOrderEvent =
+    matchesDomain(eventName, referenceType, notificationType, {
+      eventPrefix: 'order.',
+      referenceType: 'ORDER',
+      notificationNeedle: 'order',
+    })
+    || eventName.startsWith('order.delivery.')
+    || eventName.startsWith('order.item.');
   const isScheduleEvent = matchesDomain(eventName, referenceType, notificationType, {
     eventPrefix: 'project_schedule.',
     referenceType: 'PROJECT_SCHEDULE',
     notificationNeedle: 'schedule',
   });
-  const isProposalEvent = matchesDomain(eventName, referenceType, notificationType, {
-    eventPrefix: 'proposal.',
-    referenceType: 'PROPOSAL',
-    notificationNeedle: 'proposal',
-  });
+  const isProposalEvent =
+    matchesDomain(eventName, referenceType, notificationType, {
+      eventPrefix: 'proposal.',
+      referenceType: 'PROPOSAL',
+      notificationNeedle: 'proposal',
+    })
+    || eventName === 'project.proposal.reopened';
   const isQuotationEvent = matchesDomain(eventName, referenceType, notificationType, {
     eventPrefix: 'quotation.',
     referenceType: 'QUOTATION',
@@ -385,16 +408,26 @@ function invalidateBusinessQueries(
     || referenceType === 'OPERATIONAL_DELAY_REPORT'
     || notificationType.toLowerCase().includes('production')
     || notificationType.toLowerCase().includes('delayreported');
-  const isCustomizationEvent = matchesDomain(eventName, referenceType, notificationType, {
-    eventPrefix: 'customization_request.',
-    referenceType: 'CUSTOMIZATION_REQUEST',
-    notificationNeedle: 'customization',
-  });
-  const isProductIssueEvent = matchesDomain(eventName, referenceType, notificationType, {
-    eventPrefix: 'product_issue.',
-    referenceType: 'DELIVERY_PRODUCT_ISSUE_REPORT',
-    notificationNeedle: 'productissue',
-  });
+  const isCustomizationEvent =
+    eventName.startsWith('customization.')
+    || eventName.startsWith('customization_request.')
+    || referenceType === 'CUSTOMIZATION_REQUEST'
+    || referenceType === 'CUSTOMIZATION_VERSION'
+    || notificationType.toLowerCase().includes('customization');
+  const isProductIssueEvent =
+    matchesDomain(eventName, referenceType, notificationType, {
+      eventPrefix: 'product_issue.',
+      referenceType: 'DELIVERY_PRODUCT_ISSUE_REPORT',
+      notificationNeedle: 'productissue',
+    })
+    || notificationType.toLowerCase().includes('product_issue');
+  const isShowcaseEvent =
+    eventName.startsWith('project_showcase.')
+    || referenceType === 'PROJECT_SHOWCASE'
+    || notificationType.toLowerCase().includes('showcase');
+  const isMeasurementEvent =
+    eventName.startsWith('measurement_image.')
+    || notificationType.toLowerCase().includes('measurement');
   const isChatEvent =
     eventName.startsWith('project_chat.')
     || referenceType === 'PROJECT_CHAT_MESSAGE'
@@ -427,12 +460,25 @@ function invalidateBusinessQueries(
       asId(metadata.operationalDelayReportId)
       ?? asId(referenceType === 'OPERATIONAL_DELAY_REPORT' ? payload.referenceId : null),
     productIssueId:
-      asId(metadata.deliveryProductIssueReportId)
+      asId(metadata.issueId)
+      ?? asId(metadata.deliveryProductIssueReportId)
       ?? asId(isProductIssueEvent || referenceType === 'DELIVERY_PRODUCT_ISSUE_REPORT' ? payload.referenceId : null),
+    customizationRequestId:
+      asId(metadata.customizationRequestId)
+      ?? asId(referenceType === 'CUSTOMIZATION_REQUEST' ? payload.referenceId : null),
+    customizationRequestVersionId:
+      asId(metadata.customizationRequestVersionId)
+      ?? asId(referenceType === 'CUSTOMIZATION_VERSION' ? payload.referenceId : null),
+    showcaseId:
+      asId(metadata.showcaseId)
+      ?? asId(referenceType === 'PROJECT_SHOWCASE' ? payload.referenceId : null),
+    projectAreaId: asId(metadata.projectAreaId),
+    deliveryId: asId(metadata.deliveryId),
     chatId: asId(metadata.chatId),
   };
 
   void queryClient.invalidateQueries({ queryKey: dashboardQueryKeys.all });
+  void queryClient.invalidateQueries({ queryKey: notificationQueryKeys.all });
 
   if (projectId || isProjectEvent) {
     void queryClient.invalidateQueries({ queryKey: projectQueryKeys.all });
@@ -455,7 +501,6 @@ function invalidateBusinessQueries(
       void queryClient.invalidateQueries({ queryKey: paymentQueryKeys.projectStartFeeStatus(projectId) });
     }
 
-    // Payment lifecycle often unlocks / updates orders (deposit, start fee paid).
     void queryClient.invalidateQueries({ queryKey: orderQueryKeys.all });
   }
 
@@ -464,10 +509,19 @@ function invalidateBusinessQueries(
 
     if (ids.orderId) {
       void queryClient.invalidateQueries({ queryKey: orderQueryKeys.detail(ids.orderId) });
+      void queryClient.invalidateQueries({ queryKey: orderQueryKeys.deliveries(ids.orderId) });
+      void queryClient.invalidateQueries({ queryKey: orderQueryKeys.deliveryTracking(ids.orderId) });
+      void queryClient.invalidateQueries({ queryKey: orderQueryKeys.paymentHistory(ids.orderId) });
+
+      if (ids.deliveryId) {
+        void queryClient.invalidateQueries({ queryKey: orderQueryKeys.delivery(ids.orderId, ids.deliveryId) });
+      }
     }
 
     if (projectId) {
       void queryClient.invalidateQueries({ queryKey: orderQueryKeys.byProject(projectId) });
+      // Delivery completion often completes linked schedules too.
+      void queryClient.invalidateQueries({ queryKey: projectScheduleQueryKeys.all });
     }
   }
 
@@ -477,6 +531,21 @@ function invalidateBusinessQueries(
     if (ids.scheduleId) {
       void queryClient.invalidateQueries({ queryKey: projectScheduleQueryKeys.detail(ids.scheduleId) });
     }
+
+    // Reschedule / delivery schedule changes affect tracking + production ready boards.
+    if (
+      ids.orderId
+      || eventName.includes('delivery')
+      || (typeof metadata.scheduleType === 'string' && metadata.scheduleType.toUpperCase() === 'DELIVERY')
+    ) {
+      void queryClient.invalidateQueries({ queryKey: orderQueryKeys.all });
+      void queryClient.invalidateQueries({ queryKey: productionQueryKeys.all });
+
+      if (ids.orderId) {
+        void queryClient.invalidateQueries({ queryKey: orderQueryKeys.deliveryTracking(ids.orderId) });
+        void queryClient.invalidateQueries({ queryKey: orderQueryKeys.deliveries(ids.orderId) });
+      }
+    }
   }
 
   if (isProposalEvent) {
@@ -484,6 +553,20 @@ function invalidateBusinessQueries(
 
     if (ids.proposalId) {
       void queryClient.invalidateQueries({ queryKey: proposalQueryKeys.detail(ids.proposalId) });
+      void queryClient.invalidateQueries({ queryKey: ['proposals', ids.proposalId] });
+    }
+
+    // Select / reopen / publish also reshapes quotations & orders path.
+    if (
+      eventName === 'proposal.selected'
+      || eventName === 'proposal.published'
+      || eventName === 'project.proposal.reopened'
+      || eventName === 'proposal.reopened_for_editing'
+      || notificationType.toLowerCase().includes('selected')
+      || notificationType.toLowerCase().includes('reopened')
+    ) {
+      void queryClient.invalidateQueries({ queryKey: quotationQueryKeys.all });
+      void queryClient.invalidateQueries({ queryKey: orderQueryKeys.all });
     }
   }
 
@@ -494,7 +577,6 @@ function invalidateBusinessQueries(
       void queryClient.invalidateQueries({ queryKey: quotationQueryKeys.detail(ids.quotationId) });
     }
 
-    // Accepting a quotation creates / unlocks orders + deposit payment CTAs.
     if (eventName === 'quotation.accepted' || notificationType === 'QuotationAccepted') {
       void queryClient.invalidateQueries({ queryKey: orderQueryKeys.all });
       void queryClient.invalidateQueries({ queryKey: paymentQueryKeys.all });
@@ -520,8 +602,14 @@ function invalidateBusinessQueries(
 
   if (isCustomizationEvent) {
     void queryClient.invalidateQueries({ queryKey: customizationRequestQueryKeys.all });
-    // Production queue uses a separate key tree from designer project requests.
     void queryClient.invalidateQueries({ queryKey: ['customization-versions'] });
+    // Accepted / reviewed versions can change proposal items.
+    void queryClient.invalidateQueries({ queryKey: proposalQueryKeys.all });
+
+    if (ids.proposalId) {
+      void queryClient.invalidateQueries({ queryKey: proposalQueryKeys.detail(ids.proposalId) });
+      void queryClient.invalidateQueries({ queryKey: ['proposals', ids.proposalId] });
+    }
   }
 
   if (isProductIssueEvent) {
@@ -533,10 +621,42 @@ function invalidateBusinessQueries(
 
     if (ids.orderId) {
       void queryClient.invalidateQueries({ queryKey: productIssueQueryKeys.order(ids.orderId) });
+      void queryClient.invalidateQueries({ queryKey: orderQueryKeys.detail(ids.orderId) });
+      void queryClient.invalidateQueries({ queryKey: orderQueryKeys.deliveryTracking(ids.orderId) });
     }
 
     if (projectId) {
       void queryClient.invalidateQueries({ queryKey: productIssueQueryKeys.project(projectId) });
+    }
+  }
+
+  if (isShowcaseEvent) {
+    void queryClient.invalidateQueries({ queryKey: showcaseQueryKeys.all });
+
+    if (ids.showcaseId) {
+      void queryClient.invalidateQueries({ queryKey: showcaseQueryKeys.adminDetail(ids.showcaseId) });
+    }
+
+    if (projectId) {
+      void queryClient.invalidateQueries({ queryKey: showcaseQueryKeys.project(projectId) });
+    }
+  }
+
+  if (isMeasurementEvent) {
+    void queryClient.invalidateQueries({ queryKey: measurementImageQueryKeys.all });
+    void queryClient.invalidateQueries({ queryKey: projectAreaQueryKeys.all });
+
+    if (projectId) {
+      void queryClient.invalidateQueries({ queryKey: measurementImageQueryKeys.project(projectId) });
+    }
+
+    if (ids.scheduleId) {
+      void queryClient.invalidateQueries({ queryKey: measurementImageQueryKeys.schedule(ids.scheduleId) });
+      void queryClient.invalidateQueries({ queryKey: projectScheduleQueryKeys.detail(ids.scheduleId) });
+    }
+
+    if (ids.projectAreaId) {
+      void queryClient.invalidateQueries({ queryKey: measurementImageQueryKeys.area(ids.projectAreaId) });
     }
   }
 
