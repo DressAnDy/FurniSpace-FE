@@ -19,6 +19,7 @@ import {
   signalRHttpConnectionOptions,
 } from '@/services/api/signalRAuth';
 import { dashboardQueryKeys } from './useDashboard';
+import { customizationRequestQueryKeys } from './useCustomizationRequests';
 import { orderQueryKeys } from './useOrders';
 import { operationalDelayQueryKeys } from './useOperationalDelayReports';
 import { paymentQueryKeys } from './usePayments';
@@ -51,6 +52,10 @@ const inAppNotificationEvents = [
   'quotation.revision_requested',
   'quotation.rejected',
   'quotation.accepted',
+  'customization_request.submitted',
+  'customization_request.designer_reviewed',
+  'project_schedule.created',
+  'project_schedule.confirmed',
   'payment.created',
   'payment.updated',
   'payment.processing',
@@ -58,13 +63,14 @@ const inAppNotificationEvents = [
   'payment.cancelled',
   'payment.transaction.failed',
   'payment.transaction.cancelled',
+  'order.deposit.paid',
   'order.updated',
   'order.delivered',
   'order.completed',
-  'OrderCompleted',
   'production.request.created',
   'production.request.assigned',
   'production.request.completed',
+  'production_item.cancelled',
   'production.delay.reported',
   'delivery.delay.reported',
   'product_issue.reported',
@@ -73,14 +79,10 @@ const inAppNotificationEvents = [
 
 const realtimeOnlyNotificationEvents = [
   'project.status.changed',
-  'ProjectStatusChanged',
-  'project_schedule.created',
   'project_schedule.updated',
-  'project_schedule.confirmed',
   'project_schedule.completed',
-  'project_schedule.cancelled',
-  'order.delivery.completed',
-  'order.delivery.confirmed',
+  'order.item.delivery_updated',
+  'order.item.delivery_confirmed',
 ] as const;
 
 export function useNotifications(params: NotificationListParams = {}) {
@@ -189,7 +191,11 @@ export function useNotificationRealtime(input: {
     let isDisposed = false;
     const detachRecovery = attachSignalRRecovery(connection, () => isDisposed);
 
-    const startPromise = connection.start().catch(() => undefined);
+    const startPromise = connection.start().catch((error) => {
+      if (import.meta.env.DEV) {
+        console.warn('[SignalR] notifications start failed', error);
+      }
+    });
 
     return () => {
       isDisposed = true;
@@ -389,6 +395,13 @@ function invalidateByReference(
     if (ids.productionRequestId) {
       void queryClient.invalidateQueries({ queryKey: productionQueryKeys.detail(ids.productionRequestId) });
     }
+  }
+
+  if (
+    referenceType === 'CUSTOMIZATION_REQUEST'
+    || notificationType.includes('Customization')
+  ) {
+    void queryClient.invalidateQueries({ queryKey: customizationRequestQueryKeys.all });
   }
 
   if (referenceType === 'OPERATIONAL_DELAY_REPORT' || notificationType.includes('DelayReported')) {
