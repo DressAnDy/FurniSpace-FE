@@ -240,7 +240,9 @@ function ProjectCard({ lang, onPaymentCompleted, project, t }: ProjectCardProps)
       paymentType: 'PROJECT_START_FEE',
     },
     {
-      enabled: !project.assignedDesignerId && project.status !== 'SUBMITTED' && project.status !== 'REJECTED',
+      // Keep enabled even while list cache still shows SUBMITTED — sales may accept + create
+      // start fee before project-list realtime arrives; excluding SUBMITTED hid the CTA until F5.
+      enabled: !project.assignedDesignerId && project.status !== 'REJECTED',
     },
   );
   const projectStartFeePayment = useMemo(() => {
@@ -251,19 +253,22 @@ function ProjectCard({ lang, onPaymentCompleted, project, t }: ProjectCardProps)
   const startFeePaymentStatus = normalizePaymentStatus(projectStartFeePayment?.status);
   const canPayStartFee = Boolean(projectStartFeePayment && isCollectablePaymentStatus(startFeePaymentStatus));
 
-  // Sales creating start fee pushes payment.created — ensure this card refetches even if
-  // global invalidate races with a thin notification envelope.
+  // Sales accept / start-fee create must refresh both project stage and Pay Start Fee CTA.
   useEffect(() => {
     if (!lastInAppNotification) {
       return;
     }
 
-    const notificationType = lastInAppNotification.notificationType ?? '';
-    const isPaymentNotification = notificationType.toLowerCase().includes('payment');
+    const notificationType = (lastInAppNotification.notificationType ?? '').toLowerCase();
     const matchesProject = !lastInAppNotification.projectId || lastInAppNotification.projectId === project.projectId;
+    const isRelevant =
+      notificationType.includes('payment')
+      || notificationType.includes('project')
+      || notificationType.includes('quotation');
 
-    if (isPaymentNotification && matchesProject) {
+    if (isRelevant && matchesProject) {
       void queryClient.invalidateQueries({ queryKey: paymentQueryKeys.all });
+      void queryClient.invalidateQueries({ queryKey: ['projects'] });
     }
   }, [lastInAppNotification, project.projectId, queryClient]);
 
