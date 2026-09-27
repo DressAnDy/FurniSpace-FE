@@ -193,17 +193,79 @@ export function useNotificationRealtime(input: {
     });
 
     let isDisposed = false;
-    const detachRecovery = attachSignalRRecovery(connection, () => isDisposed);
+    let lastKnownUnreadCount: number | null = null;
 
-    const startPromise = connection.start().catch((error) => {
-      if (import.meta.env.DEV) {
-        console.warn('[SignalR] notifications start failed', error);
-      }
+    const catchUpFromRest = () => {
+      void queryClient.invalidateQueries({ queryKey: notificationQueryKeys.unreadCount });
+      void queryClient.invalidateQueries({ queryKey: ['notifications', 'list'] });
+      void queryClient.invalidateQueries({ queryKey: projectQueryKeys.all });
+      void queryClient.invalidateQueries({ queryKey: paymentQueryKeys.all });
+      void queryClient.invalidateQueries({ queryKey: orderQueryKeys.all });
+      void queryClient.invalidateQueries({ queryKey: dashboardQueryKeys.all });
+    };
+
+    const detachRecovery = attachSignalRRecovery(connection, () => isDisposed, () => {
+      catchUpFromRest();
     });
+
+    connection.onreconnected(() => {
+      catchUpFromRest();
+    });
+
+    const startPromise = connection
+      .start()
+      .then(async () => {
+        // Seed unread baseline, then poll as a safety net when WS looks alive but pushes are dropped
+        // (common on free-tier hosts / cross-origin cookie gaps).
+        try {
+          const unread = await getNotificationUnreadCount();
+          lastKnownUnreadCount = unread.unreadCount;
+          queryClient.setQueryData(notificationQueryKeys.unreadCount, unread);
+        } catch {
+          lastKnownUnreadCount = null;
+        }
+      })
+      .catch((error) => {
+        if (import.meta.env.DEV) {
+          console.warn('[SignalR] notifications start failed', error);
+        }
+      });
+
+    const onVisibleCatchUp = () => {
+      if (document.visibilityState === 'hidden') {
+        return;
+      }
+
+      catchUpFromRest();
+    };
+
+    document.addEventListener('visibilitychange', onVisibleCatchUp);
+    window.addEventListener('focus', onVisibleCatchUp);
+
+    const pollId = window.setInterval(() => {
+      if (isDisposed || document.visibilityState === 'hidden') {
+        return;
+      }
+
+      void getNotificationUnreadCount()
+        .then((unread) => {
+          const previous = lastKnownUnreadCount;
+          lastKnownUnreadCount = unread.unreadCount;
+          queryClient.setQueryData(notificationQueryKeys.unreadCount, unread);
+
+          if (previous !== null && unread.unreadCount > previous) {
+            catchUpFromRest();
+          }
+        })
+        .catch(() => undefined);
+    }, 15_000);
 
     return () => {
       isDisposed = true;
       detachRecovery();
+      window.clearInterval(pollId);
+      document.removeEventListener('visibilitychange', onVisibleCatchUp);
+      window.removeEventListener('focus', onVisibleCatchUp);
       inAppNotificationEvents.forEach((eventName) => {
         connection.off(eventName);
       });
