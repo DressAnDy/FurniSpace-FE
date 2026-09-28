@@ -120,7 +120,6 @@ export function ProjectDetail() {
   const hasConsultationAccess = Boolean(project && project.status !== 'SUBMITTED');
   const reviewTabs: TabDef[] = [
     { id: 'overview', label: pd.tabOverview },
-    { id: 'files', label: pd.tabProjectFile },
   ];
   const baseTabs: TabDef[] = [
     { id: 'overview', label: pd.tabOverview },

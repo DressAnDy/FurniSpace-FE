@@ -385,11 +385,12 @@ export function createBuildingTestCamera(scene: Scene, canvas: HTMLCanvasElement
   );
 
   camera.attachControl(canvas, true);
-  camera.lowerRadiusLimit = 6;
-  camera.upperRadiusLimit = 44;
+  camera.lowerRadiusLimit = null;
+  camera.upperRadiusLimit = null;
   camera.wheelDeltaPercentage = 0.01;
   camera.panningSensibility = 70;
-  camera.maxZ = 1000;
+  camera.minZ = 0.02;
+  camera.maxZ = 10000;
 
   return camera;
 }
