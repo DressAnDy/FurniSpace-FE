@@ -122,6 +122,8 @@ export type RealtimeNotificationPayload = {
   createdAt?: string | null;
   occurredAt?: string | null;
   metadata?: RealtimeMetadata | null;
+  /** FE-only: SignalR method name when the hub callback forwards the event. */
+  eventName?: string | null;
 };
 
 const notificationApiClient = axios.create({

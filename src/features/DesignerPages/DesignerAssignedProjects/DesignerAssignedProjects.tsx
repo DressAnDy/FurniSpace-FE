@@ -1,14 +1,16 @@
 import { IconFilter, IconSearch, IconX } from '@tabler/icons-react';
-import { useQueries } from '@tanstack/react-query';
+import { useQueryClient, useQueries } from '@tanstack/react-query';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 
+import { useRealtimeInAppNotification } from '@/app/providers/realtimeSyncContext';
 import { useLang } from '@/app/providers/useLang';
 import { DesignerLayout, designerCopy } from '@/features/DesignerPages/designercomponents';
 import { ProjectStatusBadge } from '@/features/SalePages/salecomponents';
 import { getAccountById, type AccountDto } from '@/services/api';
 import { getProjectServiceResultMessage, type ProjectStatus } from '@/services/api/projects';
 import { useCurrentUser, useProjectList } from '@/services/queries';
+import { projectQueryKeys } from '@/services/queries/useProjects';
 
 import './DesignerAssignedProjects.css';
 
@@ -47,6 +49,8 @@ const statusOptions: Array<ProjectStatus | typeof ALL_STATUS> = [
 export function DesignerAssignedProjects() {
   const { lang } = useLang();
   const t = designerCopy[lang];
+  const queryClient = useQueryClient();
+  const lastInAppNotification = useRealtimeInAppNotification();
   const [keyword, setKeyword] = useState('');
   const [status, setStatus] = useState<ProjectStatus | typeof ALL_STATUS>(ALL_STATUS);
   const [businessType, setBusinessType] = useState(ALL_BUSINESS_TYPES);
@@ -64,9 +68,50 @@ export function DesignerAssignedProjects() {
     },
     {
       enabled: Boolean(currentUser?.accountId),
+      staleTime: 0,
+      // Safety net when SignalR push to user:{designerId} is delayed/dropped.
+      refetchInterval: 15_000,
     },
   );
   const projects = useMemo(() => projectsQuery.data?.items ?? [], [projectsQuery.data?.items]);
+
+  useEffect(() => {
+    if (!lastInAppNotification) {
+      return;
+    }
+
+    const notificationType = (lastInAppNotification.notificationType ?? '').toLowerCase();
+    const eventName = (lastInAppNotification.eventName ?? '').toLowerCase();
+    const title = (lastInAppNotification.title ?? '').toLowerCase();
+    const metadata = lastInAppNotification.metadata ?? {};
+    const assignedDesignerId =
+      (typeof metadata.designerId === 'string' && metadata.designerId)
+      || (typeof metadata.assignedDesignerId === 'string' && metadata.assignedDesignerId)
+      || (typeof metadata.assignedToAccountId === 'string' && metadata.assignedToAccountId)
+      || null;
+    const targetsCurrentDesigner =
+      !assignedDesignerId
+      || !currentUser?.accountId
+      || assignedDesignerId === currentUser.accountId;
+    const isDesignerAssign =
+      eventName === 'project.designer.assigned'
+      || eventName === 'project.status.changed'
+      || notificationType.includes('designerassigned')
+      || notificationType.includes('projectdesignerassigned')
+      || (notificationType.includes('designer') && notificationType.includes('assign'))
+      || (title.includes('designer') && title.includes('assign'));
+
+    if (!isDesignerAssign || !targetsCurrentDesigner) {
+      return;
+    }
+
+    void queryClient.invalidateQueries({ queryKey: projectQueryKeys.all });
+    void queryClient.invalidateQueries({ queryKey: ['projects', 'list'] });
+    void queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+    void queryClient.invalidateQueries({ queryKey: ['dashboard', 'designer'] });
+    void queryClient.refetchQueries({ queryKey: ['projects', 'list'], type: 'all' });
+    void queryClient.refetchQueries({ queryKey: ['dashboard', 'designer'], type: 'all' });
+  }, [currentUser?.accountId, lastInAppNotification, queryClient]);
   const accountIds = useMemo(
     () =>
       Array.from(
