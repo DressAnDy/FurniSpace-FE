@@ -13,6 +13,7 @@ import {
   type NotificationListResponse,
   type RealtimeNotificationPayload,
 } from '@/services/api/notifications';
+import { getStoredAccessToken } from '@/services/api/tokenStore';
 import type { ProductIssueReportDto, ProductIssueReportListDto } from '@/services/api/productIssues';
 import {
   attachSignalRRecovery,
@@ -188,6 +189,17 @@ export function useNotificationRealtime(input: {
     const handleInAppNotification = (eventName: string, payload: RealtimeNotificationPayload) => {
       const enriched: RealtimeNotificationPayload = { ...payload, eventName };
 
+      if (import.meta.env.DEV) {
+        console.info('[SignalR] event', {
+          eventName,
+          notificationType: payload.notificationType,
+          projectId: payload.projectId,
+          referenceId: payload.referenceId,
+          notificationId: payload.notificationId,
+          jwtSub: readJwtSubject(getStoredAccessToken()),
+        });
+      }
+
       if (enriched.notificationId) {
         upsertRealtimeNotification(queryClient, enriched);
       }
@@ -198,6 +210,16 @@ export function useNotificationRealtime(input: {
 
     const handleRealtimeOnlyNotification = (eventName: string, payload: RealtimeNotificationPayload) => {
       const enriched: RealtimeNotificationPayload = { ...payload, eventName };
+
+      if (import.meta.env.DEV) {
+        console.info('[SignalR] realtime-only', {
+          eventName,
+          notificationType: payload.notificationType,
+          projectId: payload.projectId,
+          jwtSub: readJwtSubject(getStoredAccessToken()),
+        });
+      }
+
       invalidateBusinessQueries(queryClient, enriched, eventName);
       onRealtimeOnlyNotificationRef.current?.(enriched);
     };
@@ -241,6 +263,14 @@ export function useNotificationRealtime(input: {
     const startPromise = connection
       .start()
       .then(async () => {
+        if (import.meta.env.DEV) {
+          console.info('[SignalR] notifications Connected', {
+            state: connection.state,
+            hubUrl,
+            jwtSub: readJwtSubject(getStoredAccessToken()),
+          });
+        }
+
         // Seed unread baseline, then poll as a safety net when WS looks alive but pushes are dropped
         // (common on free-tier hosts / cross-origin cookie gaps).
         try {
@@ -527,6 +557,12 @@ function invalidateBusinessQueries(
     void queryClient.invalidateQueries({ queryKey: ['projects', 'staff-queue'] });
     void queryClient.invalidateQueries({ queryKey: ['projects', 'list'] });
     void queryClient.invalidateQueries({ queryKey: dashboardQueryKeys.all });
+  }
+
+  if (isSubmitRequest) {
+    void queryClient.refetchQueries({ queryKey: ['projects', 'staff-queue'], type: 'all' });
+    void queryClient.refetchQueries({ queryKey: ['dashboard', 'sales'], type: 'all' });
+    void queryClient.refetchQueries({ queryKey: projectQueryKeys.all, type: 'active' });
   }
 
   if (isDesignerAssigned) {
@@ -992,6 +1028,37 @@ function applyProductIssueResolvedToCaches(
 
 function asId(value: unknown): string | null {
   return typeof value === 'string' && value.length > 0 ? value : null;
+}
+
+/** DEV-only: JWT `sub` / NameIdentifier — must match EmitSucceeded `user:{id}`. */
+function readJwtSubject(token: string | null | undefined): string | null {
+  if (!token) {
+    return null;
+  }
+
+  try {
+    const payloadSegment = token.split('.')[1];
+
+    if (!payloadSegment) {
+      return null;
+    }
+
+    const normalized = payloadSegment.replace(/-/g, '+').replace(/_/g, '/');
+    const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, '=');
+    const payload = JSON.parse(window.atob(padded)) as {
+      sub?: unknown;
+     nameid?: unknown;
+      'http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier'?: unknown;
+    };
+
+    return (
+      asId(payload.sub)
+      ?? asId(payload.nameid)
+      ?? asId(payload['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier'])
+    );
+  } catch {
+    return null;
+  }
 }
 
 function mapRealtimePayloadToNotification(payload: RealtimeNotificationPayload): NotificationDto | null {
