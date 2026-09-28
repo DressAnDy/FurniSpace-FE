@@ -924,6 +924,36 @@ export function BuildingThreeDTestPage() {
     return counts;
   }, [catalogModels]);
 
+  const catalogProductsForCategoryCounts = useMemo(() => {
+    const keyword = search.trim().toLowerCase();
+
+    if (currentProjectId) {
+      return (projectCatalogQuery.data?.items ?? [])
+        .filter((product) => product.eligibleVersionCount > 0 || product.eligibleVersions.length > 0)
+        .filter((product) => matchesBusinessTypes(product.businessTypeIds, selectedBusinessTypeIds))
+        .filter((product) => !keyword || product.productName.toLowerCase().includes(keyword))
+        .map((product) => ({
+          categoryId: product.categoryId ?? '',
+          productId: product.productId,
+        }));
+    }
+
+    return (productListQuery.data?.items ?? [])
+      .filter((product) => Boolean(product.defaultVersion))
+      .filter((product) => matchesBusinessTypes(product.businessTypeIds, selectedBusinessTypeIds))
+      .filter((product) => !keyword || product.productName.toLowerCase().includes(keyword))
+      .map((product) => ({
+        categoryId: product.categoryId,
+        productId: product.productId,
+      }));
+  }, [
+    currentProjectId,
+    productListQuery.data?.items,
+    projectCatalogQuery.data?.items,
+    search,
+    selectedBusinessTypeIds,
+  ]);
+
   const catalogProductCards = useMemo(() => {
     const keyword = search.trim().toLowerCase();
     const products = currentProjectId
@@ -984,21 +1014,23 @@ export function BuildingThreeDTestPage() {
   );
 
   const categoryCards = useMemo(() => {
-    const counts = new Map<string, number>();
+    const productIdsByCategory = new Map<string, Set<string>>();
 
-    catalogModels.forEach((model) => {
-      if (model.categoryId) {
-        counts.set(model.categoryId, (counts.get(model.categoryId) ?? 0) + 1);
+    catalogProductsForCategoryCounts.forEach((product) => {
+      if (product.categoryId) {
+        const productIds = productIdsByCategory.get(product.categoryId) ?? new Set<string>();
+        productIds.add(product.productId);
+        productIdsByCategory.set(product.categoryId, productIds);
       }
     });
 
     return (categoriesQuery.data?.items ?? [])
       .map((category) => ({
         category,
-        count: counts.get(category.categoryId) ?? 0,
+        count: productIdsByCategory.get(category.categoryId)?.size ?? 0,
       }))
       .filter((item) => item.count > 0);
-  }, [catalogModels, categoriesQuery.data?.items]);
+  }, [catalogProductsForCategoryCounts, categoriesQuery.data?.items]);
 
   const businessTypeCards = useMemo(() => {
     const counts = new Map<number, number>();
@@ -1696,7 +1728,7 @@ export function BuildingThreeDTestPage() {
                         }}
                       >
                         <strong>{item.category.categoryName}</strong>
-                        <span>{item.count} ready version(s)</span>
+                        <span>{item.count} ready product(s)</span>
                       </button>
                     ))}
                     {!isCatalogLoading && categoryCards.length === 0 ? (

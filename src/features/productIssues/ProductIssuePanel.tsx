@@ -1,8 +1,8 @@
 import { type FormEvent, useEffect, useMemo, useState } from 'react';
-import { IconAlertCircle, IconChevronDown, IconPaperclip, IconPlus, IconX } from '@tabler/icons-react';
-import { useQueryClient } from '@tanstack/react-query';
+import { IconAlertCircle, IconChevronDown, IconPaperclip, IconPhoto, IconPlus, IconUpload, IconX } from '@tabler/icons-react';
 import { useSearchParams } from 'react-router-dom';
 
+import { queryClient } from '@/app/providers/queryClient';
 import { useRealtimeInAppNotification } from '@/app/providers/realtimeSyncContext';
 import type { OrderItemDto } from '@/services/api/orders';
 import {
@@ -11,15 +11,15 @@ import {
   type ProductIssueReportDto,
   type ProductIssueReportResolutionStatus,
 } from '@/services/api/productIssues';
+import { useCurrentUser } from '@/services/queries/useAuth';
 import {
   productIssueQueryKeys,
-  useCurrentUser,
   useCreateProductIssue,
   useOrderProductIssues,
   useProductIssue,
   useProjectProductIssues,
   useResolveProductIssue,
-} from '@/services/queries';
+} from '@/services/queries/useProductIssues';
 
 import './ProductIssuePanel.css';
 
@@ -57,7 +57,6 @@ export function ProductIssuePanel({
   projectId,
   title = 'Product issues',
 }: Readonly<ProductIssuePanelProps>) {
-  const queryClient = useQueryClient();
   const lastInAppNotification = useRealtimeInAppNotification();
   const [searchParams] = useSearchParams();
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -104,6 +103,21 @@ export function ProductIssuePanel({
     return names;
   }, [orderItems]);
   const canResolve = canResolveReports(currentUserQuery.data?.role);
+  const selectedEvidenceFiles = useMemo(
+    () => files.map((file) => ({
+      file,
+      previewUrl: file.type.startsWith('image/') ? URL.createObjectURL(file) : '',
+    })),
+    [files],
+  );
+
+  useEffect(() => () => {
+    selectedEvidenceFiles.forEach((item) => {
+      if (item.previewUrl) {
+        URL.revokeObjectURL(item.previewUrl);
+      }
+    });
+  }, [selectedEvidenceFiles]);
 
   useEffect(() => {
     const issueId = searchParams.get('issueId');
@@ -140,14 +154,22 @@ export function ProductIssuePanel({
     if (matchesProject && matchesOrder) {
       void queryClient.invalidateQueries({ queryKey: productIssueQueryKeys.all });
     }
-  }, [lastInAppNotification, orderId, projectId, queryClient]);
+  }, [lastInAppNotification, orderId, projectId]);
 
   function openCreate() {
     setSelectedOrderItemId('');
     setAffectedQuantity('');
+    setDescription('');
+    setFiles([]);
     setFieldErrors({});
     setFormError('');
     setIsCreateOpen(true);
+  }
+
+  function closeCreate() {
+    setIsCreateOpen(false);
+    setFieldErrors({});
+    setFormError('');
   }
 
   function handleOrderItemChange(item: OrderItemDto) {
@@ -292,7 +314,7 @@ export function ProductIssuePanel({
       {isCreateOpen ? (
         <div className="product-issue-modal-backdrop">
           <form className="product-issue-modal" noValidate onSubmit={handleSubmit}>
-            <ModalTitle title="Report a delivered product issue" onClose={() => setIsCreateOpen(false)} />
+            <ModalTitle title="Report a delivered product issue" onClose={closeCreate} />
 
             <section className={`product-issue-field-block product-issue-product-block${fieldErrors.product ? ' has-error' : ''}`}>
               <div className="product-issue-field-heading">
@@ -371,23 +393,40 @@ export function ProductIssuePanel({
               {fieldErrors.description ? <p className="product-issue-field-error">{fieldErrors.description}</p> : null}
             </label>
 
-            <label className="product-issue-field-block product-issue-evidence-field">
+            <div className="product-issue-field-block product-issue-evidence-field">
               <div className="product-issue-field-heading">
                 <strong>Evidence files</strong>
-                <span>Optional</span>
+                <span>Optional images or PDF</span>
               </div>
-              <input multiple type="file" accept="image/*,.pdf" onChange={(event) => setFiles(Array.from(event.target.files ?? []))} />
-              {files.length > 0 ? (
+              <div className="product-issue-upload-zone">
+                <label className="product-issue-file-picker">
+                  <input multiple type="file" accept="image/*,.pdf" onChange={(event) => setFiles(Array.from(event.target.files ?? []))} />
+                  <IconUpload size={18} />
+                  <span>Choose files</span>
+                </label>
                 <small className="product-issue-field-hint">
-                  <IconPaperclip size={14} /> {files.length} file(s) selected
+                  <IconPaperclip size={14} /> {files.length > 0 ? `${files.length} file(s) selected` : 'No files selected'}
                 </small>
+              </div>
+              {selectedEvidenceFiles.length > 0 ? (
+                <div className="product-issue-selected-files" aria-label="Selected evidence files">
+                  {selectedEvidenceFiles.map(({ file, previewUrl }) => (
+                    <div className="product-issue-selected-file" key={`${file.name}-${file.lastModified}`}>
+                      <span className="product-issue-selected-file-thumb">
+                        {previewUrl ? <img alt={file.name} src={previewUrl} /> : <IconPhoto size={22} />}
+                      </span>
+                      <strong title={file.name}>{file.name}</strong>
+                      <small>{formatFileSize(file.size)}</small>
+                    </div>
+                  ))}
+                </div>
               ) : null}
-            </label>
+            </div>
 
             {formError ? <p className="product-issue-form-error">{formError}</p> : null}
 
             <div className="product-issue-modal-actions">
-              <button type="button" onClick={() => setIsCreateOpen(false)}>Cancel</button>
+              <button type="button" onClick={closeCreate}>Cancel</button>
               <button className="product-issue-primary" disabled={createMutation.isPending} type="submit">
                 {createMutation.isPending ? 'Submitting...' : 'Submit report'}
               </button>
@@ -445,7 +484,7 @@ function ProductIssueDetail({
             </header>
 
             <div className="product-issue-detail-meta">
-              <Detail label="Affected quantity" value={issue.affectedQuantity?.toString() ?? '—'} />
+              <Detail label="Affected quantity" value={issue.affectedQuantity?.toString() ?? '-'} />
               <Detail label="Reporter" value={issue.reporterName?.trim() || 'Unknown reporter'} />
               <Detail label="Reported at" value={formatDateTime(issue.reportedAt)} />
               <div>
@@ -610,4 +649,10 @@ function formatLabel(value: string) {
 function formatDateTime(value: string) {
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? value : date.toLocaleString();
+}
+
+function formatFileSize(size: number) {
+  if (size < 1024) return `${size} B`;
+  if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
+  return `${(size / 1024 / 1024).toFixed(1)} MB`;
 }
