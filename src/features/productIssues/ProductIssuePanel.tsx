@@ -153,6 +153,11 @@ export function ProductIssuePanel({
 
     if (matchesProject && matchesOrder) {
       void queryClient.invalidateQueries({ queryKey: productIssueQueryKeys.all });
+
+      // Resolve events: leave OPEN filter so the row "vanishing" looks like a bug — show ALL.
+      if (notificationType.includes('resolved')) {
+        setStatusFilter('ALL');
+      }
     }
   }, [lastInAppNotification, orderId, projectId]);
 

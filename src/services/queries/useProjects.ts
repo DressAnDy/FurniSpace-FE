@@ -198,8 +198,12 @@ export function useAssignSalesToProject() {
       void queryClient.invalidateQueries({ queryKey: projectQueryKeys.all });
       void queryClient.invalidateQueries({ queryKey: projectQueryKeys.detail(data.projectId) });
       void queryClient.invalidateQueries({ queryKey: projectQueryKeys.workflow(data.projectId) });
+      void queryClient.invalidateQueries({ queryKey: ['projects', 'staff-queue'] });
+      void queryClient.invalidateQueries({ queryKey: ['projects', 'list'] });
       void queryClient.invalidateQueries({ queryKey: projectChatQueryKeys.all });
       void queryClient.invalidateQueries({ queryKey: projectScheduleQueryKeys.all });
+      void queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      void queryClient.invalidateQueries({ queryKey: ['notifications'] });
     },
   });
 }

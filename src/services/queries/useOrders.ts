@@ -186,6 +186,9 @@ export function useCreateOrderDeliveryBatch() {
     mutationFn: (input: CreateDeliveryBatchInput) => createOrderDeliveryBatch(input),
     onSuccess: (delivery, input) => {
       invalidateOrderDeliveryCaches(queryClient, input.orderId, delivery.projectScheduleId);
+      void queryClient.invalidateQueries({ queryKey: ['production'] });
+      void queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      void queryClient.invalidateQueries({ queryKey: ['notifications'] });
     },
   });
 }
