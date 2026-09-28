@@ -62,6 +62,7 @@ export function ProjectRequestQueue() {
     if (isNewRequest) {
       void queryClient.invalidateQueries({ queryKey: ['projects', 'staff-queue'] });
       void queryClient.invalidateQueries({ queryKey: projectQueryKeys.all });
+      void queryClient.refetchQueries({ queryKey: ['projects', 'staff-queue'], type: 'all' });
     }
   }, [lastInAppNotification, queryClient]);
   const customerQueries = useQueries({
