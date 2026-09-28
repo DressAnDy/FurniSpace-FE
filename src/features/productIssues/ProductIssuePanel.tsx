@@ -2,6 +2,8 @@ import { type FormEvent, useEffect, useMemo, useState } from 'react';
 import { IconAlertCircle, IconChevronDown, IconPaperclip, IconPhoto, IconPlus, IconUpload, IconX } from '@tabler/icons-react';
 import { useSearchParams } from 'react-router-dom';
 
+import { queryClient } from '@/app/providers/queryClient';
+import { useRealtimeInAppNotification } from '@/app/providers/realtimeSyncContext';
 import type { OrderItemDto } from '@/services/api/orders';
 import {
   getProductIssueErrorMessage,
@@ -9,14 +11,15 @@ import {
   type ProductIssueReportDto,
   type ProductIssueReportResolutionStatus,
 } from '@/services/api/productIssues';
+import { useCurrentUser } from '@/services/queries/useAuth';
 import {
-  useCurrentUser,
+  productIssueQueryKeys,
   useCreateProductIssue,
   useOrderProductIssues,
   useProductIssue,
   useProjectProductIssues,
   useResolveProductIssue,
-} from '@/services/queries';
+} from '@/services/queries/useProductIssues';
 
 import './ProductIssuePanel.css';
 
@@ -54,6 +57,7 @@ export function ProductIssuePanel({
   projectId,
   title = 'Product issues',
 }: Readonly<ProductIssuePanelProps>) {
+  const lastInAppNotification = useRealtimeInAppNotification();
   const [searchParams] = useSearchParams();
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
@@ -122,6 +126,35 @@ export function ProductIssuePanel({
       setSelectedIssueId(issueId);
     }
   }, [searchParams]);
+
+  // Cross-role resolve/report: force-refresh every panel instance (order + project keys).
+  useEffect(() => {
+    if (!lastInAppNotification) {
+      return;
+    }
+
+    const notificationType = (lastInAppNotification.notificationType ?? '').toLowerCase();
+    const isIssueEvent =
+      notificationType.includes('productissue')
+      || lastInAppNotification.referenceType === 'DELIVERY_PRODUCT_ISSUE_REPORT';
+
+    if (!isIssueEvent) {
+      return;
+    }
+
+    const matchesProject = !lastInAppNotification.projectId
+      || !projectId
+      || lastInAppNotification.projectId === projectId;
+    const metadataOrderId =
+      typeof lastInAppNotification.metadata?.orderId === 'string'
+        ? lastInAppNotification.metadata.orderId
+        : null;
+    const matchesOrder = !orderId || !metadataOrderId || metadataOrderId === orderId;
+
+    if (matchesProject && matchesOrder) {
+      void queryClient.invalidateQueries({ queryKey: productIssueQueryKeys.all });
+    }
+  }, [lastInAppNotification, orderId, projectId]);
 
   function openCreate() {
     setSelectedOrderItemId('');
@@ -360,7 +393,7 @@ export function ProductIssuePanel({
               {fieldErrors.description ? <p className="product-issue-field-error">{fieldErrors.description}</p> : null}
             </label>
 
-            <label className="product-issue-field-block product-issue-evidence-field">
+            <div className="product-issue-field-block product-issue-evidence-field">
               <div className="product-issue-field-heading">
                 <strong>Evidence files</strong>
                 <span>Optional images or PDF</span>
@@ -388,7 +421,7 @@ export function ProductIssuePanel({
                   ))}
                 </div>
               ) : null}
-            </label>
+            </div>
 
             {formError ? <p className="product-issue-form-error">{formError}</p> : null}
 
@@ -451,7 +484,7 @@ function ProductIssueDetail({
             </header>
 
             <div className="product-issue-detail-meta">
-              <Detail label="Affected quantity" value={issue.affectedQuantity?.toString() ?? '—'} />
+              <Detail label="Affected quantity" value={issue.affectedQuantity?.toString() ?? '-'} />
               <Detail label="Reporter" value={issue.reporterName?.trim() || 'Unknown reporter'} />
               <Detail label="Reported at" value={formatDateTime(issue.reportedAt)} />
               <div>
@@ -596,7 +629,11 @@ function getIssueProductName(issue: ProductIssueReportDto, fallback?: string) {
 }
 
 function getIssueResolutionStatus(issue: ProductIssueReportDto): ProductIssueReportResolutionStatus {
-  return issue.status ?? 'OPEN';
+  if (issue.status === 'RESOLVED' || Boolean(issue.resolvedAt)) {
+    return 'RESOLVED';
+  }
+
+  return 'OPEN';
 }
 
 function canResolveReports(role?: string | null) {

@@ -168,24 +168,26 @@ function acquirePaymentHub(hubUrl: string, queryClient: ReturnType<typeof useQue
     listeners.forEach((listener) => listener(payload));
   });
 
-  connection.onreconnected(() => {
+  const rejoinPayments = () => {
     if (!sharedPaymentHub) {
       return;
     }
 
     for (const joinedPaymentId of sharedPaymentHub.joinedPaymentIds.keys()) {
-      void connection.invoke('JoinPayment', joinedPaymentId).catch(() => undefined);
+      void connection.invoke('JoinPayment', joinedPaymentId).catch((error) => {
+        if (import.meta.env.DEV) {
+          console.warn('[SignalR] JoinPayment failed', joinedPaymentId, error);
+        }
+      });
     }
+  };
+
+  connection.onreconnected(() => {
+    rejoinPayments();
   });
 
   const detachRecovery = attachSignalRRecovery(connection, () => isReleased || sharedPaymentHub === null, () => {
-    if (!sharedPaymentHub) {
-      return;
-    }
-
-    for (const joinedPaymentId of sharedPaymentHub.joinedPaymentIds.keys()) {
-      void connection.invoke('JoinPayment', joinedPaymentId).catch(() => undefined);
-    }
+    rejoinPayments();
   });
 
   sharedPaymentHub = {
@@ -197,7 +199,16 @@ function acquirePaymentHub(hubUrl: string, queryClient: ReturnType<typeof useQue
     holderCount: 1,
     joinedPaymentIds: new Map(),
     listeners,
-    startPromise: connection.start().catch(() => undefined),
+    startPromise: connection
+      .start()
+      .then(() => {
+        rejoinPayments();
+      })
+      .catch((error) => {
+        if (import.meta.env.DEV) {
+          console.warn('[SignalR] payments start failed', error);
+        }
+      }),
   };
 
   return sharedPaymentHub;
@@ -232,8 +243,17 @@ async function joinSharedPayment(hub: SharedPaymentHub, paymentId?: string | nul
 
   await hub.startPromise;
 
-  if (hub.connection.state === signalR.HubConnectionState.Connected) {
-    await hub.connection.invoke('JoinPayment', paymentId).catch(() => undefined);
+  if (hub.connection.state !== signalR.HubConnectionState.Connected) {
+    // start() failed or still reconnecting; onreconnected / recovery will rejoin from map
+    return;
+  }
+
+  try {
+    await hub.connection.invoke('JoinPayment', paymentId);
+  } catch (error) {
+    if (import.meta.env.DEV) {
+      console.warn('[SignalR] JoinPayment failed', paymentId, error);
+    }
   }
 }
 
@@ -248,7 +268,13 @@ async function leaveSharedPayment(hub: SharedPaymentHub, paymentId?: string | nu
     hub.joinedPaymentIds.delete(paymentId);
 
     if (hub.connection.state === signalR.HubConnectionState.Connected) {
-      await hub.connection.invoke('LeavePayment', paymentId).catch(() => undefined);
+      try {
+        await hub.connection.invoke('LeavePayment', paymentId);
+      } catch (error) {
+        if (import.meta.env.DEV) {
+          console.warn('[SignalR] LeavePayment failed', paymentId, error);
+        }
+      }
     }
 
     return;

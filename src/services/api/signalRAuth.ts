@@ -10,30 +10,30 @@ const TOKEN_EXPIRY_SKEW_MS = 60_000;
 let refreshInFlight: Promise<string | null> | null = null;
 
 /**
- * Used by SignalR negotiate / reconnect.
- * Refreshes the access token when missing, unreadable, or near expiry.
+ * Used by SignalR negotiate / reconnect / WebSocket query token.
+ * Always try to return a usable JWT so WS gets ?access_token= (cookie alone is unreliable cross-site).
  */
 export async function getSignalRAccessToken(): Promise<string> {
   const existing = getStoredAccessToken();
 
-  if (!existing) {
-    return '';
-  }
-
-  if (!isAccessTokenExpiredOrNearExpiry(existing)) {
+  if (existing && !isAccessTokenExpiredOrNearExpiry(existing)) {
     return existing;
   }
 
-  if (!refreshInFlight) {
-    refreshInFlight = refresh()
-      .then(() => getStoredAccessToken())
-      .catch(() => getStoredAccessToken())
-      .finally(() => {
-        refreshInFlight = null;
-      });
-  }
+  const refreshed = await refreshAccessTokenForSignalR();
 
-  return (await refreshInFlight) ?? '';
+  return refreshed ?? existing ?? '';
+}
+
+async function refreshAccessTokenForSignalR(): Promise<string | null> {
+  refreshInFlight ??= refresh()
+    .then(() => getStoredAccessToken())
+    .catch(() => getStoredAccessToken())
+    .finally(() => {
+      refreshInFlight = null;
+    });
+
+  return refreshInFlight;
 }
 
 export const signalRHttpConnectionOptions = {
@@ -84,7 +84,11 @@ export function attachSignalRRecovery(
           onRestarted?.();
         }
       })
-      .catch(() => undefined);
+      .catch((error) => {
+        if (import.meta.env.DEV) {
+          console.warn('[SignalR] recovery start failed', error);
+        }
+      });
   };
 
   connection.onclose(() => {

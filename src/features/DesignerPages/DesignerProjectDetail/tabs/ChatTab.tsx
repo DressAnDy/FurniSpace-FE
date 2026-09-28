@@ -132,7 +132,7 @@ export function ChatTab({ project }: ChatTabProps) {
   useProjectChatRealtime({
     projectId: project.projectId,
     activeChatId: activeChat?.chatId ?? null,
-    enabled: Boolean(activeChat),
+    enabled: Boolean(project.projectId),
     onMessage: (event) => {
       void queryClient.invalidateQueries({ queryKey: projectChatQueryKeys.list({ projectId: project.projectId, chatType: 'DESIGNER', page: 1, limit: 20 }) });
       void queryClient.invalidateQueries({ queryKey: projectChatQueryKeys.list({ projectId: project.projectId, chatType: 'DESIGNER_SALES', page: 1, limit: 20 }) });

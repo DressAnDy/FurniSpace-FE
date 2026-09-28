@@ -47,6 +47,7 @@ export function useCreateProductIssue() {
   return useMutation({
     mutationFn: (input: CreateProductIssueInput) => createProductIssue(input),
     onSuccess: (issue, input) => {
+      void queryClient.invalidateQueries({ queryKey: productIssueQueryKeys.all });
       void queryClient.invalidateQueries({ queryKey: productIssueQueryKeys.order(input.orderId) });
       void queryClient.invalidateQueries({ queryKey: productIssueQueryKeys.project(issue.projectId) });
       void queryClient.invalidateQueries({
@@ -62,6 +63,34 @@ export function useResolveProductIssue() {
   return useMutation({
     mutationFn: (input: ResolveProductIssueInput) => resolveProductIssue(input),
     onSuccess: (issue) => {
+      const resolvedIssue = {
+        ...issue,
+        status: issue.status ?? 'RESOLVED',
+        resolvedAt: issue.resolvedAt ?? new Date().toISOString(),
+      };
+
+      queryClient.setQueriesData<{ items: typeof issue[] }>(
+        { queryKey: productIssueQueryKeys.all },
+        (current) => {
+          if (!current?.items) {
+            return current;
+          }
+
+          return {
+            ...current,
+            items: current.items.map((item) =>
+              item.deliveryProductIssueReportId === resolvedIssue.deliveryProductIssueReportId
+                ? { ...item, ...resolvedIssue }
+                : item,
+            ),
+          };
+        },
+      );
+      queryClient.setQueryData(
+        productIssueQueryKeys.detail(resolvedIssue.deliveryProductIssueReportId),
+        resolvedIssue,
+      );
+
       void queryClient.invalidateQueries({ queryKey: productIssueQueryKeys.all });
       void queryClient.invalidateQueries({ queryKey: productIssueQueryKeys.order(issue.orderId) });
       void queryClient.invalidateQueries({ queryKey: productIssueQueryKeys.project(issue.projectId) });
