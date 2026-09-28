@@ -167,5 +167,8 @@ function invalidateQuotationCaches(queryClient: ReturnType<typeof useQueryClient
   void queryClient.invalidateQueries({ queryKey: ['quotations', 'project'] });
   void queryClient.invalidateQueries({ queryKey: ['projects', 'detail', quotation.projectId] });
   void queryClient.invalidateQueries({ queryKey: ['projects'] });
+  void queryClient.invalidateQueries({ queryKey: ['dashboard'] });
   void queryClient.invalidateQueries({ queryKey: ['notifications'] });
+  void queryClient.invalidateQueries({ queryKey: ['orders'] });
+  void queryClient.invalidateQueries({ queryKey: ['payments'] });
 }
