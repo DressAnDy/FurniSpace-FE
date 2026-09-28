@@ -247,10 +247,8 @@ export function useProjectChatRealtime(input: {
       // Do not block JoinChat if it fails.
       try {
         await connection.invoke('JoinProject', currentProjectId);
-      } catch (error) {
-        if (import.meta.env.DEV) {
-          console.warn('[SignalR] JoinProject failed', error);
-        }
+      } catch {
+        // JoinProject is optional; do not block JoinChat.
       }
 
       await syncJoinedChat(connection, currentChatId ?? null, joinedChatIdRef, () => isDisposed);
@@ -272,11 +270,7 @@ export function useProjectChatRealtime(input: {
     const startPromise = connection
       .start()
       .then(joinGroups)
-      .catch((error) => {
-        if (import.meta.env.DEV) {
-          console.warn('[SignalR] project-chat start failed', error);
-        }
-      });
+      .catch(() => undefined);
 
     return () => {
       isDisposed = true;
@@ -321,10 +315,8 @@ async function syncJoinedChat(
   if (previousChatId && previousChatId !== nextChatId) {
     try {
       await connection.invoke('LeaveChat', previousChatId);
-    } catch (error) {
-      if (import.meta.env.DEV) {
-        console.warn('[SignalR] LeaveChat failed', error);
-      }
+    } catch {
+      // Ignore leave failures while switching chats.
     }
     joinedChatIdRef.current = null;
   }
@@ -336,11 +328,7 @@ async function syncJoinedChat(
   try {
     await connection.invoke('JoinChat', nextChatId);
     joinedChatIdRef.current = nextChatId;
-  } catch (error) {
-    if (import.meta.env.DEV) {
-      console.warn('[SignalR] JoinChat failed', error);
-    }
-
+  } catch {
     // One short retry — JoinChat can fail if hub groups are still settling after reconnect.
     window.setTimeout(() => {
       if (isDisposed() || connection.state !== signalR.HubConnectionState.Connected) {
@@ -358,11 +346,7 @@ async function syncJoinedChat(
             joinedChatIdRef.current = nextChatId;
           }
         })
-        .catch((retryError) => {
-          if (import.meta.env.DEV) {
-            console.warn('[SignalR] JoinChat retry failed', retryError);
-          }
-        });
+        .catch(() => undefined);
     }, 1_000);
   }
 }
