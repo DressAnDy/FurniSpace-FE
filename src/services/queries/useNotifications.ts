@@ -186,17 +186,20 @@ export function useNotificationRealtime(input: {
       .build();
 
     const handleInAppNotification = (eventName: string, payload: RealtimeNotificationPayload) => {
-      if (payload.notificationId) {
-        upsertRealtimeNotification(queryClient, payload);
+      const enriched: RealtimeNotificationPayload = { ...payload, eventName };
+
+      if (enriched.notificationId) {
+        upsertRealtimeNotification(queryClient, enriched);
       }
 
-      invalidateBusinessQueries(queryClient, payload, eventName);
-      onInAppNotificationRef.current?.(payload);
+      invalidateBusinessQueries(queryClient, enriched, eventName);
+      onInAppNotificationRef.current?.(enriched);
     };
 
     const handleRealtimeOnlyNotification = (eventName: string, payload: RealtimeNotificationPayload) => {
-      invalidateBusinessQueries(queryClient, payload, eventName);
-      onRealtimeOnlyNotificationRef.current?.(payload);
+      const enriched: RealtimeNotificationPayload = { ...payload, eventName };
+      invalidateBusinessQueries(queryClient, enriched, eventName);
+      onRealtimeOnlyNotificationRef.current?.(enriched);
     };
 
     inAppNotificationEvents.forEach((eventName) => {
@@ -218,6 +221,8 @@ export function useNotificationRealtime(input: {
       void queryClient.invalidateQueries({ queryKey: notificationQueryKeys.unreadCount });
       void queryClient.invalidateQueries({ queryKey: ['notifications', 'list'] });
       void queryClient.invalidateQueries({ queryKey: projectQueryKeys.all });
+      void queryClient.invalidateQueries({ queryKey: ['projects', 'staff-queue'] });
+      void queryClient.invalidateQueries({ queryKey: ['projects', 'list'] });
       void queryClient.invalidateQueries({ queryKey: paymentQueryKeys.all });
       void queryClient.invalidateQueries({ queryKey: orderQueryKeys.all });
       void queryClient.invalidateQueries({ queryKey: dashboardQueryKeys.all });
@@ -494,22 +499,48 @@ function invalidateBusinessQueries(
   void queryClient.invalidateQueries({ queryKey: dashboardQueryKeys.all });
   void queryClient.invalidateQueries({ queryKey: notificationQueryKeys.all });
 
+  const normalizedType = notificationType.toLowerCase();
+  const isSubmitRequest =
+    eventName === 'project.request.submitted'
+    || notificationType === 'ProjectRequestSubmitted'
+    || normalizedType.includes('projectrequestsubmitted')
+    || normalizedType.includes('requestsubmitted');
+  const isAcceptRequest =
+    eventName === 'project.request.accepted'
+    || notificationType === 'ProjectRequestAccepted'
+    || normalizedType.includes('projectrequestaccepted')
+    || eventName === 'project.status.changed';
+  const isDesignerAssigned =
+    eventName === 'project.designer.assigned'
+    || notificationType === 'ProjectDesignerAssigned'
+    || normalizedType.includes('designerassigned')
+    || normalizedType.includes('projectdesignerassigned');
+
+  // Always refresh Sales queue / Designer lists for these flows — even when envelope has no projectId.
+  if (isSubmitRequest || isAcceptRequest || isDesignerAssigned) {
+    void queryClient.invalidateQueries({ queryKey: projectQueryKeys.all });
+    void queryClient.invalidateQueries({ queryKey: ['projects', 'staff-queue'] });
+    void queryClient.invalidateQueries({ queryKey: ['projects', 'list'] });
+    void queryClient.invalidateQueries({ queryKey: dashboardQueryKeys.all });
+  }
+
+  if (isDesignerAssigned) {
+    void queryClient.invalidateQueries({ queryKey: projectChatQueryKeys.all });
+    void queryClient.invalidateQueries({ queryKey: projectScheduleQueryKeys.all });
+
+    if (projectId) {
+      void queryClient.invalidateQueries({ queryKey: projectQueryKeys.detail(projectId) });
+      void queryClient.invalidateQueries({ queryKey: projectQueryKeys.workflow(projectId) });
+      void queryClient.invalidateQueries({ queryKey: projectQueryKeys.phaseDeadlines(projectId) });
+    }
+  }
+
   if (projectId || isProjectEvent) {
     void queryClient.invalidateQueries({ queryKey: projectQueryKeys.all });
 
     if (projectId) {
       void queryClient.invalidateQueries({ queryKey: projectQueryKeys.detail(projectId) });
       void queryClient.invalidateQueries({ queryKey: projectQueryKeys.workflow(projectId) });
-    }
-
-    // Accept-for-consulting: force staff queue + assigned lists even if envelope is thin.
-    if (
-      eventName === 'project.request.accepted'
-      || notificationType === 'ProjectRequestAccepted'
-      || eventName === 'project.status.changed'
-    ) {
-      void queryClient.invalidateQueries({ queryKey: ['projects', 'staff-queue'] });
-      void queryClient.invalidateQueries({ queryKey: ['projects', 'list'] });
     }
   }
 

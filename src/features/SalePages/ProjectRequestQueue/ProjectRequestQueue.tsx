@@ -1,13 +1,14 @@
 import { IconChevronDown, IconEye, IconSearch } from '@tabler/icons-react';
-import { useQueries } from '@tanstack/react-query';
-import { useMemo, useState } from 'react';
+import { useQueryClient, useQueries } from '@tanstack/react-query';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
+import { useRealtimeInAppNotification } from '@/app/providers/realtimeSyncContext';
 import { useLang } from '@/app/providers/useLang';
 import { SaleNavbar, SaleSidebar, saleCopy } from '@/features/SalePages/salecomponents';
 import { getAccountById, type AccountDto } from '@/services/api';
 import { getProjectServiceResultMessage } from '@/services/api/projects';
-import { useAssignSalesToProject, useStaffProjectQueue } from '@/services/queries/useProjects';
+import { projectQueryKeys, useAssignSalesToProject, useStaffProjectQueue } from '@/services/queries/useProjects';
 
 import './ProjectRequestQueue.css';
 
@@ -19,6 +20,8 @@ export function ProjectRequestQueue() {
   const t = saleCopy[lang];
   const q = t.projectRequestQueue;
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const lastInAppNotification = useRealtimeInAppNotification();
   const [keyword, setKeyword] = useState('');
   const [status, setStatus] = useState(ALL_STATUS_VALUE);
   const [businessType, setBusinessType] = useState(ALL_BUSINESS_TYPE_VALUE);
@@ -37,6 +40,30 @@ export function ProjectRequestQueue() {
     () => Array.from(new Set(projectRequests.map((request) => request.customerId).filter(Boolean))),
     [projectRequests],
   );
+
+  useEffect(() => {
+    if (!lastInAppNotification) {
+      return;
+    }
+
+    const notificationType = (lastInAppNotification.notificationType ?? '').toLowerCase();
+    const eventName = (lastInAppNotification.eventName ?? '').toLowerCase();
+    const title = (lastInAppNotification.title ?? '').toLowerCase();
+    const isNewRequest =
+      eventName === 'project.request.submitted'
+      || eventName === 'project.request.accepted'
+      || eventName === 'project.status.changed'
+      || notificationType.includes('projectrequestsubmitted')
+      || notificationType.includes('projectrequestaccepted')
+      || notificationType.includes('basicinformation')
+      || title.includes('project request')
+      || title.includes('submitted');
+
+    if (isNewRequest) {
+      void queryClient.invalidateQueries({ queryKey: ['projects', 'staff-queue'] });
+      void queryClient.invalidateQueries({ queryKey: projectQueryKeys.all });
+    }
+  }, [lastInAppNotification, queryClient]);
   const customerQueries = useQueries({
     queries: customerIds.map((customerId) => ({
       queryKey: ['accounts', 'detail', customerId],

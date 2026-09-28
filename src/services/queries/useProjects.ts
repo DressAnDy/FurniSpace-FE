@@ -217,8 +217,13 @@ export function useAssignDesignerToProject() {
       void queryClient.invalidateQueries({ queryKey: projectQueryKeys.all });
       void queryClient.invalidateQueries({ queryKey: projectQueryKeys.detail(data.projectId) });
       void queryClient.invalidateQueries({ queryKey: projectQueryKeys.workflow(data.projectId) });
+      void queryClient.invalidateQueries({ queryKey: projectQueryKeys.phaseDeadlines(data.projectId) });
+      void queryClient.invalidateQueries({ queryKey: ['projects', 'list'] });
+      void queryClient.invalidateQueries({ queryKey: ['projects', 'staff-queue'] });
       void queryClient.invalidateQueries({ queryKey: projectChatQueryKeys.all });
       void queryClient.invalidateQueries({ queryKey: projectScheduleQueryKeys.all });
+      void queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      void queryClient.invalidateQueries({ queryKey: ['notifications'] });
     },
   });
 }
@@ -314,6 +319,8 @@ export function useStaffProjectQueue(params?: Pick<ProjectListParams, 'search' |
         total: result.total,
       };
     },
+    refetchOnWindowFocus: true,
+    staleTime: 0,
   });
 }
 
