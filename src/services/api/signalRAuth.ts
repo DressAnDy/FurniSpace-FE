@@ -84,11 +84,7 @@ export function attachSignalRRecovery(
           onRestarted?.();
         }
       })
-      .catch((error) => {
-        if (import.meta.env.DEV) {
-          console.warn('[SignalR] recovery start failed', error);
-        }
-      });
+      .catch(() => undefined);
   };
 
   connection.onclose(() => {
