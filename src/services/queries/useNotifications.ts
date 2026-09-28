@@ -13,6 +13,7 @@ import {
   type NotificationListResponse,
   type RealtimeNotificationPayload,
 } from '@/services/api/notifications';
+import type { ProductIssueReportDto, ProductIssueReportListDto } from '@/services/api/productIssues';
 import {
   attachSignalRRecovery,
   infiniteSignalRRetryPolicy,
@@ -415,11 +416,11 @@ function invalidateBusinessQueries(
     || referenceType === 'CUSTOMIZATION_VERSION'
     || notificationType.toLowerCase().includes('customization');
   const isProductIssueEvent =
-    matchesDomain(eventName, referenceType, notificationType, {
-      eventPrefix: 'product_issue.',
-      referenceType: 'DELIVERY_PRODUCT_ISSUE_REPORT',
-      notificationNeedle: 'productissue',
-    })
+    eventName.startsWith('product_issue.')
+    || referenceType === 'DELIVERY_PRODUCT_ISSUE_REPORT'
+    || notificationType === 'ProductIssueReported'
+    || notificationType === 'ProductIssueResolved'
+    || notificationType.toLowerCase().includes('productissue')
     || notificationType.toLowerCase().includes('product_issue');
   const isShowcaseEvent =
     eventName.startsWith('project_showcase.')
@@ -617,6 +618,14 @@ function invalidateBusinessQueries(
 
     if (ids.productIssueId) {
       void queryClient.invalidateQueries({ queryKey: productIssueQueryKeys.detail(ids.productIssueId) });
+      applyProductIssueResolvedToCaches(queryClient, {
+        issueId: ids.productIssueId,
+        orderId: ids.orderId,
+        projectId,
+        isResolved: eventName === 'product_issue.resolved' || notificationType === 'ProductIssueResolved',
+        resolutionNote: typeof metadata.resolutionNote === 'string' ? metadata.resolutionNote : null,
+        resolvedAt: payload.occurredAt ?? payload.createdAt ?? new Date().toISOString(),
+      });
     }
 
     if (ids.orderId) {
@@ -689,6 +698,53 @@ function matchesDomain(
     eventName.startsWith(options.eventPrefix)
     || referenceType === options.referenceType
     || notificationType.toLowerCase().includes(options.notificationNeedle)
+  );
+}
+
+function applyProductIssueResolvedToCaches(
+  queryClient: ReturnType<typeof useQueryClient>,
+  input: {
+    issueId: string;
+    orderId: string | null;
+    projectId: string | null;
+    isResolved: boolean;
+    resolutionNote: string | null;
+    resolvedAt: string;
+  },
+) {
+  if (!input.isResolved) {
+    return;
+  }
+
+  const patchIssue = (issue: ProductIssueReportDto): ProductIssueReportDto => {
+    if (issue.deliveryProductIssueReportId !== input.issueId) {
+      return issue;
+    }
+
+    return {
+      ...issue,
+      status: 'RESOLVED',
+      resolvedAt: input.resolvedAt,
+      resolutionNote: input.resolutionNote ?? issue.resolutionNote ?? null,
+    };
+  };
+
+  queryClient.setQueriesData<ProductIssueReportListDto>(
+    { queryKey: productIssueQueryKeys.all },
+    (current) => {
+      if (!current?.items) {
+        return current;
+      }
+
+      return {
+        ...current,
+        items: current.items.map(patchIssue),
+      };
+    },
+  );
+
+  queryClient.setQueryData<ProductIssueReportDto>(productIssueQueryKeys.detail(input.issueId), (current) =>
+    current ? patchIssue(current) : current,
   );
 }
 
