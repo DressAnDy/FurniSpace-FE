@@ -684,6 +684,7 @@ function invalidateBusinessQueries(
   }
 
   // Sale re-send after revision: always refresh Customer quotation views (even thin envelopes).
+  // BE note: quotation.sent may change project status without emitting project.status.changed.
   const isQuotationResent =
     eventName === 'quotation.revised'
     || eventName === 'quotation.sent'
@@ -699,6 +700,7 @@ function invalidateBusinessQueries(
     void queryClient.invalidateQueries({ queryKey: quotationQueryKeys.all });
     void queryClient.invalidateQueries({ queryKey: ['quotations', 'project'] });
     void queryClient.invalidateQueries({ queryKey: projectQueryKeys.all });
+    void queryClient.invalidateQueries({ queryKey: ['projects', 'list'] });
     void queryClient.invalidateQueries({ queryKey: dashboardQueryKeys.all });
 
     const resentQuotationId =
@@ -738,6 +740,48 @@ function invalidateBusinessQueries(
     }
   }
 
+  // BE #11: CreateDeliveryBatch → order.delivery.started (batch 2+ previously silent).
+  const isDeliveryStarted =
+    eventName === 'order.delivery.started'
+    || eventName === 'order.delivery.created'
+    || eventName === 'delivery.batch.created'
+    || notificationType === 'OrderDeliveryStarted'
+    || notificationType === 'OrderDeliveryCreated'
+    || notificationType === 'DeliveryBatchCreated'
+    || normalizedType.includes('orderdeliverystarted')
+    || normalizedType.includes('deliverybatch');
+
+  if (isDeliveryStarted) {
+    void queryClient.invalidateQueries({ queryKey: orderQueryKeys.all });
+    void queryClient.invalidateQueries({ queryKey: productionQueryKeys.all });
+    void queryClient.invalidateQueries({ queryKey: projectScheduleQueryKeys.all });
+    void queryClient.invalidateQueries({ queryKey: projectQueryKeys.all });
+    void queryClient.invalidateQueries({ queryKey: dashboardQueryKeys.all });
+
+    const startedOrderId = ids.orderId ?? asId(metadata.orderId);
+    const startedDeliveryId = ids.deliveryId ?? asId(metadata.deliveryId) ?? asId(referenceType === 'ORDER_DELIVERY' || referenceType === 'DELIVERY' ? payload.referenceId : null);
+    const startedScheduleId = ids.scheduleId ?? asId(metadata.scheduleId);
+
+    if (startedOrderId) {
+      void queryClient.invalidateQueries({ queryKey: orderQueryKeys.detail(startedOrderId) });
+      void queryClient.invalidateQueries({ queryKey: orderQueryKeys.deliveries(startedOrderId) });
+      void queryClient.invalidateQueries({ queryKey: orderQueryKeys.deliveryTracking(startedOrderId) });
+
+      if (startedDeliveryId) {
+        void queryClient.invalidateQueries({ queryKey: orderQueryKeys.delivery(startedOrderId, startedDeliveryId) });
+      }
+    }
+
+    if (startedScheduleId) {
+      void queryClient.invalidateQueries({ queryKey: projectScheduleQueryKeys.detail(startedScheduleId) });
+    }
+
+    if (projectId) {
+      void queryClient.invalidateQueries({ queryKey: orderQueryKeys.byProject(projectId) });
+      void queryClient.invalidateQueries({ queryKey: projectQueryKeys.detail(projectId) });
+    }
+  }
+
   if (isQuotationEvent) {
     void queryClient.invalidateQueries({ queryKey: quotationQueryKeys.all });
 
@@ -748,9 +792,11 @@ function invalidateBusinessQueries(
     if (eventName === 'quotation.accepted' || notificationType === 'QuotationAccepted') {
       void queryClient.invalidateQueries({ queryKey: orderQueryKeys.all });
       void queryClient.invalidateQueries({ queryKey: paymentQueryKeys.all });
+      void queryClient.invalidateQueries({ queryKey: projectQueryKeys.all });
 
       if (projectId) {
         void queryClient.invalidateQueries({ queryKey: orderQueryKeys.byProject(projectId) });
+        void queryClient.invalidateQueries({ queryKey: projectQueryKeys.detail(projectId) });
       }
     }
   }
