@@ -12,8 +12,9 @@ import {
   type Icon,
 } from '@tabler/icons-react';
 import { Link } from 'react-router-dom';
-import { useQueries } from '@tanstack/react-query';
+import { useQueryClient, useQueries } from '@tanstack/react-query';
 
+import { useRealtimeInAppNotification } from '@/app/providers/realtimeSyncContext';
 import { useLang } from '@/app/providers/useLang';
 import { SaleNavbar, SaleSidebar, saleCopy } from '@/features/SalePages/salecomponents';
 import type {
@@ -37,7 +38,7 @@ import {
   useSalesUnpaidRemainingList,
   useStaffProjectQueue,
 } from '@/services/queries';
-import { useProjectList } from '@/services/queries/useProjects';
+import { projectQueryKeys, useProjectList } from '@/services/queries/useProjects';
 
 import './SaleDashbroad.css';
 
@@ -72,6 +73,8 @@ export function SaleDashbroad() {
   const { lang } = useLang();
   const t = saleCopy[lang];
   const d = t.dashboard;
+  const queryClient = useQueryClient();
+  const lastInAppNotification = useRealtimeInAppNotification();
   const [activeGroup, setActiveGroup] = useState<string>('Intake');
   const [scope, setScope] = useState<ScopeKey>('my-projects');
   const [queueDateRange, setQueueDateRange] = useState<QueueDateRangeKey>('all');
@@ -143,6 +146,29 @@ export function SaleDashbroad() {
     page: 1,
     limit: 50,
   });
+
+  useEffect(() => {
+    if (!lastInAppNotification) {
+      return;
+    }
+
+    const notificationType = (lastInAppNotification.notificationType ?? '').toLowerCase();
+    const eventName = (lastInAppNotification.eventName ?? '').toLowerCase();
+    if (
+      eventName === 'project.request.submitted'
+      || eventName === 'project.request.accepted'
+      || eventName === 'project.designer.assigned'
+      || eventName === 'project.status.changed'
+      || notificationType.includes('projectrequestsubmitted')
+      || notificationType.includes('projectrequestaccepted')
+      || notificationType.includes('designerassigned')
+    ) {
+      void queryClient.invalidateQueries({ queryKey: ['projects', 'staff-queue'] });
+      void queryClient.invalidateQueries({ queryKey: projectQueryKeys.all });
+      void queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      setLastRefreshAt(new Date());
+    }
+  }, [lastInAppNotification, queryClient]);
 
   function openDetailPanel(panel: Exclude<DetailPanel, 'queue'>) {
     setDetailPanel((current) => (current === panel ? 'queue' : panel));
