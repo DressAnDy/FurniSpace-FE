@@ -2,9 +2,11 @@ import {
   IconArrowRight,
   IconRefresh
 } from '@tabler/icons-react';
+import { useQueryClient } from '@tanstack/react-query';
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 
+import { useRealtimeInAppNotification } from '@/app/providers/realtimeSyncContext';
 import { useLang } from '@/app/providers/useLang';
 import { CustomerNavbar, customerCopy } from '@/features/CustomerPages/customercomponents';
 import { formatCustomerMoney, getCustomerProjectStatusLabel } from '@/features/CustomerPages/utils';
@@ -12,6 +14,7 @@ import { type OrderListItemDto } from '@/services/api/orders';
 import { getQuotationServiceResultMessage, type QuotationDto, type QuotationItemDto, type QuotationStatus } from '@/services/api/quotations';
 import type { ProjectListItemDto } from '@/services/api/projects';
 import {
+  quotationQueryKeys,
   useAcceptQuotation,
   useProjectOrders,
   useProjectList,
@@ -36,10 +39,13 @@ const quotationProjectStatuses = new Set([
   'COMPLETED',
 ]);
 const QUOTATION_PROJECT_PAGE_SIZE = 5;
+const actionableQuotationStatuses = new Set<QuotationStatus>(['SENT', 'REVISED']);
 
 export function CustomerQuotationsPage() {
   const { lang } = useLang();
   const t = customerCopy[lang];
+  const queryClient = useQueryClient();
+  const lastInAppNotification = useRealtimeInAppNotification();
   const [selectedProjectId, setSelectedProjectId] = useState('');
   const [selectedQuotationId, setSelectedQuotationId] = useState('');
   const [projectPage, setProjectPage] = useState(1);
@@ -77,6 +83,52 @@ export function CustomerQuotationsPage() {
   const revisionMutation = useRequestQuotationRevision();
 
   useEffect(() => {
+    if (!lastInAppNotification) {
+      return;
+    }
+
+    const notificationType = (lastInAppNotification.notificationType ?? '').toLowerCase();
+    const eventName = (lastInAppNotification.eventName ?? '').toLowerCase();
+    const isQuotationUpdate =
+      eventName.startsWith('quotation.')
+      || notificationType.includes('quotation');
+
+    if (!isQuotationUpdate) {
+      return;
+    }
+
+    const matchesProject =
+      !lastInAppNotification.projectId
+      || !selectedProjectId
+      || lastInAppNotification.projectId === selectedProjectId;
+
+    if (!matchesProject) {
+      void queryClient.invalidateQueries({ queryKey: ['projects'] });
+      void queryClient.invalidateQueries({ queryKey: quotationQueryKeys.all });
+      return;
+    }
+
+    void queryClient.invalidateQueries({ queryKey: quotationQueryKeys.all });
+    void queryClient.invalidateQueries({ queryKey: ['quotations', 'project'] });
+    void queryClient.invalidateQueries({ queryKey: ['projects'] });
+
+    const metadataQuotationId =
+      typeof lastInAppNotification.metadata?.quotationId === 'string'
+        ? lastInAppNotification.metadata.quotationId
+        : null;
+    const eventQuotationId =
+      metadataQuotationId
+      ?? (lastInAppNotification.referenceType === 'QUOTATION' ? lastInAppNotification.referenceId : null)
+      ?? lastInAppNotification.referenceId
+      ?? null;
+
+    if (eventQuotationId && (eventName === 'quotation.sent' || eventName === 'quotation.revised' || notificationType.includes('quotationsent') || notificationType.includes('quotationrevised'))) {
+      setSelectedQuotationId(eventQuotationId);
+      void queryClient.invalidateQueries({ queryKey: quotationQueryKeys.detail(eventQuotationId) });
+    }
+  }, [lastInAppNotification, queryClient, selectedProjectId]);
+
+  useEffect(() => {
     if (!selectedProjectId && quotationProjects.length > 0) {
       setSelectedProjectId(quotationProjects[0].projectId);
     }
@@ -87,13 +139,29 @@ export function CustomerQuotationsPage() {
   }, [projectPageCount]);
 
   useEffect(() => {
-    if (!selectedQuotationId && quotations.length > 0) {
-      setSelectedQuotationId(quotations[0].quotationId);
+    if (quotations.length === 0) {
+      if (selectedQuotationId) {
+        setSelectedQuotationId('');
+      }
       return;
     }
 
-    if (selectedQuotationId && !quotations.some((quotation) => quotation.quotationId === selectedQuotationId)) {
-      setSelectedQuotationId(quotations[0]?.quotationId ?? '');
+    const preferred = pickPreferredCustomerQuotation(quotations);
+    const selectedStillExists = quotations.some((quotation) => quotation.quotationId === selectedQuotationId);
+    const selectedIsActionable =
+      selectedStillExists
+      && actionableQuotationStatuses.has(
+        quotations.find((quotation) => quotation.quotationId === selectedQuotationId)?.status as QuotationStatus,
+      );
+
+    if (!selectedQuotationId || !selectedStillExists) {
+      setSelectedQuotationId(preferred?.quotationId ?? quotations[0].quotationId);
+      return;
+    }
+
+    // After Sale re-sends a revised quotation, jump off stale REVISION_REQUESTED onto SENT/REVISED.
+    if (!selectedIsActionable && preferred && preferred.quotationId !== selectedQuotationId) {
+      setSelectedQuotationId(preferred.quotationId);
     }
   }, [quotations, selectedQuotationId]);
 
@@ -368,6 +436,14 @@ function getQuotationProjects(projects: ProjectListItemDto[]) {
   const preferred = projects.filter((project) => quotationProjectStatuses.has(project.status));
 
   return preferred.length > 0 ? preferred : projects.filter((project) => project.status === 'PROPOSAL_SELECTED');
+}
+
+function pickPreferredCustomerQuotation(quotations: Array<Pick<QuotationDto, 'quotationId' | 'status' | 'versionNo'>>) {
+  const actionable = quotations
+    .filter((quotation) => actionableQuotationStatuses.has(quotation.status as QuotationStatus))
+    .sort((left, right) => (right.versionNo ?? 0) - (left.versionNo ?? 0));
+
+  return actionable[0] ?? null;
 }
 
 function formatQuotationCode(value?: string | null) {

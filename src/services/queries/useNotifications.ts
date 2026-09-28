@@ -223,6 +223,8 @@ export function useNotificationRealtime(input: {
       void queryClient.invalidateQueries({ queryKey: projectQueryKeys.all });
       void queryClient.invalidateQueries({ queryKey: ['projects', 'staff-queue'] });
       void queryClient.invalidateQueries({ queryKey: ['projects', 'list'] });
+      void queryClient.invalidateQueries({ queryKey: quotationQueryKeys.all });
+      void queryClient.invalidateQueries({ queryKey: ['quotations', 'project'] });
       void queryClient.invalidateQueries({ queryKey: paymentQueryKeys.all });
       void queryClient.invalidateQueries({ queryKey: orderQueryKeys.all });
       void queryClient.invalidateQueries({ queryKey: dashboardQueryKeys.all });
@@ -681,25 +683,66 @@ function invalidateBusinessQueries(
     }
   }
 
+  // Sale re-send after revision: always refresh Customer quotation views (even thin envelopes).
+  const isQuotationResent =
+    eventName === 'quotation.revised'
+    || eventName === 'quotation.sent'
+    || eventName === 'quotation.revision_requested'
+    || notificationType === 'QuotationRevised'
+    || notificationType === 'QuotationSent'
+    || notificationType === 'QuotationRevisionRequested'
+    || normalizedType.includes('quotationrevised')
+    || normalizedType.includes('quotationsent')
+    || normalizedType.includes('quotationrevision');
+
+  if (isQuotationResent) {
+    void queryClient.invalidateQueries({ queryKey: quotationQueryKeys.all });
+    void queryClient.invalidateQueries({ queryKey: ['quotations', 'project'] });
+    void queryClient.invalidateQueries({ queryKey: projectQueryKeys.all });
+    void queryClient.invalidateQueries({ queryKey: dashboardQueryKeys.all });
+
+    const resentQuotationId =
+      asId(metadata.quotationId)
+      ?? asId(referenceType === 'QUOTATION' ? payload.referenceId : null)
+      ?? asId(payload.referenceId);
+
+    if (resentQuotationId) {
+      void queryClient.invalidateQueries({ queryKey: quotationQueryKeys.detail(resentQuotationId) });
+
+      // Prefer SENT after Sale re-sends an edited revision.
+      if (eventName === 'quotation.sent' || notificationType === 'QuotationSent' || normalizedType.includes('quotationsent')) {
+        queryClient.setQueryData(quotationQueryKeys.detail(resentQuotationId), (current: unknown) => {
+          if (!current || typeof current !== 'object') {
+            return current;
+          }
+
+          return {
+            ...current,
+            status: 'SENT',
+          };
+        });
+      }
+
+      if (eventName === 'quotation.revised' || notificationType === 'QuotationRevised' || normalizedType.includes('quotationrevised')) {
+        queryClient.setQueryData(quotationQueryKeys.detail(resentQuotationId), (current: unknown) => {
+          if (!current || typeof current !== 'object') {
+            return current;
+          }
+
+          return {
+            ...current,
+            status: 'REVISED',
+          };
+        });
+      }
+    }
+  }
+
   if (isQuotationEvent) {
     void queryClient.invalidateQueries({ queryKey: quotationQueryKeys.all });
 
     if (ids.quotationId) {
       void queryClient.invalidateQueries({ queryKey: quotationQueryKeys.detail(ids.quotationId) });
-    }
-
-    // Sale revise / re-send after customer revision request.
-    if (
-      eventName === 'quotation.revised'
-      || eventName === 'quotation.sent'
-      || eventName === 'quotation.revision_requested'
-      || notificationType === 'QuotationRevised'
-      || notificationType === 'QuotationSent'
-      || notificationType === 'QuotationRevisionRequested'
-    ) {
-      void queryClient.invalidateQueries({ queryKey: ['quotations', 'project'] });
-      void queryClient.invalidateQueries({ queryKey: projectQueryKeys.all });
-      void queryClient.invalidateQueries({ queryKey: dashboardQueryKeys.all });
     }
 
     if (eventName === 'quotation.accepted' || notificationType === 'QuotationAccepted') {
