@@ -12,8 +12,10 @@ import {
   IconX,
   type Icon,
 } from '@tabler/icons-react';
+import { useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 
+import { useRealtimeInAppNotification } from '@/app/providers/realtimeSyncContext';
 import { useLang, type Lang } from '@/app/providers/useLang';
 import { DesignerLayout, designerCopy } from '@/features/DesignerPages/designercomponents';
 import type { DesignerCopy } from '@/features/DesignerPages/designercomponents/designerI18n';
@@ -67,6 +69,8 @@ export function DesignerDashbroad() {
   const { lang } = useLang();
   const t = designerCopy[lang];
   const d = t.dashboard;
+  const queryClient = useQueryClient();
+  const lastInAppNotification = useRealtimeInAppNotification();
   const [activeGroup, setActiveGroup] = useState<string>('Design');
   const [dateRange, setDateRange] = useState<DateRangeKey>('this-week');
   const [projectFilter, setProjectFilter] = useState<ProjectFilterKey>('assigned');
@@ -247,6 +251,34 @@ export function DesignerDashbroad() {
     setConsultingPage(1);
     setRevisionsPage(1);
   }, [dateRange]);
+
+  useEffect(() => {
+    if (!lastInAppNotification) {
+      return;
+    }
+
+    const notificationType = (lastInAppNotification.notificationType ?? '').toLowerCase();
+    const eventName = (lastInAppNotification.eventName ?? '').toLowerCase();
+    const title = (lastInAppNotification.title ?? '').toLowerCase();
+    const isDesignerAssign =
+      eventName === 'project.designer.assigned'
+      || eventName === 'project.status.changed'
+      || notificationType.includes('designerassigned')
+      || notificationType.includes('projectdesignerassigned')
+      || (notificationType.includes('designer') && notificationType.includes('assign'))
+      || (title.includes('designer') && title.includes('assign'));
+
+    if (!isDesignerAssign) {
+      return;
+    }
+
+    void queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+    void queryClient.invalidateQueries({ queryKey: ['dashboard', 'designer'] });
+    void queryClient.invalidateQueries({ queryKey: ['projects'] });
+    void queryClient.refetchQueries({ queryKey: ['dashboard', 'designer'], type: 'all' });
+    void queryClient.refetchQueries({ queryKey: ['projects', 'list'], type: 'all' });
+    setLastRefreshAt(new Date());
+  }, [lastInAppNotification, queryClient]);
 
   useEffect(() => {
     if (!isFilterOpen) {

@@ -512,11 +512,14 @@ function invalidateBusinessQueries(
     || notificationType === 'ProjectRequestAccepted'
     || normalizedType.includes('projectrequestaccepted')
     || eventName === 'project.status.changed';
+  const titleLower = (payload.title ?? '').toLowerCase();
   const isDesignerAssigned =
     eventName === 'project.designer.assigned'
     || notificationType === 'ProjectDesignerAssigned'
     || normalizedType.includes('designerassigned')
-    || normalizedType.includes('projectdesignerassigned');
+    || normalizedType.includes('projectdesignerassigned')
+    || (normalizedType.includes('designer') && normalizedType.includes('assign'))
+    || (titleLower.includes('designer') && titleLower.includes('assign'));
 
   // Always refresh Sales queue / Designer lists for these flows — even when envelope has no projectId.
   if (isSubmitRequest || isAcceptRequest || isDesignerAssigned) {
@@ -529,11 +532,16 @@ function invalidateBusinessQueries(
   if (isDesignerAssigned) {
     void queryClient.invalidateQueries({ queryKey: projectChatQueryKeys.all });
     void queryClient.invalidateQueries({ queryKey: projectScheduleQueryKeys.all });
+    // Force active+inactive designer views (dashboard work-queue / assigned-projects KPI).
+    void queryClient.refetchQueries({ queryKey: projectQueryKeys.all, type: 'all' });
+    void queryClient.refetchQueries({ queryKey: ['dashboard', 'designer'], type: 'all' });
+    void queryClient.refetchQueries({ queryKey: dashboardQueryKeys.all, type: 'active' });
 
     if (projectId) {
       void queryClient.invalidateQueries({ queryKey: projectQueryKeys.detail(projectId) });
       void queryClient.invalidateQueries({ queryKey: projectQueryKeys.workflow(projectId) });
       void queryClient.invalidateQueries({ queryKey: projectQueryKeys.phaseDeadlines(projectId) });
+      void queryClient.refetchQueries({ queryKey: projectQueryKeys.detail(projectId), type: 'all' });
     }
   }
 
