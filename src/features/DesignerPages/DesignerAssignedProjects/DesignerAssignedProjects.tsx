@@ -68,6 +68,9 @@ export function DesignerAssignedProjects() {
     },
     {
       enabled: Boolean(currentUser?.accountId),
+      staleTime: 0,
+      // Safety net when SignalR push to user:{designerId} is delayed/dropped.
+      refetchInterval: 15_000,
     },
   );
   const projects = useMemo(() => projectsQuery.data?.items ?? [], [projectsQuery.data?.items]);
@@ -79,18 +82,36 @@ export function DesignerAssignedProjects() {
 
     const notificationType = (lastInAppNotification.notificationType ?? '').toLowerCase();
     const eventName = (lastInAppNotification.eventName ?? '').toLowerCase();
+    const title = (lastInAppNotification.title ?? '').toLowerCase();
+    const metadata = lastInAppNotification.metadata ?? {};
+    const assignedDesignerId =
+      (typeof metadata.designerId === 'string' && metadata.designerId)
+      || (typeof metadata.assignedDesignerId === 'string' && metadata.assignedDesignerId)
+      || (typeof metadata.assignedToAccountId === 'string' && metadata.assignedToAccountId)
+      || null;
+    const targetsCurrentDesigner =
+      !assignedDesignerId
+      || !currentUser?.accountId
+      || assignedDesignerId === currentUser.accountId;
     const isDesignerAssign =
       eventName === 'project.designer.assigned'
       || eventName === 'project.status.changed'
       || notificationType.includes('designerassigned')
-      || notificationType.includes('projectdesignerassigned');
+      || notificationType.includes('projectdesignerassigned')
+      || (notificationType.includes('designer') && notificationType.includes('assign'))
+      || (title.includes('designer') && title.includes('assign'));
 
-    if (isDesignerAssign) {
-      void queryClient.invalidateQueries({ queryKey: projectQueryKeys.all });
-      void queryClient.invalidateQueries({ queryKey: ['projects', 'list'] });
-      void queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+    if (!isDesignerAssign || !targetsCurrentDesigner) {
+      return;
     }
-  }, [lastInAppNotification, queryClient]);
+
+    void queryClient.invalidateQueries({ queryKey: projectQueryKeys.all });
+    void queryClient.invalidateQueries({ queryKey: ['projects', 'list'] });
+    void queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+    void queryClient.invalidateQueries({ queryKey: ['dashboard', 'designer'] });
+    void queryClient.refetchQueries({ queryKey: ['projects', 'list'], type: 'all' });
+    void queryClient.refetchQueries({ queryKey: ['dashboard', 'designer'], type: 'all' });
+  }, [currentUser?.accountId, lastInAppNotification, queryClient]);
   const accountIds = useMemo(
     () =>
       Array.from(

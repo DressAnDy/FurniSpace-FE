@@ -45,11 +45,17 @@ export const projectQueryKeys = {
   staffQueue: (params?: Pick<ProjectListParams, 'search' | 'page' | 'limit'>) => ['projects', 'staff-queue', params] as const,
 };
 
-export function useProjectList(params?: ProjectListParams, options?: { enabled?: boolean }) {
+export function useProjectList(
+  params?: ProjectListParams,
+  options?: { enabled?: boolean; refetchInterval?: number | false; staleTime?: number },
+) {
   return useQuery({
     queryKey: projectQueryKeys.list(params),
     queryFn: () => getProjects(params),
     enabled: options?.enabled ?? true,
+    staleTime: options?.staleTime,
+    refetchInterval: options?.refetchInterval,
+    refetchOnWindowFocus: true,
   });
 }
 
@@ -223,7 +229,10 @@ export function useAssignDesignerToProject() {
       void queryClient.invalidateQueries({ queryKey: projectChatQueryKeys.all });
       void queryClient.invalidateQueries({ queryKey: projectScheduleQueryKeys.all });
       void queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      void queryClient.invalidateQueries({ queryKey: ['dashboard', 'designer'] });
       void queryClient.invalidateQueries({ queryKey: ['notifications'] });
+      void queryClient.refetchQueries({ queryKey: ['projects', 'list'], type: 'all' });
+      void queryClient.refetchQueries({ queryKey: ['dashboard', 'designer'], type: 'all' });
     },
   });
 }
