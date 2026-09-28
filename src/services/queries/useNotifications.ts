@@ -273,7 +273,10 @@ function updateNotificationReadState(queryClient: ReturnType<typeof useQueryClie
 function invalidateBusinessQueries(queryClient: ReturnType<typeof useQueryClient>, payload: RealtimeNotificationPayload) {
   const metadata = payload.metadata ?? {};
   const referenceType = payload.referenceType ?? '';
-  const projectId = payload.projectId ?? asId(metadata.projectId);
+  const projectId =
+    payload.projectId
+    ?? asId(metadata.projectId)
+    ?? asId(referenceType === 'PROJECT' ? payload.referenceId : null);
   const ids = {
     orderId: asId(metadata.orderId) ?? asId(referenceType === 'ORDER' ? payload.referenceId : null),
     quotationId: asId(metadata.quotationId) ?? asId(referenceType === 'QUOTATION' ? payload.referenceId : null),

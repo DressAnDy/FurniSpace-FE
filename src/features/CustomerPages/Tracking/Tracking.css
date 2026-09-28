@@ -347,7 +347,7 @@
 .customer-tracking-delivery-main span,
 .customer-tracking-progress span,
 .customer-tracking-row-note {
-  color: #6b6b6b;
+  color: #4f4a44;
   font-size: 12px;
   line-height: 1.45;
 }
@@ -356,6 +356,11 @@
   display: grid;
   gap: 7px;
   min-width: 0;
+}
+
+.customer-tracking-progress span {
+  font-size: 13px;
+  font-weight: 750;
 }
 
 .customer-tracking-progress > div {
@@ -393,7 +398,9 @@
 
 .customer-tracking-row-note {
   grid-column: 1 / -1;
-  margin: -4px 0 0;
+  font-size: 13px;
+  font-weight: 650;
+  margin: -2px 0 0;
 }
 
 .customer-tracking-timeline-row {
@@ -420,9 +427,9 @@
 }
 
 .customer-tracking-timeline-items-title {
-  color: #6b6b6b;
+  color: #3f3a35;
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 850;
   letter-spacing: 0;
   text-transform: uppercase;
 }
@@ -440,6 +447,7 @@
   border: 1px solid rgba(139, 111, 71, 0.1);
   border-radius: 8px;
   background: #ffffff;
+  box-shadow: 0 1px 0 rgba(45, 45, 45, 0.03);
   display: flex;
   gap: 10px;
   justify-content: space-between;
@@ -448,9 +456,9 @@
 }
 
 .customer-tracking-timeline-items li span {
-  color: #2d2d2d;
+  color: #1f1f1f;
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 850;
   line-height: 1.35;
   min-width: 0;
 }
@@ -458,9 +466,10 @@
 .customer-tracking-timeline-items li strong {
   border-radius: 999px;
   background: rgba(139, 111, 71, 0.12);
-  color: #6d5534;
+  color: #4f3b20;
   flex: 0 0 auto;
   font-size: 13px;
+  font-weight: 850;
   min-width: 36px;
   padding: 5px 10px;
   text-align: center;

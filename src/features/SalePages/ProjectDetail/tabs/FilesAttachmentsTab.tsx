@@ -1,4 +1,4 @@
-import { IconDownload, IconEye, IconPaperclip, IconPhoto, IconUpload } from '@tabler/icons-react';
+import { IconDownload, IconEye, IconPaperclip, IconPhoto } from '@tabler/icons-react';
 import { useMemo } from 'react';
 
 import { getMeasurementImageServiceResultMessage, type MeasurementImageDto } from '@/services/api/measurementImages';
@@ -26,10 +26,6 @@ export function FilesAttachmentsTab({ projectId }: FilesAttachmentsTabProps) {
         <div>
           <h3>Files & Attachments</h3>
         </div>
-        <button className="project-detail-primary-button" type="button" disabled>
-          <IconUpload size={16} />
-          Upload File
-        </button>
       </header>
 
       {filesQuery.isLoading ? <p className="project-detail-muted">Loading project files...</p> : null}

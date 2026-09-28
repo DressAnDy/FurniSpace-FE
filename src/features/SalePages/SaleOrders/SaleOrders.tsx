@@ -1,4 +1,4 @@
-import { IconCircleCheck, IconSettings, IconUserPlus } from '@tabler/icons-react';
+import { IconCircleCheck, IconUserPlus } from '@tabler/icons-react';
 import { useEffect, useMemo, useState } from 'react';
 
 import { useLang } from '@/app/providers/useLang';
@@ -9,7 +9,6 @@ import { getProjectServiceResultMessage, type ProjectListItemDto } from '@/servi
 import {
   useAvailableProductionStaff,
   useCompleteOrder,
-  useCreateOrderDepositPayment,
   useCreateProductionRequest,
   useCurrentUser,
   useOrderDetail,
@@ -19,7 +18,6 @@ import {
   useProjectOrders,
   useUpdateProductionDeadline,
 } from '@/services/queries';
-import { getDefaultPaymentExpiredAt } from '@/shared/utils/dateValidation';
 
 import './SaleOrders.css';
 
@@ -74,7 +72,6 @@ export function SaleOrders() {
   );
   const productionStaffQuery = useAvailableProductionStaff({ projectId: selectedProjectId }, { enabled: Boolean(selectedProjectId) });
   const createProductionRequestMutation = useCreateProductionRequest();
-  const createDepositPaymentMutation = useCreateOrderDepositPayment();
   const completeOrderMutation = useCompleteOrder();
   const updateProductionDeadlineMutation = useUpdateProductionDeadline();
 
@@ -181,7 +178,6 @@ export function SaleOrders() {
                   <OrderDetailPanel
                     copy={o}
                     isCompleting={completeOrderMutation.isPending}
-                    isCreatingDepositPayment={createDepositPaymentMutation.isPending}
                     isCreatingProduction={createProductionRequestMutation.isPending}
                     isLoadingProductionDeadline={phaseDeadlinesQuery.isLoading}
                     isSavingProductionDeadline={updateProductionDeadlineMutation.isPending}
@@ -201,21 +197,6 @@ export function SaleOrders() {
                         if (result.orderStatus !== 'COMPLETED') {
                           setMessage({ tone: 'success', text: `Complete action finished. Current order status: ${formatEnumLabel(result.orderStatus)}.` });
                         }
-                      } catch (error) {
-                        setMessage({ tone: 'error', text: getOrderServiceResultMessage(error) });
-                      }
-                    }}
-                    onCreateDepositPayment={async () => {
-                      setMessage(null);
-                      try {
-                        await createDepositPaymentMutation.mutateAsync({
-                          orderId: order.orderId,
-                          expiredAt: getDefaultPaymentExpiredAt(),
-                          note: 'Sales-created deposit payment.',
-                        });
-                        setMessage({ tone: 'success', text: 'Deposit payment created or reused.' });
-                        void ordersQuery.refetch();
-                        void orderDetailQuery.refetch();
                       } catch (error) {
                         setMessage({ tone: 'error', text: getOrderServiceResultMessage(error) });
                       }
@@ -261,12 +242,10 @@ export function SaleOrders() {
 function OrderDetailPanel({
   copy,
   isCompleting,
-  isCreatingDepositPayment,
   isCreatingProduction,
   isLoadingProductionDeadline,
   isSavingProductionDeadline,
   onCompleteOrder,
-  onCreateDepositPayment,
   onCreateProduction,
   order,
   projectTargetCompletionDate,
@@ -275,12 +254,10 @@ function OrderDetailPanel({
 }: {
   copy: (typeof saleCopy)['en']['orders'];
   isCompleting: boolean;
-  isCreatingDepositPayment: boolean;
   isCreatingProduction: boolean;
   isLoadingProductionDeadline: boolean;
   isSavingProductionDeadline: boolean;
   onCompleteOrder: () => void;
-  onCreateDepositPayment: () => void;
   onCreateProduction: (input: { assignedTo: string; priority: 'LOW' | 'MEDIUM' | 'NORMAL' | 'HIGH' | 'URGENT'; productionDeadline: string; note?: string | null }) => Promise<void>;
   order: OrderDetailDto;
   projectTargetCompletionDate?: string | null;
@@ -328,22 +305,6 @@ function OrderDetailPanel({
         <MoneyValue label="Paid" value={formatMoney(order.paidAmount)} />
         <MoneyValue label="Remain" value={formatMoney(order.remainingAmount)} />
       </div>
-      {order.status === 'CREATED' || order.status === 'DEPOSIT_PENDING' ? (
-        <div className="sale-orders-flow-panel">
-          <header>
-            <div>
-              <h3>{copy.depositPayment}</h3>
-              <p>Deposit amount is copied from the accepted quotation. Change it on quotation before acceptance, not on the order.</p>
-            </div>
-          </header>
-          <div className="sale-orders-actions">
-            <button disabled={isCreatingDepositPayment} type="button" onClick={onCreateDepositPayment}>
-              <IconSettings size={16} />
-              {isCreatingDepositPayment ? 'Preparing...' : copy.createDeposit}
-            </button>
-          </div>
-        </div>
-      ) : null}
       {order.status === 'DEPOSIT_PAID' ? (
         <form
           className="sale-orders-flow-panel sale-orders-flow-panel-production"

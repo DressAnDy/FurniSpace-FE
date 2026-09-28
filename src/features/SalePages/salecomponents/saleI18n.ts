@@ -170,10 +170,8 @@ type SaleCopy = {
     title: string;
     subtitle: string;
     selectedProject: string;
-    depositPayment: string;
     productionAssignment: string;
     finalPayment: string;
-    createDeposit: string;
     createProduction: string;
     emptyProjects: string;
     emptyOrder: string;
@@ -427,12 +425,10 @@ const en: SaleCopy = {
   },
   orders: {
     title: 'Orders',
-    subtitle: 'Manage confirmed orders, deposits, and production handoff',
+    subtitle: 'Manage confirmed orders and production handoff',
     selectedProject: 'Selected Project',
-    depositPayment: 'Deposit Payment',
     productionAssignment: 'Production Assignment',
     finalPayment: 'Final Payment',
-    createDeposit: 'Create / Reuse Deposit Payment',
     createProduction: 'Assign Production',
     emptyProjects: 'No order projects found.',
     emptyOrder: 'No order found for this project.',
@@ -686,12 +682,10 @@ const vi: SaleCopy = {
   },
   orders: {
     title: 'Đơn hàng',
-    subtitle: 'Quản lý đơn đã xác nhận, đặt cọc và bàn giao sản xuất',
+    subtitle: 'Quản lý đơn đã xác nhận và bàn giao sản xuất',
     selectedProject: 'Dự án đã chọn',
-    depositPayment: 'Thanh toán đặt cọc',
     productionAssignment: 'Gán sản xuất',
     finalPayment: 'Thanh toán cuối',
-    createDeposit: 'Tạo / Dùng lại thanh toán đặt cọc',
     createProduction: 'Tạo sản xuất',
     emptyProjects: 'Không tìm thấy dự án đơn hàng.',
     emptyOrder: 'Không tìm thấy đơn hàng cho dự án này.',

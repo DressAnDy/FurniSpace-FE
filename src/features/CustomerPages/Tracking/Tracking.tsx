@@ -303,18 +303,17 @@ function TimelineRow({ item }: { item: DeliveryTrackingTimelineItemDto }) {
     <article className={`customer-tracking-timeline-row customer-tracking-delivery-row-${status.toLowerCase()}`}>
       <div className="customer-tracking-timeline-header">
         <div className="customer-tracking-delivery-main">
-          <strong>{item.scheduledStart ? formatCustomerDateTime(item.scheduledStart, lang) : t.tracking.deliverySchedule}</strong>
-          <span>{getTimelineScheduleMeta(item, lang, t)}</span>
+          <strong>{getTimelineScheduleRange(item, lang, t)}</strong>
         </div>
         <CustomerStatusBadge label={formatEnumLabel(status)} status={status} />
-      </div>
-      <div className="customer-tracking-progress">
-        <span>{getTimelineSummary(item, t)}</span>
-        <div aria-hidden="true"><i style={{ width: `${progressPercent}%` }} /></div>
       </div>
       {item.location ? <p className="customer-tracking-row-note">{t.tracking.location}: {item.location}</p> : null}
       {item.customerNote ? <p className="customer-tracking-row-note">{t.tracking.note}: {item.customerNote}</p> : null}
       {item.cancelReason ? <p className="customer-tracking-row-note">{t.tracking.cancelled}: {formatEnumLabel(item.cancelReason)}</p> : null}
+      <div className="customer-tracking-progress">
+        <span>{getTimelineSummary(item, t)}</span>
+        <div aria-hidden="true"><i style={{ width: `${progressPercent}%` }} /></div>
+      </div>
       <div className="customer-tracking-timeline-items">
         <span className="customer-tracking-timeline-items-title">{t.tracking.productsInDelivery}</span>
         {batchItems.length > 0 ? (
@@ -371,7 +370,7 @@ function getTimelineSummary(item: DeliveryTrackingTimelineItemDto, t: CustomerCo
 
   const totalQuantity = batchItems.reduce((total, batchItem) => total + getDeliveryBatchItemQuantity(batchItem), 0);
 
-  return t.tracking.productsScheduled(batchItems.length, totalQuantity);
+  return `${batchItems.length}/${totalQuantity} products`;
 }
 
 function sortDeliveryTrackingItems(items: DeliveryTrackingItemDto[]) {
@@ -422,12 +421,20 @@ function getDeliveryBatchItemQuantity(item: NonNullable<DeliveryTrackingTimeline
   return item.batchQuantity ?? item.deliveredQuantity ?? item.quantity ?? 0;
 }
 
-function getTimelineScheduleMeta(item: DeliveryTrackingTimelineItemDto, lang: Lang, t: CustomerCopy) {
+function getTimelineScheduleRange(item: DeliveryTrackingTimelineItemDto, lang: Lang, t: CustomerCopy) {
+  if (item.scheduledStart && item.scheduledEnd) {
+    return `${formatCustomerDateTime(item.scheduledStart, lang)} - ${formatCustomerDateTime(item.scheduledEnd, lang)}`;
+  }
+
+  if (item.scheduledStart) {
+    return formatCustomerDateTime(item.scheduledStart, lang);
+  }
+
   if (item.completedAt) return `${t.tracking.completed} ${formatCustomerDateTime(item.completedAt, lang)}`;
   if (item.scheduledEnd) return `${t.tracking.ends} ${formatCustomerDateTime(item.scheduledEnd, lang)}`;
   if (item.deliveryId) return t.tracking.batchInProgress;
 
-  return t.tracking.awaiting;
+  return t.tracking.deliverySchedule;
 }
 
 function getTimelineProgressPercent(item: DeliveryTrackingTimelineItemDto) {
