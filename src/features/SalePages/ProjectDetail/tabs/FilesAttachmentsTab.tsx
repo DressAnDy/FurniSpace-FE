@@ -1,5 +1,5 @@
-import { IconDownload, IconEye, IconPaperclip, IconPhoto } from '@tabler/icons-react';
-import { useMemo } from 'react';
+import { IconDownload, IconEye, IconPaperclip, IconPhoto, IconX } from '@tabler/icons-react';
+import { useMemo, useState } from 'react';
 
 import { getMeasurementImageServiceResultMessage, type MeasurementImageDto } from '@/services/api/measurementImages';
 import { useProjectMeasurementImages } from '@/services/queries';
@@ -10,6 +10,7 @@ type FilesAttachmentsTabProps = {
 };
 
 export function FilesAttachmentsTab({ projectId }: FilesAttachmentsTabProps) {
+  const [imagePreview, setImagePreview] = useState<ImagePreviewState | null>(null);
   const filesQuery = useProjectFiles({
     projectId,
     page: 1,
@@ -51,7 +52,22 @@ export function FilesAttachmentsTab({ projectId }: FilesAttachmentsTabProps) {
                 <span>{formatDate(file.uploadedAt)}</span>
               </div>
               <div className="project-detail-file-actions">
-                <button type="button" aria-label={`Preview ${file.originalFileName}`} onClick={() => window.open(file.publicUrl, '_blank', 'noopener,noreferrer')}>
+                <button
+                  type="button"
+                  aria-label={`Preview ${file.originalFileName}`}
+                  onClick={() => {
+                    if (isImageFile(file.originalFileName, file.mimeType, file.publicUrl)) {
+                      setImagePreview({
+                        name: file.originalFileName,
+                        url: file.publicUrl,
+                        meta: `${formatFileSize(file.fileSize)} - ${formatDate(file.uploadedAt)}`,
+                      });
+                      return;
+                    }
+
+                    window.open(file.publicUrl, '_blank', 'noopener,noreferrer');
+                  }}
+                >
                   <IconEye size={17} />
                 </button>
                 <button type="button" aria-label={`Download ${file.originalFileName}`} onClick={() => window.open(file.publicUrl, '_blank', 'noopener,noreferrer')}>
@@ -95,7 +111,17 @@ export function FilesAttachmentsTab({ projectId }: FilesAttachmentsTabProps) {
                     return (
                       <article className="project-detail-measurement-card" key={image.fileId}>
                         {imageUrl ? (
-                          <button type="button" aria-label={`Preview ${imageName}`} onClick={() => window.open(imageUrl, '_blank', 'noopener,noreferrer')}>
+                          <button
+                            type="button"
+                            aria-label={`Preview ${imageName}`}
+                            onClick={() =>
+                              setImagePreview({
+                                name: imageName,
+                                url: imageUrl,
+                                meta: image.uploadedAt ? formatDate(image.uploadedAt) : 'Measurement photo',
+                              })
+                            }
+                          >
                             <img alt={imageName} src={imageUrl} />
                           </button>
                         ) : (
@@ -114,7 +140,48 @@ export function FilesAttachmentsTab({ projectId }: FilesAttachmentsTabProps) {
           </div>
         ) : null}
       </section>
+
+      {imagePreview ? (
+        <ImagePreviewModal preview={imagePreview} onClose={() => setImagePreview(null)} />
+      ) : null}
     </section>
+  );
+}
+
+type ImagePreviewState = {
+  name: string;
+  url: string;
+  meta?: string;
+};
+
+function isImageFile(fileName: string, mimeType?: string | null, url?: string | null) {
+  if (mimeType?.toLowerCase().startsWith('image/')) {
+    return true;
+  }
+
+  const source = `${fileName} ${url ?? ''}`.toLowerCase().split('?')[0];
+
+  return /\.(avif|bmp|gif|heic|heif|jpe?g|png|svg|webp)$/.test(source);
+}
+
+function ImagePreviewModal({ preview, onClose }: { preview: ImagePreviewState; onClose: () => void }) {
+  return (
+    <div className="project-detail-image-preview-backdrop" role="presentation" onClick={onClose}>
+      <div className="project-detail-image-preview-modal" role="dialog" aria-modal="true" aria-label={preview.name} onClick={(event) => event.stopPropagation()}>
+        <header>
+          <div>
+            <h3>{preview.name}</h3>
+            {preview.meta ? <p>{preview.meta}</p> : null}
+          </div>
+          <button type="button" aria-label="Close image preview" onClick={onClose}>
+            <IconX size={18} />
+          </button>
+        </header>
+        <div className="project-detail-image-preview-stage">
+          <img alt={preview.name} src={preview.url} />
+        </div>
+      </div>
+    </div>
   );
 }
 

@@ -5,7 +5,6 @@ import {
   IconClock,
   IconMapPin,
   IconPalette,
-  IconPhoto,
   IconRefresh,
   IconTruckDelivery,
 } from '@tabler/icons-react';
@@ -21,7 +20,6 @@ import {
   getCustomerProjectStatusLabel,
 } from '@/features/CustomerPages/utils';
 import { ProjectPhaseTimelineCard } from '@/features/projectPhaseDeadlines/ProjectPhaseTimelineCard';
-import { getMeasurementImageServiceResultMessage } from '@/services/api/measurementImages';
 import { getProjectServiceResultMessage, type ProjectStatus } from '@/services/api/projects';
 import { getProposalServiceResultMessage, type ProposalDto } from '@/services/api/proposals';
 import {
@@ -30,14 +28,13 @@ import {
 } from '@/services/api/schedules';
 import {
   useProjectDetail,
-  useProjectMeasurementImages,
   useProjectProposals,
   useProjectScheduleList,
   useRequestProjectScheduleChange,
   useReopenProjectProposal,
   useUpdateProjectScheduleStatus,
 } from '@/services/queries';
-import { isScheduleVisible } from '@/shared/utils/scheduleVisibility';
+import { useConfirmDialog } from '@/shared/components';
 
 import { CustomerProjectProposalAccordionItem } from './CustomerProjectProposalAccordion';
 import '../customerProjectList/CustomerProjectListPage.css';
@@ -52,6 +49,7 @@ export function CustomerProjectDetailPage() {
   const proposalIdFromUrl = searchParams.get('proposalId');
   const requestedTab = normalizeCustomerProjectDetailTab(searchParams.get('tab'));
   const navigate = useNavigate();
+  const confirm = useConfirmDialog();
   const projectQuery = useProjectDetail(projectId);
   const project = projectQuery.data;
   const reopenProposalMutation = useReopenProjectProposal();
@@ -67,8 +65,6 @@ export function CustomerProjectDetailPage() {
     () => (proposalsQuery.data?.items ?? []).filter((proposal) => isCustomerVisibleProposal(proposal.status)),
     [proposalsQuery.data?.items],
   );
-  const measurementImagesQuery = useProjectMeasurementImages(project?.projectId, { page: 1, limit: 50 });
-  const measurementImages = measurementImagesQuery.data?.items ?? [];
   const schedulesQuery = useProjectScheduleList(
     project?.projectId
       ? {
@@ -77,10 +73,10 @@ export function CustomerProjectDetailPage() {
           limit: 50,
         }
       : undefined,
+    { fetchAll: true },
   );
   const schedules = useMemo(
     () => [...(schedulesQuery.data?.items ?? [])]
-      .filter((schedule) => isScheduleVisible(schedule.status))
       .sort((left, right) => new Date(left.scheduledStart).getTime() - new Date(right.scheduledStart).getTime()),
     [schedulesQuery.data?.items],
   );
@@ -121,9 +117,11 @@ export function CustomerProjectDetailPage() {
 
     setMessage(null);
 
-    const confirmed = window.confirm(
-      'This will cancel the active quotation and any pending order/deposit path, then move the project back to proposal consulting so you can choose a proposal again.',
-    );
+    const confirmed = await confirm({
+      confirmLabel: t.projectDetail.reopenProposal,
+      description: 'This will cancel the active quotation and any pending order/deposit path, then move the project back to proposal consulting so you can choose a proposal again.',
+      title: t.projectDetail.reopenProposal,
+    });
 
     if (!confirmed) return;
 
@@ -287,42 +285,6 @@ export function CustomerProjectDetailPage() {
                     projectId={project.projectId}
                     title={t.projectDetail.projectTimeline}
                   />
-
-                  <section className="customer-project-detail-section customer-project-measurement-section">
-                    <h2>{t.projectDetail.measurementImages}</h2>
-                    {measurementImagesQuery.isLoading ? <p className="customer-project-detail-proposals-state">{t.common.loading}</p> : null}
-                    {measurementImagesQuery.isError ? (
-                      <p className="customer-project-detail-proposals-state is-error">
-                        {getMeasurementImageServiceResultMessage(measurementImagesQuery.error)}
-                      </p>
-                    ) : null}
-                    {!measurementImagesQuery.isLoading && !measurementImagesQuery.isError && measurementImages.length === 0 ? (
-                      <p className="customer-project-detail-proposals-state">No measurement images have been uploaded yet.</p>
-                    ) : null}
-                    {measurementImages.length > 0 ? (
-                      <div className="customer-project-measurement-grid">
-                        {measurementImages.map((image) => {
-                          const imageUrl = image.url ?? image.publicUrl;
-
-                          return (
-                            <article className="customer-project-measurement-card" key={image.fileId}>
-                              {imageUrl ? (
-                                <button type="button" onClick={() => window.open(imageUrl, '_blank', 'noopener,noreferrer')}>
-                                  <img alt={image.originalFileName ?? t.projectDetail.measurementImages} src={imageUrl} />
-                                </button>
-                              ) : (
-                                <span><IconPhoto size={24} /></span>
-                              )}
-                              <div>
-                                <strong>{image.originalFileName ?? image.fileId}</strong>
-                                <small>{image.areas?.length ? image.areas.map((area) => area.areaName ?? area.projectAreaId).join(', ') : t.common.notSpecified}</small>
-                              </div>
-                            </article>
-                          );
-                        })}
-                      </div>
-                    ) : null}
-                  </section>
 
                   <section className="customer-project-detail-links">
                     <Link to="/customer/orders">{t.projectDetail.orders}</Link>

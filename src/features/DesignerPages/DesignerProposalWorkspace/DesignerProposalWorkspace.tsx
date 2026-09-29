@@ -34,6 +34,7 @@ import {
   useUpdateProposal,
   useUpdateProposalScene,
 } from '@/services/queries';
+import { useConfirmDialog } from '@/shared/components';
 import { aggregateDuplicateItems } from '@/shared/utils/itemAggregation';
 
 import './DesignerProposalWorkspace.css';
@@ -94,6 +95,7 @@ function isTechnicalId(value: string) {
 
 export function DesignerProposalWorkspace() {
   const { lang } = useLang();
+  const confirm = useConfirmDialog();
   const w = designerCopy[lang].proposalWorkspace;
   const tc = designerCopy[lang].common;
   const navigate = useNavigate();
@@ -402,7 +404,11 @@ export function DesignerProposalWorkspace() {
 
     setMessage('');
 
-    const confirmed = window.confirm(w.confirmReopen);
+    const confirmed = await confirm({
+      confirmLabel: w.reopen,
+      description: w.confirmReopen,
+      title: w.reopen,
+    });
 
     if (!confirmed) {
       return;

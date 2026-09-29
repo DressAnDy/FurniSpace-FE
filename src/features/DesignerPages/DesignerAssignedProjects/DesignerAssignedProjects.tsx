@@ -1,4 +1,4 @@
-import { IconFilter, IconSearch, IconX } from '@tabler/icons-react';
+import { IconFilter, IconRefresh, IconSearch, IconX } from '@tabler/icons-react';
 import { useQueryClient, useQueries } from '@tanstack/react-query';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
@@ -232,15 +232,30 @@ export function DesignerAssignedProjects() {
     setBusinessType(ALL_BUSINESS_TYPES);
   }
 
+  function refreshAssignedProjects() {
+    void projectsQuery.refetch();
+  }
+
   return (
     <DesignerLayout activeKey="assignedProjects">
       <section className="designer-assigned-header">
-        <h2>{t.assignedProjects.title}</h2>
-        <p>
-          {projectsQuery.isLoading || currentUserQuery.isLoading
-            ? t.assignedProjects.subtitleLoading
-            : t.assignedProjects.subtitleCount(filteredProjects.length, projects.length)}
-        </p>
+        <div>
+          <h2>{t.assignedProjects.title}</h2>
+          <p>
+            {projectsQuery.isLoading || currentUserQuery.isLoading
+              ? t.assignedProjects.subtitleLoading
+              : t.assignedProjects.subtitleCount(filteredProjects.length, projects.length)}
+          </p>
+        </div>
+        <button
+          className="designer-assigned-refresh-button"
+          type="button"
+          disabled={projectsQuery.isFetching || !currentUser?.accountId}
+          onClick={refreshAssignedProjects}
+        >
+          <IconRefresh size={16} />
+          {projectsQuery.isFetching ? 'Refreshing...' : 'Refresh'}
+        </button>
       </section>
 
       <section className="designer-card designer-assigned-toolbar">
