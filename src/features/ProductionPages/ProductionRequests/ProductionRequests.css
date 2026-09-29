@@ -73,7 +73,7 @@
 
 .production-requests-queue .production-workspace-table th:nth-child(8),
 .production-requests-queue .production-workspace-table td:nth-child(8) {
-  width: 252px;
+  width: 120px;
   overflow: visible;
   white-space: normal;
 }

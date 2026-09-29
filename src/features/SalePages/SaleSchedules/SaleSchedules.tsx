@@ -26,6 +26,7 @@ import {
   useProjectList,
   useUpdateProjectScheduleStatus,
 } from '@/services/queries';
+import { useConfirmDialog } from '@/shared/components';
 import { isScheduleVisible } from '@/shared/utils/scheduleVisibility';
 
 import { CreateScheduleModal } from './components';
@@ -74,6 +75,7 @@ export function SaleSchedules() {
   const [selectedDateKey, setSelectedDateKey] = useState(() => getDateKey(new Date()));
   const [selectedScheduleId, setSelectedScheduleId] = useState<string | null>(searchParams.get('scheduleId'));
   const [expandedDateKey, setExpandedDateKey] = useState<string | null>(null);
+  const confirm = useConfirmDialog();
   const currentUserQuery = useCurrentUser();
   const currentUser = currentUserQuery.data;
   const projectsQuery = useProjectList(
@@ -215,7 +217,12 @@ export function SaleSchedules() {
   }
 
   async function deleteSchedule(schedule: ProjectScheduleDto) {
-    const confirmed = window.confirm(`Delete ${schedule.title ?? formatEnumLabel(schedule.scheduleType)}?`);
+    const confirmed = await confirm({
+      confirmLabel: 'Delete',
+      description: `Delete ${schedule.title ?? formatEnumLabel(schedule.scheduleType)}?`,
+      title: 'Delete schedule',
+      tone: 'danger',
+    });
 
     if (!confirmed) {
       return;

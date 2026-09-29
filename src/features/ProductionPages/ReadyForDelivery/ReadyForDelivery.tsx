@@ -25,6 +25,7 @@ import {
   useProductionRequests,
   useProjectScheduleList,
 } from '@/services/queries';
+import { useConfirmDialog } from '@/shared/components';
 import { getScheduleDateRangePayload } from '@/shared/utils/dateValidation';
 
 type BatchQuantityDraft = Record<string, string>;
@@ -45,6 +46,7 @@ const READY_REQUESTS_STALE_TIME_MS = 30_000;
 
 export function ReadyForDelivery() {
   const [searchParams, setSearchParams] = useSearchParams();
+  const confirm = useConfirmDialog();
   const orderIdFromUrl = searchParams.get('orderId') ?? '';
   const [selectedProductionRequestId, setSelectedProductionRequestId] = useState('');
   const [selectedScheduleId, setSelectedScheduleId] = useState('');
@@ -479,7 +481,12 @@ export function ReadyForDelivery() {
 
   async function deleteDeliverySchedule(schedule: ProjectScheduleDto) {
     const scheduleKey = getScheduleKey(schedule);
-    const confirmed = window.confirm(`Delete ${schedule.title ?? 'delivery schedule'}?`);
+    const confirmed = await confirm({
+      confirmLabel: 'Delete',
+      description: `Delete ${schedule.title ?? 'delivery schedule'}?`,
+      title: 'Delete delivery schedule',
+      tone: 'danger',
+    });
 
     if (!confirmed) {
       return;

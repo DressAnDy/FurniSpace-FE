@@ -21,6 +21,7 @@ import {
   useRequestProjectInformation,
 } from '@/services/queries/useProjects';
 import { useProductionRequests } from '@/services/queries/useProduction';
+import { useConfirmDialog } from '@/shared/components';
 
 import { FilesAttachmentsTab, OverviewTab, ProjectMemberTab, SchedulesTab } from './tabs';
 import { ProjectStartFeePanel } from './components/ProjectStartFeePanel';
@@ -78,6 +79,7 @@ const statusStepMap: Record<string, string> = {
 
 export function ProjectDetail() {
   const { lang } = useLang();
+  const confirm = useConfirmDialog();
   const t = saleCopy[lang];
   const pd = t.projectDetail;
   const { projectId } = useParams();
@@ -240,9 +242,11 @@ export function ProjectDetail() {
 
     if (!project) return;
 
-    const confirmed = window.confirm(
-      'This will cancel the pending order/deposit path if present and move the project back to proposal consulting. The active quotation will be cancelled.',
-    );
+    const confirmed = await confirm({
+      confirmLabel: 'Reopen proposal',
+      description: 'This will cancel the pending order/deposit path if present and move the project back to proposal consulting. The active quotation will be cancelled.',
+      title: 'Reopen proposal',
+    });
 
     if (!confirmed) return;
 

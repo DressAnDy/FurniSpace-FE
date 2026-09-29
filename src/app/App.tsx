@@ -61,7 +61,7 @@ import { SaleTracking } from '@/features/SalePages/SaleTracking';
 import { ThreeDTestPage } from '@/features/ThreeD/pages/ThreeDTestPage';
 import { BuildingBlueprintTestPage, BuildingThreeDTestPage } from '@/features/ThreeDTest';
 import { ViewerDemoPage } from '@/features/viewer3d';
-import { TileTransitionProvider } from '@/shared/components';
+import { ConfirmDialogProvider, TileTransitionProvider } from '@/shared/components';
 import { getStoredAccessToken } from '@/services/api/tokenStore';
 import { useCurrentUser } from '@/services/queries';
 
@@ -73,8 +73,9 @@ export default function App() {
         <LangProvider>
           <BrowserRouter>
             <RealtimeSyncProvider>
-              <TileTransitionProvider>
-                <Routes>
+              <ConfirmDialogProvider>
+                <TileTransitionProvider>
+                  <Routes>
                 {/* Public routes */}
                 <Route path="/" element={<RedirectAuthenticatedUser><HomePage /></RedirectAuthenticatedUser>} />
                 <Route path="/login" element={<RedirectAuthenticatedUser><LoginPage /></RedirectAuthenticatedUser>} />
@@ -205,8 +206,9 @@ export default function App() {
                 </Route>
 
                 <Route path="*" element={<Navigate to="/" replace />} />
-              </Routes>
-            </TileTransitionProvider>
+                  </Routes>
+                </TileTransitionProvider>
+              </ConfirmDialogProvider>
             </RealtimeSyncProvider>
           </BrowserRouter>
         </LangProvider>
