@@ -9,12 +9,11 @@ import {
   ProductionSummaryCard,
 } from '@/features/ProductionPages/productioncomponents';
 import type { Priority, ProductionRequestStatus } from '@/features/ProductionPages/types';
-import { formatDate, getProductionRequestStatusLabel, productionRequestAllowedActions } from '@/features/ProductionPages/utils';
+import { formatDate, getProductionRequestStatusLabel } from '@/features/ProductionPages/utils';
 import { getProductionServiceResultMessage } from '@/services/api/production';
 import {
   useCurrentUser,
   useProductionRequests,
-  useStartProductionRequest,
 } from '@/services/queries';
 
 import './ProductionRequests.css';
@@ -55,7 +54,6 @@ export function ProductionRequests() {
   const [searchText, setSearchText] = useState('');
   const [requestPage, setRequestPage] = useState(1);
   const [requestPageSize, setRequestPageSize] = useState(DEFAULT_REQUEST_PAGE_SIZE);
-  const [message, setMessage] = useState<{ tone: 'error' | 'success'; text: string } | null>(null);
   const currentUserQuery = useCurrentUser();
   const requestsQuery = useProductionRequests({
     assignedTo: assignedToMe ? currentUserQuery.data?.accountId : null,
@@ -67,7 +65,6 @@ export function ProductionRequests() {
     priority: priorityFilter === 'ALL' ? null : (priorityFilter as Priority),
     status: null,
   });
-  const startMutation = useStartProductionRequest();
   const rawRequests = useMemo(() => requestsQuery.data?.items ?? [], [requestsQuery.data?.items]);
   const allStatusRequests = useMemo(() => allStatusRequestsQuery.data?.items ?? [], [allStatusRequestsQuery.data?.items]);
   const requests = useMemo(
@@ -117,19 +114,6 @@ export function ProductionRequests() {
     setRequestPage((currentPage) => Math.min(currentPage, requestPageCount));
   }, [requestPageCount]);
 
-  async function runQuickAction(action: string, productionRequestId: string) {
-    setMessage(null);
-
-    try {
-      if (action === 'Start Production') {
-        await startMutation.mutateAsync({ productionRequestId });
-        setMessage({ tone: 'success', text: 'Production request started.' });
-      }
-    } catch (error) {
-      setMessage({ tone: 'error', text: getProductionServiceResultMessage(error) });
-    }
-  }
-
   return (
     <ProductionLayout activeLabel="Production Requests" searchPlaceholder="Search production requests...">
       <div className="production-workspace-page">
@@ -140,7 +124,6 @@ export function ProductionRequests() {
           </div>
         </section>
 
-        {message ? <section className={`production-workspace-message production-workspace-message-${message.tone}`}>{message.text}</section> : null}
         {requestsQuery.isError ? (
           <section className="production-workspace-message production-workspace-message-error">{getProductionServiceResultMessage(requestsQuery.error)}</section>
         ) : null}
@@ -183,7 +166,7 @@ export function ProductionRequests() {
           <header>
             <div>
               <h3>Production Request Queue</h3>
-              <p>Valid actions are shown by current request status.</p>
+              <p>Open a request to view details and manage production actions.</p>
             </div>
           </header>
           <div className="production-workspace-table-wrap">
@@ -239,17 +222,6 @@ export function ProductionRequests() {
                     <td>
                       <div className="production-workspace-row-actions">
                         <Link to={`/production/requests/${request.productionRequestId}`}>View Detail</Link>
-                        {productionRequestAllowedActions[request.status].filter((action) => action !== 'Cancel').slice(0, 2).map((action) => (
-                          <button
-                            className="is-secondary"
-                            disabled={startMutation.isPending}
-                            key={action}
-                            type="button"
-                            onClick={() => void runQuickAction(action, request.productionRequestId)}
-                          >
-                            {action}
-                          </button>
-                        ))}
                       </div>
                     </td>
                   </tr>

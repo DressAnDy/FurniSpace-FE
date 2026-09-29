@@ -1,5 +1,6 @@
 export { Button } from './Button';
 export type { ButtonProps, ButtonSize, ButtonVariant } from './Button';
+export { ConfirmDialogProvider, useConfirmDialog } from './ConfirmDialog';
 export { DataTable } from './DataTable';
 export type { DataTableProps } from './DataTable';
 export { Modal } from './Modal';

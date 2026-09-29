@@ -78,6 +78,7 @@ import './BuildingThreeDTestPage.css';
 
 const EMPTY_THUMBNAIL = '';
 const API_PRODUCT_DEFAULT_SCALE = 2.6;
+const ROOM_PLANNER_CATALOG_PAGE_SIZE = 100;
 const DETAIL_BATCH_SIZE = 8;
 const MAX_PRODUCT_SCALE = 100;
 const MIN_PRODUCT_SCALE = 0.01;
@@ -296,6 +297,14 @@ function matchesBusinessTypes(businessTypeIds: number[] | null | undefined, sele
   return selectedBusinessTypeIds.length === 0 || selectedBusinessTypeIds.some((businessTypeId) => businessTypeIds?.includes(businessTypeId));
 }
 
+function getProjectCatalogReadyVersionCount(product: ProjectCatalogProductItemDto) {
+  return Math.max(product.eligibleVersionCount ?? 0, product.eligibleVersions?.length ?? 0);
+}
+
+function hasProjectCatalogReadyVersions(product: ProjectCatalogProductItemDto) {
+  return getProjectCatalogReadyVersionCount(product) > 0;
+}
+
 function createSceneObjectId(products: PlacedBuildingProduct[]) {
   const existingIds = new Set(products.map((product) => product.sceneObjectId));
   let id = `building-object-${globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`}`;
@@ -468,10 +477,10 @@ export function BuildingThreeDTestPage() {
   const [selectedBusinessTypeIds, setSelectedBusinessTypeIds] = useState<number[]>([]);
   const projectCatalogQuery = useProjectCatalogProducts(
     currentProjectId ?? undefined,
-    { page: 1, pageSize: 48 },
+    { page: 1, pageSize: ROOM_PLANNER_CATALOG_PAGE_SIZE },
     Boolean(currentProjectId),
   );
-  const productListQuery = useProductList({ page: 1, limit: 48 }, !currentProjectId);
+  const productListQuery = useProductList({ page: 1, limit: ROOM_PLANNER_CATALOG_PAGE_SIZE }, !currentProjectId);
   const layoutAssetsQuery = useRoomPlannerLayoutAssets({ page: 1, pageSize: 80 });
   const [detailLimit, setDetailLimit] = useState(DETAIL_BATCH_SIZE);
   const [search, setSearch] = useState('');
@@ -483,11 +492,12 @@ export function BuildingThreeDTestPage() {
 
     return (projectCatalogQuery.data?.items ?? [])
       .filter((product) => !selectedCategoryId || product.categoryId === selectedCategoryId)
+      .filter((product) => !selectedCatalogProductId || product.productId === selectedCatalogProductId)
       .filter((product) => matchesBusinessTypes(product.businessTypeIds, selectedBusinessTypeIds))
       .filter((product) => !keyword || product.productName.toLowerCase().includes(keyword))
       .flatMap((product) => product.eligibleVersions.map((version) => ({ product, version })))
       .slice(0, detailLimit);
-  }, [detailLimit, projectCatalogQuery.data?.items, search, selectedBusinessTypeIds, selectedCategoryId]);
+  }, [detailLimit, projectCatalogQuery.data?.items, search, selectedBusinessTypeIds, selectedCatalogProductId, selectedCategoryId]);
   const detailProducts = useMemo(() => {
     const keyword = search.trim().toLowerCase();
 
@@ -645,7 +655,9 @@ export function BuildingThreeDTestPage() {
   const hasMoreCatalogModels = currentProjectId
     ? detailLimit < (projectCatalogQuery.data?.items ?? [])
       .filter((product) => !selectedCategoryId || product.categoryId === selectedCategoryId)
+      .filter((product) => !selectedCatalogProductId || product.productId === selectedCatalogProductId)
       .filter((product) => matchesBusinessTypes(product.businessTypeIds, selectedBusinessTypeIds))
+      .filter((product) => !search.trim() || product.productName.toLowerCase().includes(search.trim().toLowerCase()))
       .flatMap((product) => product.eligibleVersions).length
     : detailLimit < (productListQuery.data?.items ?? [])
       .filter((product) => !selectedCategoryId || product.categoryId === selectedCategoryId)
@@ -929,7 +941,7 @@ export function BuildingThreeDTestPage() {
 
     if (currentProjectId) {
       return (projectCatalogQuery.data?.items ?? [])
-        .filter((product) => product.eligibleVersionCount > 0 || product.eligibleVersions.length > 0)
+        .filter(hasProjectCatalogReadyVersions)
         .filter((product) => matchesBusinessTypes(product.businessTypeIds, selectedBusinessTypeIds))
         .filter((product) => !keyword || product.productName.toLowerCase().includes(keyword))
         .map((product) => ({
@@ -956,11 +968,22 @@ export function BuildingThreeDTestPage() {
 
   const catalogProductCards = useMemo(() => {
     const keyword = search.trim().toLowerCase();
-    const products = currentProjectId
-      ? (projectCatalogQuery.data?.items ?? [])
-      : (productListQuery.data?.items ?? []);
 
-    return products
+    if (currentProjectId) {
+      return (projectCatalogQuery.data?.items ?? [])
+        .filter(hasProjectCatalogReadyVersions)
+        .filter((product) => !selectedCategoryId || product.categoryId === selectedCategoryId)
+        .filter((product) => matchesBusinessTypes(product.businessTypeIds, selectedBusinessTypeIds))
+        .filter((product) => !keyword || product.productName.toLowerCase().includes(keyword))
+        .map((product) => ({
+          categoryName: product.categoryName ?? 'Catalog',
+          count: getProjectCatalogReadyVersionCount(product),
+          product,
+          thumbnailUrl: product.thumbnail?.fileUrl ?? EMPTY_THUMBNAIL,
+        }));
+    }
+
+    return (productListQuery.data?.items ?? [])
       .filter((product) => catalogModelCountByProductId.has(product.productId))
       .filter((product) => !selectedCategoryId || product.categoryId === selectedCategoryId)
       .filter((product) => matchesBusinessTypes(product.businessTypeIds, selectedBusinessTypeIds))

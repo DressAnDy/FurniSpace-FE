@@ -1,4 +1,4 @@
-import { IconChevronDown, IconEye, IconSearch } from '@tabler/icons-react';
+import { IconChevronDown, IconEye, IconRefresh, IconSearch } from '@tabler/icons-react';
 import { useQueries } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -96,6 +96,10 @@ export function ProjectRequestQueue() {
     }
   }
 
+  function refreshQueue() {
+    void projectQueueQuery.refetch();
+  }
+
   return (
     <div className="project-request-queue-shell">
       <SaleSidebar activeKey="projectRequestQueue" />
@@ -104,8 +108,19 @@ export function ProjectRequestQueue() {
 
         <main className="project-request-queue-main">
           <section className="project-request-queue-heading">
-            <h2>{q.title}</h2>
-            <p>{q.subtitle}</p>
+            <div>
+              <h2>{q.title}</h2>
+              <p>{q.subtitle}</p>
+            </div>
+            <button
+              className="project-request-queue-refresh-button"
+              type="button"
+              disabled={projectQueueQuery.isFetching}
+              onClick={refreshQueue}
+            >
+              <IconRefresh size={16} />
+              {projectQueueQuery.isFetching ? 'Refreshing...' : 'Refresh'}
+            </button>
           </section>
 
           <section className="project-request-queue-filters">

@@ -205,7 +205,6 @@ export function UserManagement() {
           password,
           fullName,
           phone: normalizeAccountOptionalText(formData.get('phone')),
-          avatarUrl: normalizeAccountOptionalText(formData.get('avatarUrl')),
           status,
         });
       }
@@ -572,7 +571,7 @@ function AccountFormModal({ isOpen, mode, account, roleOptions, isSubmitting, er
           {mode === 'create' ? (
             <label className="user-modal-field">
               <span>Password *</span>
-              <input maxLength={255} name="password" required type="password" />
+              <input maxLength={255} name="password" required type="text" />
             </label>
           ) : null}
 
@@ -604,10 +603,12 @@ function AccountFormModal({ isOpen, mode, account, roleOptions, isSubmitting, er
             </select>
           </label>
 
-          <label className="user-modal-field user-modal-field-full">
-            <span>Avatar URL</span>
-            <input defaultValue={account?.avatarUrl ?? ''} name="avatarUrl" type="url" />
-          </label>
+          {mode === 'edit' ? (
+            <label className="user-modal-field user-modal-field-full">
+              <span>Avatar URL</span>
+              <input defaultValue={account?.avatarUrl ?? ''} name="avatarUrl" type="url" />
+            </label>
+          ) : null}
         </div>
 
 
