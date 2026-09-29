@@ -174,11 +174,7 @@ function acquirePaymentHub(hubUrl: string, queryClient: ReturnType<typeof useQue
     }
 
     for (const joinedPaymentId of sharedPaymentHub.joinedPaymentIds.keys()) {
-      void connection.invoke('JoinPayment', joinedPaymentId).catch((error) => {
-        if (import.meta.env.DEV) {
-          console.warn('[SignalR] JoinPayment failed', joinedPaymentId, error);
-        }
-      });
+      void connection.invoke('JoinPayment', joinedPaymentId).catch(() => undefined);
     }
   };
 
@@ -204,11 +200,7 @@ function acquirePaymentHub(hubUrl: string, queryClient: ReturnType<typeof useQue
       .then(() => {
         rejoinPayments();
       })
-      .catch((error) => {
-        if (import.meta.env.DEV) {
-          console.warn('[SignalR] payments start failed', error);
-        }
-      }),
+      .catch(() => undefined),
   };
 
   return sharedPaymentHub;
@@ -250,10 +242,8 @@ async function joinSharedPayment(hub: SharedPaymentHub, paymentId?: string | nul
 
   try {
     await hub.connection.invoke('JoinPayment', paymentId);
-  } catch (error) {
-    if (import.meta.env.DEV) {
-      console.warn('[SignalR] JoinPayment failed', paymentId, error);
-    }
+  } catch {
+    // Hub may still be reconnecting; onreconnected / recovery will rejoin from map.
   }
 }
 
@@ -270,10 +260,8 @@ async function leaveSharedPayment(hub: SharedPaymentHub, paymentId?: string | nu
     if (hub.connection.state === signalR.HubConnectionState.Connected) {
       try {
         await hub.connection.invoke('LeavePayment', paymentId);
-      } catch (error) {
-        if (import.meta.env.DEV) {
-          console.warn('[SignalR] LeavePayment failed', paymentId, error);
-        }
+      } catch {
+        // Ignore leave failures on disconnect/teardown.
       }
     }
 

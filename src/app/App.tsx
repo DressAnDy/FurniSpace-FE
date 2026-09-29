@@ -162,7 +162,7 @@ export default function App() {
                 </Route>
 
                 {/* Sales routes */}
-                <Route element={<ProtectedRoute allowedRoles={['SALE']} />}>
+                <Route element={<ProtectedRoute allowedRoles={['SALES', 'SALE']} />}>
                   <Route path="/sale" element={<Navigate to="/sales/dashbroad" replace />} />
                   <Route path="/sale/dashbroad" element={<Navigate to="/sales/dashbroad" replace />} />
                   <Route path="/sales" element={<Navigate to="/sales/project-requests" replace />} />

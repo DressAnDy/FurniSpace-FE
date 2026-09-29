@@ -19,9 +19,13 @@ export function RealtimeSyncProvider({ children }: Readonly<{ children: ReactNod
   const [lastInAppNotification, setLastInAppNotification] = useState<RealtimeNotificationPayload | null>(null);
 
   const handleInAppNotification = useCallback((payload: RealtimeNotificationPayload) => {
-    if (payload.notificationId) {
-      setLastInAppNotification(payload);
-    }
+    // Always surface to page listeners — even RealtimeOnly (null notificationId).
+    setLastInAppNotification({
+      ...payload,
+      notificationId:
+        payload.notificationId
+        ?? `rt:${payload.eventName ?? payload.notificationType ?? 'event'}:${payload.projectId ?? ''}:${payload.occurredAt ?? payload.createdAt ?? Date.now()}`,
+    });
   }, []);
 
   useEffect(() => {

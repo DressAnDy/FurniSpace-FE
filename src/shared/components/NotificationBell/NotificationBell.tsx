@@ -52,7 +52,13 @@ export function NotificationBell({ buttonClassName, className }: NotificationBel
   useEffect(() => {
     const notificationId = lastInAppNotification?.notificationId;
 
-    if (!notificationId || !userToastScope || hasShownNotificationToast(userToastScope, notificationId)) {
+    // Skip toast for synthesized RealtimeOnly ids (cache invalidation still runs via query listeners).
+    if (
+      !notificationId
+      || notificationId.startsWith('rt:')
+      || !userToastScope
+      || hasShownNotificationToast(userToastScope, notificationId)
+    ) {
       return;
     }
 
@@ -70,7 +76,12 @@ export function NotificationBell({ buttonClassName, className }: NotificationBel
       const pendingMessage = pendingRealtimeMessageRef.current;
       const notificationId = pendingMessage?.notificationId;
 
-      if (!notificationId || !userToastScope || document.visibilityState !== 'visible') {
+      if (
+        !notificationId
+        || notificationId.startsWith('rt:')
+        || !userToastScope
+        || document.visibilityState !== 'visible'
+      ) {
         return;
       }
 

@@ -79,7 +79,10 @@ const inAppNotificationEvents = [
   'order.updated',
   'order.delivered',
   'order.completed',
+  'order.delivery.created',
+  'order.delivery.started',
   'order.delivery.completed',
+  'delivery.batch.created',
   'production.request.created',
   'production.request.assigned',
   'production.request.completed',
@@ -183,17 +186,20 @@ export function useNotificationRealtime(input: {
       .build();
 
     const handleInAppNotification = (eventName: string, payload: RealtimeNotificationPayload) => {
-      if (payload.notificationId) {
-        upsertRealtimeNotification(queryClient, payload);
+      const enriched: RealtimeNotificationPayload = { ...payload, eventName };
+
+      if (enriched.notificationId) {
+        upsertRealtimeNotification(queryClient, enriched);
       }
 
-      invalidateBusinessQueries(queryClient, payload, eventName);
-      onInAppNotificationRef.current?.(payload);
+      invalidateBusinessQueries(queryClient, enriched, eventName);
+      onInAppNotificationRef.current?.(enriched);
     };
 
     const handleRealtimeOnlyNotification = (eventName: string, payload: RealtimeNotificationPayload) => {
-      invalidateBusinessQueries(queryClient, payload, eventName);
-      onRealtimeOnlyNotificationRef.current?.(payload);
+      const enriched: RealtimeNotificationPayload = { ...payload, eventName };
+      invalidateBusinessQueries(queryClient, enriched, eventName);
+      onRealtimeOnlyNotificationRef.current?.(enriched);
     };
 
     inAppNotificationEvents.forEach((eventName) => {
@@ -215,6 +221,10 @@ export function useNotificationRealtime(input: {
       void queryClient.invalidateQueries({ queryKey: notificationQueryKeys.unreadCount });
       void queryClient.invalidateQueries({ queryKey: ['notifications', 'list'] });
       void queryClient.invalidateQueries({ queryKey: projectQueryKeys.all });
+      void queryClient.invalidateQueries({ queryKey: ['projects', 'staff-queue'] });
+      void queryClient.invalidateQueries({ queryKey: ['projects', 'list'] });
+      void queryClient.invalidateQueries({ queryKey: quotationQueryKeys.all });
+      void queryClient.invalidateQueries({ queryKey: ['quotations', 'project'] });
       void queryClient.invalidateQueries({ queryKey: paymentQueryKeys.all });
       void queryClient.invalidateQueries({ queryKey: orderQueryKeys.all });
       void queryClient.invalidateQueries({ queryKey: dashboardQueryKeys.all });
@@ -241,11 +251,7 @@ export function useNotificationRealtime(input: {
           lastKnownUnreadCount = null;
         }
       })
-      .catch((error) => {
-        if (import.meta.env.DEV) {
-          console.warn('[SignalR] notifications start failed', error);
-        }
-      });
+      .catch(() => undefined);
 
     const onVisibleCatchUp = () => {
       if (document.visibilityState === 'hidden') {
@@ -383,7 +389,11 @@ function invalidateBusinessQueries(
       notificationNeedle: 'order',
     })
     || eventName.startsWith('order.delivery.')
-    || eventName.startsWith('order.item.');
+    || eventName.startsWith('order.item.')
+    || eventName.startsWith('delivery.batch.')
+    || notificationType === 'OrderDeliveryCreated'
+    || notificationType === 'OrderDeliveryStarted'
+    || notificationType === 'DeliveryBatchCreated';
   const isScheduleEvent = matchesDomain(eventName, referenceType, notificationType, {
     eventPrefix: 'project_schedule.',
     referenceType: 'PROJECT_SCHEDULE',
@@ -474,12 +484,68 @@ function invalidateBusinessQueries(
       asId(metadata.showcaseId)
       ?? asId(referenceType === 'PROJECT_SHOWCASE' ? payload.referenceId : null),
     projectAreaId: asId(metadata.projectAreaId),
-    deliveryId: asId(metadata.deliveryId),
+    deliveryId:
+      asId(metadata.deliveryId)
+      ?? asId(
+        referenceType === 'ORDER_DELIVERY' || referenceType === 'DELIVERY' || eventName.startsWith('order.delivery.') || eventName.startsWith('delivery.batch.')
+          ? payload.referenceId
+          : null,
+      ),
     chatId: asId(metadata.chatId),
   };
 
   void queryClient.invalidateQueries({ queryKey: dashboardQueryKeys.all });
   void queryClient.invalidateQueries({ queryKey: notificationQueryKeys.all });
+
+  const normalizedType = notificationType.toLowerCase();
+  const isSubmitRequest =
+    eventName === 'project.request.submitted'
+    || notificationType === 'ProjectRequestSubmitted'
+    || normalizedType.includes('projectrequestsubmitted')
+    || normalizedType.includes('requestsubmitted');
+  const isAcceptRequest =
+    eventName === 'project.request.accepted'
+    || notificationType === 'ProjectRequestAccepted'
+    || normalizedType.includes('projectrequestaccepted')
+    || eventName === 'project.status.changed';
+  const titleLower = (payload.title ?? '').toLowerCase();
+  const isDesignerAssigned =
+    eventName === 'project.designer.assigned'
+    || notificationType === 'ProjectDesignerAssigned'
+    || normalizedType.includes('designerassigned')
+    || normalizedType.includes('projectdesignerassigned')
+    || (normalizedType.includes('designer') && normalizedType.includes('assign'))
+    || (titleLower.includes('designer') && titleLower.includes('assign'));
+
+  // Always refresh Sales queue / Designer lists for these flows — even when envelope has no projectId.
+  if (isSubmitRequest || isAcceptRequest || isDesignerAssigned) {
+    void queryClient.invalidateQueries({ queryKey: projectQueryKeys.all });
+    void queryClient.invalidateQueries({ queryKey: ['projects', 'staff-queue'] });
+    void queryClient.invalidateQueries({ queryKey: ['projects', 'list'] });
+    void queryClient.invalidateQueries({ queryKey: dashboardQueryKeys.all });
+  }
+
+  if (isSubmitRequest) {
+    void queryClient.refetchQueries({ queryKey: ['projects', 'staff-queue'], type: 'all' });
+    void queryClient.refetchQueries({ queryKey: ['dashboard', 'sales'], type: 'all' });
+    void queryClient.refetchQueries({ queryKey: projectQueryKeys.all, type: 'active' });
+  }
+
+  if (isDesignerAssigned) {
+    void queryClient.invalidateQueries({ queryKey: projectChatQueryKeys.all });
+    void queryClient.invalidateQueries({ queryKey: projectScheduleQueryKeys.all });
+    // Force active+inactive designer views (dashboard work-queue / assigned-projects KPI).
+    void queryClient.refetchQueries({ queryKey: projectQueryKeys.all, type: 'all' });
+    void queryClient.refetchQueries({ queryKey: ['dashboard', 'designer'], type: 'all' });
+    void queryClient.refetchQueries({ queryKey: dashboardQueryKeys.all, type: 'active' });
+
+    if (projectId) {
+      void queryClient.invalidateQueries({ queryKey: projectQueryKeys.detail(projectId) });
+      void queryClient.invalidateQueries({ queryKey: projectQueryKeys.workflow(projectId) });
+      void queryClient.invalidateQueries({ queryKey: projectQueryKeys.phaseDeadlines(projectId) });
+      void queryClient.refetchQueries({ queryKey: projectQueryKeys.detail(projectId), type: 'all' });
+    }
+  }
 
   if (projectId || isProjectEvent) {
     void queryClient.invalidateQueries({ queryKey: projectQueryKeys.all });
@@ -507,6 +573,8 @@ function invalidateBusinessQueries(
 
   if (isOrderEvent) {
     void queryClient.invalidateQueries({ queryKey: orderQueryKeys.all });
+    void queryClient.invalidateQueries({ queryKey: productionQueryKeys.all });
+    void queryClient.invalidateQueries({ queryKey: projectScheduleQueryKeys.all });
 
     if (ids.orderId) {
       void queryClient.invalidateQueries({ queryKey: orderQueryKeys.detail(ids.orderId) });
@@ -521,8 +589,6 @@ function invalidateBusinessQueries(
 
     if (projectId) {
       void queryClient.invalidateQueries({ queryKey: orderQueryKeys.byProject(projectId) });
-      // Delivery completion often completes linked schedules too.
-      void queryClient.invalidateQueries({ queryKey: projectScheduleQueryKeys.all });
     }
   }
 
@@ -557,6 +623,62 @@ function invalidateBusinessQueries(
       void queryClient.invalidateQueries({ queryKey: ['proposals', ids.proposalId] });
     }
 
+    // 2nd+ revision request: status may already be REVISION_REQUESTED — patch note/timestamp.
+    if (
+      eventName === 'proposal.revision.requested'
+      || notificationType === 'ProposalRevisionRequested'
+      || notificationType.toLowerCase().includes('revisionrequested')
+    ) {
+      const revisionNote =
+        typeof metadata.revisionNote === 'string'
+          ? metadata.revisionNote
+          : typeof metadata.note === 'string'
+            ? metadata.note
+            : null;
+      const revisionRequestedAt = payload.occurredAt ?? payload.createdAt ?? new Date().toISOString();
+
+      if (ids.proposalId) {
+        queryClient.setQueryData(proposalQueryKeys.detail(ids.proposalId), (current: Record<string, unknown> | undefined) =>
+          current
+            ? {
+                ...current,
+                status: 'REVISION_REQUESTED',
+                revisionNote: revisionNote ?? current.revisionNote ?? null,
+                revisionRequestedAt,
+                updatedAt: revisionRequestedAt,
+              }
+            : current,
+        );
+
+        queryClient.setQueriesData<{ items?: Array<Record<string, unknown>> }>(
+          { queryKey: ['proposals'] },
+          (current) => {
+            if (!current?.items) {
+              return current;
+            }
+
+            return {
+              ...current,
+              items: current.items.map((item) =>
+                item.proposalId === ids.proposalId
+                  ? {
+                      ...item,
+                      status: 'REVISION_REQUESTED',
+                      revisionNote: revisionNote ?? item.revisionNote ?? null,
+                      revisionRequestedAt,
+                      updatedAt: revisionRequestedAt,
+                    }
+                  : item,
+              ),
+            };
+          },
+        );
+      }
+
+      void queryClient.invalidateQueries({ queryKey: dashboardQueryKeys.all });
+      void queryClient.invalidateQueries({ queryKey: projectQueryKeys.all });
+    }
+
     // Select / reopen / publish also reshapes quotations & orders path.
     if (
       eventName === 'proposal.selected'
@@ -571,6 +693,105 @@ function invalidateBusinessQueries(
     }
   }
 
+  // Sale re-send after revision: always refresh Customer quotation views (even thin envelopes).
+  // BE note: quotation.sent may change project status without emitting project.status.changed.
+  const isQuotationResent =
+    eventName === 'quotation.revised'
+    || eventName === 'quotation.sent'
+    || eventName === 'quotation.revision_requested'
+    || notificationType === 'QuotationRevised'
+    || notificationType === 'QuotationSent'
+    || notificationType === 'QuotationRevisionRequested'
+    || normalizedType.includes('quotationrevised')
+    || normalizedType.includes('quotationsent')
+    || normalizedType.includes('quotationrevision');
+
+  if (isQuotationResent) {
+    void queryClient.invalidateQueries({ queryKey: quotationQueryKeys.all });
+    void queryClient.invalidateQueries({ queryKey: ['quotations', 'project'] });
+    void queryClient.invalidateQueries({ queryKey: projectQueryKeys.all });
+    void queryClient.invalidateQueries({ queryKey: ['projects', 'list'] });
+    void queryClient.invalidateQueries({ queryKey: dashboardQueryKeys.all });
+
+    const resentQuotationId =
+      asId(metadata.quotationId)
+      ?? asId(referenceType === 'QUOTATION' ? payload.referenceId : null)
+      ?? asId(payload.referenceId);
+
+    if (resentQuotationId) {
+      void queryClient.invalidateQueries({ queryKey: quotationQueryKeys.detail(resentQuotationId) });
+
+      // Prefer SENT after Sale re-sends an edited revision.
+      if (eventName === 'quotation.sent' || notificationType === 'QuotationSent' || normalizedType.includes('quotationsent')) {
+        queryClient.setQueryData(quotationQueryKeys.detail(resentQuotationId), (current: unknown) => {
+          if (!current || typeof current !== 'object') {
+            return current;
+          }
+
+          return {
+            ...current,
+            status: 'SENT',
+          };
+        });
+      }
+
+      if (eventName === 'quotation.revised' || notificationType === 'QuotationRevised' || normalizedType.includes('quotationrevised')) {
+        queryClient.setQueryData(quotationQueryKeys.detail(resentQuotationId), (current: unknown) => {
+          if (!current || typeof current !== 'object') {
+            return current;
+          }
+
+          return {
+            ...current,
+            status: 'REVISED',
+          };
+        });
+      }
+    }
+  }
+
+  // BE #11: CreateDeliveryBatch → order.delivery.started (batch 2+ previously silent).
+  const isDeliveryStarted =
+    eventName === 'order.delivery.started'
+    || eventName === 'order.delivery.created'
+    || eventName === 'delivery.batch.created'
+    || notificationType === 'OrderDeliveryStarted'
+    || notificationType === 'OrderDeliveryCreated'
+    || notificationType === 'DeliveryBatchCreated'
+    || normalizedType.includes('orderdeliverystarted')
+    || normalizedType.includes('deliverybatch');
+
+  if (isDeliveryStarted) {
+    void queryClient.invalidateQueries({ queryKey: orderQueryKeys.all });
+    void queryClient.invalidateQueries({ queryKey: productionQueryKeys.all });
+    void queryClient.invalidateQueries({ queryKey: projectScheduleQueryKeys.all });
+    void queryClient.invalidateQueries({ queryKey: projectQueryKeys.all });
+    void queryClient.invalidateQueries({ queryKey: dashboardQueryKeys.all });
+
+    const startedOrderId = ids.orderId ?? asId(metadata.orderId);
+    const startedDeliveryId = ids.deliveryId ?? asId(metadata.deliveryId) ?? asId(referenceType === 'ORDER_DELIVERY' || referenceType === 'DELIVERY' ? payload.referenceId : null);
+    const startedScheduleId = ids.scheduleId ?? asId(metadata.scheduleId);
+
+    if (startedOrderId) {
+      void queryClient.invalidateQueries({ queryKey: orderQueryKeys.detail(startedOrderId) });
+      void queryClient.invalidateQueries({ queryKey: orderQueryKeys.deliveries(startedOrderId) });
+      void queryClient.invalidateQueries({ queryKey: orderQueryKeys.deliveryTracking(startedOrderId) });
+
+      if (startedDeliveryId) {
+        void queryClient.invalidateQueries({ queryKey: orderQueryKeys.delivery(startedOrderId, startedDeliveryId) });
+      }
+    }
+
+    if (startedScheduleId) {
+      void queryClient.invalidateQueries({ queryKey: projectScheduleQueryKeys.detail(startedScheduleId) });
+    }
+
+    if (projectId) {
+      void queryClient.invalidateQueries({ queryKey: orderQueryKeys.byProject(projectId) });
+      void queryClient.invalidateQueries({ queryKey: projectQueryKeys.detail(projectId) });
+    }
+  }
+
   if (isQuotationEvent) {
     void queryClient.invalidateQueries({ queryKey: quotationQueryKeys.all });
 
@@ -581,9 +802,11 @@ function invalidateBusinessQueries(
     if (eventName === 'quotation.accepted' || notificationType === 'QuotationAccepted') {
       void queryClient.invalidateQueries({ queryKey: orderQueryKeys.all });
       void queryClient.invalidateQueries({ queryKey: paymentQueryKeys.all });
+      void queryClient.invalidateQueries({ queryKey: projectQueryKeys.all });
 
       if (projectId) {
         void queryClient.invalidateQueries({ queryKey: orderQueryKeys.byProject(projectId) });
+        void queryClient.invalidateQueries({ queryKey: projectQueryKeys.detail(projectId) });
       }
     }
   }
@@ -614,18 +837,39 @@ function invalidateBusinessQueries(
   }
 
   if (isProductIssueEvent) {
-    void queryClient.invalidateQueries({ queryKey: productIssueQueryKeys.all });
+    const isResolved =
+      eventName === 'product_issue.resolved'
+      || notificationType === 'ProductIssueResolved'
+      || notificationType.toLowerCase().includes('productissueresolved')
+      || notificationType.toLowerCase().includes('issueresolved');
 
-    if (ids.productIssueId) {
-      void queryClient.invalidateQueries({ queryKey: productIssueQueryKeys.detail(ids.productIssueId) });
+    if (ids.productIssueId && isResolved) {
       applyProductIssueResolvedToCaches(queryClient, {
         issueId: ids.productIssueId,
         orderId: ids.orderId,
         projectId,
-        isResolved: eventName === 'product_issue.resolved' || notificationType === 'ProductIssueResolved',
+        isResolved: true,
         resolutionNote: typeof metadata.resolutionNote === 'string' ? metadata.resolutionNote : null,
         resolvedAt: payload.occurredAt ?? payload.createdAt ?? new Date().toISOString(),
       });
+    }
+
+    void queryClient.invalidateQueries({ queryKey: productIssueQueryKeys.all }).then(() => {
+      if (ids.productIssueId && isResolved) {
+        // Re-apply after refetch — some list DTOs omit status/resolvedAt and would wipe RESOLVED.
+        applyProductIssueResolvedToCaches(queryClient, {
+          issueId: ids.productIssueId,
+          orderId: ids.orderId,
+          projectId,
+          isResolved: true,
+          resolutionNote: typeof metadata.resolutionNote === 'string' ? metadata.resolutionNote : null,
+          resolvedAt: payload.occurredAt ?? payload.createdAt ?? new Date().toISOString(),
+        });
+      }
+    });
+
+    if (ids.productIssueId) {
+      void queryClient.invalidateQueries({ queryKey: productIssueQueryKeys.detail(ids.productIssueId) });
     }
 
     if (ids.orderId) {
