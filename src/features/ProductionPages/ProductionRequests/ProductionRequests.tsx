@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { IconCheck, IconClipboardList, IconClockCog } from '@tabler/icons-react';
+import { IconCheck, IconClipboardList, IconClockCog, IconRefresh } from '@tabler/icons-react';
 import { Link } from 'react-router-dom';
 
 import {
@@ -105,6 +105,7 @@ export function ProductionRequests() {
     () => requests.slice((requestPage - 1) * requestPageSize, requestPage * requestPageSize),
     [requestPage, requestPageSize, requests],
   );
+  const isRefreshing = requestsQuery.isFetching || allStatusRequestsQuery.isFetching;
 
   useEffect(() => {
     setRequestPage(1);
@@ -114,6 +115,13 @@ export function ProductionRequests() {
     setRequestPage((currentPage) => Math.min(currentPage, requestPageCount));
   }, [requestPageCount]);
 
+  async function refreshRequests() {
+    await Promise.all([
+      requestsQuery.refetch(),
+      allStatusRequestsQuery.refetch(),
+    ]);
+  }
+
   return (
     <ProductionLayout activeLabel="Production Requests" searchPlaceholder="Search production requests...">
       <div className="production-workspace-page">
@@ -122,6 +130,15 @@ export function ProductionRequests() {
             <span>Production Workspace</span>
             <h2>Production Requests</h2>
           </div>
+          <button
+            className="production-workspace-button production-workspace-button-secondary production-workspace-refresh-button"
+            disabled={isRefreshing}
+            type="button"
+            onClick={() => void refreshRequests()}
+          >
+            <IconRefresh className={isRefreshing ? 'is-spinning' : undefined} size={16} />
+            {isRefreshing ? 'Refreshing...' : 'Refresh'}
+          </button>
         </section>
 
         {requestsQuery.isError ? (
