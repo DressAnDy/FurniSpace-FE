@@ -110,6 +110,7 @@ function CustomerProjectProposalPanel({
   const [customizationHeight, setCustomizationHeight] = useState('');
   const [customizationDepth, setCustomizationDepth] = useState('');
   const [modelPreviewVersion, setModelPreviewVersion] = useState<CustomizationRequestVersionDto | null>(null);
+  const [expandedProductionEvaluationIds, setExpandedProductionEvaluationIds] = useState<Set<string>>(() => new Set());
   const [revisionNote, setRevisionNote] = useState('');
   const queryClient = useQueryClient();
   const submitCustomizationMutation = useSubmitCustomizationRequest();
@@ -180,6 +181,15 @@ function CustomerProjectProposalPanel({
       }),
     [customizationRequests],
   );
+  const productionEvaluationItems = useMemo(
+    () =>
+      customizationRequests.flatMap((request) =>
+        (request.versions ?? [])
+          .filter((version) => version.feasibilityStatus !== 'PENDING')
+          .map((version) => ({ request, version })),
+      ),
+    [customizationRequests],
+  );
   const estimatedTotal = displayProposalItems.reduce((total, item) => total + (item.subtotalAmount ?? 0), 0);
   const isLoadingScenes = (scenesQuery.isLoading || proposalQuery.isLoading) && scenes.length === 0;
   const isLoadingItems = (itemsQuery.isLoading || proposalQuery.isLoading) && displayProposalItems.length === 0;
@@ -235,6 +245,20 @@ function CustomerProjectProposalPanel({
     setCustomizationWidth('');
     setCustomizationHeight('');
     setCustomizationDepth('');
+  }
+
+  function toggleProductionEvaluation(versionId: string) {
+    setExpandedProductionEvaluationIds((current) => {
+      const next = new Set(current);
+
+      if (next.has(versionId)) {
+        next.delete(versionId);
+      } else {
+        next.add(versionId);
+      }
+
+      return next;
+    });
   }
 
   async function submitCustomization(event: FormEvent<HTMLFormElement>) {
@@ -476,7 +500,7 @@ function CustomerProjectProposalPanel({
           </div>
           {customizationRequestsQuery.isLoading ? <p>{t.common.loading}</p> : null}
           {customizationRequestsError ? <p className="customer-proposal-detail-message">{customizationRequestsError}</p> : null}
-          {!customizationRequestsQuery.isLoading && !customizationRequestsError && customVersionReviewItems.length === 0 && acceptedCustomVersionItems.length === 0 ? (
+          {!customizationRequestsQuery.isLoading && !customizationRequestsError && customVersionReviewItems.length === 0 && acceptedCustomVersionItems.length === 0 && productionEvaluationItems.length === 0 ? (
             <p className="customer-proposal-detail-custom-version-empty">No custom version is ready for customer review yet.</p>
           ) : null}
           {customVersionReviewItems.length > 0 ? (
@@ -512,6 +536,13 @@ function CustomerProjectProposalPanel({
                 />
               ))}
             </div>
+          ) : null}
+          {productionEvaluationItems.length > 0 ? (
+            <ProductionEvaluationList
+              expandedIds={expandedProductionEvaluationIds}
+              items={productionEvaluationItems}
+              onToggle={toggleProductionEvaluation}
+            />
           ) : null}
         </section>
       ) : null}
@@ -628,6 +659,115 @@ function CustomVersionReviewCard({
         </div>
         {!modelUrl ? <p>No MODEL_3D file is available for this custom version yet.</p> : null}
       </div>
+    </article>
+  );
+}
+
+function ProductionEvaluationList({
+  expandedIds,
+  items,
+  onToggle,
+}: {
+  expandedIds: Set<string>;
+  items: Array<{ request: CustomizationRequestDto; version: CustomizationRequestVersionDto }>;
+  onToggle: (versionId: string) => void;
+}) {
+  return (
+    <section className="customer-proposal-detail-production-evaluations">
+      <div className="customer-proposal-detail-production-evaluations-head">
+        <div>
+          <h3>Production evaluations</h3>
+          <p>Review production feedback for each submitted design version.</p>
+        </div>
+        <span>{items.length}</span>
+      </div>
+      <div className="customer-proposal-detail-production-evaluation-list">
+        {items.map(({ request, version }) => (
+          <ProductionEvaluationCard
+            expanded={expandedIds.has(version.customizationRequestVersionId)}
+            key={version.customizationRequestVersionId}
+            request={request}
+            version={version}
+            onToggle={() => onToggle(version.customizationRequestVersionId)}
+          />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function ProductionEvaluationCard({
+  expanded,
+  onToggle,
+  request,
+  version,
+}: {
+  expanded: boolean;
+  onToggle: () => void;
+  request: CustomizationRequestDto;
+  version: CustomizationRequestVersionDto;
+}) {
+  const productVersion = version.productVersion;
+  const reviewedAt = version.productionReviewedAt ?? version.productionRejectedAt ?? null;
+
+  return (
+    <article className={`customer-proposal-detail-production-evaluation-card${expanded ? ' is-expanded' : ''}`}>
+      <button
+        aria-expanded={expanded}
+        className="customer-proposal-detail-production-evaluation-summary"
+        type="button"
+        onClick={onToggle}
+      >
+        <div>
+          <strong>{version.versionTitle || productVersion.versionName || request.requestTitle}</strong>
+          <span>{request.requestTitle} · Version {version.versionNo}</span>
+        </div>
+        <div className="customer-proposal-detail-production-evaluation-meta">
+          <span className={getCustomVersionBadgeClassName(false, version)}>
+            {formatStatusLabel(version.feasibilityStatus)}
+          </span>
+          <IconChevronDown size={16} stroke={1.8} />
+        </div>
+      </button>
+
+      {expanded ? (
+        <div className="customer-proposal-detail-production-evaluation-detail">
+          <dl>
+            <div>
+              <dt>Feasibility note</dt>
+              <dd>{version.feasibilityNote || '-'}</dd>
+            </div>
+            <div>
+              <dt>Material available</dt>
+              <dd>{formatBoolean(version.materialAvailable)}</dd>
+            </div>
+            <div>
+              <dt>Production days</dt>
+              <dd>{version.estimatedProductionDays ? `${version.estimatedProductionDays} days` : '-'}</dd>
+            </div>
+            <div>
+              <dt>Additional cost</dt>
+              <dd>{formatMoney(version.estimatedAdditionalCost)}</dd>
+            </div>
+            <div>
+              <dt>Cost reason</dt>
+              <dd>{version.additionalCostReason || '-'}</dd>
+            </div>
+            <div>
+              <dt>Production risk</dt>
+              <dd>{version.productionRiskNote || '-'}</dd>
+            </div>
+            <div>
+              <dt>Alternative material</dt>
+              <dd>{version.alternativeMaterialNote || '-'}</dd>
+            </div>
+            <div>
+              <dt>Reviewed at</dt>
+              <dd>{reviewedAt ? formatDateTime(reviewedAt) : '-'}</dd>
+            </div>
+          </dl>
+        </div>
+      ) : null}
     </article>
   );
 }
@@ -770,4 +910,20 @@ function formatMoney(value?: number | null) {
   if (typeof value !== 'number') return '-';
 
   return `${new Intl.NumberFormat('vi-VN').format(value)} VND`;
+}
+
+function formatDateTime(value: string) {
+  return new Intl.DateTimeFormat('en', {
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  }).format(new Date(value));
+}
+
+function formatBoolean(value?: boolean | null) {
+  if (typeof value !== 'boolean') return '-';
+
+  return value ? 'Yes' : 'No';
 }

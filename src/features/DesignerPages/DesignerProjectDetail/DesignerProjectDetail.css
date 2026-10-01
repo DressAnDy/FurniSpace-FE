@@ -1138,11 +1138,59 @@
   padding: 12px;
 }
 
+.designer-project-custom-version-group {
+  display: grid;
+  gap: 10px;
+  border-top: 1px solid #f0eeea;
+  padding-top: 12px;
+}
+
+.designer-project-custom-version-group:first-of-type {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.designer-project-custom-version-group-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.designer-project-custom-version-group-head span {
+  color: #6f675f;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.designer-project-custom-version-group-head strong {
+  display: inline-flex;
+  min-width: 24px;
+  height: 24px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: #f4ead8;
+  color: #8b6834;
+  font-size: 12px;
+  font-weight: 800;
+}
+
 .designer-project-custom-version-head {
   display: flex;
+  width: 100%;
   align-items: flex-start;
   justify-content: space-between;
   gap: 10px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  padding: 0;
+  text-align: left;
 }
 
 .designer-project-custom-version-head strong {
@@ -1163,8 +1211,19 @@
 .designer-project-custom-version-badges {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   justify-content: flex-end;
   gap: 6px;
+}
+
+.designer-project-custom-version-chevron {
+  flex: 0 0 auto;
+  color: #8b6834;
+  transition: transform 0.16s ease;
+}
+
+.designer-project-custom-version-card-expanded .designer-project-custom-version-chevron {
+  transform: rotate(180deg);
 }
 
 .designer-project-custom-version-card > p {
@@ -1173,6 +1232,62 @@
   font-size: 12.5px;
   font-weight: 500;
   line-height: 1.55;
+}
+
+.designer-project-production-review {
+  overflow: hidden;
+  border: 1px solid #efe4d2;
+  border-radius: 10px;
+  background: #fffaf2;
+}
+
+.designer-project-production-review-trigger {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  padding: 11px 12px;
+  text-align: left;
+}
+
+.designer-project-production-review-trigger div {
+  display: grid;
+  gap: 4px;
+}
+
+.designer-project-production-review-trigger span {
+  color: #8b6834;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.designer-project-production-review-trigger strong {
+  color: #3f3f46;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.designer-project-production-review-trigger svg {
+  flex: 0 0 auto;
+  color: #8b6834;
+  transition: transform 0.16s ease;
+}
+
+.designer-project-production-review-expanded .designer-project-production-review-trigger svg {
+  transform: rotate(180deg);
+}
+
+.designer-project-production-review-body {
+  border-top: 1px solid #efe4d2;
+  padding: 12px;
 }
 
 .designer-project-custom-cancel-button {

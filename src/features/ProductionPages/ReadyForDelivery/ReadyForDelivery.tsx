@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type FormEvent, type KeyboardEvent } from 'react';
-import { IconArrowLeft, IconCalendarPlus, IconClipboardCheck, IconNotes, IconPackage, IconTruckDelivery } from '@tabler/icons-react';
+import { IconArrowLeft, IconCalendarPlus, IconClipboardCheck, IconNotes, IconPackage, IconRefresh, IconTruckDelivery } from '@tabler/icons-react';
 import { useSearchParams } from 'react-router-dom';
 
 import { ProductionLayout, ProductionStatusBadge, ProductionSummaryCard } from '@/features/ProductionPages/productioncomponents';
@@ -178,6 +178,12 @@ export function ReadyForDelivery() {
   const deliverableOrderItems = useMemo(() => deliverableItems.filter((item) => getRemainingQuantity(item) > 0), [deliverableItems]);
   const hasRemainingQuantity = deliverableOrderItems.some((item) => getRemainingQuantity(item) > 0);
   const trackingSummary = deliveryTrackingQuery.data?.summary;
+  const isRefreshing =
+    readyRequestsQuery.isFetching ||
+    orderDetailQuery.isFetching ||
+    deliveryTrackingQuery.isFetching ||
+    deliveriesQuery.isFetching ||
+    deliverySchedulesQuery.isFetching;
   const deliveryDetails = deliveryTrackingQuery.data?.deliveryDetails ?? {
     deliveryAddress: order?.deliveryAddress,
     deliveryNote: order?.deliveryNote,
@@ -302,6 +308,16 @@ export function ReadyForDelivery() {
       return next;
     });
   }, [deliverableOrderItems]);
+
+  async function refreshReadyForDelivery() {
+    await Promise.all([
+      readyRequestsQuery.refetch(),
+      shouldLoadDeliveryWorkspace ? orderDetailQuery.refetch() : Promise.resolve(),
+      shouldLoadDeliveryWorkspace ? deliveryTrackingQuery.refetch() : Promise.resolve(),
+      shouldLoadDeliveryExecution ? deliveriesQuery.refetch() : Promise.resolve(),
+      shouldLoadDeliveryExecution ? deliverySchedulesQuery.refetch() : Promise.resolve(),
+    ]);
+  }
 
   async function createDeliverySchedule(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -735,6 +751,15 @@ export function ReadyForDelivery() {
             <span>Production Workspace</span>
             <h2>Ready for Delivery</h2>
           </div>
+          <button
+            className="production-workspace-button production-workspace-button-secondary production-workspace-refresh-button"
+            disabled={isRefreshing}
+            type="button"
+            onClick={() => void refreshReadyForDelivery()}
+          >
+            <IconRefresh className={isRefreshing ? 'is-spinning' : undefined} size={16} />
+            {isRefreshing ? 'Refreshing...' : 'Refresh'}
+          </button>
         </section>
 
         {readyRequestsQuery.isError ? <section className="production-workspace-message production-workspace-message-error">Cannot load completed production requests.</section> : null}

@@ -58,7 +58,7 @@ export function ProjectMemberTab({ project, canManageAssignment = false }: Proje
   const isStartFeeBlocking = Boolean(startFeeStatus?.requiresProjectStartFee && !startFeeStatus.isEligibleForDesignerAssignment);
   const canShowDesignerAssignment = canManageAssignment && !project.assignedDesignerId && !isStartFeeChecking && !isStartFeeBlocking;
   const availableDesigners = useMemo(
-    () => availableDesignersQuery.data?.items ?? [],
+    () => (availableDesignersQuery.data?.items ?? []).filter((designer) => designer.availableSlot > 0),
     [availableDesignersQuery.data?.items],
   );
   const proposalDeadlineMin = getLocalDateInputValue();
@@ -73,6 +73,12 @@ export function ProjectMemberTab({ project, canManageAssignment = false }: Proje
     setProposalDeadline('');
   }, [project.assignedDesignerId]);
 
+  useEffect(() => {
+    if (selectedDesignerId && !availableDesigners.some((designer) => designer.accountId === selectedDesignerId)) {
+      setSelectedDesignerId('');
+    }
+  }, [availableDesigners, selectedDesignerId]);
+
   async function handleAssignDesigner(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setAssignmentMessage('');
@@ -84,6 +90,11 @@ export function ProjectMemberTab({ project, canManageAssignment = false }: Proje
 
     if (!designerId) {
       setAssignmentMessage('Please select an available designer.');
+      return;
+    }
+
+    if (!availableDesigners.some((designer) => designer.accountId === designerId)) {
+      setAssignmentMessage('Please select a designer with available project slots.');
       return;
     }
 
@@ -188,7 +199,7 @@ export function ProjectMemberTab({ project, canManageAssignment = false }: Proje
               </p>
             ) : null}
 
-            <button className="project-detail-primary-button" type="submit" disabled={availableDesignersQuery.isLoading || assignDesignerMutation.isPending || !proposalDeadline}>
+            <button className="project-detail-primary-button" type="submit" disabled={availableDesignersQuery.isLoading || assignDesignerMutation.isPending || availableDesigners.length === 0 || !proposalDeadline}>
               {assignDesignerMutation.isPending ? 'Assigning designer...' : 'Assign Designer'}
             </button>
           </div>
