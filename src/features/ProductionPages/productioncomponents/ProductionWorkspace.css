@@ -100,6 +100,20 @@
   color: #6f5636;
 }
 
+.production-workspace-refresh-button {
+  flex: 0 0 auto;
+}
+
+.production-workspace-refresh-button .is-spinning {
+  animation: production-workspace-spin 0.9s linear infinite;
+}
+
+@keyframes production-workspace-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .production-workspace-row-actions .is-danger {
   border-color: rgba(220, 38, 38, 0.24);
   background: rgba(220, 38, 38, 0.08);

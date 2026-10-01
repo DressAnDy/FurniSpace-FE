@@ -1,5 +1,6 @@
 import { type FormEvent, useEffect, useMemo, useState } from 'react';
-import { IconAlertTriangle, IconClipboardCheck, IconClock, IconCurrencyDollar } from '@tabler/icons-react';
+import { IconAlertTriangle, IconClipboardCheck, IconClock, IconCurrencyDollar, IconRefresh } from '@tabler/icons-react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
 
 import {
@@ -71,6 +72,7 @@ const DEFAULT_QUEUE_PAGE_SIZE = 5;
 
 export function ProductionCustomizationRequests() {
   const [searchParams, setSearchParams] = useSearchParams();
+  const queryClient = useQueryClient();
   const versionIdFromUrl = searchParams.get('versionId') ?? searchParams.get('requestId') ?? '';
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('ALL');
   const [feasibilityFilter, setFeasibilityFilter] = useState<FeasibilityFilter>('ALL');
@@ -106,6 +108,7 @@ export function ProductionCustomizationRequests() {
     [items, queuePage, queuePageSize],
   );
   const selectedItem = items.find((item) => item.version.customizationRequestVersionId === activeVersionId) ?? null;
+  const isRefreshing = queueQuery.isFetching || versionDetailQuery.isFetching;
 
   useEffect(() => {
     if (versionIdFromUrl) {
@@ -191,6 +194,13 @@ export function ProductionCustomizationRequests() {
     setMessage({ tone: 'success', text: 'Draft review kept locally until you submit a feasibility result.' });
   }
 
+  async function refreshReviews() {
+    await Promise.all([
+      queryClient.refetchQueries({ queryKey: ['customization-versions', 'production-queue'], type: 'all' }),
+      versionIdFromUrl ? versionDetailQuery.refetch() : Promise.resolve(),
+    ]);
+  }
+
   return (
     <ProductionLayout activeLabel="Customization Reviews" searchPlaceholder="Search customization reviews...">
       <div className="production-workspace-page">
@@ -200,6 +210,15 @@ export function ProductionCustomizationRequests() {
             <h2>Customization Versions</h2>
             <p>Review custom product versions, check material availability, estimate production effort, and return feasibility results.</p>
           </div>
+          <button
+            className="production-workspace-button production-workspace-button-secondary production-workspace-refresh-button"
+            disabled={isRefreshing}
+            type="button"
+            onClick={() => void refreshReviews()}
+          >
+            <IconRefresh className={isRefreshing ? 'is-spinning' : undefined} size={16} />
+            {isRefreshing ? 'Refreshing...' : 'Refresh'}
+          </button>
         </section>
 
         <section className="production-workspace-filter-card">

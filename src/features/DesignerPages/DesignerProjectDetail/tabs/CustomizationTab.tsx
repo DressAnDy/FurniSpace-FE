@@ -4,6 +4,7 @@ import { useLang } from '@/app/providers/useLang';
 import { designerCopy } from '@/features/DesignerPages/designercomponents';
 import {
   IconAlertCircle,
+  IconChevronDown,
   IconCircleCheck,
   IconCube,
   IconPalette,
@@ -776,8 +777,38 @@ function RequestVersionPanel({
   t: typeof designerCopy.en.customizationTab;
 }>) {
   const versions = activeRequest.versions ?? [];
+  const pendingVersions = versions.filter((version) => version.feasibilityStatus === 'PENDING');
+  const productionReviewedVersions = versions.filter((version) => version.feasibilityStatus !== 'PENDING');
+  const [expandedVersionIds, setExpandedVersionIds] = useState<Set<string>>(() => new Set());
+  const [expandedProductionReviewIds, setExpandedProductionReviewIds] = useState<Set<string>>(() => new Set());
   const canCreateVersion = activeRequest.status === 'SUBMITTED' || activeRequest.status === 'REVIEWING';
   const readOnlyRequest = activeRequest.status === 'ACCEPTED' || activeRequest.status === 'CANCELLED';
+  const toggleVersion = (versionId: string) => {
+    setExpandedVersionIds((current) => {
+      const next = new Set(current);
+
+      if (next.has(versionId)) {
+        next.delete(versionId);
+      } else {
+        next.add(versionId);
+      }
+
+      return next;
+    });
+  };
+  const toggleProductionReview = (versionId: string) => {
+    setExpandedProductionReviewIds((current) => {
+      const next = new Set(current);
+
+      if (next.has(versionId)) {
+        next.delete(versionId);
+      } else {
+        next.add(versionId);
+      }
+
+      return next;
+    });
+  };
 
   return (
     <>
@@ -812,14 +843,36 @@ function RequestVersionPanel({
             <p>{t.successVersionSubmitted}</p>
           </div>
         </div>
-        {versions.map((version) => (
-          <VersionCard
-            key={version.customizationRequestVersionId}
-            mutationPending={mutationPending}
-            version={version}
-            onSubmit={() => onSubmitVersion(version)}
-          />
-        ))}
+        {pendingVersions.length > 0 ? (
+          <VersionGroup title="Pending production review" count={pendingVersions.length}>
+            {pendingVersions.map((version) => (
+              <VersionCard
+                key={version.customizationRequestVersionId}
+                expanded={expandedVersionIds.has(version.customizationRequestVersionId)}
+                mutationPending={mutationPending}
+                version={version}
+                onToggle={() => toggleVersion(version.customizationRequestVersionId)}
+                onSubmit={() => onSubmitVersion(version)}
+              />
+            ))}
+          </VersionGroup>
+        ) : null}
+        {productionReviewedVersions.length > 0 ? (
+          <VersionGroup title="Production reviewed" count={productionReviewedVersions.length}>
+            {productionReviewedVersions.map((version) => (
+              <VersionCard
+                key={version.customizationRequestVersionId}
+                expanded={expandedVersionIds.has(version.customizationRequestVersionId)}
+                isProductionReviewExpanded={expandedProductionReviewIds.has(version.customizationRequestVersionId)}
+                mutationPending={mutationPending}
+                version={version}
+                onToggle={() => toggleVersion(version.customizationRequestVersionId)}
+                onSubmit={() => onSubmitVersion(version)}
+                onToggleProductionReview={() => toggleProductionReview(version.customizationRequestVersionId)}
+              />
+            ))}
+          </VersionGroup>
+        ) : null}
       </div>
 
       {!readOnlyRequest ? (
@@ -828,6 +881,18 @@ function RequestVersionPanel({
         </button>
       ) : null}
     </>
+  );
+}
+
+function VersionGroup({ children, count, title }: { children: ReactNode; count: number; title: string }) {
+  return (
+    <section className="designer-project-custom-version-group">
+      <div className="designer-project-custom-version-group-head">
+        <span>{title}</span>
+        <strong>{count}</strong>
+      </div>
+      {children}
+    </section>
   );
 }
 
@@ -852,19 +917,33 @@ function CustomizationRequestSummary({ request, t }: { request: CustomizationReq
 }
 
 function VersionCard({
+  expanded,
+  isProductionReviewExpanded = false,
   mutationPending,
   onSubmit,
+  onToggle,
+  onToggleProductionReview,
   version,
 }: Readonly<{
+  expanded: boolean;
+  isProductionReviewExpanded?: boolean;
   mutationPending: boolean;
   onSubmit: () => void;
+  onToggle: () => void;
+  onToggleProductionReview?: () => void;
   version: CustomizationRequestVersionDto;
 }>) {
   const canSubmit = version.status === 'DRAFT';
+  const hasProductionReview = version.feasibilityStatus !== 'PENDING';
 
   return (
-    <div className="designer-project-custom-version-card">
-      <div className="designer-project-custom-version-head">
+    <div className={`designer-project-custom-version-card ${expanded ? 'designer-project-custom-version-card-expanded' : ''}`}>
+      <button
+        aria-expanded={expanded}
+        className="designer-project-custom-version-head"
+        type="button"
+        onClick={onToggle}
+      >
         <div>
           <strong>{version.productVersion?.versionName ?? version.versionTitle ?? `Version ${version.versionNo}`}</strong>
           <span>Version {version.versionNo}</span>
@@ -876,21 +955,77 @@ function VersionCard({
           <span className={`designer-project-status designer-project-status-${getFeasibilityStatusTone(version.feasibilityStatus)}`}>
             {formatEnumLabel(version.feasibilityStatus)}
           </span>
+          <IconChevronDown className="designer-project-custom-version-chevron" size={17} stroke={2} />
         </div>
-      </div>
-      <p>{version.designerNote || version.feasibilityNote || 'No designer note yet.'}</p>
-      <div className="designer-project-custom-detail-grid">
-        <DetailValue label="Material" value={version.productVersion?.material} />
-        <DetailValue label="Color" value={version.productVersion?.color} />
-        <DetailValue label="Estimated Price" value={formatMoney(version.productVersion?.estimatedPrice ?? version.productVersion?.price)} />
-        <DetailValue label="Additional Cost" value={formatMoney(version.estimatedAdditionalCost)} />
-      </div>
-      <div className="designer-project-progress-actions">
-        <button className="designer-project-detail-button designer-project-detail-button-primary" disabled={!canSubmit || mutationPending} type="button" onClick={onSubmit}>
-          Submit Review
-        </button>
-      </div>
+      </button>
+      {expanded ? (
+        <>
+          <p>{version.designerNote || version.feasibilityNote || 'No designer note yet.'}</p>
+          <div className="designer-project-custom-detail-grid">
+            <DetailValue label="Material" value={version.productVersion?.material} />
+            <DetailValue label="Color" value={version.productVersion?.color} />
+            <DetailValue label="Estimated Price" value={formatMoney(version.productVersion?.estimatedPrice ?? version.productVersion?.price)} />
+            <DetailValue label="Additional Cost" value={formatMoney(version.estimatedAdditionalCost)} />
+          </div>
+          {hasProductionReview && onToggleProductionReview ? (
+            <ProductionReviewDisclosure
+              expanded={isProductionReviewExpanded}
+              version={version}
+              onToggle={onToggleProductionReview}
+            />
+          ) : null}
+          <div className="designer-project-progress-actions">
+            <button className="designer-project-detail-button designer-project-detail-button-primary" disabled={!canSubmit || mutationPending} type="button" onClick={onSubmit}>
+              Submit Review
+            </button>
+          </div>
+        </>
+      ) : null}
     </div>
+  );
+}
+
+function ProductionReviewDisclosure({
+  expanded,
+  onToggle,
+  version,
+}: Readonly<{
+  expanded: boolean;
+  onToggle: () => void;
+  version: CustomizationRequestVersionDto;
+}>) {
+  const reviewedAt = version.productionReviewedAt ?? version.productionRejectedAt ?? null;
+
+  return (
+    <section className={`designer-project-production-review ${expanded ? 'designer-project-production-review-expanded' : ''}`}>
+      <button
+        aria-expanded={expanded}
+        className="designer-project-production-review-trigger"
+        type="button"
+        onClick={onToggle}
+      >
+        <div>
+          <span>Production evaluation</span>
+          <strong>{formatEnumLabel(version.feasibilityStatus)}</strong>
+        </div>
+        <IconChevronDown size={18} stroke={2} />
+      </button>
+
+      {expanded ? (
+        <div className="designer-project-production-review-body">
+          <div className="designer-project-custom-detail-grid">
+            <DetailValue label="Feasibility note" value={version.feasibilityNote} />
+            <DetailValue label="Material available" value={formatBoolean(version.materialAvailable)} />
+            <DetailValue label="Production days" value={formatNumberValue(version.estimatedProductionDays)} />
+            <DetailValue label="Additional cost" value={formatMoney(version.estimatedAdditionalCost)} />
+            <DetailValue label="Cost reason" value={version.additionalCostReason} />
+            <DetailValue label="Production risk" value={version.productionRiskNote} />
+            <DetailValue label="Alternative material" value={version.alternativeMaterialNote} />
+            <DetailValue label="Reviewed at" value={reviewedAt ? formatDateTime(reviewedAt) : null} />
+          </div>
+        </div>
+      ) : null}
+    </section>
   );
 }
 
@@ -1301,6 +1436,16 @@ function formatDate(value: string) {
   }).format(new Date(value));
 }
 
+function formatDateTime(value: string) {
+  return new Intl.DateTimeFormat('en', {
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  }).format(new Date(value));
+}
+
 function formatDimension(value?: number | null) {
   return typeof value === 'number' ? `${value} cm` : '-';
 }
@@ -1309,4 +1454,14 @@ function formatMoney(value?: number | null) {
   if (typeof value !== 'number') return '-';
 
   return `${new Intl.NumberFormat('vi-VN').format(value)} VND`;
+}
+
+function formatBoolean(value?: boolean | null) {
+  if (typeof value !== 'boolean') return '-';
+
+  return value ? 'Yes' : 'No';
+}
+
+function formatNumberValue(value?: number | null) {
+  return typeof value === 'number' ? String(value) : '-';
 }

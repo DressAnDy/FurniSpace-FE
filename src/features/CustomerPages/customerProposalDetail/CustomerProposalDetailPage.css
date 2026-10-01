@@ -1041,6 +1041,159 @@
   color: #6f5636;
 }
 
+.customer-proposal-detail-production-evaluations {
+  display: grid;
+  gap: 12px;
+  border-top: 1px solid #eee7dd;
+  padding-top: 16px;
+}
+
+.customer-proposal-detail-production-evaluations-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.customer-proposal-detail-production-evaluations-head h3 {
+  margin: 0;
+  color: #2d2d2d;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.customer-proposal-detail-production-evaluations-head p {
+  margin: 4px 0 0;
+  color: #6b6b6b;
+  font-size: 13px;
+}
+
+.customer-proposal-detail-production-evaluations-head > span {
+  display: inline-grid;
+  min-width: 28px;
+  height: 28px;
+  place-items: center;
+  border-radius: 999px;
+  background: #f5f1ec;
+  color: #6f5636;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.customer-proposal-detail-production-evaluation-list {
+  display: grid;
+  gap: 10px;
+}
+
+.customer-proposal-detail-production-evaluation-card {
+  overflow: hidden;
+  border: 1px solid #e8e5e0;
+  border-radius: 10px;
+  background: #ffffff;
+}
+
+.customer-proposal-detail-production-evaluation-summary {
+  display: flex;
+  width: 100%;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  padding: 12px 14px;
+  text-align: left;
+}
+
+.customer-proposal-detail-production-evaluation-summary strong,
+.customer-proposal-detail-production-evaluation-summary span {
+  display: block;
+}
+
+.customer-proposal-detail-production-evaluation-summary strong {
+  color: #2d2d2d;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.customer-proposal-detail-production-evaluation-summary div:first-child span {
+  margin-top: 3px;
+  color: #6b6b6b;
+  font-size: 12px;
+}
+
+.customer-proposal-detail-production-evaluation-meta {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 8px;
+}
+
+.customer-proposal-detail-production-evaluation-meta span {
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 800;
+  padding: 6px 10px;
+  white-space: nowrap;
+}
+
+.customer-proposal-detail-production-evaluation-meta span.is-feasible {
+  background: #e0f2fe;
+  color: #075985;
+}
+
+.customer-proposal-detail-production-evaluation-meta span.is-not-feasible {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.customer-proposal-detail-production-evaluation-meta svg {
+  color: #8b6f47;
+  transition: transform 0.16s ease;
+}
+
+.customer-proposal-detail-production-evaluation-card.is-expanded .customer-proposal-detail-production-evaluation-meta svg {
+  transform: rotate(180deg);
+}
+
+.customer-proposal-detail-production-evaluation-detail {
+  border-top: 1px solid #eee7dd;
+  background: #faf9f7;
+  padding: 12px;
+}
+
+.customer-proposal-detail-production-evaluation-detail dl {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0;
+}
+
+.customer-proposal-detail-production-evaluation-detail div {
+  min-width: 0;
+  border: 1px solid #eee7dd;
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 9px 10px;
+}
+
+.customer-proposal-detail-production-evaluation-detail dt {
+  color: #6b6b6b;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.customer-proposal-detail-production-evaluation-detail dd {
+  margin: 4px 0 0;
+  color: #2d2d2d;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
 .customer-proposal-detail-model-modal-backdrop {
   position: fixed;
   inset: 0;
@@ -1284,6 +1437,15 @@
   }
 
   .customer-proposal-detail-custom-version-card dl {
+    grid-template-columns: 1fr;
+  }
+
+  .customer-proposal-detail-production-evaluation-summary,
+  .customer-proposal-detail-production-evaluations-head {
+    flex-direction: column;
+  }
+
+  .customer-proposal-detail-production-evaluation-detail dl {
     grid-template-columns: 1fr;
   }
 
