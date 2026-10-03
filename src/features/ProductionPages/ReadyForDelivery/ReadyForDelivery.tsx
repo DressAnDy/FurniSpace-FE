@@ -4,6 +4,7 @@ import { useSearchParams } from 'react-router-dom';
 
 import { ProductionLayout, ProductionStatusBadge, ProductionSummaryCard } from '@/features/ProductionPages/productioncomponents';
 import { formatDate } from '@/features/ProductionPages/utils';
+import { IssueManagementTabs } from '@/features/issueManagement/IssueManagementTabs';
 import { OperationalDelayPanel } from '@/features/operationalDelayReports/OperationalDelayPanel';
 import { ProductIssuePanel } from '@/features/productIssues/ProductIssuePanel';
 import {
@@ -1015,19 +1016,36 @@ export function ReadyForDelivery() {
         </section>
         {selectedRequest ? (
           <div className="production-ready-ops-stack">
-            <OperationalDelayPanel
-              allowedPhases={['DELIVERY']}
-              defaultPhase="DELIVERY"
-              deliveryId={selectedScheduleBatch?.deliveryId}
-              orderId={order?.orderId ?? selectedRequest.orderId}
-              projectId={selectedRequest.projectId}
-              title="Delivery delay history"
-            />
-            <ProductIssuePanel
-              orderId={order?.orderId ?? selectedRequest.orderId}
-              orderItems={order?.items ?? []}
-              projectId={selectedRequest.projectId}
-              title="Customer product issues"
+            <IssueManagementTabs
+              tabs={[
+                {
+                  id: 'delivery-delays',
+                  label: 'Delivery delays',
+                  content: (
+                    <OperationalDelayPanel
+                      allowedPhases={['DELIVERY']}
+                      defaultPhase="DELIVERY"
+                      deliveryId={selectedScheduleBatch?.deliveryId}
+                      orderId={order?.orderId ?? selectedRequest.orderId}
+                      projectId={selectedRequest.projectId}
+                      title="Delivery delay history"
+                    />
+                  ),
+                },
+                {
+                  id: 'product-issues',
+                  label: 'Product issues',
+                  content: (
+                    <ProductIssuePanel
+                      collapsible={false}
+                      orderId={order?.orderId ?? selectedRequest.orderId}
+                      orderItems={order?.items ?? []}
+                      projectId={selectedRequest.projectId}
+                      title="Customer product issues"
+                    />
+                  ),
+                },
+              ]}
             />
           </div>
         ) : null}

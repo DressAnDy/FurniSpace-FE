@@ -4,6 +4,7 @@ import { useLocation, useNavigate, useParams } from 'react-router-dom';
 
 import { useLang } from '@/app/providers/useLang';
 import { ProjectStatusBadge, ProjectTimeline, SaleNavbar, SaleSidebar, saleCopy } from '@/features/SalePages/salecomponents';
+import { IssueManagementTabs } from '@/features/issueManagement/IssueManagementTabs';
 import { OperationalDelayPanel } from '@/features/operationalDelayReports/OperationalDelayPanel';
 import { ProductIssuePanel } from '@/features/productIssues/ProductIssuePanel';
 import { ProjectShowcaseManager } from '@/features/showcases/ProjectShowcaseManager';
@@ -28,7 +29,6 @@ import { ProjectStartFeePanel } from './components/ProjectStartFeePanel';
 import './ProjectDetail.css';
 
 type ProjectDetailTab = 'overview' | 'customer' | 'files' | 'schedules' | 'delays' | 'showcase';
-type ProjectIssueScope = 'PRODUCTION' | 'DELIVERY' | 'CUSTOMER';
 
 export type ProjectDetailProject = ProjectDto;
 
@@ -86,7 +86,6 @@ export function ProjectDetail() {
   const location = useLocation();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<ProjectDetailTab>('overview');
-  const [activeIssueScope, setActiveIssueScope] = useState<ProjectIssueScope>('PRODUCTION');
   const [statusMessage, setStatusMessage] = useState('');
   const [isRequestInfoModalOpen, setIsRequestInfoModalOpen] = useState(false);
   const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
@@ -283,39 +282,51 @@ export function ProjectDetail() {
     if (activeTab === 'schedules' && isAssignedProjectRoute) return <SchedulesTab project={project} />;
     if (activeTab === 'delays' && isAssignedProjectRoute) {
       return (
-        <section className="project-detail-issue-tab">
-          <div className="project-detail-issue-scope-tabs" role="tablist" aria-label="Issue type">
-            {(['PRODUCTION', 'DELIVERY', 'CUSTOMER'] as const).map((scope) => (
-              <button
-                aria-selected={activeIssueScope === scope}
-                className={activeIssueScope === scope ? 'is-active' : ''}
-                key={scope}
-                role="tab"
-                type="button"
-                onClick={() => setActiveIssueScope(scope)}
-              >
-                {formatStatusLabel(scope)}
-              </button>
-            ))}
-          </div>
-          {activeIssueScope === 'CUSTOMER' ? (
-            <ProductIssuePanel
-              allowCreate={false}
-              projectId={project.projectId}
-              title="Customer product issues"
-            />
-          ) : (
-            <OperationalDelayPanel
-              allowedPhases={[activeIssueScope]}
-              allowCreate={activeIssueScope === 'PRODUCTION' ? Boolean(relatedProductionRequest?.productionRequestId) : true}
-              defaultPhase={activeIssueScope}
-              orderId={relatedOrder?.orderId}
-              productionRequestId={relatedProductionRequest?.productionRequestId}
-              projectId={project.projectId}
-              title={`${formatStatusLabel(activeIssueScope)} issues`}
-            />
-          )}
-        </section>
+        <IssueManagementTabs
+          tabs={[
+            {
+              id: 'production',
+              label: 'Production',
+              content: (
+                <OperationalDelayPanel
+                  allowedPhases={['PRODUCTION']}
+                  allowCreate={Boolean(relatedProductionRequest?.productionRequestId)}
+                  defaultPhase="PRODUCTION"
+                  orderId={relatedOrder?.orderId}
+                  productionRequestId={relatedProductionRequest?.productionRequestId}
+                  projectId={project.projectId}
+                  title="Production issues"
+                />
+              ),
+            },
+            {
+              id: 'delivery',
+              label: 'Delivery',
+              content: (
+                <OperationalDelayPanel
+                  allowedPhases={['DELIVERY']}
+                  defaultPhase="DELIVERY"
+                  orderId={relatedOrder?.orderId}
+                  productionRequestId={relatedProductionRequest?.productionRequestId}
+                  projectId={project.projectId}
+                  title="Delivery issues"
+                />
+              ),
+            },
+            {
+              id: 'customer',
+              label: 'Customer',
+              content: (
+                <ProductIssuePanel
+                  allowCreate={false}
+                  collapsible={false}
+                  projectId={project.projectId}
+                  title="Customer product issues"
+                />
+              ),
+            },
+          ]}
+        />
       );
     }
     if (activeTab === 'showcase' && isAssignedProjectRoute) {
