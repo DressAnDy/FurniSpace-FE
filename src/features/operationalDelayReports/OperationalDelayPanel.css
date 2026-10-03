@@ -122,13 +122,22 @@
   transform: translateY(-1px);
 }
 
-.operational-delay-row.is-resolved {
-  grid-template-columns: minmax(180px, 1fr) minmax(180px, auto) auto;
-}
-
 .operational-delay-row > span:not(.operational-delay-badge) {
   display: grid;
   gap: 4px;
+  min-width: 0;
+}
+
+.operational-delay-row > svg {
+  color: #8b6f47;
+  flex: 0 0 auto;
+}
+
+.operational-delay-row-title {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
   min-width: 0;
 }
 

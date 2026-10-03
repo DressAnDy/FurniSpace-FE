@@ -53,7 +53,7 @@ export function OperationalDelayPanel({
   const [phase, setPhase] = useState<OperationalDelayPhase>(initialPhase ?? 'PRODUCTION');
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [selectedReportId, setSelectedReportId] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'ALL' | OperationalDelayReportResolutionStatus>('OPEN');
+  const [statusFilter, setStatusFilter] = useState<'ALL' | OperationalDelayReportResolutionStatus>('ALL');
   const [productionReasonCode, setProductionReasonCode] = useState<ProductionDelayReasonCode | ''>('');
   const [deliveryReasonCode, setDeliveryReasonCode] = useState<DeliveryDelayReasonCode | ''>('');
   const [reasonDetail, setReasonDetail] = useState('');
@@ -228,18 +228,21 @@ export function OperationalDelayPanel({
 
           return (
             <button
-              className={`operational-delay-row${resolutionStatus === 'RESOLVED' ? ' is-resolved' : ''}`}
+              className="operational-delay-row"
               key={report.operationalDelayReportId}
               type="button"
               onClick={() => setSelectedReportId(report.operationalDelayReportId)}
             >
-              {resolutionStatus === 'OPEN' ? (
-                <span className={`operational-delay-badge is-${report.delayState.toLowerCase()}`}>
-                  {formatLabel(report.delayState)}
-                </span>
-              ) : null}
+              <IconAlertTriangle size={20} />
               <span>
-                <strong>{reasonCode ? formatLabel(reasonCode) : 'Schedule risk'}</strong>
+                <span className="operational-delay-row-title">
+                  <strong>{reasonCode ? formatLabel(reasonCode) : 'Schedule risk'}</strong>
+                  {resolutionStatus === 'OPEN' ? (
+                    <em className={`operational-delay-badge is-${report.delayState.toLowerCase()}`}>
+                      {formatLabel(report.delayState)}
+                    </em>
+                  ) : null}
+                </span>
                 <small>{report.reasonDetail}</small>
               </span>
               <span>
