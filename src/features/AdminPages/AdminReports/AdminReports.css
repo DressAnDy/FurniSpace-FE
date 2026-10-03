@@ -733,7 +733,8 @@
     flex-direction: column;
   }
 
-  .admin-reports-actions .admin-button {
+  .admin-reports-actions .admin-button,
+  .admin-reports-actions .admin-dash-v2-refresh-button {
     justify-content: center;
     width: 100%;
   }
