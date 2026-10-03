@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
 import {
   IconCash,
@@ -6,6 +7,7 @@ import {
   IconCreditCard,
   IconDiscount2,
   IconReceipt,
+  IconRefresh,
 } from '@tabler/icons-react';
 
 import { useLang } from '@/app/providers/useLang';
@@ -19,6 +21,9 @@ import type {
   ProjectReportStageKey,
 } from '@/services/api/projectReports';
 import {
+  adminFinancialDiscountQueryKeys,
+  adminFinancialQueryKeys,
+  projectReportQueryKeys,
   useAdminFinancialExceptions,
   useProjectReportDetail,
   useProjectReportList,
@@ -85,6 +90,7 @@ export function AdminReports() {
   const { lang } = useLang();
   const adminNav = adminCopy[lang];
   const t = reportsCopy[lang];
+  const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
   const initialRange = useMemo(() => defaultDateRange(), []);
   const tabFromUrl = searchParams.get('tab');
@@ -110,6 +116,8 @@ export function AdminReports() {
     activeTab === 'attention' ? attentionProjectFromUrl : null,
   );
   const [selectedMoneyKey, setSelectedMoneyKey] = useState<string | null>(null);
+  const [lastRefreshAt, setLastRefreshAt] = useState(() => new Date());
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   useEffect(() => {
     if (activeTab === 'attention') {
@@ -226,6 +234,26 @@ export function AdminReports() {
       : (moneyItems.find((item, index) => moneyExceptionKey(item, index) === selectedMoneyKey) ?? null);
   const totalItems = listQuery.data?.totalItems ?? 0;
   const activeTabDesc = activeTab === 'attention' ? t.attentionDesc : t.financialDesc;
+  const refreshTime = new Intl.DateTimeFormat(lang === 'vi' ? 'vi-VN' : 'en-US', {
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(lastRefreshAt);
+
+  async function handleRefresh() {
+    if (isRefreshing) return;
+
+    setIsRefreshing(true);
+    try {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: projectReportQueryKeys.all }),
+        queryClient.invalidateQueries({ queryKey: adminFinancialQueryKeys.all }),
+        queryClient.invalidateQueries({ queryKey: adminFinancialDiscountQueryKeys.all }),
+      ]);
+      setLastRefreshAt(new Date());
+    } finally {
+      setIsRefreshing(false);
+    }
+  }
 
   const handleTabChange = (tab: ReportTabId) => {
     setActiveTab(tab);
@@ -283,6 +311,19 @@ export function AdminReports() {
               <div>
                 <h2>{t.pageTitle}</h2>
                 <p>{t.pageSubtitle}</p>
+              </div>
+              <div className="admin-reports-actions">
+                <button
+                  className="admin-dash-v2-refresh-button"
+                  disabled={isRefreshing}
+                  type="button"
+                  onClick={() => void handleRefresh()}
+                >
+                  <IconRefresh className={isRefreshing ? 'is-spinning' : undefined} size={14} />
+                  {isRefreshing
+                    ? adminNav.common.refreshing
+                    : `${adminNav.common.refresh} · ${refreshTime}`}
+                </button>
               </div>
             </section>
 
