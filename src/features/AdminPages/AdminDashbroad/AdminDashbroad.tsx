@@ -20,9 +20,7 @@ import { adminCopy } from '../admincomponents/adminI18n';
 import { useLang } from '@/app/providers/useLang';
 import {
   getAdminFinancialServiceResultMessage,
-  getFinancialPeriodRange,
   type AdminFinancialSummaryDto,
-  type FinancialPeriodType,
 } from '@/services/api/adminFinancial';
 import {
   getReportServiceResultMessage,
@@ -70,25 +68,38 @@ export function AdminDashbroad() {
   const { lang } = useLang();
   const t = adminCopy[lang];
   const d = t.dashboard;
-  const [period, setPeriod] = useState<FinancialPeriodType>('THIS_MONTH');
+  const [dateTimeRange, setDateTimeRange] = useState(() => getPresetDateTimeRange());
   const [lastRefreshAt, setLastRefreshAt] = useState(() => new Date());
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  const dateRange = useMemo(() => getFinancialPeriodRange(period), [period]);
-  const summaryParams = useMemo(() => ({ period, currency: 'VND' as const }), [period]);
-  const overviewParams = useMemo(() => ({ from: dateRange.from, to: dateRange.to }), [dateRange]);
+  const dateRange = useMemo(
+    () => ({
+      from: toVietnamApiDateTime(dateTimeRange.from),
+      to: toVietnamApiDateTime(dateTimeRange.to),
+    }),
+    [dateTimeRange.from, dateTimeRange.to],
+  );
+  const summaryParams = useMemo(
+    () => ({
+      period: 'CUSTOM' as const,
+      from: dateRange.from,
+      to: dateRange.to,
+      currency: 'VND' as const,
+    }),
+    [dateRange.from, dateRange.to],
+  );
+  const overviewParams = useMemo(() => ({ from: dateRange.from, to: dateRange.to }), [dateRange.from, dateRange.to]);
+  const isInvalidRange = !dateTimeRange.from || !dateTimeRange.to || dateTimeRange.from > dateTimeRange.to;
+  const hasValidRange = !isInvalidRange;
 
-  const overviewQuery = useReportOverview(overviewParams);
+  const overviewQuery = useReportOverview(overviewParams, { enabled: hasValidRange });
   const currentUserQuery = useCurrentUser();
-  const summaryQuery = useAdminFinancialSummary(summaryParams);
-  const breakdownQuery = useAdminFinancialPaymentBreakdown(dateRange);
+  const summaryQuery = useAdminFinancialSummary(summaryParams, { enabled: hasValidRange });
+  const breakdownQuery = useAdminFinancialPaymentBreakdown(dateRange, { enabled: hasValidRange });
   const exceptionsQuery = useAdminFinancialExceptions({ page: 1, pageSize: 3 });
 
   const refreshTime = new Intl.DateTimeFormat(lang === 'vi' ? 'vi-VN' : 'en-US', { hour: '2-digit', minute: '2-digit' }).format(lastRefreshAt);
-  const periodRangeLabel = useMemo(
-    () => d.periodRangeNote(formatPeriodDate(lang, dateRange.from), formatPeriodDate(lang, dateRange.to)),
-    [d, dateRange.from, dateRange.to, lang],
-  );
+
   const statusBreakdown = useMemo(
     () => getBucketBreakdown(overviewQuery.data?.projects.byBucket, d),
     [overviewQuery.data?.projects.byBucket, d],
@@ -102,8 +113,12 @@ export function AdminDashbroad() {
   const isLoading = overviewQuery.isLoading || summaryQuery.isLoading;
   const isError = overviewQuery.isError || summaryQuery.isError;
 
+  function handleDateTimeChange(edge: 'from' | 'to', value: string) {
+    setDateTimeRange((current) => ({ ...current, [edge]: value }));
+  }
+
   async function handleRefresh() {
-    if (isRefreshing) return;
+    if (isRefreshing || isInvalidRange) return;
 
     setIsRefreshing(true);
     try {
@@ -135,28 +150,39 @@ export function AdminDashbroad() {
                 <p>{d.subtitle}</p>
               </div>
               <div className="admin-dash-v2-header-actions">
-                <div className="admin-dash-v2-revenue-controls" role="group" aria-label="Financial period">
-                  <button className={period === 'THIS_MONTH' ? 'is-active' : undefined} type="button" onClick={() => setPeriod('THIS_MONTH')}>
-                    {d.periodThisMonth}
-                  </button>
-                  <button className={period === 'THIS_YEAR' ? 'is-active' : undefined} type="button" onClick={() => setPeriod('THIS_YEAR')}>
-                    {d.periodThisYear}
-                  </button>
+                <div className="admin-dash-v2-filter-row">
+                  <div className="admin-dash-v2-datetime-filter" role="group" aria-label="Overview date and time range">
+                    <label>
+                      <span>{d.periodFrom}</span>
+                      <input
+                        max={dateTimeRange.to}
+                        type="datetime-local"
+                        value={dateTimeRange.from}
+                        onChange={(event) => handleDateTimeChange('from', event.target.value)}
+                      />
+                    </label>
+                    <label>
+                      <span>{d.periodTo}</span>
+                      <input
+                        min={dateTimeRange.from}
+                        type="datetime-local"
+                        value={dateTimeRange.to}
+                        onChange={(event) => handleDateTimeChange('to', event.target.value)}
+                      />
+                    </label>
+                  </div>
                 </div>
                 <div className="admin-dash-v2-refresh-block">
                   <button
                     className="admin-dash-v2-refresh-button"
-                    disabled={isRefreshing}
+                    disabled={isRefreshing || isInvalidRange}
                     type="button"
                     onClick={() => void handleRefresh()}
                   >
                     <IconRefresh className={isRefreshing ? 'is-spinning' : undefined} size={14} />
                     {isRefreshing ? t.common.refreshing : `${t.common.refresh} · ${refreshTime}`}
                   </button>
-                  <p className="admin-dash-v2-period-note" title={periodRangeLabel}>
-                    <IconClock size={13} />
-                    <span>{periodRangeLabel}</span>
-                  </p>
+                  {isInvalidRange ? <p className="admin-dash-v2-period-error">{d.periodInvalidRange}</p> : null}
                 </div>
               </div>
             </section>
@@ -564,15 +590,36 @@ function formatKpiMoney(value: number | null | undefined) {
   return formatMoney(value);
 }
 
-function formatPeriodDate(lang: 'en' | 'vi', value: string) {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value.slice(0, 10);
-  return new Intl.DateTimeFormat(lang === 'vi' ? 'vi-VN' : 'en-GB', {
+function getPresetDateTimeRange() {
+  const now = new Date();
+  const nowLocal = formatVietnamDateTimeLocal(now);
+  const [today] = nowLocal.split('T');
+  const [yyyy, mm] = today.split('-');
+
+  return {
+    from: `${yyyy}-${mm}-01T00:00`,
+    to: nowLocal,
+  };
+}
+
+function formatVietnamDateTimeLocal(value: Date) {
+  const parts = new Intl.DateTimeFormat('en-CA', {
     day: '2-digit',
+    hour: '2-digit',
+    hour12: false,
+    minute: '2-digit',
     month: '2-digit',
-    year: 'numeric',
     timeZone: 'Asia/Ho_Chi_Minh',
-  }).format(date);
+    year: 'numeric',
+  }).formatToParts(value);
+  const get = (type: Intl.DateTimeFormatPartTypes) => parts.find((part) => part.type === type)?.value ?? '00';
+
+  return `${get('year')}-${get('month')}-${get('day')}T${get('hour')}:${get('minute')}`;
+}
+
+function toVietnamApiDateTime(value: string) {
+  if (!value) return '';
+  return `${value.length === 16 ? `${value}:00` : value}+07:00`;
 }
 
 function formatEnumLabel(value: string) {

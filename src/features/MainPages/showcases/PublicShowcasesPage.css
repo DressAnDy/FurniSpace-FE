@@ -260,7 +260,7 @@
 .public-showcase-info h1 {
   margin: 0;
   color: #b18460;
-  font-size: clamp(3rem, 6vw, 5.7rem);
+  font-size: clamp(2.7rem, 5.4vw, 5.13rem);
   letter-spacing: 0;
   line-height: 1.08;
 }

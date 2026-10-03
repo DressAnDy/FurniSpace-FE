@@ -46,6 +46,9 @@ type AdminCopy = {
     periodLastMonth: string;
     periodThisQuarter: string;
     periodThisYear: string;
+    periodFrom: string;
+    periodTo: string;
+    periodInvalidRange: string;
     periodRangeNote: (from: string, to: string) => string;
     loadingData: string;
     loadError: string;
@@ -224,6 +227,9 @@ export const adminCopy: Record<Lang, AdminCopy> = {
       periodLastMonth: 'Last month',
       periodThisQuarter: 'This quarter',
       periodThisYear: 'This year',
+      periodFrom: 'From',
+      periodTo: 'To',
+      periodInvalidRange: 'Start time must be before end time.',
       periodRangeNote: (from, to) => `${from} → ${to}`,
       loadingData: 'Loading project and financial data...',
       loadError: 'Some live API data could not be loaded.',
@@ -400,6 +406,9 @@ export const adminCopy: Record<Lang, AdminCopy> = {
       periodLastMonth: 'Tháng trước',
       periodThisQuarter: 'Quý này',
       periodThisYear: 'Năm nay',
+      periodFrom: 'Từ',
+      periodTo: 'Đến',
+      periodInvalidRange: 'Thời gian bắt đầu phải trước thời gian kết thúc.',
       periodRangeNote: (from, to) => `${from} → ${to}`,
       loadingData: 'Đang tải dữ liệu dự án và tài chính...',
       loadError: 'Một phần dữ liệu API không tải được.',
