@@ -1,5 +1,5 @@
 import { type FormEvent, useEffect, useMemo, useState } from 'react';
-import { IconAlertCircle, IconChevronDown, IconPaperclip, IconPhoto, IconPlus, IconUpload, IconX } from '@tabler/icons-react';
+import { IconAlertCircle, IconChevronDown, IconPaperclip, IconPhoto, IconPlus, IconRefresh, IconUpload, IconX } from '@tabler/icons-react';
 import { useSearchParams } from 'react-router-dom';
 
 import { queryClient } from '@/app/providers/queryClient';
@@ -41,6 +41,8 @@ type ProductIssuePanelProps = {
   projectId?: string;
   orderItems?: OrderItemDto[];
   allowCreate?: boolean;
+  collapsible?: boolean;
+  defaultExpanded?: boolean;
   title?: string;
 };
 
@@ -52,6 +54,8 @@ type CreateFormErrors = {
 
 export function ProductIssuePanel({
   allowCreate = false,
+  collapsible = true,
+  defaultExpanded = false,
   orderId,
   orderItems = [],
   projectId,
@@ -60,9 +64,9 @@ export function ProductIssuePanel({
   const lastInAppNotification = useRealtimeInAppNotification();
   const [searchParams] = useSearchParams();
   const [isCreateOpen, setIsCreateOpen] = useState(false);
-  const [isExpanded, setIsExpanded] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(defaultExpanded || !collapsible);
   const [selectedIssueId, setSelectedIssueId] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'ALL' | ProductIssueReportResolutionStatus>('OPEN');
+  const [statusFilter, setStatusFilter] = useState<'ALL' | ProductIssueReportResolutionStatus>('ALL');
   const [selectedOrderItemId, setSelectedOrderItemId] = useState('');
   const [issueType, setIssueType] = useState<DeliveryProductIssueType>('DAMAGED');
   const [description, setDescription] = useState('');
@@ -234,31 +238,50 @@ export function ProductIssuePanel({
   }
 
   const activeQuery = orderId ? orderQuery : projectQuery;
+  const isBodyVisible = !collapsible || isExpanded;
 
   return (
-    <section className={`product-issue-panel${isExpanded ? ' is-open' : ''}`}>
+    <section className={`product-issue-panel${isBodyVisible ? ' is-open' : ''}${collapsible ? '' : ' is-static'}`}>
       <div className="product-issue-header">
-        <button
-          aria-expanded={isExpanded}
-          className="product-issue-toggle"
-          type="button"
-          onClick={() => setIsExpanded((current) => !current)}
-        >
-          <span>
-            <strong>{title}</strong>
-            <small>Reported issues for physically delivered products.</small>
-          </span>
-          <IconChevronDown size={18} />
-        </button>
-        {isExpanded && allowCreate && hasEligibleProducts ? (
-          <button className="product-issue-primary" type="button" onClick={openCreate}>
-            <IconPlus size={16} />
-            Report an issue
+        {collapsible ? (
+          <button
+            aria-expanded={isExpanded}
+            className="product-issue-toggle"
+            type="button"
+            onClick={() => setIsExpanded((current) => !current)}
+          >
+            <span>
+              <strong>{title}</strong>
+              <small>Reported issues for physically delivered products.</small>
+            </span>
+            <IconChevronDown size={18} />
           </button>
-        ) : null}
+        ) : (
+          <div>
+            <h3>{title}</h3>
+          </div>
+        )}
+        <div className="product-issue-actions">
+          {!collapsible ? (
+            <button
+              aria-label="Refresh product issues"
+              disabled={activeQuery.isFetching}
+              type="button"
+              onClick={() => void activeQuery.refetch()}
+            >
+              <IconRefresh size={16} />
+            </button>
+          ) : null}
+          {isBodyVisible && allowCreate && hasEligibleProducts ? (
+            <button className="product-issue-primary" type="button" onClick={openCreate}>
+              <IconPlus size={16} />
+              Report an issue
+            </button>
+          ) : null}
+        </div>
       </div>
 
-      {isExpanded ? (
+      {isBodyVisible ? (
         <div className="product-issue-body">
           {allowCreate && !hasEligibleProducts ? (
             <p className="product-issue-state">Issues can be reported after at least one product is physically delivered.</p>

@@ -52,6 +52,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { getLocalDateInputValue } from '@/shared/utils/dateValidation';
 import { ProjectShowcaseManager } from '@/features/showcases/ProjectShowcaseManager';
 import { ProjectPhaseTimelineCard } from '@/features/projectPhaseDeadlines/ProjectPhaseTimelineCard';
+import { IssueManagementTabs } from '@/features/issueManagement/IssueManagementTabs';
 import { OperationalDelayPanel } from '@/features/operationalDelayReports/OperationalDelayPanel';
 import { ProductIssuePanel } from '@/features/productIssues/ProductIssuePanel';
 
@@ -576,16 +577,32 @@ function ProjectDetailDrawer({
               {project.description ? <p>{project.description}</p> : null}
             </CollapsibleDetailSection>
 
-            <CollapsibleDetailSection title="Delay Reports">
-              <OperationalDelayPanel
-                orderId={relatedOrder?.orderId}
-                productionRequestId={relatedProductionRequest?.productionRequestId}
-                projectId={project.projectId}
+            <CollapsibleDetailSection title="Issue Management">
+              <IssueManagementTabs
+                tabs={[
+                  {
+                    id: 'delays',
+                    label: 'Delay Reports',
+                    content: (
+                      <OperationalDelayPanel
+                        orderId={relatedOrder?.orderId}
+                        productionRequestId={relatedProductionRequest?.productionRequestId}
+                        projectId={project.projectId}
+                      />
+                    ),
+                  },
+                  {
+                    id: 'product-issues',
+                    label: 'Product Issues',
+                    content: (
+                      <ProductIssuePanel
+                        collapsible={false}
+                        projectId={project.projectId}
+                      />
+                    ),
+                  },
+                ]}
               />
-            </CollapsibleDetailSection>
-
-            <CollapsibleDetailSection title="Product Issues">
-              <ProductIssuePanel projectId={project.projectId} />
             </CollapsibleDetailSection>
 
             <CollapsibleDetailSection title="Phase Deadlines">

@@ -1,0 +1,100 @@
+.issue-management-panel {
+  background: #ffffff;
+  border: 1px solid rgba(166, 124, 82, 0.18);
+  border-radius: 18px;
+  box-shadow: 0 18px 40px rgba(79, 55, 38, 0.08);
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+}
+
+.issue-management-header {
+  display: grid;
+  gap: 12px;
+}
+
+.issue-management-header h3 {
+  color: #2f261f;
+  font-size: 18px;
+  font-weight: 900;
+  line-height: 1.25;
+  margin: 0;
+}
+
+.issue-management-tabs {
+  background: #f8f5f0;
+  border: 1px solid rgba(139, 111, 71, 0.16);
+  border-radius: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 6px;
+}
+
+.issue-management-tabs button {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  border-radius: 8px;
+  color: #6b5a4b;
+  cursor: pointer;
+  display: inline-flex;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 800;
+  justify-content: center;
+  min-height: 32px;
+  padding: 6px 12px;
+}
+
+.issue-management-tabs button:hover,
+.issue-management-tabs button.is-active {
+  background: #312721;
+  color: #ffffff;
+}
+
+.issue-management-body > .operational-delay-panel,
+.issue-management-body > .product-issue-panel {
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  padding: 0;
+}
+
+.issue-management-body > .product-issue-panel {
+  background: transparent;
+  overflow: visible;
+}
+
+.issue-management-body > .product-issue-panel.is-static {
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  padding: 0;
+}
+
+.issue-management-body > .product-issue-panel .product-issue-header,
+.issue-management-body > .product-issue-panel .product-issue-body {
+  padding-left: 0;
+  padding-right: 0;
+}
+
+.issue-management-body > .product-issue-panel .product-issue-header {
+  padding-top: 0;
+}
+
+.issue-management-body > .product-issue-panel .product-issue-body {
+  padding-bottom: 0;
+}
+
+@media (max-width: 560px) {
+  .issue-management-panel {
+    border-radius: 14px;
+    padding: 14px;
+  }
+
+  .issue-management-tabs button {
+    flex: 1 1 auto;
+  }
+}

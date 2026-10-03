@@ -9,7 +9,16 @@
   padding: 0;
 }
 
+.product-issue-panel.is-static {
+  border-radius: 18px;
+  box-shadow: 0 18px 40px rgba(79, 55, 38, 0.08);
+  gap: 16px;
+  overflow: visible;
+  padding: 20px;
+}
+
 .product-issue-header,
+.product-issue-actions,
 .product-issue-modal-title,
 .product-issue-modal-actions {
   align-items: center;
@@ -20,6 +29,17 @@
 
 .product-issue-header {
   padding: 12px 14px;
+}
+
+.product-issue-panel.is-static .product-issue-header {
+  gap: 16px;
+  justify-content: space-between;
+  padding: 0;
+}
+
+.product-issue-actions {
+  flex: 0 0 auto;
+  gap: 8px;
 }
 
 .product-issue-toggle {
@@ -79,6 +99,12 @@
   padding: 12px 14px 14px;
 }
 
+.product-issue-panel.is-static .product-issue-body {
+  border-top: 0;
+  gap: 16px;
+  padding: 0;
+}
+
 .product-issue-modal-title {
   margin-bottom: 2px;
 }
@@ -95,6 +121,7 @@
   color: #2f261f;
   font-size: 18px;
   font-weight: 900;
+  line-height: 1.25;
   margin: 0;
 }
 
@@ -105,6 +132,7 @@
 }
 
 .product-issue-primary,
+.product-issue-actions button,
 .product-issue-modal button {
   align-items: center;
   background: #ffffff;
@@ -122,10 +150,22 @@
   transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
 }
 
+.product-issue-panel.is-static .product-issue-primary,
+.product-issue-panel.is-static .product-issue-actions button {
+  min-height: 36px;
+  padding: 8px 12px;
+}
+
 .product-issue-primary:hover,
+.product-issue-actions button:hover,
 .product-issue-modal button:hover {
   background: #f7efe4;
   border-color: rgba(166, 124, 82, 0.45);
+}
+
+.product-issue-actions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
 }
 
 .product-issue-primary {
@@ -149,6 +189,13 @@
   margin: 0;
   padding: 12px;
   text-align: center;
+}
+
+.product-issue-panel.is-static .product-issue-state {
+  border-radius: 12px;
+  font-size: inherit;
+  line-height: inherit;
+  padding: 18px;
 }
 
 .product-issue-error {
@@ -180,6 +227,14 @@
   padding: 5px 9px;
 }
 
+.product-issue-panel.is-static .product-issue-status-tabs button {
+  border-radius: 10px;
+  font-size: inherit;
+  font-weight: 600;
+  min-height: 36px;
+  padding: 8px 12px;
+}
+
 .product-issue-status-tabs button:hover {
   background: #f7efe4;
   border-color: rgba(166, 124, 82, 0.45);
@@ -196,6 +251,10 @@
   gap: 8px;
 }
 
+.product-issue-panel.is-static .product-issue-list {
+  gap: 10px;
+}
+
 .product-issue-row {
   align-items: center;
   background: linear-gradient(180deg, #fffdfb 0%, #faf6f1 100%);
@@ -210,6 +269,12 @@
   text-align: left;
   transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
   width: 100%;
+}
+
+.product-issue-panel.is-static .product-issue-row {
+  gap: 14px;
+  grid-template-columns: auto minmax(180px, 1fr) minmax(180px, auto) auto;
+  padding: 14px;
 }
 
 .product-issue-row:hover {
@@ -234,6 +299,10 @@
   font-size: 12px;
 }
 
+.product-issue-panel.is-static .product-issue-row strong {
+  font-size: 14px;
+}
+
 .product-issue-row small {
   color: #7a6d63;
   font-size: 10px;
@@ -241,6 +310,10 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.product-issue-panel.is-static .product-issue-row small {
+  font-size: 12px;
 }
 
 .product-issue-row > span:last-child {
@@ -260,6 +333,12 @@
   line-height: 1;
   padding: 6px 8px;
   white-space: nowrap;
+}
+
+.product-issue-panel.is-static .product-issue-resolution {
+  font-size: 11px;
+  line-height: normal;
+  padding: 5px 10px;
 }
 
 .product-issue-resolution.is-open {
@@ -757,6 +836,10 @@
   .product-issue-header {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .product-issue-actions {
+    width: 100%;
   }
 
   .product-issue-toggle {
