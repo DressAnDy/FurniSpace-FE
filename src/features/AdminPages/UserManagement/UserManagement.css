@@ -152,11 +152,26 @@
 
 .user-management-table {
   width: 100%;
-  min-width: 1080px;
+  min-width: 1160px;
 }
 
 .user-management-table td {
   color: #6b7280;
+}
+
+.user-management-table th:nth-child(4),
+.user-management-table td:nth-child(4) {
+  min-width: 150px;
+  width: 150px;
+}
+
+.user-management-table th:nth-child(5),
+.user-management-table td:nth-child(5),
+.user-management-table th:nth-child(6),
+.user-management-table td:nth-child(6),
+.user-management-table th:nth-child(7),
+.user-management-table td:nth-child(7) {
+  white-space: nowrap;
 }
 
 .user-management-id {
@@ -201,13 +216,15 @@
 
 .user-management-role {
   display: inline-flex;
-  max-width: 96px;
+  min-width: 108px;
   border-radius: 4px;
   background: #eff6ff;
   color: #3b82f6;
+  justify-content: center;
   padding: 4px 8px;
   font-size: 12px;
   line-height: 16px;
+  white-space: nowrap;
 }
 
 .user-management-status {
