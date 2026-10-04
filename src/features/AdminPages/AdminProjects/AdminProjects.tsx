@@ -324,7 +324,7 @@ export function AdminProjects() {
                               <td><ProjectStatusPill status={project.status} /></td>
                               <td>
                                 <strong>{sales?.fullName ?? 'Sales unassigned'}</strong>
-                                <span>{designer?.fullName ?? 'Designer unassigned'}</span>
+                                <strong>{designer?.fullName ?? 'Designer unassigned'}</strong>
                               </td>
                               <td><span className="admin-projects-type">{project.businessType}</span></td>
                               <td>{formatDate(project.submittedAt)}</td>
