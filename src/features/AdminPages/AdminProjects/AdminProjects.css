@@ -538,6 +538,10 @@
   white-space: nowrap;
 }
 
+.admin-projects-table td strong + strong {
+  margin-top: 3px;
+}
+
 .admin-projects-table td span {
   margin-top: 3px;
   color: #6b7280;
